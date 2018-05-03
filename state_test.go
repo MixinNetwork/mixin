@@ -9,7 +9,7 @@ import (
 func TestState(t *testing.T) {
 	assert := assert.New(t)
 
-	state := TransactionState(EthereumChainId, 1)
+	state := TransactionState(EthereumChainId, 35)
 	assert.Equal(TransactionStatePending, state)
 
 	state = TransactionState(EthereumChainId, 36)

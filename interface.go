@@ -17,6 +17,7 @@ type Transaction struct {
 	Sender          string         `json:"sender"`
 	Receiver        string         `json:"receiver"`
 	Memo            string         `json:"memo"`
+	OutputHash      string         `json:"output_hash"`
 	BlockHash       string         `json:"block_hash"`
 	BlockNumber     int64          `json:"block_number"`
 	OutputIndex     int64          `json:"output_index"`

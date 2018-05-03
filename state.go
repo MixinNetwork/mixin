@@ -18,15 +18,17 @@ func ChainThreshold(chainId string) (int, error) {
 	case EthereumChainId:
 		return 36, nil
 	case EthereumClassicChainId:
-		return 72, nil
+		return 100, nil
 	case BitcoinChainId:
 		return 6, nil
 	case BitcoinCashChainId:
-		return 12, nil
+		return 24, nil
 	case LitecoinChainId:
-		return 12, nil
+		return 24, nil
 	case RippleChainId:
 		return 1, nil
+	case SiacoinChainId:
+		return 36, nil
 	}
 	return 0, fmt.Errorf("unsupported chain id %s", chainId)
 }

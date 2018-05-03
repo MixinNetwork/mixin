@@ -15,6 +15,7 @@ const (
 	EthereumChainId        = "43d61dcd-e413-450d-80b8-101d5e903357"
 	EthereumClassicChainId = "2204c1ee-0ea2-4add-bb9a-b3719cfff93a"
 	RippleChainId          = "23dfb5a5-5d7b-48b6-905f-3970e3176e27"
+	SiacoinChainId         = "990c4c29-57e9-48f6-9819-7d986ea44985"
 )
 
 const (
@@ -52,6 +53,8 @@ func GetFeeAsset(chainId string) (string, error) {
 	switch chainId {
 	case RippleChainId:
 		return RippleChainId, nil
+	case SiacoinChainId:
+		return SiacoinChainId, nil
 	case EthereumChainId:
 		return EthereumChainId, nil
 	case EthereumClassicChainId:
@@ -80,6 +83,8 @@ func BaseBlock(chainId string) int64 {
 	switch chainId {
 	case RippleChainId:
 		return 37944664
+	case SiacoinChainId:
+		return 152927
 	case EthereumChainId:
 		return 5481185
 	case EthereumClassicChainId:

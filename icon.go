@@ -8,6 +8,8 @@ func IconURL(assetId string) string {
 		return "https://images.mixin.one/tqt14x8iwkiCR_vIKIw6gAAVO8XpZH7ku7ZJYB5ArMRA6grN9M1oCI7kKt2QqBODJwr17sZxDCDTjXHOgIixzv6X=s128"
 	case LitecoinChainId:
 		return "https://images.mixin.one/EoQc9afnnbH9nu5mBa7IUYpow-lXbnD7eoLgwdtKgJzt21dZ_kSwQVyzALxhqDqe-yN9M75KEzstbtAtXylxctLG=s128"
+	case SiacoinChainId:
+		return "https://images.mixin.one/XcyRG-3pUyRu-RfTUZ3LPrIl5V2sH17yfSDN0XpZvTFGb5DmtkT3bkD9Wob6ExICRavBClnCWrsR2KnlRtFcwNw=s128"
 	case RippleChainId:
 		return "https://images.mixin.one/zgBBzgQ8x2XZbNdRhibMlVLyG0x1PEr8ENepLODl_mBDIXJJSCZNoaa2jHCc4VpJ59hPgUVnL6W24v1utEVqb0A=s128"
 	case EthereumClassicChainId:

@@ -1,6 +1,8 @@
 package external
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 
 	bitcoinCash "mixin.one/blockchain/external/bitcoin-cash/api"
@@ -9,6 +11,7 @@ import (
 	ethereum "mixin.one/blockchain/external/ethereum/api"
 	litecoin "mixin.one/blockchain/external/litecoin/api"
 	ripple "mixin.one/blockchain/external/ripple/api"
+	siacoin "mixin.one/blockchain/external/siacoin/api"
 	"mixin.one/number"
 )
 
@@ -23,9 +26,11 @@ type UTXOTransaction struct {
 	Input             number.Decimal
 	Fee               number.Decimal
 	ChangeIndex       int64
+	ChangeHash        string
 	bitcoinInputs     []*bitcoin.UTXO
 	bitcoinCashInputs []*bitcoinCash.UTXO
 	litecoinInputs    []*litecoin.UTXO
+	siacoinInputs     []*siacoin.UTXO
 }
 
 func SignRawTransaction(asset *Asset, receiver string, amount number.Decimal, gasPrice, gasLimit number.Decimal, privateKey string, nonce int) (*RawTransaction, error) {
@@ -67,6 +72,7 @@ func SignRawTransaction(asset *Asset, receiver string, amount number.Decimal, ga
 type UTXOInput struct {
 	TransactionHash string
 	Index           uint32
+	Hash            string
 	Amount          number.Decimal
 	PrivateKey      string
 }
@@ -109,6 +115,15 @@ func UTXOTransactionPrepare(chainId string, tx *UTXOTransaction, vin *UTXOInput,
 		tx.Fee = number.FromString(fmt.Sprint(feeSatoshi)).Mul(number.FromString("0.00000001"))
 		tx.Input = tx.Input.Add(vin.Amount)
 		return tx, nil
+	case SiacoinChainId:
+		tx.siacoinInputs = append(tx.siacoinInputs, &siacoin.UTXO{
+			OutputId:   vin.Hash,
+			Amount:     vin.Amount,
+			PrivateKey: vin.PrivateKey,
+		})
+		tx.Fee = siacoin.LocalEstimateTransactionFee(tx.siacoinInputs, feePerKb)
+		tx.Input = tx.Input.Add(vin.Amount)
+		return tx, nil
 	}
 	return nil, fmt.Errorf("unsupported chain id %s", chainId)
 }
@@ -126,6 +141,8 @@ func UTXOTransactionFinalize(chainId string, tx *UTXOTransaction, amount, feePer
 		tx.RawTransaction = rawTransaction
 		tx.Fee = number.FromString(fmt.Sprint(consumedFee)).Mul(number.FromString("0.00000001"))
 		tx.ChangeIndex = 1
+		outputHash := sha256.Sum256([]byte(fmt.Sprintf("%s:%d", tx.TransactionHash, tx.ChangeIndex)))
+		tx.ChangeHash = hex.EncodeToString(outputHash[:])
 		return tx, nil
 	case BitcoinCashChainId:
 		amountSatoshi := int64(amount.Mul(number.FromString("100000000")).Float64())
@@ -138,6 +155,8 @@ func UTXOTransactionFinalize(chainId string, tx *UTXOTransaction, amount, feePer
 		tx.RawTransaction = rawTransaction
 		tx.Fee = number.FromString(fmt.Sprint(consumedFee)).Mul(number.FromString("0.00000001"))
 		tx.ChangeIndex = 1
+		outputHash := sha256.Sum256([]byte(fmt.Sprintf("%s:%d", tx.TransactionHash, tx.ChangeIndex)))
+		tx.ChangeHash = hex.EncodeToString(outputHash[:])
 		return tx, nil
 	case LitecoinChainId:
 		amountSatoshi := int64(amount.Mul(number.FromString("100000000")).Float64())
@@ -150,6 +169,19 @@ func UTXOTransactionFinalize(chainId string, tx *UTXOTransaction, amount, feePer
 		tx.RawTransaction = rawTransaction
 		tx.Fee = number.FromString(fmt.Sprint(consumedFee)).Mul(number.FromString("0.00000001"))
 		tx.ChangeIndex = 1
+		outputHash := sha256.Sum256([]byte(fmt.Sprintf("%s:%d", tx.TransactionHash, tx.ChangeIndex)))
+		tx.ChangeHash = hex.EncodeToString(outputHash[:])
+		return tx, nil
+	case SiacoinChainId:
+		output, err := siacoin.LocalSignRawTransaction(tx.siacoinInputs, receiverAddress, amount, feePerKb, changeAddress)
+		if err != nil {
+			return nil, err
+		}
+		tx.TransactionHash = output.TransactionHash
+		tx.RawTransaction = output.RawTransaction
+		tx.Fee = output.Fee
+		tx.ChangeIndex = output.ChangeIndex
+		tx.ChangeHash = output.ChangeHash
 		return tx, nil
 	}
 	return nil, fmt.Errorf("unsupported chain id %s", chainId)

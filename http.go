@@ -157,6 +157,8 @@ func GetEstimatedFee(chainId string, blockCount int64) (number.Decimal, number.D
 		return number.FromString(body.Data.GasPrice), number.FromString(body.Data.GasLimit), nil
 	case RippleChainId:
 		return number.FromString(body.Data.FeeInXRP), number.FromString(body.Data.ReserveInXRP), nil
+	case SiacoinChainId:
+		return number.FromString(body.Data.FeePerKb), number.Zero(), nil
 	}
 	return number.Zero(), number.Zero(), fmt.Errorf("unsupported chain %s", chainId)
 }
@@ -166,6 +168,8 @@ func getChainRequest(chainId string, method, path string, body io.Reader) (*http
 	switch chainId {
 	case RippleChainId:
 		endpoint = "https://ripple.connect.mixin.one" + path
+	case SiacoinChainId:
+		endpoint = "https://siacoin.connect.mixin.one" + path
 	case EthereumChainId:
 		endpoint = "https://ethereum.connect.mixin.one" + path
 	case EthereumClassicChainId:

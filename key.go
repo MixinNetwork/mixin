@@ -9,12 +9,15 @@ import (
 	ethereum "mixin.one/blockchain/external/ethereum/api"
 	litecoin "mixin.one/blockchain/external/litecoin/api"
 	ripple "mixin.one/blockchain/external/ripple/api"
+	siacoin "mixin.one/blockchain/external/siacoin/api"
 )
 
 func LocalGenerateKey(chainId string) (string, string, error) {
 	switch chainId {
 	case RippleChainId:
 		return ripple.LocalGenerateKey()
+	case SiacoinChainId:
+		return siacoin.LocalGenerateKey()
 	case EthereumChainId:
 		return ethereum.LocalGenerateKey()
 	case EthereumClassicChainId:
@@ -33,6 +36,8 @@ func NormalizeAddress(chainId, address string) (string, error) {
 	switch chainId {
 	case RippleChainId:
 		return ripple.LocalNormalizePublicKey(address)
+	case SiacoinChainId:
+		return siacoin.LocalNormalizePublicKey(address)
 	case EthereumChainId:
 		return ethereum.LocalNormalizePublicKey(address)
 	case EthereumClassicChainId:
