@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -414,6 +415,7 @@ func (chain *RPC) parseInternalTransaction(ctx context.Context, receipt *Ethereu
 	if err != nil {
 		return nil, err
 	}
+	outputHash := sha256.Sum256([]byte(fmt.Sprintf("%s:%d", item.TransactionHash, index)))
 	transaction := &external.Transaction{
 		Asset:           asset,
 		TransactionHash: item.TransactionHash,
@@ -423,6 +425,7 @@ func (chain *RPC) parseInternalTransaction(ctx context.Context, receipt *Ethereu
 		BlockHash:       item.BlockHash,
 		BlockNumber:     item.BlockNumber,
 		OutputIndex:     int64(index),
+		OutputHash:      hex.EncodeToString(outputHash[:]),
 		Confirmations:   height - item.BlockNumber,
 		Amount:          amount,
 	}

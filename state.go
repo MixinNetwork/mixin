@@ -28,7 +28,7 @@ func ChainThreshold(chainId string) (int, error) {
 	case RippleChainId:
 		return 1, nil
 	case SiacoinChainId:
-		return 36, nil
+		return 12, nil
 	}
 	return 0, fmt.Errorf("unsupported chain id %s", chainId)
 }

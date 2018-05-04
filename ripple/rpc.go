@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -318,6 +320,7 @@ func (chain *RPC) getTransaction(transactionHash string) (*external.Transaction,
 			receipt = external.TransactionReceiptFailed
 		}
 	}
+	outputHash := sha256.Sum256([]byte(fmt.Sprintf("%s:%d", result.Hash, 0)))
 	return &external.Transaction{
 		Asset:           asset,
 		TransactionHash: result.Hash,
@@ -326,6 +329,7 @@ func (chain *RPC) getTransaction(transactionHash string) (*external.Transaction,
 		Memo:            "",
 		BlockNumber:     result.LedgerIndex,
 		OutputIndex:     0,
+		OutputHash:      hex.EncodeToString(outputHash[:]),
 		Confirmations:   confirmations,
 		Amount:          deliveredAmount,
 		Fee:             fee,

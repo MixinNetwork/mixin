@@ -123,7 +123,7 @@ func LocalSignRawTransaction(inputs []*UTXO, output string, amount int64, feePer
 	if rawSizeInKb := int64(len(rawBytes))/1024 + 1; rawSizeInKb > estimatedRawSizeInKb {
 		return "", "", 0, fmt.Errorf("Bitcoin Cash raw size estimation error %d %d", rawSizeInKb, estimatedRawSizeInKb)
 	}
-	if estimatedRawSizeInKb > 100 {
+	if estimatedRawSizeInKb > 30 {
 		return "", "", 0, fmt.Errorf("Bitcoin Cash transaction size too large %d", estimatedRawSizeInKb)
 	}
 	return tx.TxHash().String(), hex.EncodeToString(rawBytes), feeToConsumed, nil

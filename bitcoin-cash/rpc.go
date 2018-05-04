@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -111,6 +113,9 @@ func (chain *RPC) EstimateSmartFee() (number.Decimal, error) {
 	}
 	min := number.FromString("0.0001")
 	fee := number.FromString(fmt.Sprint(resp.Result.FeeRate)).Mul(number.FromString("2"))
+	if fee.Exhausted() {
+		return number.Zero(), fmt.Errorf("Bitcoin Cash EstimateSmartFee invalid %f", resp.Result.FeeRate)
+	}
 	if fee.Cmp(min) < 0 {
 		fee = min
 	}
@@ -171,6 +176,7 @@ func (chain *RPC) GetBlockByHash(ctx context.Context, blockHash string) (*extern
 			if err != nil {
 				return nil, err
 			}
+			outputHash := sha256.Sum256([]byte(fmt.Sprintf("%s:%d", tx.TxId, out.N)))
 			block.Transactions = append(block.Transactions, &external.Transaction{
 				Asset:           asset,
 				TransactionHash: tx.TxId,
@@ -180,6 +186,7 @@ func (chain *RPC) GetBlockByHash(ctx context.Context, blockHash string) (*extern
 				BlockHash:       block.BlockHash,
 				BlockNumber:     block.BlockNumber,
 				OutputIndex:     out.N,
+				OutputHash:      hex.EncodeToString(outputHash[:]),
 				Confirmations:   tx.Confirmations,
 				Amount:          amount,
 			})
