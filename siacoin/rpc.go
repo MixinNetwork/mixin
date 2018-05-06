@@ -230,6 +230,9 @@ func (chain *RPC) GetBlockByNumber(ctx context.Context, blockNumber int64) (*ext
 func (chain *RPC) GetTransactionConfirmations(transactionHash string) (int64, error) {
 	body, err := chain.call("GET", "/explorer/hashes/"+transactionHash)
 	if err != nil {
+		if strings.Contains(err.Error(), "hash not found in hashtype db") {
+			return 0, nil
+		}
 		return 0, err
 	}
 	var resp struct {
@@ -304,8 +307,12 @@ func (chain *RPC) call(method, path string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode > 300 {
-		return nil, fmt.Errorf("Siacoin call error %s %s %d", method, path, resp.StatusCode)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("Siacoin call body error %s %s %d %s", method, path, resp.StatusCode, err.Error())
 	}
-	return ioutil.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode > 300 {
+		return nil, fmt.Errorf("Siacoin call status error %s %s %d %s", method, path, resp.StatusCode, string(body))
+	}
+	return body, nil
 }
