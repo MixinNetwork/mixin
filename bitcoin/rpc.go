@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"mixin.one/blockchain/external"
@@ -36,6 +37,7 @@ const (
 	bitcoinUsername             = "2deca196257ec90d2aca14acffe25014"
 	bitcoinPassword             = "f83de9a2f5ef56221db2c529f525f15e2d2e2e9cd2a02d5adc2c9a97c7aff1a8"
 	bitcoinScriptPubKeyTypeHash = "pubkeyhash"
+	bitcoinScriptPubKeyTypeNull = "nulldata"
 )
 
 type RPC struct {
@@ -160,6 +162,16 @@ func (chain *RPC) GetBlockByHash(ctx context.Context, blockHash string) (*extern
 			return nil, err
 		}
 		for _, out := range tx.Vout {
+			if out.ScriptPubKey.Type == bitcoinScriptPubKeyTypeNull && strings.HasPrefix(out.ScriptPubKey.Hex, "6a146f6d6e69") && len(out.ScriptPubKey.Hex) == 44 {
+				omniTx, err := omniGetTransaction(block, txId, out.N)
+				if err != nil {
+					return nil, err
+				}
+				if omniTx != nil {
+					block.Transactions = append(block.Transactions, omniTx)
+				}
+				continue
+			}
 			if out.ScriptPubKey.Type != bitcoinScriptPubKeyTypeHash || len(out.ScriptPubKey.Addresses) != 1 {
 				continue
 			}

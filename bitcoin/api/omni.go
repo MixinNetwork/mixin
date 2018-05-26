@@ -2,11 +2,9 @@ package api
 
 import (
 	"bytes"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"strings"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -16,42 +14,12 @@ import (
 	"github.com/btcsuite/btcutil"
 )
 
-type UTXO struct {
-	TransactionHash string
-	Index           uint32
-	Amount          int64
-	PrivateKey      string
-}
+const (
+	omniUSDT      = "6f6d6e69000000000000001f"
+	DustThreshold = int64(546)
+)
 
-type Output struct {
-	TransactionHash string
-	RawTransaction  string
-	Fee             int64
-	OutputIndex     int64
-	OutputHash      string
-	ChangeIndex     int64
-	ChangeHash      string
-	ChangeAmount    int64
-}
-
-func LocalNormalizePublicKey(address string) (string, error) {
-	address = strings.TrimSpace(address)
-	btcAddress, err := btcutil.DecodeAddress(address, &chaincfg.MainNetParams)
-	if err != nil {
-		return "", err
-	}
-	if btcAddress.String() != address {
-		return "", fmt.Errorf("Bitcoin NormalizeAddress mismatch %s", address)
-	}
-	return btcAddress.String(), nil
-}
-
-func LocalEstimateTransactionFee(inputs []*UTXO, feePerKb int64) int64 {
-	estimatedRawSizeInKb := int64(len(inputs))*160/1024 + 1
-	return feePerKb * estimatedRawSizeInKb
-}
-
-func LocalSignRawTransaction(inputs []*UTXO, output string, amount int64, feePerKb int64, changeAddress string) (*Output, error) {
+func LocalSignOmniUSDTTransaction(inputs []*UTXO, output string, omniAmount int64, feePerKb int64, changeAddress string) (*Output, error) {
 	tx, inputAmount := wire.NewMsgTx(wire.TxVersion), int64(0)
 
 	for _, input := range inputs {
@@ -70,24 +38,25 @@ func LocalSignRawTransaction(inputs []*UTXO, output string, amount int64, feePer
 		inputAmount = inputAmount + input.Amount
 	}
 
-	addressPubKeyHash, err := btcutil.DecodeAddress(output, &chaincfg.MainNetParams)
+	nullData, err := hex.DecodeString(omniUSDT + fmt.Sprintf("%016x", omniAmount))
 	if err != nil {
 		return nil, err
 	}
-	pkScript, err := txscript.PayToAddrScript(addressPubKeyHash)
+	nullPkScript, err := txscript.NullDataScript(nullData)
 	if err != nil {
 		return nil, err
 	}
-	tx.AddTxOut(wire.NewTxOut(amount, pkScript))
+	tx.AddTxOut(wire.NewTxOut(0, nullPkScript))
 
 	estimatedRawSizeInKb := int64(len(inputs))*160/1024 + 1
 	feeToConsumed := feePerKb * estimatedRawSizeInKb
-	changeAmount := inputAmount - feeToConsumed - amount
+	changeAmount := inputAmount - feeToConsumed - DustThreshold
 	if changeAmount < 0 {
 		return nil, fmt.Errorf("insuficcient trasaction fee %d %d %d", inputAmount, feePerKb, estimatedRawSizeInKb)
 	}
-	if changeAmount > feePerKb {
-		addressPubKeyHash, err := btcutil.DecodeAddress(changeAddress, &chaincfg.MainNetParams)
+	if output == changeAddress { // TODO this is to ensure omni shift operation
+		changeAmount = changeAmount + DustThreshold
+		addressPubKeyHash, err := btcutil.DecodeAddress(output, &chaincfg.MainNetParams)
 		if err != nil {
 			return nil, err
 		}
@@ -97,8 +66,30 @@ func LocalSignRawTransaction(inputs []*UTXO, output string, amount int64, feePer
 		}
 		tx.AddTxOut(wire.NewTxOut(changeAmount, pkScript))
 	} else {
-		feeToConsumed = inputAmount - amount
-		changeAmount = 0
+		if changeAmount > feePerKb {
+			addressPubKeyHash, err := btcutil.DecodeAddress(changeAddress, &chaincfg.MainNetParams)
+			if err != nil {
+				return nil, err
+			}
+			pkScript, err := txscript.PayToAddrScript(addressPubKeyHash)
+			if err != nil {
+				return nil, err
+			}
+			tx.AddTxOut(wire.NewTxOut(changeAmount, pkScript))
+		} else {
+			feeToConsumed = inputAmount - DustThreshold
+			changeAmount = 0
+		}
+
+		addressPubKeyHash, err := btcutil.DecodeAddress(output, &chaincfg.MainNetParams)
+		if err != nil {
+			return nil, err
+		}
+		pkScript, err := txscript.PayToAddrScript(addressPubKeyHash)
+		if err != nil {
+			return nil, err
+		}
+		tx.AddTxOut(wire.NewTxOut(DustThreshold, pkScript))
 	}
 
 	for idx, input := range inputs {
@@ -151,20 +142,4 @@ func LocalSignRawTransaction(inputs []*UTXO, output string, amount int64, feePer
 		ChangeHash:      hex.EncodeToString(changeHash[:]),
 		ChangeAmount:    changeAmount,
 	}, nil
-}
-
-func LocalGenerateKey() (string, string, error) {
-	seed := make([]byte, 32)
-	_, err := rand.Read(seed)
-	if err != nil {
-		return "", "", err
-	}
-	privateKey, publicKey := btcec.PrivKeyFromBytes(btcec.S256(), seed)
-	addressPubKey, err := btcutil.NewAddressPubKey(publicKey.SerializeCompressed(), &chaincfg.MainNetParams)
-	if err != nil {
-		return "", "", err
-	}
-	private := hex.EncodeToString(privateKey.Serialize())
-	public := addressPubKey.AddressPubKeyHash().EncodeAddress()
-	return public, private, nil
 }

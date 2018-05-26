@@ -6,10 +6,12 @@ func IconURL(assetId string) string {
 		return "https://images.mixin.one/HvYGJsV5TGeZ-X9Ek3FEQohQZ3fE9LBEBGcOcn4c4BNHovP4fW4YB97Dg5LcXoQ1hUjMEgjbl1DPlKg1TW7kK6XP=s128"
 	case BitcoinCashChainId:
 		return "https://images.mixin.one/tqt14x8iwkiCR_vIKIw6gAAVO8XpZH7ku7ZJYB5ArMRA6grN9M1oCI7kKt2QqBODJwr17sZxDCDTjXHOgIixzv6X=s128"
+	case BitcoinOmniUSDTId:
+		return "https://images.mixin.one/ndNBEpObYs7450U08oAOMnSEPzN66SL8Mh-f2pPWBDeWaKbXTPUIdrZph7yj8Z93Rl8uZ16m7Qjz-E-9JFKSsJ-F=s128"
 	case LitecoinChainId:
 		return "https://images.mixin.one/EoQc9afnnbH9nu5mBa7IUYpow-lXbnD7eoLgwdtKgJzt21dZ_kSwQVyzALxhqDqe-yN9M75KEzstbtAtXylxctLG=s128"
 	case SiacoinChainId:
-		return "https://images.mixin.one/XcyRG-3pUyRu-RfTUZ3LPrIl5V2sH17yfSDN0XpZvTFGb5DmtkT3bkD9Wob6ExICRavBClnCWrsR2KnlRtFcwNw=s128"
+		return "https://images.mixin.one/K1qFRFwAn2aJ-SEM4Tya7y_HBelBZsL5J1WEdZX4S3-APXHExcsZUYdyQAMRhgebcto3CF_OLoImx8U9-4-M7C4=s128"
 	case RippleChainId:
 		return "https://images.mixin.one/zgBBzgQ8x2XZbNdRhibMlVLyG0x1PEr8ENepLODl_mBDIXJJSCZNoaa2jHCc4VpJ59hPgUVnL6W24v1utEVqb0A=s128"
 	case EthereumClassicChainId:
@@ -60,14 +62,28 @@ func IconURL(assetId string) string {
 		return "https://images.mixin.one/qVagXT8U1OgPbJ1Sd45k2-15z69BRpVaTrca39Bei7r85rv3ROBIPVvbuuCSs2LQKkdKBGcVXoPD9yfQJdIWaw=s128"
 	case UniqueAssetId(EthereumChainId, EthereumnCashAssetKey):
 		return "https://images.mixin.one/-17id08Az75h3J6l7wKe7SE15iVgudZjVMa8T1AdpXzQIuAqpwDZphvwCLbpHe4xr8CYEnaRDaK_hw7tD3Pplw=s128"
-	case UniqueAssetId(EthereumChainId, EthereumnCREAssetKey):
+	case UniqueAssetId(EthereumChainId, EthereumCREAssetKey):
 		return "https://images.mixin.one/KYbiNh2H8Z5L5bRCcpy9UwjU7CZ7l17PSNFkFbkpjHhuOx1hpzcUoHrBC6oNy9-QHUJrmCvau4MOi8B9UFRBNnn9=s128"
-	case UniqueAssetId(EthereumChainId, EthereumnQUNAssetKey):
+	case UniqueAssetId(EthereumChainId, EthereumQUNAssetKey):
 		return "https://images.mixin.one/Ij_kVcR5X2xINYyezPYJqy56_52CZqVr55e5-LBSi4sO27exwYVWY6YxQIak9vUCkZYFoA2uPVMuKF6XwlWM4XU=s128"
-	case UniqueAssetId(EthereumChainId, EthereumnPAYAssetKey):
+	case UniqueAssetId(EthereumChainId, EthereumPAYAssetKey):
 		return "https://images.mixin.one/DYS3R3lIODC6bodKQSXDBWuqs_tR12ch7k-1NsFRiyhCAp13JS-PUAmHE0QoNpoi-p4DDzQASKiJvlEvUb5VlqAJ=s128"
-	case UniqueAssetId(EthereumChainId, EthereumnUSDTAssetKey):
+	case UniqueAssetId(EthereumChainId, EthereumUSDTAssetKey):
 		return "https://images.mixin.one/ndNBEpObYs7450U08oAOMnSEPzN66SL8Mh-f2pPWBDeWaKbXTPUIdrZph7yj8Z93Rl8uZ16m7Qjz-E-9JFKSsJ-F=s128"
+	case UniqueAssetId(EthereumChainId, EthereumHMCAssetKey):
+		return "https://images.mixin.one/hTkLsxDUJnUiJi5yvrILC6D29UEQcShJ6_VTuRaWzaiMKxTX5gYMP0UhIsF4-TKxNBOwUe5P6ibTK7lnKe3AIPY=s128"
+	case UniqueAssetId(EthereumChainId, EthereumUIPAssetKey):
+		return "https://images.mixin.one/jWDjrWwSUPnjwgtZxhxU0i64CB9PmHQquxbIDzx-iuvX7-HK5PKmQqhVv-GMhxT2JAc5cBQ_loFJzfhF9H0t7Rs=s128"
+	case UniqueAssetId(EthereumChainId, EthereumMAGAssetKey):
+		return "https://images.mixin.one/egTTNN2xT1-ZfBjM8BFTOstw4978Bww3EWBgLBrsgid-fZoosyN86IWf5OWIcW9yvh6FvVlT8cfQ68eIyT7TYsI=s128"
+	case UniqueAssetId(EthereumChainId, EthereumEOSDACAssetKey):
+		return "https://images.mixin.one/znB5ySVH_K-X7ICLF4O5OHyBCr9fadv39U6PTsqWwuenlVw4V96BXUSbWnH2HM1YGSvpLH_70TZK86w5mV699-M=s128"
+	case UniqueAssetId(EthereumChainId, EthereumCHATAssetKey):
+		return "https://images.mixin.one/V797Xy4pVwrjJk4MJ88hbcHgvI7pRgPe7PQK7c1sj6IoxZosMiOoTYd2eL6sf4jEFlOt1i_04zr5Wf6zCn3JW94=s128"
+	case UniqueAssetId(EthereumChainId, EthereumKEYAssetKey):
+		return "https://images.mixin.one/K3wZfFJLy-7dNlnYayHZXmSW1Mqj9gO0z1wQj8F8gMBvahYhl8Tdkia5JiTUT-P0fWLLOzMf_MuonpRBv6Oq_qc=s128"
+	case UniqueAssetId(EthereumChainId, EthereumKNCAssetKey):
+		return "https://images.mixin.one/Ai8u9fY99yYhYimjKfP_c4pIjRVL8IOarSrWGzNjO2QOQiIKCVLvmz_VW9ZVuYidJUeyI_OEhnlWTOu2Y7HXnY4=s128"
 	}
 	return "https://images.mixin.one/HovctUnrBkLPlDotWvWPsIuFb8qKrLddwF5-f2Fi9q9uO829YB2qGITgOd2YmTMKnGg_z9XrVYzEwFE_rD_REz9C=s128"
 }

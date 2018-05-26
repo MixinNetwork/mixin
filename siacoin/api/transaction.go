@@ -21,8 +21,11 @@ type Output struct {
 	TransactionHash string
 	RawTransaction  string
 	Fee             number.Decimal
+	ChangeAmount    number.Decimal
 	ChangeIndex     int64
 	ChangeHash      string
+	OutputIndex     int64
+	OutputHash      string
 }
 
 func LocalEstimateTransactionFee(inputs []*UTXO, feePerKb number.Decimal) number.Decimal {
@@ -105,6 +108,7 @@ func LocalSignRawTransaction(inputs []*UTXO, output string, amount, feePerKb num
 		})
 	} else {
 		feeToConsumed = inputAmount.Sub(outputAmount)
+		changeAmount = types.NewCurrency64(0)
 	}
 	tx.MinerFees = append(tx.MinerFees, feeToConsumed)
 	for _, si := range tx.SiacoinInputs {
@@ -135,6 +139,9 @@ func LocalSignRawTransaction(inputs []*UTXO, output string, amount, feePerKb num
 		TransactionHash: tx.ID().String(),
 		RawTransaction:  hex.EncodeToString(encoding.Marshal(tx)),
 		Fee:             number.FromString(feeToConsumed.String()).Mul(number.New(1, 24)),
+		ChangeAmount:    number.FromString(changeAmount.String()).Mul(number.New(1, 24)),
+		OutputIndex:     0,
+		OutputHash:      tx.SiacoinOutputID(uint64(0)).String(),
 	}
 	if len(tx.SiacoinOutputs) > 1 {
 		result.ChangeIndex = 1

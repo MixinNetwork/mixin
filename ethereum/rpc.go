@@ -652,13 +652,23 @@ func (chain *RPC) checkERC20Token(ctx context.Context, address string) (*Ethereu
 
 	symbol, name, decimals, err := chain.getTokenSymbolAndNameAndDecimals(ctx, address)
 	if err != nil {
-		return nil, err
+		ethErr, ok := err.(*EthereumError)
+		if !ok || ethErr.Code != -32015 {
+			return nil, err
+		}
 	}
 	if len(symbol) < 2 {
 		symbol, name, decimals, err = chain.getTokenUpperSymbolAndNameAndDecimals(ctx, address)
 	}
-	if err != nil || len(symbol) < 2 {
+	if err != nil {
+		ethErr, ok := err.(*EthereumError)
+		if ok && ethErr.Code == -32015 {
+			return nil, nil
+		}
 		return nil, err
+	}
+	if len(symbol) < 2 {
+		return nil, nil
 	}
 
 	token := &EthereumToken{

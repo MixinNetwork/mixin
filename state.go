@@ -43,3 +43,20 @@ func TransactionState(chainId string, confirmations int64) string {
 	}
 	return TransactionStatePending
 }
+
+func ShiftTransactionState(chainId string, confirmations int64) string {
+	threshold, err := ChainThreshold(chainId)
+	if err != nil {
+		return TransactionStatePending
+	}
+	switch chainId {
+	case EthereumChainId:
+		threshold = 6
+	case EthereumClassicChainId:
+		threshold = 6
+	}
+	if confirmations >= int64(threshold) {
+		return TransactionStateConfirmed
+	}
+	return TransactionStatePending
+}
