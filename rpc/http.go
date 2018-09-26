@@ -44,7 +44,9 @@ func registerHanders(router *httptreemux.TreeMux) {
 
 func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]string) {
 	var call Call
-	if err := json.NewDecoder(r.Body).Decode(&call); err != nil {
+	d := json.NewDecoder(r.Body)
+	d.UseNumber()
+	if err := d.Decode(&call); err != nil {
 		render.New().JSON(w, http.StatusBadRequest, map[string]interface{}{"error": err.Error()})
 		return
 	}

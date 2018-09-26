@@ -13,9 +13,10 @@ type Snapshot struct {
 	Signatures  []crypto.Signature `msgpack:"S,omitempty"json:"signatures,omitempty"`
 }
 
-type SnapshotWithHash struct {
+type SnapshotWithTopologicalOrder struct {
 	Snapshot
-	Hash crypto.Hash `msgpack:"-"json:"hash"`
+	TopologicalOrder uint64      `msgpack:"-"json:"topology"`
+	Hash             crypto.Hash `msgpack:"-"json:"hash"`
 }
 
 func (s *Snapshot) Payload() []byte {
@@ -27,10 +28,6 @@ func (s *Snapshot) Payload() []byte {
 		Timestamp:   s.Timestamp,
 	}
 	return MsgpackMarshalPanic(p)
-}
-
-func (s *Snapshot) Hash() crypto.Hash {
-	return crypto.NewHash(s.Payload())
 }
 
 func SignSnapshot(s *Snapshot, spendKey crypto.Key) {

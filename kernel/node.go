@@ -18,18 +18,21 @@ const (
 )
 
 type Node struct {
-	Id          common.Address
+	Account     common.Address
 	Peers       []*Peer
+	RoundPeer   *Peer
+	RoundHash   crypto.Hash
 	RoundNumber uint64
 	Timestamp   uint64
 	Address     string
 
-	networkId   crypto.Hash
-	store       storage.Store
-	transport   network.Transport
-	mempoolChan chan *common.Snapshot
-	filter      map[crypto.Hash]bool
-	configDir   string
+	syncrhoinized bool
+	networkId     crypto.Hash
+	store         storage.Store
+	transport     network.Transport
+	mempoolChan   chan *common.Snapshot
+	filter        map[crypto.Hash]bool
+	configDir     string
 }
 
 func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
@@ -55,7 +58,7 @@ func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		return nil, err
 	}
 
-	transport, err := network.NewQuicServer(addr, node.Id.PrivateSpendKey)
+	transport, err := network.NewQuicServer(addr, node.Account.PrivateSpendKey)
 	if err != nil {
 		return nil, err
 	}
@@ -67,16 +70,16 @@ func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	}
 
 	logger.Printf("Listen:\t%s\n", node.Address)
-	logger.Printf("Account:\t%s\n", node.Id.String())
-	logger.Printf("View Key:\t%s\n", node.Id.PrivateViewKey.String())
-	logger.Printf("Spend Key:\t%s\n", node.Id.PrivateSpendKey.String())
+	logger.Printf("Account:\t%s\n", node.Account.String())
+	logger.Printf("View Key:\t%s\n", node.Account.PrivateViewKey.String())
+	logger.Printf("Spend Key:\t%s\n", node.Account.PrivateSpendKey.String())
 	logger.Printf("Network:\t%s\n", node.networkId.String())
 	logger.Printf("Node Id:\t%s\n", node.IdForNetwork().String())
 	return node, nil
 }
 
 func (node *Node) IdForNetwork() crypto.Hash {
-	nodeId := node.Id.Hash()
+	nodeId := node.Account.Hash()
 	networkId := node.networkId
 	return crypto.NewHash(append(networkId[:], nodeId[:]...))
 }
@@ -84,22 +87,22 @@ func (node *Node) IdForNetwork() crypto.Hash {
 func (node *Node) loadNodeStateFromStore() error {
 	const stateKeyAccount = "account"
 	var acc common.Address
-	err := node.store.StateGet(stateKeyAccount, &acc)
-	if err == storage.ErrorNotFound {
+	found, err := node.store.StateGet(stateKeyAccount, &acc)
+	if err != nil {
+		return err
+	} else if !found {
 		b := make([]byte, 32)
 		_, err := rand.Read(b)
 		if err != nil {
 			panic(err)
 		}
 		acc = common.NewAddressFromSeed(b)
-	} else if err != nil {
-		return err
 	}
 	err = node.store.StateSet(stateKeyAccount, acc)
 	if err != nil {
 		return err
 	}
-	node.Id = acc
+	node.Account = acc
 	return nil
 }
 
@@ -122,7 +125,7 @@ func (node *Node) rearrangePeersList() error {
 	}
 	peers := make([]*Peer, 0)
 	for _, in := range inputs {
-		if in.Address == node.Id.String() {
+		if in.Address == node.Account.String() {
 			continue
 		}
 		acc, err := common.NewAddressFromString(in.Address)
@@ -133,7 +136,7 @@ func (node *Node) rearrangePeersList() error {
 	}
 	node.Peers = peers
 	for _, p := range node.Peers {
-		if p.Id.String() == node.Id.String() {
+		if p.Account.String() == node.Account.String() {
 			continue
 		}
 		go func() {
@@ -188,7 +191,7 @@ func (node *Node) ListenPeers() error {
 				case MessageTypeSnapshot:
 					payload := msg.Snapshot.Payload()
 					for _, s := range msg.Snapshot.Signatures {
-						if peer.Id.PublicSpendKey.Verify(payload, s) {
+						if peer.Account.PublicSpendKey.Verify(payload, s) {
 							node.feedMempool(msg.Snapshot)
 							break
 						}

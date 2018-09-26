@@ -15,9 +15,10 @@ import (
 )
 
 type Peer struct {
-	Id          common.Address
+	Account     common.Address
 	Address     string
 	RoundNumber uint64
+	RoundHash   crypto.Hash
 
 	send chan []byte
 }
@@ -78,9 +79,9 @@ func buildSnapshotMessage(ss *common.Snapshot) ([]byte, error) {
 	return append([]byte{MessageTypeSnapshot}, data...), nil
 }
 
-func NewPeer(id common.Address, addr string) *Peer {
+func NewPeer(acc common.Address, addr string) *Peer {
 	return &Peer{
-		Id:      id,
+		Account: acc,
 		Address: addr,
 		send:    make(chan []byte, 64),
 	}
@@ -106,7 +107,7 @@ func (node *Node) managePeerStream(peer *Peer) error {
 	}
 	defer client.Close()
 
-	err = client.Send(buildAuthenticationMessage(node.Id))
+	err = client.Send(buildAuthenticationMessage(node.Account))
 	if err != nil {
 		return err
 	}
@@ -170,13 +171,13 @@ func (node *Node) authenticatePeer(client network.Client) (*Peer, error) {
 			return
 		}
 		for _, p := range node.Peers {
-			hash := p.Id.Hash()
+			hash := p.Account.Hash()
 			if !bytes.Equal(hash[:], msg.Data[8:40]) {
 				continue
 			}
 			var sig crypto.Signature
 			copy(sig[:], msg.Data[40:])
-			if p.Id.PublicSpendKey.Verify(msg.Data[:40], sig) {
+			if p.Account.PublicSpendKey.Verify(msg.Data[:40], sig) {
 				auth <- nil
 				peer = p
 				return

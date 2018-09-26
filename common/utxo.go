@@ -12,9 +12,9 @@ type UTXO struct {
 
 type UTXOStore func(hash crypto.Hash, index int) (*UTXO, error)
 
-type KeyStore func(key crypto.Key) (bool, error)
+type GhostStore func(key crypto.Key) (bool, error)
 
-func (s *Snapshot) UTXOs() ([]*UTXO, error) {
+func (s *Snapshot) UnspentOutputs() []*UTXO {
 	tx := s.Transaction
 
 	var utxos []*UTXO
@@ -35,5 +35,5 @@ func (s *Snapshot) UTXOs() ([]*UTXO, error) {
 		}
 		utxos = append(utxos, utxo)
 	}
-	return utxos, nil
+	return utxos
 }

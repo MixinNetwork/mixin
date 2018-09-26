@@ -75,7 +75,7 @@ func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {
 	return outputs
 }
 
-func (tx *SignedTransaction) Validate(getUTXO UTXOStore, getKey KeyStore) error {
+func (tx *SignedTransaction) Validate(getUTXO UTXOStore, checkGhost GhostStore) error {
 	if tx.Version != TxVersion {
 		return fmt.Errorf("invalid tx version %d", tx.Version)
 	}
@@ -90,17 +90,17 @@ func (tx *SignedTransaction) Validate(getUTXO UTXOStore, getKey KeyStore) error 
 
 	msg := MsgpackMarshalPanic(tx.Transaction)
 
-	var input, output Integer
+	var inputAmount, outputAmount Integer
 	for _, o := range tx.Outputs {
 		for _, k := range o.Keys {
-			exist, err := getKey(k)
+			exist, err := checkGhost(k)
 			if err != nil {
 				return err
 			} else if exist {
 				return fmt.Errorf("invalid output key %s", k.String())
 			}
 		}
-		output = output.Add(o.Amount)
+		outputAmount = outputAmount.Add(o.Amount)
 	}
 
 	inputsFilter := make(map[string]bool)
@@ -116,6 +116,9 @@ func (tx *SignedTransaction) Validate(getUTXO UTXOStore, getKey KeyStore) error 
 		if err != nil {
 			return err
 		}
+		if utxo == nil {
+			return fmt.Errorf("input not found %s:%d", in.Hash.String(), in.Index)
+		}
 		if utxo.Asset.String() != tx.Asset.String() {
 			return fmt.Errorf("invalid input asset %s %s", utxo.Asset.String(), tx.Asset.String())
 		}
@@ -124,11 +127,11 @@ func (tx *SignedTransaction) Validate(getUTXO UTXOStore, getKey KeyStore) error 
 		if err != nil {
 			return err
 		}
-		input = input.Add(utxo.Amount)
+		inputAmount = inputAmount.Add(utxo.Amount)
 	}
 
-	if input.Cmp(output) != 0 {
-		return fmt.Errorf("invalid input output amount %s %s", input.String(), output.String())
+	if inputAmount.Cmp(outputAmount) != 0 {
+		return fmt.Errorf("invalid input output amount %s %s", inputAmount.String(), outputAmount.String())
 	}
 
 	return nil
@@ -174,6 +177,9 @@ func (signed *SignedTransaction) SignInput(getUTXO UTXOStore, index int, account
 	utxo, err := getUTXO(in.Hash, in.Index)
 	if err != nil {
 		return err
+	}
+	if utxo == nil {
+		return fmt.Errorf("input not found %s:%d", in.Hash.String(), in.Index)
 	}
 
 	keysFilter := make(map[string]bool)

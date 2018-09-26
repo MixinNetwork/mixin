@@ -5,12 +5,13 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/vmihailenco/msgpack"
 )
 
 func QueueTransaction(store storage.Store, tx *common.SignedTransaction) (string, error) {
-	err := tx.Validate(store.SnapshotsGetUTXO, store.SnapshotsGetKey)
+	err := tx.Validate(store.SnapshotsGetUTXO, store.SnapshotsCheckGhost)
 	if err != nil {
 		return "", err
 	}
@@ -20,6 +21,10 @@ func QueueTransaction(store storage.Store, tx *common.SignedTransaction) (string
 func (node *Node) ConsumeQueue() error {
 	var offset = uint64(0)
 	for {
+		if !node.syncrhoinized {
+			time.Sleep(1 * time.Second)
+			continue
+		}
 		err := node.store.QueuePoll(offset, func(k uint64, v []byte) error {
 			var tx common.SignedTransaction
 			err := msgpack.Unmarshal(v, &tx)
@@ -35,7 +40,7 @@ func (node *Node) ConsumeQueue() error {
 			if err != nil {
 				return err
 			}
-			offset = k + 1
+			offset = k
 			return nil
 		})
 		if err != nil {
@@ -47,7 +52,13 @@ func (node *Node) ConsumeQueue() error {
 }
 
 func (node *Node) buildSnapshot(tx *common.SignedTransaction) (*common.Snapshot, error) {
-	return &common.Snapshot{
+	snapshot := &common.Snapshot{
+		NodeId:      node.IdForNetwork(),
 		Transaction: tx,
-	}, nil
+		References:  []crypto.Hash{node.RoundHash, node.RoundPeer.RoundHash},
+		RoundNumber: node.RoundNumber,
+		Timestamp:   uint64(time.Now().UnixNano()),
+	}
+	common.SignSnapshot(snapshot, node.Account.PrivateSpendKey)
+	return snapshot, nil
 }

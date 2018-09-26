@@ -37,14 +37,14 @@ func loadGenesis(store storage.Store, configDir string) (string, error) {
 	var network struct {
 		Id crypto.Hash
 	}
-	err = store.StateGet(stateKeyNetwork, &network)
-	if err != nil && err != storage.ErrorNotFound {
+	found, err := store.StateGet(stateKeyNetwork, &network)
+	if err != nil {
 		return "", err
 	}
 	if network.Id.String() == networkId.String() {
 		return networkId.String(), nil
 	}
-	if err != storage.ErrorNotFound {
+	if found {
 		return "", fmt.Errorf("invalid genesis for network %s", network.Id.String())
 	}
 

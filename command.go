@@ -108,7 +108,7 @@ func signTransactionCmd(c *cli.Context) error {
 		}
 	}
 	fmt.Println(hex.EncodeToString(signed.Marshal()))
-	return signed.Validate(store.SnapshotsGetUTXO, store.SnapshotsGetKey)
+	return signed.Validate(store.SnapshotsGetUTXO, store.SnapshotsCheckGhost)
 }
 
 func setupTestNetCmd(c *cli.Context) error {

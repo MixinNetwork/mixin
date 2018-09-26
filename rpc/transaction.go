@@ -28,7 +28,7 @@ func createTransaction(store storage.Store, params []interface{}) (string, error
 	return kernel.QueueTransaction(store, &tx)
 }
 
-func listSnapshots(store storage.Store, params []interface{}) ([]*common.SnapshotWithHash, error) {
+func listSnapshots(store storage.Store, params []interface{}) ([]*common.SnapshotWithTopologicalOrder, error) {
 	if len(params) != 2 {
 		return nil, errors.New("invalid params count")
 	}
