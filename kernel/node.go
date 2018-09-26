@@ -2,9 +2,6 @@ package kernel
 
 import (
 	"crypto/rand"
-	"encoding/json"
-	"io/ioutil"
-	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -64,7 +61,7 @@ func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	}
 	node.transport = transport
 
-	err = node.rearrangePeersList()
+	err = node.managePeersList()
 	if err != nil {
 		return nil, err
 	}
@@ -106,100 +103,8 @@ func (node *Node) loadNodeStateFromStore() error {
 	return nil
 }
 
-func (node *Node) handleNodeTransactionConfirmation() error {
-	return node.rearrangePeersList()
-}
-
-func (node *Node) rearrangePeersList() error {
-	f, err := ioutil.ReadFile(node.configDir + "/nodes.json")
-	if err != nil {
-		return err
-	}
-	var inputs []struct {
-		Address string `json:"address"`
-		Host    string `json:"host"`
-	}
-	err = json.Unmarshal(f, &inputs)
-	if err != nil {
-		return err
-	}
-	peers := make([]*Peer, 0)
-	for _, in := range inputs {
-		if in.Address == node.Account.String() {
-			continue
-		}
-		acc, err := common.NewAddressFromString(in.Address)
-		if err != nil {
-			return err
-		}
-		peers = append(peers, NewPeer(acc, in.Host))
-	}
-	node.Peers = peers
-	for _, p := range node.Peers {
-		if p.Account.String() == node.Account.String() {
-			continue
-		}
-		go func() {
-			for {
-				err := node.managePeerStream(p)
-				if err != nil {
-					logger.Println("peer error", err)
-				}
-				time.Sleep(1 * time.Second)
-			}
-		}()
-	}
+func (node *Node) loadGraphHead() error {
 	return nil
-}
-
-func (node *Node) ListenPeers() error {
-	err := node.transport.Listen()
-	if err != nil {
-		return err
-	}
-
-	for {
-		c, err := node.transport.Accept()
-		if err != nil {
-			return err
-		}
-		go func(client network.Client) error {
-			defer client.Close()
-
-			peer, err := node.authenticatePeer(client)
-			if err != nil {
-				logger.Println("peer authentication error", err)
-				return err
-			}
-
-			for {
-				data, err := client.Receive()
-				if err != nil {
-					return err
-				}
-				msg, err := parseNetworkMessage(data)
-				if err != nil {
-					return err
-				}
-				logger.Println("NODE", msg.Type)
-				switch msg.Type {
-				case MessageTypePing:
-					err = client.Send(buildPongMessage())
-					if err != nil {
-						return err
-					}
-				case MessageTypeSnapshot:
-					payload := msg.Snapshot.Payload()
-					for _, s := range msg.Snapshot.Signatures {
-						if peer.Account.PublicSpendKey.Verify(payload, s) {
-							node.feedMempool(msg.Snapshot)
-							break
-						}
-					}
-				}
-			}
-		}(c)
-	}
 }
 
 func (node *Node) feedMempool(s *common.Snapshot) error {

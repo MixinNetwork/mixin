@@ -9,6 +9,7 @@ func Loop(store storage.Store, addr string, dir string) error {
 	if err != nil {
 		return err
 	}
+	node.syncSnapshots()
 	panicGo(node.ConsumeMempool)
 	panicGo(node.ConsumeQueue)
 	return node.ListenPeers()
@@ -18,6 +19,7 @@ func (node *Node) syncSnapshots() {
 	for _, p := range node.Peers {
 		node.readGraphHeadFromPeer(p)
 	}
+	node.syncrhoinized = true
 }
 
 // for each peer, read the nodes list

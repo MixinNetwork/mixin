@@ -36,6 +36,38 @@ type Message struct {
 	Data     []byte
 }
 
+func NewPeer(acc common.Address, addr string) *Peer {
+	return &Peer{
+		Account: acc,
+		Address: addr,
+		send:    make(chan []byte, 64),
+	}
+}
+
+func (p *Peer) Send(data []byte) error {
+	select {
+	case p.send <- data:
+		return nil
+	case <-time.After(1 * time.Second):
+		return errors.New("peer send timeout")
+	}
+}
+
+func (node *Node) ListenPeers() error {
+	err := node.transport.Listen()
+	if err != nil {
+		return err
+	}
+
+	for {
+		c, err := node.transport.Accept()
+		if err != nil {
+			return err
+		}
+		go node.acceptPeerStream(c)
+	}
+}
+
 func parseNetworkMessage(data []byte) (*Message, error) {
 	if len(data) < 1 {
 		return nil, errors.New("invalid message data")
@@ -79,24 +111,7 @@ func buildSnapshotMessage(ss *common.Snapshot) ([]byte, error) {
 	return append([]byte{MessageTypeSnapshot}, data...), nil
 }
 
-func NewPeer(acc common.Address, addr string) *Peer {
-	return &Peer{
-		Account: acc,
-		Address: addr,
-		send:    make(chan []byte, 64),
-	}
-}
-
-func (p *Peer) Send(data []byte) error {
-	select {
-	case p.send <- data:
-		return nil
-	case <-time.After(1 * time.Second):
-		return errors.New("peer send timeout")
-	}
-}
-
-func (node *Node) managePeerStream(peer *Peer) error {
+func (node *Node) openPeerStream(peer *Peer) error {
 	transport, err := network.NewQuicClient(peer.Address)
 	if err != nil {
 		return err
@@ -142,6 +157,43 @@ func (node *Node) managePeerStream(peer *Peer) error {
 			err := client.Send(buildPingMessage())
 			if err != nil {
 				return err
+			}
+		}
+	}
+}
+
+func (node *Node) acceptPeerStream(client network.Client) error {
+	defer client.Close()
+
+	peer, err := node.authenticatePeer(client)
+	if err != nil {
+		logger.Println("peer authentication error", err)
+		return err
+	}
+
+	for {
+		data, err := client.Receive()
+		if err != nil {
+			return err
+		}
+		msg, err := parseNetworkMessage(data)
+		if err != nil {
+			return err
+		}
+		logger.Println("NODE", msg.Type)
+		switch msg.Type {
+		case MessageTypePing:
+			err = client.Send(buildPongMessage())
+			if err != nil {
+				return err
+			}
+		case MessageTypeSnapshot:
+			payload := msg.Snapshot.Payload()
+			for _, s := range msg.Snapshot.Signatures {
+				if peer.Account.PublicSpendKey.Verify(payload, s) {
+					node.feedMempool(msg.Snapshot)
+					break
+				}
 			}
 		}
 	}

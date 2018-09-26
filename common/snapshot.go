@@ -1,7 +1,13 @@
 package common
 
 import (
+	"time"
+
 	"github.com/MixinNetwork/mixin/crypto"
+)
+
+const (
+	SnapshotRoundGap = uint64(3 * time.Second)
 )
 
 type Snapshot struct {
@@ -33,5 +39,10 @@ func (s *Snapshot) Payload() []byte {
 func SignSnapshot(s *Snapshot, spendKey crypto.Key) {
 	msg := s.Payload()
 	sig := spendKey.Sign(msg)
+	for _, es := range s.Signatures {
+		if es.String() == sig.String() {
+			return
+		}
+	}
 	s.Signatures = append(s.Signatures, sig)
 }

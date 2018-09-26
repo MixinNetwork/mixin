@@ -19,8 +19,10 @@ type Store interface {
 	SnapshotsLoadGenesis([]*common.Snapshot) error
 	SnapshotsGetUTXO(hash crypto.Hash, index int) (*common.UTXO, error)
 	SnapshotsCheckGhost(key crypto.Key) (bool, error)
-	SnapshotsListSince(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
+	SnapshotsListTopologySince(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	SnapshotsListForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error)
+	SnapshotsNodeList() ([]crypto.Hash, error)
+	SnapshotsRoundMetaForNode(nodeIdWithNetwork crypto.Hash) ([2]uint64, error)
 
 	QueueAdd(tx *common.SignedTransaction) error
 	QueuePoll(uint64, func(k uint64, v []byte) error) error

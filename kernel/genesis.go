@@ -70,7 +70,7 @@ func loadGenesis(store storage.Store, configDir string) (string, error) {
 			Outputs: []*common.Output{
 				{
 					Type:   common.OutputTypePledge,
-					Script: common.Script([]uint8{common.OperatorCmp, common.OperatorSum, MinimumNodeCount*2/3 + 1}),
+					Script: common.Script([]uint8{common.OperatorCmp, common.OperatorSum, uint8(len(gns)*2/3 + 1)}),
 					Amount: common.NewInteger(PledgeAmount),
 					Keys:   keys,
 					Mask:   R,

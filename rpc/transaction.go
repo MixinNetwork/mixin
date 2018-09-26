@@ -41,5 +41,5 @@ func listSnapshots(store storage.Store, params []interface{}) ([]*common.Snapsho
 		return nil, err
 	}
 
-	return store.SnapshotsListSince(offset, count)
+	return store.SnapshotsListTopologySince(offset, count)
 }

@@ -43,29 +43,31 @@ func (s *BadgerStore) SnapshotsNodeList() ([]crypto.Hash, error) {
 	return nodes, err
 }
 
-func (s *BadgerStore) SnapshotsRoundMetaForNode(nodeIdWithNetwork crypto.Hash) (uint64, uint64, error) {
+func (s *BadgerStore) SnapshotsRoundMetaForNode(nodeIdWithNetwork crypto.Hash) ([2]uint64, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
 	return readNodeRoundMeta(txn, nodeIdWithNetwork)
 }
 
-func readNodeRoundMeta(txn *badger.Txn, nodeIdWithNetwork crypto.Hash) (uint64, uint64, error) {
+func readNodeRoundMeta(txn *badger.Txn, nodeIdWithNetwork crypto.Hash) ([2]uint64, error) {
+	meta := [2]uint64{}
 	key := nodeRoundMetaKey(nodeIdWithNetwork)
 	item, err := txn.Get([]byte(key))
 	if err == badger.ErrKeyNotFound {
-		return 0, 0, nil
+		return meta, nil
 	}
 	if err != nil {
-		return 0, 0, err
+		return meta, err
 	}
 	ival, err := item.Value()
 	if err != nil {
-		return 0, 0, err
+		return meta, err
 	}
 	number := binary.BigEndian.Uint64(ival[:8])
 	start := binary.BigEndian.Uint64(ival[8:])
-	return number, start, nil
+	meta[0], meta[1] = number, start
+	return meta, nil
 }
 
 func (s *BadgerStore) SnapshotsListForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error) {
@@ -190,14 +192,15 @@ func saveSnapshot(topoCounter *TopologicalSequence, txn *badger.Txn, snapshot *c
 		return err
 	}
 
-	roundNumber, roundStart, err := readNodeRoundMeta(txn, snapshot.NodeId)
+	roundMeta, err := readNodeRoundMeta(txn, snapshot.NodeId)
 	if err != nil {
 		return err
 	}
+	roundNumber, roundStart := roundMeta[0], roundMeta[1]
 	if snapshot.RoundNumber < roundNumber {
 		return ErrorValidateFailed
 	}
-	if snapshot.RoundNumber == roundNumber && (snapshot.Timestamp-roundStart) >= 3*1e9 {
+	if snapshot.RoundNumber == roundNumber && (snapshot.Timestamp-roundStart) >= common.SnapshotRoundGap {
 		return ErrorValidateFailed
 	}
 
@@ -253,7 +256,12 @@ func saveSnapshot(topoCounter *TopologicalSequence, txn *badger.Txn, snapshot *c
 		return err
 	}
 
-	meta := append(key, byte(len(snapshot.References)))
+	// not related to consensus
+	seq := topoCounter.Next()
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, seq)
+	meta := append(key, buf...)
+	meta = append(meta, byte(len(snapshot.References)))
 	for _, ref := range snapshot.References {
 		meta = append(meta, ref[:]...)
 	}
@@ -261,9 +269,6 @@ func saveSnapshot(topoCounter *TopologicalSequence, txn *badger.Txn, snapshot *c
 	if err != nil {
 		return err
 	}
-
-	// not related to consensus
-	seq := topoCounter.Next()
 	return saveSnapshotTopology(txn, snapshot, seq)
 }
 

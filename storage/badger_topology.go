@@ -16,7 +16,7 @@ type TopologicalSequence struct {
 
 const snapshotsPrefixTopology = "TOPOLOGY" // local topological sorted snapshots, irreverlant to the consensus rule
 
-func (s *BadgerStore) SnapshotsListSince(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
+func (s *BadgerStore) SnapshotsListTopologySince(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	snapshots := make([]*common.SnapshotWithTopologicalOrder, 0)
 
 	err := s.snapshotsDB.View(func(txn *badger.Txn) error {

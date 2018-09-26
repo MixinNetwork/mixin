@@ -1,8 +1,45 @@
 package kernel
 
-import "github.com/MixinNetwork/mixin/crypto"
+import (
+	"encoding/binary"
 
-type RoundCache struct {
+	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/storage"
+)
+
+type Round struct {
+	NodeId crypto.Hash
+	Number uint64
+	Start  uint64
+	Hash   crypto.Hash
+}
+
+func loadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*Round, error) {
+	meta, err := store.SnapshotsRoundMetaForNode(nodeIdWithNetwork)
+	if err != nil {
+		return nil, err
+	}
+
+	round := &Round{
+		NodeId: nodeIdWithNetwork,
+		Number: meta[0],
+		Start:  meta[1],
+	}
+
+	snapshots, err := store.SnapshotsListForNodeRound(round.NodeId, round.Number)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, round.Number)
+	hashes := append(round.NodeId[:], buf...)
+	for _, s := range snapshots {
+		h := crypto.NewHash(s.Payload())
+		hashes = append(hashes, h[:]...)
+	}
+	round.Hash = crypto.NewHash(hashes)
+	return round, nil
 }
 
 func (node *Node) loadRound() error {
