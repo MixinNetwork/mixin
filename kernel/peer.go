@@ -40,7 +40,7 @@ func NewPeer(acc common.Address, addr string) *Peer {
 	return &Peer{
 		Account: acc,
 		Address: addr,
-		send:    make(chan []byte, 64),
+		send:    make(chan []byte, 8192),
 	}
 }
 
@@ -106,9 +106,9 @@ func buildPongMessage() []byte {
 	return []byte{MessageTypePong}
 }
 
-func buildSnapshotMessage(ss *common.Snapshot) ([]byte, error) {
+func buildSnapshotMessage(ss *common.Snapshot) []byte {
 	data := common.MsgpackMarshalPanic(ss)
-	return append([]byte{MessageTypeSnapshot}, data...), nil
+	return append([]byte{MessageTypeSnapshot}, data...)
 }
 
 func (node *Node) openPeerStream(peer *Peer) error {
@@ -222,7 +222,7 @@ func (node *Node) authenticatePeer(client network.Client) (*Peer, error) {
 			auth <- errors.New("peer authentication message timeout")
 			return
 		}
-		for _, p := range node.Peers {
+		for _, p := range node.ConsensusPeers {
 			hash := p.Account.Hash()
 			if !bytes.Equal(hash[:], msg.Data[8:40]) {
 				continue

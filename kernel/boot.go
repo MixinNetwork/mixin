@@ -16,7 +16,7 @@ func Loop(store storage.Store, addr string, dir string) error {
 }
 
 func (node *Node) syncSnapshots() {
-	for _, p := range node.Peers {
+	for _, p := range node.ConsensusPeers {
 		node.readGraphHeadFromPeer(p)
 	}
 	node.syncrhoinized = true

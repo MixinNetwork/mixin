@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
-	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/vmihailenco/msgpack"
 )
@@ -32,11 +31,10 @@ func (node *Node) ConsumeQueue() error {
 				return err
 			}
 			log.Println(k, tx)
-			s, err := node.buildSnapshot(&tx)
-			if err != nil {
-				return err
-			}
-			err = node.feedMempool(s)
+			err = node.feedMempool(&common.Snapshot{
+				NodeId:      node.IdForNetwork,
+				Transaction: &tx,
+			})
 			if err != nil {
 				return err
 			}
@@ -49,16 +47,4 @@ func (node *Node) ConsumeQueue() error {
 		time.Sleep(100 * time.Millisecond)
 	}
 	return nil
-}
-
-func (node *Node) buildSnapshot(tx *common.SignedTransaction) (*common.Snapshot, error) {
-	snapshot := &common.Snapshot{
-		NodeId:      node.IdForNetwork(),
-		Transaction: tx,
-		References:  []crypto.Hash{node.RoundHash, node.Graph.BestFinal.Hash},
-		RoundNumber: node.RoundNumber,
-		Timestamp:   uint64(time.Now().UnixNano()),
-	}
-	common.SignSnapshot(snapshot, node.Account.PrivateSpendKey)
-	return snapshot, nil
 }

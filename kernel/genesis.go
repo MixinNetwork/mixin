@@ -20,16 +20,16 @@ type Genesis []struct {
 	Mask    string          `json:"mask"`
 }
 
-func (node *Node) loadGenesis(configDir string) (string, error) {
+func (node *Node) loadGenesis(configDir string) (crypto.Hash, error) {
 	const stateKeyNetwork = "network"
 
 	gns, err := readGenesis(configDir + "/genesis.json")
 	if err != nil {
-		return "", err
+		return crypto.Hash{}, err
 	}
 	data, err := json.Marshal(gns)
 	if err != nil {
-		return "", err
+		return crypto.Hash{}, err
 	}
 	networkId := crypto.NewHash(data)
 
@@ -38,13 +38,13 @@ func (node *Node) loadGenesis(configDir string) (string, error) {
 	}
 	found, err := node.store.StateGet(stateKeyNetwork, &network)
 	if err != nil {
-		return "", err
+		return crypto.Hash{}, err
 	}
 	if network.Id.String() == networkId.String() {
-		return networkId.String(), nil
+		return networkId, nil
 	}
 	if found {
-		return "", fmt.Errorf("invalid genesis for network %s", network.Id.String())
+		return crypto.Hash{}, fmt.Errorf("invalid genesis for network %s", network.Id.String())
 	}
 
 	var snapshots []*common.SnapshotWithTopologicalOrder
@@ -108,11 +108,11 @@ func (node *Node) loadGenesis(configDir string) (string, error) {
 	}
 	err = node.store.SnapshotsLoadGenesis(snapshots)
 	if err != nil {
-		return "", err
+		return crypto.Hash{}, err
 	}
 
 	network.Id = networkId
-	return networkId.String(), node.store.StateSet(stateKeyNetwork, network)
+	return networkId, node.store.StateSet(stateKeyNetwork, network)
 }
 
 func readGenesis(path string) (Genesis, error) {

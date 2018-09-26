@@ -39,7 +39,7 @@ func (s *BadgerStore) SnapshotsListTopologySince(topologyOffset, count uint64) (
 	return snapshots, err
 }
 
-func saveSnapshotTopology(txn *badger.Txn, s *common.SnapshotWithTopologicalOrder) error {
+func writeSnapshotTopology(txn *badger.Txn, s *common.SnapshotWithTopologicalOrder) error {
 	key := topologyKey(s.TopologicalOrder)
 	val := common.MsgpackMarshalPanic(s)
 	return txn.Set(key, val)

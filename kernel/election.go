@@ -41,8 +41,8 @@ func (node *Node) managePeersList() error {
 		}
 		peers = append(peers, NewPeer(acc, in.Host))
 	}
-	node.Peers = peers
-	for _, p := range node.Peers {
+	node.ConsensusPeers = peers
+	for _, p := range node.ConsensusPeers {
 		if p.Account.String() == node.Account.String() {
 			continue
 		}

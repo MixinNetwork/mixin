@@ -147,7 +147,7 @@ func (s *BadgerStore) SnapshotsLoadGenesis(snapshots []*common.SnapshotWithTopol
 		}
 
 		for _, snap := range snapshots {
-			err := saveSnapshot(txn, snap, true)
+			err := writeSnapshot(txn, snap, true)
 			if err != nil {
 				return err
 			}
@@ -193,7 +193,13 @@ func readSnapshotByTransactionHash(txn *badger.Txn, hash crypto.Hash) (*common.S
 	return &s, err
 }
 
-func saveSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrder, genesis bool) error {
+func (s *BadgerStore) SnapshotsWrite(snapshot *common.SnapshotWithTopologicalOrder) error {
+	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
+		return writeSnapshot(txn, snapshot, false)
+	})
+}
+
+func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrder, genesis bool) error {
 	_, err := txn.Get(snapshotKey(snapshot.Transaction.Hash()))
 	if err == nil {
 		return nil
@@ -207,13 +213,13 @@ func saveSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrder
 	}
 	roundNumber, roundStart := roundMeta[0], roundMeta[1]
 	if snapshot.RoundNumber < roundNumber || snapshot.RoundNumber > roundNumber+1 {
-		return ErrorValidateFailed
+		panic("ErrorValidateFailed")
 	}
 	if snapshot.RoundNumber == roundNumber && (snapshot.Timestamp-roundStart) >= common.SnapshotRoundGap {
-		return ErrorValidateFailed
+		panic("ErrorValidateFailed")
 	}
 	if snapshot.RoundNumber == roundNumber+1 && (snapshot.Timestamp-roundStart) < common.SnapshotRoundGap {
-		return ErrorValidateFailed
+		panic("ErrorValidateFailed")
 	}
 	if snapshot.RoundNumber == roundNumber+1 || (snapshot.RoundNumber == 0 && genesis) {
 		err = writeNodeRoundMeta(txn, snapshot.NodeId, snapshot.RoundNumber, snapshot.Timestamp)
@@ -229,7 +235,7 @@ func saveSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrder
 		key := utxoKey(in.Hash, in.Index)
 		_, err := txn.Get(key)
 		if err == badger.ErrKeyNotFound {
-			return ErrorValidateFailed
+			panic("ErrorValidateFailed")
 		} else if err != nil {
 			return err
 		}
@@ -244,7 +250,7 @@ func saveSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrder
 			key := ghostKey(k)
 			_, err := txn.Get(key)
 			if err == nil {
-				return ErrorValidateFailed
+				panic("ErrorValidateFailed")
 			} else if err != badger.ErrKeyNotFound {
 				return err
 			}
@@ -264,7 +270,7 @@ func saveSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrder
 	key := graphKey(snapshot.NodeId, snapshot.RoundNumber, snapshot.Timestamp)
 	_, err = txn.Get(key)
 	if err == nil {
-		return ErrorValidateFailed
+		panic("ErrorValidateFailed")
 	} else if err != badger.ErrKeyNotFound {
 		return err
 	}
@@ -287,7 +293,7 @@ func saveSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrder
 	if err != nil {
 		return err
 	}
-	return saveSnapshotTopology(txn, snapshot)
+	return writeSnapshotTopology(txn, snapshot)
 }
 
 func snapshotKey(transactionHash crypto.Hash) []byte {
