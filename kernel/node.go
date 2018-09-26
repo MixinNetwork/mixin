@@ -17,11 +17,12 @@ const (
 type Node struct {
 	Account     common.Address
 	Peers       []*Peer
-	RoundPeer   *Peer
 	RoundHash   crypto.Hash
 	RoundNumber uint64
 	Timestamp   uint64
 	Address     string
+	Graph       *RoundGraph
+	TopoCounter *TopologicalSequence
 
 	syncrhoinized bool
 	networkId     crypto.Hash
@@ -39,9 +40,10 @@ func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		mempoolChan: make(chan *common.Snapshot, MempoolSize),
 		filter:      make(map[crypto.Hash]bool),
 		configDir:   dir,
+		TopoCounter: getTopologyCounter(store),
 	}
 
-	networkId, err := loadGenesis(store, dir)
+	networkId, err := node.loadGenesis(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +56,11 @@ func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	graph, err := loadRoundGraph(node.store)
+	if err != nil {
+		return nil, err
+	}
+	node.Graph = graph
 
 	transport, err := network.NewQuicServer(addr, node.Account.PrivateSpendKey)
 	if err != nil {
@@ -100,10 +107,6 @@ func (node *Node) loadNodeStateFromStore() error {
 		return err
 	}
 	node.Account = acc
-	return nil
-}
-
-func (node *Node) loadGraphHead() error {
 	return nil
 }
 

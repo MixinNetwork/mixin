@@ -2,17 +2,11 @@ package storage
 
 import (
 	"encoding/binary"
-	"sync"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/dgraph-io/badger"
 	"github.com/vmihailenco/msgpack"
 )
-
-type TopologicalSequence struct {
-	sync.Mutex
-	seq uint64
-}
 
 const snapshotsPrefixTopology = "TOPOLOGY" // local topological sorted snapshots, irreverlant to the consensus rule
 
@@ -45,24 +39,16 @@ func (s *BadgerStore) SnapshotsListTopologySince(topologyOffset, count uint64) (
 	return snapshots, err
 }
 
-func saveSnapshotTopology(txn *badger.Txn, s *common.Snapshot, seq uint64) error {
-	key := topologyKey(seq)
+func saveSnapshotTopology(txn *badger.Txn, s *common.SnapshotWithTopologicalOrder) error {
+	key := topologyKey(s.TopologicalOrder)
 	val := common.MsgpackMarshalPanic(s)
 	return txn.Set(key, val)
 }
 
-func (c *TopologicalSequence) Next() uint64 {
-	c.Lock()
-	defer c.Unlock()
-	next := c.seq
-	c.seq = c.seq + 1
-	return next
-}
+func (s *BadgerStore) SnapshotsTopologySequence() uint64 {
+	var sequence uint64
 
-func getTopologyCounter(db *badger.DB) *TopologicalSequence {
-	c := &TopologicalSequence{}
-
-	txn := db.NewTransaction(false)
+	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
 	opts := badger.DefaultIteratorOptions
@@ -76,9 +62,9 @@ func getTopologyCounter(db *badger.DB) *TopologicalSequence {
 	if it.ValidForPrefix([]byte(snapshotsPrefixTopology)) {
 		it.Next()
 		item := it.Item()
-		c.seq = topologyOrder(item.Key()) + 1
+		sequence = topologyOrder(item.Key()) + 1
 	}
-	return c
+	return sequence
 }
 
 func topologyKey(order uint64) []byte {

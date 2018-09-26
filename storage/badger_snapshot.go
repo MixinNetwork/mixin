@@ -10,11 +10,12 @@ import (
 )
 
 const (
-	snapshotsPrefixSnapshot = "SNAPSHOT" // transaction hash to snapshot meta, mainly node and consensus timestamp
-	snapshotsPrefixGraph    = "GRAPH"    // consensus directed asyclic graph data store
-	snapshotsPrefixUTXO     = "UTXO"     // unspent outputs, will be deleted once consumed
-	snapshotsPrefixNode     = "NODE"     // node specific info, e.g. round number, round hash
-	snapshotsPrefixGhost    = "GHOST"    // each output key should only be used once
+	snapshotsPrefixSnapshot  = "SNAPSHOT"  // transaction hash to snapshot meta, mainly node and consensus timestamp
+	snapshotsPrefixGraph     = "GRAPH"     // consensus directed asyclic graph data store
+	snapshotsPrefixUTXO      = "UTXO"      // unspent outputs, will be deleted once consumed
+	snapshotsPrefixNodeRound = "NODEROUND" // node specific info, e.g. round number, round hash
+	snapshotsPrefixNodeHash  = "NODEHASH"  // hash to round number map
+	snapshotsPrefixGhost     = "GHOST"     // each output key should only be used once
 )
 
 func (s *BadgerStore) SnapshotsNodeList() ([]crypto.Hash, error) {
@@ -26,10 +27,10 @@ func (s *BadgerStore) SnapshotsNodeList() ([]crypto.Hash, error) {
 		defer it.Close()
 
 		filter := make(map[string]bool)
-		for it.Seek([]byte(snapshotsPrefixNode)); it.ValidForPrefix([]byte(snapshotsPrefixNode)); it.Next() {
+		for it.Seek([]byte(snapshotsPrefixNodeRound)); it.ValidForPrefix([]byte(snapshotsPrefixNodeRound)); it.Next() {
 			var hash crypto.Hash
 			key := it.Item().Key()
-			id := key[len(snapshotsPrefixNode) : len(snapshotsPrefixNode)+len(hash)]
+			id := key[len(snapshotsPrefixNodeRound) : len(snapshotsPrefixNodeRound)+len(hash)]
 			copy(hash[:], id)
 			if filter[hash.String()] {
 				continue
@@ -68,6 +69,14 @@ func readNodeRoundMeta(txn *badger.Txn, nodeIdWithNetwork crypto.Hash) ([2]uint6
 	start := binary.BigEndian.Uint64(ival[8:])
 	meta[0], meta[1] = number, start
 	return meta, nil
+}
+
+func writeNodeRoundMeta(txn *badger.Txn, nodeIdWithNetwork crypto.Hash, number, start uint64) error {
+	buf := make([]byte, 16)
+	binary.BigEndian.PutUint64(buf, number)
+	binary.BigEndian.PutUint64(buf[8:], start)
+	key := nodeRoundMetaKey(nodeIdWithNetwork)
+	return txn.Set(key, buf)
 }
 
 func (s *BadgerStore) SnapshotsListForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error) {
@@ -131,14 +140,14 @@ func (s *BadgerStore) SnapshotsCheckGhost(key crypto.Key) (bool, error) {
 	return true, nil
 }
 
-func (s *BadgerStore) SnapshotsLoadGenesis(snapshots []*common.Snapshot) error {
+func (s *BadgerStore) SnapshotsLoadGenesis(snapshots []*common.SnapshotWithTopologicalOrder) error {
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		if checkGenesisLoad(txn) {
 			return nil
 		}
 
 		for _, snap := range snapshots {
-			err := saveSnapshot(s.seqSource, txn, snap, true)
+			err := saveSnapshot(txn, snap, true)
 			if err != nil {
 				return err
 			}
@@ -184,7 +193,7 @@ func readSnapshotByTransactionHash(txn *badger.Txn, hash crypto.Hash) (*common.S
 	return &s, err
 }
 
-func saveSnapshot(topoCounter *TopologicalSequence, txn *badger.Txn, snapshot *common.Snapshot, genesis bool) error {
+func saveSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrder, genesis bool) error {
 	_, err := txn.Get(snapshotKey(snapshot.Transaction.Hash()))
 	if err == nil {
 		return nil
@@ -197,11 +206,20 @@ func saveSnapshot(topoCounter *TopologicalSequence, txn *badger.Txn, snapshot *c
 		return err
 	}
 	roundNumber, roundStart := roundMeta[0], roundMeta[1]
-	if snapshot.RoundNumber < roundNumber {
+	if snapshot.RoundNumber < roundNumber || snapshot.RoundNumber > roundNumber+1 {
 		return ErrorValidateFailed
 	}
 	if snapshot.RoundNumber == roundNumber && (snapshot.Timestamp-roundStart) >= common.SnapshotRoundGap {
 		return ErrorValidateFailed
+	}
+	if snapshot.RoundNumber == roundNumber+1 && (snapshot.Timestamp-roundStart) < common.SnapshotRoundGap {
+		return ErrorValidateFailed
+	}
+	if snapshot.RoundNumber == roundNumber+1 || (snapshot.RoundNumber == 0 && genesis) {
+		err = writeNodeRoundMeta(txn, snapshot.NodeId, snapshot.RoundNumber, snapshot.Timestamp)
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, in := range snapshot.Transaction.Inputs {
@@ -257,7 +275,7 @@ func saveSnapshot(topoCounter *TopologicalSequence, txn *badger.Txn, snapshot *c
 	}
 
 	// not related to consensus
-	seq := topoCounter.Next()
+	seq := snapshot.TopologicalOrder
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, seq)
 	meta := append(key, buf...)
@@ -269,7 +287,7 @@ func saveSnapshot(topoCounter *TopologicalSequence, txn *badger.Txn, snapshot *c
 	if err != nil {
 		return err
 	}
-	return saveSnapshotTopology(txn, snapshot, seq)
+	return saveSnapshotTopology(txn, snapshot)
 }
 
 func snapshotKey(transactionHash crypto.Hash) []byte {
@@ -279,7 +297,7 @@ func snapshotKey(transactionHash crypto.Hash) []byte {
 func graphKey(nodeIdWithNetwork crypto.Hash, round, ts uint64) []byte {
 	buf := make([]byte, 16)
 	binary.BigEndian.PutUint64(buf, round)
-	binary.BigEndian.PutUint64(buf, ts)
+	binary.BigEndian.PutUint64(buf[8:], ts)
 	key := append([]byte(snapshotsPrefixGraph), nodeIdWithNetwork[:]...)
 	return append(key, buf...)
 }
@@ -292,8 +310,7 @@ func utxoKey(hash crypto.Hash, index int) []byte {
 }
 
 func nodeRoundMetaKey(nodeIdWithNetwork crypto.Hash) []byte {
-	key := append([]byte(snapshotsPrefixNode), nodeIdWithNetwork[:]...)
-	return append(key, []byte("ROUND")...)
+	return append([]byte(snapshotsPrefixNodeRound), nodeIdWithNetwork[:]...)
 }
 
 func ghostKey(k crypto.Key) []byte {

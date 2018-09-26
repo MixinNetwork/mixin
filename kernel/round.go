@@ -2,19 +2,92 @@ package kernel
 
 import (
 	"encoding/binary"
+	"fmt"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
 )
 
 type Round struct {
-	NodeId crypto.Hash
-	Number uint64
-	Start  uint64
-	Hash   crypto.Hash
+	NodeId crypto.Hash `msgpack:"N"`
+	Number uint64      `msgpack:"R"`
+	Start  uint64      `msgpack:"T"`
 }
 
-func loadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*Round, error) {
+type RoundWithHash struct {
+	Round
+	Hash crypto.Hash
+}
+
+type RoundGraph struct {
+	Nodes      []crypto.Hash
+	CacheRound map[crypto.Hash]*Round
+	FinalRound map[crypto.Hash]*RoundWithHash
+	BestFinal  *RoundWithHash
+}
+
+func (g *RoundGraph) Print() string {
+	desc := "ROUND GRAPH\n"
+	for _, id := range g.Nodes {
+		desc = desc + fmt.Sprintf("NODE# %s\n", id)
+		final := g.FinalRound[id]
+		desc = desc + fmt.Sprintf("FINAL %d %d %s\n", final.Number, final.Start, final.Hash)
+		cache := g.CacheRound[id]
+		if cache == nil {
+			desc = desc + "CACHE NIL\n"
+		} else {
+			desc = desc + fmt.Sprintf("CACHE %d %d\n", cache.Number, cache.Start)
+		}
+	}
+	desc = desc + fmt.Sprintf("BEST# %s", g.BestFinal.NodeId)
+	return desc
+}
+
+func loadRoundGraph(store storage.Store) (*RoundGraph, error) {
+	graph := &RoundGraph{
+		CacheRound: make(map[crypto.Hash]*Round),
+		FinalRound: make(map[crypto.Hash]*RoundWithHash),
+	}
+	nodes, err := store.SnapshotsNodeList()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, id := range nodes {
+		graph.Nodes = append(graph.Nodes, id)
+
+		cache, err := loadHeadRoundForNode(store, id)
+		if err != nil {
+			return nil, err
+		}
+		graph.CacheRound[cache.NodeId] = cache
+
+		finalRoundNumber := cache.Number - 1
+		if cache.Number == 0 {
+			finalRoundNumber = cache.Number
+			delete(graph.CacheRound, cache.NodeId)
+		}
+		final, err := loadFinalRoundForNode(store, id, finalRoundNumber)
+		if err != nil {
+			return nil, err
+		}
+		graph.FinalRound[final.NodeId] = final
+		graph.BestFinal = final
+	}
+
+	for _, r := range graph.FinalRound {
+		if r.Start > graph.BestFinal.Start {
+			graph.BestFinal = r
+			break
+		}
+	}
+
+	logger.Println("\n" + graph.Print())
+	return graph, nil
+}
+
+func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*Round, error) {
 	meta, err := store.SnapshotsRoundMetaForNode(nodeIdWithNetwork)
 	if err != nil {
 		return nil, err
@@ -25,56 +98,33 @@ func loadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*Roun
 		Number: meta[0],
 		Start:  meta[1],
 	}
+	return round, nil
+}
 
-	snapshots, err := store.SnapshotsListForNodeRound(round.NodeId, round.Number)
+func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, number uint64) (*RoundWithHash, error) {
+	snapshots, err := store.SnapshotsListForNodeRound(nodeIdWithNetwork, number)
 	if err != nil {
 		return nil, err
 	}
 
+	start := ^uint64(0)
 	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, round.Number)
-	hashes := append(round.NodeId[:], buf...)
+	binary.BigEndian.PutUint64(buf, number)
+	hashes := append(nodeIdWithNetwork[:], buf...)
 	for _, s := range snapshots {
 		h := crypto.NewHash(s.Payload())
 		hashes = append(hashes, h[:]...)
+		if s.Timestamp < start {
+			start = s.Timestamp
+		}
 	}
-	round.Hash = crypto.NewHash(hashes)
+	round := &RoundWithHash{
+		Round: Round{
+			NodeId: nodeIdWithNetwork,
+			Number: number,
+			Start:  start,
+		},
+		Hash: crypto.NewHash(hashes),
+	}
 	return round, nil
-}
-
-func (node *Node) loadRound() error {
-	snapshots, err := node.store.SnapshotsListForNodeRound(node.IdForNetwork(), node.RoundNumber)
-	if err != nil {
-		return err
-	}
-
-	var hashes []byte
-	for _, s := range snapshots {
-		h := crypto.NewHash(s.Payload())
-		hashes = append(hashes, h[:]...)
-	}
-	node.RoundHash = crypto.NewHash(hashes)
-	return nil
-}
-
-func (node *Node) loadRoundForPeer(peer *Peer) (crypto.Hash, error) {
-	peerId := peer.Account.Hash()
-	networkId := node.networkId
-	peerIdForNetwork := crypto.NewHash(append(networkId[:], peerId[:]...))
-
-	snapshots, err := node.store.SnapshotsListForNodeRound(peerIdForNetwork, peer.RoundNumber)
-	if err != nil {
-		return crypto.Hash{}, err
-	}
-
-	var hashes []byte
-	for _, s := range snapshots {
-		h := crypto.NewHash(s.Payload())
-		hashes = append(hashes, h[:]...)
-	}
-	return crypto.NewHash(hashes), nil
-}
-
-func (node *Node) commitRound() error {
-	return nil
 }

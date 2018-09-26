@@ -7,7 +7,6 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/storage"
 )
 
 const (
@@ -21,7 +20,7 @@ type Genesis []struct {
 	Mask    string          `json:"mask"`
 }
 
-func loadGenesis(store storage.Store, configDir string) (string, error) {
+func (node *Node) loadGenesis(configDir string) (string, error) {
 	const stateKeyNetwork = "network"
 
 	gns, err := readGenesis(configDir + "/genesis.json")
@@ -37,7 +36,7 @@ func loadGenesis(store storage.Store, configDir string) (string, error) {
 	var network struct {
 		Id crypto.Hash
 	}
-	found, err := store.StateGet(stateKeyNetwork, &network)
+	found, err := node.store.StateGet(stateKeyNetwork, &network)
 	if err != nil {
 		return "", err
 	}
@@ -48,7 +47,7 @@ func loadGenesis(store storage.Store, configDir string) (string, error) {
 		return "", fmt.Errorf("invalid genesis for network %s", network.Id.String())
 	}
 
-	var snapshots []*common.Snapshot
+	var snapshots []*common.SnapshotWithTopologicalOrder
 	for i, in := range gns {
 		r := crypto.NewKeyFromSeed([]byte(in.Mask))
 		R := r.Public()
@@ -95,21 +94,25 @@ func loadGenesis(store storage.Store, configDir string) (string, error) {
 		signed := &common.SignedTransaction{Transaction: tx}
 		nodeId := in.Address.Hash()
 		nodeId = crypto.NewHash(append(networkId[:], nodeId[:]...))
-		snapshot := &common.Snapshot{
+		snapshot := common.Snapshot{
 			NodeId:      nodeId,
 			Transaction: signed,
 			RoundNumber: 0,
 			Timestamp:   0,
 		}
-		snapshots = append(snapshots, snapshot)
+		topo := &common.SnapshotWithTopologicalOrder{
+			Snapshot:         snapshot,
+			TopologicalOrder: node.TopoCounter.Next(),
+		}
+		snapshots = append(snapshots, topo)
 	}
-	err = store.SnapshotsLoadGenesis(snapshots)
+	err = node.store.SnapshotsLoadGenesis(snapshots)
 	if err != nil {
 		return "", err
 	}
 
 	network.Id = networkId
-	return networkId.String(), store.StateSet(stateKeyNetwork, network)
+	return networkId.String(), node.store.StateSet(stateKeyNetwork, network)
 }
 
 func readGenesis(path string) (Genesis, error) {

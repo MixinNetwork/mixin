@@ -8,7 +8,6 @@ type BadgerStore struct {
 	snapshotsDB *badger.DB
 	queueDB     *badger.DB
 	stateDB     *badger.DB
-	seqSource   *TopologicalSequence
 }
 
 func NewBadgerStore(dir string) (*BadgerStore, error) {
@@ -16,7 +15,6 @@ func NewBadgerStore(dir string) (*BadgerStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	seqSource := getTopologyCounter(snapshotsDB)
 	queueDB, err := openDB(dir+"/queue", false)
 	if err != nil {
 		return nil, err
@@ -29,7 +27,6 @@ func NewBadgerStore(dir string) (*BadgerStore, error) {
 		snapshotsDB: snapshotsDB,
 		queueDB:     queueDB,
 		stateDB:     stateDB,
-		seqSource:   seqSource,
 	}, nil
 }
 

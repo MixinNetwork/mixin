@@ -55,7 +55,7 @@ func (node *Node) buildSnapshot(tx *common.SignedTransaction) (*common.Snapshot,
 	snapshot := &common.Snapshot{
 		NodeId:      node.IdForNetwork(),
 		Transaction: tx,
-		References:  []crypto.Hash{node.RoundHash, node.RoundPeer.RoundHash},
+		References:  []crypto.Hash{node.RoundHash, node.Graph.BestFinal.Hash},
 		RoundNumber: node.RoundNumber,
 		Timestamp:   uint64(time.Now().UnixNano()),
 	}

@@ -16,7 +16,8 @@ type Store interface {
 	StateGet(key string, val interface{}) (bool, error)
 	StateSet(key string, val interface{}) error
 
-	SnapshotsLoadGenesis([]*common.Snapshot) error
+	SnapshotsLoadGenesis([]*common.SnapshotWithTopologicalOrder) error
+	SnapshotsTopologySequence() uint64
 	SnapshotsGetUTXO(hash crypto.Hash, index int) (*common.UTXO, error)
 	SnapshotsCheckGhost(key crypto.Key) (bool, error)
 	SnapshotsListTopologySince(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
