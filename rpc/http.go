@@ -58,6 +58,13 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		} else {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"id": id})
 		}
+	case "getsnapshot":
+		snap, err := getSnapshot(impl.Store, call.Params)
+		if err != nil {
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
+		} else {
+			render.New().JSON(w, http.StatusOK, snap)
+		}
 	case "listsnapshots":
 		snapshots, err := listSnapshots(impl.Store, call.Params)
 		if err != nil {

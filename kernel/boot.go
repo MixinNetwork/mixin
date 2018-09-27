@@ -1,6 +1,8 @@
 package kernel
 
 import (
+	"time"
+
 	"github.com/MixinNetwork/mixin/storage"
 )
 
@@ -9,16 +11,17 @@ func Loop(store storage.Store, addr string, dir string) error {
 	if err != nil {
 		return err
 	}
+	panicGo(node.ListenPeers)
 	node.syncSnapshots()
 	panicGo(node.ConsumeMempool)
-	panicGo(node.ConsumeQueue)
-	return node.ListenPeers()
+	return node.ConsumeQueue()
 }
 
 func (node *Node) syncSnapshots() {
 	for _, p := range node.ConsensusPeers {
 		node.readGraphHeadFromPeer(p)
 	}
+	time.Sleep(1 * time.Second)
 	node.syncrhoinized = true
 }
 

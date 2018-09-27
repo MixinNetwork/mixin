@@ -5,6 +5,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 )
 
 func (node *Node) feedMempool(s *common.Snapshot) error {
@@ -30,14 +31,11 @@ func (node *Node) ConsumeMempool() error {
 }
 
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
-	hash := s.Transaction.Hash()
-	if !node.transactionsFilter[hash] {
-		err := s.Transaction.Validate(node.store.SnapshotsGetUTXO, node.store.SnapshotsCheckGhost)
-		if err != nil {
-			return nil
-		}
+	err := s.Transaction.Validate(node.store.SnapshotsGetUTXO, node.store.SnapshotsCheckGhost)
+	if err != nil {
+		logger.Println("VALIDATE TRANSACTION", err)
+		return nil
 	}
-	node.transactionsFilter[hash] = true
 
 	if len(s.Signatures) == 0 {
 		return node.signSnapshot(s)
@@ -50,15 +48,21 @@ func (node *Node) verifyReferences(s *common.Snapshot) bool {
 	if len(s.References) != 2 {
 		return false
 	}
-	if s.References[0].String() == s.References[1].String() {
+	ref0, ref1 := s.References[0], s.References[1]
+	if ref0 == ref1 {
 		return false
 	}
 
-	filter := make(map[crypto.Hash]bool)
-	for _, final := range node.Graph.FinalRound {
-		filter[final.Hash] = true
+	if ref0 != node.Graph.FinalRound[s.NodeId].Hash {
+		return false
 	}
-	return filter[s.References[0]] && filter[s.References[1]]
+
+	for _, final := range node.Graph.FinalRound {
+		if final.Hash == ref1 {
+			return true
+		}
+	}
+	return false
 }
 
 func (node *Node) verifyFinalization(s *common.Snapshot) bool {
@@ -74,11 +78,12 @@ func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 	}
 	validSigs = validSigs + 1
 
-	consensusThreshold := (len(node.ConsensusPeers)+1)/2*3 + 1
+	consensusThreshold := (len(node.ConsensusPeers)+1)*2/3 + 1
 	return validSigs >= consensusThreshold
 }
 
 func (node *Node) verifySnapshot(s *common.Snapshot) error {
+	logger.Println("VERIFY SNAPSHOT", *s)
 	cache := node.Graph.CacheRound[s.NodeId]
 	if s.RoundNumber < cache.Number {
 		return nil
@@ -90,7 +95,10 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 		return nil
 	}
 	if s.Timestamp-cache.Start >= common.SnapshotRoundGap {
-		return nil
+		if len(cache.Snapshots) > 0 {
+			return nil
+		}
+		cache.Start = s.Timestamp
 	}
 
 	if !node.verifyReferences(s) {
@@ -122,7 +130,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 }
 
 func (node *Node) signSnapshot(s *common.Snapshot) error {
-	if s.NodeId.String() != node.IdForNetwork.String() {
+	if s.NodeId != node.IdForNetwork {
 		return nil
 	}
 
@@ -140,6 +148,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 		if len(round.Snapshots) == 0 {
 			round.Start = s.Timestamp
 		} else {
+			panic("should queue if pending round full")
 			final = round.asFinal()
 			round = &CacheRound{
 				NodeId: s.NodeId,
@@ -152,11 +161,11 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 
 	best := final
 	for _, r := range node.Graph.FinalRound {
-		if r.Start >= best.Start && r.NodeId.String() != s.NodeId.String() {
+		if r.Start >= best.Start && r.NodeId != s.NodeId && r.End < uint64(time.Now().UnixNano()) {
 			best = r
 		}
 	}
-	if best.NodeId.String() == node.IdForNetwork.String() {
+	if best.NodeId == final.NodeId {
 		panic(node.IdForNetwork.String())
 	}
 
@@ -166,6 +175,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 
 	node.Graph.CacheRound[s.NodeId] = round
 	node.Graph.FinalRound[s.NodeId] = final
+	logger.Println(node.Graph.Print())
 
 	for _, p := range node.ConsensusPeers {
 		err := p.Send(buildSnapshotMessage(s))

@@ -15,10 +15,11 @@ import (
 )
 
 type Peer struct {
-	Account     common.Address
-	Address     string
-	RoundNumber uint64
-	RoundHash   crypto.Hash
+	IdForNetwork crypto.Hash
+	Account      common.Address
+	Address      string
+	RoundNumber  uint64
+	RoundHash    crypto.Hash
 
 	send chan []byte
 }
@@ -112,6 +113,7 @@ func buildSnapshotMessage(ss *common.Snapshot) []byte {
 }
 
 func (node *Node) openPeerStream(peer *Peer) error {
+	logger.Println("OPEN PEER STREAM", peer.Address)
 	transport, err := network.NewQuicClient(peer.Address)
 	if err != nil {
 		return err
@@ -121,11 +123,13 @@ func (node *Node) openPeerStream(peer *Peer) error {
 		return err
 	}
 	defer client.Close()
+	logger.Println("DIAL PEER STREAM", peer.Address)
 
 	err = client.Send(buildAuthenticationMessage(node.Account))
 	if err != nil {
 		return err
 	}
+	logger.Println("AUTH PEER STREAM", peer.Address)
 
 	go func() error {
 		defer client.Close()
@@ -135,17 +139,17 @@ func (node *Node) openPeerStream(peer *Peer) error {
 			if err != nil {
 				return err
 			}
-			msg, err := parseNetworkMessage(data)
+			_, err = parseNetworkMessage(data)
 			if err != nil {
 				return err
 			}
-			logger.Println("PEER", msg.Type)
 		}
 	}()
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
+	logger.Println("LOOP PEER STREAM", peer.Address)
 	for {
 		select {
 		case msg := <-peer.send:
@@ -180,7 +184,6 @@ func (node *Node) acceptPeerStream(client network.Client) error {
 		if err != nil {
 			return err
 		}
-		logger.Println("NODE", msg.Type)
 		switch msg.Type {
 		case MessageTypePing:
 			err = client.Send(buildPongMessage())

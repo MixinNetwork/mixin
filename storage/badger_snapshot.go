@@ -26,16 +26,16 @@ func (s *BadgerStore) SnapshotsNodeList() ([]crypto.Hash, error) {
 		it := txn.NewIterator(opts)
 		defer it.Close()
 
-		filter := make(map[string]bool)
+		filter := make(map[crypto.Hash]bool)
 		for it.Seek([]byte(snapshotsPrefixNodeRound)); it.ValidForPrefix([]byte(snapshotsPrefixNodeRound)); it.Next() {
 			var hash crypto.Hash
 			key := it.Item().Key()
 			id := key[len(snapshotsPrefixNodeRound) : len(snapshotsPrefixNodeRound)+len(hash)]
 			copy(hash[:], id)
-			if filter[hash.String()] {
+			if filter[hash] {
 				continue
 			}
-			filter[hash.String()] = true
+			filter[hash] = true
 			nodes = append(nodes, hash)
 		}
 
@@ -165,7 +165,7 @@ func checkGenesisLoad(txn *badger.Txn) bool {
 	return it.Valid()
 }
 
-func readSnapshotByTransactionHash(txn *badger.Txn, hash crypto.Hash) (*common.Snapshot, error) {
+func readSnapshotByTransactionHash(txn *badger.Txn, hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error) {
 	item, err := txn.Get(snapshotKey(hash))
 	if err == badger.ErrKeyNotFound {
 		return nil, nil
@@ -178,6 +178,7 @@ func readSnapshotByTransactionHash(txn *badger.Txn, hash crypto.Hash) (*common.S
 	}
 
 	key := meta[:len(graphKey(crypto.Hash{}, 0, 0))]
+	topo := binary.BigEndian.Uint64(meta[len(key):])
 	item, err = txn.Get(key)
 	if err == badger.ErrKeyNotFound {
 		panic(hash.String())
@@ -188,9 +189,18 @@ func readSnapshotByTransactionHash(txn *badger.Txn, hash crypto.Hash) (*common.S
 	if err != nil {
 		return nil, err
 	}
-	var s common.Snapshot
+	var s common.SnapshotWithTopologicalOrder
 	err = msgpack.Unmarshal(val, &s)
+	s.TopologicalOrder = topo
+	s.Hash = s.Transaction.Hash()
 	return &s, err
+}
+
+func (s *BadgerStore) SnapshotsReadByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error) {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	return readSnapshotByTransactionHash(txn, hash)
 }
 
 func (s *BadgerStore) SnapshotsWrite(snapshot *common.SnapshotWithTopologicalOrder) error {
@@ -212,6 +222,8 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 		return err
 	}
 	roundNumber, roundStart := roundMeta[0], roundMeta[1]
+
+	// TODO this section is only an assert kind check, not needed at all
 	if snapshot.RoundNumber < roundNumber || snapshot.RoundNumber > roundNumber+1 {
 		panic("ErrorValidateFailed")
 	}
@@ -221,6 +233,8 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 	if snapshot.RoundNumber == roundNumber+1 && (snapshot.Timestamp-roundStart) < common.SnapshotRoundGap {
 		panic("ErrorValidateFailed")
 	}
+
+	// FIXME should ensure round meta and snapshot consistence, how to move out here?
 	if snapshot.RoundNumber == roundNumber+1 || (snapshot.RoundNumber == 0 && genesis) {
 		err = writeNodeRoundMeta(txn, snapshot.NodeId, snapshot.RoundNumber, snapshot.Timestamp)
 		if err != nil {
@@ -233,12 +247,14 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 			continue
 		}
 		key := utxoKey(in.Hash, in.Index)
-		_, err := txn.Get(key)
+
+		_, err := txn.Get(key) // TODO this check is only an assert kind check, not needed at all
 		if err == badger.ErrKeyNotFound {
 			panic("ErrorValidateFailed")
 		} else if err != nil {
 			return err
 		}
+
 		err = txn.Delete(key)
 		if err != nil {
 			return err
@@ -248,12 +264,14 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 	for _, utxo := range snapshot.UnspentOutputs() {
 		for _, k := range utxo.Keys {
 			key := ghostKey(k)
-			_, err := txn.Get(key)
+
+			_, err := txn.Get(key) // TODO this check is only an assert kind check, not needed at all
 			if err == nil {
 				panic("ErrorValidateFailed")
 			} else if err != badger.ErrKeyNotFound {
 				return err
 			}
+
 			err = txn.Set(key, []byte{0})
 			if err != nil {
 				return err
@@ -268,12 +286,14 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 	}
 
 	key := graphKey(snapshot.NodeId, snapshot.RoundNumber, snapshot.Timestamp)
-	_, err = txn.Get(key)
+
+	_, err = txn.Get(key) // TODO this check is only an assert kind check, not needed at all
 	if err == nil {
 		panic("ErrorValidateFailed")
 	} else if err != badger.ErrKeyNotFound {
 		return err
 	}
+
 	val := common.MsgpackMarshalPanic(snapshot)
 	err = txn.Set(key, val)
 	if err != nil {

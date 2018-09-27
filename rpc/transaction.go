@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/vmihailenco/msgpack"
@@ -26,6 +27,17 @@ func createTransaction(store storage.Store, params []interface{}) (string, error
 		return "", err
 	}
 	return kernel.QueueTransaction(store, &tx)
+}
+
+func getSnapshot(store storage.Store, params []interface{}) (*common.SnapshotWithTopologicalOrder, error) {
+	if len(params) != 1 {
+		return nil, errors.New("invalid params count")
+	}
+	hash, err := crypto.HashFromString(fmt.Sprint(params[0]))
+	if err != nil {
+		return nil, err
+	}
+	return store.SnapshotsReadByTransactionHash(hash)
 }
 
 func listSnapshots(store storage.Store, params []interface{}) ([]*common.SnapshotWithTopologicalOrder, error) {

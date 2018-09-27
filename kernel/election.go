@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 )
 
@@ -30,7 +31,6 @@ func (node *Node) managePeersList() error {
 	if err != nil {
 		return err
 	}
-	peers := make([]*Peer, 0)
 	for _, in := range inputs {
 		if in.Address == node.Account.String() {
 			continue
@@ -39,22 +39,24 @@ func (node *Node) managePeersList() error {
 		if err != nil {
 			return err
 		}
-		peers = append(peers, NewPeer(acc, in.Host))
+		peer := NewPeer(acc, in.Host)
+		peerId := peer.Account.Hash()
+		peer.IdForNetwork = crypto.NewHash(append(node.networkId[:], peerId[:]...))
+		node.ConsensusPeers[peer.IdForNetwork] = peer
 	}
-	node.ConsensusPeers = peers
 	for _, p := range node.ConsensusPeers {
 		if p.Account.String() == node.Account.String() {
 			continue
 		}
-		go func() {
+		go func(peer *Peer) {
 			for {
-				err := node.openPeerStream(p)
+				err := node.openPeerStream(peer)
 				if err != nil {
 					logger.Println("election routine peer error", err)
 				}
 				time.Sleep(1 * time.Second)
 			}
-		}()
+		}(p)
 	}
 	return nil
 }

@@ -1,7 +1,6 @@
 package kernel
 
 import (
-	"log"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -30,7 +29,6 @@ func (node *Node) ConsumeQueue() error {
 			if err != nil {
 				return err
 			}
-			log.Println(k, tx)
 			err = node.feedMempool(&common.Snapshot{
 				NodeId:      node.IdForNetwork,
 				Transaction: &tx,

@@ -17,42 +17,39 @@ const (
 type Node struct {
 	IdForNetwork   crypto.Hash
 	Account        common.Address
-	ConsensusPeers []*Peer
+	ConsensusPeers map[crypto.Hash]*Peer
 	Address        string
 	Graph          *RoundGraph
 	TopoCounter    *TopologicalSequence
 
-	syncrhoinized      bool
-	networkId          crypto.Hash
-	store              storage.Store
-	transport          network.Transport
-	mempoolChan        chan *common.Snapshot
-	transactionsFilter map[crypto.Hash]bool
-	configDir          string
+	syncrhoinized bool
+	networkId     crypto.Hash
+	store         storage.Store
+	transport     network.Transport
+	mempoolChan   chan *common.Snapshot
+	configDir     string
 }
 
 func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
-		Address:            addr,
-		store:              store,
-		mempoolChan:        make(chan *common.Snapshot, MempoolSize),
-		transactionsFilter: make(map[crypto.Hash]bool),
-		configDir:          dir,
-		TopoCounter:        getTopologyCounter(store),
+		Address:        addr,
+		ConsensusPeers: make(map[crypto.Hash]*Peer),
+		store:          store,
+		mempoolChan:    make(chan *common.Snapshot, MempoolSize),
+		configDir:      dir,
+		TopoCounter:    getTopologyCounter(store),
 	}
 
-	networkId, err := node.loadGenesis(dir)
+	err := node.loadNodeStateFromStore()
 	if err != nil {
 		return nil, err
 	}
-	nodeId := node.Account.Hash()
-	node.networkId = networkId
-	node.IdForNetwork = crypto.NewHash(append(networkId[:], nodeId[:]...))
 
-	err = node.loadNodeStateFromStore()
+	err = node.loadGenesis(dir)
 	if err != nil {
 		return nil, err
 	}
+
 	graph, err := loadRoundGraph(node.store)
 	if err != nil {
 		return nil, err

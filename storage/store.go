@@ -18,6 +18,7 @@ type Store interface {
 	SnapshotsNodeList() ([]crypto.Hash, error)
 	SnapshotsRoundMetaForNode(nodeIdWithNetwork crypto.Hash) ([2]uint64, error)
 	SnapshotsWrite(*common.SnapshotWithTopologicalOrder) error
+	SnapshotsReadByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)
 
 	QueueAdd(tx *common.SignedTransaction) error
 	QueuePoll(uint64, func(k uint64, v []byte) error) error
