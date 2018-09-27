@@ -142,6 +142,16 @@ func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, n
 	return round, nil
 }
 
+func snapshotAsCacheRound(s *common.Snapshot) *CacheRound {
+	return &CacheRound{
+		NodeId:    s.NodeId,
+		Number:    s.RoundNumber,
+		Start:     s.Timestamp,
+		End:       s.Timestamp,
+		Snapshots: []*common.Snapshot{s},
+	}
+}
+
 func (c *CacheRound) asFinal() *FinalRound {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, c.Number)

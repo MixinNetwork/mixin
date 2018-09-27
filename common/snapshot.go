@@ -10,8 +10,6 @@ const (
 	SnapshotRoundGap = uint64(3 * time.Second)
 )
 
-type ReferenceStore func(crypto.Hash) error
-
 type Snapshot struct {
 	NodeId      crypto.Hash        `msgpack:"I"json:"node"`
 	Transaction *SignedTransaction `msgpack:"T"json:"transaction"`
@@ -57,8 +55,4 @@ func CheckSignature(s *Snapshot, pub crypto.Key) bool {
 		}
 	}
 	return false
-}
-
-func VerifyReferences(s *Snapshot, getRef ReferenceStore) (bool, error) {
-	return false, nil
 }
