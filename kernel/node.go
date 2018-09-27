@@ -21,6 +21,7 @@ type Node struct {
 	Address        string
 	Graph          *RoundGraph
 	TopoCounter    *TopologicalSequence
+	SnapshotsPool  map[crypto.Hash]*common.Snapshot
 
 	syncrhoinized bool
 	networkId     crypto.Hash
@@ -34,6 +35,7 @@ func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
 		Address:        addr,
 		ConsensusPeers: make(map[crypto.Hash]*Peer),
+		SnapshotsPool:  make(map[crypto.Hash]*common.Snapshot),
 		store:          store,
 		mempoolChan:    make(chan *common.Snapshot, MempoolSize),
 		configDir:      dir,
@@ -73,6 +75,7 @@ func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	logger.Printf("Spend Key:\t%s\n", node.Account.PrivateSpendKey.String())
 	logger.Printf("Network:\t%s\n", node.networkId.String())
 	logger.Printf("Node Id:\t%s\n", node.IdForNetwork.String())
+	logger.Printf("Topology:\t%d\n", node.TopoCounter.seq)
 	return node, nil
 }
 

@@ -39,6 +39,21 @@ func main() {
 			Action: setupTestNetCmd,
 		},
 		{
+			Name:   "spendgenesistestamount",
+			Usage:  "Spend a genesis test amount",
+			Action: spendGenesisTestAmount,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "dir,d",
+					Usage: "the data directory",
+				},
+				cli.StringFlag{
+					Name:  "hash",
+					Usage: "the genesis transaction hash",
+				},
+			},
+		},
+		{
 			Name:   "createaddress",
 			Usage:  "Create a new Mixin address",
 			Action: createAdressCmd,

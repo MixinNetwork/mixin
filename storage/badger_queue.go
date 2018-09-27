@@ -30,7 +30,7 @@ func (s *BadgerStore) QueuePoll(offset uint64, hook func(k uint64, v []byte) err
 		for it.Seek(queueTxKey(offset)); it.ValidForPrefix([]byte(queuePrefixTX)); it.Next() {
 			item := it.Item()
 			k := item.Key()
-			v, err := item.Value()
+			v, err := item.ValueCopy(nil)
 			if err != nil {
 				return err
 			}

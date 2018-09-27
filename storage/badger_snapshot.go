@@ -61,7 +61,7 @@ func readNodeRoundMeta(txn *badger.Txn, nodeIdWithNetwork crypto.Hash) ([2]uint6
 	if err != nil {
 		return meta, err
 	}
-	ival, err := item.Value()
+	ival, err := item.ValueCopy(nil)
 	if err != nil {
 		return meta, err
 	}
@@ -89,7 +89,7 @@ func (s *BadgerStore) SnapshotsListForNodeRound(nodeIdWithNetwork crypto.Hash, r
 		prefix := key[:len(key)-8]
 		for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
 			item := it.Item()
-			v, err := item.Value()
+			v, err := item.ValueCopy(nil)
 			if err != nil {
 				return err
 			}
@@ -117,7 +117,7 @@ func (s *BadgerStore) SnapshotsGetUTXO(hash crypto.Hash, index int) (*common.UTX
 	if err != nil {
 		return nil, err
 	}
-	ival, err := item.Value()
+	ival, err := item.ValueCopy(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func readSnapshotByTransactionHash(txn *badger.Txn, hash crypto.Hash) (*common.S
 	} else if err != nil {
 		return nil, err
 	}
-	meta, err := item.Value()
+	meta, err := item.ValueCopy(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func readSnapshotByTransactionHash(txn *badger.Txn, hash crypto.Hash) (*common.S
 	} else if err != nil {
 		return nil, err
 	}
-	val, err := item.Value()
+	val, err := item.ValueCopy(nil)
 	if err != nil {
 		return nil, err
 	}

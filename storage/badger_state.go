@@ -16,7 +16,7 @@ func (s *BadgerStore) StateGet(key string, val interface{}) (bool, error) {
 	if err != nil {
 		return true, err
 	}
-	ival, err := item.Value()
+	ival, err := item.ValueCopy(nil)
 	if err != nil {
 		return true, err
 	}

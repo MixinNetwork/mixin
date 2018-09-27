@@ -183,3 +183,7 @@ func setupTestNetCmd(c *cli.Context) error {
 	}
 	return nil
 }
+
+func spendGenesisTestAmount(c *cli.Context) error {
+	return nil
+}

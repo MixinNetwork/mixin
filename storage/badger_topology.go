@@ -20,7 +20,7 @@ func (s *BadgerStore) SnapshotsListTopologySince(topologyOffset, count uint64) (
 		it.Seek(topologyKey(topologyOffset))
 		for ; it.ValidForPrefix([]byte(snapshotsPrefixTopology)) && uint64(len(snapshots)) < count; it.Next() {
 			item := it.Item()
-			v, err := item.Value()
+			v, err := item.ValueCopy(nil)
 			if err != nil {
 				return err
 			}
@@ -31,7 +31,6 @@ func (s *BadgerStore) SnapshotsListTopologySince(topologyOffset, count uint64) (
 			}
 			s.TopologicalOrder = topologyOrder(item.Key())
 			s.Hash = s.Transaction.Hash()
-			s.Signatures = nil
 			snapshots = append(snapshots, &s)
 		}
 		return nil
@@ -60,7 +59,6 @@ func (s *BadgerStore) SnapshotsTopologySequence() uint64 {
 
 	it.Seek(topologyKey(^uint64(0)))
 	if it.ValidForPrefix([]byte(snapshotsPrefixTopology)) {
-		it.Next()
 		item := it.Item()
 		sequence = topologyOrder(item.Key()) + 1
 	}

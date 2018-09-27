@@ -44,6 +44,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	return node.verifySnapshot(s)
 }
 
+// TODO node a must not reference round n-1 from node b if a has referenced n
 func (node *Node) verifyReferences(s *common.Snapshot) bool {
 	if len(s.References) != 2 {
 		return false
@@ -105,6 +106,21 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 		return nil
 	}
 
+	if o := node.SnapshotsPool[s.Transaction.Hash()]; o != nil {
+		filter := make(map[crypto.Signature]bool)
+		for _, sig := range s.Signatures {
+			filter[sig] = true
+		}
+		for _, sig := range o.Signatures {
+			if filter[sig] {
+				continue
+			}
+			s.Signatures = append(s.Signatures, sig)
+			filter[sig] = true
+		}
+	}
+	node.SnapshotsPool[s.Transaction.Hash()] = s
+
 	if node.verifyFinalization(s) {
 		if s.RoundNumber == cache.Number+1 {
 			node.Graph.FinalRound[s.NodeId] = cache.asFinal()
@@ -120,11 +136,9 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 		return node.store.SnapshotsWrite(topo)
 	}
 
-	for _, p := range node.ConsensusPeers {
-		err := p.Send(buildSnapshotMessage(s))
-		if err != nil {
-			return err
-		}
+	if node.IdForNetwork != s.NodeId {
+		msg := buildSnapshotMessage(s)
+		return node.ConsensusPeers[s.NodeId].Send(msg)
 	}
 	return nil
 }
@@ -148,7 +162,12 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 		if len(round.Snapshots) == 0 {
 			round.Start = s.Timestamp
 		} else {
-			panic("should queue if pending round full")
+			for _, ps := range round.Snapshots {
+				if !node.verifyFinalization(ps) {
+					panic("should queue if pending round full")
+				}
+			}
+
 			final = round.asFinal()
 			round = &CacheRound{
 				NodeId: s.NodeId,
@@ -159,7 +178,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 	}
 	round.End = s.Timestamp
 
-	best := final
+	best := &FinalRound{}
 	for _, r := range node.Graph.FinalRound {
 		if r.Start >= best.Start && r.NodeId != s.NodeId && r.End < uint64(time.Now().UnixNano()) {
 			best = r
@@ -183,5 +202,6 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 			return err
 		}
 	}
+	node.SnapshotsPool[s.Transaction.Hash()] = s
 	return nil
 }
