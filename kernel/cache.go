@@ -96,10 +96,24 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 		return nil
 	}
 	if s.Timestamp-cache.Start >= common.SnapshotRoundGap {
-		if len(cache.Snapshots) > 0 {
-			return nil
+		if len(cache.Snapshots) == 0 {
+			cache.Start = s.Timestamp
+		} else {
+			for _, ps := range cache.Snapshots {
+				if !node.verifyFinalization(ps) {
+					return nil
+				}
+			}
+
+			node.Graph.FinalRound[s.NodeId] = cache.asFinal()
+			cache = &CacheRound{
+				NodeId: s.NodeId,
+				Number: cache.Number + 1,
+				Start:  s.Timestamp,
+				End:    s.Timestamp,
+			}
+			node.Graph.CacheRound[s.NodeId] = cache
 		}
-		cache.Start = s.Timestamp
 	}
 
 	if !node.verifyReferences(s) {
@@ -180,12 +194,12 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 
 	best := &FinalRound{}
 	for _, r := range node.Graph.FinalRound {
-		if r.Start >= best.Start && r.NodeId != s.NodeId && r.End < uint64(time.Now().UnixNano()) {
+		if r.NodeId != s.NodeId && r.Start >= best.Start && r.End < uint64(time.Now().UnixNano()) {
 			best = r
 		}
 	}
 	if best.NodeId == final.NodeId {
-		panic(node.IdForNetwork.String())
+		panic(node.IdForNetwork)
 	}
 
 	s.RoundNumber = round.Number

@@ -3,6 +3,7 @@ package kernel
 import (
 	"encoding/binary"
 	"fmt"
+	"sort"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -156,6 +157,9 @@ func (c *CacheRound) asFinal() *FinalRound {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, c.Number)
 	hashes := append(c.NodeId[:], buf...)
+	sort.Slice(c.Snapshots, func(i, j int) bool {
+		return c.Snapshots[i].Timestamp <= c.Snapshots[j].Timestamp
+	})
 	for _, s := range c.Snapshots {
 		h := crypto.NewHash(s.Payload())
 		hashes = append(hashes, h[:]...)

@@ -208,12 +208,12 @@ func (node *Node) authenticatePeer(client network.Client) (*Peer, error) {
 	go func() {
 		data, err := client.Receive()
 		if err != nil {
-			client.Close()
+			auth <- err
 			return
 		}
 		msg, err := parseNetworkMessage(data)
 		if err != nil {
-			client.Close()
+			auth <- err
 			return
 		}
 		if msg.Type != MessageTypeAuthentication {
@@ -233,8 +233,8 @@ func (node *Node) authenticatePeer(client network.Client) (*Peer, error) {
 			var sig crypto.Signature
 			copy(sig[:], msg.Data[40:])
 			if p.Account.PublicSpendKey.Verify(msg.Data[:40], sig) {
-				auth <- nil
 				peer = p
+				auth <- nil
 				return
 			}
 			break
@@ -245,6 +245,7 @@ func (node *Node) authenticatePeer(client network.Client) (*Peer, error) {
 	select {
 	case err := <-auth:
 		if err != nil {
+			client.Close()
 			return nil, fmt.Errorf("peer authentication failed %s", err.Error())
 		}
 	case <-time.After(3 * time.Second):

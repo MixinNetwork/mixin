@@ -14,6 +14,7 @@ func Loop(store storage.Store, addr string, dir string) error {
 	panicGo(node.ListenPeers)
 	node.syncSnapshots()
 	panicGo(node.ConsumeMempool)
+	panicGo(node.dummySyncToAllPeers)
 	return node.ConsumeQueue()
 }
 
