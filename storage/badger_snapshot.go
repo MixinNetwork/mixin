@@ -2,6 +2,8 @@ package storage
 
 import (
 	"encoding/binary"
+	"fmt"
+	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -105,25 +107,39 @@ func (s *BadgerStore) SnapshotsListForNodeRound(nodeIdWithNetwork crypto.Hash, r
 	return snapshots, err
 }
 
-func (s *BadgerStore) SnapshotsGetUTXO(hash crypto.Hash, index int) (*common.UTXO, error) {
-	txn := s.snapshotsDB.NewTransaction(false)
-	defer txn.Discard()
+func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash, lockDuration uint64) (*common.UTXO, error) {
+	var utxo *common.UTXO
+	err := s.snapshotsDB.Update(func(txn *badger.Txn) error {
+		key := utxoKey(hash, index)
+		item, err := txn.Get([]byte(key))
+		if err == badger.ErrKeyNotFound {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		ival, err := item.ValueCopy(nil)
+		if err != nil {
+			return err
+		}
 
-	key := utxoKey(hash, index)
-	item, err := txn.Get([]byte(key))
-	if err == badger.ErrKeyNotFound {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	ival, err := item.ValueCopy(nil)
-	if err != nil {
-		return nil, err
-	}
-	var utxo common.UTXO
-	err = msgpack.Unmarshal(ival, &utxo)
-	return &utxo, err
+		var out common.UTXOWithLock
+		err = msgpack.Unmarshal(ival, &out)
+		if err != nil {
+			return err
+		}
+
+		now := uint64(time.Now().UnixNano())
+		if out.LockHash != (crypto.Hash{}) && out.LockUntil > now && out.LockHash != tx {
+			return fmt.Errorf("utxo locked for transaction %s until %d", out.LockHash, out.LockUntil)
+		}
+		out.LockHash = tx
+		out.LockUntil = now + lockDuration
+		err = txn.Set([]byte(key), common.MsgpackMarshalPanic(out))
+		utxo = &out.UTXO
+		return err
+	})
+	return utxo, err
 }
 
 func (s *BadgerStore) SnapshotsCheckGhost(key crypto.Key) (bool, error) {

@@ -102,13 +102,13 @@ func signTransactionCmd(c *cli.Context) error {
 
 	signed := &common.SignedTransaction{Transaction: *tx}
 	for i, _ := range signed.Inputs {
-		err := signed.SignInput(store.SnapshotsGetUTXO, i, []common.Address{account})
+		err := signed.SignInput(store.SnapshotsLockUTXO, i, []common.Address{account})
 		if err != nil {
 			return err
 		}
 	}
 	fmt.Println(hex.EncodeToString(signed.Marshal()))
-	return signed.Validate(store.SnapshotsGetUTXO, store.SnapshotsCheckGhost)
+	return signed.Validate(store.SnapshotsLockUTXO, store.SnapshotsCheckGhost)
 }
 
 func setupTestNetCmd(c *cli.Context) error {

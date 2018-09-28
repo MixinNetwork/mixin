@@ -31,7 +31,7 @@ func (node *Node) ConsumeMempool() error {
 }
 
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
-	err := s.Transaction.Validate(node.store.SnapshotsGetUTXO, node.store.SnapshotsCheckGhost)
+	err := s.Transaction.Validate(node.store.SnapshotsLockUTXO, node.store.SnapshotsCheckGhost)
 	if err != nil {
 		logger.Println("VALIDATE TRANSACTION", err)
 		return nil

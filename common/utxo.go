@@ -10,7 +10,13 @@ type UTXO struct {
 	Asset crypto.Hash `msgpack:"C"`
 }
 
-type UTXOStore func(hash crypto.Hash, index int) (*UTXO, error)
+type UTXOWithLock struct {
+	UTXO
+	LockHash  crypto.Hash
+	LockUntil uint64
+}
+
+type UTXOStore func(hash crypto.Hash, index int, tx crypto.Hash, lock uint64) (*UTXO, error)
 
 type GhostStore func(key crypto.Key) (bool, error)
 
