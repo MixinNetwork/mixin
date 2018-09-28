@@ -75,7 +75,7 @@ func (node *Node) verifyReferences(finalHash crypto.Hash, s *common.Snapshot) bo
 	}
 
 	for _, final := range node.Graph.FinalRound {
-		if final.NodeId != node.IdForNetwork && final.Hash == ref1 {
+		if final.NodeId != s.NodeId && final.Hash == ref1 {
 			return true
 		}
 	}
