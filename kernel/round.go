@@ -31,6 +31,19 @@ type RoundGraph struct {
 	Nodes      []crypto.Hash
 	CacheRound map[crypto.Hash]*CacheRound
 	FinalRound map[crypto.Hash]*FinalRound
+	FinalCache []FinalRound
+}
+
+func (g *RoundGraph) UpdateFinalCache() {
+	finals := make([]FinalRound, 0)
+	for _, f := range g.FinalRound {
+		finals = append(finals, FinalRound{
+			NodeId: f.NodeId,
+			Number: f.Number,
+			Start:  f.Start,
+		})
+	}
+	g.FinalCache = finals
 }
 
 func (g *RoundGraph) Print() string {
@@ -82,6 +95,7 @@ func loadRoundGraph(store storage.Store) (*RoundGraph, error) {
 	}
 
 	logger.Println("\n" + graph.Print())
+	graph.UpdateFinalCache()
 	return graph, nil
 }
 
@@ -151,6 +165,17 @@ func snapshotAsCacheRound(s *common.Snapshot) *CacheRound {
 		End:       s.Timestamp,
 		Snapshots: []*common.Snapshot{s},
 	}
+}
+
+func (c *CacheRound) Copy() *CacheRound {
+	r := *c
+	r.Snapshots = append([]*common.Snapshot{}, c.Snapshots...)
+	return &r
+}
+
+func (f *FinalRound) Copy() *FinalRound {
+	r := *f
+	return &r
 }
 
 func (c *CacheRound) asFinal() *FinalRound {

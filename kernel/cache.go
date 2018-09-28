@@ -15,11 +15,6 @@ func (node *Node) feedMempool(s *common.Snapshot) error {
 
 func (node *Node) ConsumeMempool() error {
 	for {
-		if !node.syncrhoinized {
-			time.Sleep(100 * time.Millisecond)
-			continue
-		}
-
 		select {
 		case s := <-node.mempoolChan:
 			err := node.handleSnapshotInput(s)
@@ -55,6 +50,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		return nil
 	}
 
+	defer node.Graph.UpdateFinalCache()
 	node.clearConsensusSignatures(s)
 
 	if len(s.Signatures) == 0 {
@@ -65,7 +61,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 }
 
 // TODO node a must not reference round n-1 from node b if a has referenced n
-func (node *Node) verifyReferences(s *common.Snapshot) bool {
+func (node *Node) verifyReferences(finalHash crypto.Hash, s *common.Snapshot) bool {
 	if len(s.References) != 2 {
 		return false
 	}
@@ -74,12 +70,12 @@ func (node *Node) verifyReferences(s *common.Snapshot) bool {
 		return false
 	}
 
-	if ref0 != node.Graph.FinalRound[s.NodeId].Hash {
+	if ref0 != finalHash {
 		return false
 	}
 
 	for _, final := range node.Graph.FinalRound {
-		if final.Hash == ref1 {
+		if final.NodeId != node.IdForNetwork && final.Hash == ref1 {
 			return true
 		}
 	}
@@ -91,13 +87,14 @@ func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 		common.SignSnapshot(s, node.Account.PrivateSpendKey)
 	}
 
-	consensusThreshold := (len(node.ConsensusNodes)+1)*2/3 + 1
+	consensusThreshold := len(node.ConsensusNodes)*2/3 + 1
 	return len(s.Signatures) >= consensusThreshold
 }
 
 func (node *Node) verifySnapshot(s *common.Snapshot) error {
 	logger.Println("VERIFY SNAPSHOT", *s)
-	cache := node.Graph.CacheRound[s.NodeId]
+	cache := node.Graph.CacheRound[s.NodeId].Copy()
+	final := node.Graph.FinalRound[s.NodeId].Copy()
 	if s.RoundNumber < cache.Number {
 		return nil
 	}
@@ -117,18 +114,17 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 				}
 			}
 
-			node.Graph.FinalRound[s.NodeId] = cache.asFinal()
+			final = cache.asFinal()
 			cache = &CacheRound{
 				NodeId: s.NodeId,
 				Number: cache.Number + 1,
 				Start:  s.Timestamp,
 				End:    s.Timestamp,
 			}
-			node.Graph.CacheRound[s.NodeId] = cache
 		}
 	}
 
-	if !node.verifyReferences(s) {
+	if !node.verifyReferences(final.Hash, s) {
 		return nil
 	}
 
@@ -149,8 +145,8 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 
 	if node.verifyFinalization(s) {
 		if s.RoundNumber == cache.Number+1 {
-			node.Graph.FinalRound[s.NodeId] = cache.asFinal()
-			node.Graph.CacheRound[s.NodeId] = snapshotAsCacheRound(s)
+			final = cache.asFinal()
+			cache = snapshotAsCacheRound(s)
 		} else {
 			cache.Snapshots = append(cache.Snapshots, s)
 			cache.End = s.Timestamp
@@ -159,13 +155,21 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 			Snapshot:         *s,
 			TopologicalOrder: node.TopoCounter.Next(),
 		}
-		return node.store.SnapshotsWrite(topo)
+		err := node.store.SnapshotsWrite(topo)
+		if err != nil {
+			return err
+		}
+	} else if node.IdForNetwork != s.NodeId {
+		msg := buildSnapshotMessage(s)
+		// FIXME gossip peers are different from consensus nodes
+		err := node.GossipPeers[s.NodeId].Send(msg)
+		if err != nil {
+			return err
+		}
 	}
 
-	if node.IdForNetwork != s.NodeId {
-		msg := buildSnapshotMessage(s)
-		return node.GossipPeers[s.NodeId].Send(msg)
-	}
+	node.Graph.CacheRound[s.NodeId] = cache
+	node.Graph.FinalRound[s.NodeId] = final
 	return nil
 }
 
@@ -173,9 +177,10 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 	if s.NodeId != node.IdForNetwork {
 		return nil
 	}
+	logger.Println("SIGN SNAPSHOT", *s)
 
-	round := node.Graph.CacheRound[s.NodeId]
-	final := node.Graph.FinalRound[s.NodeId]
+	round := node.Graph.CacheRound[s.NodeId].Copy()
+	final := node.Graph.FinalRound[s.NodeId].Copy()
 
 	for {
 		s.Timestamp = uint64(time.Now().UnixNano())
@@ -218,10 +223,6 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 	s.References = []crypto.Hash{final.Hash, best.Hash}
 	common.SignSnapshot(s, node.Account.PrivateSpendKey)
 
-	node.Graph.CacheRound[s.NodeId] = round
-	node.Graph.FinalRound[s.NodeId] = final
-	logger.Println(node.Graph.Print())
-
 	for _, p := range node.GossipPeers {
 		err := p.Send(buildSnapshotMessage(s))
 		if err != nil {
@@ -229,5 +230,8 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 		}
 	}
 	node.SnapshotsPool[s.Transaction.Hash()] = s
+	node.Graph.CacheRound[s.NodeId] = round
+	node.Graph.FinalRound[s.NodeId] = final
+	logger.Println(node.Graph.Print())
 	return nil
 }

@@ -24,12 +24,11 @@ type Node struct {
 	TopoCounter    *TopologicalSequence
 	SnapshotsPool  map[crypto.Hash]*common.Snapshot
 
-	syncrhoinized bool
-	networkId     crypto.Hash
-	store         storage.Store
-	transport     network.Transport
-	mempoolChan   chan *common.Snapshot
-	configDir     string
+	networkId   crypto.Hash
+	store       storage.Store
+	transport   network.Transport
+	mempoolChan chan *common.Snapshot
+	configDir   string
 }
 
 func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
@@ -66,7 +65,7 @@ func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	}
 	node.transport = transport
 
-	err = node.managePeersList()
+	err = node.loadPeersList()
 	if err != nil {
 		return nil, err
 	}

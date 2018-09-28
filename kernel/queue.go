@@ -19,10 +19,6 @@ func QueueTransaction(store storage.Store, tx *common.SignedTransaction) (string
 func (node *Node) ConsumeQueue() error {
 	var offset = uint64(0)
 	for {
-		if !node.syncrhoinized {
-			time.Sleep(1 * time.Second)
-			continue
-		}
 		err := node.store.QueuePoll(offset, func(k uint64, v []byte) error {
 			var tx common.SignedTransaction
 			err := msgpack.Unmarshal(v, &tx)

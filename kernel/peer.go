@@ -19,7 +19,8 @@ type Peer struct {
 	Account      common.Address
 	Address      string
 
-	send chan []byte
+	GraphChan chan []FinalRound
+	send      chan []byte
 }
 
 const (
@@ -27,19 +28,22 @@ const (
 	MessageTypePing           = 1
 	MessageTypePong           = 2
 	MessageTypeAuthentication = 3
+	MessageTypeGraph          = 4
 )
 
 type Message struct {
-	Type     uint8
-	Snapshot *common.Snapshot
-	Data     []byte
+	Type       uint8
+	Snapshot   *common.Snapshot
+	FinalCache []FinalRound
+	Data       []byte
 }
 
 func NewPeer(acc common.Address, addr string) *Peer {
 	return &Peer{
-		Account: acc,
-		Address: addr,
-		send:    make(chan []byte, 8192),
+		Account:   acc,
+		Address:   addr,
+		GraphChan: make(chan []FinalRound),
+		send:      make(chan []byte, 8192),
 	}
 }
 
@@ -80,6 +84,11 @@ func parseNetworkMessage(data []byte) (*Message, error) {
 			return nil, err
 		}
 		msg.Snapshot = &ss
+	case MessageTypeGraph:
+		err := msgpack.Unmarshal(data[1:], &msg.FinalCache)
+		if err != nil {
+			return nil, err
+		}
 	case MessageTypePing, MessageTypePong:
 	case MessageTypeAuthentication:
 		msg.Data = data[1:]
@@ -108,6 +117,11 @@ func buildPongMessage() []byte {
 func buildSnapshotMessage(ss *common.Snapshot) []byte {
 	data := common.MsgpackMarshalPanic(ss)
 	return append([]byte{MessageTypeSnapshot}, data...)
+}
+
+func buildGraphMessage(g *RoundGraph) []byte {
+	data := common.MsgpackMarshalPanic(g.FinalCache)
+	return append([]byte{MessageTypeGraph}, data...)
 }
 
 func (node *Node) openPeerStream(peer *Peer) error {
@@ -144,8 +158,11 @@ func (node *Node) openPeerStream(peer *Peer) error {
 		}
 	}()
 
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
+	pingTicker := time.NewTicker(1 * time.Second)
+	defer pingTicker.Stop()
+
+	graphTicker := time.NewTicker(time.Duration(common.SnapshotRoundGap / 2))
+	defer graphTicker.Stop()
 
 	logger.Println("LOOP PEER STREAM", peer.Address)
 	for {
@@ -155,7 +172,12 @@ func (node *Node) openPeerStream(peer *Peer) error {
 			if err != nil {
 				return err
 			}
-		case <-ticker.C:
+		case <-graphTicker.C:
+			err := client.Send(buildGraphMessage(node.Graph))
+			if err != nil {
+				return err
+			}
+		case <-pingTicker.C:
 			err := client.Send(buildPingMessage())
 			if err != nil {
 				return err
@@ -189,13 +211,11 @@ func (node *Node) acceptPeerStream(client network.Client) error {
 				return err
 			}
 		case MessageTypeSnapshot:
-			payload := msg.Snapshot.Payload()
-			for _, s := range msg.Snapshot.Signatures {
-				if peer.Account.PublicSpendKey.Verify(payload, s) {
-					node.feedMempool(msg.Snapshot)
-					break
-				}
+			if common.CheckSignature(msg.Snapshot, peer.Account.PublicSpendKey) {
+				node.feedMempool(msg.Snapshot)
 			}
+		case MessageTypeGraph:
+			peer.GraphChan <- msg.FinalCache
 		}
 	}
 }

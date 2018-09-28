@@ -23,7 +23,7 @@ func (node *Node) manageConsensusNodesList() error {
 	return nil
 }
 
-func (node *Node) managePeersList() error {
+func (node *Node) loadPeersList() error {
 	f, err := ioutil.ReadFile(node.configDir + "/nodes.json")
 	if err != nil {
 		return err
