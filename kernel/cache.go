@@ -68,8 +68,8 @@ func (node *Node) verifyReferences(s *common.Snapshot) bool {
 
 func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 	var validSigs int
-	for _, p := range node.ConsensusPeers {
-		if common.CheckSignature(s, p.Account.PublicSpendKey) {
+	for _, p := range node.ConsensusNodes {
+		if common.CheckSignature(s, p.PublicSpendKey) {
 			validSigs = validSigs + 1
 		}
 	}
@@ -79,7 +79,7 @@ func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 	}
 	validSigs = validSigs + 1
 
-	consensusThreshold := (len(node.ConsensusPeers)+1)*2/3 + 1
+	consensusThreshold := (len(node.ConsensusNodes)+1)*2/3 + 1
 	return validSigs >= consensusThreshold
 }
 
@@ -152,7 +152,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 
 	if node.IdForNetwork != s.NodeId {
 		msg := buildSnapshotMessage(s)
-		return node.ConsensusPeers[s.NodeId].Send(msg)
+		return node.GossipPeers[s.NodeId].Send(msg)
 	}
 	return nil
 }
@@ -210,7 +210,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 	node.Graph.FinalRound[s.NodeId] = final
 	logger.Println(node.Graph.Print())
 
-	for _, p := range node.ConsensusPeers {
+	for _, p := range node.GossipPeers {
 		err := p.Send(buildSnapshotMessage(s))
 		if err != nil {
 			return err

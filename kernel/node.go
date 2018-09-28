@@ -17,7 +17,8 @@ const (
 type Node struct {
 	IdForNetwork   crypto.Hash
 	Account        common.Address
-	ConsensusPeers map[crypto.Hash]*Peer
+	ConsensusNodes []common.Address
+	GossipPeers    map[crypto.Hash]*Peer
 	Address        string
 	Graph          *RoundGraph
 	TopoCounter    *TopologicalSequence
@@ -34,7 +35,8 @@ type Node struct {
 func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
 		Address:        addr,
-		ConsensusPeers: make(map[crypto.Hash]*Peer),
+		ConsensusNodes: make([]common.Address, 0),
+		GossipPeers:    make(map[crypto.Hash]*Peer),
 		SnapshotsPool:  make(map[crypto.Hash]*common.Snapshot),
 		store:          store,
 		mempoolChan:    make(chan *common.Snapshot, MempoolSize),

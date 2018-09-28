@@ -19,7 +19,7 @@ func Loop(store storage.Store, addr string, dir string) error {
 }
 
 func (node *Node) syncSnapshots() {
-	for _, p := range node.ConsensusPeers {
+	for _, p := range node.GossipPeers {
 		node.readGraphHeadFromPeer(p)
 	}
 	time.Sleep(1 * time.Second)

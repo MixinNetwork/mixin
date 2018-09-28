@@ -15,9 +15,9 @@ const (
 )
 
 type Genesis []struct {
-	Address *common.Address `json:"address"`
-	Balance common.Integer  `json:"balance"`
-	Mask    string          `json:"mask"`
+	Address common.Address `json:"address"`
+	Balance common.Integer `json:"balance"`
+	Mask    string         `json:"mask"`
 }
 
 func (node *Node) loadGenesis(configDir string) error {
@@ -32,6 +32,10 @@ func (node *Node) loadGenesis(configDir string) error {
 		return err
 	}
 	networkId := crypto.NewHash(data)
+
+	for _, in := range gns {
+		node.ConsensusNodes = append(node.ConsensusNodes, in.Address)
+	}
 
 	var network struct {
 		Id crypto.Hash

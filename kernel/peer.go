@@ -18,8 +18,6 @@ type Peer struct {
 	IdForNetwork crypto.Hash
 	Account      common.Address
 	Address      string
-	RoundNumber  uint64
-	RoundHash    crypto.Hash
 
 	send chan []byte
 }
@@ -225,7 +223,7 @@ func (node *Node) authenticatePeer(client network.Client) (*Peer, error) {
 			auth <- errors.New("peer authentication message timeout")
 			return
 		}
-		for _, p := range node.ConsensusPeers {
+		for _, p := range node.GossipPeers {
 			hash := p.Account.Hash()
 			if !bytes.Equal(hash[:], msg.Data[8:40]) {
 				continue

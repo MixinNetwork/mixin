@@ -42,10 +42,10 @@ func (node *Node) managePeersList() error {
 		peer := NewPeer(acc, in.Host)
 		peerId := peer.Account.Hash()
 		peer.IdForNetwork = crypto.NewHash(append(node.networkId[:], peerId[:]...))
-		node.ConsensusPeers[peer.IdForNetwork] = peer
+		node.GossipPeers[peer.IdForNetwork] = peer
 	}
-	for _, p := range node.ConsensusPeers {
-		if p.Account.String() == node.Account.String() {
+	for _, p := range node.GossipPeers {
+		if p.Address == node.Address {
 			continue
 		}
 		go func(peer *Peer) {

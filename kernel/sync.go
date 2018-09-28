@@ -22,7 +22,7 @@ func (node *Node) dummySyncToAllPeers() error {
 			if filter[s.Transaction.Hash()] {
 				continue
 			}
-			for _, p := range node.ConsensusPeers {
+			for _, p := range node.GossipPeers {
 				err := p.Send(buildSnapshotMessage(&s.Snapshot))
 				if err != nil {
 					return err
