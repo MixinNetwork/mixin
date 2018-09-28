@@ -30,12 +30,32 @@ func (node *Node) ConsumeMempool() error {
 	}
 }
 
+func (node *Node) clearConsensusSignatures(s *common.Snapshot) {
+	msg := s.Payload()
+	sigs := make([]crypto.Signature, 0)
+	filter := make(map[crypto.Signature]bool)
+	for _, sig := range s.Signatures {
+		if filter[sig] {
+			continue
+		}
+		for _, n := range node.ConsensusNodes {
+			if n.PublicSpendKey.Verify(msg, sig) {
+				sigs = append(sigs, sig)
+			}
+		}
+		filter[sig] = true
+	}
+	s.Signatures = sigs
+}
+
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	err := s.Transaction.Validate(node.store.SnapshotsLockUTXO, node.store.SnapshotsCheckGhost)
 	if err != nil {
 		logger.Println("VALIDATE TRANSACTION", err)
 		return nil
 	}
+
+	node.clearConsensusSignatures(s)
 
 	if len(s.Signatures) == 0 {
 		return node.signSnapshot(s)
@@ -67,20 +87,12 @@ func (node *Node) verifyReferences(s *common.Snapshot) bool {
 }
 
 func (node *Node) verifyFinalization(s *common.Snapshot) bool {
-	var validSigs int
-	for _, p := range node.ConsensusNodes {
-		if common.CheckSignature(s, p.PublicSpendKey) {
-			validSigs = validSigs + 1
-		}
-	}
-
 	if !common.CheckSignature(s, node.Account.PublicSpendKey) {
 		common.SignSnapshot(s, node.Account.PrivateSpendKey)
 	}
-	validSigs = validSigs + 1
 
 	consensusThreshold := (len(node.ConsensusNodes)+1)*2/3 + 1
-	return validSigs >= consensusThreshold
+	return len(s.Signatures) >= consensusThreshold
 }
 
 func (node *Node) verifySnapshot(s *common.Snapshot) error {
