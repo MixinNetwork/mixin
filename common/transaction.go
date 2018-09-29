@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
@@ -89,6 +90,9 @@ func (tx *SignedTransaction) Validate(lockUTXOForTransaction UTXOStore, checkGho
 	}
 
 	msg := MsgpackMarshalPanic(tx.Transaction)
+	if len(msg) > config.TransactionMaximumSize {
+		return fmt.Errorf("invalid transaction size %d", len(msg))
+	}
 
 	var inputAmount, outputAmount Integer
 	for _, o := range tx.Outputs {
@@ -112,7 +116,7 @@ func (tx *SignedTransaction) Validate(lockUTXOForTransaction UTXOStore, checkGho
 		}
 		inputsFilter[fk] = true
 
-		utxo, err := lockUTXOForTransaction(in.Hash, in.Index, tx.Hash(), SnapshotRoundGap*3)
+		utxo, err := lockUTXOForTransaction(in.Hash, in.Index, tx.Hash(), config.SnapshotRoundGap*3)
 		if err != nil {
 			return err
 		}

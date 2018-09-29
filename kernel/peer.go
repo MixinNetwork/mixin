@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/network"
@@ -161,7 +162,7 @@ func (node *Node) openPeerStream(peer *Peer) error {
 	pingTicker := time.NewTicker(1 * time.Second)
 	defer pingTicker.Stop()
 
-	graphTicker := time.NewTicker(time.Duration(common.SnapshotRoundGap / 2))
+	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
 	defer graphTicker.Stop()
 
 	logger.Println("LOOP PEER STREAM", peer.Address)

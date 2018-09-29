@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 )
@@ -125,7 +126,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 	if s.Timestamp < cache.End {
 		return nil
 	}
-	if s.Timestamp-cache.Start >= common.SnapshotRoundGap {
+	if s.Timestamp-cache.Start >= config.SnapshotRoundGap {
 		if len(cache.Snapshots) == 0 {
 			cache.Start = s.Timestamp
 		} else {
@@ -216,7 +217,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 		}
 		time.Sleep(1 * time.Millisecond)
 	}
-	if s.Timestamp-round.Start >= common.SnapshotRoundGap {
+	if s.Timestamp-round.Start >= config.SnapshotRoundGap {
 		if len(round.Snapshots) == 0 {
 			round.Start = s.Timestamp
 		} else {

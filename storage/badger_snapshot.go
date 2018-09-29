@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/dgraph-io/badger"
 	"github.com/vmihailenco/msgpack"
@@ -282,10 +283,10 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 	if snapshot.RoundNumber < roundNumber || snapshot.RoundNumber > roundNumber+1 {
 		panic("ErrorValidateFailed")
 	}
-	if snapshot.RoundNumber == roundNumber && (snapshot.Timestamp-roundStart) >= common.SnapshotRoundGap {
+	if snapshot.RoundNumber == roundNumber && (snapshot.Timestamp-roundStart) >= config.SnapshotRoundGap {
 		panic("ErrorValidateFailed")
 	}
-	if snapshot.RoundNumber == roundNumber+1 && (snapshot.Timestamp-roundStart) < common.SnapshotRoundGap {
+	if snapshot.RoundNumber == roundNumber+1 && (snapshot.Timestamp-roundStart) < config.SnapshotRoundGap {
 		panic("ErrorValidateFailed")
 	}
 

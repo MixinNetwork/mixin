@@ -1,13 +1,7 @@
 package common
 
 import (
-	"time"
-
 	"github.com/MixinNetwork/mixin/crypto"
-)
-
-const (
-	SnapshotRoundGap = uint64(3 * time.Second)
 )
 
 type Snapshot struct {
