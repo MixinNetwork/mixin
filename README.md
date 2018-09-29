@@ -7,8 +7,8 @@ The Mixin BFT-DAG network reference implementation, the Trusted Execution Enviro
 Install golang and setup `GOPATH` following this guide https://golang.org/doc/install.
 
 ```bash
-$ go get github.com/MixinNetwork/mixin
-$ cd $GOPATH/src/mixin
+$ go get -u github.com/MixinNetwork/mixin
+$ cd $GOPATH/src/github.com/MixinNetwork/mixin
 $ go build
 ```
 
@@ -57,6 +57,24 @@ spend key:	7c2b5c97278ed371d75610cccd9681af31b0d99be4adc2d66983f3c455fc9702
 Share the `address` to receive assets from other Mixin Kernel addresses, and keep `view key` and `spend key` privately and securely.
 
 Both the `view key` and `spend key` are required to spend the assets received from others, and the `view key` iteself is sufficient to decode and view all the transactions sent to `address`.
+
+## Start a Kernel Node
+
+To start a node, create a directory `mixin` for the config and network data files, then put a genesis.json and nodes.json files in it.
+
+```
+$ ./mixin help kernel
+
+NAME:
+   mixin kernel - Start the Mixin Kernel daemon
+
+USAGE:
+   mixin kernel [command options] [arguments...]
+
+OPTIONS:
+   --dir value, -d value   the data directory
+   --port value, -p value  the peer port to listen (default: 7239)
+```
 
 ## Public Test Net
 
