@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -47,68 +50,29 @@ func decodeTransactionCmd(c *cli.Context) error {
 }
 
 func signTransactionCmd(c *cli.Context) error {
-	store, err := storage.NewBadgerStore(c.String("dir"))
-	if err != nil {
-		return err
-	}
+	return callRPC("signrawtransaction", []interface{}{
+		c.String("raw"),
+		c.String("key"),
+	})
+}
 
-	var raw struct {
-		Inputs []struct {
-			Hash  crypto.Hash `json:"hash"`
-			Index int         `json:"index"`
-		} `json:"inputs"`
-		Outputs []struct {
-			Type     uint8            `json:"type"`
-			Script   common.Script    `json:"script"`
-			Accounts []common.Address `json:"accounts"`
-			Amount   common.Integer   `json:"amount"`
-		}
-		Asset crypto.Hash `json:"asset"`
-		Extra string      `json:"extra"`
-	}
-	err = json.Unmarshal([]byte(c.String("raw")), &raw)
-	if err != nil {
-		return err
-	}
+func sendTransactionCmd(c *cli.Context) error {
+	return callRPC("sendrawtransaction", []interface{}{
+		c.String("raw"),
+	})
+}
 
-	tx := common.NewTransaction(raw.Asset)
-	for _, in := range raw.Inputs {
-		tx.AddInput(in.Hash, in.Index)
-	}
+func listSnapshotsCmd(c *cli.Context) error {
+	return callRPC("listsnapshots", []interface{}{
+		c.Uint64("since"),
+		c.Uint64("count"),
+	})
+}
 
-	for _, out := range raw.Outputs {
-		if out.Type != common.OutputTypeScript {
-			return fmt.Errorf("invalid output type %d", out.Type)
-		}
-		tx.AddScriptOutput(out.Accounts, out.Script, out.Amount)
-	}
-
-	extra, err := hex.DecodeString(raw.Extra)
-	if err != nil {
-		return err
-	}
-	tx.Extra = extra
-
-	key, err := hex.DecodeString(c.String("key"))
-	if err != nil {
-		return err
-	}
-	if len(key) != 64 {
-		return fmt.Errorf("invalid key length %d", len(key))
-	}
-	var account common.Address
-	copy(account.PrivateViewKey[:], key[:32])
-	copy(account.PrivateSpendKey[:], key[32:])
-
-	signed := &common.SignedTransaction{Transaction: *tx}
-	for i, _ := range signed.Inputs {
-		err := signed.SignInput(store.SnapshotsLockUTXO, i, []common.Address{account})
-		if err != nil {
-			return err
-		}
-	}
-	fmt.Println(hex.EncodeToString(signed.Marshal()))
-	return signed.Validate(store.SnapshotsLockUTXO, store.SnapshotsCheckGhost)
+func getSnapshotCmd(c *cli.Context) error {
+	return callRPC("getsnapshot", []interface{}{
+		c.String("hash"),
+	})
 }
 
 func setupTestNetCmd(c *cli.Context) error {
@@ -184,6 +148,37 @@ func setupTestNetCmd(c *cli.Context) error {
 	return nil
 }
 
-func spendGenesisTestAmount(c *cli.Context) error {
+var httpClient *http.Client
+
+func callRPC(method string, params []interface{}) error {
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 3 * time.Second}
+	}
+
+	body, err := json.Marshal(map[string]interface{}{
+		"method": method,
+		"params": params,
+	})
+	if err != nil {
+		panic(err)
+	}
+	req, err := http.NewRequest("POST", "http://127.0.0.1:8007", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+
+	req.Close = true
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(data))
 	return nil
 }

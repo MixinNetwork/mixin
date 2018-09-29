@@ -39,34 +39,15 @@ func main() {
 			Action: setupTestNetCmd,
 		},
 		{
-			Name:   "spendgenesistestamount",
-			Usage:  "Spend a genesis test amount",
-			Action: spendGenesisTestAmount,
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "dir,d",
-					Usage: "the data directory",
-				},
-				cli.StringFlag{
-					Name:  "hash",
-					Usage: "the genesis transaction hash",
-				},
-			},
-		},
-		{
 			Name:   "createaddress",
 			Usage:  "Create a new Mixin address",
 			Action: createAdressCmd,
 		},
 		{
-			Name:   "signtransaction",
+			Name:   "signrawtransaction",
 			Usage:  "Sign a JSON encoded transaction",
 			Action: signTransactionCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "dir,d",
-					Usage: "the data directory",
-				},
 				cli.StringFlag{
 					Name:  "raw",
 					Usage: "the JSON encoded raw transaction",
@@ -78,13 +59,50 @@ func main() {
 			},
 		},
 		{
-			Name:   "decodetransaction",
+			Name:   "sendrawtransaction",
+			Usage:  "Broadcast a hex encoded signed raw transaction",
+			Action: sendTransactionCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "raw",
+					Usage: "the hex encoded signed raw transaction",
+				},
+			},
+		},
+		{
+			Name:   "decoderawtransaction",
 			Usage:  "Decode a raw transaction as JSON",
 			Action: decodeTransactionCmd,
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "raw",
 					Usage: "the JSON encoded raw transaction",
+				},
+			},
+		},
+		{
+			Name:   "listsnapshots",
+			Usage:  "List finalized snapshots",
+			Action: listSnapshotsCmd,
+			Flags: []cli.Flag{
+				cli.Uint64Flag{
+					Name:  "since,s",
+					Usage: "the topological order to begin with",
+				},
+				cli.Uint64Flag{
+					Name:  "count,c",
+					Usage: "the up limit of the returned snapshots",
+				},
+			},
+		},
+		{
+			Name:   "getsnapshot",
+			Usage:  "Get the finalized snapshot by transaction hash",
+			Action: getSnapshotCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "hash,x",
+					Usage: "the transaction hash",
 				},
 			},
 		},

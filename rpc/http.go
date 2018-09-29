@@ -51,8 +51,15 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		return
 	}
 	switch call.Method {
+	case "signrawtransaction":
+		raw, err := signTransaction(impl.Store, call.Params)
+		if err != nil {
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
+		} else {
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"raw": raw})
+		}
 	case "sendrawtransaction":
-		id, err := createTransaction(impl.Store, call.Params)
+		id, err := queueTransaction(impl.Store, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
