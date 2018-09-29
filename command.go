@@ -50,27 +50,27 @@ func decodeTransactionCmd(c *cli.Context) error {
 }
 
 func signTransactionCmd(c *cli.Context) error {
-	return callRPC("signrawtransaction", []interface{}{
+	return callRPC(c.String("node"), "signrawtransaction", []interface{}{
 		c.String("raw"),
 		c.String("key"),
 	})
 }
 
 func sendTransactionCmd(c *cli.Context) error {
-	return callRPC("sendrawtransaction", []interface{}{
+	return callRPC(c.String("node"), "sendrawtransaction", []interface{}{
 		c.String("raw"),
 	})
 }
 
 func listSnapshotsCmd(c *cli.Context) error {
-	return callRPC("listsnapshots", []interface{}{
+	return callRPC(c.String("node"), "listsnapshots", []interface{}{
 		c.Uint64("since"),
 		c.Uint64("count"),
 	})
 }
 
 func getSnapshotCmd(c *cli.Context) error {
-	return callRPC("getsnapshot", []interface{}{
+	return callRPC(c.String("node"), "getsnapshot", []interface{}{
 		c.String("hash"),
 	})
 }
@@ -150,7 +150,7 @@ func setupTestNetCmd(c *cli.Context) error {
 
 var httpClient *http.Client
 
-func callRPC(method string, params []interface{}) error {
+func callRPC(node, method string, params []interface{}) error {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 3 * time.Second}
 	}
@@ -162,7 +162,7 @@ func callRPC(method string, params []interface{}) error {
 	if err != nil {
 		panic(err)
 	}
-	req, err := http.NewRequest("POST", "http://35.231.25.31:8239", bytes.NewReader(body))
+	req, err := http.NewRequest("POST", "http://"+node, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}

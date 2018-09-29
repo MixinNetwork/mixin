@@ -49,6 +49,11 @@ func main() {
 			Action: signTransactionCmd,
 			Flags: []cli.Flag{
 				cli.StringFlag{
+					Name:  "node,n",
+					Value: "127.0.0.1:8239",
+					Usage: "the node RPC endpoint",
+				},
+				cli.StringFlag{
 					Name:  "raw",
 					Usage: "the JSON encoded raw transaction",
 				},
@@ -63,6 +68,11 @@ func main() {
 			Usage:  "Broadcast a hex encoded signed raw transaction",
 			Action: sendTransactionCmd,
 			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "node,n",
+					Value: "127.0.0.1:8239",
+					Usage: "the node RPC endpoint",
+				},
 				cli.StringFlag{
 					Name:  "raw",
 					Usage: "the hex encoded signed raw transaction",
@@ -85,12 +95,19 @@ func main() {
 			Usage:  "List finalized snapshots",
 			Action: listSnapshotsCmd,
 			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "node,n",
+					Value: "127.0.0.1:8239",
+					Usage: "the node RPC endpoint",
+				},
 				cli.Uint64Flag{
 					Name:  "since,s",
+					Value: 0,
 					Usage: "the topological order to begin with",
 				},
 				cli.Uint64Flag{
 					Name:  "count,c",
+					Value: 100,
 					Usage: "the up limit of the returned snapshots",
 				},
 			},
@@ -100,6 +117,11 @@ func main() {
 			Usage:  "Get the finalized snapshot by transaction hash",
 			Action: getSnapshotCmd,
 			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "node,n",
+					Value: "127.0.0.1:8239",
+					Usage: "the node RPC endpoint",
+				},
 				cli.StringFlag{
 					Name:  "hash,x",
 					Usage: "the transaction hash",
