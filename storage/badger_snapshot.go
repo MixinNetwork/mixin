@@ -16,7 +16,7 @@ const (
 	snapshotsPrefixGraph     = "GRAPH"     // consensus directed asyclic graph data store
 	snapshotsPrefixUTXO      = "UTXO"      // unspent outputs, will be deleted once consumed
 	snapshotsPrefixNodeRound = "NODEROUND" // node specific info, e.g. round number, round hash
-	snapshotsPrefixNodeHash  = "NODEHASH"  // hash to round number map
+	snapshotsPrefixNodeLink  = "NODELINK"  // latest node round links
 	snapshotsPrefixGhost     = "GHOST"     // each output key should only be used once
 )
 
@@ -53,6 +53,13 @@ func (s *BadgerStore) SnapshotsRoundMetaForNode(nodeIdWithNetwork crypto.Hash) (
 	return readNodeRoundMeta(txn, nodeIdWithNetwork)
 }
 
+func (s *BadgerStore) SnapshotsRoundLink(from, to crypto.Hash) (uint64, error) {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	return readNodeRoundLink(txn, from, to)
+}
+
 func readNodeRoundMeta(txn *badger.Txn, nodeIdWithNetwork crypto.Hash) ([2]uint64, error) {
 	meta := [2]uint64{}
 	key := nodeRoundMetaKey(nodeIdWithNetwork)
@@ -79,6 +86,38 @@ func writeNodeRoundMeta(txn *badger.Txn, nodeIdWithNetwork crypto.Hash, number, 
 	binary.BigEndian.PutUint64(buf[8:], start)
 	key := nodeRoundMetaKey(nodeIdWithNetwork)
 	return txn.Set(key, buf)
+}
+
+func readNodeRoundLink(txn *badger.Txn, from, to crypto.Hash) (uint64, error) {
+	key := nodeRoundLinkKey(from, to)
+	item, err := txn.Get([]byte(key))
+	if err == badger.ErrKeyNotFound {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	ival, err := item.ValueCopy(nil)
+	if err != nil {
+		return 0, err
+	}
+	return binary.BigEndian.Uint64(ival), nil
+}
+
+func writeNodeRoundLink(txn *badger.Txn, from, to crypto.Hash, link uint64) error {
+	// TODO this old check is only an assert kind check, not needed at all
+	old, err := readNodeRoundLink(txn, from, to)
+	if err != nil {
+		return err
+	}
+	if old > link {
+		return fmt.Errorf("invalid round link %d=>%d", old, link)
+	}
+
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, link)
+	key := nodeRoundLinkKey(from, to)
+	return txn.Set([]byte(key), buf)
 }
 
 func (s *BadgerStore) SnapshotsListForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error) {
@@ -258,6 +297,14 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 		}
 	}
 
+	// FIXME should ensure round links and snapshot consistence, how to move out here?
+	for to, link := range snapshot.RoundLinks {
+		err = writeNodeRoundLink(txn, snapshot.NodeId, to, link)
+		if err != nil {
+			return err
+		}
+	}
+
 	for _, in := range snapshot.Transaction.Inputs {
 		if genesis && in.Hash.String() == (crypto.Hash{}).String() {
 			continue
@@ -353,6 +400,11 @@ func utxoKey(hash crypto.Hash, index int) []byte {
 
 func nodeRoundMetaKey(nodeIdWithNetwork crypto.Hash) []byte {
 	return append([]byte(snapshotsPrefixNodeRound), nodeIdWithNetwork[:]...)
+}
+
+func nodeRoundLinkKey(from, to crypto.Hash) []byte {
+	link := crypto.NewHash(append(from[:], to[:]...))
+	return append([]byte(snapshotsPrefixNodeLink), link[:]...)
 }
 
 func ghostKey(k crypto.Key) []byte {

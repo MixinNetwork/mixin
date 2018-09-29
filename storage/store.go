@@ -17,6 +17,7 @@ type Store interface {
 	SnapshotsListForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error)
 	SnapshotsNodeList() ([]crypto.Hash, error)
 	SnapshotsRoundMetaForNode(nodeIdWithNetwork crypto.Hash) ([2]uint64, error)
+	SnapshotsRoundLink(from, to crypto.Hash) (uint64, error)
 	SnapshotsWrite(*common.SnapshotWithTopologicalOrder) error
 	SnapshotsReadByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)
 

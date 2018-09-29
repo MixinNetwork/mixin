@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -60,26 +61,46 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	return node.verifySnapshot(s)
 }
 
-// TODO node a must not reference round n-1 from node b if a has referenced n
-func (node *Node) verifyReferences(finalHash crypto.Hash, s *common.Snapshot) bool {
+func (node *Node) verifyReferences(self FinalRound, s *common.Snapshot) (map[crypto.Hash]uint64, bool, error) {
+	links := make(map[crypto.Hash]uint64)
 	if len(s.References) != 2 {
-		return false
+		return links, true, fmt.Errorf("invalid reference count %d", len(s.References))
 	}
 	ref0, ref1 := s.References[0], s.References[1]
 	if ref0 == ref1 {
-		return false
+		return links, true, fmt.Errorf("same references %s", s.Transaction.Hash().String())
 	}
 
-	if ref0 != finalHash {
-		return false
+	if ref0 != self.Hash {
+		return links, true, fmt.Errorf("invalid self reference %s", s.Transaction.Hash().String())
+	}
+	if s.NodeId != self.NodeId {
+		panic(*s)
 	}
 
 	for _, final := range node.Graph.FinalRound {
-		if final.NodeId != s.NodeId && final.Hash == ref1 {
-			return true
+		if final.NodeId == s.NodeId || final.Hash != ref1 {
+			continue
 		}
+		links[self.NodeId] = self.Number
+		links[final.NodeId] = final.Number
+		selfLink, err := node.store.SnapshotsRoundLink(s.NodeId, self.NodeId)
+		if err != nil {
+			return links, false, err
+		}
+		if links[self.NodeId] < selfLink {
+			return links, true, fmt.Errorf("invalid self reference %d=>%d", selfLink, links[self.NodeId])
+		}
+		finalLink, err := node.store.SnapshotsRoundLink(s.NodeId, final.NodeId)
+		if err != nil {
+			return links, false, err
+		}
+		if links[final.NodeId] < finalLink {
+			return links, true, fmt.Errorf("invalid final reference %d=>%d", finalLink, links[final.NodeId])
+		}
+		return links, true, nil
 	}
-	return false
+	return links, true, fmt.Errorf("invalid references %s", s.Transaction.Hash().String())
 }
 
 func (node *Node) verifyFinalization(s *common.Snapshot) bool {
@@ -124,7 +145,12 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 		}
 	}
 
-	if !node.verifyReferences(final.Hash, s) {
+	links, handled, err := node.verifyReferences(*final, s)
+	if err != nil {
+		logger.Println(err)
+		if !handled {
+			return err
+		}
 		return nil
 	}
 
@@ -154,6 +180,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 		topo := &common.SnapshotWithTopologicalOrder{
 			Snapshot:         *s,
 			TopologicalOrder: node.TopoCounter.Next(),
+			RoundLinks:       links,
 		}
 		err := node.store.SnapshotsWrite(topo)
 		if err != nil {
@@ -220,7 +247,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 	}
 
 	s.RoundNumber = round.Number
-	s.References = []crypto.Hash{final.Hash, best.Hash}
+	s.References = [2]crypto.Hash{final.Hash, best.Hash}
 	common.SignSnapshot(s, node.Account.PrivateSpendKey)
 
 	for _, p := range node.GossipPeers {

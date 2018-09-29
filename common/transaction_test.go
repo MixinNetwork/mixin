@@ -21,7 +21,7 @@ func TestTransaction(t *testing.T) {
 	genesisHash := crypto.Hash{}
 	script := Script{OperatorCmp, OperatorSum, 2}
 
-	utxoStore := func(hash crypto.Hash, index int) (*UTXO, error) {
+	utxoStore := func(hash crypto.Hash, index int, tx crypto.Hash, lock uint64) (*UTXO, error) {
 		genesisMaskr := crypto.NewKeyFromSeed(seed)
 		genesisMaskR := genesisMaskr.Public()
 
