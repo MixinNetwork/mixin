@@ -49,32 +49,28 @@ func (node *Node) SyncFinalGraphToAllPeers() {
 }
 
 func (node *Node) syncToPeerSince(p *Peer, offset uint64, filter map[crypto.Hash]bool) (uint64, error) {
-	for {
-		snapshots, err := node.store.SnapshotsListTopologySince(offset, 100)
+	snapshots, err := node.store.SnapshotsListTopologySince(offset, 1000)
+	if err != nil {
+		return offset, err
+	}
+	for _, s := range snapshots {
+		hash := s.Transaction.Hash()
+		if filter[hash] {
+			continue
+		}
+		err := p.Send(buildSnapshotMessage(&s.Snapshot))
 		if err != nil {
 			return offset, err
 		}
-		for _, s := range snapshots {
-			if filter[s.Transaction.Hash()] {
-				continue
-			}
-			err := p.Send(buildSnapshotMessage(&s.Snapshot))
-			if err != nil {
-				return offset, err
-			}
-			offset = s.TopologicalOrder
-			filter[s.Transaction.Hash()] = true
-		}
-		if len(snapshots) < 100 {
-			return offset, nil
-		}
+		offset = s.TopologicalOrder
+		filter[hash] = true
 	}
+	return offset, nil
 }
 
 func (node *Node) syncToPeerLoop(p *Peer) {
 	var offset uint64
 	filter := make(map[crypto.Hash]bool)
-	ticker := time.NewTicker(100 * time.Millisecond)
 	for {
 		select {
 		case g := <-p.GraphChan:
@@ -85,17 +81,17 @@ func (node *Node) syncToPeerLoop(p *Peer) {
 			if off > 0 {
 				offset = off
 			}
-		case <-ticker.C:
-			if offset == 0 {
-				continue
-			}
-			off, err := node.syncToPeerSince(p, offset, filter)
-			if err != nil {
-				logger.Println("GRAPH SYNC TO %s %s", p.IdForNetwork.String(), err.Error())
-			}
-			if off > 0 {
-				offset = off
-			}
+		case <-time.After(100 * time.Millisecond):
+		}
+		if offset == 0 {
+			continue
+		}
+		off, err := node.syncToPeerSince(p, offset, filter)
+		if err != nil {
+			logger.Println("GRAPH SYNC TO %s %s", p.IdForNetwork.String(), err.Error())
+		}
+		if off > 0 {
+			offset = off
 		}
 	}
 }
