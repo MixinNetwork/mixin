@@ -95,8 +95,14 @@ func (tx *SignedTransaction) Validate(lockUTXOForTransaction UTXOStore, checkGho
 	}
 
 	var inputAmount, outputAmount Integer
+
+	outputsFilter := make(map[crypto.Key]bool)
 	for _, o := range tx.Outputs {
 		for _, k := range o.Keys {
+			if outputsFilter[k] {
+				return fmt.Errorf("invalid output key %s", k.String())
+			}
+			outputsFilter[k] = true
 			exist, err := checkGhost(k)
 			if err != nil {
 				return err
@@ -108,7 +114,6 @@ func (tx *SignedTransaction) Validate(lockUTXOForTransaction UTXOStore, checkGho
 	}
 
 	inputsFilter := make(map[string]bool)
-
 	for i, in := range tx.Inputs {
 		fk := fmt.Sprintf("%s:%d", in.Hash.String(), in.Index)
 		if inputsFilter[fk] {
