@@ -105,8 +105,8 @@ func (node *Node) verifyReferences(self FinalRound, s *common.Snapshot) (map[cry
 }
 
 func (node *Node) verifyFinalization(s *common.Snapshot) bool {
-	if !common.CheckSignature(s, node.Account.PublicSpendKey) {
-		common.SignSnapshot(s, node.Account.PrivateSpendKey)
+	if !s.CheckSignature(node.Account.PublicSpendKey) {
+		s.Sign(node.Account.PrivateSpendKey)
 	}
 
 	consensusThreshold := len(node.ConsensusNodes)*2/3 + 1
@@ -249,7 +249,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 
 	s.RoundNumber = round.Number
 	s.References = [2]crypto.Hash{final.Hash, best.Hash}
-	common.SignSnapshot(s, node.Account.PrivateSpendKey)
+	s.Sign(node.Account.PrivateSpendKey)
 
 	for _, p := range node.GossipPeers {
 		err := p.Send(buildSnapshotMessage(s))

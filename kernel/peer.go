@@ -212,7 +212,7 @@ func (node *Node) acceptPeerStream(client network.Client) error {
 				return err
 			}
 		case MessageTypeSnapshot:
-			if common.CheckSignature(msg.Snapshot, peer.Account.PublicSpendKey) {
+			if msg.Snapshot.CheckSignature(peer.Account.PublicSpendKey) {
 				node.feedMempool(msg.Snapshot)
 			}
 		case MessageTypeGraph:

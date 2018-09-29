@@ -7,8 +7,8 @@ import (
 type Snapshot struct {
 	NodeId      crypto.Hash        `msgpack:"I"json:"node"`
 	Transaction *SignedTransaction `msgpack:"T"json:"transaction"`
-	References  [2]crypto.Hash     `msgpack:"R"json:"references"` // reference to own head round hash and b peer nodes round hashes, b is 3 or 2 or 1?
-	RoundNumber uint64             `msgpack:"H"json:"round"`      // if a snapshot with reference to round a confirmed, then snapshot with reference to round a-1 must never be confirmed
+	References  [2]crypto.Hash     `msgpack:"R"json:"references"`
+	RoundNumber uint64             `msgpack:"H"json:"round"`
 	Timestamp   uint64             `msgpack:"C"json:"timestamp"`
 	Signatures  []crypto.Signature `msgpack:"S,omitempty"json:"signatures,omitempty"`
 }
@@ -31,7 +31,7 @@ func (s *Snapshot) Payload() []byte {
 	return MsgpackMarshalPanic(p)
 }
 
-func SignSnapshot(s *Snapshot, spendKey crypto.Key) {
+func (s *Snapshot) Sign(spendKey crypto.Key) {
 	msg := s.Payload()
 	sig := spendKey.Sign(msg)
 	for _, es := range s.Signatures {
@@ -42,7 +42,7 @@ func SignSnapshot(s *Snapshot, spendKey crypto.Key) {
 	s.Signatures = append(s.Signatures, sig)
 }
 
-func CheckSignature(s *Snapshot, pub crypto.Key) bool {
+func (s *Snapshot) CheckSignature(pub crypto.Key) bool {
 	msg := s.Payload()
 	for _, sig := range s.Signatures {
 		if pub.Verify(msg, sig) {
