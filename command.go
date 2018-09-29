@@ -75,6 +75,10 @@ func getSnapshotCmd(c *cli.Context) error {
 	})
 }
 
+func getInfoCmd(c *cli.Context) error {
+	return callRPC(c.String("node"), "getinfo", []interface{}{})
+}
+
 func setupTestNetCmd(c *cli.Context) error {
 	var accounts []common.Address
 

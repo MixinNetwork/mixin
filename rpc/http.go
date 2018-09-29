@@ -51,6 +51,13 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		return
 	}
 	switch call.Method {
+	case "getinfo":
+		info, err := getInfo(impl.Store)
+		if err != nil {
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
+		} else {
+			render.New().JSON(w, http.StatusOK, info)
+		}
 	case "signrawtransaction":
 		raw, err := signTransaction(impl.Store, call.Params)
 		if err != nil {

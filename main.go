@@ -128,6 +128,18 @@ func main() {
 				},
 			},
 		},
+		{
+			Name:   "getinfo",
+			Usage:  "Get info from the node",
+			Action: getInfoCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "node,n",
+					Value: "127.0.0.1:8239",
+					Usage: "the node RPC endpoint",
+				},
+			},
+		},
 	}
 	err := app.Run(os.Args)
 	if err != nil {

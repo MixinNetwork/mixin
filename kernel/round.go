@@ -59,7 +59,7 @@ func (g *RoundGraph) Print() string {
 	return desc
 }
 
-func loadRoundGraph(store storage.Store) (*RoundGraph, error) {
+func LoadRoundGraph(store storage.Store) (*RoundGraph, error) {
 	graph := &RoundGraph{
 		CacheRound: make(map[crypto.Hash]*CacheRound),
 		FinalRound: make(map[crypto.Hash]*FinalRound),
