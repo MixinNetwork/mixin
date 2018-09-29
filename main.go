@@ -28,7 +28,7 @@ func main() {
 				},
 				cli.IntFlag{
 					Name:  "port,p",
-					Value: 7001,
+					Value: 7239,
 					Usage: "the peer port to listen",
 				},
 			},

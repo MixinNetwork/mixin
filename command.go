@@ -162,7 +162,7 @@ func callRPC(method string, params []interface{}) error {
 	if err != nil {
 		panic(err)
 	}
-	req, err := http.NewRequest("POST", "http://127.0.0.1:8007", bytes.NewReader(body))
+	req, err := http.NewRequest("POST", "http://35.231.25.31:8239", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
