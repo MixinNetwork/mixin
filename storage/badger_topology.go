@@ -10,38 +10,33 @@ import (
 
 const snapshotsPrefixTopology = "TOPOLOGY" // local topological sorted snapshots, irreverlant to the consensus rule
 
-func (s *BadgerStore) SnapshotsListTopologySince(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
+func (s *BadgerStore) SnapshotsReadSnapshotsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	snapshots := make([]*common.SnapshotWithTopologicalOrder, 0)
 
-	err := s.snapshotsDB.View(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
-		defer it.Close()
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
 
-		it.Seek(topologyKey(topologyOffset))
-		for ; it.ValidForPrefix([]byte(snapshotsPrefixTopology)) && uint64(len(snapshots)) < count; it.Next() {
-			item := it.Item()
-			v, err := item.ValueCopy(nil)
-			if err != nil {
-				return err
-			}
-			var s common.SnapshotWithTopologicalOrder
-			err = msgpack.Unmarshal(v, &s)
-			if err != nil {
-				return err
-			}
-			s.TopologicalOrder = topologyOrder(item.Key())
-			s.Hash = s.Transaction.Hash()
-			snapshots = append(snapshots, &s)
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
+	it.Seek(topologyKey(topologyOffset))
+	for ; it.ValidForPrefix([]byte(snapshotsPrefixTopology)) && uint64(len(snapshots)) < count; it.Next() {
+		item := it.Item()
+		v, err := item.ValueCopy(nil)
+		if err != nil {
+			return snapshots, err
 		}
-		return nil
-	})
-	return snapshots, err
-}
+		var s common.SnapshotWithTopologicalOrder
+		err = msgpack.Unmarshal(v, &s)
+		if err != nil {
+			return snapshots, err
+		}
+		s.TopologicalOrder = topologyOrder(item.Key())
+		s.Hash = s.Transaction.Hash()
+		snapshots = append(snapshots, &s)
+	}
 
-func writeSnapshotTopology(txn *badger.Txn, s *common.SnapshotWithTopologicalOrder) error {
-	key := topologyKey(s.TopologicalOrder)
-	val := common.MsgpackMarshalPanic(s)
-	return txn.Set(key, val)
+	return snapshots, nil
 }
 
 func (s *BadgerStore) SnapshotsTopologySequence() uint64 {
@@ -63,6 +58,12 @@ func (s *BadgerStore) SnapshotsTopologySequence() uint64 {
 		sequence = topologyOrder(item.Key()) + 1
 	}
 	return sequence
+}
+
+func writeSnapshotTopology(txn *badger.Txn, s *common.SnapshotWithTopologicalOrder) error {
+	key := topologyKey(s.TopologicalOrder)
+	val := common.MsgpackMarshalPanic(s)
+	return txn.Set(key, val)
 }
 
 func topologyKey(order uint64) []byte {

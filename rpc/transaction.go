@@ -105,7 +105,7 @@ func getSnapshot(store storage.Store, params []interface{}) (*common.SnapshotWit
 	if err != nil {
 		return nil, err
 	}
-	return store.SnapshotsReadByTransactionHash(hash)
+	return store.SnapshotsReadSnapshotByTransactionHash(hash)
 }
 
 func listSnapshots(store storage.Store, params []interface{}) ([]*common.SnapshotWithTopologicalOrder, error) {
@@ -121,5 +121,5 @@ func listSnapshots(store storage.Store, params []interface{}) ([]*common.Snapsho
 		return nil, err
 	}
 
-	return store.SnapshotsListTopologySince(offset, count)
+	return store.SnapshotsReadSnapshotsSinceTopology(offset, count)
 }

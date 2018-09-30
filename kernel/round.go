@@ -64,7 +64,7 @@ func LoadRoundGraph(store storage.Store) (*RoundGraph, error) {
 		CacheRound: make(map[crypto.Hash]*CacheRound),
 		FinalRound: make(map[crypto.Hash]*FinalRound),
 	}
-	nodes, err := store.SnapshotsNodeList()
+	nodes, err := store.SnapshotsReadNodesList()
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func LoadRoundGraph(store storage.Store) (*RoundGraph, error) {
 }
 
 func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*CacheRound, error) {
-	meta, err := store.SnapshotsRoundMetaForNode(nodeIdWithNetwork)
+	meta, err := store.SnapshotsReadRoundMeta(nodeIdWithNetwork)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*
 		Start:  meta[1],
 		End:    0,
 	}
-	round.Snapshots, err = store.SnapshotsListForNodeRound(round.NodeId, round.Number)
+	round.Snapshots, err = store.SnapshotsReadSnapshotsForNodeRound(round.NodeId, round.Number)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*
 }
 
 func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, number uint64) (*FinalRound, error) {
-	snapshots, err := store.SnapshotsListForNodeRound(nodeIdWithNetwork, number)
+	snapshots, err := store.SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork, number)
 	if err != nil {
 		return nil, err
 	}

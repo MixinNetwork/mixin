@@ -85,14 +85,14 @@ func (node *Node) verifyReferences(self FinalRound, s *common.Snapshot) (map[cry
 		}
 		links[self.NodeId] = self.Number
 		links[final.NodeId] = final.Number
-		selfLink, err := node.store.SnapshotsRoundLink(s.NodeId, self.NodeId)
+		selfLink, err := node.store.SnapshotsReadRoundLink(s.NodeId, self.NodeId)
 		if err != nil {
 			return links, false, err
 		}
 		if links[self.NodeId] < selfLink {
 			return links, true, fmt.Errorf("invalid self reference %d=>%d", selfLink, links[self.NodeId])
 		}
-		finalLink, err := node.store.SnapshotsRoundLink(s.NodeId, final.NodeId)
+		finalLink, err := node.store.SnapshotsReadRoundLink(s.NodeId, final.NodeId)
 		if err != nil {
 			return links, false, err
 		}
@@ -183,7 +183,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 			TopologicalOrder: node.TopoCounter.Next(),
 			RoundLinks:       links,
 		}
-		err := node.store.SnapshotsWrite(topo)
+		err := node.store.SnapshotsWriteSnapshot(topo)
 		if err != nil {
 			return err
 		}

@@ -21,130 +21,45 @@ const (
 	snapshotsPrefixGhost     = "GHOST"     // each output key should only be used once
 )
 
-func (s *BadgerStore) SnapshotsNodeList() ([]crypto.Hash, error) {
-	var nodes []crypto.Hash
-	err := s.snapshotsDB.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.PrefetchValues = false
-		it := txn.NewIterator(opts)
-		defer it.Close()
-
-		filter := make(map[crypto.Hash]bool)
-		for it.Seek([]byte(snapshotsPrefixNodeRound)); it.ValidForPrefix([]byte(snapshotsPrefixNodeRound)); it.Next() {
-			var hash crypto.Hash
-			key := it.Item().Key()
-			id := key[len(snapshotsPrefixNodeRound) : len(snapshotsPrefixNodeRound)+len(hash)]
-			copy(hash[:], id)
-			if filter[hash] {
-				continue
-			}
-			filter[hash] = true
-			nodes = append(nodes, hash)
-		}
-
-		return nil
-	})
-	return nodes, err
-}
-
-func (s *BadgerStore) SnapshotsRoundMetaForNode(nodeIdWithNetwork crypto.Hash) ([2]uint64, error) {
-	txn := s.snapshotsDB.NewTransaction(false)
-	defer txn.Discard()
-
-	return readNodeRoundMeta(txn, nodeIdWithNetwork)
-}
-
-func (s *BadgerStore) SnapshotsRoundLink(from, to crypto.Hash) (uint64, error) {
-	txn := s.snapshotsDB.NewTransaction(false)
-	defer txn.Discard()
-
-	return readNodeRoundLink(txn, from, to)
-}
-
-func readNodeRoundMeta(txn *badger.Txn, nodeIdWithNetwork crypto.Hash) ([2]uint64, error) {
-	meta := [2]uint64{}
-	key := nodeRoundMetaKey(nodeIdWithNetwork)
-	item, err := txn.Get([]byte(key))
-	if err == badger.ErrKeyNotFound {
-		return meta, nil
-	}
-	if err != nil {
-		return meta, err
-	}
-	ival, err := item.ValueCopy(nil)
-	if err != nil {
-		return meta, err
-	}
-	number := binary.BigEndian.Uint64(ival[:8])
-	start := binary.BigEndian.Uint64(ival[8:])
-	meta[0], meta[1] = number, start
-	return meta, nil
-}
-
-func writeNodeRoundMeta(txn *badger.Txn, nodeIdWithNetwork crypto.Hash, number, start uint64) error {
-	buf := make([]byte, 16)
-	binary.BigEndian.PutUint64(buf, number)
-	binary.BigEndian.PutUint64(buf[8:], start)
-	key := nodeRoundMetaKey(nodeIdWithNetwork)
-	return txn.Set(key, buf)
-}
-
-func readNodeRoundLink(txn *badger.Txn, from, to crypto.Hash) (uint64, error) {
-	key := nodeRoundLinkKey(from, to)
-	item, err := txn.Get([]byte(key))
-	if err == badger.ErrKeyNotFound {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, err
-	}
-	ival, err := item.ValueCopy(nil)
-	if err != nil {
-		return 0, err
-	}
-	return binary.BigEndian.Uint64(ival), nil
-}
-
-func writeNodeRoundLink(txn *badger.Txn, from, to crypto.Hash, link uint64) error {
-	// TODO this old check is only an assert kind check, not needed at all
-	old, err := readNodeRoundLink(txn, from, to)
-	if err != nil {
-		return err
-	}
-	if old > link {
-		return fmt.Errorf("invalid round link %d=>%d", old, link)
-	}
-
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, link)
-	key := nodeRoundLinkKey(from, to)
-	return txn.Set([]byte(key), buf)
-}
-
-func (s *BadgerStore) SnapshotsListForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error) {
+func (s *BadgerStore) SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error) {
 	snapshots := make([]*common.Snapshot, 0)
-	err := s.snapshotsDB.View(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
-		defer it.Close()
 
-		key := graphKey(nodeIdWithNetwork, round, 0)
-		prefix := key[:len(key)-8]
-		for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
-			item := it.Item()
-			v, err := item.ValueCopy(nil)
-			if err != nil {
-				return err
-			}
-			var s common.Snapshot
-			err = msgpack.Unmarshal(v, &s)
-			if err != nil {
-				return err
-			}
-			snapshots = append(snapshots, &s)
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
+	key := graphKey(nodeIdWithNetwork, round, 0)
+	prefix := key[:len(key)-8]
+	for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
+		item := it.Item()
+		v, err := item.ValueCopy(nil)
+		if err != nil {
+			return snapshots, err
 		}
-		return nil
+		var s common.Snapshot
+		err = msgpack.Unmarshal(v, &s)
+		if err != nil {
+			return snapshots, err
+		}
+		snapshots = append(snapshots, &s)
+	}
+
+	return snapshots, nil
+}
+
+func (s *BadgerStore) SnapshotsReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error) {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	return readSnapshotByTransactionHash(txn, hash)
+}
+
+func (s *BadgerStore) SnapshotsWriteSnapshot(snapshot *common.SnapshotWithTopologicalOrder) error {
+	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
+		return writeSnapshot(txn, snapshot, false)
 	})
-	return snapshots, err
 }
 
 func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash, lockDuration uint64) (*common.UTXO, error) {
@@ -252,20 +167,8 @@ func readSnapshotByTransactionHash(txn *badger.Txn, hash crypto.Hash) (*common.S
 	return &s, err
 }
 
-func (s *BadgerStore) SnapshotsReadByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error) {
-	txn := s.snapshotsDB.NewTransaction(false)
-	defer txn.Discard()
-
-	return readSnapshotByTransactionHash(txn, hash)
-}
-
-func (s *BadgerStore) SnapshotsWrite(snapshot *common.SnapshotWithTopologicalOrder) error {
-	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
-		return writeSnapshot(txn, snapshot, false)
-	})
-}
-
 func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrder, genesis bool) error {
+	// FIXME what if same transaction but different snapshot hash
 	_, err := txn.Get(snapshotKey(snapshot.Transaction.Hash()))
 	if err == nil {
 		return nil
@@ -273,7 +176,7 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 		return err
 	}
 
-	roundMeta, err := readNodeRoundMeta(txn, snapshot.NodeId)
+	roundMeta, err := readRoundMeta(txn, snapshot.NodeId)
 	if err != nil {
 		return err
 	}
@@ -292,7 +195,7 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 
 	// FIXME should ensure round meta and snapshot consistence, how to move out here?
 	if snapshot.RoundNumber == roundNumber+1 || (snapshot.RoundNumber == 0 && genesis) {
-		err = writeNodeRoundMeta(txn, snapshot.NodeId, snapshot.RoundNumber, snapshot.Timestamp)
+		err = writeRoundMeta(txn, snapshot.NodeId, snapshot.RoundNumber, snapshot.Timestamp)
 		if err != nil {
 			return err
 		}
@@ -300,7 +203,7 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 
 	// FIXME should ensure round links and snapshot consistence, how to move out here?
 	for to, link := range snapshot.RoundLinks {
-		err = writeNodeRoundLink(txn, snapshot.NodeId, to, link)
+		err = writeRoundLink(txn, snapshot.NodeId, to, link)
 		if err != nil {
 			return err
 		}
@@ -397,15 +300,6 @@ func utxoKey(hash crypto.Hash, index int) []byte {
 	size := binary.PutVarint(buf, int64(index))
 	key := append([]byte(snapshotsPrefixUTXO), hash[:]...)
 	return append(key, buf[:size]...)
-}
-
-func nodeRoundMetaKey(nodeIdWithNetwork crypto.Hash) []byte {
-	return append([]byte(snapshotsPrefixNodeRound), nodeIdWithNetwork[:]...)
-}
-
-func nodeRoundLinkKey(from, to crypto.Hash) []byte {
-	link := crypto.NewHash(append(from[:], to[:]...))
-	return append([]byte(snapshotsPrefixNodeLink), link[:]...)
 }
 
 func ghostKey(k crypto.Key) []byte {

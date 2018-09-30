@@ -23,11 +23,11 @@ func (node *Node) compareRoundGraphAndGetTopologicalOffset(local, remote []Final
 			continue
 		}
 
-		ss, err := node.store.SnapshotsListForNodeRound(r.NodeId, r.Number)
+		ss, err := node.store.SnapshotsReadSnapshotsForNodeRound(r.NodeId, r.Number)
 		if err != nil {
 			return offset, err
 		}
-		s, err := node.store.SnapshotsReadByTransactionHash(ss[0].Transaction.Hash())
+		s, err := node.store.SnapshotsReadSnapshotByTransactionHash(ss[0].Transaction.Hash())
 		if err != nil {
 			return offset, err
 		}
@@ -49,7 +49,7 @@ func (node *Node) SyncFinalGraphToAllPeers() {
 }
 
 func (node *Node) syncToPeerSince(p *Peer, offset uint64, filter map[crypto.Hash]bool) (uint64, error) {
-	snapshots, err := node.store.SnapshotsListTopologySince(offset, 1000)
+	snapshots, err := node.store.SnapshotsReadSnapshotsSinceTopology(offset, 1000)
 	if err != nil {
 		return offset, err
 	}

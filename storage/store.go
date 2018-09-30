@@ -13,13 +13,13 @@ type Store interface {
 	SnapshotsTopologySequence() uint64
 	SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash, lock uint64) (*common.UTXO, error)
 	SnapshotsCheckGhost(key crypto.Key) (bool, error)
-	SnapshotsListTopologySince(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
-	SnapshotsListForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error)
-	SnapshotsNodeList() ([]crypto.Hash, error)
-	SnapshotsRoundMetaForNode(nodeIdWithNetwork crypto.Hash) ([2]uint64, error)
-	SnapshotsRoundLink(from, to crypto.Hash) (uint64, error)
-	SnapshotsWrite(*common.SnapshotWithTopologicalOrder) error
-	SnapshotsReadByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)
+	SnapshotsReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
+	SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error)
+	SnapshotsReadNodesList() ([]crypto.Hash, error)
+	SnapshotsReadRoundMeta(nodeIdWithNetwork crypto.Hash) ([2]uint64, error)
+	SnapshotsReadRoundLink(from, to crypto.Hash) (uint64, error)
+	SnapshotsWriteSnapshot(*common.SnapshotWithTopologicalOrder) error
+	SnapshotsReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)
 
 	QueueAdd(tx *common.SignedTransaction) error
 	QueuePoll(uint64, func(k uint64, v []byte) error) error
