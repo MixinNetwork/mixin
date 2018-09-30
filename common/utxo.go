@@ -12,13 +12,13 @@ type UTXO struct {
 
 type UTXOWithLock struct {
 	UTXO
-	LockHash  crypto.Hash
-	LockUntil uint64
+	LockHash  crypto.Hash `msgpack:"LH"`
+	LockUntil uint64      `msgpack:"LU"`
 }
 
-type UTXOStore func(hash crypto.Hash, index int, tx crypto.Hash, lock uint64) (*UTXO, error)
+type UTXOLocker func(hash crypto.Hash, index int, tx crypto.Hash, until uint64) (*UTXO, error)
 
-type GhostStore func(key crypto.Key) (bool, error)
+type GhostChecker func(key crypto.Key) (bool, error)
 
 func (s *Snapshot) UnspentOutputs() []*UTXO {
 	tx := s.Transaction

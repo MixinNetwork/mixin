@@ -3,6 +3,7 @@ package common
 import (
 	"crypto/rand"
 	"fmt"
+	"time"
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -76,7 +77,7 @@ func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {
 	return outputs
 }
 
-func (tx *SignedTransaction) Validate(lockUTXOForTransaction UTXOStore, checkGhost GhostStore) error {
+func (tx *SignedTransaction) Validate(lockUTXOForTransaction UTXOLocker, checkGhost GhostChecker) error {
 	if tx.Version != TxVersion {
 		return fmt.Errorf("invalid tx version %d", tx.Version)
 	}
@@ -121,7 +122,8 @@ func (tx *SignedTransaction) Validate(lockUTXOForTransaction UTXOStore, checkGho
 		}
 		inputsFilter[fk] = true
 
-		utxo, err := lockUTXOForTransaction(in.Hash, in.Index, tx.Hash(), config.SnapshotRoundGap*3)
+		lockUntil := time.Now().Add(time.Duration(config.SnapshotRoundGap * 3)).UnixNano()
+		utxo, err := lockUTXOForTransaction(in.Hash, in.Index, tx.Hash(), uint64(lockUntil))
 		if err != nil {
 			return err
 		}
@@ -176,7 +178,7 @@ func (tx *SignedTransaction) Marshal() []byte {
 	return MsgpackMarshalPanic(tx)
 }
 
-func (signed *SignedTransaction) SignInput(lockUTXOForTransaction UTXOStore, index int, accounts []Address) error {
+func (signed *SignedTransaction) SignInput(lockUTXOForTransaction UTXOLocker, index int, accounts []Address) error {
 	msg := MsgpackMarshalPanic(signed.Transaction)
 
 	if index >= len(signed.Inputs) {
