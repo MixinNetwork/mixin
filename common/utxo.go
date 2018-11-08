@@ -21,9 +21,12 @@ type UTXOLocker func(hash crypto.Hash, index int, tx crypto.Hash, until uint64) 
 type GhostChecker func(key crypto.Key) (bool, error)
 
 func (s *Snapshot) UnspentOutputs() []*UTXO {
-	tx := s.Transaction
-
 	var utxos []*UTXO
+	tx := s.Transaction
+	if tx == nil {
+		return utxos
+	}
+
 	for i, out := range tx.Outputs {
 		utxo := &UTXO{
 			Input: Input{

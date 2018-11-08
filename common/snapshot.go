@@ -35,7 +35,7 @@ func (s *Snapshot) Sign(spendKey crypto.Key) {
 	msg := s.Payload()
 	sig := spendKey.Sign(msg)
 	for _, es := range s.Signatures {
-		if es.String() == sig.String() {
+		if es == sig {
 			return
 		}
 	}

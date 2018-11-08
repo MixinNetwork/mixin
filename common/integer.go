@@ -59,7 +59,9 @@ func (x Integer) Cmp(y Integer) int {
 }
 
 func (x Integer) String() string {
-	return x.i.String()
+	s := x.i.String()
+	p := len(s) - Precision
+	return s[:p] + "." + s[p:]
 }
 
 func (x Integer) MarshalMsgpack() ([]byte, error) {
@@ -73,8 +75,6 @@ func (x *Integer) UnmarshalMsgpack(data []byte) error {
 
 func (x Integer) MarshalJSON() ([]byte, error) {
 	s := x.String()
-	p := len(s) - Precision
-	s = s[:p] + "." + s[p:]
 	return []byte(strconv.Quote(s)), nil
 }
 
