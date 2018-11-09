@@ -152,6 +152,7 @@ func kernelCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	defer store.Close()
 
 	go func() {
 		err := rpc.StartHTTP(store, c.Int("port")+1000)

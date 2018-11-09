@@ -6,6 +6,8 @@ import (
 )
 
 type Store interface {
+	Close() error
+
 	StateGet(key string, val interface{}) (bool, error)
 	StateSet(key string, val interface{}) error
 

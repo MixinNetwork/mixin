@@ -30,6 +30,18 @@ func NewBadgerStore(dir string) (*BadgerStore, error) {
 	}, nil
 }
 
+func (store *BadgerStore) Close() error {
+	err := store.snapshotsDB.Close()
+	if err != nil {
+		return err
+	}
+	err = store.stateDB.Close()
+	if err != nil {
+		return err
+	}
+	return store.queueDB.Close()
+}
+
 func openDB(dir string, sync bool) (*badger.DB, error) {
 	opts := badger.DefaultOptions
 	opts.Dir = dir

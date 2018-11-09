@@ -84,16 +84,23 @@ func (node *Node) loadGenesis(configDir string) error {
 
 		remaining := in.Balance.Sub(common.NewInteger(PledgeAmount))
 		if remaining.Cmp(common.NewInteger(0)) > 0 {
-			r := crypto.NewKeyFromSeed(append(r[:], r[:]...))
-			R := r.Public()
-			key := crypto.DeriveGhostPublicKey(&r, &in.Address.PublicViewKey, &in.Address.PublicSpendKey)
-			tx.Outputs = append(tx.Outputs, &common.Output{
-				Type:   common.OutputTypeScript,
-				Script: common.Script([]uint8{common.OperatorCmp, common.OperatorSum, 1}),
-				Amount: remaining,
-				Keys:   []crypto.Key{*key},
-				Mask:   R,
-			})
+			slice := common.NewInteger(1000)
+			for {
+				r = crypto.NewKeyFromSeed(append(r[:], r[:]...))
+				R = r.Public()
+				key := crypto.DeriveGhostPublicKey(&r, &in.Address.PublicViewKey, &in.Address.PublicSpendKey)
+				tx.Outputs = append(tx.Outputs, &common.Output{
+					Type:   common.OutputTypeScript,
+					Script: common.Script([]uint8{common.OperatorCmp, common.OperatorSum, 1}),
+					Amount: slice,
+					Keys:   []crypto.Key{*key},
+					Mask:   R,
+				})
+				remaining = remaining.Sub(slice)
+				if remaining.Cmp(common.NewInteger(0)) == 0 {
+					break
+				}
+			}
 		}
 
 		signed := &common.SignedTransaction{Transaction: tx}

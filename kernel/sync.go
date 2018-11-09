@@ -76,7 +76,7 @@ func (node *Node) syncToPeerLoop(p *Peer) {
 		case g := <-p.GraphChan:
 			off, err := node.compareRoundGraphAndGetTopologicalOffset(node.Graph.FinalCache, g)
 			if err != nil {
-				logger.Println("GRAPH COMPARE WITH %s %s", p.IdForNetwork.String(), err.Error())
+				logger.Printf("GRAPH COMPARE WITH %s %s", p.IdForNetwork.String(), err.Error())
 			}
 			if off > 0 {
 				offset = off
@@ -88,7 +88,7 @@ func (node *Node) syncToPeerLoop(p *Peer) {
 		}
 		off, err := node.syncToPeerSince(p, offset, filter)
 		if err != nil {
-			logger.Println("GRAPH SYNC TO %s %s", p.IdForNetwork.String(), err.Error())
+			logger.Printf("GRAPH SYNC TO %s %s", p.IdForNetwork.String(), err.Error())
 		}
 		if off > 0 {
 			offset = off
