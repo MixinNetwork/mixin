@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"testing"
 	"time"
@@ -19,10 +18,8 @@ import (
 func TestConsensus(t *testing.T) {
 	assert := assert.New(t)
 
-	root, err := ioutil.TempDir("", "mixin-test")
-	if err != nil {
-		log.Fatal(err)
-	}
+	root, err := ioutil.TempDir("", "mixin-consensus-test")
+	assert.Nil(err)
 	defer os.RemoveAll(root)
 
 	accounts, err := setupTestNet(root)
