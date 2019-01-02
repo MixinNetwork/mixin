@@ -121,7 +121,7 @@ func (tx *SignedTransaction) Validate(lockUTXOForTransaction UTXOLocker, checkGh
 		}
 		inputsFilter[fk] = true
 
-		utxo, err := lockUTXOForTransaction(in.Hash, in.Index, tx.Hash())
+		utxo, err := lockUTXOForTransaction(in.Hash, in.Index, crypto.Hash{})
 		if err != nil {
 			return err
 		}
@@ -143,6 +143,12 @@ func (tx *SignedTransaction) Validate(lockUTXOForTransaction UTXOLocker, checkGh
 		return fmt.Errorf("invalid input output amount %s %s", inputAmount.String(), outputAmount.String())
 	}
 
+	for _, in := range tx.Inputs {
+		_, err := lockUTXOForTransaction(in.Hash, in.Index, tx.Hash())
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -183,7 +189,7 @@ func (signed *SignedTransaction) SignInput(lockUTXOForTransaction UTXOLocker, in
 		return fmt.Errorf("invalid input index %d/%d", index, len(signed.Inputs))
 	}
 	in := signed.Inputs[index]
-	utxo, err := lockUTXOForTransaction(in.Hash, in.Index, signed.Hash())
+	utxo, err := lockUTXOForTransaction(in.Hash, in.Index, crypto.Hash{})
 	if err != nil {
 		return err
 	}
