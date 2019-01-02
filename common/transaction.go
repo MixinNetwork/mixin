@@ -3,7 +3,6 @@ package common
 import (
 	"crypto/rand"
 	"fmt"
-	"time"
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -122,8 +121,7 @@ func (tx *SignedTransaction) Validate(lockUTXOForTransaction UTXOLocker, checkGh
 		}
 		inputsFilter[fk] = true
 
-		lockUntil := time.Now().Add(time.Duration(config.SnapshotRoundGap * 3)).UnixNano()
-		utxo, err := lockUTXOForTransaction(in.Hash, in.Index, tx.Hash(), uint64(lockUntil))
+		utxo, err := lockUTXOForTransaction(in.Hash, in.Index, tx.Hash())
 		if err != nil {
 			return err
 		}
@@ -185,7 +183,7 @@ func (signed *SignedTransaction) SignInput(lockUTXOForTransaction UTXOLocker, in
 		return fmt.Errorf("invalid input index %d/%d", index, len(signed.Inputs))
 	}
 	in := signed.Inputs[index]
-	utxo, err := lockUTXOForTransaction(in.Hash, in.Index, crypto.Hash{}, 0)
+	utxo, err := lockUTXOForTransaction(in.Hash, in.Index, signed.Hash())
 	if err != nil {
 		return err
 	}

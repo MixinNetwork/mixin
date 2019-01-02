@@ -3,7 +3,6 @@ package storage
 import (
 	"encoding/binary"
 	"fmt"
-	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -62,7 +61,7 @@ func (s *BadgerStore) SnapshotsWriteSnapshot(snapshot *common.SnapshotWithTopolo
 	})
 }
 
-func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash, until uint64) (*common.UTXO, error) {
+func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*common.UTXO, error) {
 	var utxo *common.UTXO
 	err := s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		key := utxoKey(hash, index)
@@ -84,12 +83,10 @@ func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.H
 			return err
 		}
 
-		now := uint64(time.Now().UnixNano())
-		if out.LockUntil > now && out.LockHash != tx {
-			return fmt.Errorf("utxo locked for transaction %s until %d", out.LockHash, out.LockUntil)
+		if out.LockHash.HasValue() && out.LockHash != tx {
+			return fmt.Errorf("utxo locked for transaction %s", out.LockHash)
 		}
 		out.LockHash = tx
-		out.LockUntil = until
 		err = txn.Set([]byte(key), common.MsgpackMarshalPanic(out))
 		utxo = &out.UTXO
 		return err

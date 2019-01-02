@@ -27,6 +27,10 @@ func HashFromString(src string) (Hash, error) {
 	return hash, nil
 }
 
+func (h Hash) HasValue() bool {
+	return h != (Hash{})
+}
+
 func (h Hash) String() string {
 	return hex.EncodeToString(h[:])
 }
