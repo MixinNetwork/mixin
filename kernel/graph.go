@@ -109,8 +109,8 @@ func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 		s.Sign(node.Account.PrivateSpendKey)
 	}
 
-	consensusThreshold := len(node.ConsensusNodes)*2/3 + 1
-	return len(s.Signatures) >= consensusThreshold
+	consensusThreshold := len(node.ConsensusNodes) * 2 / 3
+	return len(s.Signatures) > consensusThreshold
 }
 
 func (node *Node) verifySnapshot(s *common.Snapshot) error {
