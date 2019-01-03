@@ -46,7 +46,7 @@ func (node *Node) clearConsensusSignatures(s *common.Snapshot) {
 }
 
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
-	err := s.Transaction.Validate(node.store.SnapshotsLockUTXO, node.store.SnapshotsCheckGhost)
+	err := s.Transaction.Validate(node.store.SnapshotsReadUTXO, node.store.SnapshotsLockUTXO, node.store.SnapshotsCheckGhost)
 	if err != nil {
 		logger.Println("VALIDATE TRANSACTION", err)
 		return nil

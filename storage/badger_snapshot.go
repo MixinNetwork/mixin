@@ -61,6 +61,28 @@ func (s *BadgerStore) SnapshotsWriteSnapshot(snapshot *common.SnapshotWithTopolo
 	})
 }
 
+func (s *BadgerStore) SnapshotsReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error) {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	key := utxoKey(hash, index)
+	item, err := txn.Get([]byte(key))
+	if err == badger.ErrKeyNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	ival, err := item.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var out common.UTXO
+	err = msgpack.Unmarshal(ival, &out)
+	return &out, err
+}
+
 func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*common.UTXO, error) {
 	var utxo *common.UTXO
 	err := s.snapshotsDB.Update(func(txn *badger.Txn) error {

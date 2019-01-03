@@ -9,7 +9,7 @@ import (
 )
 
 func QueueTransaction(store storage.Store, tx *common.SignedTransaction) (string, error) {
-	err := tx.Validate(store.SnapshotsLockUTXO, store.SnapshotsCheckGhost)
+	err := tx.Validate(store.SnapshotsReadUTXO, store.SnapshotsLockUTXO, store.SnapshotsCheckGhost)
 	if err != nil {
 		return "", err
 	}

@@ -69,12 +69,12 @@ func signTransaction(store storage.Store, params []interface{}) (string, error) 
 
 	signed := &common.SignedTransaction{Transaction: *tx}
 	for i, _ := range signed.Inputs {
-		err := signed.SignInput(store.SnapshotsLockUTXO, i, []common.Address{account})
+		err := signed.SignInput(store.SnapshotsReadUTXO, i, []common.Address{account})
 		if err != nil {
 			return "", err
 		}
 	}
-	err = signed.Validate(store.SnapshotsLockUTXO, store.SnapshotsCheckGhost)
+	err = signed.Validate(store.SnapshotsReadUTXO, store.SnapshotsLockUTXO, store.SnapshotsCheckGhost)
 	if err != nil {
 		return "", err
 	}
