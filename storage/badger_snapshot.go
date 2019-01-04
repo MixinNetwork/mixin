@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 
@@ -83,7 +84,7 @@ func (s *BadgerStore) SnapshotsReadUTXO(hash crypto.Hash, index int) (*common.UT
 	return &out, err
 }
 
-func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*common.UTXO, error) {
+func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash, snapHash crypto.Hash, ts uint64) (*common.UTXO, error) {
 	var utxo *common.UTXO
 	err := s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		key := utxoKey(hash, index)
@@ -105,10 +106,20 @@ func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.H
 			return err
 		}
 
-		if out.LockHash.HasValue() && out.LockHash != tx {
-			return fmt.Errorf("utxo locked for transaction %s", out.LockHash)
+		if out.LockHash.HasValue() {
+			if out.LockHash != tx {
+				return fmt.Errorf("utxo locked for transaction %s", out.LockHash)
+			}
+			if out.LockTimestamp < ts {
+				return fmt.Errorf("utxo locked for timestamp early %d %d", out.LockTimestamp, ts)
+			}
+			if out.LockTimestamp == ts && bytes.Compare(out.LockSnapshot[:], snapHash[:]) < 0 {
+				return fmt.Errorf("utxo locked for snapshot early %s %s", out.LockSnapshot.String(), snapHash.String())
+			}
 		}
 		out.LockHash = tx
+		out.LockSnapshot = snapHash
+		out.LockTimestamp = ts
 		err = txn.Set([]byte(key), common.MsgpackMarshalPanic(out))
 		utxo = &out.UTXO
 		return err

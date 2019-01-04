@@ -74,7 +74,7 @@ func signTransaction(store storage.Store, params []interface{}) (string, error) 
 			return "", err
 		}
 	}
-	err = signed.Validate(store.SnapshotsReadUTXO, store.SnapshotsLockUTXO, store.SnapshotsCheckGhost)
+	err = signed.Validate(store.SnapshotsReadUTXO, store.SnapshotsCheckGhost)
 	if err != nil {
 		return "", err
 	}

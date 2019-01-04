@@ -31,6 +31,26 @@ func (s *Snapshot) Payload() []byte {
 	return MsgpackMarshalPanic(p)
 }
 
+func (s *Snapshot) PayloadHash() crypto.Hash {
+	return crypto.NewHash(s.Payload())
+}
+
+func (s *Snapshot) Validate(readUTXO UTXOReader, checkGhost GhostChecker, lockUTXOForTransaction UTXOLocker) error {
+	err := s.Transaction.Validate(readUTXO, checkGhost)
+	if err != nil {
+		return err
+	}
+
+	tx := s.Transaction
+	for _, in := range tx.Inputs {
+		_, err := lockUTXOForTransaction(in.Hash, in.Index, tx.Hash(), s.PayloadHash(), s.Timestamp)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Snapshot) Sign(spendKey crypto.Key) {
 	msg := s.Payload()
 	sig := spendKey.Sign(msg)

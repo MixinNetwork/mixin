@@ -30,13 +30,13 @@ type Input struct {
 }
 
 type Output struct {
-	Type   uint8   `msgpack:"T"json:"type"`
-	Amount Integer `msgpack:"A"json:"amount"`
+	Type   uint8        `msgpack:"T"json:"type"`
+	Amount Integer      `msgpack:"A"json:"amount"`
+	Keys   []crypto.Key `msgpack:"K,omitempty"json:"keys,omitempty"`
 
 	// OutputTypeScript fields
-	Script Script       `msgpack:"S,omitempty"json:"script,omitempty"`
-	Keys   []crypto.Key `msgpack:"K,omitempty"json:"keys,omitempty"`
-	Mask   crypto.Key   `msgpack:"M,omitempty"json:"mask,omitempty"`
+	Script Script     `msgpack:"S,omitempty"json:"script,omitempty"`
+	Mask   crypto.Key `msgpack:"M,omitempty"json:"mask,omitempty"`
 }
 
 type Transaction struct {
@@ -76,7 +76,7 @@ func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {
 	return outputs
 }
 
-func (tx *SignedTransaction) Validate(readUTXO UTXOReader, lockUTXOForTransaction UTXOLocker, checkGhost GhostChecker) error {
+func (tx *SignedTransaction) Validate(readUTXO UTXOReader, checkGhost GhostChecker) error {
 	if tx.Version != TxVersion {
 		return fmt.Errorf("invalid tx version %d", tx.Version)
 	}
@@ -141,13 +141,6 @@ func (tx *SignedTransaction) Validate(readUTXO UTXOReader, lockUTXOForTransactio
 
 	if inputAmount.Cmp(outputAmount) != 0 {
 		return fmt.Errorf("invalid input output amount %s %s", inputAmount.String(), outputAmount.String())
-	}
-
-	for _, in := range tx.Inputs {
-		_, err := lockUTXOForTransaction(in.Hash, in.Index, tx.Hash())
-		if err != nil {
-			return err
-		}
 	}
 	return nil
 }

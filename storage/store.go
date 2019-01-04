@@ -14,7 +14,7 @@ type Store interface {
 	SnapshotsLoadGenesis([]*common.SnapshotWithTopologicalOrder) error
 	SnapshotsTopologySequence() uint64
 	SnapshotsReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error)
-	SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*common.UTXO, error)
+	SnapshotsLockUTXO(hash crypto.Hash, index int, tx, snapHash crypto.Hash, ts uint64) (*common.UTXO, error)
 	SnapshotsCheckGhost(key crypto.Key) (bool, error)
 	SnapshotsReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error)

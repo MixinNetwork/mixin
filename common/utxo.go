@@ -12,12 +12,14 @@ type UTXO struct {
 
 type UTXOWithLock struct {
 	UTXO
-	LockHash crypto.Hash `msgpack:"LH"`
+	LockHash      crypto.Hash `msgpack:"LH"`
+	LockSnapshot  crypto.Hash `msgpack:"LS"`
+	LockTimestamp uint64      `msgpack:"LT"`
 }
 
 type UTXOReader func(hash crypto.Hash, index int) (*UTXO, error)
 
-type UTXOLocker func(hash crypto.Hash, index int, tx crypto.Hash) (*UTXO, error)
+type UTXOLocker func(hash crypto.Hash, index int, tx, snapHash crypto.Hash, ts uint64) (*UTXO, error)
 
 type GhostChecker func(key crypto.Key) (bool, error)
 
