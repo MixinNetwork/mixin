@@ -13,7 +13,7 @@ func QueueTransaction(store storage.Store, tx *common.SignedTransaction) (string
 	if err != nil {
 		return "", err
 	}
-	return tx.Hash().String(), store.QueueAdd(tx)
+	return tx.PayloadHash().String(), store.QueueAdd(tx)
 }
 
 func (node *Node) ConsumeQueue() error {

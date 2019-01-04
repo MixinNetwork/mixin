@@ -33,7 +33,7 @@ func (s *Snapshot) UnspentOutputs() []*UTXO {
 	for i, out := range tx.Outputs {
 		utxo := &UTXO{
 			Input: Input{
-				Hash:  tx.Hash(),
+				Hash:  tx.PayloadHash(),
 				Index: i,
 			},
 			Output: Output{

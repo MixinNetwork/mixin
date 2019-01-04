@@ -27,7 +27,7 @@ func (node *Node) compareRoundGraphAndGetTopologicalOffset(local, remote []Final
 		if err != nil {
 			return offset, err
 		}
-		s, err := node.store.SnapshotsReadSnapshotByTransactionHash(ss[0].Transaction.Hash())
+		s, err := node.store.SnapshotsReadSnapshotByTransactionHash(ss[0].Transaction.PayloadHash())
 		if err != nil {
 			return offset, err
 		}
@@ -54,7 +54,7 @@ func (node *Node) syncToPeerSince(p *Peer, offset uint64, filter map[crypto.Hash
 		return offset, err
 	}
 	for _, s := range snapshots {
-		hash := s.Transaction.Hash()
+		hash := s.Transaction.PayloadHash()
 		if filter[hash] {
 			continue
 		}

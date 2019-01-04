@@ -43,7 +43,7 @@ func (s *Snapshot) Validate(readUTXO UTXOReader, checkGhost GhostChecker, lockUT
 
 	tx := s.Transaction
 	for _, in := range tx.Inputs {
-		_, err := lockUTXOForTransaction(in.Hash, in.Index, tx.Hash(), s.PayloadHash(), s.Timestamp)
+		_, err := lockUTXOForTransaction(in.Hash, in.Index, tx.PayloadHash(), s.PayloadHash(), s.Timestamp)
 		if err != nil {
 			return err
 		}

@@ -31,8 +31,9 @@ func (s *BadgerStore) SnapshotsReadSnapshotsSinceTopology(topologyOffset, count 
 		if err != nil {
 			return snapshots, err
 		}
+		s.Transaction.Hash = s.Transaction.PayloadHash()
 		s.TopologicalOrder = topologyOrder(item.Key())
-		s.Hash = s.Transaction.Hash()
+		s.Hash = s.PayloadHash()
 		snapshots = append(snapshots, &s)
 	}
 

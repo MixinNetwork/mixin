@@ -69,11 +69,11 @@ func (node *Node) verifyReferences(self FinalRound, s *common.Snapshot) (map[cry
 	}
 	ref0, ref1 := s.References[0], s.References[1]
 	if ref0 == ref1 {
-		return links, true, fmt.Errorf("same references %s", s.Transaction.Hash().String())
+		return links, true, fmt.Errorf("same references %s", s.Transaction.PayloadHash().String())
 	}
 
 	if ref0 != self.Hash {
-		return links, true, fmt.Errorf("invalid self reference %s", s.Transaction.Hash().String())
+		return links, true, fmt.Errorf("invalid self reference %s", s.Transaction.PayloadHash().String())
 	}
 	if s.NodeId != self.NodeId {
 		panic(*s)
@@ -101,7 +101,7 @@ func (node *Node) verifyReferences(self FinalRound, s *common.Snapshot) (map[cry
 		}
 		return links, true, nil
 	}
-	return links, true, fmt.Errorf("invalid references %s", s.Transaction.Hash().String())
+	return links, true, fmt.Errorf("invalid references %s", s.Transaction.PayloadHash().String())
 }
 
 func (node *Node) verifyFinalization(s *common.Snapshot) bool {
@@ -155,7 +155,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 		return nil
 	}
 
-	if o := node.SnapshotsPool[s.Transaction.Hash()]; o != nil {
+	if o := node.SnapshotsPool[s.Transaction.PayloadHash()]; o != nil {
 		filter := make(map[crypto.Signature]bool)
 		for _, sig := range s.Signatures {
 			filter[sig] = true
@@ -168,7 +168,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 			filter[sig] = true
 		}
 	}
-	node.SnapshotsPool[s.Transaction.Hash()] = s
+	node.SnapshotsPool[s.Transaction.PayloadHash()] = s
 
 	if node.verifyFinalization(s) {
 		if s.RoundNumber == cache.Number+1 {
@@ -257,7 +257,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 			return err
 		}
 	}
-	node.SnapshotsPool[s.Transaction.Hash()] = s
+	node.SnapshotsPool[s.Transaction.PayloadHash()] = s
 	node.Graph.CacheRound[s.NodeId] = round
 	node.Graph.FinalRound[s.NodeId] = final
 	logger.Println(node.Graph.Print())

@@ -45,6 +45,7 @@ type Transaction struct {
 	Inputs  []*Input    `msgpack:"I"json:"inputs"`
 	Outputs []*Output   `msgpack:"O"json:"outputs"`
 	Extra   []byte      `msgpack:"E,omitempty"json:"extra,omitempty"`
+	Hash    crypto.Hash `msgpack:"-"json:"hash"`
 }
 
 type SignedTransaction struct {
@@ -166,7 +167,7 @@ func validateUTXO(utxo *UTXO, sigs []crypto.Signature, msg []byte) error {
 	return utxo.Script.Validate(valid)
 }
 
-func (tx *Transaction) Hash() crypto.Hash {
+func (tx *Transaction) PayloadHash() crypto.Hash {
 	msg := MsgpackMarshalPanic(tx)
 	return crypto.NewHash(msg)
 }

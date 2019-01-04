@@ -192,14 +192,15 @@ func readSnapshotByTransactionHash(txn *badger.Txn, hash crypto.Hash) (*common.S
 	}
 	var s common.SnapshotWithTopologicalOrder
 	err = msgpack.Unmarshal(val, &s)
+	s.Transaction.Hash = s.Transaction.PayloadHash()
 	s.TopologicalOrder = topo
-	s.Hash = s.Transaction.Hash()
+	s.Hash = s.PayloadHash()
 	return &s, err
 }
 
 func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrder, genesis bool) error {
 	// FIXME what if same transaction but different snapshot hash
-	_, err := txn.Get(snapshotKey(snapshot.Transaction.Hash()))
+	_, err := txn.Get(snapshotKey(snapshot.Transaction.PayloadHash()))
 	if err == nil {
 		return nil
 	} else if err != badger.ErrKeyNotFound {
@@ -306,7 +307,7 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 	for _, ref := range snapshot.References {
 		meta = append(meta, ref[:]...)
 	}
-	err = txn.Set(snapshotKey(snapshot.Transaction.Hash()), meta)
+	err = txn.Set(snapshotKey(snapshot.Transaction.PayloadHash()), meta)
 	if err != nil {
 		return err
 	}
