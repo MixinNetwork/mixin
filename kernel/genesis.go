@@ -20,7 +20,7 @@ type Genesis []struct {
 	Mask    string         `json:"mask"`
 }
 
-func (node *Node) loadGenesis(configDir string) error {
+func (node *Node) LoadGenesis(configDir string) error {
 	const stateKeyNetwork = "network"
 
 	gns, err := readGenesis(configDir + "/genesis.json")

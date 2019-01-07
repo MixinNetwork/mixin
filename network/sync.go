@@ -7,12 +7,6 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
-func (me *Peer) SyncFinalGraphToAllNeighbors() {
-	for _, p := range me.Neighbors {
-		go me.syncToNeighborLoop(p)
-	}
-}
-
 func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []SyncPoint) (uint64, error) {
 	localFilter := make(map[crypto.Hash]*SyncPoint)
 	for _, p := range local {

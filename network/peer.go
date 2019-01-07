@@ -15,8 +15,9 @@ import (
 )
 
 type Node interface {
+	NetworkId() crypto.Hash
 	BuildGraph() []SyncPoint
-	FeedPool(s *common.Snapshot)
+	FeedMempool(s *common.Snapshot) error
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error)
 	ReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)
@@ -35,9 +36,9 @@ type Peer struct {
 }
 
 type SyncPoint struct {
-	NodeId crypto.Hash `msgpack:"N"`
-	Number uint64      `msgpack:"R"`
-	Start  uint64      `msgpack:"T"`
+	NodeId crypto.Hash
+	Number uint64
+	Start  uint64
 }
 
 const (
@@ -55,9 +56,10 @@ type PeerMessage struct {
 	Data       []byte
 }
 
-func (me *Peer) AddNeighbor(networkId crypto.Hash, acc common.Address, addr string) {
+func (me *Peer) AddNeighbor(acc common.Address, addr string) {
 	peer := NewPeer(nil, acc, addr)
 	peerId := peer.Account.Hash()
+	networkId := me.Node.NetworkId()
 	peer.IdForNetwork = crypto.NewHash(append(networkId[:], peerId[:]...))
 
 	if peer.Address == me.Address || me.Neighbors[peer.IdForNetwork] != nil {
@@ -69,11 +71,13 @@ func (me *Peer) AddNeighbor(networkId crypto.Hash, acc common.Address, addr stri
 		for {
 			err := me.openPeerStream(p)
 			if err != nil {
-				logger.Println("election routine peer error", err)
+				logger.Println("neighbor open stream error", err)
 			}
 			time.Sleep(1 * time.Second)
 		}
 	}(peer)
+
+	go me.syncToNeighborLoop(peer)
 }
 
 func NewPeer(node Node, acc common.Address, addr string) *Peer {
@@ -262,7 +266,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 			}
 		case PeerMessageTypeSnapshot:
 			if msg.Snapshot.CheckSignature(peer.Account.PublicSpendKey) {
-				me.Node.FeedPool(msg.Snapshot)
+				me.Node.FeedMempool(msg.Snapshot)
 			}
 		case PeerMessageTypeGraph:
 			peer.GraphChan <- msg.FinalCache

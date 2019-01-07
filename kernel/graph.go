@@ -10,41 +10,6 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
-func (node *Node) feedMempool(s *common.Snapshot) error {
-	node.mempoolChan <- s
-	return nil
-}
-
-func (node *Node) ConsumeMempool() error {
-	for {
-		select {
-		case s := <-node.mempoolChan:
-			err := node.handleSnapshotInput(s)
-			if err != nil {
-				return err
-			}
-		}
-	}
-}
-
-func (node *Node) clearConsensusSignatures(s *common.Snapshot) {
-	msg := s.Payload()
-	sigs := make([]crypto.Signature, 0)
-	filter := make(map[crypto.Signature]bool)
-	for _, sig := range s.Signatures {
-		if filter[sig] {
-			continue
-		}
-		for _, n := range node.ConsensusNodes {
-			if n.PublicSpendKey.Verify(msg, sig) {
-				sigs = append(sigs, sig)
-			}
-		}
-		filter[sig] = true
-	}
-	s.Signatures = sigs
-}
-
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	err := s.Transaction.Validate(node.store.SnapshotsReadUTXO, node.store.SnapshotsCheckGhost)
 	if err != nil {
@@ -65,6 +30,24 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		return err
 	}
 	return s.LockInputs(node.store.SnapshotsLockUTXO)
+}
+
+func (node *Node) clearConsensusSignatures(s *common.Snapshot) {
+	msg := s.Payload()
+	sigs := make([]crypto.Signature, 0)
+	filter := make(map[crypto.Signature]bool)
+	for _, sig := range s.Signatures {
+		if filter[sig] {
+			continue
+		}
+		for _, n := range node.ConsensusNodes {
+			if n.PublicSpendKey.Verify(msg, sig) {
+				sigs = append(sigs, sig)
+			}
+		}
+		filter[sig] = true
+	}
+	s.Signatures = sigs
 }
 
 func (node *Node) verifyReferences(self FinalRound, s *common.Snapshot) (map[crypto.Hash]uint64, bool, error) {

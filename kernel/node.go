@@ -2,6 +2,8 @@ package kernel
 
 import (
 	"crypto/rand"
+	"encoding/json"
+	"io/ioutil"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -30,7 +32,7 @@ type Node struct {
 	configDir   string
 }
 
-func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
+func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
 		Address:        addr,
 		ConsensusNodes: make([]common.Address, 0),
@@ -41,13 +43,12 @@ func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		TopoCounter:    getTopologyCounter(store),
 	}
 
-	err := node.loadNodeStateFromStore()
+	err := node.LoadNodeState()
 	if err != nil {
 		return nil, err
 	}
-	node.Peer = network.NewPeer(node, node.Account, node.Address)
 
-	err = node.loadGenesis(dir)
+	err = node.LoadGenesis(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +59,7 @@ func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	}
 	node.Graph = graph
 
-	err = node.connectNeighbors()
+	err = node.AddNeighborsFromConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +74,7 @@ func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	return node, nil
 }
 
-func (node *Node) loadNodeStateFromStore() error {
+func (node *Node) LoadNodeState() error {
 	const stateKeyAccount = "account"
 	var acc common.Address
 	found, err := node.store.StateGet(stateKeyAccount, &acc)
@@ -95,8 +96,41 @@ func (node *Node) loadNodeStateFromStore() error {
 	return nil
 }
 
-func (node *Node) ListenPeers() error {
+func (node *Node) AddNeighborsFromConfig() error {
+	node.Peer = network.NewPeer(node, node.Account, node.Address)
+
+	f, err := ioutil.ReadFile(node.configDir + "/nodes.json")
+	if err != nil {
+		return err
+	}
+	var inputs []struct {
+		Address string `json:"address"`
+		Host    string `json:"host"`
+	}
+	err = json.Unmarshal(f, &inputs)
+	if err != nil {
+		return err
+	}
+	for _, in := range inputs {
+		if in.Address == node.Account.String() {
+			continue
+		}
+		acc, err := common.NewAddressFromString(in.Address)
+		if err != nil {
+			return err
+		}
+		node.Peer.AddNeighbor(acc, in.Host)
+	}
+
+	return nil
+}
+
+func (node *Node) ListenNeighbors() error {
 	return node.Peer.ListenNeighbors()
+}
+
+func (node *Node) NetworkId() crypto.Hash {
+	return node.networkId
 }
 
 func (node *Node) BuildGraph() []network.SyncPoint {
@@ -110,8 +144,10 @@ func (node *Node) BuildGraph() []network.SyncPoint {
 	}
 	return points
 }
-func (node *Node) FeedPool(s *common.Snapshot) {
+
+func (node *Node) FeedMempool(s *common.Snapshot) error {
 	node.mempoolChan <- s
+	return nil
 }
 
 func (node *Node) ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
@@ -126,6 +162,14 @@ func (node *Node) ReadSnapshotByTransactionHash(hash crypto.Hash) (*common.Snaps
 	return node.store.SnapshotsReadSnapshotByTransactionHash(hash)
 }
 
-func (node *Node) SyncFinalGraphToAllPeers() {
-	node.Peer.SyncFinalGraphToAllNeighbors()
+func (node *Node) ConsumeMempool() error {
+	for {
+		select {
+		case s := <-node.mempoolChan:
+			err := node.handleSnapshotInput(s)
+			if err != nil {
+				return err
+			}
+		}
+	}
 }

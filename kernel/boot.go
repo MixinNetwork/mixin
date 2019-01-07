@@ -8,14 +8,13 @@ import (
 var globalNode *Node
 
 func Loop(store storage.Store, addr string, dir string) error {
-	node, err := setupNode(store, addr, dir)
+	node, err := SetupNode(store, addr, dir)
 	if err != nil {
 		return err
 	}
 	globalNode = node
-	panicGo(node.ListenPeers)
+	panicGo(node.ListenNeighbors)
 	panicGo(node.ConsumeMempool)
-	node.SyncFinalGraphToAllPeers()
 	return node.ConsumeQueue()
 }
 

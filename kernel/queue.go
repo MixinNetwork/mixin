@@ -25,7 +25,7 @@ func (node *Node) ConsumeQueue() error {
 			if err != nil {
 				return err
 			}
-			err = node.feedMempool(&common.Snapshot{
+			err = node.FeedMempool(&common.Snapshot{
 				NodeId:      node.IdForNetwork,
 				Transaction: &tx,
 			})
