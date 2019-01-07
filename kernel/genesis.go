@@ -80,7 +80,7 @@ func (node *Node) loadGenesis(configDir string) error {
 					Mask:   R,
 				},
 			},
-			Extra: []byte(in.Address.String()),
+			Extra: append(in.Address.PublicSpendKey[:], in.Address.PublicViewKey[:]...),
 		}
 
 		remaining := in.Balance.Sub(common.NewInteger(PledgeAmount))
