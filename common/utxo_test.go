@@ -32,7 +32,7 @@ func TestUTXO(t *testing.T) {
 	utxos = s.UnspentOutputs()
 	assert.Len(utxos, 1)
 	utxo := utxos[0]
-	assert.Equal(tx.Hash(), utxo.Input.Hash)
+	assert.Equal(tx.PayloadHash(), utxo.Input.Hash)
 	assert.Equal(0, utxo.Input.Index)
 	assert.Equal(uint8(OutputTypeScript), utxo.Output.Type)
 	assert.Equal("20000.00000000", utxo.Output.Amount.String())

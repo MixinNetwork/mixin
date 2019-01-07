@@ -21,7 +21,7 @@ func TestTransaction(t *testing.T) {
 	genesisHash := crypto.Hash{}
 	script := Script{OperatorCmp, OperatorSum, 2}
 
-	utxoLocker := func(hash crypto.Hash, index int, tx crypto.Hash, lock uint64) (*UTXO, error) {
+	utxoReader := func(hash crypto.Hash, index int) (*UTXO, error) {
 		genesisMaskr := crypto.NewKeyFromSeed(seed)
 		genesisMaskR := genesisMaskr.Public()
 
@@ -58,10 +58,10 @@ func TestTransaction(t *testing.T) {
 
 	signed := &SignedTransaction{Transaction: *tx}
 	for i, _ := range signed.Inputs {
-		err := signed.SignInput(utxoLocker, i, accounts)
+		err := signed.SignInput(utxoReader, i, accounts)
 		assert.Nil(err)
 	}
-	err := signed.Validate(utxoLocker, keyChecker)
+	err := signed.Validate(utxoReader, keyChecker)
 	assert.Nil(err)
 
 	outputs := signed.ViewGhostKey(&accounts[1].PrivateViewKey)
