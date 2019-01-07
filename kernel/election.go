@@ -44,6 +44,5 @@ func (node *Node) connectNeighbors() error {
 		node.Peer.AddNeighbor(node.networkId, acc, in.Host)
 	}
 
-	node.Peer.ConnectNeighbors()
 	return nil
 }

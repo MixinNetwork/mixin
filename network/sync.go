@@ -7,10 +7,16 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
+func (me *Peer) SyncFinalGraphToAllNeighbors() {
+	for _, p := range me.Neighbors {
+		go me.syncToNeighborLoop(p)
+	}
+}
+
 func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []SyncPoint) (uint64, error) {
 	localFilter := make(map[crypto.Hash]*SyncPoint)
-	for _, r := range local {
-		localFilter[r.NodeId] = &r
+	for _, p := range local {
+		localFilter[p.NodeId] = &p
 	}
 
 	var offset uint64
@@ -23,11 +29,11 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []SyncPoi
 			continue
 		}
 
-		ss, err := me.Node.SnapshotsReadSnapshotsForNodeRound(r.NodeId, r.Number)
+		ss, err := me.Node.ReadSnapshotsForNodeRound(r.NodeId, r.Number)
 		if err != nil {
 			return offset, err
 		}
-		s, err := me.Node.SnapshotsReadSnapshotByTransactionHash(ss[0].Transaction.PayloadHash())
+		s, err := me.Node.ReadSnapshotByTransactionHash(ss[0].Transaction.PayloadHash())
 		if err != nil {
 			return offset, err
 		}
@@ -42,14 +48,8 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []SyncPoi
 	return offset, nil
 }
 
-func (me *Peer) SyncFinalGraphToAllPeers() {
-	for _, p := range me.Neighbors {
-		go me.syncToPeerLoop(p)
-	}
-}
-
-func (me *Peer) syncToPeerSince(p *Peer, offset uint64, filter map[crypto.Hash]bool) (uint64, error) {
-	snapshots, err := me.Node.SnapshotsReadSnapshotsSinceTopology(offset, 1000)
+func (me *Peer) syncToNeighborSince(p *Peer, offset uint64, filter map[crypto.Hash]bool) (uint64, error) {
+	snapshots, err := me.Node.ReadSnapshotsSinceTopology(offset, 1000)
 	if err != nil {
 		return offset, err
 	}
@@ -68,7 +68,7 @@ func (me *Peer) syncToPeerSince(p *Peer, offset uint64, filter map[crypto.Hash]b
 	return offset, nil
 }
 
-func (me *Peer) syncToPeerLoop(p *Peer) {
+func (me *Peer) syncToNeighborLoop(p *Peer) {
 	var offset uint64
 	filter := make(map[crypto.Hash]bool)
 	for {
@@ -86,7 +86,7 @@ func (me *Peer) syncToPeerLoop(p *Peer) {
 		if offset == 0 {
 			continue
 		}
-		off, err := me.syncToPeerSince(p, offset, filter)
+		off, err := me.syncToNeighborSince(p, offset, filter)
 		if err != nil {
 			logger.Printf("GRAPH SYNC TO %s %s", p.IdForNetwork.String(), err.Error())
 		}

@@ -17,9 +17,9 @@ import (
 type Node interface {
 	BuildGraph() []SyncPoint
 	FeedPool(s *common.Snapshot)
-	SnapshotsReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
-	SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error)
-	SnapshotsReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)
+	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
+	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error)
+	ReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)
 }
 
 type Peer struct {
@@ -59,7 +59,21 @@ func (me *Peer) AddNeighbor(networkId crypto.Hash, acc common.Address, addr stri
 	peer := NewPeer(nil, acc, addr)
 	peerId := peer.Account.Hash()
 	peer.IdForNetwork = crypto.NewHash(append(networkId[:], peerId[:]...))
+
+	if peer.Address == me.Address || me.Neighbors[peer.IdForNetwork] != nil {
+		return
+	}
 	me.Neighbors[peer.IdForNetwork] = peer
+
+	go func(p *Peer) {
+		for {
+			err := me.openPeerStream(p)
+			if err != nil {
+				logger.Println("election routine peer error", err)
+			}
+			time.Sleep(1 * time.Second)
+		}
+	}(peer)
 }
 
 func NewPeer(node Node, acc common.Address, addr string) *Peer {
@@ -103,7 +117,7 @@ func (me *Peer) ListenNeighbors() error {
 		if err != nil {
 			return err
 		}
-		go me.acceptPeerStream(c)
+		go me.acceptNeighborConnection(c)
 	}
 }
 
@@ -158,23 +172,6 @@ func buildSnapshotMessage(ss *common.Snapshot) []byte {
 func buildGraphMessage(points []SyncPoint) []byte {
 	data := common.MsgpackMarshalPanic(points)
 	return append([]byte{PeerMessageTypeGraph}, data...)
-}
-
-func (me *Peer) ConnectNeighbors() {
-	for _, p := range me.Neighbors {
-		if p.Address == me.Address {
-			continue
-		}
-		go func(peer *Peer) {
-			for {
-				err := me.openPeerStream(peer)
-				if err != nil {
-					logger.Println("election routine peer error", err)
-				}
-				time.Sleep(1 * time.Second)
-			}
-		}(p)
-	}
 }
 
 func (me *Peer) openPeerStream(peer *Peer) error {
@@ -239,10 +236,10 @@ func (me *Peer) openPeerStream(peer *Peer) error {
 	}
 }
 
-func (me *Peer) acceptPeerStream(client Client) error {
+func (me *Peer) acceptNeighborConnection(client Client) error {
 	defer client.Close()
 
-	peer, err := me.authenticatePeer(client)
+	peer, err := me.authenticateNeighbor(client)
 	if err != nil {
 		logger.Println("peer authentication error", err)
 		return err
@@ -273,7 +270,7 @@ func (me *Peer) acceptPeerStream(client Client) error {
 	}
 }
 
-func (me *Peer) authenticatePeer(client Client) (*Peer, error) {
+func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 	var peer *Peer
 	auth := make(chan error)
 	go func() {

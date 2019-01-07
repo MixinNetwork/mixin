@@ -114,18 +114,18 @@ func (node *Node) FeedPool(s *common.Snapshot) {
 	node.mempoolChan <- s
 }
 
-func (node *Node) SnapshotsReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
+func (node *Node) ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	return node.store.SnapshotsReadSnapshotsSinceTopology(offset, count)
 }
 
-func (node *Node) SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error) {
+func (node *Node) ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error) {
 	return node.store.SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork, round)
 }
 
-func (node *Node) SnapshotsReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error) {
+func (node *Node) ReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error) {
 	return node.store.SnapshotsReadSnapshotByTransactionHash(hash)
 }
 
 func (node *Node) SyncFinalGraphToAllPeers() {
-	node.Peer.SyncFinalGraphToAllPeers()
+	node.Peer.SyncFinalGraphToAllNeighbors()
 }
