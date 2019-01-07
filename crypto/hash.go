@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"strconv"
@@ -28,7 +29,8 @@ func HashFromString(src string) (Hash, error) {
 }
 
 func (h Hash) HasValue() bool {
-	return h != (Hash{})
+	zero := Hash{}
+	return bytes.Compare(h[:], zero[:]) != 0
 }
 
 func (h Hash) String() string {

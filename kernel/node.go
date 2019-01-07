@@ -18,15 +18,14 @@ type Node struct {
 	IdForNetwork   crypto.Hash
 	Account        common.Address
 	ConsensusNodes []common.Address
-	GossipPeers    map[crypto.Hash]*Peer
 	Address        string
 	Graph          *RoundGraph
 	TopoCounter    *TopologicalSequence
 	SnapshotsPool  map[crypto.Hash]*common.Snapshot
+	Peer           *network.Peer
 
 	networkId   crypto.Hash
 	store       storage.Store
-	transport   network.Transport
 	mempoolChan chan *common.Snapshot
 	configDir   string
 }
@@ -35,7 +34,6 @@ func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
 		Address:        addr,
 		ConsensusNodes: make([]common.Address, 0),
-		GossipPeers:    make(map[crypto.Hash]*Peer),
 		SnapshotsPool:  make(map[crypto.Hash]*common.Snapshot),
 		store:          store,
 		mempoolChan:    make(chan *common.Snapshot, MempoolSize),
@@ -47,6 +45,7 @@ func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	node.Peer = network.NewPeer(node, node.Account, node.Address)
 
 	err = node.loadGenesis(dir)
 	if err != nil {
@@ -59,13 +58,7 @@ func setupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	}
 	node.Graph = graph
 
-	transport, err := network.NewQuicServer(addr, node.Account.PrivateSpendKey)
-	if err != nil {
-		return nil, err
-	}
-	node.transport = transport
-
-	err = node.loadPeersList()
+	err = node.connectNeighbors()
 	if err != nil {
 		return nil, err
 	}
@@ -100,4 +93,39 @@ func (node *Node) loadNodeStateFromStore() error {
 	}
 	node.Account = acc
 	return nil
+}
+
+func (node *Node) ListenPeers() error {
+	return node.Peer.ListenNeighbors()
+}
+
+func (node *Node) BuildGraph() []network.SyncPoint {
+	points := make([]network.SyncPoint, 0)
+	for _, c := range node.Graph.FinalCache {
+		points = append(points, network.SyncPoint{
+			NodeId: c.NodeId,
+			Number: c.Number,
+			Start:  c.Start,
+		})
+	}
+	return points
+}
+func (node *Node) FeedPool(s *common.Snapshot) {
+	node.mempoolChan <- s
+}
+
+func (node *Node) SnapshotsReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
+	return node.store.SnapshotsReadSnapshotsSinceTopology(offset, count)
+}
+
+func (node *Node) SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error) {
+	return node.store.SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork, round)
+}
+
+func (node *Node) SnapshotsReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error) {
+	return node.store.SnapshotsReadSnapshotByTransactionHash(hash)
+}
+
+func (node *Node) SyncFinalGraphToAllPeers() {
+	node.Peer.SyncFinalGraphToAllPeers()
 }

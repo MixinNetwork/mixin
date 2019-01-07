@@ -46,7 +46,7 @@ func (node *Node) clearConsensusSignatures(s *common.Snapshot) {
 }
 
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
-	err := s.Validate(node.store.SnapshotsReadUTXO, node.store.SnapshotsCheckGhost, node.store.SnapshotsLockUTXO)
+	err := s.Transaction.Validate(node.store.SnapshotsReadUTXO, node.store.SnapshotsCheckGhost)
 	if err != nil {
 		logger.Println("VALIDATE TRANSACTION", err)
 		return nil
@@ -56,10 +56,15 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	node.clearConsensusSignatures(s)
 
 	if len(s.Signatures) == 0 {
-		return node.signSnapshot(s)
+		err = node.signSnapshot(s)
+	} else {
+		err = node.verifySnapshot(s)
 	}
 
-	return node.verifySnapshot(s)
+	if err != nil {
+		return err
+	}
+	return s.LockInputs(node.store.SnapshotsLockUTXO)
 }
 
 func (node *Node) verifyReferences(self FinalRound, s *common.Snapshot) (map[crypto.Hash]uint64, bool, error) {
@@ -188,9 +193,8 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 			return err
 		}
 	} else if node.IdForNetwork != s.NodeId {
-		msg := buildSnapshotMessage(s)
 		// FIXME gossip peers are different from consensus nodes
-		err := node.GossipPeers[s.NodeId].Send(msg)
+		err := node.Peer.Neighbors[s.NodeId].SendSnapshotMessage(s)
 		if err != nil {
 			return err
 		}
@@ -251,8 +255,8 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 	s.References = [2]crypto.Hash{final.Hash, best.Hash}
 	s.Sign(node.Account.PrivateSpendKey)
 
-	for _, p := range node.GossipPeers {
-		err := p.Send(buildSnapshotMessage(s))
+	for _, p := range node.Peer.Neighbors {
+		err := p.SendSnapshotMessage(s)
 		if err != nil {
 			return err
 		}

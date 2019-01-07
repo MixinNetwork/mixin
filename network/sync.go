@@ -1,4 +1,4 @@
-package kernel
+package network
 
 import (
 	"time"
@@ -7,8 +7,8 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
-func (node *Node) compareRoundGraphAndGetTopologicalOffset(local, remote []FinalRound) (uint64, error) {
-	localFilter := make(map[crypto.Hash]*FinalRound)
+func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []SyncPoint) (uint64, error) {
+	localFilter := make(map[crypto.Hash]*SyncPoint)
 	for _, r := range local {
 		localFilter[r.NodeId] = &r
 	}
@@ -23,11 +23,11 @@ func (node *Node) compareRoundGraphAndGetTopologicalOffset(local, remote []Final
 			continue
 		}
 
-		ss, err := node.store.SnapshotsReadSnapshotsForNodeRound(r.NodeId, r.Number)
+		ss, err := me.Node.SnapshotsReadSnapshotsForNodeRound(r.NodeId, r.Number)
 		if err != nil {
 			return offset, err
 		}
-		s, err := node.store.SnapshotsReadSnapshotByTransactionHash(ss[0].Transaction.PayloadHash())
+		s, err := me.Node.SnapshotsReadSnapshotByTransactionHash(ss[0].Transaction.PayloadHash())
 		if err != nil {
 			return offset, err
 		}
@@ -42,14 +42,14 @@ func (node *Node) compareRoundGraphAndGetTopologicalOffset(local, remote []Final
 	return offset, nil
 }
 
-func (node *Node) SyncFinalGraphToAllPeers() {
-	for _, p := range node.GossipPeers {
-		go node.syncToPeerLoop(p)
+func (me *Peer) SyncFinalGraphToAllPeers() {
+	for _, p := range me.Neighbors {
+		go me.syncToPeerLoop(p)
 	}
 }
 
-func (node *Node) syncToPeerSince(p *Peer, offset uint64, filter map[crypto.Hash]bool) (uint64, error) {
-	snapshots, err := node.store.SnapshotsReadSnapshotsSinceTopology(offset, 1000)
+func (me *Peer) syncToPeerSince(p *Peer, offset uint64, filter map[crypto.Hash]bool) (uint64, error) {
+	snapshots, err := me.Node.SnapshotsReadSnapshotsSinceTopology(offset, 1000)
 	if err != nil {
 		return offset, err
 	}
@@ -68,13 +68,13 @@ func (node *Node) syncToPeerSince(p *Peer, offset uint64, filter map[crypto.Hash
 	return offset, nil
 }
 
-func (node *Node) syncToPeerLoop(p *Peer) {
+func (me *Peer) syncToPeerLoop(p *Peer) {
 	var offset uint64
 	filter := make(map[crypto.Hash]bool)
 	for {
 		select {
 		case g := <-p.GraphChan:
-			off, err := node.compareRoundGraphAndGetTopologicalOffset(node.Graph.FinalCache, g)
+			off, err := me.compareRoundGraphAndGetTopologicalOffset(me.Node.BuildGraph(), g)
 			if err != nil {
 				logger.Printf("GRAPH COMPARE WITH %s %s", p.IdForNetwork.String(), err.Error())
 			}
@@ -86,7 +86,7 @@ func (node *Node) syncToPeerLoop(p *Peer) {
 		if offset == 0 {
 			continue
 		}
-		off, err := node.syncToPeerSince(p, offset, filter)
+		off, err := me.syncToPeerSince(p, offset, filter)
 		if err != nil {
 			logger.Printf("GRAPH SYNC TO %s %s", p.IdForNetwork.String(), err.Error())
 		}

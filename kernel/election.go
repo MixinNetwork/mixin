@@ -3,11 +3,8 @@ package kernel
 import (
 	"encoding/json"
 	"io/ioutil"
-	"time"
 
 	"github.com/MixinNetwork/mixin/common"
-	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/logger"
 )
 
 func (node *Node) handlePledgeTransactionConfirmation() error {
@@ -23,7 +20,7 @@ func (node *Node) manageConsensusNodesList() error {
 	return nil
 }
 
-func (node *Node) loadPeersList() error {
+func (node *Node) connectNeighbors() error {
 	f, err := ioutil.ReadFile(node.configDir + "/nodes.json")
 	if err != nil {
 		return err
@@ -44,24 +41,9 @@ func (node *Node) loadPeersList() error {
 		if err != nil {
 			return err
 		}
-		peer := NewPeer(acc, in.Host)
-		peerId := peer.Account.Hash()
-		peer.IdForNetwork = crypto.NewHash(append(node.networkId[:], peerId[:]...))
-		node.GossipPeers[peer.IdForNetwork] = peer
+		node.Peer.AddNeighbor(node.networkId, acc, in.Host)
 	}
-	for _, p := range node.GossipPeers {
-		if p.Address == node.Address {
-			continue
-		}
-		go func(peer *Peer) {
-			for {
-				err := node.openPeerStream(peer)
-				if err != nil {
-					logger.Println("election routine peer error", err)
-				}
-				time.Sleep(1 * time.Second)
-			}
-		}(p)
-	}
+
+	node.Peer.ConnectNeighbors()
 	return nil
 }
