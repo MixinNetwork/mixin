@@ -109,7 +109,7 @@ func getSnapshot(store storage.Store, params []interface{}) (*common.SnapshotWit
 }
 
 func listSnapshots(store storage.Store, params []interface{}) ([]*common.SnapshotWithTopologicalOrder, error) {
-	if len(params) != 2 {
+	if len(params) != 3 {
 		return nil, errors.New("invalid params count")
 	}
 	offset, err := strconv.ParseUint(fmt.Sprint(params[0]), 10, 64)
@@ -120,6 +120,19 @@ func listSnapshots(store storage.Store, params []interface{}) ([]*common.Snapsho
 	if err != nil {
 		return nil, err
 	}
+	sig, err := strconv.ParseBool(fmt.Sprint(params[2]))
+	if err != nil {
+		return nil, err
+	}
 
-	return store.SnapshotsReadSnapshotsSinceTopology(offset, count)
+	snapshots, err := store.SnapshotsReadSnapshotsSinceTopology(offset, count)
+	if err != nil || sig {
+		return snapshots, err
+	}
+
+	for i, _ := range snapshots {
+		snapshots[i].Transaction.Signatures = nil
+		snapshots[i].Signatures = nil
+	}
+	return snapshots, nil
 }

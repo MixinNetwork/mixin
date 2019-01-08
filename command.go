@@ -66,6 +66,7 @@ func listSnapshotsCmd(c *cli.Context) error {
 	return callRPC(c.String("node"), "listsnapshots", []interface{}{
 		c.Uint64("since"),
 		c.Uint64("count"),
+		c.Bool("sig"),
 	})
 }
 

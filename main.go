@@ -110,6 +110,10 @@ func main() {
 					Value: 100,
 					Usage: "the up limit of the returned snapshots",
 				},
+				cli.BoolFlag{
+					Name:  "sig",
+					Usage: "whether including the signatures",
+				},
 			},
 		},
 		{
