@@ -1,11 +1,9 @@
 package network
 
 import (
-	"crypto/rand"
 	"testing"
 	"time"
 
-	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,11 +11,7 @@ func TestQuic(t *testing.T) {
 	assert := assert.New(t)
 
 	addr := "127.0.0.1:7000"
-	seed := make([]byte, 64)
-	rand.Read(seed)
-	pri := crypto.NewKeyFromSeed(seed)
-
-	serverTrans, err := NewQuicServer(addr, pri)
+	serverTrans, err := NewQuicServer(addr)
 	assert.Nil(err)
 	assert.NotNil(serverTrans)
 	err = serverTrans.Listen()
