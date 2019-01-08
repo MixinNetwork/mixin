@@ -177,7 +177,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 		}
 	} else if node.IdForNetwork != s.NodeId {
 		// FIXME gossip peers are different from consensus nodes
-		err := node.Peer.Neighbors[s.NodeId].SendSnapshotMessage(s)
+		err := node.Peer.SendSnapshotMessage(s.NodeId, s)
 		if err != nil {
 			return err
 		}
@@ -238,8 +238,9 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 	s.References = [2]crypto.Hash{final.Hash, best.Hash}
 	s.Sign(node.Account.PrivateSpendKey)
 
-	for _, p := range node.Peer.Neighbors {
-		err := p.SendSnapshotMessage(s)
+	for _, cn := range node.ConsensusNodes {
+		peerId := cn.Hash().ForNetwork(node.networkId)
+		err := node.Peer.SendSnapshotMessage(peerId, s)
 		if err != nil {
 			return err
 		}

@@ -46,8 +46,8 @@ type SyncPoint struct {
 type Peer struct {
 	IdForNetwork crypto.Hash
 	Address      string
-	Neighbors    map[crypto.Hash]*Peer
 
+	neighbors map[crypto.Hash]*Peer
 	handle    SyncHandle
 	transport Transport
 	send      chan []byte
@@ -56,10 +56,10 @@ type Peer struct {
 
 func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) {
 	peer := NewPeer(nil, idForNetwork, addr)
-	if peer.Address == me.Address || me.Neighbors[peer.IdForNetwork] != nil {
+	if peer.Address == me.Address || me.neighbors[peer.IdForNetwork] != nil {
 		return
 	}
-	me.Neighbors[peer.IdForNetwork] = peer
+	me.neighbors[peer.IdForNetwork] = peer
 
 	go me.openPeerStreamLoop(peer)
 	go me.syncToNeighborLoop(peer)
@@ -69,15 +69,20 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 	return &Peer{
 		IdForNetwork: idForNetwork,
 		Address:      addr,
-		Neighbors:    make(map[crypto.Hash]*Peer),
+		neighbors:    make(map[crypto.Hash]*Peer),
 		send:         make(chan []byte, 8192),
 		sync:         make(chan []SyncPoint),
 		handle:       handle,
 	}
 }
 
-func (p *Peer) SendSnapshotMessage(s *common.Snapshot) error {
-	return p.SendData(buildSnapshotMessage(s))
+func (me *Peer) SendSnapshotMessage(idForNetwork crypto.Hash, s *common.Snapshot) error {
+	for _, p := range me.neighbors {
+		if p.IdForNetwork == idForNetwork {
+			return p.SendData(buildSnapshotMessage(s))
+		}
+	}
+	return nil
 }
 
 func (p *Peer) SendData(data []byte) error {
@@ -286,7 +291,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			auth <- err
 			return
 		}
-		for _, p := range me.Neighbors {
+		for _, p := range me.neighbors {
 			if id != p.IdForNetwork {
 				continue
 			}
