@@ -14,33 +14,6 @@ import (
 	"github.com/vmihailenco/msgpack"
 )
 
-type Node interface {
-	NetworkId() crypto.Hash
-	BuildGraph() []SyncPoint
-	FeedMempool(s *common.Snapshot) error
-	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
-	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error)
-	ReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)
-}
-
-type Peer struct {
-	IdForNetwork crypto.Hash
-	Account      common.Address
-	Address      string
-
-	GraphChan chan []SyncPoint
-	Neighbors map[crypto.Hash]*Peer
-	Node      Node
-	transport Transport
-	send      chan []byte
-}
-
-type SyncPoint struct {
-	NodeId crypto.Hash
-	Number uint64
-	Start  uint64
-}
-
 const (
 	PeerMessageTypeSnapshot       = 0
 	PeerMessageTypePing           = 1
@@ -56,10 +29,37 @@ type PeerMessage struct {
 	Data       []byte
 }
 
+type SyncHandle interface {
+	NetworkId() crypto.Hash
+	BuildGraph() []SyncPoint
+	FeedMempool(s *common.Snapshot) error
+	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
+	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error)
+	ReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)
+}
+
+type SyncPoint struct {
+	NodeId crypto.Hash
+	Number uint64
+	Start  uint64
+}
+
+type Peer struct {
+	IdForNetwork crypto.Hash
+	Account      common.Address
+	Address      string
+	Neighbors    map[crypto.Hash]*Peer
+
+	handle    SyncHandle
+	transport Transport
+	send      chan []byte
+	sync      chan []SyncPoint
+}
+
 func (me *Peer) AddNeighbor(acc common.Address, addr string) {
 	peer := NewPeer(nil, acc, addr)
 	peerId := peer.Account.Hash()
-	networkId := me.Node.NetworkId()
+	networkId := me.handle.NetworkId()
 	peer.IdForNetwork = crypto.NewHash(append(networkId[:], peerId[:]...))
 
 	if peer.Address == me.Address || me.Neighbors[peer.IdForNetwork] != nil {
@@ -67,35 +67,32 @@ func (me *Peer) AddNeighbor(acc common.Address, addr string) {
 	}
 	me.Neighbors[peer.IdForNetwork] = peer
 
-	go func(p *Peer) {
-		for {
-			err := me.openPeerStream(p)
-			if err != nil {
-				logger.Println("neighbor open stream error", err)
-			}
-			time.Sleep(1 * time.Second)
-		}
-	}(peer)
-
+	go me.openPeerStreamLoop(peer)
 	go me.syncToNeighborLoop(peer)
 }
 
-func NewPeer(node Node, acc common.Address, addr string) *Peer {
-	return &Peer{
-		Node:      node,
+func NewPeer(handle SyncHandle, acc common.Address, addr string) *Peer {
+	peer := &Peer{
 		Account:   acc,
 		Address:   addr,
-		GraphChan: make(chan []SyncPoint),
 		Neighbors: make(map[crypto.Hash]*Peer),
 		send:      make(chan []byte, 8192),
+		sync:      make(chan []SyncPoint),
+		handle:    handle,
 	}
+	if peer.handle != nil {
+		peerId := peer.Account.Hash()
+		networkId := peer.handle.NetworkId()
+		peer.IdForNetwork = crypto.NewHash(append(networkId[:], peerId[:]...))
+	}
+	return peer
 }
 
 func (p *Peer) SendSnapshotMessage(s *common.Snapshot) error {
-	return p.Send(buildSnapshotMessage(s))
+	return p.SendData(buildSnapshotMessage(s))
 }
 
-func (p *Peer) Send(data []byte) error {
+func (p *Peer) SendData(data []byte) error {
 	select {
 	case p.send <- data:
 		return nil
@@ -178,6 +175,16 @@ func buildGraphMessage(points []SyncPoint) []byte {
 	return append([]byte{PeerMessageTypeGraph}, data...)
 }
 
+func (me *Peer) openPeerStreamLoop(p *Peer) {
+	for {
+		err := me.openPeerStream(p)
+		if err != nil {
+			logger.Println("neighbor open stream error", err)
+		}
+		time.Sleep(1 * time.Second)
+	}
+}
+
 func (me *Peer) openPeerStream(peer *Peer) error {
 	logger.Println("OPEN PEER STREAM", peer.Address)
 	transport, err := NewQuicClient(peer.Address)
@@ -227,7 +234,7 @@ func (me *Peer) openPeerStream(peer *Peer) error {
 				return err
 			}
 		case <-graphTicker.C:
-			err := client.Send(buildGraphMessage(me.Node.BuildGraph()))
+			err := client.Send(buildGraphMessage(me.handle.BuildGraph()))
 			if err != nil {
 				return err
 			}
@@ -266,10 +273,10 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 			}
 		case PeerMessageTypeSnapshot:
 			if msg.Snapshot.CheckSignature(peer.Account.PublicSpendKey) {
-				me.Node.FeedMempool(msg.Snapshot)
+				me.handle.FeedMempool(msg.Snapshot)
 			}
 		case PeerMessageTypeGraph:
-			peer.GraphChan <- msg.FinalCache
+			peer.sync <- msg.FinalCache
 		}
 	}
 }

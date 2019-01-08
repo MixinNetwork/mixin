@@ -1,12 +1,12 @@
 package network
 
 const (
-	MessageVersion    = 1
-	MessageMaxSize    = 32 * 1024 * 1024
-	MessageHeaderSize = 5
+	TransportMessageVersion    = 1
+	TransportMessageMaxSize    = 32 * 1024 * 1024
+	TransportMessageHeaderSize = 5
 )
 
-type Message struct {
+type TransportMessage struct {
 	Version uint8
 	Size    uint32
 	Data    []byte

@@ -23,11 +23,11 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []SyncPoi
 			continue
 		}
 
-		ss, err := me.Node.ReadSnapshotsForNodeRound(r.NodeId, r.Number)
+		ss, err := me.handle.ReadSnapshotsForNodeRound(r.NodeId, r.Number)
 		if err != nil {
 			return offset, err
 		}
-		s, err := me.Node.ReadSnapshotByTransactionHash(ss[0].Transaction.PayloadHash())
+		s, err := me.handle.ReadSnapshotByTransactionHash(ss[0].Transaction.PayloadHash())
 		if err != nil {
 			return offset, err
 		}
@@ -43,7 +43,7 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []SyncPoi
 }
 
 func (me *Peer) syncToNeighborSince(p *Peer, offset uint64, filter map[crypto.Hash]bool) (uint64, error) {
-	snapshots, err := me.Node.ReadSnapshotsSinceTopology(offset, 1000)
+	snapshots, err := me.handle.ReadSnapshotsSinceTopology(offset, 1000)
 	if err != nil {
 		return offset, err
 	}
@@ -52,7 +52,7 @@ func (me *Peer) syncToNeighborSince(p *Peer, offset uint64, filter map[crypto.Ha
 		if filter[hash] {
 			continue
 		}
-		err := p.Send(buildSnapshotMessage(&s.Snapshot))
+		err := p.SendData(buildSnapshotMessage(&s.Snapshot))
 		if err != nil {
 			return offset, err
 		}
@@ -67,8 +67,8 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 	filter := make(map[crypto.Hash]bool)
 	for {
 		select {
-		case g := <-p.GraphChan:
-			off, err := me.compareRoundGraphAndGetTopologicalOffset(me.Node.BuildGraph(), g)
+		case g := <-p.sync:
+			off, err := me.compareRoundGraphAndGetTopologicalOffset(me.handle.BuildGraph(), g)
 			if err != nil {
 				logger.Printf("GRAPH COMPARE WITH %s %s", p.IdForNetwork.String(), err.Error())
 			}

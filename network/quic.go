@@ -108,21 +108,21 @@ func (c *QuicClient) Receive() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	var m Message
-	header := make([]byte, MessageHeaderSize)
+	var m TransportMessage
+	header := make([]byte, TransportMessageHeaderSize)
 	s, err := c.stream.Read(header)
 	if err != nil {
 		return nil, err
 	}
-	if s != MessageHeaderSize {
+	if s != TransportMessageHeaderSize {
 		return nil, fmt.Errorf("quic receive invalid message header size %d", s)
 	}
 	m.Version = header[0]
-	if m.Version != MessageVersion {
+	if m.Version != TransportMessageVersion {
 		return nil, fmt.Errorf("quic receive invalid message version %d", m.Version)
 	}
 	m.Size = binary.BigEndian.Uint32(header[1:])
-	if m.Size > MessageMaxSize {
+	if m.Size > TransportMessageMaxSize {
 		return nil, fmt.Errorf("quic receive invalid message size %d", m.Size)
 	}
 	m.Data = make([]byte, m.Size)
@@ -137,14 +137,14 @@ func (c *QuicClient) Receive() ([]byte, error) {
 }
 
 func (c *QuicClient) Send(data []byte) error {
-	if l := len(data); l < 1 || l > MessageMaxSize {
+	if l := len(data); l < 1 || l > TransportMessageMaxSize {
 		return fmt.Errorf("quic send invalid message size %d", l)
 	}
 	err := c.stream.SetWriteDeadline(time.Now().Add(WriteDeadline))
 	if err != nil {
 		return err
 	}
-	header := []byte{MessageVersion, 0, 0, 0, 0}
+	header := []byte{TransportMessageVersion, 0, 0, 0, 0}
 	binary.BigEndian.PutUint32(header[1:], uint32(len(data)))
 	_, err = c.stream.Write(header)
 	if err != nil {
