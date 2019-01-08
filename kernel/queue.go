@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/network"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/vmihailenco/msgpack"
 )
@@ -25,7 +26,8 @@ func (node *Node) ConsumeQueue() error {
 			if err != nil {
 				return err
 			}
-			err = node.FeedMempool(&common.Snapshot{
+			peer := network.NewPeer(node, node.IdForNetwork, "")
+			err = node.FeedMempool(peer, &common.Snapshot{
 				NodeId:      node.IdForNetwork,
 				Transaction: &tx,
 			})

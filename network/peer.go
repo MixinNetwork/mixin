@@ -1,8 +1,6 @@
 package network
 
 import (
-	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"time"
@@ -30,9 +28,10 @@ type PeerMessage struct {
 }
 
 type SyncHandle interface {
-	NetworkId() crypto.Hash
+	BuildAuthenticationMessage() []byte
+	Authenticate(msg []byte) (crypto.Hash, error)
 	BuildGraph() []SyncPoint
-	FeedMempool(s *common.Snapshot) error
+	FeedMempool(peer *Peer, s *common.Snapshot) error
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error)
 	ReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)
@@ -46,7 +45,6 @@ type SyncPoint struct {
 
 type Peer struct {
 	IdForNetwork crypto.Hash
-	Account      common.Address
 	Address      string
 	Neighbors    map[crypto.Hash]*Peer
 
@@ -56,12 +54,8 @@ type Peer struct {
 	sync      chan []SyncPoint
 }
 
-func (me *Peer) AddNeighbor(acc common.Address, addr string) {
-	peer := NewPeer(nil, acc, addr)
-	peerId := peer.Account.Hash()
-	networkId := me.handle.NetworkId()
-	peer.IdForNetwork = crypto.NewHash(append(networkId[:], peerId[:]...))
-
+func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) {
+	peer := NewPeer(nil, idForNetwork, addr)
 	if peer.Address == me.Address || me.Neighbors[peer.IdForNetwork] != nil {
 		return
 	}
@@ -71,21 +65,15 @@ func (me *Peer) AddNeighbor(acc common.Address, addr string) {
 	go me.syncToNeighborLoop(peer)
 }
 
-func NewPeer(handle SyncHandle, acc common.Address, addr string) *Peer {
-	peer := &Peer{
-		Account:   acc,
-		Address:   addr,
-		Neighbors: make(map[crypto.Hash]*Peer),
-		send:      make(chan []byte, 8192),
-		sync:      make(chan []SyncPoint),
-		handle:    handle,
+func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
+	return &Peer{
+		IdForNetwork: idForNetwork,
+		Address:      addr,
+		Neighbors:    make(map[crypto.Hash]*Peer),
+		send:         make(chan []byte, 8192),
+		sync:         make(chan []SyncPoint),
+		handle:       handle,
 	}
-	if peer.handle != nil {
-		peerId := peer.Account.Hash()
-		networkId := peer.handle.NetworkId()
-		peer.IdForNetwork = crypto.NewHash(append(networkId[:], peerId[:]...))
-	}
-	return peer
 }
 
 func (p *Peer) SendSnapshotMessage(s *common.Snapshot) error {
@@ -147,14 +135,9 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 	return msg, nil
 }
 
-func buildAuthenticationMessage(id common.Address) []byte {
-	data := make([]byte, 9)
-	data[0] = PeerMessageTypeAuthentication
-	binary.BigEndian.PutUint64(data[1:], uint64(time.Now().Unix()))
-	hash := id.Hash()
-	data = append(data, hash[:]...)
-	sig := id.PrivateSpendKey.Sign(data[1:])
-	return append(data, sig[:]...)
+func buildAuthenticationMessage(data []byte) []byte {
+	header := []byte{PeerMessageTypeAuthentication}
+	return append(header, data...)
 }
 
 func buildPingMessage() []byte {
@@ -198,7 +181,7 @@ func (me *Peer) openPeerStream(peer *Peer) error {
 	defer client.Close()
 	logger.Println("DIAL PEER STREAM", peer.Address)
 
-	err = client.Send(buildAuthenticationMessage(me.Account))
+	err = client.Send(buildAuthenticationMessage(me.handle.BuildAuthenticationMessage()))
 	if err != nil {
 		return err
 	}
@@ -272,9 +255,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 				return err
 			}
 		case PeerMessageTypeSnapshot:
-			if msg.Snapshot.CheckSignature(peer.Account.PublicSpendKey) {
-				me.handle.FeedMempool(msg.Snapshot)
-			}
+			me.handle.FeedMempool(peer, msg.Snapshot)
 		case PeerMessageTypeGraph:
 			peer.sync <- msg.FinalCache
 		}
@@ -299,24 +280,19 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			auth <- errors.New("peer authentication invalid message type")
 			return
 		}
-		ts := binary.BigEndian.Uint64(msg.Data[:8])
-		if time.Now().Unix()-int64(ts) > 3 {
-			auth <- errors.New("peer authentication message timeout")
+
+		id, err := me.handle.Authenticate(msg.Data)
+		if err != nil {
+			auth <- err
 			return
 		}
 		for _, p := range me.Neighbors {
-			hash := p.Account.Hash()
-			if !bytes.Equal(hash[:], msg.Data[8:40]) {
+			if id != p.IdForNetwork {
 				continue
 			}
-			var sig crypto.Signature
-			copy(sig[:], msg.Data[40:])
-			if p.Account.PublicSpendKey.Verify(msg.Data[:40], sig) {
-				peer = p
-				auth <- nil
-				return
-			}
-			break
+			peer = p
+			auth <- nil
+			return
 		}
 		auth <- errors.New("peer authentication message signature invalid")
 	}()

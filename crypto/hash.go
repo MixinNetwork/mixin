@@ -33,6 +33,10 @@ func (h Hash) HasValue() bool {
 	return bytes.Compare(h[:], zero[:]) != 0
 }
 
+func (h Hash) ForNetwork(net Hash) Hash {
+	return NewHash(append(net[:], h[:]...))
+}
+
 func (h Hash) String() string {
 	return hex.EncodeToString(h[:])
 }

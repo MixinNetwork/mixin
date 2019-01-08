@@ -1,9 +1,13 @@
 package kernel
 
 import (
+	"bytes"
 	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
+	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -20,7 +24,6 @@ type Node struct {
 	IdForNetwork   crypto.Hash
 	Account        common.Address
 	ConsensusNodes []common.Address
-	Address        string
 	Graph          *RoundGraph
 	TopoCounter    *TopologicalSequence
 	SnapshotsPool  map[crypto.Hash]*common.Snapshot
@@ -34,7 +37,6 @@ type Node struct {
 
 func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
-		Address:        addr,
 		ConsensusNodes: make([]common.Address, 0),
 		SnapshotsPool:  make(map[crypto.Hash]*common.Snapshot),
 		store:          store,
@@ -59,12 +61,13 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	}
 	node.Graph = graph
 
+	node.Peer = network.NewPeer(node, node.IdForNetwork, addr)
 	err = node.AddNeighborsFromConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Printf("Listen:\t%s\n", node.Address)
+	logger.Printf("Listen:\t%s\n", addr)
 	logger.Printf("Account:\t%s\n", node.Account.String())
 	logger.Printf("View Key:\t%s\n", node.Account.PrivateViewKey.String())
 	logger.Printf("Spend Key:\t%s\n", node.Account.PrivateSpendKey.String())
@@ -97,8 +100,6 @@ func (node *Node) LoadNodeState() error {
 }
 
 func (node *Node) AddNeighborsFromConfig() error {
-	node.Peer = network.NewPeer(node, node.Account, node.Address)
-
 	f, err := ioutil.ReadFile(node.configDir + "/nodes.json")
 	if err != nil {
 		return err
@@ -119,7 +120,7 @@ func (node *Node) AddNeighborsFromConfig() error {
 		if err != nil {
 			return err
 		}
-		node.Peer.AddNeighbor(acc, in.Host)
+		node.Peer.AddNeighbor(acc.Hash().ForNetwork(node.networkId), in.Host)
 	}
 
 	return nil
@@ -145,8 +146,53 @@ func (node *Node) BuildGraph() []network.SyncPoint {
 	return points
 }
 
-func (node *Node) FeedMempool(s *common.Snapshot) error {
-	node.mempoolChan <- s
+func (node *Node) BuildAuthenticationMessage() []byte {
+	data := make([]byte, 8)
+	binary.BigEndian.PutUint64(data, uint64(time.Now().Unix()))
+	hash := node.Account.Hash()
+	data = append(data, hash[:]...)
+	sig := node.Account.PrivateSpendKey.Sign(data)
+	return append(data, sig[:]...)
+}
+
+func (node *Node) Authenticate(msg []byte) (crypto.Hash, error) {
+	ts := binary.BigEndian.Uint64(msg[:8])
+	if time.Now().Unix()-int64(ts) > 3 {
+		return crypto.Hash{}, errors.New("peer authentication message timeout")
+	}
+
+	for _, cn := range node.ConsensusNodes {
+		peerId := cn.Hash()
+		if !bytes.Equal(peerId[:], msg[8:40]) {
+			continue
+		}
+		var sig crypto.Signature
+		copy(sig[:], msg[40:])
+		if cn.PublicSpendKey.Verify(msg[:40], sig) {
+			return peerId.ForNetwork(node.networkId), nil
+		}
+		break
+	}
+
+	return crypto.Hash{}, errors.New("peer authentication message signature invalid")
+}
+
+func (node *Node) FeedMempool(peer *network.Peer, s *common.Snapshot) error {
+	if peer.IdForNetwork == node.IdForNetwork {
+		node.mempoolChan <- s
+		return nil
+	}
+
+	for _, cn := range node.ConsensusNodes {
+		idForNetwork := cn.Hash().ForNetwork(node.networkId)
+		if idForNetwork != peer.IdForNetwork {
+			continue
+		}
+		if s.CheckSignature(cn.PublicSpendKey) {
+			node.mempoolChan <- s
+		}
+		break
+	}
 	return nil
 }
 
