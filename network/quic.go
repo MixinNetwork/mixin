@@ -1,9 +1,8 @@
 package network
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
@@ -12,7 +11,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/lucas-clemente/quic-go"
 )
 
@@ -35,8 +33,8 @@ type QuicTransport struct {
 	listener quic.Listener
 }
 
-func NewQuicServer(addr string, k crypto.Key) (*QuicTransport, error) {
-	tlsConf, err := generateTLSConfig(k)
+func NewQuicServer(addr string) (*QuicTransport, error) {
+	tlsConf, err := generateTLSConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -159,33 +157,22 @@ func (c *QuicClient) Close() error {
 	return c.session.Close()
 }
 
-func generateTLSConfig(k crypto.Key) (*tls.Config, error) {
-	var priv *ecdsa.PrivateKey
-	key := new(big.Int)
-	key.SetBytes(k[:])
-	priv = new(ecdsa.PrivateKey)
-	curve := elliptic.P256()
-	priv.PublicKey.Curve = curve
-	priv.D = key
-	priv.PublicKey.X, priv.PublicKey.Y = curve.ScalarBaseMult(key.Bytes())
-
-	keyDER, err := x509.MarshalECPrivateKey(priv)
+func generateTLSConfig() (*tls.Config, error) {
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-
 	template := x509.Certificate{SerialNumber: big.NewInt(1)}
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-
 	return &tls.Config{Certificates: []tls.Certificate{tlsCert}}, nil
 }

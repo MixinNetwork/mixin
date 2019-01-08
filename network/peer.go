@@ -102,7 +102,7 @@ func (p *Peer) SendData(data []byte) error {
 }
 
 func (me *Peer) ListenNeighbors() error {
-	transport, err := NewQuicServer(me.Address, me.Account.PrivateSpendKey)
+	transport, err := NewQuicServer(me.Address)
 	if err != nil {
 		return err
 	}
