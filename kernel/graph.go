@@ -105,10 +105,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 	logger.Println("VERIFY SNAPSHOT", *s)
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
-	if s.RoundNumber < cache.Number {
-		return nil
-	}
-	if s.RoundNumber > cache.Number+1 {
+	if s.RoundNumber != cache.Number {
 		return nil
 	}
 	if s.Timestamp < cache.End {
@@ -120,7 +117,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 		} else {
 			for _, ps := range cache.Snapshots {
 				if !node.verifyFinalization(ps) {
-					return nil
+					panic("all round snapshots should have been finalized")
 				}
 			}
 
@@ -210,7 +207,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 		} else {
 			for _, ps := range round.Snapshots {
 				if !node.verifyFinalization(ps) {
-					panic("should queue if pending round full")
+					panic("all round snapshots should have been finalized")
 				}
 			}
 
