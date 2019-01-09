@@ -13,6 +13,10 @@ func getInfo(store storage.Store) (map[string]interface{}, error) {
 	}
 	cacheGraph := make(map[string]interface{})
 	for n, r := range graph.CacheRound {
+		for i, _ := range r.Snapshots {
+			r.Snapshots[i].Transaction.Signatures = nil
+			r.Snapshots[i].Signatures = nil
+		}
 		cacheGraph[n.String()] = map[string]interface{}{
 			"node":      r.NodeId.String(),
 			"round":     r.Number,
@@ -32,11 +36,12 @@ func getInfo(store storage.Store) (map[string]interface{}, error) {
 		}
 	}
 	info["graph"] = map[string]interface{}{
-		"network":  kernel.NetworkId(),
-		"node":     kernel.NodeIdForNetwork(),
-		"cache":    cacheGraph,
-		"final":    finalGraph,
-		"topology": kernel.TopologicalOrder(),
+		"network":   kernel.NetworkId(),
+		"node":      kernel.NodeIdForNetwork(),
+		"consensus": kernel.ConsensusNodes(),
+		"cache":     cacheGraph,
+		"final":     finalGraph,
+		"topology":  kernel.TopologicalOrder(),
 	}
 	return info, nil
 }

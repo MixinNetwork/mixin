@@ -38,3 +38,17 @@ func TopologicalOrder() uint64 {
 	}
 	return globalNode.TopoCounter.seq
 }
+
+func ConsensusNodes() []map[string]interface{} {
+	nodes := make([]map[string]interface{}, 0)
+	if globalNode == nil {
+		return nodes
+	}
+	for _, n := range globalNode.ConsensusNodes {
+		nodes = append(nodes, map[string]interface{}{
+			"node":    n.Hash().ForNetwork(globalNode.networkId),
+			"account": n,
+		})
+	}
+	return nodes
+}
