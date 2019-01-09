@@ -50,34 +50,128 @@ func decodeTransactionCmd(c *cli.Context) error {
 }
 
 func signTransactionCmd(c *cli.Context) error {
-	return callRPC(c.String("node"), "signrawtransaction", []interface{}{
-		c.String("raw"),
-		c.String("key"),
-	})
+	var raw struct {
+		Inputs []struct {
+			Hash  crypto.Hash  `json:"hash"`
+			Index int          `json:"index"`
+			Keys  []crypto.Key `json:"keys"`
+			Mask  crypto.Key   `json:"mask"`
+		} `json:"inputs"`
+		Outputs []struct {
+			Type     uint8            `json:"type"`
+			Script   common.Script    `json:"script"`
+			Accounts []common.Address `json:"accounts"`
+			Amount   common.Integer   `json:"amount"`
+		}
+		Asset crypto.Hash `json:"asset"`
+		Extra string      `json:"extra"`
+	}
+	err := json.Unmarshal([]byte(c.String("raw")), &raw)
+	if err != nil {
+		return err
+	}
+
+	tx := common.NewTransaction(raw.Asset)
+	for _, in := range raw.Inputs {
+		tx.AddInput(in.Hash, in.Index)
+	}
+
+	for _, out := range raw.Outputs {
+		if out.Type != common.OutputTypeScript {
+			return fmt.Errorf("invalid output type %d", out.Type)
+		}
+		tx.AddScriptOutput(out.Accounts, out.Script, out.Amount)
+	}
+
+	extra, err := hex.DecodeString(raw.Extra)
+	if err != nil {
+		return err
+	}
+	tx.Extra = extra
+
+	key, err := hex.DecodeString(c.String("key"))
+	if err != nil {
+		return err
+	}
+	if len(key) != 64 {
+		return fmt.Errorf("invalid key length %d", len(key))
+	}
+	var account common.Address
+	copy(account.PrivateViewKey[:], key[:32])
+	copy(account.PrivateSpendKey[:], key[32:])
+
+	readUTXO := func(hash crypto.Hash, index int) (*common.UTXO, error) {
+		utxo := &common.UTXO{}
+
+		for _, in := range raw.Inputs {
+			if in.Hash == hash && in.Index == index && len(in.Keys) > 0 {
+				utxo.Keys = in.Keys
+				utxo.Mask = in.Mask
+				return utxo, nil
+			}
+		}
+
+		data, err := callRPC(c.String("node"), "getsnapshot", []interface{}{hash.String()})
+		if err != nil {
+			return nil, err
+		}
+		var snap common.SnapshotWithTopologicalOrder
+		err = json.Unmarshal(data, &snap)
+		if err != nil {
+			return nil, err
+		}
+		for i, out := range snap.Transaction.Outputs {
+			if i == index && len(out.Keys) > 0 {
+				utxo.Keys = out.Keys
+				utxo.Mask = out.Mask
+				return utxo, nil
+			}
+		}
+
+		return nil, fmt.Errorf("invalid input %s#%d", hash.String(), index)
+	}
+
+	signed := &common.SignedTransaction{Transaction: *tx}
+	for i, _ := range signed.Inputs {
+		err := signed.SignInput(readUTXO, i, []common.Address{account})
+		if err != nil {
+			return err
+		}
+	}
+	fmt.Println(hex.EncodeToString(signed.Marshal()))
+	return nil
 }
 
 func sendTransactionCmd(c *cli.Context) error {
-	return callRPC(c.String("node"), "sendrawtransaction", []interface{}{
+	data, err := callRPC(c.String("node"), "sendrawtransaction", []interface{}{
 		c.String("raw"),
 	})
+	fmt.Println(string(data))
+	return err
 }
 
 func listSnapshotsCmd(c *cli.Context) error {
-	return callRPC(c.String("node"), "listsnapshots", []interface{}{
+	data, err := callRPC(c.String("node"), "listsnapshots", []interface{}{
 		c.Uint64("since"),
 		c.Uint64("count"),
 		c.Bool("sig"),
 	})
+	fmt.Println(string(data))
+	return err
 }
 
 func getSnapshotCmd(c *cli.Context) error {
-	return callRPC(c.String("node"), "getsnapshot", []interface{}{
+	data, err := callRPC(c.String("node"), "getsnapshot", []interface{}{
 		c.String("hash"),
 	})
+	fmt.Println(string(data))
+	return err
 }
 
 func getInfoCmd(c *cli.Context) error {
-	return callRPC(c.String("node"), "getinfo", []interface{}{})
+	data, err := callRPC(c.String("node"), "getinfo", []interface{}{})
+	fmt.Println(string(data))
+	return err
 }
 
 func setupTestNetCmd(c *cli.Context) error {
@@ -155,7 +249,7 @@ func setupTestNetCmd(c *cli.Context) error {
 
 var httpClient *http.Client
 
-func callRPC(node, method string, params []interface{}) error {
+func callRPC(node, method string, params []interface{}) ([]byte, error) {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 3 * time.Second}
 	}
@@ -169,21 +263,20 @@ func callRPC(node, method string, params []interface{}) error {
 	}
 	req, err := http.NewRequest("POST", "http://"+node, bytes.NewReader(body))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	req.Close = true
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	fmt.Println(string(data))
-	return nil
+	return data, nil
 }

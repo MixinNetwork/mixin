@@ -58,13 +58,6 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		} else {
 			render.New().JSON(w, http.StatusOK, info)
 		}
-	case "signrawtransaction":
-		raw, err := signTransaction(impl.Store, call.Params)
-		if err != nil {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
-		} else {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"raw": raw})
-		}
 	case "sendrawtransaction":
 		id, err := queueTransaction(impl.Store, call.Params)
 		if err != nil {
