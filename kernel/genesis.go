@@ -20,7 +20,8 @@ type Genesis struct {
 	Nodes []struct {
 		Address common.Address `json:"address"`
 		Balance common.Integer `json:"balance"`
-		Mask    string         `json:"mask"`
+		Mask    crypto.Key     `json:"mask"`
+		View    crypto.Key     `json:"view"`
 	} `json:"nodes"`
 }
 
@@ -55,7 +56,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 
 	var snapshots []*common.SnapshotWithTopologicalOrder
 	for i, in := range gns.Nodes {
-		r := crypto.NewKeyFromSeed([]byte(in.Mask))
+		r := in.Mask
 		R := r.Public()
 		var keys []crypto.Key
 		for _, d := range gns.Nodes {
@@ -81,7 +82,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 					Mask:   R,
 				},
 			},
-			Extra: append(in.Address.PublicSpendKey[:], in.Address.PublicViewKey[:]...),
+			Extra: append(in.Address.PublicSpendKey[:], in.View[:]...),
 		}
 
 		remaining := in.Balance.Sub(common.NewInteger(PledgeAmount))
@@ -147,6 +148,9 @@ func readGenesis(path string) (*Genesis, error) {
 		}
 		if inputsFilter[in.Address.String()] {
 			return nil, fmt.Errorf("duplicated genesis inputs %s", in.Address.String())
+		}
+		if in.Address.PublicViewKey != in.View.Public() {
+			return nil, fmt.Errorf("invalid private key %s %s", in.Address.PublicViewKey.String(), in.View.Public().String())
 		}
 	}
 	return &gns, nil

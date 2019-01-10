@@ -198,6 +198,7 @@ func setupTestNetCmd(c *cli.Context) error {
 			"address": a.String(),
 			"balance": "20000",
 			"mask":    mask.String(),
+			"view":    a.PrivateViewKey.String(),
 		})
 	}
 	genesis := map[string]interface{}{
