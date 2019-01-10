@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -14,10 +15,13 @@ const (
 	PledgeAmount     = 10000
 )
 
-type Genesis []struct {
-	Address common.Address `json:"address"`
-	Balance common.Integer `json:"balance"`
-	Mask    string         `json:"mask"`
+type Genesis struct {
+	Epoch int64 `json:"epoch"`
+	Nodes []struct {
+		Address common.Address `json:"address"`
+		Balance common.Integer `json:"balance"`
+		Mask    string         `json:"mask"`
+	} `json:"nodes"`
 }
 
 func (node *Node) LoadGenesis(configDir string) error {
@@ -27,37 +31,34 @@ func (node *Node) LoadGenesis(configDir string) error {
 	if err != nil {
 		return err
 	}
+	for _, in := range gns.Nodes {
+		node.ConsensusNodes = append(node.ConsensusNodes, in.Address)
+	}
+
 	data, err := json.Marshal(gns)
 	if err != nil {
 		return err
 	}
-	networkId := crypto.NewHash(data)
+	node.networkId = crypto.NewHash(data)
+	node.IdForNetwork = node.Account.Hash().ForNetwork(node.networkId)
 
-	for _, in := range gns {
-		node.ConsensusNodes = append(node.ConsensusNodes, in.Address)
-	}
-
-	var network struct {
+	var state struct {
 		Id crypto.Hash
 	}
-	found, err := node.store.StateGet(stateKeyNetwork, &network)
-	if err != nil {
+	found, err := node.store.StateGet(stateKeyNetwork, &state)
+	if err != nil || state.Id == node.networkId {
 		return err
 	}
-	node.fillNetworkId(networkId)
-	if network.Id == networkId {
-		return nil
-	}
 	if found {
-		return fmt.Errorf("invalid genesis for network %s", network.Id.String())
+		return fmt.Errorf("invalid genesis for network %s", state.Id.String())
 	}
 
 	var snapshots []*common.SnapshotWithTopologicalOrder
-	for i, in := range gns {
+	for i, in := range gns.Nodes {
 		r := crypto.NewKeyFromSeed([]byte(in.Mask))
 		R := r.Public()
 		var keys []crypto.Key
-		for _, d := range gns {
+		for _, d := range gns.Nodes {
 			key := crypto.DeriveGhostPublicKey(&r, &d.Address.PublicViewKey, &d.Address.PublicSpendKey)
 			keys = append(keys, *key)
 		}
@@ -74,7 +75,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 			Outputs: []*common.Output{
 				{
 					Type:   common.OutputTypePledge,
-					Script: common.Script([]uint8{common.OperatorCmp, common.OperatorSum, uint8(len(gns)*2/3 + 1)}),
+					Script: common.Script([]uint8{common.OperatorCmp, common.OperatorSum, uint8(len(gns.Nodes)*2/3 + 1)}),
 					Amount: common.NewInteger(PledgeAmount),
 					Keys:   keys,
 					Mask:   R,
@@ -98,13 +99,12 @@ func (node *Node) LoadGenesis(configDir string) error {
 		}
 
 		signed := &common.SignedTransaction{Transaction: tx}
-		nodeId := in.Address.Hash()
-		nodeId = crypto.NewHash(append(networkId[:], nodeId[:]...))
+		nodeId := in.Address.Hash().ForNetwork(node.networkId)
 		snapshot := common.Snapshot{
 			NodeId:      nodeId,
 			Transaction: signed,
 			RoundNumber: 0,
-			Timestamp:   0,
+			Timestamp:   uint64(time.Unix(gns.Epoch, 0).UnixNano()),
 		}
 		topo := &common.SnapshotWithTopologicalOrder{
 			Snapshot:         snapshot,
@@ -117,17 +117,11 @@ func (node *Node) LoadGenesis(configDir string) error {
 		return err
 	}
 
-	network.Id = networkId
-	return node.store.StateSet(stateKeyNetwork, network)
+	state.Id = node.networkId
+	return node.store.StateSet(stateKeyNetwork, state)
 }
 
-func (node *Node) fillNetworkId(networkId crypto.Hash) {
-	nodeId := node.Account.Hash()
-	node.networkId = networkId
-	node.IdForNetwork = crypto.NewHash(append(networkId[:], nodeId[:]...))
-}
-
-func readGenesis(path string) (Genesis, error) {
+func readGenesis(path string) (*Genesis, error) {
 	f, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -138,12 +132,12 @@ func readGenesis(path string) (Genesis, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(gns) != MinimumNodeCount {
-		return nil, fmt.Errorf("invalid genesis inputs number %d/%d", len(gns), MinimumNodeCount)
+	if len(gns.Nodes) != MinimumNodeCount {
+		return nil, fmt.Errorf("invalid genesis inputs number %d/%d", len(gns.Nodes), MinimumNodeCount)
 	}
 
 	inputsFilter := make(map[string]bool)
-	for _, in := range gns {
+	for _, in := range gns.Nodes {
 		_, err := common.NewAddressFromString(in.Address.String())
 		if err != nil {
 			return nil, err
@@ -155,5 +149,5 @@ func readGenesis(path string) (Genesis, error) {
 			return nil, fmt.Errorf("duplicated genesis inputs %s", in.Address.String())
 		}
 	}
-	return gns, nil
+	return &gns, nil
 }

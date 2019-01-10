@@ -200,7 +200,11 @@ func setupTestNetCmd(c *cli.Context) error {
 			"mask":    mask.String(),
 		})
 	}
-	genesisData, err := json.MarshalIndent(inputs, "", "  ")
+	genesis := map[string]interface{}{
+		"epoch": time.Now().Unix(),
+		"nodes": inputs,
+	}
+	genesisData, err := json.MarshalIndent(genesis, "", "  ")
 	if err != nil {
 		return err
 	}

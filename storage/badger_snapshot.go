@@ -147,7 +147,15 @@ func (s *BadgerStore) SnapshotsLoadGenesis(snapshots []*common.SnapshotWithTopol
 			return nil
 		}
 
+		filter := make(map[crypto.Hash]bool)
 		for _, snap := range snapshots {
+			if !filter[snap.NodeId] {
+				filter[snap.NodeId] = true
+				err := writeRoundMeta(txn, snap.NodeId, snap.RoundNumber, snap.Timestamp)
+				if err != nil {
+					return err
+				}
+			}
 			err := writeSnapshot(txn, snap, true)
 			if err != nil {
 				return err

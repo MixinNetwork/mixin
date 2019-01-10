@@ -1,37 +1,40 @@
-[
-  {
-    "address": "XINW9WzZ14GuFeCKXAZbqfdkTDe8qUE8PVqvaT8Lp1x9mKTcVVnKTyZHfqAJUrK6hpcsRz7Fy4w9o99SGFttLX6oGTEgxDDp",
-    "balance": "20000",
-    "mask": "7a9a549584065b5496abe900d4c4b8634ec3cf0fb072430b0ad547888e6a090b"
-  },
-  {
-    "address": "XINVnCxzfSPp3paJaqswEZbfnoo4t7oZYFKURyq1JexCwmS2SiN4iENGaoyC3w8UvBw6WQi6hLe358x88zZsNiTD4oSvUt7U",
-    "balance": "20000",
-    "mask": "544987fabe485b82b5076770ba014dc0efdb4ea9d6f29195f0ed8d3fd887b104"
-  },
-  {
-    "address": "XIND1NybhDPsbW9PxZo5odfr8BgKrFeHhVdU47uQJGVaWr1mB4fwJoCBF8pUN6ByFJi8Y9yYYJHFr7iVwpdB8XZpc1MHRgSH",
-    "balance": "20000",
-    "mask": "7ae40fc23b410f4a291e86de0feb59d5e1fa0341bb414af797b073ec77670f0c"
-  },
-  {
-    "address": "XINBQdjusJgj8PXU6dLLtkZD4AFyCcFp7yrXPk9hEVaoSM4BGxAQh8PRB31d4oPCMGEDKR49wVcGcJBNhjhHBfgufdmzfjYs",
-    "balance": "20000",
-    "mask": "84eb77a4dfda809e8a8fbfc35dc103645d5c4ffe29adb06702c424540708e90e"
-  },
-  {
-    "address": "XINPzESkf13gy6YR2wkguodXJUjnFH3qR45wK4uWmJAmV2HnXKF8AsvFurv1m8EJMe7NiGsD87VgrDKJNH6hUEhEnjGKEPHd",
-    "balance": "20000",
-    "mask": "6763e95e69910a587d34d1d55a97b7dccbfe8886aaede1f92adbd862a2ce3306"
-  },
-  {
-    "address": "XINEB8CSrP3ihc477KsR2CgnmJ2yfNqyviHcYqtzHNyRSqSJw7aYTxFehJFmoLr8RVjqWbwhTTfBVtv7pbFpyYwdFXJnu27C",
-    "balance": "20000",
-    "mask": "0e8ae5ce4776188793d3949bd9efe19cbc60a457ed4d38c98890f27e317d8f01"
-  },
-  {
-    "address": "XINVyyRAZszyT826EEkDU8AanUNNzaELuBaUm6Spdu5KNCkpoRMiMWUjwrqgWhkQfb6yZ8MY1XUGy1nv3q1gCDpL2pkurgxK",
-    "balance": "20000",
-    "mask": "d4260863cba4d8d9bd1e23b89215fe0cac309e3325fb0ac77a31f9dcaa243c05"
-  }
-]
+{
+  "epoch": 1551312000,
+  "nodes": [
+    {
+      "address": "XINW9WzZ14GuFeCKXAZbqfdkTDe8qUE8PVqvaT8Lp1x9mKTcVVnKTyZHfqAJUrK6hpcsRz7Fy4w9o99SGFttLX6oGTEgxDDp",
+      "balance": "20000",
+      "mask": "7a9a549584065b5496abe900d4c4b8634ec3cf0fb072430b0ad547888e6a090b"
+    },
+    {
+      "address": "XINVnCxzfSPp3paJaqswEZbfnoo4t7oZYFKURyq1JexCwmS2SiN4iENGaoyC3w8UvBw6WQi6hLe358x88zZsNiTD4oSvUt7U",
+      "balance": "20000",
+      "mask": "544987fabe485b82b5076770ba014dc0efdb4ea9d6f29195f0ed8d3fd887b104"
+    },
+    {
+      "address": "XIND1NybhDPsbW9PxZo5odfr8BgKrFeHhVdU47uQJGVaWr1mB4fwJoCBF8pUN6ByFJi8Y9yYYJHFr7iVwpdB8XZpc1MHRgSH",
+      "balance": "20000",
+      "mask": "7ae40fc23b410f4a291e86de0feb59d5e1fa0341bb414af797b073ec77670f0c"
+    },
+    {
+      "address": "XINBQdjusJgj8PXU6dLLtkZD4AFyCcFp7yrXPk9hEVaoSM4BGxAQh8PRB31d4oPCMGEDKR49wVcGcJBNhjhHBfgufdmzfjYs",
+      "balance": "20000",
+      "mask": "84eb77a4dfda809e8a8fbfc35dc103645d5c4ffe29adb06702c424540708e90e"
+    },
+    {
+      "address": "XINPzESkf13gy6YR2wkguodXJUjnFH3qR45wK4uWmJAmV2HnXKF8AsvFurv1m8EJMe7NiGsD87VgrDKJNH6hUEhEnjGKEPHd",
+      "balance": "20000",
+      "mask": "6763e95e69910a587d34d1d55a97b7dccbfe8886aaede1f92adbd862a2ce3306"
+    },
+    {
+      "address": "XINEB8CSrP3ihc477KsR2CgnmJ2yfNqyviHcYqtzHNyRSqSJw7aYTxFehJFmoLr8RVjqWbwhTTfBVtv7pbFpyYwdFXJnu27C",
+      "balance": "20000",
+      "mask": "0e8ae5ce4776188793d3949bd9efe19cbc60a457ed4d38c98890f27e317d8f01"
+    },
+    {
+      "address": "XINVyyRAZszyT826EEkDU8AanUNNzaELuBaUm6Spdu5KNCkpoRMiMWUjwrqgWhkQfb6yZ8MY1XUGy1nv3q1gCDpL2pkurgxK",
+      "balance": "20000",
+      "mask": "d4260863cba4d8d9bd1e23b89215fe0cac309e3325fb0ac77a31f9dcaa243c05"
+    }
+  ]
+}
