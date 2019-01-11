@@ -13,31 +13,56 @@ import (
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	err := s.Transaction.Validate(node.store.SnapshotsReadUTXO, node.store.SnapshotsCheckGhost)
 	if err != nil {
-		logger.Println("VALIDATE TRANSACTION", err)
+		logger.Println("VALIDATE TRANSACTION ERROR", err)
 		return nil
 	}
 
 	defer node.Graph.UpdateFinalCache()
 	node.clearConsensusSignatures(s)
 
-	var cache *CacheRound
-	var final *FinalRound
-	if len(s.Signatures) == 0 {
-		cache, final, err = node.signSnapshot(s)
-	} else {
-		cache, final, err = node.verifySnapshot(s)
-	}
-
+	err = node.signSnapshot(s)
 	if err != nil {
 		return err
 	}
+
+	links, cache, final, err := node.verifySnapshot(s)
+	if err != nil {
+		return err
+	}
+
 	err = s.LockInputs(node.store.SnapshotsLockUTXO)
 	if err != nil {
-		logger.Println("LOCK INPUTS", err)
-	} else {
-		node.Graph.CacheRound[s.NodeId] = cache
-		node.Graph.FinalRound[s.NodeId] = final
+		logger.Println("LOCK INPUTS ERROR", err)
+		return nil
 	}
+
+	if node.verifyFinalization(s) {
+		if s.RoundNumber == cache.Number+1 {
+			final = cache.asFinal()
+			cache = snapshotAsCacheRound(s)
+		} else {
+			cache.Snapshots = append(cache.Snapshots, s)
+			cache.End = s.Timestamp
+		}
+		topo := &common.SnapshotWithTopologicalOrder{
+			Snapshot:         *s,
+			TopologicalOrder: node.TopoCounter.Next(),
+			RoundLinks:       links,
+		}
+		err := node.store.SnapshotsWriteSnapshot(topo)
+		if err != nil {
+			return err
+		}
+	} else if node.IdForNetwork != s.NodeId {
+		// FIXME gossip peers are different from consensus nodes
+		err := node.Peer.SendSnapshotMessage(s.NodeId, s)
+		if err != nil {
+			return err
+		}
+	}
+
+	node.Graph.CacheRound[s.NodeId] = cache
+	node.Graph.FinalRound[s.NodeId] = final
 	return nil
 }
 
@@ -110,15 +135,15 @@ func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 	return len(s.Signatures) > consensusThreshold
 }
 
-func (node *Node) verifySnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, error) {
+func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *CacheRound, *FinalRound, error) {
 	logger.Println("VERIFY SNAPSHOT", *s)
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 	if s.RoundNumber != cache.Number {
-		return cache, final, nil
+		return nil, cache, final, nil
 	}
 	if s.Timestamp < cache.End {
-		return cache, final, nil
+		return nil, cache, final, nil
 	}
 	if s.Timestamp-cache.Start >= config.SnapshotRoundGap {
 		if len(cache.Snapshots) == 0 {
@@ -144,9 +169,9 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, 
 	if err != nil {
 		logger.Println(err)
 		if !handled {
-			return cache, final, err
+			return links, cache, final, err
 		}
-		return cache, final, nil
+		return links, cache, final, nil
 	}
 
 	if o := node.SnapshotsPool[s.PayloadHash()]; o != nil {
@@ -163,41 +188,15 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, 
 		}
 	}
 	node.SnapshotsPool[s.PayloadHash()] = s
-
-	if node.verifyFinalization(s) {
-		if s.RoundNumber == cache.Number+1 {
-			final = cache.asFinal()
-			cache = snapshotAsCacheRound(s)
-		} else {
-			cache.Snapshots = append(cache.Snapshots, s)
-			cache.End = s.Timestamp
-		}
-		topo := &common.SnapshotWithTopologicalOrder{
-			Snapshot:         *s,
-			TopologicalOrder: node.TopoCounter.Next(),
-			RoundLinks:       links,
-		}
-		err := node.store.SnapshotsWriteSnapshot(topo)
-		if err != nil {
-			return cache, final, err
-		}
-	} else if node.IdForNetwork != s.NodeId {
-		// FIXME gossip peers are different from consensus nodes
-		err := node.Peer.SendSnapshotMessage(s.NodeId, s)
-		if err != nil {
-			return cache, final, err
-		}
-	}
-
-	return cache, final, nil
+	return links, cache, final, nil
 }
 
-func (node *Node) signSnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, error) {
+func (node *Node) signSnapshot(s *common.Snapshot) error {
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
-	if s.NodeId != node.IdForNetwork {
-		return cache, final, nil
+	if s.NodeId != node.IdForNetwork || len(s.Signatures) != 0 {
+		return nil
 	}
 	logger.Println("SIGN SNAPSHOT", *s)
 
@@ -246,9 +245,9 @@ func (node *Node) signSnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, er
 		peerId := cn.Hash().ForNetwork(node.networkId)
 		err := node.Peer.SendSnapshotMessage(peerId, s)
 		if err != nil {
-			return nil, nil, err
+			return err
 		}
 	}
 	node.SnapshotsPool[s.PayloadHash()] = s
-	return cache, final, nil
+	return nil
 }
