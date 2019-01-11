@@ -110,11 +110,13 @@ func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.H
 			if out.LockHash != tx {
 				return fmt.Errorf("utxo locked for transaction %s", out.LockHash)
 			}
-			if out.LockTimestamp < ts {
-				return fmt.Errorf("utxo locked for timestamp early %d %d", out.LockTimestamp, ts)
-			}
-			if out.LockTimestamp == ts && bytes.Compare(out.LockSnapshot[:], snapHash[:]) < 0 {
-				return fmt.Errorf("utxo locked for snapshot early %s %s", out.LockSnapshot.String(), snapHash.String())
+			if ts < out.LockTimestamp+config.SnapshotRoundGap*2 {
+				if out.LockTimestamp < ts {
+					return fmt.Errorf("utxo locked for timestamp early %d %d", out.LockTimestamp, ts)
+				}
+				if out.LockTimestamp == ts && bytes.Compare(out.LockSnapshot[:], snapHash[:]) < 0 {
+					return fmt.Errorf("utxo locked for snapshot early %s %s", out.LockSnapshot.String(), snapHash.String())
+				}
 			}
 		}
 		out.LockHash = tx

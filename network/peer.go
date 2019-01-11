@@ -77,6 +77,9 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 }
 
 func (me *Peer) SendSnapshotMessage(idForNetwork crypto.Hash, s *common.Snapshot) error {
+	if idForNetwork == me.IdForNetwork {
+		return nil
+	}
 	for _, p := range me.neighbors {
 		if p.IdForNetwork == idForNetwork {
 			return p.SendData(buildSnapshotMessage(s))

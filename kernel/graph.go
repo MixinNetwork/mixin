@@ -56,7 +56,15 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		if err != nil {
 			return err
 		}
-	} else if node.IdForNetwork != s.NodeId {
+	} else if node.IdForNetwork == s.NodeId {
+		for _, cn := range node.ConsensusNodes {
+			peerId := cn.Hash().ForNetwork(node.networkId)
+			err = node.Peer.SendSnapshotMessage(peerId, s)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
 		// FIXME gossip peers are different from consensus nodes
 		err := node.Peer.SendSnapshotMessage(s.NodeId, s)
 		if err != nil {
@@ -146,6 +154,10 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 		return nil, cache, final, nil
 	}
 	if s.Timestamp < cache.End {
+		return nil, cache, final, nil
+	}
+	now := uint64(time.Now().UnixNano())
+	if s.Timestamp < now-config.SnapshotRoundGap || s.Timestamp > now+config.SnapshotRoundGap {
 		return nil, cache, final, nil
 	}
 	if s.Timestamp-cache.Start >= config.SnapshotRoundGap {
@@ -244,13 +256,6 @@ func (node *Node) signSnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, er
 	s.References = [2]crypto.Hash{final.Hash, best.Hash}
 	s.Sign(node.Account.PrivateSpendKey)
 
-	for _, cn := range node.ConsensusNodes {
-		peerId := cn.Hash().ForNetwork(node.networkId)
-		err := node.Peer.SendSnapshotMessage(peerId, s)
-		if err != nil {
-			return cache, final, err
-		}
-	}
 	node.SnapshotsPool[s.PayloadHash()] = s
 	return cache, final, nil
 }
