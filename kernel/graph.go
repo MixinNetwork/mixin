@@ -20,14 +20,17 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	defer node.Graph.UpdateFinalCache()
 	node.clearConsensusSignatures(s)
 
-	err = node.signSnapshot(s)
+	cache, final, err := node.signSnapshot(s)
 	if err != nil {
 		return err
 	}
 
-	links, cache, final, err := node.verifySnapshot(s)
-	if err != nil {
-		return err
+	var links map[crypto.Hash]uint64
+	if s.NodeId != node.IdForNetwork || len(s.Signatures) > 1 {
+		links, cache, final, err = node.verifySnapshot(s)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = s.LockInputs(node.store.SnapshotsLockUTXO)
@@ -191,12 +194,12 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 	return links, cache, final, nil
 }
 
-func (node *Node) signSnapshot(s *common.Snapshot) error {
+func (node *Node) signSnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, error) {
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
 	if s.NodeId != node.IdForNetwork || len(s.Signatures) != 0 {
-		return nil
+		return cache, final, nil
 	}
 	logger.Println("SIGN SNAPSHOT", *s)
 
@@ -227,7 +230,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 	}
 	cache.End = s.Timestamp
 
-	best := &FinalRound{}
+	best := &FinalRound{NodeId: final.NodeId}
 	for _, r := range node.Graph.FinalRound {
 		if r.NodeId != s.NodeId && r.Start >= best.Start && r.End < uint64(time.Now().UnixNano()) {
 			best = r
@@ -245,9 +248,9 @@ func (node *Node) signSnapshot(s *common.Snapshot) error {
 		peerId := cn.Hash().ForNetwork(node.networkId)
 		err := node.Peer.SendSnapshotMessage(peerId, s)
 		if err != nil {
-			return err
+			return cache, final, err
 		}
 	}
 	node.SnapshotsPool[s.PayloadHash()] = s
-	return nil
+	return cache, final, nil
 }
