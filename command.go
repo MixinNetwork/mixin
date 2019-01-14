@@ -186,22 +186,18 @@ func setupTestNetCmd(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		accounts = append(accounts, common.NewAddressFromSeed(seed))
+		account := common.NewAddressFromSeed(seed)
+		hash := crypto.NewHash(account.PublicSpendKey[:])
+		account.PrivateViewKey = crypto.NewKeyFromSeed(append(hash[:], hash[:]...))
+		account.PublicViewKey = account.PrivateViewKey.Public()
+		accounts = append(accounts, account)
 	}
 
 	inputs := make([]map[string]string, 0)
 	for _, a := range accounts {
-		seed := make([]byte, 64)
-		_, err := rand.Read(seed)
-		if err != nil {
-			return err
-		}
-		mask := crypto.NewKeyFromSeed(seed)
 		inputs = append(inputs, map[string]string{
 			"address": a.String(),
 			"balance": "20000",
-			"mask":    mask.String(),
-			"view":    a.PrivateViewKey.String(),
 		})
 	}
 	genesis := map[string]interface{}{

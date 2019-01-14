@@ -20,8 +20,6 @@ type Genesis struct {
 	Nodes []struct {
 		Address common.Address `json:"address"`
 		Balance common.Integer `json:"balance"`
-		Mask    crypto.Key     `json:"mask"`
-		View    crypto.Key     `json:"view"`
 	} `json:"nodes"`
 }
 
@@ -56,7 +54,8 @@ func (node *Node) LoadGenesis(configDir string) error {
 
 	var snapshots []*common.SnapshotWithTopologicalOrder
 	for i, in := range gns.Nodes {
-		r := in.Mask
+		seed := crypto.NewHash([]byte(in.Address.String() + "NODEPLEDGE"))
+		r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
 		R := r.Public()
 		var keys []crypto.Key
 		for _, d := range gns.Nodes {
@@ -75,19 +74,20 @@ func (node *Node) LoadGenesis(configDir string) error {
 			},
 			Outputs: []*common.Output{
 				{
-					Type:   common.OutputTypePledge,
+					Type:   common.OutputTypeNodePledge,
 					Script: common.Script([]uint8{common.OperatorCmp, common.OperatorSum, uint8(len(gns.Nodes)*2/3 + 1)}),
 					Amount: common.NewInteger(PledgeAmount),
 					Keys:   keys,
 					Mask:   R,
 				},
 			},
-			Extra: append(in.Address.PublicSpendKey[:], in.View[:]...),
+			Extra: in.Address.PublicSpendKey[:],
 		}
 
 		remaining := in.Balance.Sub(common.NewInteger(PledgeAmount))
 		if remaining.Cmp(common.NewInteger(0)) > 0 {
-			r := crypto.NewKeyFromSeed(append(r[:], r[:]...))
+			seed := crypto.NewHash([]byte(in.Address.String() + "NODEREMAINING"))
+			r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
 			R := r.Public()
 			key := crypto.DeriveGhostPublicKey(&r, &in.Address.PublicViewKey, &in.Address.PublicSpendKey)
 			tx.Outputs = append(tx.Outputs, &common.Output{
@@ -149,8 +149,10 @@ func readGenesis(path string) (*Genesis, error) {
 		if inputsFilter[in.Address.String()] {
 			return nil, fmt.Errorf("duplicated genesis inputs %s", in.Address.String())
 		}
-		if in.Address.PublicViewKey != in.View.Public() {
-			return nil, fmt.Errorf("invalid private key %s %s", in.Address.PublicViewKey.String(), in.View.Public().String())
+		seed := crypto.NewHash(in.Address.PublicSpendKey[:])
+		privateView := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
+		if privateView.Public() != in.Address.PublicViewKey {
+			return nil, fmt.Errorf("invalid node key format %s %s", privateView.Public().String(), in.Address.PublicViewKey.String())
 		}
 	}
 	return &gns, nil

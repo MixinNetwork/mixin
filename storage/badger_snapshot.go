@@ -291,6 +291,10 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 		if err != nil {
 			return err
 		}
+
+		switch utxo.Type {
+		case common.OutputTypeNodePledge:
+		}
 	}
 
 	key := graphKey(snapshot.NodeId, snapshot.RoundNumber, snapshot.Timestamp)

@@ -20,8 +20,10 @@ const (
 	OutputTypeScript     = 0x00
 	OutputTypeWithdrawal = 0xa1
 	OutputTypeSlash      = 0xa2
-	OutputTypePledge     = 0xa3
-	OutputTypeReclaim    = 0xa4
+	OutputTypeNodePledge = 0xa3
+	OutputTypeNodeAccept = 0xa4
+	OutputTypeNodeDepart = 0xa5
+	OutputTypeNodeRemove = 0xa6
 )
 
 type Input struct {
