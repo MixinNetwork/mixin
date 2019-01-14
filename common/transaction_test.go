@@ -20,36 +20,7 @@ func TestTransaction(t *testing.T) {
 	rand.Read(seed)
 	genesisHash := crypto.Hash{}
 	script := Script{OperatorCmp, OperatorSum, 2}
-
-	utxoReader := func(hash crypto.Hash, index int) (*UTXO, error) {
-		genesisMaskr := crypto.NewKeyFromSeed(seed)
-		genesisMaskR := genesisMaskr.Public()
-
-		in := Input{
-			Hash:  hash,
-			Index: index,
-		}
-		out := Output{
-			Type:   OutputTypeScript,
-			Amount: NewInteger(10000),
-			Script: Script{OperatorCmp, OperatorSum, uint8(index + 1)},
-			Mask:   genesisMaskR,
-		}
-		utxo := &UTXO{
-			Input:  in,
-			Output: out,
-			Asset:  XINAssetId,
-		}
-
-		for i := 0; i <= index; i++ {
-			key := crypto.DeriveGhostPublicKey(&genesisMaskr, &accounts[i].PublicViewKey, &accounts[i].PublicSpendKey)
-			utxo.Keys = append(utxo.Keys, *key)
-		}
-		return utxo, nil
-	}
-	keyChecker := func(key crypto.Key) (bool, error) {
-		return false, nil
-	}
+	store := storeImpl{seed: seed, accounts: accounts}
 
 	tx := NewTransaction(XINAssetId)
 	tx.AddInput(genesisHash, 0)
@@ -58,10 +29,10 @@ func TestTransaction(t *testing.T) {
 
 	signed := &SignedTransaction{Transaction: *tx}
 	for i, _ := range signed.Inputs {
-		err := signed.SignInput(utxoReader, i, accounts)
+		err := signed.SignInput(store, i, accounts)
 		assert.Nil(err)
 	}
-	err := signed.Validate(utxoReader, keyChecker)
+	err := signed.Validate(store)
 	assert.Nil(err)
 
 	outputs := signed.ViewGhostKey(&accounts[1].PrivateViewKey)
@@ -71,6 +42,46 @@ func TestTransaction(t *testing.T) {
 	assert.Len(outputs, 1)
 	assert.NotEqual(outputs[0].Keys[1].String(), accounts[1].PublicSpendKey.String())
 	assert.NotEqual(outputs[0].Keys[1].String(), accounts[1].PublicViewKey.String())
+}
+
+type storeImpl struct {
+	seed     []byte
+	accounts []Address
+}
+
+func (store storeImpl) SnapshotsReadUTXO(hash crypto.Hash, index int) (*UTXO, error) {
+	genesisMaskr := crypto.NewKeyFromSeed(store.seed)
+	genesisMaskR := genesisMaskr.Public()
+
+	in := Input{
+		Hash:  hash,
+		Index: index,
+	}
+	out := Output{
+		Type:   OutputTypeScript,
+		Amount: NewInteger(10000),
+		Script: Script{OperatorCmp, OperatorSum, uint8(index + 1)},
+		Mask:   genesisMaskR,
+	}
+	utxo := &UTXO{
+		Input:  in,
+		Output: out,
+		Asset:  XINAssetId,
+	}
+
+	for i := 0; i <= index; i++ {
+		key := crypto.DeriveGhostPublicKey(&genesisMaskr, &store.accounts[i].PublicViewKey, &store.accounts[i].PublicSpendKey)
+		utxo.Keys = append(utxo.Keys, *key)
+	}
+	return utxo, nil
+}
+
+func (store storeImpl) SnapshotsCheckGhost(key crypto.Key) (bool, error) {
+	return false, nil
+}
+
+func (store storeImpl) SnapshotsLockUTXO(hash crypto.Hash, index int, tx, snapHash crypto.Hash, ts uint64) (*UTXO, error) {
+	return nil, nil
 }
 
 func randomAccount() Address {
