@@ -60,6 +60,9 @@ func (x Integer) Cmp(y Integer) int {
 
 func (x Integer) String() string {
 	s := x.i.String()
+	if s == "0" {
+		return s
+	}
 	p := len(s) - Precision
 	return s[:p] + "." + s[p:]
 }
