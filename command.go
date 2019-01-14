@@ -120,6 +120,9 @@ func signTransactionCmd(c *cli.Context) error {
 		if err != nil {
 			return nil, err
 		}
+		if snap.Transaction == nil {
+			return nil, fmt.Errorf("invalid input %s#%d", hash.String(), index)
+		}
 		for i, out := range snap.Transaction.Outputs {
 			if i == index && len(out.Keys) > 0 {
 				utxo.Keys = out.Keys

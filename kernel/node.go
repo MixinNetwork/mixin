@@ -27,6 +27,7 @@ type Node struct {
 	Graph          *RoundGraph
 	TopoCounter    *TopologicalSequence
 	SnapshotsPool  map[crypto.Hash]*common.Snapshot
+	ConsensusPool  map[crypto.Hash]time.Time
 	Peer           *network.Peer
 
 	networkId   crypto.Hash
@@ -39,6 +40,7 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
 		ConsensusNodes: make([]common.Address, 0),
 		SnapshotsPool:  make(map[crypto.Hash]*common.Snapshot),
+		ConsensusPool:  make(map[crypto.Hash]time.Time),
 		store:          store,
 		mempoolChan:    make(chan *common.Snapshot, MempoolSize),
 		configDir:      dir,

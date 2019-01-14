@@ -59,9 +59,13 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	} else if node.IdForNetwork == s.NodeId {
 		for _, cn := range node.ConsensusNodes {
 			peerId := cn.Hash().ForNetwork(node.networkId)
-			err = node.Peer.SendSnapshotMessage(peerId, s)
-			if err != nil {
-				return err
+			poolId := s.PayloadHash().ForNetwork(peerId)
+			if time.Now().After(node.ConsensusPool[poolId].Add(time.Duration(config.SnapshotRoundGap))) {
+				err = node.Peer.SendSnapshotMessage(peerId, s)
+				if err != nil {
+					return err
+				}
+				node.ConsensusPool[poolId] = time.Now()
 			}
 		}
 	} else {
