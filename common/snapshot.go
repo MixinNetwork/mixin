@@ -35,11 +35,11 @@ func (s *Snapshot) PayloadHash() crypto.Hash {
 	return crypto.NewHash(s.Payload())
 }
 
-func (s *Snapshot) LockInputs(lockUTXOForTransaction UTXOLocker) error {
+func (s *Snapshot) LockInputs(locker UTXOLocker) error {
 	txHash := s.Transaction.PayloadHash()
 	snapHash := s.PayloadHash()
 	for _, in := range s.Transaction.Inputs {
-		_, err := lockUTXOForTransaction(in.Hash, in.Index, txHash, snapHash, s.Timestamp)
+		_, err := locker.SnapshotsLockUTXO(in.Hash, in.Index, txHash, snapHash, s.Timestamp)
 		if err != nil {
 			return err
 		}

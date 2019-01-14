@@ -79,7 +79,7 @@ func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {
 	return outputs
 }
 
-func (tx *SignedTransaction) Validate(readUTXO UTXOReader, checkGhost GhostChecker) error {
+func (tx *SignedTransaction) Validate(store DataStore) error {
 	if tx.Version != TxVersion {
 		return fmt.Errorf("invalid tx version %d", tx.Version)
 	}
@@ -106,7 +106,7 @@ func (tx *SignedTransaction) Validate(readUTXO UTXOReader, checkGhost GhostCheck
 				return fmt.Errorf("invalid output key %s", k.String())
 			}
 			outputsFilter[k] = true
-			exist, err := checkGhost(k)
+			exist, err := store.SnapshotsCheckGhost(k)
 			if err != nil {
 				return err
 			} else if exist {
@@ -114,6 +114,10 @@ func (tx *SignedTransaction) Validate(readUTXO UTXOReader, checkGhost GhostCheck
 			}
 		}
 		outputAmount = outputAmount.Add(o.Amount)
+
+		switch o.Type {
+		case OutputTypeNodePledge:
+		}
 	}
 
 	inputsFilter := make(map[string]bool)
@@ -124,7 +128,7 @@ func (tx *SignedTransaction) Validate(readUTXO UTXOReader, checkGhost GhostCheck
 		}
 		inputsFilter[fk] = true
 
-		utxo, err := readUTXO(in.Hash, in.Index)
+		utxo, err := store.SnapshotsReadUTXO(in.Hash, in.Index)
 		if err != nil {
 			return err
 		}
@@ -178,14 +182,14 @@ func (tx *SignedTransaction) Marshal() []byte {
 	return MsgpackMarshalPanic(tx)
 }
 
-func (signed *SignedTransaction) SignInput(readUTXO UTXOReader, index int, accounts []Address) error {
+func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, accounts []Address) error {
 	msg := MsgpackMarshalPanic(signed.Transaction)
 
 	if index >= len(signed.Inputs) {
 		return fmt.Errorf("invalid input index %d/%d", index, len(signed.Inputs))
 	}
 	in := signed.Inputs[index]
-	utxo, err := readUTXO(in.Hash, in.Index)
+	utxo, err := reader.SnapshotsReadUTXO(in.Hash, in.Index)
 	if err != nil {
 		return err
 	}

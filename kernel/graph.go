@@ -11,7 +11,7 @@ import (
 )
 
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
-	err := s.Transaction.Validate(node.store.SnapshotsReadUTXO, node.store.SnapshotsCheckGhost)
+	err := s.Transaction.Validate(node.store)
 	if err != nil {
 		logger.Println("VALIDATE TRANSACTION ERROR", err)
 		return nil
@@ -33,7 +33,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		}
 	}
 
-	err = s.LockInputs(node.store.SnapshotsLockUTXO)
+	err = s.LockInputs(node.store)
 	if err != nil {
 		logger.Println("LOCK INPUTS ERROR", err)
 		return nil

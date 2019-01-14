@@ -17,11 +17,23 @@ type UTXOWithLock struct {
 	LockTimestamp uint64      `msgpack:"LT"`
 }
 
-type UTXOReader func(hash crypto.Hash, index int) (*UTXO, error)
+type UTXOReader interface {
+	SnapshotsReadUTXO(hash crypto.Hash, index int) (*UTXO, error)
+}
 
-type UTXOLocker func(hash crypto.Hash, index int, tx, snapHash crypto.Hash, ts uint64) (*UTXO, error)
+type UTXOLocker interface {
+	SnapshotsLockUTXO(hash crypto.Hash, index int, tx, snapHash crypto.Hash, ts uint64) (*UTXO, error)
+}
 
-type GhostChecker func(key crypto.Key) (bool, error)
+type GhostChecker interface {
+	SnapshotsCheckGhost(key crypto.Key) (bool, error)
+}
+
+type DataStore interface {
+	UTXOReader
+	UTXOLocker
+	GhostChecker
+}
 
 func (s *Snapshot) UnspentOutputs() []*UTXO {
 	var utxos []*UTXO

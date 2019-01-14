@@ -50,26 +50,12 @@ func decodeTransactionCmd(c *cli.Context) error {
 }
 
 func signTransactionCmd(c *cli.Context) error {
-	var raw struct {
-		Inputs []struct {
-			Hash  crypto.Hash  `json:"hash"`
-			Index int          `json:"index"`
-			Keys  []crypto.Key `json:"keys"`
-			Mask  crypto.Key   `json:"mask"`
-		} `json:"inputs"`
-		Outputs []struct {
-			Type     uint8            `json:"type"`
-			Script   common.Script    `json:"script"`
-			Accounts []common.Address `json:"accounts"`
-			Amount   common.Integer   `json:"amount"`
-		}
-		Asset crypto.Hash `json:"asset"`
-		Extra string      `json:"extra"`
-	}
+	var raw signerInput
 	err := json.Unmarshal([]byte(c.String("raw")), &raw)
 	if err != nil {
 		return err
 	}
+	raw.Node = c.String("node")
 
 	tx := common.NewTransaction(raw.Asset)
 	for _, in := range raw.Inputs {
@@ -100,43 +86,9 @@ func signTransactionCmd(c *cli.Context) error {
 	copy(account.PrivateViewKey[:], key[:32])
 	copy(account.PrivateSpendKey[:], key[32:])
 
-	readUTXO := func(hash crypto.Hash, index int) (*common.UTXO, error) {
-		utxo := &common.UTXO{}
-
-		for _, in := range raw.Inputs {
-			if in.Hash == hash && in.Index == index && len(in.Keys) > 0 {
-				utxo.Keys = in.Keys
-				utxo.Mask = in.Mask
-				return utxo, nil
-			}
-		}
-
-		data, err := callRPC(c.String("node"), "getsnapshot", []interface{}{hash.String()})
-		if err != nil {
-			return nil, err
-		}
-		var snap common.SnapshotWithTopologicalOrder
-		err = json.Unmarshal(data, &snap)
-		if err != nil {
-			return nil, err
-		}
-		if snap.Transaction == nil {
-			return nil, fmt.Errorf("invalid input %s#%d", hash.String(), index)
-		}
-		for i, out := range snap.Transaction.Outputs {
-			if i == index && len(out.Keys) > 0 {
-				utxo.Keys = out.Keys
-				utxo.Mask = out.Mask
-				return utxo, nil
-			}
-		}
-
-		return nil, fmt.Errorf("invalid input %s#%d", hash.String(), index)
-	}
-
 	signed := &common.SignedTransaction{Transaction: *tx}
 	for i, _ := range signed.Inputs {
-		err := signed.SignInput(readUTXO, i, []common.Address{account})
+		err := signed.SignInput(raw, i, []common.Address{account})
 		if err != nil {
 			return err
 		}
@@ -283,4 +235,56 @@ func callRPC(node, method string, params []interface{}) ([]byte, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+type signerInput struct {
+	Inputs []struct {
+		Hash  crypto.Hash  `json:"hash"`
+		Index int          `json:"index"`
+		Keys  []crypto.Key `json:"keys"`
+		Mask  crypto.Key   `json:"mask"`
+	} `json:"inputs"`
+	Outputs []struct {
+		Type     uint8            `json:"type"`
+		Script   common.Script    `json:"script"`
+		Accounts []common.Address `json:"accounts"`
+		Amount   common.Integer   `json:"amount"`
+	}
+	Asset crypto.Hash `json:"asset"`
+	Extra string      `json:"extra"`
+	Node  string      `json:"-"`
+}
+
+func (raw signerInput) SnapshotsReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error) {
+	utxo := &common.UTXO{}
+
+	for _, in := range raw.Inputs {
+		if in.Hash == hash && in.Index == index && len(in.Keys) > 0 {
+			utxo.Keys = in.Keys
+			utxo.Mask = in.Mask
+			return utxo, nil
+		}
+	}
+
+	data, err := callRPC(raw.Node, "getsnapshot", []interface{}{hash.String()})
+	if err != nil {
+		return nil, err
+	}
+	var snap common.SnapshotWithTopologicalOrder
+	err = json.Unmarshal(data, &snap)
+	if err != nil {
+		return nil, err
+	}
+	if snap.Transaction == nil {
+		return nil, fmt.Errorf("invalid input %s#%d", hash.String(), index)
+	}
+	for i, out := range snap.Transaction.Outputs {
+		if i == index && len(out.Keys) > 0 {
+			utxo.Keys = out.Keys
+			utxo.Mask = out.Mask
+			return utxo, nil
+		}
+	}
+
+	return nil, fmt.Errorf("invalid input %s#%d", hash.String(), index)
 }
