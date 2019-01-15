@@ -194,8 +194,10 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 				return fmt.Errorf("invalid inputs count %d for accept transaction", len(tx.Inputs))
 			}
 			var pledging *Node
+			filter := make(map[string]string)
 			nodes := store.SnapshotsReadConsensusNodes()
 			for _, n := range nodes {
+				filter[n.Account.String()] = n.State
 				if n.State == NodeStateDeparting {
 					return fmt.Errorf("invalid node pending state %s %s", n.Account.String(), n.State)
 				}
@@ -214,6 +216,49 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 			nodesAmount := NewInteger(uint64(10000 * len(nodes)))
 			if inputAmount.Cmp(nodesAmount) != 0 {
 				return fmt.Errorf("invalid accept input amount %s %s", inputAmount.String(), nodesAmount.String())
+			}
+
+			lastAccept, err := store.SnapshotsReadSnapshotByTransactionHash(tx.Inputs[0].Hash)
+			if err != nil {
+				return err
+			}
+			ao := lastAccept.Transaction.Outputs[0]
+			if len(lastAccept.Transaction.Outputs) != 1 {
+				return fmt.Errorf("invalid accept utxo count %d", len(lastAccept.Transaction.Outputs))
+			}
+			if ao.Type != OutputTypeNodeAccept {
+				return fmt.Errorf("invalid accept utxo type %d", ao.Type)
+			}
+			var publicSpend crypto.Key
+			copy(publicSpend[:], lastAccept.Transaction.Extra)
+			privateView := publicSpend.DeterministicHashDerive()
+			acc := Address{
+				PublicViewKey:  privateView.Public(),
+				PublicSpendKey: publicSpend,
+			}
+			if filter[acc.String()] != NodeStateAccepted {
+				return fmt.Errorf("invalid accept utxo source %s", filter[acc.String()])
+			}
+
+			lastPledge, err := store.SnapshotsReadSnapshotByTransactionHash(tx.Inputs[1].Hash)
+			if err != nil {
+				return err
+			}
+			po := lastPledge.Transaction.Outputs[0]
+			if len(lastPledge.Transaction.Outputs) != 1 {
+				return fmt.Errorf("invalid pledge utxo count %d", len(lastPledge.Transaction.Outputs))
+			}
+			if po.Type != OutputTypeNodePledge {
+				return fmt.Errorf("invalid pledge utxo type %d", po.Type)
+			}
+			copy(publicSpend[:], lastPledge.Transaction.Extra)
+			privateView = publicSpend.DeterministicHashDerive()
+			acc = Address{
+				PublicViewKey:  privateView.Public(),
+				PublicSpendKey: publicSpend,
+			}
+			if filter[acc.String()] != NodeStatePledging {
+				return fmt.Errorf("invalid pledge utxo source %s", filter[acc.String()])
 			}
 		}
 	}

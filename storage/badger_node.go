@@ -15,10 +15,6 @@ const (
 	snapshotsPrefixNodeRemove = "NODEREMOVE"
 )
 
-func (s *BadgerStore) SnapshotsReadConsensusNodeTransaction(n common.Node) (*common.Transaction, error) {
-	return nil, nil
-}
-
 func (s *BadgerStore) SnapshotsReadConsensusNodes() []common.Node {
 	nodes := make([]common.Node, 0)
 	txn := s.snapshotsDB.NewTransaction(false)

@@ -31,6 +31,7 @@ type GhostChecker interface {
 
 type NodesReader interface {
 	SnapshotsReadConsensusNodes() []Node
+	SnapshotsReadSnapshotByTransactionHash(hash crypto.Hash) (*SnapshotWithTopologicalOrder, error)
 }
 
 type DataStore interface {

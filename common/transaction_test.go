@@ -87,6 +87,9 @@ func (store storeImpl) SnapshotsLockUTXO(hash crypto.Hash, index int, tx, snapHa
 func (store storeImpl) SnapshotsReadConsensusNodes() []Node {
 	return nil
 }
+func (store storeImpl) SnapshotsReadSnapshotByTransactionHash(hash crypto.Hash) (*SnapshotWithTopologicalOrder, error) {
+	return nil, nil
+}
 
 func randomAccount() Address {
 	seed := make([]byte, 64)
