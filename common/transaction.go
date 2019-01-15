@@ -123,7 +123,9 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 			if o.Amount.Cmp(NewInteger(10000)) != 0 {
 				return fmt.Errorf("invalid pledge amount %s", o.Amount.String())
 			}
-
+			if store.SnapshotsCheckPendingNodes() {
+				return fmt.Errorf("invalid pending nodes status")
+			}
 			nodes, err := store.SnapshotsReadAcceptedNodes()
 			if err != nil {
 				return err

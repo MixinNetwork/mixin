@@ -296,7 +296,7 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 		case common.OutputTypeNodePledge:
 			var publicSpend crypto.Key
 			copy(publicSpend[:], snapshot.Transaction.Extra)
-			err = writeNodePledge(txn, publicSpend, snapshot.Timestamp)
+			err = writeNodePledge(txn, publicSpend, snapshot.Transaction.PayloadHash())
 			if err != nil {
 				return err
 			}

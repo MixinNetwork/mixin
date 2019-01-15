@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"encoding/binary"
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -16,6 +15,25 @@ const (
 	snapshotsPrefixNodeRemove = "NODEREMOVE"
 )
 
+func (s *BadgerStore) SnapshotsCheckPendingNodes() bool {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	pit := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer pit.Close()
+	prefix := []byte(snapshotsPrefixNodePledge)
+	pit.Seek(prefix)
+	if pit.ValidForPrefix(prefix) {
+		return true
+	}
+
+	dit := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer dit.Close()
+	prefix = []byte(snapshotsPrefixNodeDepart)
+	dit.Seek(prefix)
+	return dit.ValidForPrefix(prefix)
+}
+
 func (s *BadgerStore) SnapshotsReadAcceptedNodes() ([]common.Address, error) {
 	nodes := make([]common.Address, 0)
 	txn := s.snapshotsDB.NewTransaction(false)
@@ -26,46 +44,69 @@ func (s *BadgerStore) SnapshotsReadAcceptedNodes() ([]common.Address, error) {
 
 	prefix := []byte(snapshotsPrefixNodeAccept)
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-		item := it.Item()
-		nodes = append(nodes, nodeAcceptAccount(item.Key()))
+		nodes = append(nodes, nodeAcceptAccount(it.Item().Key()))
 	}
 
 	return nodes, nil
 }
 
-func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, snapshotTimestamp uint64) error {
+func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash) error {
 	// TODO these checks are only assert kind checks, not needed at all
-	key := nodePledgeKey(publicSpend)
+	key := nodeAcceptKey(publicSpend)
 	_, err := txn.Get(key)
-	if err == nil {
-		return fmt.Errorf("node already pledged %s", publicSpend.String())
-	} else if err != badger.ErrKeyNotFound {
-		return err
-	}
-	key = nodeAcceptKey(publicSpend)
-	_, err = txn.Get(key)
 	if err == nil {
 		return fmt.Errorf("node already accepted %s", publicSpend.String())
 	} else if err != badger.ErrKeyNotFound {
 		return err
 	}
-	key = nodeDepartKey(publicSpend)
-	_, err = txn.Get(key)
-	if err == nil {
-		return fmt.Errorf("node already departed%s", publicSpend.String())
-	} else if err != badger.ErrKeyNotFound {
-		return err
+
+	pit := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer pit.Close()
+	prefix := []byte(snapshotsPrefixNodePledge)
+	pit.Seek(prefix)
+	if pit.ValidForPrefix(prefix) {
+		node := nodePledgeAccount(pit.Item().Key())
+		return fmt.Errorf("node %s is pledging", node.String())
+	}
+
+	dit := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer dit.Close()
+	prefix = []byte(snapshotsPrefixNodeDepart)
+	dit.Seek(prefix)
+	if dit.ValidForPrefix(prefix) {
+		node := nodeDepartAccount(dit.Item().Key())
+		return fmt.Errorf("node %s is departing", node.String())
 	}
 
 	key = nodePledgeKey(publicSpend)
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, snapshotTimestamp)
-	return txn.Set(key, buf)
+	return txn.Set(key, tx[:])
+}
+
+func nodePledgeAccount(key []byte) common.Address {
+	var publicSpend crypto.Key
+	copy(publicSpend[:], key[len(snapshotsPrefixNodePledge):])
+	privateView := publicSpend.DeterministicHashDerive()
+	return common.Address{
+		PrivateViewKey: privateView,
+		PublicViewKey:  privateView.Public(),
+		PublicSpendKey: publicSpend,
+	}
 }
 
 func nodeAcceptAccount(key []byte) common.Address {
 	var publicSpend crypto.Key
 	copy(publicSpend[:], key[len(snapshotsPrefixNodeAccept):])
+	privateView := publicSpend.DeterministicHashDerive()
+	return common.Address{
+		PrivateViewKey: privateView,
+		PublicViewKey:  privateView.Public(),
+		PublicSpendKey: publicSpend,
+	}
+}
+
+func nodeDepartAccount(key []byte) common.Address {
+	var publicSpend crypto.Key
+	copy(publicSpend[:], key[len(snapshotsPrefixNodeDepart):])
 	privateView := publicSpend.DeterministicHashDerive()
 	return common.Address{
 		PrivateViewKey: privateView,

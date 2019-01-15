@@ -30,6 +30,7 @@ type GhostChecker interface {
 }
 
 type NodesReader interface {
+	SnapshotsCheckPendingNodes() bool
 	SnapshotsReadAcceptedNodes() ([]Address, error)
 }
 
