@@ -15,17 +15,8 @@ const (
 	snapshotsPrefixNodeRemove = "NODEREMOVE"
 )
 
-func (s *BadgerStore) SnapshotsCheckPendingNodes() bool {
-	txn := s.snapshotsDB.NewTransaction(false)
-	defer txn.Discard()
-
-	pledging := readNodesInState(txn, snapshotsPrefixNodePledge)
-	if len(pledging) > 0 {
-		return true
-	}
-
-	departing := readNodesInState(txn, snapshotsPrefixNodeDepart)
-	return len(departing) > 0
+func (s *BadgerStore) SnapshotsReadConsensusNodeTransaction(n common.Node) (*common.Transaction, error) {
+	return nil, nil
 }
 
 func (s *BadgerStore) SnapshotsReadConsensusNodes() []common.Node {
@@ -60,7 +51,23 @@ func readNodesInState(txn *badger.Txn, nodeState string) []common.Address {
 	return nodes
 }
 
-func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash, genesis bool) error {
+func writeNodeAccept(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash, genesis bool) error {
+	// TODO these checks are only assert kind checks, not needed at all
+	key := nodePledgeKey(publicSpend)
+	_, err := txn.Get(key)
+	if err == badger.ErrKeyNotFound {
+		if !genesis {
+			return fmt.Errorf("node not pledging yet %s", publicSpend.String())
+		}
+	} else if err != nil {
+		return err
+	}
+
+	key = nodeAcceptKey(publicSpend)
+	return txn.Set(key, tx[:])
+}
+
+func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash) error {
 	// TODO these checks are only assert kind checks, not needed at all
 	key := nodeAcceptKey(publicSpend)
 	_, err := txn.Get(key)
@@ -71,7 +78,7 @@ func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash, ge
 	}
 
 	pledging := readNodesInState(txn, snapshotsPrefixNodePledge)
-	if len(pledging) > 0 && !genesis {
+	if len(pledging) > 0 {
 		node := pledging[0]
 		return fmt.Errorf("node %s is pledging", node.PublicSpendKey.String())
 	}

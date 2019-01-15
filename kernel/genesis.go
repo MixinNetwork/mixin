@@ -51,7 +51,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 
 	var snapshots []*common.SnapshotWithTopologicalOrder
 	for i, in := range gns.Nodes {
-		seed := crypto.NewHash([]byte(in.Address.String() + "NODEPLEDGE"))
+		seed := crypto.NewHash([]byte(in.Address.String() + "NODEACCEPT"))
 		r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
 		R := r.Public()
 		var keys []crypto.Key
@@ -71,7 +71,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 			},
 			Outputs: []*common.Output{
 				{
-					Type:   common.OutputTypeNodePledge,
+					Type:   common.OutputTypeNodeAccept,
 					Script: common.Script([]uint8{common.OperatorCmp, common.OperatorSum, uint8(len(gns.Nodes)*2/3 + 1)}),
 					Amount: common.NewInteger(PledgeAmount),
 					Keys:   keys,

@@ -108,6 +108,9 @@ func (node *Node) LoadNodeState() error {
 
 func (node *Node) LoadConsensusNodes() error {
 	node.ConsensusNodes = node.store.SnapshotsReadConsensusNodes()
+	for _, cn := range node.ConsensusNodes {
+		logger.Println(cn.Account.String(), cn.State)
+	}
 	return nil
 }
 

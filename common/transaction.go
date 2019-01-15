@@ -99,6 +99,32 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 
 	var inputAmount, outputAmount Integer
 
+	inputsFilter := make(map[string]bool)
+	for i, in := range tx.Inputs {
+		fk := fmt.Sprintf("%s:%d", in.Hash.String(), in.Index)
+		if inputsFilter[fk] {
+			return fmt.Errorf("invalid input %s", fk)
+		}
+		inputsFilter[fk] = true
+
+		utxo, err := store.SnapshotsReadUTXO(in.Hash, in.Index)
+		if err != nil {
+			return err
+		}
+		if utxo == nil {
+			return fmt.Errorf("input not found %s:%d", in.Hash.String(), in.Index)
+		}
+		if utxo.Asset.String() != tx.Asset.String() {
+			return fmt.Errorf("invalid input asset %s %s", utxo.Asset.String(), tx.Asset.String())
+		}
+
+		err = validateUTXO(utxo, tx.Signatures[i], msg)
+		if err != nil {
+			return err
+		}
+		inputAmount = inputAmount.Add(utxo.Amount)
+	}
+
 	outputsFilter := make(map[crypto.Key]bool)
 	for _, o := range tx.Outputs {
 		for _, k := range o.Keys {
@@ -160,33 +186,36 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 					return fmt.Errorf("invalid output keys signatures %d", len(filter))
 				}
 			}
+		case OutputTypeNodeAccept:
+			if len(tx.Outputs) != 1 {
+				return fmt.Errorf("invalid outputs count %d for accept transaction", len(tx.Outputs))
+			}
+			if len(tx.Inputs) != 2 {
+				return fmt.Errorf("invalid inputs count %d for accept transaction", len(tx.Inputs))
+			}
+			var pledging *Node
+			nodes := store.SnapshotsReadConsensusNodes()
+			for _, n := range nodes {
+				if n.State == NodeStateDeparting {
+					return fmt.Errorf("invalid node pending state %s %s", n.Account.String(), n.State)
+				}
+				if n.State == NodeStateAccepted {
+					continue
+				}
+				if n.State == NodeStatePledging && pledging == nil {
+					pledging = &n
+				} else {
+					return fmt.Errorf("invalid pledging nodes %s %s", pledging.Account.String(), n.Account.String())
+				}
+			}
+			if pledging == nil {
+				return fmt.Errorf("no pledging node needs to get accepted")
+			}
+			nodesAmount := NewInteger(uint64(10000 * len(nodes)))
+			if inputAmount.Cmp(nodesAmount) != 0 {
+				return fmt.Errorf("invalid accept input amount %s %s", inputAmount.String(), nodesAmount.String())
+			}
 		}
-	}
-
-	inputsFilter := make(map[string]bool)
-	for i, in := range tx.Inputs {
-		fk := fmt.Sprintf("%s:%d", in.Hash.String(), in.Index)
-		if inputsFilter[fk] {
-			return fmt.Errorf("invalid input %s", fk)
-		}
-		inputsFilter[fk] = true
-
-		utxo, err := store.SnapshotsReadUTXO(in.Hash, in.Index)
-		if err != nil {
-			return err
-		}
-		if utxo == nil {
-			return fmt.Errorf("input not found %s:%d", in.Hash.String(), in.Index)
-		}
-		if utxo.Asset.String() != tx.Asset.String() {
-			return fmt.Errorf("invalid input asset %s %s", utxo.Asset.String(), tx.Asset.String())
-		}
-
-		err = validateUTXO(utxo, tx.Signatures[i], msg)
-		if err != nil {
-			return err
-		}
-		inputAmount = inputAmount.Add(utxo.Amount)
 	}
 
 	if inputAmount.Cmp(outputAmount) != 0 {
