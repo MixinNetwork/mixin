@@ -51,7 +51,7 @@ func (s *BadgerStore) SnapshotsReadAcceptedNodes() ([]common.Address, error) {
 	return nodes, nil
 }
 
-func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash) error {
+func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash, genesis bool) error {
 	// TODO these checks are only assert kind checks, not needed at all
 	key := nodeAcceptKey(publicSpend)
 	_, err := txn.Get(key)
@@ -65,9 +65,9 @@ func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash) er
 	defer pit.Close()
 	prefix := []byte(snapshotsPrefixNodePledge)
 	pit.Seek(prefix)
-	if pit.ValidForPrefix(prefix) {
+	if pit.ValidForPrefix(prefix) && !genesis {
 		node := nodePledgeAccount(pit.Item().Key())
-		return fmt.Errorf("node %s is pledging", node.String())
+		return fmt.Errorf("node %s is pledging", node.PublicSpendKey.String())
 	}
 	pit.Close()
 
@@ -77,7 +77,7 @@ func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash) er
 	dit.Seek(prefix)
 	if dit.ValidForPrefix(prefix) {
 		node := nodeDepartAccount(dit.Item().Key())
-		return fmt.Errorf("node %s is departing", node.String())
+		return fmt.Errorf("node %s is departing", node.PublicSpendKey.String())
 	}
 
 	key = nodePledgeKey(publicSpend)

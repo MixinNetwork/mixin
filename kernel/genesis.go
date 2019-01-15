@@ -81,8 +81,9 @@ func (node *Node) LoadGenesis(configDir string) error {
 					Mask:   R,
 				},
 			},
-			Extra: in.Address.PublicSpendKey[:],
 		}
+		tx.Extra = make([]byte, len(in.Address.PublicSpendKey))
+		copy(tx.Extra, in.Address.PublicSpendKey[:])
 
 		remaining := in.Balance.Sub(common.NewInteger(PledgeAmount))
 		if remaining.Cmp(common.NewInteger(0)) > 0 {
