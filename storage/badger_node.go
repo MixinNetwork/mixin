@@ -66,8 +66,7 @@ func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, snapshotTimestamp 
 func nodeAcceptAccount(key []byte) common.Address {
 	var publicSpend crypto.Key
 	copy(publicSpend[:], key[len(snapshotsPrefixNodeAccept):])
-	seed := crypto.NewHash(publicSpend[:])
-	privateView := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
+	privateView := publicSpend.DeterministicHashDerive()
 	return common.Address{
 		PrivateViewKey: privateView,
 		PublicViewKey:  privateView.Public(),

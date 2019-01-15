@@ -26,6 +26,11 @@ func (k Key) Public() Key {
 	return tmp
 }
 
+func (k Key) DeterministicHashDerive() Key {
+	seed := NewHash(k[:])
+	return NewKeyFromSeed(append(seed[:], seed[:]...))
+}
+
 func KeyMult(pub, priv *Key) *Key {
 	var point edwards25519.ExtendedGroupElement
 	var point2 edwards25519.ProjectiveGroupElement

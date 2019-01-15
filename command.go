@@ -139,8 +139,7 @@ func setupTestNetCmd(c *cli.Context) error {
 			return err
 		}
 		account := common.NewAddressFromSeed(seed)
-		hash := crypto.NewHash(account.PublicSpendKey[:])
-		account.PrivateViewKey = crypto.NewKeyFromSeed(append(hash[:], hash[:]...))
+		account.PrivateViewKey = account.PublicSpendKey.DeterministicHashDerive()
 		account.PublicViewKey = account.PrivateViewKey.Public()
 		accounts = append(accounts, account)
 	}

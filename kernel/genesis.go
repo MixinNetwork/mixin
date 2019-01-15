@@ -149,8 +149,7 @@ func readGenesis(path string) (*Genesis, error) {
 		if inputsFilter[in.Address.String()] {
 			return nil, fmt.Errorf("duplicated genesis inputs %s", in.Address.String())
 		}
-		seed := crypto.NewHash(in.Address.PublicSpendKey[:])
-		privateView := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
+		privateView := in.Address.PublicSpendKey.DeterministicHashDerive()
 		if privateView.Public() != in.Address.PublicViewKey {
 			return nil, fmt.Errorf("invalid node key format %s %s", privateView.Public().String(), in.Address.PublicViewKey.String())
 		}

@@ -120,6 +120,9 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 			if len(tx.Outputs) != 1 {
 				return fmt.Errorf("invalid outputs count %d for pledge transaction", len(tx.Outputs))
 			}
+			if o.Amount.Cmp(NewInteger(10000)) != 0 {
+				return fmt.Errorf("invalid pledge amount %s", o.Amount.String())
+			}
 
 			nodes, err := store.SnapshotsReadAcceptedNodes()
 			if err != nil {
@@ -128,8 +131,7 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 
 			var publicSpend crypto.Key
 			copy(publicSpend[:], tx.Extra)
-			seed := crypto.NewHash(publicSpend[:])
-			privateView := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
+			privateView := publicSpend.DeterministicHashDerive()
 			nodes = append(nodes, Address{
 				PrivateViewKey: privateView,
 				PublicViewKey:  privateView.Public(),
