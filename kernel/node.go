@@ -57,6 +57,11 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		return nil, err
 	}
 
+	err = node.LoadConsensusNodes()
+	if err != nil {
+		return nil, err
+	}
+
 	graph, err := LoadRoundGraph(node.store)
 	if err != nil {
 		return nil, err
@@ -98,6 +103,15 @@ func (node *Node) LoadNodeState() error {
 		return err
 	}
 	node.Account = acc
+	return nil
+}
+
+func (node *Node) LoadConsensusNodes() error {
+	nodes, err := node.store.SnapshotsReadAcceptedNodes()
+	if err != nil {
+		return err
+	}
+	node.ConsensusNodes = nodes
 	return nil
 }
 

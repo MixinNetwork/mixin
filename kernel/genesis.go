@@ -30,9 +30,6 @@ func (node *Node) LoadGenesis(configDir string) error {
 	if err != nil {
 		return err
 	}
-	for _, in := range gns.Nodes {
-		node.ConsensusNodes = append(node.ConsensusNodes, in.Address)
-	}
 
 	data, err := json.Marshal(gns)
 	if err != nil {
