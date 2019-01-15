@@ -1,6 +1,8 @@
 package crypto
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"strconv"
@@ -45,7 +47,24 @@ func KeyMult(pub, priv *Key) *Key {
 	return &key
 }
 
-func DeriveGhostPublicKey(r, A, B *Key) *Key {
+func (k *Key) MultScalar(outputIndex uint64) *Key {
+	tmp := make([]byte, 12, 12)
+	length := binary.PutUvarint(tmp, outputIndex)
+	tmp = tmp[:length]
+
+	var src [64]byte
+	var buf bytes.Buffer
+	buf.Write(k[:])
+	buf.Write(tmp)
+	hash := NewHash(buf.Bytes())
+	copy(src[:32], hash[:])
+	hash = NewHash(hash[:])
+	copy(src[32:], hash[:])
+	key := NewKeyFromSeed(src[:])
+	return &key
+}
+
+func DeriveGhostPublicKey(r, A, B *Key, outputIndex uint64) *Key {
 	var point1, point2 edwards25519.ExtendedGroupElement
 	var point3 edwards25519.CachedGroupElement
 	var point4 edwards25519.CompletedGroupElement
@@ -53,7 +72,7 @@ func DeriveGhostPublicKey(r, A, B *Key) *Key {
 
 	tmp := [32]byte(*B)
 	point1.FromBytes(&tmp)
-	scalar := KeyMult(A, r).HashScalar()
+	scalar := KeyMult(A, r).MultScalar(outputIndex).HashScalar()
 	edwards25519.GeScalarMultBase(&point2, scalar)
 	point2.ToCached(&point3)
 	edwards25519.GeAdd(&point4, &point1, &point3)
@@ -63,15 +82,15 @@ func DeriveGhostPublicKey(r, A, B *Key) *Key {
 	return &key
 }
 
-func DeriveGhostPrivateKey(R, a, b *Key) *Key {
-	scalar := KeyMult(R, a).HashScalar()
+func DeriveGhostPrivateKey(R, a, b *Key, outputIndex uint64) *Key {
+	scalar := KeyMult(R, a).MultScalar(outputIndex).HashScalar()
 	tmp := [32]byte(*b)
 	edwards25519.ScAdd(&tmp, &tmp, scalar)
 	key := Key(tmp)
 	return &key
 }
 
-func ViewGhostOutputKey(P, a, R *Key) *Key {
+func ViewGhostOutputKey(P, a, R *Key, outputIndex uint64) *Key {
 	var point1, point2 edwards25519.ExtendedGroupElement
 	var point3 edwards25519.CachedGroupElement
 	var point4 edwards25519.CompletedGroupElement
@@ -79,7 +98,7 @@ func ViewGhostOutputKey(P, a, R *Key) *Key {
 
 	tmp := [32]byte(*P)
 	point1.FromBytes(&tmp)
-	scalar := KeyMult(R, a).HashScalar()
+	scalar := KeyMult(R, a).MultScalar(outputIndex).HashScalar()
 	edwards25519.GeScalarMultBase(&point2, scalar)
 	point2.ToCached(&point3)
 	edwards25519.GeSub(&point4, &point1, &point3)

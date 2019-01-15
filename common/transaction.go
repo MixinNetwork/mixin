@@ -58,7 +58,7 @@ type SignedTransaction struct {
 func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {
 	outputs := make([]*Output, 0)
 
-	for _, o := range tx.Outputs {
+	for i, o := range tx.Outputs {
 		if o.Type != OutputTypeScript {
 			continue
 		}
@@ -70,7 +70,7 @@ func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {
 			Mask:   o.Mask,
 		}
 		for _, k := range o.Keys {
-			key := crypto.ViewGhostOutputKey(&k, a, &o.Mask)
+			key := crypto.ViewGhostOutputKey(&k, a, &o.Mask, uint64(i))
 			out.Keys = append(out.Keys, *key)
 		}
 		outputs = append(outputs, out)
@@ -151,14 +151,14 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 			for _, n := range nodes {
 				filter[n.PublicSpendKey] = true
 			}
-			for _, k := range o.Keys {
+			for i, k := range o.Keys {
 				for _, n := range nodes {
-					ghost := crypto.ViewGhostOutputKey(&k, &n.PrivateViewKey, &o.Mask)
+					ghost := crypto.ViewGhostOutputKey(&k, &n.PrivateViewKey, &o.Mask, 0)
 					delete(filter, *ghost)
 				}
-			}
-			if len(filter) != 0 {
-				return fmt.Errorf("invalid output keys signatures %d", len(filter))
+				if len(filter) != len(nodes)-1-i {
+					return fmt.Errorf("invalid output keys signatures %d", len(filter))
+				}
 			}
 		}
 	}
@@ -247,7 +247,7 @@ func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, account
 
 	sigs := make([]crypto.Signature, 0)
 	for _, acc := range accounts {
-		priv := crypto.DeriveGhostPrivateKey(&utxo.Mask, &acc.PrivateViewKey, &acc.PrivateSpendKey)
+		priv := crypto.DeriveGhostPrivateKey(&utxo.Mask, &acc.PrivateViewKey, &acc.PrivateSpendKey, uint64(in.Index))
 		if keysFilter[priv.Public().String()] {
 			sigs = append(sigs, priv.Sign(msg))
 		}
@@ -288,7 +288,7 @@ func (tx *Transaction) AddScriptOutput(accounts []Address, s Script, amount Inte
 	}
 
 	for _, a := range accounts {
-		k := crypto.DeriveGhostPublicKey(&r, &a.PublicViewKey, &a.PublicSpendKey)
+		k := crypto.DeriveGhostPublicKey(&r, &a.PublicViewKey, &a.PublicSpendKey, uint64(len(tx.Outputs)))
 		out.Keys = append(out.Keys, *k)
 	}
 	tx.Outputs = append(tx.Outputs, out)

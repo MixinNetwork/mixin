@@ -59,7 +59,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 		R := r.Public()
 		var keys []crypto.Key
 		for _, d := range gns.Nodes {
-			key := crypto.DeriveGhostPublicKey(&r, &d.Address.PublicViewKey, &d.Address.PublicSpendKey)
+			key := crypto.DeriveGhostPublicKey(&r, &d.Address.PublicViewKey, &d.Address.PublicSpendKey, 0)
 			keys = append(keys, *key)
 		}
 
@@ -89,7 +89,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 			seed := crypto.NewHash([]byte(in.Address.String() + "NODEREMAINING"))
 			r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
 			R := r.Public()
-			key := crypto.DeriveGhostPublicKey(&r, &in.Address.PublicViewKey, &in.Address.PublicSpendKey)
+			key := crypto.DeriveGhostPublicKey(&r, &in.Address.PublicViewKey, &in.Address.PublicSpendKey, 1)
 			tx.Outputs = append(tx.Outputs, &common.Output{
 				Type:   common.OutputTypeScript,
 				Script: common.Script([]uint8{common.OperatorCmp, common.OperatorSum, 1}),

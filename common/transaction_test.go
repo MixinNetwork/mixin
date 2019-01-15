@@ -70,7 +70,7 @@ func (store storeImpl) SnapshotsReadUTXO(hash crypto.Hash, index int) (*UTXO, er
 	}
 
 	for i := 0; i <= index; i++ {
-		key := crypto.DeriveGhostPublicKey(&genesisMaskr, &store.accounts[i].PublicViewKey, &store.accounts[i].PublicSpendKey)
+		key := crypto.DeriveGhostPublicKey(&genesisMaskr, &store.accounts[i].PublicViewKey, &store.accounts[i].PublicSpendKey, uint64(index))
 		utxo.Keys = append(utxo.Keys, *key)
 	}
 	return utxo, nil
@@ -86,6 +86,10 @@ func (store storeImpl) SnapshotsLockUTXO(hash crypto.Hash, index int, tx, snapHa
 
 func (store storeImpl) SnapshotsReadAcceptedNodes() ([]Address, error) {
 	return nil, nil
+}
+
+func (store storeImpl) SnapshotsCheckPendingNodes() bool {
+	return false
 }
 
 func randomAccount() Address {

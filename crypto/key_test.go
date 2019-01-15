@@ -35,11 +35,11 @@ func TestGhostKey(t *testing.T) {
 	r := randomKey()
 	R := r.Public()
 
-	P := DeriveGhostPublicKey(&r, &A, &B)
-	p := DeriveGhostPrivateKey(&R, &a, &b)
+	P := DeriveGhostPublicKey(&r, &A, &B, 0)
+	p := DeriveGhostPrivateKey(&R, &a, &b, 0)
 	assert.Equal(*P, p.Public())
 
-	O := ViewGhostOutputKey(P, &a, &R)
+	O := ViewGhostOutputKey(P, &a, &R, 0)
 	assert.Equal(*O, B)
 
 	sig := p.Sign(a[:])
