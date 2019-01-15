@@ -123,22 +123,22 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 			if o.Amount.Cmp(NewInteger(10000)) != 0 {
 				return fmt.Errorf("invalid pledge amount %s", o.Amount.String())
 			}
-			if store.SnapshotsCheckPendingNodes() {
-				return fmt.Errorf("invalid pending nodes status")
-			}
-			nodes, err := store.SnapshotsReadAcceptedNodes()
-			if err != nil {
-				return err
+			nodes := store.SnapshotsReadConsensusNodes()
+			for _, n := range nodes {
+				if n.State != NodeStateAccepted {
+					return fmt.Errorf("invalid node pending state %s %s", n.Account.String(), n.State)
+				}
 			}
 
 			var publicSpend crypto.Key
 			copy(publicSpend[:], tx.Extra)
 			privateView := publicSpend.DeterministicHashDerive()
-			nodes = append(nodes, Address{
+			acc := Address{
 				PrivateViewKey: privateView,
 				PublicViewKey:  privateView.Public(),
 				PublicSpendKey: publicSpend,
-			})
+			}
+			nodes = append(nodes, Node{Account: acc})
 			if len(nodes) != len(o.Keys) {
 				return fmt.Errorf("invalid output keys count %d %d for pledge transaction", len(nodes), len(o.Keys))
 			}
@@ -149,11 +149,11 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 
 			filter := make(map[crypto.Key]bool)
 			for _, n := range nodes {
-				filter[n.PublicSpendKey] = true
+				filter[n.Account.PublicSpendKey] = true
 			}
 			for i, k := range o.Keys {
 				for _, n := range nodes {
-					ghost := crypto.ViewGhostOutputKey(&k, &n.PrivateViewKey, &o.Mask, 0)
+					ghost := crypto.ViewGhostOutputKey(&k, &n.Account.PrivateViewKey, &o.Mask, 0)
 					delete(filter, *ghost)
 				}
 				if len(filter) != len(nodes)-1-i {

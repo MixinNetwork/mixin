@@ -46,7 +46,7 @@ func ConsensusNodes() []map[string]interface{} {
 	}
 	for _, n := range globalNode.ConsensusNodes {
 		nodes = append(nodes, map[string]interface{}{
-			"node":    n.Hash().ForNetwork(globalNode.networkId),
+			"node":    n.Account.Hash().ForNetwork(globalNode.networkId),
 			"account": n,
 		})
 	}

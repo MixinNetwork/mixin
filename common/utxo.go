@@ -30,8 +30,7 @@ type GhostChecker interface {
 }
 
 type NodesReader interface {
-	SnapshotsCheckPendingNodes() bool
-	SnapshotsReadAcceptedNodes() ([]Address, error)
+	SnapshotsReadConsensusNodes() []Node
 }
 
 type DataStore interface {

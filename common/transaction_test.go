@@ -84,12 +84,8 @@ func (store storeImpl) SnapshotsLockUTXO(hash crypto.Hash, index int, tx, snapHa
 	return nil, nil
 }
 
-func (store storeImpl) SnapshotsReadAcceptedNodes() ([]Address, error) {
-	return nil, nil
-}
-
-func (store storeImpl) SnapshotsCheckPendingNodes() bool {
-	return false
+func (store storeImpl) SnapshotsReadConsensusNodes() []Node {
+	return nil
 }
 
 func randomAccount() Address {

@@ -23,11 +23,11 @@ const (
 type Node struct {
 	IdForNetwork   crypto.Hash
 	Account        common.Address
-	ConsensusNodes []common.Address
+	ConsensusNodes []common.Node
 	Graph          *RoundGraph
 	TopoCounter    *TopologicalSequence
 	SnapshotsPool  map[crypto.Hash]*common.Snapshot
-	ConsensusPool  map[crypto.Hash]time.Time
+	ConsensusCache map[crypto.Hash]time.Time
 	Peer           *network.Peer
 
 	networkId   crypto.Hash
@@ -38,9 +38,9 @@ type Node struct {
 
 func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
-		ConsensusNodes: make([]common.Address, 0),
+		ConsensusNodes: make([]common.Node, 0),
 		SnapshotsPool:  make(map[crypto.Hash]*common.Snapshot),
-		ConsensusPool:  make(map[crypto.Hash]time.Time),
+		ConsensusCache: make(map[crypto.Hash]time.Time),
 		store:          store,
 		mempoolChan:    make(chan *common.Snapshot, MempoolSize),
 		configDir:      dir,
@@ -107,11 +107,7 @@ func (node *Node) LoadNodeState() error {
 }
 
 func (node *Node) LoadConsensusNodes() error {
-	nodes, err := node.store.SnapshotsReadAcceptedNodes()
-	if err != nil {
-		return err
-	}
-	node.ConsensusNodes = nodes
+	node.ConsensusNodes = node.store.SnapshotsReadConsensusNodes()
 	return nil
 }
 
@@ -178,13 +174,16 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, error) {
 	}
 
 	for _, cn := range node.ConsensusNodes {
-		peerId := cn.Hash()
+		if !cn.IsAccepted() {
+			continue
+		}
+		peerId := cn.Account.Hash()
 		if !bytes.Equal(peerId[:], msg[8:40]) {
 			continue
 		}
 		var sig crypto.Signature
 		copy(sig[:], msg[40:])
-		if cn.PublicSpendKey.Verify(msg[:40], sig) {
+		if cn.Account.PublicSpendKey.Verify(msg[:40], sig) {
 			return peerId.ForNetwork(node.networkId), nil
 		}
 		break
@@ -200,11 +199,14 @@ func (node *Node) FeedMempool(peer *network.Peer, s *common.Snapshot) error {
 	}
 
 	for _, cn := range node.ConsensusNodes {
-		idForNetwork := cn.Hash().ForNetwork(node.networkId)
+		if !cn.IsAccepted() {
+			continue
+		}
+		idForNetwork := cn.Account.Hash().ForNetwork(node.networkId)
 		if idForNetwork != peer.IdForNetwork {
 			continue
 		}
-		if s.CheckSignature(cn.PublicSpendKey) {
+		if s.CheckSignature(cn.Account.PublicSpendKey) {
 			node.mempoolChan <- s
 		}
 		break

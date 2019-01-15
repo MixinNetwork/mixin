@@ -58,14 +58,17 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		}
 	} else if node.IdForNetwork == s.NodeId {
 		for _, cn := range node.ConsensusNodes {
-			peerId := cn.Hash().ForNetwork(node.networkId)
-			poolId := s.PayloadHash().ForNetwork(peerId)
-			if time.Now().After(node.ConsensusPool[poolId].Add(time.Duration(config.SnapshotRoundGap))) {
+			if !cn.IsAccepted() {
+				continue
+			}
+			peerId := cn.Account.Hash().ForNetwork(node.networkId)
+			cacheId := s.PayloadHash().ForNetwork(peerId)
+			if time.Now().After(node.ConsensusCache[cacheId].Add(time.Duration(config.SnapshotRoundGap))) {
 				err = node.Peer.SendSnapshotMessage(peerId, s)
 				if err != nil {
 					return err
 				}
-				node.ConsensusPool[poolId] = time.Now()
+				node.ConsensusCache[cacheId] = time.Now()
 			}
 		}
 	} else {
@@ -89,8 +92,11 @@ func (node *Node) clearConsensusSignatures(s *common.Snapshot) {
 		if filter[sig] {
 			continue
 		}
-		for _, n := range node.ConsensusNodes {
-			if n.PublicSpendKey.Verify(msg, sig) {
+		for _, cn := range node.ConsensusNodes {
+			if !cn.IsAccepted() {
+				continue
+			}
+			if cn.Account.PublicSpendKey.Verify(msg, sig) {
 				sigs = append(sigs, sig)
 			}
 		}

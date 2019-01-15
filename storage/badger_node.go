@@ -19,36 +19,45 @@ func (s *BadgerStore) SnapshotsCheckPendingNodes() bool {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	pit := txn.NewIterator(badger.DefaultIteratorOptions)
-	defer pit.Close()
-	prefix := []byte(snapshotsPrefixNodePledge)
-	pit.Seek(prefix)
-	if pit.ValidForPrefix(prefix) {
+	pledging := readNodesInState(txn, snapshotsPrefixNodePledge)
+	if len(pledging) > 0 {
 		return true
 	}
-	pit.Close()
 
-	dit := txn.NewIterator(badger.DefaultIteratorOptions)
-	defer dit.Close()
-	prefix = []byte(snapshotsPrefixNodeDepart)
-	dit.Seek(prefix)
-	return dit.ValidForPrefix(prefix)
+	departing := readNodesInState(txn, snapshotsPrefixNodeDepart)
+	return len(departing) > 0
 }
 
-func (s *BadgerStore) SnapshotsReadAcceptedNodes() ([]common.Address, error) {
-	nodes := make([]common.Address, 0)
+func (s *BadgerStore) SnapshotsReadConsensusNodes() []common.Node {
+	nodes := make([]common.Node, 0)
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
+	accepted := readNodesInState(txn, snapshotsPrefixNodeAccept)
+	for _, n := range accepted {
+		nodes = append(nodes, common.Node{Account: n, State: common.NodeStateAccepted})
+	}
+	pledging := readNodesInState(txn, snapshotsPrefixNodePledge)
+	for _, n := range pledging {
+		nodes = append(nodes, common.Node{Account: n, State: common.NodeStatePledging})
+	}
+	departing := readNodesInState(txn, snapshotsPrefixNodeDepart)
+	for _, n := range departing {
+		nodes = append(nodes, common.Node{Account: n, State: common.NodeStateDeparting})
+	}
+	return nodes
+}
+
+func readNodesInState(txn *badger.Txn, nodeState string) []common.Address {
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
-	prefix := []byte(snapshotsPrefixNodeAccept)
+	prefix := []byte(nodeState)
+	nodes := make([]common.Address, 0)
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-		nodes = append(nodes, nodeAcceptAccount(it.Item().Key()))
+		nodes = append(nodes, nodeAccountForState(it.Item().Key(), nodeState))
 	}
-
-	return nodes, nil
+	return nodes
 }
 
 func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash, genesis bool) error {
@@ -61,22 +70,15 @@ func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash, ge
 		return err
 	}
 
-	pit := txn.NewIterator(badger.DefaultIteratorOptions)
-	defer pit.Close()
-	prefix := []byte(snapshotsPrefixNodePledge)
-	pit.Seek(prefix)
-	if pit.ValidForPrefix(prefix) && !genesis {
-		node := nodePledgeAccount(pit.Item().Key())
+	pledging := readNodesInState(txn, snapshotsPrefixNodePledge)
+	if len(pledging) > 0 && !genesis {
+		node := pledging[0]
 		return fmt.Errorf("node %s is pledging", node.PublicSpendKey.String())
 	}
-	pit.Close()
 
-	dit := txn.NewIterator(badger.DefaultIteratorOptions)
-	defer dit.Close()
-	prefix = []byte(snapshotsPrefixNodeDepart)
-	dit.Seek(prefix)
-	if dit.ValidForPrefix(prefix) {
-		node := nodeDepartAccount(dit.Item().Key())
+	departing := readNodesInState(txn, snapshotsPrefixNodeDepart)
+	if len(departing) > 0 {
+		node := departing[0]
 		return fmt.Errorf("node %s is departing", node.PublicSpendKey.String())
 	}
 
@@ -84,31 +86,9 @@ func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash, ge
 	return txn.Set(key, tx[:])
 }
 
-func nodePledgeAccount(key []byte) common.Address {
+func nodeAccountForState(key []byte, nodeState string) common.Address {
 	var publicSpend crypto.Key
-	copy(publicSpend[:], key[len(snapshotsPrefixNodePledge):])
-	privateView := publicSpend.DeterministicHashDerive()
-	return common.Address{
-		PrivateViewKey: privateView,
-		PublicViewKey:  privateView.Public(),
-		PublicSpendKey: publicSpend,
-	}
-}
-
-func nodeAcceptAccount(key []byte) common.Address {
-	var publicSpend crypto.Key
-	copy(publicSpend[:], key[len(snapshotsPrefixNodeAccept):])
-	privateView := publicSpend.DeterministicHashDerive()
-	return common.Address{
-		PrivateViewKey: privateView,
-		PublicViewKey:  privateView.Public(),
-		PublicSpendKey: publicSpend,
-	}
-}
-
-func nodeDepartAccount(key []byte) common.Address {
-	var publicSpend crypto.Key
-	copy(publicSpend[:], key[len(snapshotsPrefixNodeDepart):])
+	copy(publicSpend[:], key[len(nodeState):])
 	privateView := publicSpend.DeterministicHashDerive()
 	return common.Address{
 		PrivateViewKey: privateView,
