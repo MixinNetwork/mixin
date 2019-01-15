@@ -23,6 +23,7 @@ type Store interface {
 	SnapshotsReadRoundLink(from, to crypto.Hash) (uint64, error)
 	SnapshotsWriteSnapshot(*common.SnapshotWithTopologicalOrder) error
 	SnapshotsReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)
+	SnapshotsReadAcceptedNodes() ([]common.Address, error)
 
 	QueueAdd(tx *common.SignedTransaction) error
 	QueuePoll(uint64, func(k uint64, v []byte) error) error

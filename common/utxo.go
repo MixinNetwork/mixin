@@ -29,10 +29,15 @@ type GhostChecker interface {
 	SnapshotsCheckGhost(key crypto.Key) (bool, error)
 }
 
+type NodesReader interface {
+	SnapshotsReadAcceptedNodes() ([]Address, error)
+}
+
 type DataStore interface {
 	UTXOReader
 	UTXOLocker
 	GhostChecker
+	NodesReader
 }
 
 func (s *Snapshot) UnspentOutputs() []*UTXO {

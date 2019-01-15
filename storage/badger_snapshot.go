@@ -67,7 +67,7 @@ func (s *BadgerStore) SnapshotsReadUTXO(hash crypto.Hash, index int) (*common.UT
 	defer txn.Discard()
 
 	key := utxoKey(hash, index)
-	item, err := txn.Get([]byte(key))
+	item, err := txn.Get(key)
 	if err == badger.ErrKeyNotFound {
 		return nil, nil
 	}
@@ -294,6 +294,12 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 
 		switch utxo.Type {
 		case common.OutputTypeNodePledge:
+			var publicSpend crypto.Key
+			copy(publicSpend[:], snapshot.Transaction.Extra)
+			err = writeNodePledge(txn, publicSpend, snapshot.Timestamp)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

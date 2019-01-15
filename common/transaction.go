@@ -117,6 +117,45 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 
 		switch o.Type {
 		case OutputTypeNodePledge:
+			if len(tx.Outputs) != 1 {
+				return fmt.Errorf("invalid outputs count %d for pledge transaction", len(tx.Outputs))
+			}
+
+			nodes, err := store.SnapshotsReadAcceptedNodes()
+			if err != nil {
+				return err
+			}
+
+			var publicSpend crypto.Key
+			copy(publicSpend[:], tx.Extra)
+			seed := crypto.NewHash(publicSpend[:])
+			privateView := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
+			nodes = append(nodes, Address{
+				PrivateViewKey: privateView,
+				PublicViewKey:  privateView.Public(),
+				PublicSpendKey: publicSpend,
+			})
+			if len(nodes) != len(o.Keys) {
+				return fmt.Errorf("invalid output keys count %d %d for pledge transaction", len(nodes), len(o.Keys))
+			}
+
+			if len(o.Script) != 3 || o.Script[0] != OperatorCmp || o.Script[1] != OperatorSum || int(o.Script[2]) != len(nodes)*2/3+1 {
+				return fmt.Errorf("invalid output script %s %d", o.Script, len(nodes)*2/3+1)
+			}
+
+			filter := make(map[crypto.Key]bool)
+			for _, n := range nodes {
+				filter[n.PublicSpendKey] = true
+			}
+			for _, k := range o.Keys {
+				for _, n := range nodes {
+					ghost := crypto.ViewGhostOutputKey(&k, &n.PrivateViewKey, &o.Mask)
+					delete(filter, *ghost)
+				}
+			}
+			if len(filter) != 0 {
+				return fmt.Errorf("invalid output keys signatures %d", len(filter))
+			}
 		}
 	}
 

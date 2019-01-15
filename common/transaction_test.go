@@ -84,6 +84,10 @@ func (store storeImpl) SnapshotsLockUTXO(hash crypto.Hash, index int, tx, snapHa
 	return nil, nil
 }
 
+func (store storeImpl) SnapshotsReadAcceptedNodes() ([]Address, error) {
+	return nil, nil
+}
+
 func randomAccount() Address {
 	seed := make([]byte, 64)
 	rand.Read(seed)
