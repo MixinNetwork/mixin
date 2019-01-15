@@ -26,6 +26,7 @@ func (s *BadgerStore) SnapshotsCheckPendingNodes() bool {
 	if pit.ValidForPrefix(prefix) {
 		return true
 	}
+	pit.Close()
 
 	dit := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer dit.Close()
@@ -68,6 +69,7 @@ func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash) er
 		node := nodePledgeAccount(pit.Item().Key())
 		return fmt.Errorf("node %s is pledging", node.String())
 	}
+	pit.Close()
 
 	dit := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer dit.Close()
