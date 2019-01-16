@@ -15,12 +15,20 @@ const (
 
 type Script []uint8
 
-func (s Script) Validate(sum int) error {
+func (s Script) VerifyFormat() error {
 	if len(s) != 3 {
 		return fmt.Errorf("invalid script %d", len(s))
 	}
 	if s[0] != OperatorCmp || s[1] != OperatorSum {
 		return fmt.Errorf("invalid script %d %d", s[0], s[1])
+	}
+	return nil
+}
+
+func (s Script) Validate(sum int) error {
+	err := s.VerifyFormat()
+	if err != nil {
+		return err
 	}
 	if sum < int(s[2]) {
 		return fmt.Errorf("invalid signature keys %d %d", sum, s[2])

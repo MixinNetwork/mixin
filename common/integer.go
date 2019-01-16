@@ -58,6 +58,10 @@ func (x Integer) Cmp(y Integer) int {
 	return x.i.Cmp(&y.i)
 }
 
+func (x Integer) Sign() int {
+	return x.i.Sign()
+}
+
 func (x Integer) String() string {
 	s := x.i.String()
 	if s == "0" {
