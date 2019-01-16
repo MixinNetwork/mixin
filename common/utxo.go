@@ -29,16 +29,21 @@ type GhostChecker interface {
 	SnapshotsCheckGhost(key crypto.Key) (bool, error)
 }
 
-type NodesReader interface {
+type NodeReader interface {
 	SnapshotsReadConsensusNodes() []Node
 	SnapshotsReadSnapshotByTransactionHash(hash crypto.Hash) (*SnapshotWithTopologicalOrder, error)
+}
+
+type DomainReader interface {
+	SnapshotsReadDomains() []Domain
 }
 
 type DataStore interface {
 	UTXOReader
 	UTXOLocker
 	GhostChecker
-	NodesReader
+	NodeReader
+	DomainReader
 }
 
 func (s *Snapshot) UnspentOutputs() []*UTXO {

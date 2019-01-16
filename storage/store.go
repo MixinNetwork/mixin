@@ -24,6 +24,7 @@ type Store interface {
 	SnapshotsWriteSnapshot(*common.SnapshotWithTopologicalOrder) error
 	SnapshotsReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)
 	SnapshotsReadConsensusNodes() []common.Node
+	SnapshotsReadDomains() []common.Domain
 
 	QueueAdd(tx *common.SignedTransaction) error
 	QueuePoll(uint64, func(k uint64, v []byte) error) error

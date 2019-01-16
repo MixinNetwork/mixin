@@ -13,13 +13,15 @@ const (
 	TxVersion      = 0x01
 	ExtraSizeLimit = 256
 
-	OutputTypeScript     = 0x00
-	OutputTypeWithdrawal = 0xa1
-	OutputTypeSlash      = 0xa2
-	OutputTypeNodePledge = 0xa3
-	OutputTypeNodeAccept = 0xa4
-	OutputTypeNodeDepart = 0xa5
-	OutputTypeNodeRemove = 0xa6
+	OutputTypeScript       = 0x00
+	OutputTypeWithdrawal   = 0xa1
+	OutputTypeSlash        = 0xa2
+	OutputTypeNodePledge   = 0xa3
+	OutputTypeNodeAccept   = 0xa4
+	OutputTypeNodeDepart   = 0xa5
+	OutputTypeNodeRemove   = 0xa6
+	OutputTypeDomainAccept = 0xa7
+	OutputTypeDomainRemove = 0xa8
 )
 
 type Input struct {
@@ -104,6 +106,13 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 		if len(in.Genesis) > 0 {
 			return fmt.Errorf("invalid genesis input detected %s", hex.EncodeToString(in.Genesis))
 		}
+		if len(in.Deposit) > 0 {
+			err := tx.validateDepositInput(store, msg)
+			if err != nil {
+				return err
+			}
+			break
+		}
 
 		fk := fmt.Sprintf("%s:%d", in.Hash.String(), in.Index)
 		if inputsFilter[fk] != nil {
@@ -184,6 +193,27 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 
 	if inputAmount.Cmp(outputAmount) != 0 {
 		return fmt.Errorf("invalid input output amount %s %s", inputAmount.String(), outputAmount.String())
+	}
+	return nil
+}
+
+func (tx *SignedTransaction) validateDepositInput(store DataStore, msg []byte) error {
+	if len(tx.Inputs) != 1 {
+		return fmt.Errorf("invalid inputs count %d for deposit", len(tx.Inputs))
+	}
+	if len(tx.Signatures) != 1 || len(tx.Signatures[0]) != 1 {
+		return fmt.Errorf("invalid signatures count %d for deposit", len(tx.Signatures))
+	}
+	sig, valid := tx.Signatures[0][0], false
+	domains := store.SnapshotsReadDomains()
+	for _, d := range domains {
+		if d.Account.PublicSpendKey.Verify(msg, sig) {
+			valid = true
+			break
+		}
+	}
+	if !valid {
+		return fmt.Errorf("invalid domain signature for deposit")
 	}
 	return nil
 }

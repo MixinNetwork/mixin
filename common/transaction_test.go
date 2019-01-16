@@ -84,9 +84,14 @@ func (store storeImpl) SnapshotsLockUTXO(hash crypto.Hash, index int, tx, snapHa
 	return nil, nil
 }
 
+func (store storeImpl) SnapshotsReadDomains() []Domain {
+	return nil
+}
+
 func (store storeImpl) SnapshotsReadConsensusNodes() []Node {
 	return nil
 }
+
 func (store storeImpl) SnapshotsReadSnapshotByTransactionHash(hash crypto.Hash) (*SnapshotWithTopologicalOrder, error) {
 	return nil, nil
 }

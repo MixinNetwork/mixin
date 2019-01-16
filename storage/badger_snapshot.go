@@ -307,6 +307,13 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 			if err != nil {
 				return err
 			}
+		case common.OutputTypeDomainAccept:
+			var publicSpend crypto.Key
+			copy(publicSpend[:], snapshot.Transaction.Extra)
+			err = writeDomainAccept(txn, publicSpend, snapshot.Transaction.PayloadHash())
+			if err != nil {
+				return err
+			}
 		}
 	}
 
