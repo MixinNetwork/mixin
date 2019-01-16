@@ -82,21 +82,6 @@ func (node *Node) LoadGenesis(configDir string) error {
 		tx.Extra = make([]byte, len(in.Address.PublicSpendKey))
 		copy(tx.Extra, in.Address.PublicSpendKey[:])
 
-		remaining := in.Balance.Sub(common.NewInteger(PledgeAmount))
-		if remaining.Cmp(common.NewInteger(0)) > 0 {
-			seed := crypto.NewHash([]byte(in.Address.String() + "NODEREMAINING"))
-			r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
-			R := r.Public()
-			key := crypto.DeriveGhostPublicKey(&r, &in.Address.PublicViewKey, &in.Address.PublicSpendKey, 1)
-			tx.Outputs = append(tx.Outputs, &common.Output{
-				Type:   common.OutputTypeScript,
-				Script: common.Script([]uint8{common.OperatorCmp, common.OperatorSum, 1}),
-				Amount: remaining,
-				Keys:   []crypto.Key{*key},
-				Mask:   R,
-			})
-		}
-
 		signed := &common.SignedTransaction{Transaction: tx}
 		nodeId := in.Address.Hash().ForNetwork(node.networkId)
 		snapshot := common.Snapshot{
@@ -141,7 +126,7 @@ func readGenesis(path string) (*Genesis, error) {
 		if err != nil {
 			return nil, err
 		}
-		if in.Balance.Cmp(common.NewInteger(PledgeAmount)) < 0 {
+		if in.Balance.Cmp(common.NewInteger(PledgeAmount)) != 0 {
 			return nil, fmt.Errorf("invalid genesis input amount %s", in.Balance.String())
 		}
 		if inputsFilter[in.Address.String()] {

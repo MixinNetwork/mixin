@@ -148,7 +148,7 @@ func setupTestNetCmd(c *cli.Context) error {
 	for _, a := range accounts {
 		inputs = append(inputs, map[string]string{
 			"address": a.String(),
-			"balance": "20000",
+			"balance": "10000",
 		})
 	}
 	genesis := map[string]interface{}{
