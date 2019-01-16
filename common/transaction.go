@@ -380,10 +380,17 @@ func (tx *SignedTransaction) Marshal() []byte {
 func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, accounts []Address) error {
 	msg := MsgpackMarshalPanic(signed.Transaction)
 
+	if len(accounts) == 0 {
+		return nil
+	}
 	if index >= len(signed.Inputs) {
 		return fmt.Errorf("invalid input index %d/%d", index, len(signed.Inputs))
 	}
 	in := signed.Inputs[index]
+	if len(in.Deposit) > 0 || len(in.Rebate) > 0 || len(in.Mint) > 0 {
+		return signed.SignRaw(accounts[0].PrivateSpendKey)
+	}
+
 	utxo, err := reader.SnapshotsReadUTXO(in.Hash, in.Index)
 	if err != nil {
 		return err
@@ -408,11 +415,31 @@ func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, account
 	return nil
 }
 
+func (signed *SignedTransaction) SignRaw(key crypto.Key) error {
+	msg := MsgpackMarshalPanic(signed.Transaction)
+
+	if len(signed.Inputs) != 1 {
+		return fmt.Errorf("invalid inputs count %d", len(signed.Inputs))
+	}
+	in := signed.Inputs[0]
+	if len(in.Deposit) == 0 && len(in.Rebate) == 0 && len(in.Mint) == 0 {
+		return fmt.Errorf("invalid input format")
+	}
+	signed.Signatures = append(signed.Signatures, []crypto.Signature{key.Sign(msg)})
+	return nil
+}
+
 func NewTransaction(asset crypto.Hash) *Transaction {
 	return &Transaction{
 		Version: TxVersion,
 		Asset:   asset,
 	}
+}
+
+func (tx *Transaction) AddDepositInput(data []byte) {
+	tx.Inputs = append(tx.Inputs, &Input{
+		Deposit: data,
+	})
 }
 
 func (tx *Transaction) AddInput(hash crypto.Hash, index int) {

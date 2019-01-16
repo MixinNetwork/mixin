@@ -59,7 +59,11 @@ func signTransactionCmd(c *cli.Context) error {
 
 	tx := common.NewTransaction(raw.Asset)
 	for _, in := range raw.Inputs {
-		tx.AddInput(in.Hash, in.Index)
+		if len(in.Deposit) > 0 {
+			tx.AddDepositInput(in.Deposit)
+		} else {
+			tx.AddInput(in.Hash, in.Index)
+		}
 	}
 
 	for _, out := range raw.Outputs {
@@ -244,10 +248,11 @@ func callRPC(node, method string, params []interface{}) ([]byte, error) {
 
 type signerInput struct {
 	Inputs []struct {
-		Hash  crypto.Hash  `json:"hash"`
-		Index int          `json:"index"`
-		Keys  []crypto.Key `json:"keys"`
-		Mask  crypto.Key   `json:"mask"`
+		Hash    crypto.Hash  `json:"hash"`
+		Index   int          `json:"index"`
+		Deposit []byte       `json:"deposit"`
+		Keys    []crypto.Key `json:"keys"`
+		Mask    crypto.Key   `json:"mask"`
 	} `json:"inputs"`
 	Outputs []struct {
 		Type     uint8            `json:"type"`
