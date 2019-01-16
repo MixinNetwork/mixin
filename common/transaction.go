@@ -2,6 +2,7 @@ package common
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/config"
@@ -100,6 +101,10 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 
 	inputsFilter := make(map[string]*UTXO)
 	for i, in := range tx.Inputs {
+		if len(in.Genesis) > 0 {
+			return fmt.Errorf("invalid genesis input detected %s", hex.EncodeToString(in.Genesis))
+		}
+
 		fk := fmt.Sprintf("%s:%d", in.Hash.String(), in.Index)
 		if inputsFilter[fk] != nil {
 			return fmt.Errorf("invalid input %s", fk)

@@ -251,7 +251,7 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 	}
 
 	for _, in := range snapshot.Transaction.Inputs {
-		if genesis && in.Hash.String() == (crypto.Hash{}).String() {
+		if len(in.Genesis) > 0 {
 			continue
 		}
 		key := utxoKey(in.Hash, in.Index)
