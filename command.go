@@ -154,6 +154,12 @@ func setupTestNetCmd(c *cli.Context) error {
 	genesis := map[string]interface{}{
 		"epoch": time.Now().Unix(),
 		"nodes": inputs,
+		"domains": []map[string]string{
+			{
+				"address": accounts[0].String(),
+				"balance": "50000",
+			},
+		},
 	}
 	genesisData, err := json.MarshalIndent(genesis, "", "  ")
 	if err != nil {
