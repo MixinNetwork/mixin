@@ -23,7 +23,8 @@ const (
 
 type Input struct {
 	Hash    crypto.Hash `msgpack:"H,omitempty"json:"hash,omitempty"`
-	Index   int         `msgpack:"I"json:"index"`
+	Index   int         `msgpack:"I,omitempty"json:"index,omitempty"`
+	Genesis []byte      `msgpack:"G,omitempty"json:"genesis,omitempty"`
 	Deposit []byte      `msgpack:"D,omitempty"json:"deposit,omitempty"`
 	Rebate  []byte      `msgpack:"R,omitempty"json:"rebate,omitempty"`
 	Mint    []byte      `msgpack:"M,omitempty"json:"mint,omitempty"`

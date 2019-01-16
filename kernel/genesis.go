@@ -50,7 +50,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 	}
 
 	var snapshots []*common.SnapshotWithTopologicalOrder
-	for i, in := range gns.Nodes {
+	for _, in := range gns.Nodes {
 		seed := crypto.NewHash([]byte(in.Address.String() + "NODEACCEPT"))
 		r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
 		R := r.Public()
@@ -65,8 +65,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 			Asset:   common.XINAssetId,
 			Inputs: []*common.Input{
 				{
-					Hash:  crypto.Hash{},
-					Index: i,
+					Genesis: node.networkId[:],
 				},
 			},
 			Outputs: []*common.Output{
