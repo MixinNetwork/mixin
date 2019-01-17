@@ -19,10 +19,12 @@ type UTXOWithLock struct {
 
 type UTXOReader interface {
 	SnapshotsReadUTXO(hash crypto.Hash, index int) (*UTXO, error)
+	SnapshotsCheckDepositInput(deposit *DepositData, tx crypto.Hash) error
 }
 
 type UTXOLocker interface {
 	SnapshotsLockUTXO(hash crypto.Hash, index int, tx, snapHash crypto.Hash, ts uint64) (*UTXO, error)
+	SnapshotsLockDepositInput(deposit *DepositData, tx crypto.Hash, snapHash crypto.Hash) error
 }
 
 type GhostChecker interface {

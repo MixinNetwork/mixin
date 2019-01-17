@@ -59,7 +59,7 @@ func signTransactionCmd(c *cli.Context) error {
 
 	tx := common.NewTransaction(raw.Asset)
 	for _, in := range raw.Inputs {
-		if len(in.Deposit) > 0 {
+		if in.Deposit != nil {
 			tx.AddDepositInput(in.Deposit)
 		} else {
 			tx.AddInput(in.Hash, in.Index)
@@ -248,11 +248,11 @@ func callRPC(node, method string, params []interface{}) ([]byte, error) {
 
 type signerInput struct {
 	Inputs []struct {
-		Hash    crypto.Hash  `json:"hash"`
-		Index   int          `json:"index"`
-		Deposit []byte       `json:"deposit"`
-		Keys    []crypto.Key `json:"keys"`
-		Mask    crypto.Key   `json:"mask"`
+		Hash    crypto.Hash         `json:"hash"`
+		Index   int                 `json:"index"`
+		Deposit *common.DepositData `json:"deposit,omitempty"`
+		Keys    []crypto.Key        `json:"keys"`
+		Mask    crypto.Key          `json:"mask"`
 	} `json:"inputs"`
 	Outputs []struct {
 		Type     uint8            `json:"type"`
@@ -297,4 +297,8 @@ func (raw signerInput) SnapshotsReadUTXO(hash crypto.Hash, index int) (*common.U
 	}
 
 	return nil, fmt.Errorf("invalid input %s#%d", hash.String(), index)
+}
+
+func (raw signerInput) SnapshotsCheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
+	return nil
 }

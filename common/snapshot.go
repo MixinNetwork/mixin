@@ -39,7 +39,12 @@ func (s *Snapshot) LockInputs(locker UTXOLocker) error {
 	txHash := s.Transaction.PayloadHash()
 	snapHash := s.PayloadHash()
 	for _, in := range s.Transaction.Inputs {
-		_, err := locker.SnapshotsLockUTXO(in.Hash, in.Index, txHash, snapHash, s.Timestamp)
+		var err error
+		if in.Deposit != nil {
+			err = locker.SnapshotsLockDepositInput(in.Deposit, txHash, snapHash)
+		} else {
+			_, err = locker.SnapshotsLockUTXO(in.Hash, in.Index, txHash, snapHash, s.Timestamp)
+		}
 		if err != nil {
 			return err
 		}

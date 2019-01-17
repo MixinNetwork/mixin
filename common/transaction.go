@@ -25,12 +25,12 @@ const (
 )
 
 type Input struct {
-	Hash    crypto.Hash `msgpack:"H,omitempty"json:"hash,omitempty"`
-	Index   int         `msgpack:"I,omitempty"json:"index,omitempty"`
-	Genesis []byte      `msgpack:"G,omitempty"json:"genesis,omitempty"`
-	Deposit []byte      `msgpack:"D,omitempty"json:"deposit,omitempty"`
-	Rebate  []byte      `msgpack:"R,omitempty"json:"rebate,omitempty"`
-	Mint    []byte      `msgpack:"M,omitempty"json:"mint,omitempty"`
+	Hash    crypto.Hash  `msgpack:"H,omitempty"json:"hash,omitempty"`
+	Index   int          `msgpack:"I,omitempty"json:"index,omitempty"`
+	Genesis []byte       `msgpack:"G,omitempty"json:"genesis,omitempty"`
+	Deposit *DepositData `msgpack:"D,omitempty"json:"deposit,omitempty"`
+	Rebate  []byte       `msgpack:"R,omitempty"json:"rebate,omitempty"`
+	Mint    []byte       `msgpack:"M,omitempty"json:"mint,omitempty"`
 }
 
 type Output struct {
@@ -41,6 +41,13 @@ type Output struct {
 	// OutputTypeScript fields
 	Script Script     `msgpack:"S,omitempty"json:"script,omitempty"`
 	Mask   crypto.Key `msgpack:"M,omitempty"json:"mask,omitempty"`
+}
+
+type DepositData struct {
+	Chain           crypto.Hash `msgpack:"C"json:"chain"`
+	AssetKey        string      `msgpack:"K"json:"asset"`
+	TransactionHash string      `msgpack:"H"json:"transaction"`
+	Amount          Integer     `msgpack:"A"json:"amount"`
 }
 
 type Transaction struct {
@@ -106,11 +113,16 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 		if len(in.Genesis) > 0 {
 			return fmt.Errorf("invalid genesis input detected %s", hex.EncodeToString(in.Genesis))
 		}
-		if len(in.Deposit) > 0 {
+		if in.Deposit != nil {
 			err := tx.validateDepositInput(store, msg)
 			if err != nil {
 				return err
 			}
+			err = store.SnapshotsCheckDepositInput(in.Deposit, tx.PayloadHash())
+			if err != nil {
+				return err
+			}
+			inputAmount = in.Deposit.Amount
 			break
 		}
 
@@ -387,7 +399,7 @@ func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, account
 		return fmt.Errorf("invalid input index %d/%d", index, len(signed.Inputs))
 	}
 	in := signed.Inputs[index]
-	if len(in.Deposit) > 0 || len(in.Rebate) > 0 || len(in.Mint) > 0 {
+	if in.Deposit != nil || len(in.Rebate) > 0 || len(in.Mint) > 0 {
 		return signed.SignRaw(accounts[0].PrivateSpendKey)
 	}
 
@@ -422,7 +434,7 @@ func (signed *SignedTransaction) SignRaw(key crypto.Key) error {
 		return fmt.Errorf("invalid inputs count %d", len(signed.Inputs))
 	}
 	in := signed.Inputs[0]
-	if len(in.Deposit) == 0 && len(in.Rebate) == 0 && len(in.Mint) == 0 {
+	if in.Deposit == nil && len(in.Rebate) == 0 && len(in.Mint) == 0 {
 		return fmt.Errorf("invalid input format")
 	}
 	signed.Signatures = append(signed.Signatures, []crypto.Signature{key.Sign(msg)})
@@ -436,7 +448,7 @@ func NewTransaction(asset crypto.Hash) *Transaction {
 	}
 }
 
-func (tx *Transaction) AddDepositInput(data []byte) {
+func (tx *Transaction) AddDepositInput(data *DepositData) {
 	tx.Inputs = append(tx.Inputs, &Input{
 		Deposit: data,
 	})

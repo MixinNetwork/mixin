@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -16,6 +17,7 @@ const (
 	snapshotsPrefixSnapshot  = "SNAPSHOT"  // transaction hash to snapshot meta, mainly node and consensus timestamp
 	snapshotsPrefixGraph     = "GRAPH"     // consensus directed asyclic graph data store
 	snapshotsPrefixUTXO      = "UTXO"      // unspent outputs, will be deleted once consumed
+	snapshotsPrefixDeposit   = "DEPOSIT"   // unspent outputs, will be deleted once consumed
 	snapshotsPrefixNodeRound = "NODEROUND" // node specific info, e.g. round number, round hash
 	snapshotsPrefixNodeLink  = "NODELINK"  // latest node round links
 	snapshotsPrefixGhost     = "GHOST"     // each output key should only be used once
@@ -82,6 +84,51 @@ func (s *BadgerStore) SnapshotsReadUTXO(hash crypto.Hash, index int) (*common.UT
 	var out common.UTXO
 	err = msgpack.Unmarshal(ival, &out)
 	return &out, err
+}
+
+func readDepositInput(txn *badger.Txn, deposit *common.DepositData) ([]byte, error) {
+	data := common.MsgpackMarshalPanic(deposit)
+	key := depositKey(crypto.NewHash(data))
+	item, err := txn.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	return item.ValueCopy(nil)
+}
+
+func (s *BadgerStore) SnapshotsCheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	ival, err := readDepositInput(txn, deposit)
+	if err == badger.ErrKeyNotFound {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if bytes.Compare(ival[:32], tx[:]) == 0 {
+		return nil
+	}
+	return fmt.Errorf("invalid lock %s %s", hex.EncodeToString(ival[:32]), hex.EncodeToString(tx[:]))
+}
+
+func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx crypto.Hash, snapHash crypto.Hash) error {
+	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
+		data := common.MsgpackMarshalPanic(deposit)
+		key := depositKey(crypto.NewHash(data))
+		ival, err := readDepositInput(txn, deposit)
+		value := append(tx[:], snapHash[:]...)
+		if err == badger.ErrKeyNotFound {
+			return txn.Set(key, value)
+		}
+		if err != nil {
+			return err
+		}
+		if bytes.Compare(ival, value) != 0 {
+			return fmt.Errorf("invalid lock %s %s", hex.EncodeToString(ival), hex.EncodeToString(value))
+		}
+		return nil
+	})
 }
 
 func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash, snapHash crypto.Hash, ts uint64) (*common.UTXO, error) {
@@ -254,6 +301,19 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 		if len(in.Genesis) > 0 {
 			continue
 		}
+		if in.Deposit != nil {
+			ival, err := readDepositInput(txn, in.Deposit)
+			if err != nil {
+				return err
+			}
+			tx := snapshot.Transaction.PayloadHash()
+			snapHash := snapshot.PayloadHash()
+			value := append(tx[:], snapHash[:]...)
+			if bytes.Compare(ival, value) != 0 {
+				return fmt.Errorf("invalid deposit %s %s", hex.EncodeToString(ival), hex.EncodeToString(value))
+			}
+			continue
+		}
 		key := utxoKey(in.Hash, in.Index)
 
 		_, err := txn.Get(key) // TODO this check is only an assert kind check, not needed at all
@@ -365,6 +425,10 @@ func utxoKey(hash crypto.Hash, index int) []byte {
 	size := binary.PutVarint(buf, int64(index))
 	key := append([]byte(snapshotsPrefixUTXO), hash[:]...)
 	return append(key, buf[:size]...)
+}
+
+func depositKey(hash crypto.Hash) []byte {
+	return append([]byte(snapshotsPrefixDeposit), hash[:]...)
 }
 
 func ghostKey(k crypto.Key) []byte {
