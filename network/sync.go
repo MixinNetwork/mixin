@@ -3,6 +3,7 @@ package network
 import (
 	"time"
 
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 )
@@ -42,14 +43,14 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []SyncPoi
 	return offset, nil
 }
 
-func (me *Peer) syncToNeighborSince(p *Peer, offset uint64, filter map[crypto.Hash]bool) (uint64, error) {
+func (me *Peer) syncToNeighborSince(p *Peer, offset uint64, filter map[crypto.Hash]time.Time) (uint64, error) {
 	snapshots, err := me.handle.ReadSnapshotsSinceTopology(offset, 1000)
 	if err != nil {
 		return offset, err
 	}
 	for _, s := range snapshots {
 		hash := s.Transaction.PayloadHash()
-		if filter[hash] {
+		if filter[hash].Add(time.Duration(config.SnapshotRoundGap)).After(time.Now()) {
 			continue
 		}
 		err := p.SendData(buildSnapshotMessage(&s.Snapshot))
@@ -57,14 +58,14 @@ func (me *Peer) syncToNeighborSince(p *Peer, offset uint64, filter map[crypto.Ha
 			return offset, err
 		}
 		offset = s.TopologicalOrder
-		filter[hash] = true
+		filter[hash] = time.Now()
 	}
 	return offset, nil
 }
 
 func (me *Peer) syncToNeighborLoop(p *Peer) {
 	var offset uint64
-	filter := make(map[crypto.Hash]bool)
+	filter := make(map[crypto.Hash]time.Time)
 	for {
 		select {
 		case g := <-p.sync:
