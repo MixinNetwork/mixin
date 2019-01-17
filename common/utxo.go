@@ -24,7 +24,7 @@ type UTXOReader interface {
 
 type UTXOLocker interface {
 	SnapshotsLockUTXO(hash crypto.Hash, index int, tx, snapHash crypto.Hash, ts uint64) (*UTXO, error)
-	SnapshotsLockDepositInput(deposit *DepositData, tx crypto.Hash, snapHash crypto.Hash) error
+	SnapshotsLockDepositInput(deposit *DepositData, tx crypto.Hash, snapHash crypto.Hash, ts uint64) error
 }
 
 type GhostChecker interface {

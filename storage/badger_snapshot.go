@@ -112,22 +112,38 @@ func (s *BadgerStore) SnapshotsCheckDepositInput(deposit *common.DepositData, tx
 	return fmt.Errorf("invalid lock %s %s", hex.EncodeToString(ival[:32]), hex.EncodeToString(tx[:]))
 }
 
-func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx crypto.Hash, snapHash crypto.Hash) error {
+func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx crypto.Hash, snapHash crypto.Hash, ts uint64) error {
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		data := common.MsgpackMarshalPanic(deposit)
 		key := depositKey(crypto.NewHash(data))
 		ival, err := readDepositInput(txn, deposit)
-		value := append(tx[:], snapHash[:]...)
-		if err == badger.ErrKeyNotFound {
+		save := func() error {
+			value := append(tx[:], snapHash[:]...)
+			buf := make([]byte, 8)
+			binary.BigEndian.PutUint64(buf, ts)
+			value = append(value, buf...)
 			return txn.Set(key, value)
+		}
+		if err == badger.ErrKeyNotFound {
+			return save()
 		}
 		if err != nil {
 			return err
 		}
-		if bytes.Compare(ival, value) != 0 {
-			return fmt.Errorf("invalid lock %s %s", hex.EncodeToString(ival), hex.EncodeToString(value))
+		if bytes.Compare(ival[:32], tx[:]) != 0 {
+			return fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival[:32]))
 		}
-		return nil
+		lock := binary.BigEndian.Uint64(ival[64:])
+		if ts > lock+config.SnapshotRoundGap*2 || ts < lock {
+			return save()
+		}
+		if lock < ts {
+			return fmt.Errorf("deposit locked for timestamp early %d %d", lock, ts)
+		}
+		if bytes.Compare(ival[32:64], snapHash[:]) < 0 {
+			return fmt.Errorf("utxo locked for snapshot early %s %s", hex.EncodeToString(ival[32:64]), snapHash.String())
+		}
+		return save()
 	})
 }
 
@@ -302,16 +318,6 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 			continue
 		}
 		if in.Deposit != nil {
-			ival, err := readDepositInput(txn, in.Deposit)
-			if err != nil {
-				return err
-			}
-			tx := snapshot.Transaction.PayloadHash()
-			snapHash := snapshot.PayloadHash()
-			value := append(tx[:], snapHash[:]...)
-			if bytes.Compare(ival, value) != 0 {
-				return fmt.Errorf("invalid deposit %s %s", hex.EncodeToString(ival), hex.EncodeToString(value))
-			}
 			continue
 		}
 		key := utxoKey(in.Hash, in.Index)

@@ -33,12 +33,6 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		}
 	}
 
-	err = s.LockInputs(node.store)
-	if err != nil {
-		logger.Println("LOCK INPUTS ERROR", err)
-		return nil
-	}
-
 	if node.verifyFinalization(s) {
 		if s.RoundNumber == cache.Number+1 {
 			final = cache.asFinal()
@@ -56,20 +50,31 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		if err != nil {
 			return err
 		}
-	} else if node.IdForNetwork == s.NodeId {
+		node.Graph.CacheRound[s.NodeId] = cache
+		node.Graph.FinalRound[s.NodeId] = final
+		return nil
+	}
+
+	err = s.LockInputs(node.store)
+	if err != nil {
+		logger.Println("LOCK INPUTS ERROR", err)
+		return nil
+	}
+	if node.IdForNetwork == s.NodeId {
 		for _, cn := range node.ConsensusNodes {
 			if !cn.IsAccepted() {
 				continue
 			}
 			peerId := cn.Account.Hash().ForNetwork(node.networkId)
 			cacheId := s.PayloadHash().ForNetwork(peerId)
-			if time.Now().After(node.ConsensusCache[cacheId].Add(time.Duration(config.SnapshotRoundGap))) {
-				err = node.Peer.SendSnapshotMessage(peerId, s)
-				if err != nil {
-					return err
-				}
-				node.ConsensusCache[cacheId] = time.Now()
+			if time.Now().Before(node.ConsensusCache[cacheId].Add(time.Duration(config.SnapshotRoundGap))) {
+				continue
 			}
+			err = node.Peer.SendSnapshotMessage(peerId, s)
+			if err != nil {
+				return err
+			}
+			node.ConsensusCache[cacheId] = time.Now()
 		}
 	} else {
 		// FIXME gossip peers are different from consensus nodes
