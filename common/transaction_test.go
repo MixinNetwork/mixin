@@ -96,6 +96,14 @@ func (store storeImpl) SnapshotsReadSnapshotByTransactionHash(hash crypto.Hash) 
 	return nil, nil
 }
 
+func (store storeImpl) SnapshotsCheckDepositInput(deposit *DepositData, tx crypto.Hash) error {
+	return nil
+}
+
+func (store storeImpl) SnapshotsLockDepositInput(deposit *DepositData, tx crypto.Hash, snapHash crypto.Hash) error {
+	return nil
+}
+
 func randomAccount() Address {
 	seed := make([]byte, 64)
 	rand.Read(seed)

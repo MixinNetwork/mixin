@@ -28,19 +28,19 @@ func TestSnapshot(t *testing.T) {
 		Transaction: *tx,
 	}
 	assert.Len(s.Signatures, 0)
-	assert.Len(s.Payload(), 428)
+	assert.Len(s.Payload(), 402)
 
 	seed := make([]byte, 64)
 	rand.Read(seed)
 	key := crypto.NewKeyFromSeed(seed)
 	s.Sign(key)
 	assert.Len(s.Signatures, 1)
-	assert.Len(s.Payload(), 428)
+	assert.Len(s.Payload(), 402)
 	assert.False(s.CheckSignature(key))
 	assert.True(s.CheckSignature(key.Public()))
 	s.Sign(key)
 	assert.Len(s.Signatures, 1)
-	assert.Len(s.Payload(), 428)
+	assert.Len(s.Payload(), 402)
 	assert.False(s.CheckSignature(key))
 	assert.True(s.CheckSignature(key.Public()))
 }

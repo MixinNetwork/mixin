@@ -1,11 +1,17 @@
 package common
 
-import "github.com/vmihailenco/msgpack"
+import (
+	"bytes"
+
+	"github.com/vmihailenco/msgpack"
+)
 
 func MsgpackMarshalPanic(val interface{}) []byte {
-	data, err := msgpack.Marshal(val)
+	var buf bytes.Buffer
+	enc := msgpack.NewEncoder(&buf).UseCompactEncoding(true)
+	err := enc.Encode(val)
 	if err != nil {
 		panic(err)
 	}
-	return data
+	return buf.Bytes()
 }
