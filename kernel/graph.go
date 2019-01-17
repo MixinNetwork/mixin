@@ -11,7 +11,15 @@ import (
 )
 
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
-	err := s.Transaction.Validate(node.store)
+	o, err := node.store.SnapshotsReadSnapshotByTransactionHash(s.Transaction.PayloadHash())
+	if err != nil {
+		logger.Println("READ SNAPSHOT BY TRANSACTION ERROR", err)
+		return nil
+	}
+	if o != nil {
+		return nil
+	}
+	err = s.Transaction.Validate(node.store)
 	if err != nil {
 		logger.Println("VALIDATE TRANSACTION ERROR", err)
 		return nil
