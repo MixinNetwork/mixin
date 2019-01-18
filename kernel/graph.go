@@ -42,13 +42,8 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	}
 
 	if node.verifyFinalization(s) {
-		if s.RoundNumber == cache.Number+1 {
-			final = cache.asFinal()
-			cache = snapshotAsCacheRound(s)
-		} else {
-			cache.Snapshots = append(cache.Snapshots, s)
-			cache.End = s.Timestamp
-		}
+		cache.Snapshots = append(cache.Snapshots, s)
+		cache.End = s.Timestamp
 		topo := &common.SnapshotWithTopologicalOrder{
 			Snapshot:         *s,
 			TopologicalOrder: node.TopoCounter.Next(),
@@ -129,7 +124,7 @@ func (node *Node) verifyReferences(self FinalRound, s *common.Snapshot) (map[cry
 	}
 
 	if ref0 != self.Hash {
-		return links, true, fmt.Errorf("invalid self reference %s", s.Transaction.PayloadHash().String())
+		return links, true, fmt.Errorf("invalid self reference %s %s %s", s.Transaction.PayloadHash(), ref0, self.Hash)
 	}
 	if s.NodeId != self.NodeId {
 		panic(*s)
@@ -170,15 +165,15 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
-	links, handled, err := node.verifyReferences(*final, s)
-	if err != nil {
-		logger.Println(err)
-		if !handled {
-			return links, cache, final, err
-		}
-		return links, cache, final, nil
-	}
 	if osigs := node.SnapshotsPool[s.PayloadHash()]; len(osigs) > 0 {
+		links, handled, err := node.verifyReferences(*final, s)
+		if err != nil {
+			logger.Println(err)
+			if !handled {
+				return links, cache, final, err
+			}
+			return links, cache, final, nil
+		}
 		filter := make(map[crypto.Signature]bool)
 		for _, sig := range s.Signatures {
 			filter[sig] = true
@@ -194,14 +189,8 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 		return links, cache, final, nil
 	}
 
-	if s.RoundNumber != cache.Number {
-		return nil, cache, final, nil
-	}
-	if s.Timestamp < cache.End {
-		return nil, cache, final, nil
-	}
 	now := uint64(time.Now().UnixNano())
-	if s.Timestamp < now-config.SnapshotRoundGap || s.Timestamp > now+config.SnapshotRoundGap {
+	if s.Timestamp <= now-config.SnapshotRoundGap || s.Timestamp >= now+config.SnapshotRoundGap {
 		return nil, cache, final, nil
 	}
 	if s.Timestamp-cache.Start >= config.SnapshotRoundGap {
@@ -222,6 +211,19 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 				End:    s.Timestamp,
 			}
 		}
+	}
+
+	if s.RoundNumber != cache.Number || s.Timestamp < cache.End {
+		return nil, cache, final, nil
+	}
+
+	links, handled, err := node.verifyReferences(*final, s)
+	if err != nil {
+		logger.Println(err)
+		if !handled {
+			return links, cache, final, err
+		}
+		return links, cache, final, nil
 	}
 
 	s.Sign(node.Account.PrivateSpendKey)
