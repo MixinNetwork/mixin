@@ -1,6 +1,8 @@
 package network
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -8,6 +10,7 @@ import (
 	"encoding/binary"
 	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"time"
 
@@ -123,22 +126,46 @@ func (c *QuicClient) Receive() ([]byte, error) {
 	if m.Size > TransportMessageMaxSize {
 		return nil, fmt.Errorf("quic receive invalid message size %d", m.Size)
 	}
-	m.Data = make([]byte, m.Size)
-	s, err = c.stream.Read(m.Data)
+	data := make([]byte, m.Size)
+	s, err = c.stream.Read(data)
 	if err != nil {
 		return nil, err
 	}
 	if s != int(m.Size) {
 		return nil, fmt.Errorf("quic receive invalid message data %d", s)
 	}
-	return m.Data, nil
+
+	gzReader, err := gzip.NewReader(bytes.NewBuffer(data))
+	if err != nil {
+		return nil, err
+	}
+	defer gzReader.Close()
+
+	m.Data, err = ioutil.ReadAll(gzReader)
+	return m.Data, err
 }
 
 func (c *QuicClient) Send(data []byte) error {
 	if l := len(data); l < 1 || l > TransportMessageMaxSize {
 		return fmt.Errorf("quic send invalid message size %d", l)
 	}
-	err := c.stream.SetWriteDeadline(time.Now().Add(WriteDeadline))
+
+	var buf bytes.Buffer
+	gzWriter, err := gzip.NewWriterLevel(&buf, 3)
+	if err != nil {
+		return err
+	}
+	_, err = gzWriter.Write(data)
+	if err != nil {
+		return err
+	}
+	err = gzWriter.Close()
+	if err != nil {
+		return err
+	}
+	data = buf.Bytes()
+
+	err = c.stream.SetWriteDeadline(time.Now().Add(WriteDeadline))
 	if err != nil {
 		return err
 	}
