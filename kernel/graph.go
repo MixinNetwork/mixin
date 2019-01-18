@@ -173,6 +173,31 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 	logger.Println("VERIFY SNAPSHOT", *s)
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
+
+	links, handled, err := node.verifyReferences(*final, s)
+	if err != nil {
+		logger.Println(err)
+		if !handled {
+			return links, cache, final, err
+		}
+		return links, cache, final, nil
+	}
+	if o := node.SnapshotsPool[s.PayloadHash()]; o != nil {
+		filter := make(map[crypto.Signature]bool)
+		for _, sig := range s.Signatures {
+			filter[sig] = true
+		}
+		for _, sig := range o.Signatures {
+			if filter[sig] {
+				continue
+			}
+			s.Signatures = append(s.Signatures, sig)
+			filter[sig] = true
+		}
+		node.SnapshotsPool[s.PayloadHash()] = s
+		return links, cache, final, nil
+	}
+
 	if s.RoundNumber != cache.Number {
 		return nil, cache, final, nil
 	}
@@ -189,7 +214,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 		} else {
 			for _, ps := range cache.Snapshots {
 				if !node.verifyFinalization(ps) {
-					panic("all round snapshots should have been finalized")
+					panic("cache is the new final, round snapshots should have been finalized")
 				}
 			}
 
@@ -203,28 +228,6 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 		}
 	}
 
-	links, handled, err := node.verifyReferences(*final, s)
-	if err != nil {
-		logger.Println(err)
-		if !handled {
-			return links, cache, final, err
-		}
-		return links, cache, final, nil
-	}
-
-	if o := node.SnapshotsPool[s.PayloadHash()]; o != nil {
-		filter := make(map[crypto.Signature]bool)
-		for _, sig := range s.Signatures {
-			filter[sig] = true
-		}
-		for _, sig := range o.Signatures {
-			if filter[sig] {
-				continue
-			}
-			s.Signatures = append(s.Signatures, sig)
-			filter[sig] = true
-		}
-	}
 	node.SnapshotsPool[s.PayloadHash()] = s
 	return links, cache, final, nil
 }
@@ -233,7 +236,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, er
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
-	if s.NodeId != node.IdForNetwork || len(s.Signatures) != 0 {
+	if s.NodeId != node.IdForNetwork || len(s.Signatures) != 0 || s.Timestamp != 0 {
 		return cache, final, nil
 	}
 	logger.Println("SIGN SNAPSHOT", *s)
@@ -251,7 +254,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, er
 		} else {
 			for _, ps := range cache.Snapshots {
 				if !node.verifyFinalization(ps) {
-					panic("all round snapshots should have been finalized")
+					panic("cache is the new final, round snapshots should have been finalized")
 				}
 			}
 
