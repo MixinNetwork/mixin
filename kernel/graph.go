@@ -161,10 +161,6 @@ func (node *Node) verifyReferences(self FinalRound, s *common.Snapshot) (map[cry
 }
 
 func (node *Node) verifyFinalization(s *common.Snapshot) bool {
-	if !s.CheckSignature(node.Account.PublicSpendKey) {
-		s.Sign(node.Account.PrivateSpendKey)
-	}
-
 	consensusThreshold := len(node.ConsensusNodes) * 2 / 3
 	return len(s.Signatures) > consensusThreshold
 }
@@ -228,6 +224,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 		}
 	}
 
+	s.Sign(node.Account.PrivateSpendKey)
 	node.SnapshotsPool[s.PayloadHash()] = s
 	return links, cache, final, nil
 }
@@ -280,8 +277,8 @@ func (node *Node) signSnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, er
 
 	s.RoundNumber = cache.Number
 	s.References = [2]crypto.Hash{final.Hash, best.Hash}
-	s.Sign(node.Account.PrivateSpendKey)
 
+	s.Sign(node.Account.PrivateSpendKey)
 	node.SnapshotsPool[s.PayloadHash()] = s
 	return cache, final, nil
 }
