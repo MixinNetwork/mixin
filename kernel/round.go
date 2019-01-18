@@ -132,8 +132,8 @@ func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, n
 		return nil, err
 	}
 
-	start := ^uint64(0)
-	end := uint64(0)
+	start := snapshots[0].Timestamp
+	end := snapshots[len(snapshots)-1].Timestamp
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, number)
 	hashes := append(nodeIdWithNetwork[:], buf...)
@@ -141,10 +141,10 @@ func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, n
 		h := crypto.NewHash(s.Payload())
 		hashes = append(hashes, h[:]...)
 		if s.Timestamp < start {
-			start = s.Timestamp
+			panic(*s)
 		}
 		if s.Timestamp > end {
-			end = s.Timestamp
+			panic(*s)
 		}
 	}
 	round := &FinalRound{

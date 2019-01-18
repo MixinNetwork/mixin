@@ -178,19 +178,19 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 		}
 		return links, cache, final, nil
 	}
-	if o := node.SnapshotsPool[s.PayloadHash()]; o != nil {
+	if osigs := node.SnapshotsPool[s.PayloadHash()]; len(osigs) > 0 {
 		filter := make(map[crypto.Signature]bool)
 		for _, sig := range s.Signatures {
 			filter[sig] = true
 		}
-		for _, sig := range o.Signatures {
+		for _, sig := range osigs {
 			if filter[sig] {
 				continue
 			}
 			s.Signatures = append(s.Signatures, sig)
 			filter[sig] = true
 		}
-		node.SnapshotsPool[s.PayloadHash()] = s
+		node.SnapshotsPool[s.PayloadHash()] = append([]crypto.Signature{}, s.Signatures...)
 		return links, cache, final, nil
 	}
 
@@ -225,7 +225,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 	}
 
 	s.Sign(node.Account.PrivateSpendKey)
-	node.SnapshotsPool[s.PayloadHash()] = s
+	node.SnapshotsPool[s.PayloadHash()] = append([]crypto.Signature{}, s.Signatures...)
 	return links, cache, final, nil
 }
 
@@ -279,6 +279,6 @@ func (node *Node) signSnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, er
 	s.References = [2]crypto.Hash{final.Hash, best.Hash}
 
 	s.Sign(node.Account.PrivateSpendKey)
-	node.SnapshotsPool[s.PayloadHash()] = s
+	node.SnapshotsPool[s.PayloadHash()] = append([]crypto.Signature{}, s.Signatures...)
 	return cache, final, nil
 }
