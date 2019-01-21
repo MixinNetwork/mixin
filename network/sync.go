@@ -31,7 +31,7 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []SyncPoi
 		if len(ss) == 0 {
 			continue
 		}
-		s, err := me.handle.ReadSnapshotByTransactionHash(ss[0].Transaction.PayloadHash())
+		s, err := me.handle.ReadSnapshotByTransactionHash(ss[len(ss)-1].Transaction.PayloadHash())
 		if err != nil {
 			return offset, err
 		}

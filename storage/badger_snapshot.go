@@ -288,7 +288,7 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 
 	// TODO this section is only an assert kind check, not needed at all
 	if snapshot.RoundNumber < roundNumber || snapshot.RoundNumber > roundNumber+1 {
-		panic(fmt.Errorf("snapshot round error %d %d", roundNumber, snapshot.RoundNumber))
+		panic(fmt.Errorf("snapshot round error %d %d %d %d", roundNumber, roundStart, snapshot.RoundNumber, snapshot.Timestamp))
 	}
 	if snapshot.RoundNumber == roundNumber && snapshot.Timestamp >= config.SnapshotRoundGap+roundStart {
 		panic(fmt.Errorf("snapshot old round timestamp error %d %d %d %d", roundNumber, roundStart, snapshot.RoundNumber, snapshot.Timestamp))

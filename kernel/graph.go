@@ -195,7 +195,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 	if s.Timestamp <= now-config.SnapshotRoundGap || s.Timestamp >= now+config.SnapshotRoundGap {
 		return nil, cache, final, nil
 	}
-	if s.Timestamp-cache.Start >= config.SnapshotRoundGap {
+	if s.Timestamp >= config.SnapshotRoundGap+cache.Start {
 		if len(cache.Snapshots) == 0 {
 			cache.Start = s.Timestamp
 		} else {
@@ -246,7 +246,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, er
 		}
 		time.Sleep(1 * time.Millisecond)
 	}
-	if s.Timestamp-cache.Start >= config.SnapshotRoundGap {
+	if s.Timestamp >= config.SnapshotRoundGap+cache.Start {
 		if len(cache.Snapshots) == 0 {
 			cache.Start = s.Timestamp
 		} else {
