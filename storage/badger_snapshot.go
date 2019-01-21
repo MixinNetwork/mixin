@@ -288,13 +288,13 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 
 	// TODO this section is only an assert kind check, not needed at all
 	if snapshot.RoundNumber < roundNumber || snapshot.RoundNumber > roundNumber+1 {
-		panic("ErrorValidateFailed")
+		panic(fmt.Errorf("snapshot round error %d %d", roundNumber, snapshot.RoundNumber))
 	}
-	if snapshot.RoundNumber == roundNumber && (snapshot.Timestamp-roundStart) >= config.SnapshotRoundGap {
-		panic("ErrorValidateFailed")
+	if snapshot.RoundNumber == roundNumber && snapshot.Timestamp >= config.SnapshotRoundGap+roundStart {
+		panic(fmt.Errorf("snapshot old round timestamp error %d %d %d %d", roundNumber, roundStart, snapshot.RoundNumber, snapshot.Timestamp))
 	}
-	if snapshot.RoundNumber == roundNumber+1 && (snapshot.Timestamp-roundStart) < config.SnapshotRoundGap {
-		panic("ErrorValidateFailed")
+	if snapshot.RoundNumber == roundNumber+1 && snapshot.Timestamp < config.SnapshotRoundGap+roundStart {
+		panic(fmt.Errorf("snapshot new round timestamp error %d %d %d %d", roundNumber, roundStart, snapshot.RoundNumber, snapshot.Timestamp))
 	}
 
 	// FIXME should ensure round meta and snapshot consistence, how to move out here?
