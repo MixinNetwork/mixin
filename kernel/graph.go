@@ -63,6 +63,8 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		logger.Println("LOCK INPUTS ERROR", err)
 		return nil
 	}
+	node.sign(s)
+
 	if node.IdForNetwork == s.NodeId {
 		for _, cn := range node.ConsensusNodes {
 			if !cn.IsAccepted() {
@@ -165,7 +167,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
-	if osigs := node.SnapshotsPool[s.PayloadHash()]; len(osigs) > 0 {
+	if osigs := node.SnapshotsPool[s.PayloadHash()]; len(osigs) > 0 || node.verifyFinalization(s) {
 		links, handled, err := node.verifyReferences(*final, s)
 		if err != nil {
 			logger.Println(err)
@@ -225,9 +227,6 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 		}
 		return links, cache, final, nil
 	}
-
-	s.Sign(node.Account.PrivateSpendKey)
-	node.SnapshotsPool[s.PayloadHash()] = append([]crypto.Signature{}, s.Signatures...)
 	return links, cache, final, nil
 }
 
@@ -279,8 +278,11 @@ func (node *Node) signSnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, er
 
 	s.RoundNumber = cache.Number
 	s.References = [2]crypto.Hash{final.Hash, best.Hash}
-
-	s.Sign(node.Account.PrivateSpendKey)
-	node.SnapshotsPool[s.PayloadHash()] = append([]crypto.Signature{}, s.Signatures...)
 	return cache, final, nil
+}
+
+func (node *Node) sign(s *common.Snapshot) {
+	s.Sign(node.Account.PrivateSpendKey)
+	node.clearConsensusSignatures(s)
+	node.SnapshotsPool[s.PayloadHash()] = append([]crypto.Signature{}, s.Signatures...)
 }
