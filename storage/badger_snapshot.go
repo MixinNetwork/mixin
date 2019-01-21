@@ -298,7 +298,7 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 	}
 
 	// FIXME should ensure round meta and snapshot consistence, how to move out here?
-	if snapshot.RoundNumber == roundNumber+1 {
+	if snapshot.RoundNumber == roundNumber+1 || snapshot.Timestamp < roundStart {
 		err = writeRoundMeta(txn, snapshot.NodeId, snapshot.RoundNumber, snapshot.Timestamp)
 		if err != nil {
 			return err

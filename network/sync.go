@@ -28,6 +28,9 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []SyncPoi
 		if err != nil {
 			return offset, err
 		}
+		if len(ss) == 0 {
+			continue
+		}
 		s, err := me.handle.ReadSnapshotByTransactionHash(ss[0].Transaction.PayloadHash())
 		if err != nil {
 			return offset, err
