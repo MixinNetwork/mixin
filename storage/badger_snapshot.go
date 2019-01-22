@@ -87,8 +87,7 @@ func (s *BadgerStore) SnapshotsReadUTXO(hash crypto.Hash, index int) (*common.UT
 }
 
 func readDepositInput(txn *badger.Txn, deposit *common.DepositData) ([]byte, error) {
-	data := common.MsgpackMarshalPanic(deposit)
-	key := depositKey(crypto.NewHash(data))
+	key := depositKey(deposit)
 	item, err := txn.Get(key)
 	if err != nil {
 		return nil, err
@@ -106,6 +105,9 @@ func (s *BadgerStore) SnapshotsCheckDepositInput(deposit *common.DepositData, tx
 	} else if err != nil {
 		return err
 	}
+	if len(ival) == 0 {
+		return fmt.Errorf("invalid CONSUMED deposit")
+	}
 	if bytes.Compare(ival[:32], tx[:]) == 0 {
 		return nil
 	}
@@ -114,8 +116,7 @@ func (s *BadgerStore) SnapshotsCheckDepositInput(deposit *common.DepositData, tx
 
 func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx crypto.Hash, snapHash crypto.Hash, ts uint64) error {
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
-		data := common.MsgpackMarshalPanic(deposit)
-		key := depositKey(crypto.NewHash(data))
+		key := depositKey(deposit)
 		ival, err := readDepositInput(txn, deposit)
 		save := func() error {
 			value := append(tx[:], snapHash[:]...)
@@ -129,6 +130,9 @@ func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx 
 		}
 		if err != nil {
 			return err
+		}
+		if len(ival) == 0 {
+			return fmt.Errorf("invalid CONSUMED deposit")
 		}
 		if bytes.Compare(ival[:32], tx[:]) != 0 {
 			return fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival[:32]))
@@ -318,6 +322,11 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 			continue
 		}
 		if in.Deposit != nil {
+			key := depositKey(in.Deposit)
+			err = txn.Set(key, []byte{})
+			if err != nil {
+				return err
+			}
 			continue
 		}
 		key := utxoKey(in.Hash, in.Index)
@@ -433,7 +442,8 @@ func utxoKey(hash crypto.Hash, index int) []byte {
 	return append(key, buf[:size]...)
 }
 
-func depositKey(hash crypto.Hash) []byte {
+func depositKey(deposit *common.DepositData) []byte {
+	hash := crypto.NewHash(common.MsgpackMarshalPanic(deposit))
 	return append([]byte(snapshotsPrefixDeposit), hash[:]...)
 }
 
