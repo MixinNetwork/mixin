@@ -100,7 +100,7 @@ func (store storeImpl) SnapshotsCheckDepositInput(deposit *DepositData, tx crypt
 	return nil
 }
 
-func (store storeImpl) SnapshotsLockDepositInput(deposit *DepositData, tx crypto.Hash, snapHash crypto.Hash) error {
+func (store storeImpl) SnapshotsLockDepositInput(deposit *DepositData, tx crypto.Hash, snapHash crypto.Hash, ts uint64) error {
 	return nil
 }
 
