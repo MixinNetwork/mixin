@@ -145,7 +145,7 @@ func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx 
 			return fmt.Errorf("deposit locked for timestamp early %d %d", lock, ts)
 		}
 		if bytes.Compare(ival[32:64], snapHash[:]) < 0 {
-			return fmt.Errorf("utxo locked for snapshot early %s %s", hex.EncodeToString(ival[32:64]), snapHash.String())
+			return fmt.Errorf("deposit locked for snapshot early %s %s", hex.EncodeToString(ival[32:64]), snapHash.String())
 		}
 		return save()
 	})
