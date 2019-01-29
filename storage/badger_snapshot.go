@@ -14,13 +14,14 @@ import (
 )
 
 const (
-	snapshotsPrefixSnapshot  = "SNAPSHOT"  // transaction hash to snapshot meta, mainly node and consensus timestamp
-	snapshotsPrefixGraph     = "GRAPH"     // consensus directed asyclic graph data store
-	snapshotsPrefixUTXO      = "UTXO"      // unspent outputs, will be deleted once consumed
-	snapshotsPrefixDeposit   = "DEPOSIT"   // unspent outputs, will be deleted once consumed
-	snapshotsPrefixNodeRound = "NODEROUND" // node specific info, e.g. round number, round hash
-	snapshotsPrefixNodeLink  = "NODELINK"  // latest node round links
-	snapshotsPrefixGhost     = "GHOST"     // each output key should only be used once
+	snapshotsPrefixSnapshot    = "SNAPSHOT"    // transaction hash to snapshot meta, mainly node and consensus timestamp
+	snapshotsPrefixTransaction = "TRANSACTION" // transaction hash to snapshot meta, mainly node and consensus timestamp
+	snapshotsPrefixGraph       = "GRAPH"       // consensus directed asyclic graph data store
+	snapshotsPrefixUTXO        = "UTXO"        // unspent outputs, will be deleted once consumed
+	snapshotsPrefixDeposit     = "DEPOSIT"     // unspent outputs, will be deleted once consumed
+	snapshotsPrefixNodeRound   = "NODEROUND"   // node specific info, e.g. round number, round hash
+	snapshotsPrefixNodeLink    = "NODELINK"    // latest node round links
+	snapshotsPrefixGhost       = "GHOST"       // each output key should only be used once
 )
 
 func (s *BadgerStore) SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error) {
@@ -114,15 +115,14 @@ func (s *BadgerStore) SnapshotsCheckDepositInput(deposit *common.DepositData, tx
 	return fmt.Errorf("invalid lock %s %s", hex.EncodeToString(ival[:32]), hex.EncodeToString(tx[:]))
 }
 
-func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx crypto.Hash, snapHash crypto.Hash, ts uint64) error {
+func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx crypto.Hash, ts uint64) error {
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		key := depositKey(deposit)
 		ival, err := readDepositInput(txn, deposit)
 		save := func() error {
-			value := append(tx[:], snapHash[:]...)
 			buf := make([]byte, 8)
 			binary.BigEndian.PutUint64(buf, ts)
-			value = append(value, buf...)
+			value := append(tx[:], buf...)
 			return txn.Set(key, value)
 		}
 		if err == badger.ErrKeyNotFound {
@@ -137,21 +137,15 @@ func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx 
 		if bytes.Compare(ival[:32], tx[:]) != 0 {
 			return fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival[:32]))
 		}
-		lock := binary.BigEndian.Uint64(ival[64:])
+		lock := binary.BigEndian.Uint64(ival[32:])
 		if ts > lock+config.SnapshotRoundGap*2 || ts < lock {
 			return save()
 		}
-		if lock < ts {
-			return fmt.Errorf("deposit locked for timestamp early %d %d", lock, ts)
-		}
-		if bytes.Compare(ival[32:64], snapHash[:]) < 0 {
-			return fmt.Errorf("deposit locked for snapshot early %s %s", hex.EncodeToString(ival[32:64]), snapHash.String())
-		}
-		return save()
+		return fmt.Errorf("deposit locked for timestamp early %d %d", lock, ts)
 	})
 }
 
-func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash, snapHash crypto.Hash, ts uint64) (*common.UTXO, error) {
+func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash, ts uint64) (*common.UTXO, error) {
 	var utxo *common.UTXO
 	err := s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		key := utxoKey(hash, index)
@@ -177,17 +171,11 @@ func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.H
 			if out.LockHash != tx {
 				return fmt.Errorf("utxo locked for transaction %s", out.LockHash)
 			}
-			if ts < out.LockTimestamp+config.SnapshotRoundGap*2 {
-				if out.LockTimestamp < ts {
-					return fmt.Errorf("utxo locked for timestamp early %d %d", out.LockTimestamp, ts)
-				}
-				if out.LockTimestamp == ts && bytes.Compare(out.LockSnapshot[:], snapHash[:]) < 0 {
-					return fmt.Errorf("utxo locked for snapshot early %s %s", out.LockSnapshot.String(), snapHash.String())
-				}
+			if ts <= out.LockTimestamp+config.SnapshotRoundGap*2 && ts > out.LockTimestamp {
+				return fmt.Errorf("utxo locked for timestamp early %d %d", out.LockTimestamp, ts)
 			}
 		}
 		out.LockHash = tx
-		out.LockSnapshot = snapHash
 		out.LockTimestamp = ts
 		err = txn.Set([]byte(key), common.MsgpackMarshalPanic(out))
 		utxo = &out.UTXO
