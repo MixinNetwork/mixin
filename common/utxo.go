@@ -12,8 +12,7 @@ type UTXO struct {
 
 type UTXOWithLock struct {
 	UTXO
-	LockHash      crypto.Hash `msgpack:"LH"`
-	LockTimestamp uint64      `msgpack:"LT"`
+	LockHash crypto.Hash `msgpack:"LH"`
 }
 
 type UTXOReader interface {
@@ -22,8 +21,8 @@ type UTXOReader interface {
 }
 
 type UTXOLocker interface {
-	SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash, ts uint64) (*UTXO, error)
-	SnapshotsLockDepositInput(deposit *DepositData, tx crypto.Hash, ts uint64) error
+	SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*UTXO, error)
+	SnapshotsLockDepositInput(deposit *DepositData, tx crypto.Hash) error
 }
 
 type GhostChecker interface {

@@ -11,6 +11,9 @@ import (
 	"github.com/MixinNetwork/mixin/storage"
 )
 
+// each node has many different final hashes
+// each broadcast should be accepted
+
 type CacheRound struct {
 	NodeId    crypto.Hash        `msgpack:"N"`
 	Number    uint64             `msgpack:"R"`

@@ -80,7 +80,7 @@ func (store storeImpl) SnapshotsCheckGhost(key crypto.Key) (bool, error) {
 	return false, nil
 }
 
-func (store storeImpl) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash, ts uint64) (*UTXO, error) {
+func (store storeImpl) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*UTXO, error) {
 	return nil, nil
 }
 
@@ -100,7 +100,7 @@ func (store storeImpl) SnapshotsCheckDepositInput(deposit *DepositData, tx crypt
 	return nil
 }
 
-func (store storeImpl) SnapshotsLockDepositInput(deposit *DepositData, tx crypto.Hash, ts uint64) error {
+func (store storeImpl) SnapshotsLockDepositInput(deposit *DepositData, tx crypto.Hash) error {
 	return nil
 }
 

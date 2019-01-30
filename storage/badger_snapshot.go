@@ -115,15 +115,12 @@ func (s *BadgerStore) SnapshotsCheckDepositInput(deposit *common.DepositData, tx
 	return fmt.Errorf("invalid lock %s %s", hex.EncodeToString(ival[:32]), hex.EncodeToString(tx[:]))
 }
 
-func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx crypto.Hash, ts uint64) error {
+func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		key := depositKey(deposit)
 		ival, err := readDepositInput(txn, deposit)
 		save := func() error {
-			buf := make([]byte, 8)
-			binary.BigEndian.PutUint64(buf, ts)
-			value := append(tx[:], buf...)
-			return txn.Set(key, value)
+			return txn.Set(key, tx[:])
 		}
 		if err == badger.ErrKeyNotFound {
 			return save()
@@ -134,18 +131,14 @@ func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx 
 		if len(ival) == 0 {
 			return fmt.Errorf("invalid CONSUMED deposit")
 		}
-		if bytes.Compare(ival[:32], tx[:]) != 0 {
+		if bytes.Compare(ival, tx[:]) != 0 {
 			return fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival[:32]))
 		}
-		lock := binary.BigEndian.Uint64(ival[32:])
-		if ts > lock+config.SnapshotRoundGap*2 || ts < lock {
-			return save()
-		}
-		return fmt.Errorf("deposit locked for timestamp early %d %d", lock, ts)
+		return save()
 	})
 }
 
-func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash, ts uint64) (*common.UTXO, error) {
+func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*common.UTXO, error) {
 	var utxo *common.UTXO
 	err := s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		key := utxoKey(hash, index)
@@ -167,16 +160,10 @@ func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.H
 			return err
 		}
 
-		if out.LockHash.HasValue() {
-			if out.LockHash != tx {
-				return fmt.Errorf("utxo locked for transaction %s", out.LockHash)
-			}
-			if ts <= out.LockTimestamp+config.SnapshotRoundGap*2 && ts > out.LockTimestamp {
-				return fmt.Errorf("utxo locked for timestamp early %d %d", out.LockTimestamp, ts)
-			}
+		if out.LockHash.HasValue() && out.LockHash != tx {
+			return fmt.Errorf("utxo locked for transaction %s", out.LockHash)
 		}
 		out.LockHash = tx
-		out.LockTimestamp = ts
 		err = txn.Set([]byte(key), common.MsgpackMarshalPanic(out))
 		utxo = &out.UTXO
 		return err
