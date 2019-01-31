@@ -15,9 +15,11 @@ import (
 // each broadcast should be accepted
 //
 // 1. never update the round if next round available with valid snapshots
-// 2. whennever conflict snapshot accepted, update according to timestamp rules
+// 2. whennever conflict snapshot accepted, update according to timestamp rules, never prune
 // 3. 2 should follow 1 at first, e.g. if node A has an old snapshot in round n and has round n+1, an earlier conflict snapshot should never be accepted
 // 4. all normal nodes should broadcast all snapshots in round order
+// 5. expand rule 3, if node A has conflict snapshot in round n and node A round n has been referenced by other nodes, should never prune it
+// 6. expand 5, earlier snapshot can be pruned if a conflict snapshot referenced by later rounds
 
 type CacheRound struct {
 	NodeId    crypto.Hash        `msgpack:"N"`

@@ -191,10 +191,6 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 		return links, cache, final, nil
 	}
 
-	now := uint64(time.Now().UnixNano())
-	if s.Timestamp <= now-config.SnapshotRoundGap || s.Timestamp >= now+config.SnapshotRoundGap {
-		return nil, cache, final, nil
-	}
 	if s.Timestamp >= config.SnapshotRoundGap+cache.Start {
 		if len(cache.Snapshots) == 0 {
 			cache.Start = s.Timestamp

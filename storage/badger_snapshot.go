@@ -15,14 +15,13 @@ import (
 )
 
 const (
-	snapshotsPrefixSnapshot    = "SNAPSHOT"    // transaction hash to snapshot meta, mainly node and consensus timestamp
-	snapshotsPrefixTransaction = "TRANSACTION" // transaction hash to snapshot meta, mainly node and consensus timestamp
-	snapshotsPrefixGraph       = "GRAPH"       // consensus directed asyclic graph data store
-	snapshotsPrefixGhost       = "GHOST"       // each output key should only be used once
-	snapshotsPrefixUTXO        = "UTXO"        // unspent outputs, will be deleted once consumed
-	snapshotsPrefixDeposit     = "DEPOSIT"     // unspent outputs, will be deleted once consumed
-	snapshotsPrefixNodeRound   = "NODEROUND"   // node specific info, e.g. round number, round hash
-	snapshotsPrefixNodeLink    = "NODELINK"    // latest node round links
+	snapshotsPrefixSnapshot  = "SNAPSHOT"  // transaction hash to snapshot meta, mainly node and consensus timestamp
+	snapshotsPrefixGraph     = "GRAPH"     // consensus directed asyclic graph data store
+	snapshotsPrefixGhost     = "GHOST"     // each output key should only be used once
+	snapshotsPrefixUTXO      = "UTXO"      // unspent outputs, will be deleted once consumed
+	snapshotsPrefixDeposit   = "DEPOSIT"   // unspent outputs, will be deleted once consumed
+	snapshotsPrefixNodeRound = "NODEROUND" // node specific info, e.g. round number, round hash
+	snapshotsPrefixNodeLink  = "NODELINK"  // latest node round links
 )
 
 func (s *BadgerStore) SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error) {
