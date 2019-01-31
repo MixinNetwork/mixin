@@ -106,13 +106,10 @@ func (s *BadgerStore) SnapshotsCheckDepositInput(deposit *common.DepositData, tx
 	} else if err != nil {
 		return err
 	}
-	if len(ival) == 0 {
-		return fmt.Errorf("invalid CONSUMED deposit")
-	}
-	if bytes.Compare(ival[:32], tx[:]) == 0 {
+	if bytes.Compare(ival, tx[:]) == 0 {
 		return nil
 	}
-	return fmt.Errorf("invalid lock %s %s", hex.EncodeToString(ival[:32]), hex.EncodeToString(tx[:]))
+	return fmt.Errorf("invalid lock %s %s", hex.EncodeToString(ival), hex.EncodeToString(tx[:]))
 }
 
 func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
@@ -128,11 +125,8 @@ func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx 
 		if err != nil {
 			return err
 		}
-		if len(ival) == 0 {
-			return fmt.Errorf("invalid CONSUMED deposit")
-		}
 		if bytes.Compare(ival, tx[:]) != 0 {
-			return fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival[:32]))
+			return fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival))
 		}
 		return save()
 	})
@@ -250,9 +244,14 @@ func readSnapshotByTransactionHash(txn *badger.Txn, hash crypto.Hash) (*common.S
 	return &s, err
 }
 
+func pruneSnapshot(txn *badger.Txn, tx crypto.Hash) error {
+	return nil
+}
+
 func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrder, genesis bool) error {
+	txHash := snapshot.Transaction.PayloadHash()
 	// FIXME what if same transaction but different snapshot hash
-	_, err := txn.Get(snapshotKey(snapshot.Transaction.PayloadHash()))
+	_, err := txn.Get(snapshotKey(txHash))
 	if err == nil {
 		return nil
 	} else if err != badger.ErrKeyNotFound {
@@ -292,30 +291,39 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 		}
 	}
 
+	// FIXME assert kind checks, not needed at all
 	for _, in := range snapshot.Transaction.Inputs {
 		if len(in.Genesis) > 0 {
 			continue
 		}
+
 		if in.Deposit != nil {
-			key := depositKey(in.Deposit)
-			err = txn.Set(key, []byte{})
+			ival, err := readDepositInput(txn, in.Deposit)
 			if err != nil {
-				return err
+				panic(fmt.Errorf("deposit check error %s", err.Error()))
+			}
+			if bytes.Compare(ival, txHash[:]) != 0 {
+				panic(fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival)))
 			}
 			continue
 		}
+
 		key := utxoKey(in.Hash, in.Index)
-
-		_, err := txn.Get(key) // TODO this check is only an assert kind check, not needed at all
-		if err == badger.ErrKeyNotFound {
-			panic("ErrorValidateFailed")
-		} else if err != nil {
-			return err
-		}
-
-		err = txn.Delete(key)
+		item, err := txn.Get([]byte(key))
 		if err != nil {
-			return err
+			panic(fmt.Errorf("UTXO check error %s", err.Error()))
+		}
+		ival, err := item.ValueCopy(nil)
+		if err != nil {
+			panic(fmt.Errorf("UTXO check error %s", err.Error()))
+		}
+		var out common.UTXOWithLock
+		err = msgpack.Unmarshal(ival, &out)
+		if err != nil {
+			panic(fmt.Errorf("UTXO check error %s", err.Error()))
+		}
+		if out.LockHash != txHash {
+			panic(fmt.Errorf("utxo locked for transaction %s", out.LockHash))
 		}
 	}
 
