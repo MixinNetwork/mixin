@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"sort"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -17,11 +18,11 @@ const (
 	snapshotsPrefixSnapshot    = "SNAPSHOT"    // transaction hash to snapshot meta, mainly node and consensus timestamp
 	snapshotsPrefixTransaction = "TRANSACTION" // transaction hash to snapshot meta, mainly node and consensus timestamp
 	snapshotsPrefixGraph       = "GRAPH"       // consensus directed asyclic graph data store
+	snapshotsPrefixGhost       = "GHOST"       // each output key should only be used once
 	snapshotsPrefixUTXO        = "UTXO"        // unspent outputs, will be deleted once consumed
 	snapshotsPrefixDeposit     = "DEPOSIT"     // unspent outputs, will be deleted once consumed
 	snapshotsPrefixNodeRound   = "NODEROUND"   // node specific info, e.g. round number, round hash
 	snapshotsPrefixNodeLink    = "NODELINK"    // latest node round links
-	snapshotsPrefixGhost       = "GHOST"       // each output key should only be used once
 )
 
 func (s *BadgerStore) SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error) {
@@ -33,8 +34,8 @@ func (s *BadgerStore) SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork crypt
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
-	key := graphKey(nodeIdWithNetwork, round, 0)
-	prefix := key[:len(key)-8]
+	key := graphKey(nodeIdWithNetwork, round, crypto.Hash{})
+	prefix := key[:len(key)-len(crypto.Hash{})]
 	for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
 		item := it.Item()
 		v, err := item.ValueCopy(nil)
@@ -49,6 +50,7 @@ func (s *BadgerStore) SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork crypt
 		snapshots = append(snapshots, &s)
 	}
 
+	sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].Timestamp < snapshots[j].Timestamp })
 	return snapshots, nil
 }
 
@@ -224,7 +226,7 @@ func readSnapshotByTransactionHash(txn *badger.Txn, hash crypto.Hash) (*common.S
 		return nil, err
 	}
 
-	key := meta[:len(graphKey(crypto.Hash{}, 0, 0))]
+	key := meta[:len(graphKey(crypto.Hash{}, 0, crypto.Hash{}))]
 	topo := binary.BigEndian.Uint64(meta[len(key):])
 	item, err = txn.Get(key)
 	if err == badger.ErrKeyNotFound {
@@ -375,7 +377,7 @@ func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrde
 		}
 	}
 
-	key := graphKey(snapshot.NodeId, snapshot.RoundNumber, snapshot.Timestamp)
+	key := graphKey(snapshot.NodeId, snapshot.RoundNumber, txHash)
 
 	_, err = txn.Get(key) // TODO this check is only an assert kind check, not needed at all
 	if err == nil {
@@ -410,12 +412,12 @@ func snapshotKey(transactionHash crypto.Hash) []byte {
 	return append([]byte(snapshotsPrefixSnapshot), transactionHash[:]...)
 }
 
-func graphKey(nodeIdWithNetwork crypto.Hash, round, ts uint64) []byte {
-	buf := make([]byte, 16)
+func graphKey(nodeIdWithNetwork crypto.Hash, round uint64, txHash crypto.Hash) []byte {
+	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, round)
-	binary.BigEndian.PutUint64(buf[8:], ts)
 	key := append([]byte(snapshotsPrefixGraph), nodeIdWithNetwork[:]...)
-	return append(key, buf...)
+	key = append(key, buf...)
+	return append(key, txHash[:]...)
 }
 
 func utxoKey(hash crypto.Hash, index int) []byte {
