@@ -42,6 +42,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	}
 
 	if node.verifyFinalization(s) {
+		// so B created new cache round, and now A appended to an error round
 		cache.Snapshots = append(cache.Snapshots, s)
 		cache.End = s.Timestamp
 		topo := &common.SnapshotWithTopologicalOrder{
@@ -227,6 +228,8 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 }
 
 func (node *Node) signSnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, error) {
+	// what if I have signed a snapshot A in round n, and a new transaction B submitted, which should stay in round n+1
+	// now A has been broadcasted out for signatures, and B added to the new cache round
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 

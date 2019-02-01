@@ -1,6 +1,7 @@
 package network
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/MixinNetwork/mixin/config"
@@ -29,7 +30,7 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []SyncPoi
 			return offset, err
 		}
 		if len(ss) == 0 {
-			continue
+			panic(fmt.Errorf("local final should never has zero snapshots %s:%d %s:%d", l.NodeId.String(), l.Number, r.NodeId.String(), r.Number))
 		}
 		s, err := me.handle.ReadSnapshotByTransactionHash(ss[len(ss)-1].Transaction.PayloadHash())
 		if err != nil {
