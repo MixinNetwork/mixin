@@ -41,6 +41,10 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		}
 	}
 
+	if s.RoundNumber != cache.Number {
+		return nil
+	}
+
 	if node.verifyFinalization(s) {
 		// so B created new cache round, and now A appended to an error round
 		cache.Snapshots = append(cache.Snapshots, s)
