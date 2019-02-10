@@ -11,6 +11,16 @@ import (
 )
 
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
+	// check transaction finalization in database
+	// if finalized and snapshot not finalized return nil
+	// check transaction in snapshot node graph
+	// if exist return nil
+	// if finalized, not need to validate transaction
+	// else validate transaction
+	// if not validated return nil
+	// ...
+	// ...
+	// check transaction in snapshot node graph again before final snapshot write
 	o, err := node.store.SnapshotsReadSnapshotByTransactionHash(s.Transaction.PayloadHash())
 	if err != nil {
 		logger.Println("READ SNAPSHOT BY TRANSACTION ERROR", err)

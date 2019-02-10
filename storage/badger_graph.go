@@ -16,6 +16,7 @@ const (
 	graphPrefixUTXO         = "UTXO"         // unspent outputs, including first consumed transaction hash
 	graphPrefixTransaction  = "TRANSACTION"  // raw transaction, may not be finalized yet, if finalized with first finalized snapshot hash
 	graphPrefixFinalization = "FINALIZATION" // transaction finalization hack
+	graphPrefixUnique       = "UNIQUE"       // unique transaction in one node
 	graphPrefixRound        = "ROUND"        // hash|node-if-cache {node:hash,number:734,references:{self-parent-round-hash,external-round-hash}}
 	graphPrefixSnapshot     = "SNAPSHOT"     // {
 	graphPrefixLink         = "LINK"         // self-external number
@@ -148,6 +149,20 @@ func (s *BadgerStore) CheckTransactionFinalization(hash crypto.Hash) (bool, erro
 	return true, nil
 }
 
+func (s *BadgerStore) CheckTransactionInNode(nodeId, hash crypto.Hash) (bool, error) {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	key := graphUniqueKey(nodeId, hash)
+	_, err := txn.Get(key)
+	if err == badger.ErrKeyNotFound {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
@@ -189,6 +204,12 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) e
 	}
 
 	key = graphFinalizationKey(snap.Transaction.PayloadHash())
+	err = txn.Set(key, []byte{})
+	if err != nil {
+		return err
+	}
+
+	key = graphUniqueKey(snap.NodeId, snap.Transaction.PayloadHash())
 	err = txn.Set(key, []byte{})
 	if err != nil {
 		return err
@@ -333,6 +354,11 @@ func graphTransactionKey(hash crypto.Hash) []byte {
 
 func graphFinalizationKey(hash crypto.Hash) []byte {
 	return append([]byte(graphPrefixFinalization), hash[:]...)
+}
+
+func graphUniqueKey(nodeId, hash crypto.Hash) []byte {
+	key := append(hash[:], nodeId[:]...)
+	return append([]byte(graphPrefixUnique), key...)
 }
 
 func graphSnapshotKey(nodeId crypto.Hash, round uint64, hash crypto.Hash) []byte {
