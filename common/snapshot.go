@@ -4,13 +4,26 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
+type Round struct {
+	NodeId     crypto.Hash    `msgpack:"N"json:"node"`
+	Number     uint64         `msgpack:"S"json:"number"`
+	Timestamp  uint64         `msgpack:"T"json:"timestamp"`
+	References [2]crypto.Hash `msgpack:"R"json:"references"`
+}
+
 type Snapshot struct {
-	NodeId      crypto.Hash        `msgpack:"I"json:"node"`
+	NodeId      crypto.Hash        `msgpack:"N"json:"node"`
 	Transaction *SignedTransaction `msgpack:"T"json:"transaction"`
 	References  [2]crypto.Hash     `msgpack:"R"json:"references"`
 	RoundNumber uint64             `msgpack:"H"json:"round"`
 	Timestamp   uint64             `msgpack:"C"json:"timestamp"`
 	Signatures  []crypto.Signature `msgpack:"S,omitempty"json:"signatures,omitempty"`
+}
+
+type TransactionWithTopologicalOrder struct {
+	Transaction
+	Snapshot         crypto.Hash
+	TopologicalOrder uint64
 }
 
 type SnapshotWithTopologicalOrder struct {
