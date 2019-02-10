@@ -2,31 +2,63 @@ package storage
 
 import (
 	"encoding/binary"
+	"sort"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/dgraph-io/badger"
 	"github.com/vmihailenco/msgpack"
 )
 
 const (
-	graphPrefixGhost       = "GHOST"       // each output key should only be used once
-	graphPrefixUTXO        = "UTXO"        // unspent outputs, including first consumed transaction hash
-	graphPrefixTransaction = "TRANSACTION" // raw transaction, may not be finalized yet, if finalized with first finalized snapshot hash
-	graphPrefixRound       = "ROUND"       // hash|node-if-cache {node:hash,number:734,references:{self-parent-round-hash,external-round-hash}}
-	graphPrefixSnapshot    = "SNAPSHOT"    // {
-	graphPrefixLink        = "LINK"        // self-external number
-	graphPrefixNode        = "NODE"        // {head}
-	graphPrefixTopology    = "TOPOLOGY"
+	graphPrefixGhost        = "GHOST"        // each output key should only be used once
+	graphPrefixUTXO         = "UTXO"         // unspent outputs, including first consumed transaction hash
+	graphPrefixTransaction  = "TRANSACTION"  // raw transaction, may not be finalized yet, if finalized with first finalized snapshot hash
+	graphPrefixFinalization = "FINALIZATION" // transaction finalization hack
+	graphPrefixRound        = "ROUND"        // hash|node-if-cache {node:hash,number:734,references:{self-parent-round-hash,external-round-hash}}
+	graphPrefixSnapshot     = "SNAPSHOT"     // {
+	graphPrefixLink         = "LINK"         // self-external number
+	graphPrefixNode         = "NODE"         // {head}
+	graphPrefixTopology     = "TOPOLOGY"
 )
 
-func (s *BadgerStore) ReadTransaction(hash crypto.Hash) (*common.TransactionWithTopologicalOrder, error) {
+func (s *BadgerStore) ReadSnapshotsForNodeRound(nodeId crypto.Hash, round uint64) ([]*common.Snapshot, error) {
+	snapshots := make([]*common.Snapshot, 0)
+
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
+	key := graphSnapshotKey(nodeId, round, crypto.Hash{})
+	prefix := key[:len(key)-len(crypto.Hash{})]
+	for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
+		item := it.Item()
+		v, err := item.ValueCopy(nil)
+		if err != nil {
+			return snapshots, err
+		}
+		var s common.Snapshot
+		err = msgpack.Unmarshal(v, &s)
+		if err != nil {
+			return snapshots, err
+		}
+		snapshots = append(snapshots, &s)
+	}
+
+	sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].Timestamp < snapshots[j].Timestamp })
+	return snapshots, nil
+}
+
+func (s *BadgerStore) ReadTransaction(hash crypto.Hash) (*common.Transaction, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 	return readTransaction(txn, hash)
 }
 
-func (s *BadgerStore) WriteTransaction(tx *common.TransactionWithTopologicalOrder) error {
+func (s *BadgerStore) WriteTransaction(tx *common.Transaction) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 
@@ -57,25 +89,27 @@ func (s *BadgerStore) StartNewRound(node crypto.Hash, number, start uint64, refe
 	}
 
 	// FIXME assert only, remove in future
-	if self == nil || self.Number != number-1 {
-		panic("self final assert error")
-	}
-	if external == nil {
-		panic("external final not exist")
-	}
-	old, err := readRound(txn, references[0])
-	if err != nil {
-		return err
-	}
-	if old != nil {
-		panic("self final already exist")
-	}
-	link, err := readLink(txn, node, external.NodeId)
-	if err != nil {
-		return err
-	}
-	if link > external.Number {
-		panic("external link backward")
+	if config.Debug {
+		if self == nil || self.Number != number-1 {
+			panic("self final assert error")
+		}
+		if external == nil {
+			panic("external final not exist")
+		}
+		old, err := readRound(txn, references[0])
+		if err != nil {
+			return err
+		}
+		if old != nil {
+			panic("self final already exist")
+		}
+		link, err := readLink(txn, node, external.NodeId)
+		if err != nil {
+			return err
+		}
+		if link > external.Number {
+			panic("external link backward")
+		}
 	}
 	// assert end
 
@@ -100,77 +134,99 @@ func (s *BadgerStore) StartNewRound(node crypto.Hash, number, start uint64, refe
 	return txn.Commit()
 }
 
-func (s *BadgerStore) WriteSnapshot(snap *common.Snapshot) error {
+func (s *BadgerStore) CheckTransactionFinalization(hash crypto.Hash) (bool, error) {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	key := graphFinalizationKey(hash)
+	_, err := txn.Get(key)
+	if err == badger.ErrKeyNotFound {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 
 	// FIXME assert only, remove in future
-	cache, err := readRound(txn, snap.NodeId)
-	if err != nil {
-		return err
-	}
-	if cache == nil || snap.RoundNumber != cache.Number {
-		panic("snapshot round number assert error")
-	}
-	if snap.References[0] != cache.References[0] || snap.References[1] != cache.References[1] {
-		panic("snapshot references assert error")
+	if config.Debug {
+		cache, err := readRound(txn, snap.NodeId)
+		if err != nil {
+			return err
+		}
+		if cache == nil || snap.RoundNumber != cache.Number {
+			panic("snapshot round number assert error")
+		}
+		if snap.References[0] != cache.References[0] || snap.References[1] != cache.References[1] {
+			panic("snapshot references assert error")
+		}
+		tx, err := readTransaction(txn, snap.Transaction.PayloadHash())
+		if err != nil {
+			return err
+		}
+		if tx == nil {
+			panic("snapshot transaction not exist")
+		}
+		key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction.PayloadHash())
+		_, err = txn.Get(key)
+		if err == nil {
+			panic("snapshot duplication")
+		} else if err != badger.ErrKeyNotFound {
+			return err
+		}
 	}
 	// end assert
 
-	tx, err := readTransaction(txn, snap.Transaction.PayloadHash())
+	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction.PayloadHash())
+	val := common.MsgpackMarshalPanic(snap)
+	err := txn.Set(key, val)
 	if err != nil {
 		return err
 	}
-	if tx == nil {
-		panic("snapshot transaction not exist")
-	}
-	if !tx.Snapshot.HasValue() {
-		tx.Snapshot = snap.PayloadHash()
-		err = writeTransaction(txn, tx)
-		if err != nil {
-			return err
-		}
-		err = writeTopology(txn, tx)
-		if err != nil {
-			return err
-		}
+
+	key = graphFinalizationKey(snap.Transaction.PayloadHash())
+	err = txn.Set(key, []byte{})
+	if err != nil {
+		return err
 	}
 
-	key := graphSnapshotKey(snap.PayloadHash())
-	val := common.MsgpackMarshalPanic(snap)
-	err = txn.Set(key, val)
+	err = writeTopology(txn, snap)
 	if err != nil {
 		return err
 	}
 	return txn.Commit()
 }
 
-func (s *BadgerStore) ReadTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.TransactionWithTopologicalOrder, error) {
-	transactions := make([]*common.TransactionWithTopologicalOrder, 0)
+func (s *BadgerStore) ReadSnapshotsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
+	snapshots := make([]*common.SnapshotWithTopologicalOrder, 0)
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
 	it.Seek(graphTopologyKey(topologyOffset))
-	for ; it.ValidForPrefix([]byte(graphPrefixTopology)) && uint64(len(transactions)) < count; it.Next() {
+	for ; it.ValidForPrefix([]byte(graphPrefixTopology)) && uint64(len(snapshots)) < count; it.Next() {
 		item := it.Item()
 		v, err := item.ValueCopy(nil)
 		if err != nil {
-			return transactions, err
+			return snapshots, err
 		}
-		var hash crypto.Hash
-		copy(hash[:], v)
-		tx, err := readTransaction(txn, hash)
+		var snap common.SnapshotWithTopologicalOrder
+		err = msgpack.Unmarshal(v, &snap)
 		if err != nil {
-			return transactions, err
+			return snapshots, err
 		}
-		tx.TopologicalOrder = graphTopologyOrder(item.Key())
-		tx.Hash = tx.PayloadHash()
-		transactions = append(transactions, tx)
+		snap.Transaction.Hash = snap.Transaction.PayloadHash()
+		snap.TopologicalOrder = topologyOrder(item.Key())
+		snap.Hash = snap.PayloadHash()
+		snapshots = append(snapshots, &snap)
 	}
 
-	return transactions, nil
+	return snapshots, nil
 }
 
 func (s *BadgerStore) TopologySequence() uint64 {
@@ -194,14 +250,14 @@ func (s *BadgerStore) TopologySequence() uint64 {
 	return sequence
 }
 
-func writeTopology(txn *badger.Txn, tx *common.TransactionWithTopologicalOrder) error {
-	key := graphTopologyKey(tx.TopologicalOrder)
-	val := tx.Snapshot[:]
-	return txn.Set(key, val)
+func writeTopology(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder) error {
+	key := graphTopologyKey(snap.TopologicalOrder)
+	val := snap.PayloadHash()
+	return txn.Set(key, val[:])
 }
 
-func readTransaction(txn *badger.Txn, hash crypto.Hash) (*common.TransactionWithTopologicalOrder, error) {
-	var out common.TransactionWithTopologicalOrder
+func readTransaction(txn *badger.Txn, hash crypto.Hash) (*common.Transaction, error) {
+	var out common.Transaction
 	key := graphTransactionKey(hash)
 	err := graphReadValue(txn, key, &out)
 	if err == badger.ErrKeyNotFound {
@@ -210,7 +266,7 @@ func readTransaction(txn *badger.Txn, hash crypto.Hash) (*common.TransactionWith
 	return &out, err
 }
 
-func writeTransaction(txn *badger.Txn, tx *common.TransactionWithTopologicalOrder) error {
+func writeTransaction(txn *badger.Txn, tx *common.Transaction) error {
 	key := graphTransactionKey(tx.PayloadHash())
 	val := common.MsgpackMarshalPanic(tx)
 	return txn.Set(key, val)
@@ -275,8 +331,16 @@ func graphTransactionKey(hash crypto.Hash) []byte {
 	return append([]byte(graphPrefixTransaction), hash[:]...)
 }
 
-func graphSnapshotKey(hash crypto.Hash) []byte {
-	return append([]byte(graphPrefixSnapshot), hash[:]...)
+func graphFinalizationKey(hash crypto.Hash) []byte {
+	return append([]byte(graphPrefixFinalization), hash[:]...)
+}
+
+func graphSnapshotKey(nodeId crypto.Hash, round uint64, hash crypto.Hash) []byte {
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, round)
+	key := append([]byte(graphPrefixSnapshot), nodeId[:]...)
+	key = append(key, buf...)
+	return append(key, hash[:]...)
 }
 
 func graphLinkKey(from, to crypto.Hash) []byte {

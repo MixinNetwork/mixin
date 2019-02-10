@@ -20,12 +20,6 @@ type Snapshot struct {
 	Signatures  []crypto.Signature `msgpack:"S,omitempty"json:"signatures,omitempty"`
 }
 
-type TransactionWithTopologicalOrder struct {
-	Transaction
-	Snapshot         crypto.Hash
-	TopologicalOrder uint64
-}
-
 type SnapshotWithTopologicalOrder struct {
 	Snapshot
 	TopologicalOrder uint64                 `msgpack:"-"json:"topology"`
