@@ -67,39 +67,41 @@ func (s *BadgerStore) WriteTransaction(tx *common.Transaction) error {
 	defer txn.Discard()
 
 	// FIXME assert kind checks, not needed at all
-	txHash := tx.PayloadHash()
-	for _, in := range tx.Inputs {
-		if len(in.Genesis) > 0 {
-			continue
-		}
+	if config.Debug {
+		txHash := tx.PayloadHash()
+		for _, in := range tx.Inputs {
+			if len(in.Genesis) > 0 {
+				continue
+			}
 
-		if in.Deposit != nil {
-			ival, err := readDepositInput(txn, in.Deposit)
+			if in.Deposit != nil {
+				ival, err := readDepositInput(txn, in.Deposit)
+				if err != nil {
+					panic(fmt.Errorf("deposit check error %s", err.Error()))
+				}
+				if bytes.Compare(ival, txHash[:]) != 0 {
+					panic(fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival)))
+				}
+				continue
+			}
+
+			key := utxoKey(in.Hash, in.Index)
+			item, err := txn.Get([]byte(key))
 			if err != nil {
-				panic(fmt.Errorf("deposit check error %s", err.Error()))
+				panic(fmt.Errorf("UTXO check error %s", err.Error()))
 			}
-			if bytes.Compare(ival, txHash[:]) != 0 {
-				panic(fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival)))
+			ival, err := item.ValueCopy(nil)
+			if err != nil {
+				panic(fmt.Errorf("UTXO check error %s", err.Error()))
 			}
-			continue
-		}
-
-		key := utxoKey(in.Hash, in.Index)
-		item, err := txn.Get([]byte(key))
-		if err != nil {
-			panic(fmt.Errorf("UTXO check error %s", err.Error()))
-		}
-		ival, err := item.ValueCopy(nil)
-		if err != nil {
-			panic(fmt.Errorf("UTXO check error %s", err.Error()))
-		}
-		var out common.UTXOWithLock
-		err = msgpack.Unmarshal(ival, &out)
-		if err != nil {
-			panic(fmt.Errorf("UTXO check error %s", err.Error()))
-		}
-		if out.LockHash != txHash {
-			panic(fmt.Errorf("utxo locked for transaction %s", out.LockHash))
+			var out common.UTXOWithLock
+			err = msgpack.Unmarshal(ival, &out)
+			if err != nil {
+				panic(fmt.Errorf("UTXO check error %s", err.Error()))
+			}
+			if out.LockHash != txHash {
+				panic(fmt.Errorf("utxo locked for transaction %s", out.LockHash))
+			}
 		}
 	}
 	// assert end
@@ -237,15 +239,14 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) e
 	}
 	// end assert
 
-	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction.PayloadHash())
-	val := common.MsgpackMarshalPanic(snap)
-	err := txn.Set(key, val)
+	err := finalizeTransaction(txn, &snap.Transaction.Transaction)
 	if err != nil {
 		return err
 	}
 
-	key = graphFinalizationKey(snap.Transaction.PayloadHash())
-	err = txn.Set(key, []byte{})
+	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction.PayloadHash())
+	val := common.MsgpackMarshalPanic(snap)
+	err = txn.Set(key, val)
 	if err != nil {
 		return err
 	}
@@ -330,8 +331,87 @@ func readTransaction(txn *badger.Txn, hash crypto.Hash) (*common.Transaction, er
 
 func writeTransaction(txn *badger.Txn, tx *common.Transaction) error {
 	key := graphTransactionKey(tx.PayloadHash())
+
+	// FIXME assert only, remove in future
+	if config.Debug {
+		_, err := txn.Get(key)
+		if err == nil {
+			panic("transaction duplication")
+		} else if err != badger.ErrKeyNotFound {
+			return err
+		}
+	}
+	// end assert
+
 	val := common.MsgpackMarshalPanic(tx)
 	return txn.Set(key, val)
+}
+
+func finalizeTransaction(txn *badger.Txn, tx *common.Transaction) error {
+	key := graphFinalizationKey(tx.PayloadHash())
+	_, err := txn.Get(key)
+	if err == nil {
+		return nil
+	} else if err != badger.ErrKeyNotFound {
+		return err
+	}
+	err = txn.Set(key, []byte{})
+	if err != nil {
+		return err
+	}
+
+	for _, utxo := range tx.UnspentOutputs() {
+		err := writeUTXO(txn, utxo, tx.Extra)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeUTXO(txn *badger.Txn, utxo *common.UTXO, extra []byte) error {
+	for _, k := range utxo.Keys {
+		key := ghostKey(k)
+
+		// FIXME assert kind checks, not needed at all
+		if config.Debug {
+			_, err := txn.Get(key)
+			if err == nil {
+				panic("ErrorValidateFailed")
+			} else if err != badger.ErrKeyNotFound {
+				return err
+			}
+		}
+		// assert end
+
+		err := txn.Set(key, []byte{0})
+		if err != nil {
+			return err
+		}
+	}
+	key := utxoKey(utxo.Hash, utxo.Index)
+	val := common.MsgpackMarshalPanic(utxo)
+	err := txn.Set(key, val)
+	if err != nil {
+		return err
+	}
+
+	switch utxo.Type {
+	case common.OutputTypeNodePledge:
+		var publicSpend crypto.Key
+		copy(publicSpend[:], extra)
+		return writeNodePledge(txn, publicSpend, utxo.Hash)
+	case common.OutputTypeNodeAccept:
+		var publicSpend crypto.Key
+		copy(publicSpend[:], extra)
+		return writeNodeAccept(txn, publicSpend, utxo.Hash, false)
+	case common.OutputTypeDomainAccept:
+		var publicSpend crypto.Key
+		copy(publicSpend[:], extra)
+		return writeDomainAccept(txn, publicSpend, utxo.Hash)
+	}
+
+	return nil
 }
 
 func readLink(txn *badger.Txn, from, to crypto.Hash) (uint64, error) {

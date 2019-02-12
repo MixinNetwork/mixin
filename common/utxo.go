@@ -46,13 +46,8 @@ type DataStore interface {
 	DomainReader
 }
 
-func (s *Snapshot) UnspentOutputs() []*UTXO {
+func (tx *Transaction) UnspentOutputs() []*UTXO {
 	var utxos []*UTXO
-	tx := s.Transaction
-	if tx == nil {
-		return utxos
-	}
-
 	for i, out := range tx.Outputs {
 		utxo := &UTXO{
 			Input: Input{

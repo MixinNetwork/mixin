@@ -124,12 +124,12 @@ func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {
 		return nil
 	}
 
-	err = s.Transaction.Validate(node.store)
-	if err != nil {
-		return err
-	}
 	tx, err := node.store.ReadTransaction(txHash)
 	if err != nil || tx != nil {
+		return err
+	}
+	err = s.Transaction.Validate(node.store)
+	if err != nil {
 		return err
 	}
 	return node.store.WriteTransaction(&s.Transaction.Transaction)
