@@ -7,11 +7,11 @@ import (
 )
 
 const (
-	snapshotsPrefixDomainAccept = "DOMAINACCEPT"
-	snapshotsPrefixDomainRemove = "DOMAINREMOVE"
+	graphPrefixDomainAccept = "DOMAINACCEPT"
+	graphPrefixDomainRemove = "DOMAINREMOVE"
 )
 
-func (s *BadgerStore) SnapshotsReadDomains() []common.Domain {
+func (s *BadgerStore) ReadDomains() []common.Domain {
 	domains := make([]common.Domain, 0)
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
@@ -19,16 +19,16 @@ func (s *BadgerStore) SnapshotsReadDomains() []common.Domain {
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
-	prefix := []byte(snapshotsPrefixDomainAccept)
+	prefix := []byte(graphPrefixDomainAccept)
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-		acc := domainAccountForState(it.Item().Key(), snapshotsPrefixDomainAccept)
+		acc := domainAccountForState(it.Item().Key(), graphPrefixDomainAccept)
 		domains = append(domains, common.Domain{Account: acc})
 	}
 	return domains
 }
 
 func writeDomainAccept(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash) error {
-	key := domainAcceptKey(publicSpend)
+	key := graphDomainAcceptKey(publicSpend)
 	return txn.Set(key, tx[:])
 }
 
@@ -43,6 +43,6 @@ func domainAccountForState(key []byte, domainState string) common.Address {
 	}
 }
 
-func domainAcceptKey(publicSpend crypto.Key) []byte {
-	return append([]byte(snapshotsPrefixDomainAccept), publicSpend[:]...)
+func graphDomainAcceptKey(publicSpend crypto.Key) []byte {
+	return append([]byte(graphPrefixDomainAccept), publicSpend[:]...)
 }

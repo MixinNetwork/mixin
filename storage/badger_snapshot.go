@@ -2,75 +2,20 @@ package storage
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"sort"
 
 	"github.com/MixinNetwork/mixin/common"
-	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/dgraph-io/badger"
 	"github.com/vmihailenco/msgpack"
 )
 
-const (
-	snapshotsPrefixSnapshot  = "SNAPSHOT"  // transaction hash to snapshot meta, mainly node and consensus timestamp
-	snapshotsPrefixGraph     = "GRAPH"     // consensus directed asyclic graph data store
-	snapshotsPrefixGhost     = "GHOST"     // each output key should only be used once
-	snapshotsPrefixUTXO      = "UTXO"      // unspent outputs, will be deleted once consumed
-	snapshotsPrefixDeposit   = "DEPOSIT"   // unspent outputs, will be deleted once consumed
-	snapshotsPrefixNodeRound = "NODEROUND" // node specific info, e.g. round number, round hash
-	snapshotsPrefixNodeLink  = "NODELINK"  // latest node round links
-)
-
-func (s *BadgerStore) SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error) {
-	snapshots := make([]*common.Snapshot, 0)
-
+func (s *BadgerStore) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
-	defer it.Close()
-
-	key := graphKey(nodeIdWithNetwork, round, crypto.Hash{})
-	prefix := key[:len(key)-len(crypto.Hash{})]
-	for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
-		item := it.Item()
-		v, err := item.ValueCopy(nil)
-		if err != nil {
-			return snapshots, err
-		}
-		var s common.Snapshot
-		err = msgpack.Unmarshal(v, &s)
-		if err != nil {
-			return snapshots, err
-		}
-		snapshots = append(snapshots, &s)
-	}
-
-	sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].Timestamp < snapshots[j].Timestamp })
-	return snapshots, nil
-}
-
-func (s *BadgerStore) SnapshotsReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error) {
-	txn := s.snapshotsDB.NewTransaction(false)
-	defer txn.Discard()
-
-	return readSnapshotByTransactionHash(txn, hash)
-}
-
-func (s *BadgerStore) SnapshotsWriteSnapshot(snapshot *common.SnapshotWithTopologicalOrder) error {
-	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
-		return writeSnapshot(txn, snapshot, false)
-	})
-}
-
-func (s *BadgerStore) SnapshotsReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error) {
-	txn := s.snapshotsDB.NewTransaction(false)
-	defer txn.Discard()
-
-	key := utxoKey(hash, index)
+	key := graphUtxoKey(hash, index)
 	item, err := txn.Get(key)
 	if err == badger.ErrKeyNotFound {
 		return nil, nil
@@ -89,7 +34,7 @@ func (s *BadgerStore) SnapshotsReadUTXO(hash crypto.Hash, index int) (*common.UT
 }
 
 func readDepositInput(txn *badger.Txn, deposit *common.DepositData) ([]byte, error) {
-	key := depositKey(deposit)
+	key := graphDepositKey(deposit)
 	item, err := txn.Get(key)
 	if err != nil {
 		return nil, err
@@ -97,7 +42,7 @@ func readDepositInput(txn *badger.Txn, deposit *common.DepositData) ([]byte, err
 	return item.ValueCopy(nil)
 }
 
-func (s *BadgerStore) SnapshotsCheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
+func (s *BadgerStore) CheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -113,9 +58,9 @@ func (s *BadgerStore) SnapshotsCheckDepositInput(deposit *common.DepositData, tx
 	return fmt.Errorf("invalid lock %s %s", hex.EncodeToString(ival), hex.EncodeToString(tx[:]))
 }
 
-func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
+func (s *BadgerStore) LockDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
-		key := depositKey(deposit)
+		key := graphDepositKey(deposit)
 		ival, err := readDepositInput(txn, deposit)
 		save := func() error {
 			return txn.Set(key, tx[:])
@@ -133,10 +78,10 @@ func (s *BadgerStore) SnapshotsLockDepositInput(deposit *common.DepositData, tx 
 	})
 }
 
-func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*common.UTXO, error) {
+func (s *BadgerStore) LockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*common.UTXO, error) {
 	var utxo *common.UTXO
 	err := s.snapshotsDB.Update(func(txn *badger.Txn) error {
-		key := utxoKey(hash, index)
+		key := graphUtxoKey(hash, index)
 		item, err := txn.Get([]byte(key))
 		if err == badger.ErrKeyNotFound {
 			return nil
@@ -166,11 +111,11 @@ func (s *BadgerStore) SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.H
 	return utxo, err
 }
 
-func (s *BadgerStore) SnapshotsCheckGhost(key crypto.Key) (bool, error) {
+func (s *BadgerStore) CheckGhost(key crypto.Key) (bool, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	_, err := txn.Get([]byte(ghostKey(key)))
+	_, err := txn.Get([]byte(graphGhostKey(key)))
 	if err == badger.ErrKeyNotFound {
 		return false, nil
 	}
@@ -178,175 +123,4 @@ func (s *BadgerStore) SnapshotsCheckGhost(key crypto.Key) (bool, error) {
 		return false, err
 	}
 	return true, nil
-}
-
-func (s *BadgerStore) SnapshotsLoadGenesis(snapshots []*common.SnapshotWithTopologicalOrder) error {
-	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
-		if checkGenesisLoad(txn) {
-			return nil
-		}
-
-		filter := make(map[crypto.Hash]bool)
-		for _, snap := range snapshots {
-			if !filter[snap.NodeId] {
-				filter[snap.NodeId] = true
-				err := writeRoundMeta(txn, snap.NodeId, snap.RoundNumber, snap.Timestamp)
-				if err != nil {
-					return err
-				}
-			}
-			err := writeSnapshot(txn, snap, true)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-}
-
-func checkGenesisLoad(txn *badger.Txn) bool {
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
-	defer it.Close()
-
-	it.Rewind()
-	return it.Valid()
-}
-
-func readSnapshotByTransactionHash(txn *badger.Txn, hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error) {
-	item, err := txn.Get(snapshotKey(hash))
-	if err == badger.ErrKeyNotFound {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-	meta, err := item.ValueCopy(nil)
-	if err != nil {
-		return nil, err
-	}
-
-	key := meta[:len(graphKey(crypto.Hash{}, 0, crypto.Hash{}))]
-	topo := binary.BigEndian.Uint64(meta[len(key):])
-	item, err = txn.Get(key)
-	if err == badger.ErrKeyNotFound {
-		panic(hash.String())
-	} else if err != nil {
-		return nil, err
-	}
-	val, err := item.ValueCopy(nil)
-	if err != nil {
-		return nil, err
-	}
-	var s common.SnapshotWithTopologicalOrder
-	err = msgpack.Unmarshal(val, &s)
-	s.Transaction.Hash = s.Transaction.PayloadHash()
-	s.TopologicalOrder = topo
-	s.Hash = s.PayloadHash()
-	return &s, err
-}
-
-func pruneSnapshot(txn *badger.Txn, tx crypto.Hash) error {
-	return nil
-}
-
-func writeSnapshot(txn *badger.Txn, snapshot *common.SnapshotWithTopologicalOrder, genesis bool) error {
-	txHash := snapshot.Transaction.PayloadHash()
-	// FIXME what if same transaction but different snapshot hash
-	_, err := txn.Get(snapshotKey(txHash))
-	if err == nil {
-		return nil
-	} else if err != badger.ErrKeyNotFound {
-		return err
-	}
-
-	roundMeta, err := readRoundMeta(txn, snapshot.NodeId)
-	if err != nil {
-		return err
-	}
-	roundNumber, roundStart := roundMeta[0], roundMeta[1]
-
-	// TODO this section is only an assert kind check, not needed at all
-	if snapshot.RoundNumber < roundNumber || snapshot.RoundNumber > roundNumber+1 {
-		panic(fmt.Errorf("snapshot round error %d %d %d %d", roundNumber, roundStart, snapshot.RoundNumber, snapshot.Timestamp))
-	}
-	if snapshot.RoundNumber == roundNumber && snapshot.Timestamp >= config.SnapshotRoundGap+roundStart {
-		panic(fmt.Errorf("snapshot old round timestamp error %d %d %d %d", roundNumber, roundStart, snapshot.RoundNumber, snapshot.Timestamp))
-	}
-	if snapshot.RoundNumber == roundNumber+1 && snapshot.Timestamp < config.SnapshotRoundGap+roundStart {
-		panic(fmt.Errorf("snapshot new round timestamp error %d %d %d %d", roundNumber, roundStart, snapshot.RoundNumber, snapshot.Timestamp))
-	}
-
-	// FIXME should ensure round meta and snapshot consistence, how to move out here?
-	if snapshot.RoundNumber == roundNumber+1 || snapshot.Timestamp < roundStart {
-		err = writeRoundMeta(txn, snapshot.NodeId, snapshot.RoundNumber, snapshot.Timestamp)
-		if err != nil {
-			return err
-		}
-	}
-
-	// FIXME should ensure round links and snapshot consistence, how to move out here?
-	for to, link := range snapshot.RoundLinks {
-		err = writeRoundLink(txn, snapshot.NodeId, to, link)
-		if err != nil {
-			return err
-		}
-	}
-
-	key := graphKey(snapshot.NodeId, snapshot.RoundNumber, txHash)
-
-	_, err = txn.Get(key) // TODO this check is only an assert kind check, not needed at all
-	if err == nil {
-		panic("ErrorValidateFailed")
-	} else if err != badger.ErrKeyNotFound {
-		return err
-	}
-
-	val := common.MsgpackMarshalPanic(snapshot)
-	err = txn.Set(key, val)
-	if err != nil {
-		return err
-	}
-
-	// not related to consensus
-	seq := snapshot.TopologicalOrder
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, seq)
-	meta := append(key, buf...)
-	meta = append(meta, byte(len(snapshot.References)))
-	for _, ref := range snapshot.References {
-		meta = append(meta, ref[:]...)
-	}
-	err = txn.Set(snapshotKey(snapshot.Transaction.PayloadHash()), meta)
-	if err != nil {
-		return err
-	}
-	return writeSnapshotTopology(txn, snapshot)
-}
-
-func snapshotKey(transactionHash crypto.Hash) []byte {
-	return append([]byte(snapshotsPrefixSnapshot), transactionHash[:]...)
-}
-
-func graphKey(nodeIdWithNetwork crypto.Hash, round uint64, txHash crypto.Hash) []byte {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, round)
-	key := append([]byte(snapshotsPrefixGraph), nodeIdWithNetwork[:]...)
-	key = append(key, buf...)
-	return append(key, txHash[:]...)
-}
-
-func utxoKey(hash crypto.Hash, index int) []byte {
-	buf := make([]byte, binary.MaxVarintLen64)
-	size := binary.PutVarint(buf, int64(index))
-	key := append([]byte(snapshotsPrefixUTXO), hash[:]...)
-	return append(key, buf[:size]...)
-}
-
-func depositKey(deposit *common.DepositData) []byte {
-	hash := crypto.NewHash(common.MsgpackMarshalPanic(deposit))
-	return append([]byte(snapshotsPrefixDeposit), hash[:]...)
-}
-
-func ghostKey(k crypto.Key) []byte {
-	return append([]byte(snapshotsPrefixGhost), k[:]...)
 }

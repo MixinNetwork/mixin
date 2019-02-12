@@ -8,39 +8,35 @@ import (
 	"github.com/vmihailenco/msgpack"
 )
 
-const snapshotsPrefixTopology = "TOPOLOGY" // local topological sorted snapshots, irreverlant to the consensus rule
-
-func (s *BadgerStore) SnapshotsReadSnapshotsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
+func (s *BadgerStore) ReadSnapshotsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	snapshots := make([]*common.SnapshotWithTopologicalOrder, 0)
-
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
-
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
-	it.Seek(topologyKey(topologyOffset))
-	for ; it.ValidForPrefix([]byte(snapshotsPrefixTopology)) && uint64(len(snapshots)) < count; it.Next() {
+	it.Seek(graphTopologyKey(topologyOffset))
+	for ; it.ValidForPrefix([]byte(graphPrefixTopology)) && uint64(len(snapshots)) < count; it.Next() {
 		item := it.Item()
 		v, err := item.ValueCopy(nil)
 		if err != nil {
 			return snapshots, err
 		}
-		var s common.SnapshotWithTopologicalOrder
-		err = msgpack.Unmarshal(v, &s)
+		var snap common.SnapshotWithTopologicalOrder
+		err = msgpack.Unmarshal(v, &snap)
 		if err != nil {
 			return snapshots, err
 		}
-		s.Transaction.Hash = s.Transaction.PayloadHash()
-		s.TopologicalOrder = topologyOrder(item.Key())
-		s.Hash = s.PayloadHash()
-		snapshots = append(snapshots, &s)
+		snap.Transaction.Hash = snap.Transaction.PayloadHash()
+		snap.TopologicalOrder = graphTopologyOrder(item.Key())
+		snap.Hash = snap.PayloadHash()
+		snapshots = append(snapshots, &snap)
 	}
 
 	return snapshots, nil
 }
 
-func (s *BadgerStore) SnapshotsTopologySequence() uint64 {
+func (s *BadgerStore) TopologySequence() uint64 {
 	var sequence uint64
 
 	txn := s.snapshotsDB.NewTransaction(false)
@@ -53,27 +49,27 @@ func (s *BadgerStore) SnapshotsTopologySequence() uint64 {
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
-	it.Seek(topologyKey(^uint64(0)))
-	if it.ValidForPrefix([]byte(snapshotsPrefixTopology)) {
+	it.Seek(graphTopologyKey(^uint64(0)))
+	if it.ValidForPrefix([]byte(graphPrefixTopology)) {
 		item := it.Item()
-		sequence = topologyOrder(item.Key()) + 1
+		sequence = graphTopologyOrder(item.Key()) + 1
 	}
 	return sequence
 }
 
-func writeSnapshotTopology(txn *badger.Txn, s *common.SnapshotWithTopologicalOrder) error {
-	key := topologyKey(s.TopologicalOrder)
-	val := common.MsgpackMarshalPanic(s)
-	return txn.Set(key, val)
+func writeTopology(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder) error {
+	key := graphTopologyKey(snap.TopologicalOrder)
+	val := snap.PayloadHash()
+	return txn.Set(key, val[:])
 }
 
-func topologyKey(order uint64) []byte {
+func graphTopologyKey(order uint64) []byte {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, order)
-	return append([]byte(snapshotsPrefixTopology), buf...)
+	return append([]byte(graphPrefixTopology), buf...)
 }
 
-func topologyOrder(key []byte) uint64 {
-	order := key[len(snapshotsPrefixTopology):]
+func graphTopologyOrder(key []byte) uint64 {
+	order := key[len(graphPrefixTopology):]
 	return binary.BigEndian.Uint64(order)
 }

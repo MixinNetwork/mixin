@@ -9,26 +9,26 @@ import (
 )
 
 const (
-	snapshotsPrefixNodePledge = "NODESTATEPLEDGE"
-	snapshotsPrefixNodeAccept = "NODESTATEACCEPT"
-	snapshotsPrefixNodeDepart = "NODESTATEDEPART"
-	snapshotsPrefixNodeRemove = "NODESTATEREMOVE"
+	graphPrefixNodePledge = "NODESTATEPLEDGE"
+	graphPrefixNodeAccept = "NODESTATEACCEPT"
+	graphPrefixNodeDepart = "NODESTATEDEPART"
+	graphPrefixNodeRemove = "NODESTATEREMOVE"
 )
 
-func (s *BadgerStore) SnapshotsReadConsensusNodes() []common.Node {
+func (s *BadgerStore) ReadConsensusNodes() []common.Node {
 	nodes := make([]common.Node, 0)
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	accepted := readNodesInState(txn, snapshotsPrefixNodeAccept)
+	accepted := readNodesInState(txn, graphPrefixNodeAccept)
 	for _, n := range accepted {
 		nodes = append(nodes, common.Node{Account: n, State: common.NodeStateAccepted})
 	}
-	pledging := readNodesInState(txn, snapshotsPrefixNodePledge)
+	pledging := readNodesInState(txn, graphPrefixNodePledge)
 	for _, n := range pledging {
 		nodes = append(nodes, common.Node{Account: n, State: common.NodeStatePledging})
 	}
-	departing := readNodesInState(txn, snapshotsPrefixNodeDepart)
+	departing := readNodesInState(txn, graphPrefixNodeDepart)
 	for _, n := range departing {
 		nodes = append(nodes, common.Node{Account: n, State: common.NodeStateDeparting})
 	}
@@ -73,13 +73,13 @@ func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash) er
 		return err
 	}
 
-	pledging := readNodesInState(txn, snapshotsPrefixNodePledge)
+	pledging := readNodesInState(txn, graphPrefixNodePledge)
 	if len(pledging) > 0 {
 		node := pledging[0]
 		return fmt.Errorf("node %s is pledging", node.PublicSpendKey.String())
 	}
 
-	departing := readNodesInState(txn, snapshotsPrefixNodeDepart)
+	departing := readNodesInState(txn, graphPrefixNodeDepart)
 	if len(departing) > 0 {
 		node := departing[0]
 		return fmt.Errorf("node %s is departing", node.PublicSpendKey.String())
@@ -101,13 +101,13 @@ func nodeAccountForState(key []byte, nodeState string) common.Address {
 }
 
 func nodePledgeKey(publicSpend crypto.Key) []byte {
-	return append([]byte(snapshotsPrefixNodePledge), publicSpend[:]...)
+	return append([]byte(graphPrefixNodePledge), publicSpend[:]...)
 }
 
 func nodeAcceptKey(publicSpend crypto.Key) []byte {
-	return append([]byte(snapshotsPrefixNodeAccept), publicSpend[:]...)
+	return append([]byte(graphPrefixNodeAccept), publicSpend[:]...)
 }
 
 func nodeDepartKey(publicSpend crypto.Key) []byte {
-	return append([]byte(snapshotsPrefixNodeDepart), publicSpend[:]...)
+	return append([]byte(graphPrefixNodeDepart), publicSpend[:]...)
 }

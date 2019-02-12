@@ -30,7 +30,7 @@ func TestBadger(t *testing.T) {
 	assert.True(found)
 	assert.Equal(1, val)
 
-	seq := store.SnapshotsTopologySequence()
+	seq := store.TopologySequence()
 	assert.Equal(uint64(0), seq)
 
 	err = store.Close()
