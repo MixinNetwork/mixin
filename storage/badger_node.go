@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	snapshotsPrefixNodePledge = "NODEPLEDGE"
-	snapshotsPrefixNodeAccept = "NODEACCEPT"
-	snapshotsPrefixNodeDepart = "NODEDEPART"
-	snapshotsPrefixNodeRemove = "NODEREMOVE"
+	snapshotsPrefixNodePledge = "NODESTATEPLEDGE"
+	snapshotsPrefixNodeAccept = "NODESTATEACCEPT"
+	snapshotsPrefixNodeDepart = "NODESTATEDEPART"
+	snapshotsPrefixNodeRemove = "NODESTATEREMOVE"
 )
 
 func (s *BadgerStore) SnapshotsReadConsensusNodes() []common.Node {

@@ -11,6 +11,11 @@ type Store interface {
 	StateGet(key string, val interface{}) (bool, error)
 	StateSet(key string, val interface{}) error
 
+	CheckTransactionFinalization(hash crypto.Hash) (bool, error)
+	CheckTransactionInNode(nodeId, hash crypto.Hash) (bool, error)
+	ReadTransaction(hash crypto.Hash) (*common.Transaction, error)
+	WriteTransaction(tx *common.Transaction) error
+
 	SnapshotsLoadGenesis([]*common.SnapshotWithTopologicalOrder) error
 	SnapshotsTopologySequence() uint64
 	SnapshotsReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error)

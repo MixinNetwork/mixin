@@ -18,27 +18,22 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	// if finalized, not need to validate transaction
 	// else validate transaction
 	// if not validated return nil
+	// switch 1. raw new snapshot 2. finalized snapshot 3. wait more signatures
+	// if the transaction is a node accept, then create it with no references
+	// and its node id should always be the new accepted node
 	// ...
 	// ...
 	// check transaction in snapshot node graph again before final snapshot write
-	o, err := node.store.SnapshotsReadSnapshotByTransactionHash(s.Transaction.PayloadHash())
+	err := node.verifyTransactionInSnapshot(s)
 	if err != nil {
-		logger.Println("READ SNAPSHOT BY TRANSACTION ERROR", err)
-		return nil
-	}
-	if o != nil {
-		return nil
-	}
-	err = s.Transaction.Validate(node.store)
-	if err != nil {
-		logger.Println("VALIDATE TRANSACTION ERROR", err)
+		logger.Println("verifyTransactionInSnapshot ERROR", err)
 		return nil
 	}
 
 	defer node.Graph.UpdateFinalCache()
 	node.clearConsensusSignatures(s)
 
-	cache, final, err := node.signSnapshot(s)
+	cache, final, err := node.tryToSignSnapshot(s)
 	if err != nil {
 		return err
 	}
@@ -107,6 +102,37 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	node.Graph.CacheRound[s.NodeId] = cache
 	node.Graph.FinalRound[s.NodeId] = final
 	return nil
+}
+
+func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {
+	txHash := s.Transaction.PayloadHash()
+	in, err := node.store.CheckTransactionInNode(s.NodeId, txHash)
+	if err != nil {
+		return err
+	} else if in {
+		return fmt.Errorf("transaction %s already snapshot by node %s", txHash.String(), s.NodeId.String())
+	}
+
+	finalized, err := node.store.CheckTransactionFinalization(txHash)
+	if err != nil {
+		return err
+	}
+	if finalized && !node.verifyFinalization(s) {
+		return fmt.Errorf("transaction %s already finalized, won't sign it any more", txHash.String())
+	}
+	if finalized {
+		return nil
+	}
+
+	err = s.Transaction.Validate(node.store)
+	if err != nil {
+		return err
+	}
+	tx, err := node.store.ReadTransaction(txHash)
+	if err != nil || tx != nil {
+		return err
+	}
+	return node.store.WriteTransaction(&s.Transaction.Transaction)
 }
 
 func (node *Node) clearConsensusSignatures(s *common.Snapshot) {
@@ -241,7 +267,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 	return links, cache, final, nil
 }
 
-func (node *Node) signSnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, error) {
+func (node *Node) tryToSignSnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, error) {
 	// what if I have signed a snapshot A in round n, and a new transaction B submitted, which should stay in round n+1
 	// now A has been broadcasted out for signatures, and B added to the new cache round
 	cache := node.Graph.CacheRound[s.NodeId].Copy()

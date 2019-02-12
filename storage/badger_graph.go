@@ -1,7 +1,10 @@
 package storage
 
 import (
+	"bytes"
 	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"sort"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -62,6 +65,44 @@ func (s *BadgerStore) ReadTransaction(hash crypto.Hash) (*common.Transaction, er
 func (s *BadgerStore) WriteTransaction(tx *common.Transaction) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
+
+	// FIXME assert kind checks, not needed at all
+	txHash := tx.PayloadHash()
+	for _, in := range tx.Inputs {
+		if len(in.Genesis) > 0 {
+			continue
+		}
+
+		if in.Deposit != nil {
+			ival, err := readDepositInput(txn, in.Deposit)
+			if err != nil {
+				panic(fmt.Errorf("deposit check error %s", err.Error()))
+			}
+			if bytes.Compare(ival, txHash[:]) != 0 {
+				panic(fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival)))
+			}
+			continue
+		}
+
+		key := utxoKey(in.Hash, in.Index)
+		item, err := txn.Get([]byte(key))
+		if err != nil {
+			panic(fmt.Errorf("UTXO check error %s", err.Error()))
+		}
+		ival, err := item.ValueCopy(nil)
+		if err != nil {
+			panic(fmt.Errorf("UTXO check error %s", err.Error()))
+		}
+		var out common.UTXOWithLock
+		err = msgpack.Unmarshal(ival, &out)
+		if err != nil {
+			panic(fmt.Errorf("UTXO check error %s", err.Error()))
+		}
+		if out.LockHash != txHash {
+			panic(fmt.Errorf("utxo locked for transaction %s", out.LockHash))
+		}
+	}
+	// assert end
 
 	err := writeTransaction(txn, tx)
 	if err != nil {
