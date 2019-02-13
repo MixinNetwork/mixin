@@ -7,7 +7,7 @@ import (
 
 func getInfo(store storage.Store) (map[string]interface{}, error) {
 	info := make(map[string]interface{})
-	graph, err := kernel.LoadRoundGraph(store)
+	graph, err := kernel.LoadRoundGraph(store, kernel.NetworkId())
 	if err != nil {
 		return info, err
 	}

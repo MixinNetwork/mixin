@@ -73,7 +73,7 @@ func (g *RoundGraph) Print() string {
 	return desc
 }
 
-func LoadRoundGraph(store storage.Store) (*RoundGraph, error) {
+func LoadRoundGraph(store storage.Store, networkId crypto.Hash) (*RoundGraph, error) {
 	graph := &RoundGraph{
 		CacheRound: make(map[crypto.Hash]*CacheRound),
 		FinalRound: make(map[crypto.Hash]*FinalRound),
@@ -81,12 +81,15 @@ func LoadRoundGraph(store storage.Store) (*RoundGraph, error) {
 
 	consensusNodes := store.ReadConsensusNodes()
 	for _, cn := range consensusNodes {
-		id := cn.Account.Hash()
+		id := cn.Account.Hash().ForNetwork(networkId)
 		graph.Nodes = append(graph.Nodes, id)
 
 		cache, err := loadHeadRoundForNode(store, id)
 		if err != nil {
 			return nil, err
+		}
+		if cache == nil {
+			continue
 		}
 		graph.CacheRound[cache.NodeId] = cache
 
@@ -113,7 +116,7 @@ func LoadRoundGraph(store storage.Store) (*RoundGraph, error) {
 
 func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*CacheRound, error) {
 	meta, err := store.ReadRound(nodeIdWithNetwork)
-	if err != nil {
+	if err != nil || meta == nil {
 		return nil, err
 	}
 

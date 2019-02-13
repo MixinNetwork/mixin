@@ -62,7 +62,7 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		return nil, err
 	}
 
-	graph, err := LoadRoundGraph(node.store)
+	graph, err := LoadRoundGraph(node.store, node.networkId)
 	if err != nil {
 		return nil, err
 	}

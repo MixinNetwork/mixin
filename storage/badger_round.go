@@ -66,23 +66,26 @@ func (s *BadgerStore) StartNewRound(node crypto.Hash, number, start uint64, refe
 }
 
 func startNewRound(txn *badger.Txn, node crypto.Hash, number, start uint64, references [2]crypto.Hash) error {
-	self, err := readRound(txn, node)
-	if err != nil {
-		return err
-	}
-	external, err := readRound(txn, references[1])
-	if err != nil {
-		return err
+	if references[0].HasValue() || references[1].HasValue() {
+		self, err := readRound(txn, node)
+		if err != nil {
+			return err
+		}
+		external, err := readRound(txn, references[1])
+		if err != nil {
+			return err
+		}
+
+		err = writeLink(txn, node, external.NodeId, external.Number)
+		if err != nil {
+			return err
+		}
+		err = writeRound(txn, references[0], self)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = writeLink(txn, node, external.NodeId, external.Number)
-	if err != nil {
-		return err
-	}
-	err = writeRound(txn, references[0], self)
-	if err != nil {
-		return err
-	}
 	return writeRound(txn, node, &common.Round{
 		NodeId:     node,
 		Number:     number,
