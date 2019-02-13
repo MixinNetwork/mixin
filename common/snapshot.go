@@ -5,19 +5,19 @@ import (
 )
 
 type Round struct {
-	NodeId     crypto.Hash    `msgpack:"N"json:"node"`
-	Number     uint64         `msgpack:"S"json:"number"`
-	Timestamp  uint64         `msgpack:"T"json:"timestamp"`
-	References [2]crypto.Hash `msgpack:"R"json:"references"`
+	NodeId     crypto.Hash    `json:"node"`
+	Number     uint64         `json:"number"`
+	Timestamp  uint64         `json:"timestamp"`
+	References [2]crypto.Hash `json:"references"`
 }
 
 type Snapshot struct {
-	NodeId      crypto.Hash        `msgpack:"N"json:"node"`
-	Transaction *SignedTransaction `msgpack:"T"json:"transaction"`
-	References  [2]crypto.Hash     `msgpack:"R"json:"references"`
-	RoundNumber uint64             `msgpack:"H"json:"round"`
-	Timestamp   uint64             `msgpack:"C"json:"timestamp"`
-	Signatures  []crypto.Signature `msgpack:"S,omitempty"json:"signatures,omitempty"`
+	NodeId      crypto.Hash        `json:"node"`
+	Transaction *SignedTransaction `json:"transaction"`
+	References  [2]crypto.Hash     `json:"references"`
+	RoundNumber uint64             `json:"round"`
+	Timestamp   uint64             `json:"timestamp"`
+	Signatures  []crypto.Signature `json:"signatures,omitempty"`
 }
 
 type SnapshotWithTopologicalOrder struct {

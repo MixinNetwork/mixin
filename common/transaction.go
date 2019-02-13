@@ -25,43 +25,43 @@ const (
 )
 
 type Input struct {
-	Hash    crypto.Hash  `msgpack:"H,omitempty"json:"hash,omitempty"`
-	Index   int          `msgpack:"I,omitempty"json:"index,omitempty"`
-	Genesis []byte       `msgpack:"G,omitempty"json:"genesis,omitempty"`
-	Deposit *DepositData `msgpack:"D,omitempty"json:"deposit,omitempty"`
-	Rebate  []byte       `msgpack:"R,omitempty"json:"rebate,omitempty"`
-	Mint    []byte       `msgpack:"M,omitempty"json:"mint,omitempty"`
+	Hash    crypto.Hash  `json:"hash,omitempty"`
+	Index   int          `json:"index,omitempty"`
+	Genesis []byte       `json:"genesis,omitempty"`
+	Deposit *DepositData `json:"deposit,omitempty"`
+	Rebate  []byte       `json:"rebate,omitempty"`
+	Mint    []byte       `json:"mint,omitempty"`
 }
 
 type Output struct {
-	Type   uint8        `msgpack:"T"json:"type"`
-	Amount Integer      `msgpack:"A"json:"amount"`
-	Keys   []crypto.Key `msgpack:"K,omitempty"json:"keys,omitempty"`
+	Type   uint8        `json:"type"`
+	Amount Integer      `json:"amount"`
+	Keys   []crypto.Key `json:"keys,omitempty"`
 
 	// OutputTypeScript fields
-	Script Script     `msgpack:"S,omitempty"json:"script,omitempty"`
-	Mask   crypto.Key `msgpack:"M,omitempty"json:"mask,omitempty"`
+	Script Script     `json:"script,omitempty"`
+	Mask   crypto.Key `json:"mask,omitempty"`
 }
 
 type DepositData struct {
-	Chain           crypto.Hash `msgpack:"C"json:"chain"`
-	AssetKey        string      `msgpack:"K"json:"asset"`
-	TransactionHash string      `msgpack:"H"json:"transaction"`
-	Amount          Integer     `msgpack:"A"json:"amount"`
+	Chain           crypto.Hash `json:"chain"`
+	AssetKey        string      `json:"asset"`
+	TransactionHash string      `json:"transaction"`
+	Amount          Integer     `json:"amount"`
 }
 
 type Transaction struct {
-	Version uint8       `msgpack:"V"json:"version"`
-	Asset   crypto.Hash `msgpack:"C"json:"asset"`
-	Inputs  []*Input    `msgpack:"I"json:"inputs"`
-	Outputs []*Output   `msgpack:"O"json:"outputs"`
-	Extra   []byte      `msgpack:"E,omitempty"json:"extra,omitempty"`
+	Version uint8       `json:"version"`
+	Asset   crypto.Hash `json:"asset"`
+	Inputs  []*Input    `json:"inputs"`
+	Outputs []*Output   `json:"outputs"`
+	Extra   []byte      `json:"extra,omitempty"`
 	Hash    crypto.Hash `msgpack:"-"json:"hash"`
 }
 
 type SignedTransaction struct {
 	Transaction
-	Signatures [][]crypto.Signature `msgpack:"S,omitempty"json:"signatures,omitempty"`
+	Signatures [][]crypto.Signature `json:"signatures,omitempty"`
 }
 
 func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {

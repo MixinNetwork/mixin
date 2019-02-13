@@ -7,12 +7,12 @@ import (
 type UTXO struct {
 	Input
 	Output
-	Asset crypto.Hash `msgpack:"C"`
+	Asset crypto.Hash
 }
 
 type UTXOWithLock struct {
 	UTXO
-	LockHash crypto.Hash `msgpack:"LH"`
+	LockHash crypto.Hash
 }
 
 type UTXOReader interface {

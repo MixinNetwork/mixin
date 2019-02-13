@@ -13,10 +13,10 @@ import (
 const MainNetworkId = "XIN"
 
 type Address struct {
-	PrivateSpendKey crypto.Key `msgpack:"PRS,omitempty"`
-	PrivateViewKey  crypto.Key `msgpack:"PRV,omitempty"`
-	PublicSpendKey  crypto.Key `msgpack:"PUS,omitempty"`
-	PublicViewKey   crypto.Key `msgpack:"PUV,omitempty"`
+	PrivateSpendKey crypto.Key
+	PrivateViewKey  crypto.Key
+	PublicSpendKey  crypto.Key
+	PublicViewKey   crypto.Key
 }
 
 func NewAddressFromSeed(seed []byte) Address {

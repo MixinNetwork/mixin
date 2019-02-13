@@ -24,21 +24,21 @@ import (
 // 8. if a snapshot passed the round gap, then requeue it to the transaction queues
 
 type CacheRound struct {
-	NodeId     crypto.Hash        `msgpack:"N"`
-	Number     uint64             `msgpack:"R"`
-	Start      uint64             `msgpack:"T"`
-	References [2]crypto.Hash     `msgpack:"L"`
+	NodeId     crypto.Hash
+	Number     uint64
+	Start      uint64
+	References [2]crypto.Hash
 	End        uint64             `msgpack:"-"`
 	Snapshots  []*common.Snapshot `msgpack:"-"`
 }
 
 type FinalRound struct {
-	NodeId     crypto.Hash    `msgpack:"N"`
-	Number     uint64         `msgpack:"R"`
-	Start      uint64         `msgpack:"T"`
-	References [2]crypto.Hash `msgpack:"L"`
-	End        uint64         `msgpack:"-"`
-	Hash       crypto.Hash    `msgpack:"-"`
+	NodeId     crypto.Hash
+	Number     uint64
+	Start      uint64
+	References [2]crypto.Hash
+	End        uint64      `msgpack:"-"`
+	Hash       crypto.Hash `msgpack:"-"`
 }
 
 type RoundGraph struct {
