@@ -21,7 +21,6 @@ const (
 	graphPrefixRound        = "ROUND"        // hash|node-if-cache {node:hash,number:734,references:{self-parent-round-hash,external-round-hash}}
 	graphPrefixSnapshot     = "SNAPSHOT"     // {
 	graphPrefixLink         = "LINK"         // self-external number
-	graphPrefixNode         = "NODE"         // {head}
 	graphPrefixTopology     = "TOPOLOGY"
 )
 

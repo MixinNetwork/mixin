@@ -17,7 +17,8 @@ type Store interface {
 	CheckTransactionInNode(nodeId, hash crypto.Hash) (bool, error)
 	ReadTransaction(hash crypto.Hash) (*common.Transaction, error)
 	WriteTransaction(tx *common.Transaction) error
-	StartNewRound(node crypto.Hash, number, start uint64, references [2]crypto.Hash)
+	StartNewRound(node crypto.Hash, number, start uint64, references [2]crypto.Hash) error
+	TopologySequence() uint64
 
 	ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error)
 	LockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*common.UTXO, error)
@@ -26,11 +27,9 @@ type Store interface {
 	CheckGhost(key crypto.Key) (bool, error)
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error)
-	ReadNodesList() ([]crypto.Hash, error)
-	ReadRoundMeta(nodeIdWithNetwork crypto.Hash) ([2]uint64, error)
+	ReadRound(hash crypto.Hash) (*common.Round, error)
 	ReadRoundLink(from, to crypto.Hash) (uint64, error)
 	WriteSnapshot(*common.SnapshotWithTopologicalOrder) error
-	ReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)
 	ReadDomains() []common.Domain
 
 	QueueAdd(tx *common.SignedTransaction) error

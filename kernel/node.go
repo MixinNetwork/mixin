@@ -107,7 +107,7 @@ func (node *Node) LoadNodeState() error {
 }
 
 func (node *Node) LoadConsensusNodes() error {
-	node.ConsensusNodes = node.store.SnapshotsReadConsensusNodes()
+	node.ConsensusNodes = node.store.ReadConsensusNodes()
 	for _, cn := range node.ConsensusNodes {
 		logger.Println(cn.Account.String(), cn.State)
 	}
@@ -218,15 +218,11 @@ func (node *Node) FeedMempool(peer *network.Peer, s *common.Snapshot) error {
 }
 
 func (node *Node) ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
-	return node.store.SnapshotsReadSnapshotsSinceTopology(offset, count)
+	return node.store.ReadSnapshotsSinceTopology(offset, count)
 }
 
 func (node *Node) ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error) {
-	return node.store.SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork, round)
-}
-
-func (node *Node) ReadSnapshotByTransactionHash(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error) {
-	return node.store.SnapshotsReadSnapshotByTransactionHash(hash)
+	return node.store.ReadSnapshotsForNodeRound(nodeIdWithNetwork, round)
 }
 
 func (node *Node) ConsumeMempool() error {

@@ -265,7 +265,7 @@ type signerInput struct {
 	Node  string      `json:"-"`
 }
 
-func (raw signerInput) SnapshotsReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error) {
+func (raw signerInput) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error) {
 	utxo := &common.UTXO{}
 
 	for _, in := range raw.Inputs {
@@ -299,6 +299,6 @@ func (raw signerInput) SnapshotsReadUTXO(hash crypto.Hash, index int) (*common.U
 	return nil, fmt.Errorf("invalid input %s#%d", hash.String(), index)
 }
 
-func (raw signerInput) SnapshotsCheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
+func (raw signerInput) CheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
 	return nil
 }

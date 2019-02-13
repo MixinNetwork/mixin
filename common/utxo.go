@@ -16,26 +16,26 @@ type UTXOWithLock struct {
 }
 
 type UTXOReader interface {
-	SnapshotsReadUTXO(hash crypto.Hash, index int) (*UTXO, error)
-	SnapshotsCheckDepositInput(deposit *DepositData, tx crypto.Hash) error
+	ReadUTXO(hash crypto.Hash, index int) (*UTXO, error)
+	CheckDepositInput(deposit *DepositData, tx crypto.Hash) error
 }
 
 type UTXOLocker interface {
-	SnapshotsLockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*UTXO, error)
-	SnapshotsLockDepositInput(deposit *DepositData, tx crypto.Hash) error
+	LockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*UTXO, error)
+	LockDepositInput(deposit *DepositData, tx crypto.Hash) error
 }
 
 type GhostChecker interface {
-	SnapshotsCheckGhost(key crypto.Key) (bool, error)
+	CheckGhost(key crypto.Key) (bool, error)
 }
 
 type NodeReader interface {
-	SnapshotsReadConsensusNodes() []Node
-	SnapshotsReadSnapshotByTransactionHash(hash crypto.Hash) (*SnapshotWithTopologicalOrder, error)
+	ReadConsensusNodes() []Node
+	ReadTransaction(hash crypto.Hash) (*Transaction, error)
 }
 
 type DomainReader interface {
-	SnapshotsReadDomains() []Domain
+	ReadDomains() []Domain
 }
 
 type DataStore interface {

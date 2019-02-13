@@ -21,6 +21,6 @@ func (c *TopologicalSequence) Next() uint64 {
 
 func getTopologyCounter(store storage.Store) *TopologicalSequence {
 	return &TopologicalSequence{
-		seq: store.SnapshotsTopologySequence(),
+		seq: store.TopologySequence(),
 	}
 }

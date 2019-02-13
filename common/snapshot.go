@@ -22,9 +22,8 @@ type Snapshot struct {
 
 type SnapshotWithTopologicalOrder struct {
 	Snapshot
-	TopologicalOrder uint64                 `msgpack:"-"json:"topology"`
-	Hash             crypto.Hash            `msgpack:"-"json:"hash"`
-	RoundLinks       map[crypto.Hash]uint64 `msgpack:"-"json:"-"`
+	TopologicalOrder uint64      `msgpack:"-"json:"topology"`
+	Hash             crypto.Hash `msgpack:"-"json:"hash"`
 }
 
 func (s *Snapshot) Payload() []byte {
@@ -47,9 +46,9 @@ func (s *Snapshot) LockInputs(locker UTXOLocker) error {
 	for _, in := range s.Transaction.Inputs {
 		var err error
 		if in.Deposit != nil {
-			err = locker.SnapshotsLockDepositInput(in.Deposit, txHash)
+			err = locker.LockDepositInput(in.Deposit, txHash)
 		} else {
-			_, err = locker.SnapshotsLockUTXO(in.Hash, in.Index, txHash)
+			_, err = locker.LockUTXO(in.Hash, in.Index, txHash)
 		}
 		if err != nil {
 			return err

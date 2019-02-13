@@ -118,7 +118,7 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 			if err != nil {
 				return err
 			}
-			err = store.SnapshotsCheckDepositInput(in.Deposit, tx.PayloadHash())
+			err = store.CheckDepositInput(in.Deposit, tx.PayloadHash())
 			if err != nil {
 				return err
 			}
@@ -131,7 +131,7 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 			return fmt.Errorf("invalid input %s", fk)
 		}
 
-		utxo, err := store.SnapshotsReadUTXO(in.Hash, in.Index)
+		utxo, err := store.ReadUTXO(in.Hash, in.Index)
 		if err != nil {
 			return err
 		}
@@ -160,7 +160,7 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 				return fmt.Errorf("invalid output key %s", k.String())
 			}
 			outputsFilter[k] = true
-			exist, err := store.SnapshotsCheckGhost(k)
+			exist, err := store.CheckGhost(k)
 			if err != nil {
 				return err
 			} else if exist {
@@ -217,7 +217,7 @@ func (tx *SignedTransaction) validateDepositInput(store DataStore, msg []byte) e
 		return fmt.Errorf("invalid signatures count %d for deposit", len(tx.Signatures))
 	}
 	sig, valid := tx.Signatures[0][0], false
-	domains := store.SnapshotsReadDomains()
+	domains := store.ReadDomains()
 	for _, d := range domains {
 		if d.Account.PublicSpendKey.Verify(msg, sig) {
 			valid = true
@@ -238,7 +238,7 @@ func (tx *Transaction) validateNodePledge(store DataStore) error {
 	if o.Amount.Cmp(NewInteger(10000)) != 0 {
 		return fmt.Errorf("invalid pledge amount %s", o.Amount.String())
 	}
-	nodes := store.SnapshotsReadConsensusNodes()
+	nodes := store.ReadConsensusNodes()
 	for _, n := range nodes {
 		if n.State != NodeStateAccepted {
 			return fmt.Errorf("invalid node pending state %s %s", n.Account.String(), n.State)
@@ -287,7 +287,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore, inputAmount Integer) 
 	}
 	var pledging *Node
 	filter := make(map[string]string)
-	nodes := store.SnapshotsReadConsensusNodes()
+	nodes := store.ReadConsensusNodes()
 	for _, n := range nodes {
 		filter[n.Account.String()] = n.State
 		if n.State == NodeStateDeparting {
@@ -310,19 +310,19 @@ func (tx *Transaction) validateNodeAccept(store DataStore, inputAmount Integer) 
 		return fmt.Errorf("invalid accept input amount %s %s", inputAmount.String(), nodesAmount.String())
 	}
 
-	lastAccept, err := store.SnapshotsReadSnapshotByTransactionHash(tx.Inputs[0].Hash)
+	lastAccept, err := store.ReadTransaction(tx.Inputs[0].Hash)
 	if err != nil {
 		return err
 	}
-	ao := lastAccept.Transaction.Outputs[0]
-	if len(lastAccept.Transaction.Outputs) != 1 {
-		return fmt.Errorf("invalid accept utxo count %d", len(lastAccept.Transaction.Outputs))
+	ao := lastAccept.Outputs[0]
+	if len(lastAccept.Outputs) != 1 {
+		return fmt.Errorf("invalid accept utxo count %d", len(lastAccept.Outputs))
 	}
 	if ao.Type != OutputTypeNodeAccept {
 		return fmt.Errorf("invalid accept utxo type %d", ao.Type)
 	}
 	var publicSpend crypto.Key
-	copy(publicSpend[:], lastAccept.Transaction.Extra)
+	copy(publicSpend[:], lastAccept.Extra)
 	privateView := publicSpend.DeterministicHashDerive()
 	acc := Address{
 		PublicViewKey:  privateView.Public(),
@@ -332,18 +332,18 @@ func (tx *Transaction) validateNodeAccept(store DataStore, inputAmount Integer) 
 		return fmt.Errorf("invalid accept utxo source %s", filter[acc.String()])
 	}
 
-	lastPledge, err := store.SnapshotsReadSnapshotByTransactionHash(tx.Inputs[1].Hash)
+	lastPledge, err := store.ReadTransaction(tx.Inputs[1].Hash)
 	if err != nil {
 		return err
 	}
-	po := lastPledge.Transaction.Outputs[0]
-	if len(lastPledge.Transaction.Outputs) != 1 {
-		return fmt.Errorf("invalid pledge utxo count %d", len(lastPledge.Transaction.Outputs))
+	po := lastPledge.Outputs[0]
+	if len(lastPledge.Outputs) != 1 {
+		return fmt.Errorf("invalid pledge utxo count %d", len(lastPledge.Outputs))
 	}
 	if po.Type != OutputTypeNodePledge {
 		return fmt.Errorf("invalid pledge utxo type %d", po.Type)
 	}
-	copy(publicSpend[:], lastPledge.Transaction.Extra)
+	copy(publicSpend[:], lastPledge.Extra)
 	privateView = publicSpend.DeterministicHashDerive()
 	acc = Address{
 		PublicViewKey:  privateView.Public(),
@@ -403,7 +403,7 @@ func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, account
 		return signed.SignRaw(accounts[0].PrivateSpendKey)
 	}
 
-	utxo, err := reader.SnapshotsReadUTXO(in.Hash, in.Index)
+	utxo, err := reader.ReadUTXO(in.Hash, in.Index)
 	if err != nil {
 		return err
 	}

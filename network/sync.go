@@ -32,11 +32,8 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []SyncPoi
 		if len(ss) == 0 {
 			panic(fmt.Errorf("local final should never has zero snapshots %s:%d %s:%d", l.NodeId.String(), l.Number, r.NodeId.String(), r.Number))
 		}
-		s, err := me.handle.ReadSnapshotByTransactionHash(ss[len(ss)-1].Transaction.PayloadHash())
-		if err != nil {
-			return offset, err
-		}
-		topo := s.TopologicalOrder
+		s := ss[len(ss)-1]
+		topo := s.Timestamp // FIXME s.TopologicalOrder
 		if topo == 0 {
 			topo = 1
 		}

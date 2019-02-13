@@ -9,6 +9,12 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
+func (s *BadgerStore) ReadRoundLink(from, to crypto.Hash) (uint64, error) {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+	return readLink(txn, from, to)
+}
+
 func (s *BadgerStore) ReadRound(hash crypto.Hash) (*common.Round, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()

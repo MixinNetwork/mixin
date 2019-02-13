@@ -29,7 +29,7 @@ func queueTransaction(store storage.Store, params []interface{}) (string, error)
 	return kernel.QueueTransaction(store, &tx)
 }
 
-func getSnapshot(store storage.Store, params []interface{}) (*common.SnapshotWithTopologicalOrder, error) {
+func getTransaction(store storage.Store, params []interface{}) (*common.Transaction, error) {
 	if len(params) != 1 {
 		return nil, errors.New("invalid params count")
 	}
@@ -37,7 +37,7 @@ func getSnapshot(store storage.Store, params []interface{}) (*common.SnapshotWit
 	if err != nil {
 		return nil, err
 	}
-	return store.SnapshotsReadSnapshotByTransactionHash(hash)
+	return store.ReadTransaction(hash)
 }
 
 func listSnapshots(store storage.Store, params []interface{}) ([]*common.SnapshotWithTopologicalOrder, error) {
@@ -57,7 +57,7 @@ func listSnapshots(store storage.Store, params []interface{}) ([]*common.Snapsho
 		return nil, err
 	}
 
-	snapshots, err := store.SnapshotsReadSnapshotsSinceTopology(offset, count)
+	snapshots, err := store.ReadSnapshotsSinceTopology(offset, count)
 	if err != nil || sig {
 		return snapshots, err
 	}

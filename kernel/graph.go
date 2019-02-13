@@ -11,19 +11,13 @@ import (
 )
 
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
-	// check transaction finalization in database
-	// if finalized and snapshot not finalized return nil
-	// check transaction in snapshot node graph
-	// if exist return nil
-	// if finalized, not need to validate transaction
-	// else validate transaction
-	// if not validated return nil
 	// switch 1. raw new snapshot 2. finalized snapshot 3. wait more signatures
 	// if the transaction is a node accept, then create it with no references
 	// and its node id should always be the new accepted node
 	// ...
 	// ...
 	// check transaction in snapshot node graph again before final snapshot write
+	node.clearConsensusSignatures(s)
 	err := node.verifyTransactionInSnapshot(s)
 	if err != nil {
 		logger.Println("verifyTransactionInSnapshot ERROR", err)
@@ -31,16 +25,14 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	}
 
 	defer node.Graph.UpdateFinalCache()
-	node.clearConsensusSignatures(s)
 
 	cache, final, err := node.tryToSignSnapshot(s)
 	if err != nil {
 		return err
 	}
 
-	var links map[crypto.Hash]uint64
 	if s.NodeId != node.IdForNetwork || len(s.Signatures) > 1 {
-		links, cache, final, err = node.verifySnapshot(s)
+		_, cache, final, err = node.verifySnapshot(s)
 		if err != nil {
 			return err
 		}
@@ -57,9 +49,8 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		topo := &common.SnapshotWithTopologicalOrder{
 			Snapshot:         *s,
 			TopologicalOrder: node.TopoCounter.Next(),
-			RoundLinks:       links,
 		}
-		err := node.store.SnapshotsWriteSnapshot(topo)
+		err := node.store.WriteSnapshot(topo)
 		if err != nil {
 			return err
 		}
@@ -158,9 +149,6 @@ func (node *Node) clearConsensusSignatures(s *common.Snapshot) {
 
 func (node *Node) verifyReferences(self FinalRound, s *common.Snapshot) (map[crypto.Hash]uint64, bool, error) {
 	links := make(map[crypto.Hash]uint64)
-	if len(s.References) != 2 {
-		return links, true, fmt.Errorf("invalid reference count %d", len(s.References))
-	}
 	ref0, ref1 := s.References[0], s.References[1]
 	if ref0 == ref1 {
 		return links, true, fmt.Errorf("same references %s", s.Transaction.PayloadHash().String())
@@ -179,14 +167,14 @@ func (node *Node) verifyReferences(self FinalRound, s *common.Snapshot) (map[cry
 		}
 		links[self.NodeId] = self.Number
 		links[final.NodeId] = final.Number
-		selfLink, err := node.store.SnapshotsReadRoundLink(s.NodeId, self.NodeId)
+		selfLink, err := node.store.ReadRoundLink(s.NodeId, self.NodeId)
 		if err != nil {
 			return links, false, err
 		}
 		if links[self.NodeId] < selfLink {
 			return links, true, fmt.Errorf("invalid self reference %d=>%d", selfLink, links[self.NodeId])
 		}
-		finalLink, err := node.store.SnapshotsReadRoundLink(s.NodeId, final.NodeId)
+		finalLink, err := node.store.ReadRoundLink(s.NodeId, final.NodeId)
 		if err != nil {
 			return links, false, err
 		}

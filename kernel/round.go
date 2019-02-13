@@ -24,19 +24,21 @@ import (
 // 8. if a snapshot passed the round gap, then requeue it to the transaction queues
 
 type CacheRound struct {
-	NodeId    crypto.Hash        `msgpack:"N"`
-	Number    uint64             `msgpack:"R"`
-	Start     uint64             `msgpack:"T"`
-	End       uint64             `msgpack:"-"`
-	Snapshots []*common.Snapshot `msgpack:"-"`
+	NodeId     crypto.Hash        `msgpack:"N"`
+	Number     uint64             `msgpack:"R"`
+	Start      uint64             `msgpack:"T"`
+	References [2]crypto.Hash     `msgpack:"L"`
+	End        uint64             `msgpack:"-"`
+	Snapshots  []*common.Snapshot `msgpack:"-"`
 }
 
 type FinalRound struct {
-	NodeId crypto.Hash `msgpack:"N"`
-	Number uint64      `msgpack:"R"`
-	Start  uint64      `msgpack:"T"`
-	End    uint64      `msgpack:"-"`
-	Hash   crypto.Hash `msgpack:"-"`
+	NodeId     crypto.Hash    `msgpack:"N"`
+	Number     uint64         `msgpack:"R"`
+	Start      uint64         `msgpack:"T"`
+	References [2]crypto.Hash `msgpack:"L"`
+	End        uint64         `msgpack:"-"`
+	Hash       crypto.Hash    `msgpack:"-"`
 }
 
 type RoundGraph struct {
@@ -76,12 +78,10 @@ func LoadRoundGraph(store storage.Store) (*RoundGraph, error) {
 		CacheRound: make(map[crypto.Hash]*CacheRound),
 		FinalRound: make(map[crypto.Hash]*FinalRound),
 	}
-	nodes, err := store.SnapshotsReadNodesList()
-	if err != nil {
-		return nil, err
-	}
 
-	for _, id := range nodes {
+	consensusNodes := store.ReadConsensusNodes()
+	for _, cn := range consensusNodes {
+		id := cn.Account.Hash()
 		graph.Nodes = append(graph.Nodes, id)
 
 		cache, err := loadHeadRoundForNode(store, id)
@@ -112,18 +112,18 @@ func LoadRoundGraph(store storage.Store) (*RoundGraph, error) {
 }
 
 func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*CacheRound, error) {
-	meta, err := store.SnapshotsReadRoundMeta(nodeIdWithNetwork)
+	meta, err := store.ReadRound(nodeIdWithNetwork)
 	if err != nil {
 		return nil, err
 	}
 
 	round := &CacheRound{
 		NodeId: nodeIdWithNetwork,
-		Number: meta[0],
-		Start:  meta[1],
+		Number: meta.Number,
+		Start:  meta.Timestamp,
 		End:    0,
 	}
-	round.Snapshots, err = store.SnapshotsReadSnapshotsForNodeRound(round.NodeId, round.Number)
+	round.Snapshots, err = store.ReadSnapshotsForNodeRound(round.NodeId, round.Number)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*
 }
 
 func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, number uint64) (*FinalRound, error) {
-	snapshots, err := store.SnapshotsReadSnapshotsForNodeRound(nodeIdWithNetwork, number)
+	snapshots, err := store.ReadSnapshotsForNodeRound(nodeIdWithNetwork, number)
 	if err != nil {
 		return nil, err
 	}
