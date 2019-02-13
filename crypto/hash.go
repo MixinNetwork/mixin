@@ -37,6 +37,20 @@ func (h Hash) ForNetwork(net Hash) Hash {
 	return NewHash(append(net[:], h[:]...))
 }
 
+func (h Hash) ByteOr(n Hash) (b Hash) {
+	for i, _ := range h {
+		b[i] = h[i] | n[i]
+	}
+	return b
+}
+
+func (h Hash) ByteAnd(n Hash) (b Hash) {
+	for i, _ := range h {
+		b[i] = h[i] & n[i]
+	}
+	return b
+}
+
 func (h Hash) String() string {
 	return hex.EncodeToString(h[:])
 }

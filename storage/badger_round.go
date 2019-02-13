@@ -65,6 +65,38 @@ func (s *BadgerStore) StartNewRound(node crypto.Hash, number, start uint64, refe
 	return txn.Commit()
 }
 
+func (s *BadgerStore) UpdateCacheRound(node crypto.Hash, number, start uint64, references [2]crypto.Hash) error {
+	txn := s.snapshotsDB.NewTransaction(true)
+	defer txn.Discard()
+
+	// FIXME assert only, remove in future
+	if config.Debug {
+		self, err := readRound(txn, node)
+		if err != nil {
+			return err
+		}
+		if self == nil || self.Number != number {
+			panic("self final assert error")
+		}
+		if self.References[0] != references[0] || self.References[1] != references[1] {
+			panic("self references assert error")
+		}
+	}
+	// assert end
+
+	err := writeRound(txn, node, &common.Round{
+		NodeId:     node,
+		Number:     number,
+		Timestamp:  start,
+		References: references,
+	})
+	if err != nil {
+		return err
+	}
+
+	return txn.Commit()
+}
+
 func startNewRound(txn *badger.Txn, node crypto.Hash, number, start uint64, references [2]crypto.Hash) error {
 	if references[0].HasValue() || references[1].HasValue() {
 		self, err := readRound(txn, node)

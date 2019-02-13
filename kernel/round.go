@@ -3,7 +3,6 @@ package kernel
 import (
 	"encoding/binary"
 	"fmt"
-	"sort"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -33,12 +32,11 @@ type CacheRound struct {
 }
 
 type FinalRound struct {
-	NodeId     crypto.Hash
-	Number     uint64
-	Start      uint64
-	References [2]crypto.Hash
-	End        uint64      `msgpack:"-"`
-	Hash       crypto.Hash `msgpack:"-"`
+	NodeId crypto.Hash
+	Number uint64
+	Start  uint64
+	End    uint64      `msgpack:"-"`
+	Hash   crypto.Hash `msgpack:"-"`
 }
 
 type RoundGraph struct {
@@ -121,10 +119,11 @@ func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*
 	}
 
 	round := &CacheRound{
-		NodeId: nodeIdWithNetwork,
-		Number: meta.Number,
-		Start:  meta.Timestamp,
-		End:    0,
+		NodeId:     nodeIdWithNetwork,
+		Number:     meta.Number,
+		Start:      meta.Timestamp,
+		References: meta.References,
+		End:        0,
 	}
 	round.Snapshots, err = store.ReadSnapshotsForNodeRound(round.NodeId, round.Number)
 	if err != nil {
@@ -196,20 +195,16 @@ func (f *FinalRound) Copy() *FinalRound {
 func (c *CacheRound) asFinal() *FinalRound {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, c.Number)
-	hashes := append(c.NodeId[:], buf...)
-	sort.Slice(c.Snapshots, func(i, j int) bool {
-		return c.Snapshots[i].Timestamp <= c.Snapshots[j].Timestamp
-	})
+	hash := crypto.NewHash(append(c.NodeId[:], buf...))
 	for _, s := range c.Snapshots {
-		h := crypto.NewHash(s.Payload())
-		hashes = append(hashes, h[:]...)
+		hash = hash.ByteOr(s.PayloadHash())
 	}
 	round := &FinalRound{
 		NodeId: c.NodeId,
 		Number: c.Number,
 		Start:  c.Start,
 		End:    c.End,
-		Hash:   crypto.NewHash(hashes),
+		Hash:   hash,
 	}
 	return round
 }
