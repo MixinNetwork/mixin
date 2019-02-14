@@ -26,13 +26,16 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 
 	defer node.Graph.UpdateFinalCache()
 
+	if s.NodeId == node.IdForNetwork {
+	}
+
 	cache, final, err := node.tryToSignSnapshot(s)
 	if err != nil {
 		return err
 	}
 
 	if s.NodeId != node.IdForNetwork || len(s.Signatures) > 1 {
-		_, cache, final, err = node.verifySnapshot(s)
+		cache, final, err = node.verifySnapshot(s)
 		if err != nil {
 			return err
 		}
@@ -68,9 +71,6 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 
 	if node.IdForNetwork == s.NodeId {
 		for _, cn := range node.ConsensusNodes {
-			if !cn.IsAccepted() {
-				continue
-			}
 			peerId := cn.Account.Hash().ForNetwork(node.networkId)
 			cacheId := s.PayloadHash().ForNetwork(peerId)
 			if time.Now().Before(node.ConsensusCache[cacheId].Add(time.Duration(config.SnapshotRoundGap))) {
@@ -95,116 +95,12 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	return nil
 }
 
-func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {
-	txHash := s.Transaction.PayloadHash()
-	in, err := node.store.CheckTransactionInNode(s.NodeId, txHash)
-	if err != nil {
-		return err
-	} else if in {
-		return fmt.Errorf("transaction %s already snapshot by node %s", txHash.String(), s.NodeId.String())
-	}
-
-	finalized, err := node.store.CheckTransactionFinalization(txHash)
-	if err != nil {
-		return err
-	}
-	if finalized && !node.verifyFinalization(s) {
-		return fmt.Errorf("transaction %s already finalized, won't sign it any more", txHash.String())
-	}
-	if finalized {
-		return nil
-	}
-
-	tx, err := node.store.ReadTransaction(txHash)
-	if err != nil || tx != nil {
-		return err
-	}
-	err = s.Transaction.Validate(node.store)
-	if err != nil {
-		return err
-	}
-	return node.store.WriteTransaction(&s.Transaction.Transaction)
-}
-
-func (node *Node) clearConsensusSignatures(s *common.Snapshot) {
-	msg := s.Payload()
-	sigs := make([]crypto.Signature, 0)
-	filter := make(map[crypto.Signature]bool)
-	for _, sig := range s.Signatures {
-		if filter[sig] {
-			continue
-		}
-		for _, cn := range node.ConsensusNodes {
-			if !cn.IsAccepted() {
-				continue
-			}
-			if cn.Account.PublicSpendKey.Verify(msg, sig) {
-				sigs = append(sigs, sig)
-			}
-		}
-		filter[sig] = true
-	}
-	s.Signatures = sigs
-}
-
-func (node *Node) verifyReferences(self FinalRound, s *common.Snapshot) (map[crypto.Hash]uint64, bool, error) {
-	links := make(map[crypto.Hash]uint64)
-	ref0, ref1 := s.References[0], s.References[1]
-	if ref0 == ref1 {
-		return links, true, fmt.Errorf("same references %s", s.Transaction.PayloadHash().String())
-	}
-
-	if ref0 != self.Hash {
-		return links, true, fmt.Errorf("invalid self reference %s %s %s", s.Transaction.PayloadHash(), ref0, self.Hash)
-	}
-	if s.NodeId != self.NodeId {
-		panic(*s)
-	}
-
-	for _, final := range node.Graph.FinalRound {
-		if final.NodeId == s.NodeId || final.Hash != ref1 {
-			continue
-		}
-		links[self.NodeId] = self.Number
-		links[final.NodeId] = final.Number
-		selfLink, err := node.store.ReadRoundLink(s.NodeId, self.NodeId)
-		if err != nil {
-			return links, false, err
-		}
-		if links[self.NodeId] < selfLink {
-			return links, true, fmt.Errorf("invalid self reference %d=>%d", selfLink, links[self.NodeId])
-		}
-		finalLink, err := node.store.ReadRoundLink(s.NodeId, final.NodeId)
-		if err != nil {
-			return links, false, err
-		}
-		if links[final.NodeId] < finalLink {
-			return links, true, fmt.Errorf("invalid final reference %d=>%d", finalLink, links[final.NodeId])
-		}
-		return links, true, nil
-	}
-	return links, true, fmt.Errorf("invalid references %s", s.Transaction.PayloadHash().String())
-}
-
-func (node *Node) verifyFinalization(s *common.Snapshot) bool {
-	consensusThreshold := len(node.ConsensusNodes) * 2 / 3
-	return len(s.Signatures) > consensusThreshold
-}
-
-func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *CacheRound, *FinalRound, error) {
+func (node *Node) verifySnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, error) {
 	logger.Println("VERIFY SNAPSHOT", *s)
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
 	if osigs := node.SnapshotsPool[s.PayloadHash()]; len(osigs) > 0 || node.verifyFinalization(s) {
-		links, handled, err := node.verifyReferences(*final, s)
-		if err != nil {
-			logger.Println(err)
-			if !handled {
-				return links, cache, final, err
-			}
-			return links, cache, final, nil
-		}
 		filter := make(map[crypto.Signature]bool)
 		for _, sig := range s.Signatures {
 			filter[sig] = true
@@ -217,7 +113,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 			filter[sig] = true
 		}
 		node.SnapshotsPool[s.PayloadHash()] = append([]crypto.Signature{}, s.Signatures...)
-		return links, cache, final, nil
+		return cache, final, nil
 	}
 
 	if s.Timestamp >= config.SnapshotRoundGap+cache.Start {
@@ -235,18 +131,9 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (map[crypto.Hash]uint64, *C
 	}
 
 	if s.RoundNumber != cache.Number || s.Timestamp < cache.End {
-		return nil, cache, final, nil
+		return cache, final, nil
 	}
-
-	links, handled, err := node.verifyReferences(*final, s)
-	if err != nil {
-		logger.Println(err)
-		if !handled {
-			return links, cache, final, err
-		}
-		return links, cache, final, nil
-	}
-	return links, cache, final, nil
+	return cache, final, nil
 }
 
 func (node *Node) tryToSignSnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, error) {
@@ -307,8 +194,62 @@ func (node *Node) tryToSignSnapshot(s *common.Snapshot) (*CacheRound, *FinalRoun
 	return cache, final, nil
 }
 
+func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {
+	txHash := s.Transaction.PayloadHash()
+	in, err := node.store.CheckTransactionInNode(s.NodeId, txHash)
+	if err != nil {
+		return err
+	} else if in {
+		return fmt.Errorf("transaction %s already snapshot by node %s", txHash.String(), s.NodeId.String())
+	}
+
+	finalized, err := node.store.CheckTransactionFinalization(txHash)
+	if err != nil {
+		return err
+	}
+	if finalized && !node.verifyFinalization(s) {
+		return fmt.Errorf("transaction %s already finalized, won't sign it any more", txHash.String())
+	}
+	if finalized {
+		return nil
+	}
+
+	tx, err := node.store.ReadTransaction(txHash)
+	if err != nil || tx != nil {
+		return err
+	}
+	err = s.Transaction.Validate(node.store)
+	if err != nil {
+		return err
+	}
+	return node.store.WriteTransaction(&s.Transaction.Transaction)
+}
+
+func (node *Node) clearConsensusSignatures(s *common.Snapshot) {
+	msg := s.Payload()
+	sigs := make([]crypto.Signature, 0)
+	filter := make(map[crypto.Signature]bool)
+	for _, sig := range s.Signatures {
+		if filter[sig] {
+			continue
+		}
+		for _, cn := range node.ConsensusNodes {
+			if cn.Account.PublicSpendKey.Verify(msg, sig) {
+				sigs = append(sigs, sig)
+			}
+		}
+		filter[sig] = true
+	}
+	s.Signatures = sigs
+}
+
 func (node *Node) sign(s *common.Snapshot) {
 	s.Sign(node.Account.PrivateSpendKey)
 	node.clearConsensusSignatures(s)
 	node.SnapshotsPool[s.PayloadHash()] = append([]crypto.Signature{}, s.Signatures...)
+}
+
+func (node *Node) verifyFinalization(s *common.Snapshot) bool {
+	consensusThreshold := len(node.ConsensusNodes) * 2 / 3
+	return len(s.Signatures) > consensusThreshold
 }

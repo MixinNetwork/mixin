@@ -107,9 +107,13 @@ func (node *Node) LoadNodeState() error {
 }
 
 func (node *Node) LoadConsensusNodes() error {
-	node.ConsensusNodes = node.store.ReadConsensusNodes()
-	for _, cn := range node.ConsensusNodes {
+	nodes := node.store.ReadConsensusNodes()
+	for _, cn := range nodes {
 		logger.Println(cn.Account.String(), cn.State)
+		if !cn.IsAccepted() {
+			continue
+		}
+		node.ConsensusNodes = append(node.ConsensusNodes, cn)
 	}
 	return nil
 }
@@ -177,9 +181,6 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, error) {
 	}
 
 	for _, cn := range node.ConsensusNodes {
-		if !cn.IsAccepted() {
-			continue
-		}
 		peerId := cn.Account.Hash()
 		if !bytes.Equal(peerId[:], msg[8:40]) {
 			continue
@@ -202,9 +203,6 @@ func (node *Node) FeedMempool(peer *network.Peer, s *common.Snapshot) error {
 	}
 
 	for _, cn := range node.ConsensusNodes {
-		if !cn.IsAccepted() {
-			continue
-		}
 		idForNetwork := cn.Account.Hash().ForNetwork(node.networkId)
 		if idForNetwork != peer.IdForNetwork {
 			continue
