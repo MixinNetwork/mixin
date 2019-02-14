@@ -21,7 +21,7 @@ func (s *BadgerStore) ReadRound(hash crypto.Hash) (*common.Round, error) {
 	return readRound(txn, hash)
 }
 
-func (s *BadgerStore) StartNewRound(node crypto.Hash, number, start uint64, references [2]crypto.Hash) error {
+func (s *BadgerStore) StartNewRound(node crypto.Hash, number uint64, references [2]crypto.Hash, finalStart uint64) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 
@@ -58,46 +58,14 @@ func (s *BadgerStore) StartNewRound(node crypto.Hash, number, start uint64, refe
 	}
 	// assert end
 
-	err := startNewRound(txn, node, number, start, references)
+	err := startNewRound(txn, node, number, references, finalStart)
 	if err != nil {
 		return err
 	}
 	return txn.Commit()
 }
 
-func (s *BadgerStore) UpdateCacheRound(node crypto.Hash, number, start uint64, references [2]crypto.Hash) error {
-	txn := s.snapshotsDB.NewTransaction(true)
-	defer txn.Discard()
-
-	// FIXME assert only, remove in future
-	if config.Debug {
-		self, err := readRound(txn, node)
-		if err != nil {
-			return err
-		}
-		if self == nil || self.Number != number {
-			panic("self final assert error")
-		}
-		if self.References[0] != references[0] || self.References[1] != references[1] {
-			panic("self references assert error")
-		}
-	}
-	// assert end
-
-	err := writeRound(txn, node, &common.Round{
-		NodeId:     node,
-		Number:     number,
-		Timestamp:  start,
-		References: references,
-	})
-	if err != nil {
-		return err
-	}
-
-	return txn.Commit()
-}
-
-func startNewRound(txn *badger.Txn, node crypto.Hash, number, start uint64, references [2]crypto.Hash) error {
+func startNewRound(txn *badger.Txn, node crypto.Hash, number uint64, references [2]crypto.Hash, finalStart uint64) error {
 	if references[0].HasValue() || references[1].HasValue() {
 		self, err := readRound(txn, node)
 		if err != nil {
@@ -112,6 +80,7 @@ func startNewRound(txn *badger.Txn, node crypto.Hash, number, start uint64, refe
 		if err != nil {
 			return err
 		}
+		self.Timestamp = finalStart
 		err = writeRound(txn, references[0], self)
 		if err != nil {
 			return err
@@ -121,7 +90,6 @@ func startNewRound(txn *badger.Txn, node crypto.Hash, number, start uint64, refe
 	return writeRound(txn, node, &common.Round{
 		NodeId:     node,
 		Number:     number,
-		Timestamp:  start,
 		References: references,
 	})
 }

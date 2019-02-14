@@ -25,23 +25,20 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 
 	defer node.Graph.UpdateFinalCache()
 
-	cache, final, err := node.tryToSignSnapshot(s)
+	err = node.tryToSignSnapshot(s)
 	if err != nil {
 		return err
 	}
-
 	if !node.verifySnapshotNodeSignature(s) {
 		return nil
 	}
 
-	if s.NodeId != node.IdForNetwork || len(s.Signatures) > 1 {
-		cache, final, err = node.verifySnapshot(s)
-		if err != nil {
-			return err
-		}
+	cache, final, err := node.verifySnapshot(s)
+	if err != nil {
+		return err
 	}
 
-	if s.RoundNumber != cache.Number {
+	if !(s.RoundNumber == cache.Number || s.RoundNumber == final.Number && len(cache.Snapshots) == 0) {
 		return nil
 	}
 
@@ -136,13 +133,12 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, 
 	return cache, final, nil
 }
 
-func (node *Node) tryToSignSnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, error) {
+func (node *Node) tryToSignSnapshot(s *common.Snapshot) error {
+	if s.NodeId != node.IdForNetwork || len(s.Signatures) != 0 || s.Timestamp != 0 {
+		return nil
+	}
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
-
-	if s.NodeId != node.IdForNetwork || len(s.Signatures) != 0 || s.Timestamp != 0 {
-		return cache, final, nil
-	}
 
 	for {
 		s.Timestamp = uint64(time.Now().UnixNano())
@@ -153,27 +149,23 @@ func (node *Node) tryToSignSnapshot(s *common.Snapshot) (*CacheRound, *FinalRoun
 	}
 
 	if s.Timestamp >= config.SnapshotRoundGap+cache.Start {
-		best := &FinalRound{NodeId: final.NodeId}
-		for _, r := range node.Graph.FinalRound {
-			if r.NodeId == s.NodeId {
-				continue
-			}
-			if r.Start >= best.Start && r.Start < uint64(time.Now().UnixNano()) { // FIXME
-				best = r
-			}
-		}
-		if best.NodeId == final.NodeId {
-			panic(node.IdForNetwork)
-		}
-		references := [2]crypto.Hash{final.Hash, best.Hash}
-
 		if len(cache.Snapshots) == 0 {
 			cache.Start = s.Timestamp
-			err := node.store.UpdateCacheRound(s.NodeId, cache.Number, cache.Start, references)
-			if err != nil {
-				panic(err)
-			}
 		} else {
+			best := &FinalRound{NodeId: final.NodeId}
+			for _, r := range node.Graph.FinalRound {
+				if r.NodeId == s.NodeId {
+					continue
+				}
+				if r.Start >= best.Start && r.Start < uint64(time.Now().UnixNano()) { // FIXME
+					best = r
+				}
+			}
+			if best.NodeId == final.NodeId {
+				panic(node.IdForNetwork)
+			}
+			references := [2]crypto.Hash{final.Hash, best.Hash}
+
 			final = cache.asFinal()
 			cache = &CacheRound{
 				NodeId:     s.NodeId,
@@ -181,7 +173,7 @@ func (node *Node) tryToSignSnapshot(s *common.Snapshot) (*CacheRound, *FinalRoun
 				Start:      s.Timestamp,
 				References: references,
 			}
-			err := node.store.StartNewRound(s.NodeId, cache.Number, cache.Start, references)
+			err := node.store.StartNewRound(s.NodeId, cache.Number, references, final.Start)
 			if err != nil {
 				panic(err)
 			}
@@ -191,7 +183,10 @@ func (node *Node) tryToSignSnapshot(s *common.Snapshot) (*CacheRound, *FinalRoun
 
 	s.RoundNumber = cache.Number
 	s.References = cache.References
-	return cache, final, nil
+	node.signSnapshot(s)
+	node.Graph.CacheRound[s.NodeId] = cache
+	node.Graph.FinalRound[s.NodeId] = final
+	return nil
 }
 
 func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {

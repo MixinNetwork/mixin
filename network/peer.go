@@ -39,7 +39,6 @@ type SyncHandle interface {
 type SyncPoint struct {
 	NodeId crypto.Hash
 	Number uint64
-	Start  uint64
 }
 
 type Peer struct {

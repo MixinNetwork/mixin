@@ -18,7 +18,12 @@ func (s *BadgerStore) LoadGenesis(snapshots []*common.SnapshotWithTopologicalOrd
 	for _, snap := range snapshots {
 		if !filter[snap.NodeId] {
 			filter[snap.NodeId] = true
-			err := startNewRound(txn, snap.NodeId, snap.RoundNumber, snap.Timestamp, snap.References)
+			err := writeRound(txn, snap.NodeId, &common.Round{
+				NodeId:     snap.NodeId,
+				Number:     snap.RoundNumber,
+				Timestamp:  snap.Timestamp,
+				References: snap.References,
+			})
 			if err != nil {
 				return err
 			}

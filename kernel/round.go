@@ -35,8 +35,8 @@ type FinalRound struct {
 	NodeId crypto.Hash
 	Number uint64
 	Start  uint64
-	End    uint64      `msgpack:"-"`
-	Hash   crypto.Hash `msgpack:"-"`
+	End    uint64
+	Hash   crypto.Hash
 }
 
 type RoundGraph struct {
@@ -196,14 +196,21 @@ func (c *CacheRound) asFinal() *FinalRound {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, c.Number)
 	hash := crypto.NewHash(append(c.NodeId[:], buf...))
+	start, end := c.Snapshots[0].Timestamp, uint64(0)
 	for _, s := range c.Snapshots {
 		hash = hash.ByteOr(s.PayloadHash())
+		if s.Timestamp < start {
+			start = s.Timestamp
+		}
+		if s.Timestamp > end {
+			end = s.Timestamp
+		}
 	}
 	round := &FinalRound{
 		NodeId: c.NodeId,
 		Number: c.Number,
-		Start:  c.Start,
-		End:    c.End,
+		Start:  start,
+		End:    end,
 		Hash:   hash,
 	}
 	return round

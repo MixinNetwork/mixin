@@ -159,7 +159,6 @@ func (node *Node) BuildGraph() []network.SyncPoint {
 		points = append(points, network.SyncPoint{
 			NodeId: c.NodeId,
 			Number: c.Number,
-			Start:  c.Start,
 		})
 	}
 	return points
