@@ -54,6 +54,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 	}
 
 	var snapshots []*common.SnapshotWithTopologicalOrder
+	cacheRounds := make(map[crypto.Hash]*CacheRound)
 	for _, in := range gns.Nodes {
 		seed := crypto.NewHash([]byte(in.Address.String() + "NODEACCEPT"))
 		r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
@@ -98,6 +99,11 @@ func (node *Node) LoadGenesis(configDir string) error {
 			TopologicalOrder: node.TopoCounter.Next(),
 		}
 		snapshots = append(snapshots, topo)
+		cacheRounds[snapshot.NodeId] = &CacheRound{
+			NodeId:    snapshot.NodeId,
+			Number:    0,
+			Snapshots: []*common.Snapshot{&snapshot},
+		}
 	}
 
 	domain := gns.Domains[0]
@@ -106,8 +112,32 @@ func (node *Node) LoadGenesis(configDir string) error {
 	}
 	topo := node.buildDomainSnapshot(domain.Address, gns)
 	snapshots = append(snapshots, topo)
+	cacheRounds[topo.NodeId].Snapshots = append(cacheRounds[topo.NodeId].Snapshots, &topo.Snapshot)
 
-	err = node.store.LoadGenesis(snapshots)
+	rounds := make([]*common.Round, 0)
+	for i, in := range gns.Nodes {
+		id := in.Address.Hash().ForNetwork(node.networkId)
+		external := gns.Nodes[0].Address.Hash().ForNetwork(node.networkId)
+		if i != len(gns.Nodes)-1 {
+			external = gns.Nodes[i+1].Address.Hash().ForNetwork(node.networkId)
+		}
+		selfFinal := cacheRounds[id].asFinal()
+		externalFinal := cacheRounds[external].asFinal()
+		rounds = append(rounds, &common.Round{
+			Hash:      selfFinal.Hash,
+			NodeId:    selfFinal.NodeId,
+			Number:    selfFinal.Number,
+			Timestamp: selfFinal.Start,
+		})
+		rounds = append(rounds, &common.Round{
+			Hash:       selfFinal.NodeId,
+			NodeId:     selfFinal.NodeId,
+			Number:     selfFinal.Number + 1,
+			References: [2]crypto.Hash{selfFinal.Hash, externalFinal.Hash},
+		})
+	}
+
+	err = node.store.LoadGenesis(rounds, snapshots)
 	if err != nil {
 		return err
 	}

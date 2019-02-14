@@ -2,11 +2,10 @@ package storage
 
 import (
 	"github.com/MixinNetwork/mixin/common"
-	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/dgraph-io/badger"
 )
 
-func (s *BadgerStore) LoadGenesis(snapshots []*common.SnapshotWithTopologicalOrder) error {
+func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.SnapshotWithTopologicalOrder) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 
@@ -14,20 +13,13 @@ func (s *BadgerStore) LoadGenesis(snapshots []*common.SnapshotWithTopologicalOrd
 		return nil
 	}
 
-	filter := make(map[crypto.Hash]bool)
-	for _, snap := range snapshots {
-		if !filter[snap.NodeId] {
-			filter[snap.NodeId] = true
-			err := writeRound(txn, snap.NodeId, &common.Round{
-				NodeId:     snap.NodeId,
-				Number:     snap.RoundNumber,
-				Timestamp:  snap.Timestamp,
-				References: snap.References,
-			})
-			if err != nil {
-				return err
-			}
+	for _, r := range rounds {
+		err := writeRound(txn, r.Hash, r)
+		if err != nil {
+			return err
 		}
+	}
+	for _, snap := range snapshots {
 		err := writeSnapshot(txn, snap)
 		if err != nil {
 			return err

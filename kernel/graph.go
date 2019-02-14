@@ -157,7 +157,7 @@ func (node *Node) tryToSignSnapshot(s *common.Snapshot) error {
 			Number:     final.Number + 1,
 			References: references,
 		}
-		err := node.store.StartNewRound(s.NodeId, cache.Number, references, final.Start)
+		err := node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 		if err != nil {
 			panic(err)
 		}

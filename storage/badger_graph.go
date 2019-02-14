@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/binary"
+	"fmt"
 	"sort"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -89,7 +90,7 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) e
 			return err
 		}
 		if cache == nil || snap.RoundNumber != cache.Number {
-			panic("snapshot round number assert error")
+			panic(fmt.Errorf("snapshot round number assert error %d %d", cache.Number, snap.RoundNumber))
 		}
 		if snap.References[0] != cache.References[0] || snap.References[1] != cache.References[1] {
 			panic("snapshot references assert error")

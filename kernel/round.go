@@ -79,15 +79,7 @@ func LoadRoundGraph(store storage.Store, networkId crypto.Hash) (*RoundGraph, er
 		}
 		graph.CacheRound[cache.NodeId] = cache
 
-		finalRoundNumber := cache.Number - 1
-		if cache.Number == 0 {
-			finalRoundNumber = cache.Number
-			graph.CacheRound[id] = &CacheRound{
-				NodeId: id,
-				Number: 1,
-			}
-		}
-		final, err := loadFinalRoundForNode(store, id, finalRoundNumber)
+		final, err := loadFinalRoundForNode(store, id, cache.Number-1)
 		if err != nil {
 			return nil, err
 		}
@@ -129,7 +121,7 @@ func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, n
 
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, number)
-	start, end := ^uint64(0), uint64(0)
+	start, end := snapshots[0].Timestamp, uint64(0)
 	hash := crypto.NewHash(append(nodeIdWithNetwork[:], buf...))
 	for _, s := range snapshots {
 		hash = hash.ByteOr(s.PayloadHash())
@@ -165,7 +157,7 @@ func (f *FinalRound) Copy() *FinalRound {
 }
 
 func (c *CacheRound) Gap() (uint64, uint64) {
-	start, end := ^uint64(0), uint64(0)
+	start, end := (^uint64(0))/2, uint64(0)
 	for _, s := range c.Snapshots {
 		if s.Timestamp < start {
 			start = s.Timestamp
@@ -207,7 +199,7 @@ func (c *CacheRound) asFinal() *FinalRound {
 		panic(c)
 	}
 
-	start, end := ^uint64(0), uint64(0)
+	start, end := c.Snapshots[0].Timestamp, uint64(0)
 	for _, s := range c.Snapshots {
 		if s.Timestamp < start {
 			start = s.Timestamp

@@ -5,6 +5,7 @@ import (
 )
 
 type Round struct {
+	Hash       crypto.Hash    `json:"hash"`
 	NodeId     crypto.Hash    `json:"node"`
 	Number     uint64         `json:"number"`
 	Timestamp  uint64         `json:"timestamp"`
