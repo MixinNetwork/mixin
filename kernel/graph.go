@@ -13,9 +13,6 @@ import (
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	// if the transaction is a node accept, then create it with no references
 	// and its node id should always be the new accepted node
-	// ...
-	// ...
-	// check transaction in snapshot node graph again before final snapshot write
 	node.clearConsensusSignatures(s)
 	err := node.verifyTransactionInSnapshot(s)
 	if err != nil {
@@ -198,7 +195,7 @@ func (node *Node) verifyReferences(s *common.Snapshot, cache *CacheRound) (*Fina
 	if external == nil {
 		return nil, nil
 	}
-	link, err := node.store.ReadRoundLink(s.NodeId, external.NodeId)
+	link, err := node.store.ReadLink(s.NodeId, external.NodeId)
 	if external.Number >= link {
 		return final, err
 	}

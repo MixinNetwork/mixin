@@ -9,7 +9,7 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
-func (s *BadgerStore) ReadRoundLink(from, to crypto.Hash) (uint64, error) {
+func (s *BadgerStore) ReadLink(from, to crypto.Hash) (uint64, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 	return readLink(txn, from, to)
