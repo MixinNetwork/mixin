@@ -189,17 +189,38 @@ func (c *CacheRound) Gap() (uint64, uint64) {
 	return start, end
 }
 
+func (c *CacheRound) AddSnapshot(s *common.Snapshot) bool {
+	for _, cs := range c.Snapshots {
+		if cs.PayloadHash() == s.PayloadHash() {
+			return false
+		}
+	}
+	c.Snapshots = append(c.Snapshots, s)
+	return true
+}
+
+func (c *CacheRound) FilterByHash(store storage.Store, ref crypto.Hash) error {
+	filter := make([]*common.Snapshot, 0)
+	for _, cs := range c.Snapshots {
+		ph := cs.PayloadHash()
+		if ph.ByteAnd(ref) == ph {
+			filter = append(filter, cs)
+		} else if err := store.PruneSnapshot(nil); err != nil {
+			// FIXME cs to topo
+			return err
+		}
+	}
+	c.Snapshots = filter
+	return nil
+}
+
 func (c *CacheRound) asFinal() *FinalRound {
 	if len(c.Snapshots) == 0 {
 		panic(c)
 	}
 
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, c.Number)
 	start, end := ^uint64(0), uint64(0)
-	hash := crypto.NewHash(append(c.NodeId[:], buf...))
 	for _, s := range c.Snapshots {
-		hash = hash.ByteOr(s.PayloadHash())
 		if s.Timestamp < start {
 			start = s.Timestamp
 		}
@@ -207,15 +228,24 @@ func (c *CacheRound) asFinal() *FinalRound {
 			end = s.Timestamp
 		}
 	}
+	if end >= start+config.SnapshotRoundGap {
+		end = start + config.SnapshotRoundGap - 1
+	}
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, c.Number)
+	hash := crypto.NewHash(append(c.NodeId[:], buf...))
+	for _, s := range c.Snapshots {
+		if s.Timestamp > end {
+			continue
+		}
+		hash = hash.ByteOr(s.PayloadHash())
+	}
 	round := &FinalRound{
 		NodeId: c.NodeId,
 		Number: c.Number,
 		Start:  start,
 		End:    end,
 		Hash:   hash,
-	}
-	if round.End-round.Start >= config.SnapshotRoundGap {
-		panic(round)
 	}
 	return round
 }

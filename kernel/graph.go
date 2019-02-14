@@ -33,63 +33,67 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		return nil
 	}
 
-	cache, final, err := node.verifySnapshot(s)
+	err = node.verifySnapshot(s)
 	if err != nil {
 		return err
 	}
 
-	if !(s.RoundNumber == cache.Number || s.RoundNumber == final.Number && len(cache.Snapshots) == 0) {
-		return nil
-	}
-
 	if node.verifyFinalization(s) {
-		// so B created new cache round, and now A appended to an error round
-		cache.Snapshots = append(cache.Snapshots, s)
-		topo := &common.SnapshotWithTopologicalOrder{
-			Snapshot:         *s,
-			TopologicalOrder: node.TopoCounter.Next(),
-		}
-		err := node.store.WriteSnapshot(topo)
-		if err != nil {
-			return err
-		}
-		node.Graph.CacheRound[s.NodeId] = cache
-		node.Graph.FinalRound[s.NodeId] = final
 		return nil
 	}
-	node.signSnapshot(s)
-
-	if node.IdForNetwork == s.NodeId {
-		for _, cn := range node.ConsensusNodes {
-			peerId := cn.Account.Hash().ForNetwork(node.networkId)
-			cacheId := s.PayloadHash().ForNetwork(peerId)
-			if time.Now().Before(node.ConsensusCache[cacheId].Add(time.Duration(config.SnapshotRoundGap))) {
-				continue
-			}
-			err = node.Peer.SendSnapshotMessage(peerId, s)
-			if err != nil {
-				return err
-			}
-			node.ConsensusCache[cacheId] = time.Now()
-		}
-	} else {
+	if node.IdForNetwork != s.NodeId {
 		// FIXME gossip peers are different from consensus nodes
-		err := node.Peer.SendSnapshotMessage(s.NodeId, s)
+		return node.Peer.SendSnapshotMessage(s.NodeId, s)
+	}
+
+	for _, cn := range node.ConsensusNodes {
+		peerId := cn.Account.Hash().ForNetwork(node.networkId)
+		cacheId := s.PayloadHash().ForNetwork(peerId)
+		if time.Now().Before(node.ConsensusCache[cacheId].Add(time.Duration(config.SnapshotRoundGap))) {
+			continue
+		}
+		err = node.Peer.SendSnapshotMessage(peerId, s)
 		if err != nil {
 			return err
 		}
+		node.ConsensusCache[cacheId] = time.Now()
 	}
-
-	node.Graph.CacheRound[s.NodeId] = cache
-	node.Graph.FinalRound[s.NodeId] = final
 	return nil
 }
 
-func (node *Node) verifySnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, error) {
+func (node *Node) verifySnapshot(s *common.Snapshot) error {
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
-	if osigs := node.SnapshotsPool[s.PayloadHash()]; len(osigs) > 0 || node.verifyFinalization(s) {
+	if s.RoundNumber < cache.Number || s.RoundNumber > cache.Number+1 {
+		return nil
+	}
+	if s.RoundNumber == cache.Number {
+		if s.References[0] != cache.References[0] || s.References[1] != cache.References[1] {
+			return nil
+		}
+	} else if s.RoundNumber == cache.Number+1 {
+		if s.NodeId == node.IdForNetwork {
+			return nil
+		}
+		round, err := node.verifyReferences(s, cache)
+		if err != nil || round == nil {
+			return err
+		}
+		final = round
+		cache = &CacheRound{
+			NodeId:     s.NodeId,
+			Number:     s.RoundNumber,
+			Timestamp:  s.Timestamp,
+			References: s.References,
+		}
+		err = node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
+		if err != nil {
+			return err
+		}
+	}
+
+	if osigs := node.SnapshotsPool[s.PayloadHash()]; len(osigs) > 0 {
 		filter := make(map[crypto.Signature]bool)
 		for _, sig := range s.Signatures {
 			filter[sig] = true
@@ -102,19 +106,22 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, 
 			filter[sig] = true
 		}
 		node.SnapshotsPool[s.PayloadHash()] = append([]crypto.Signature{}, s.Signatures...)
-		return cache, final, nil
+	} else {
+		node.signSnapshot(s)
 	}
-
-	cacheStart, _ := cache.Gap()
-	if s.Timestamp >= config.SnapshotRoundGap+cacheStart {
-		final = cache.asFinal()
-		cache = &CacheRound{
-			NodeId: s.NodeId,
-			Number: cache.Number + 1,
+	if node.verifyFinalization(s) && cache.AddSnapshot(s) {
+		topo := &common.SnapshotWithTopologicalOrder{
+			Snapshot:         *s,
+			TopologicalOrder: node.TopoCounter.Next(),
+		}
+		err := node.store.WriteSnapshot(topo)
+		if err != nil {
+			return err
 		}
 	}
-
-	return cache, final, nil
+	node.Graph.CacheRound[s.NodeId] = cache
+	node.Graph.FinalRound[s.NodeId] = final
+	return nil
 }
 
 func (node *Node) tryToSignSnapshot(s *common.Snapshot) error {
@@ -166,6 +173,36 @@ func (node *Node) tryToSignSnapshot(s *common.Snapshot) error {
 	node.Graph.CacheRound[s.NodeId] = cache
 	node.Graph.FinalRound[s.NodeId] = final
 	return nil
+}
+
+func (node *Node) verifyReferences(s *common.Snapshot, cache *CacheRound) (*FinalRound, error) {
+	if s.RoundNumber != cache.Number+1 {
+		return nil, nil
+	}
+	final := cache.asFinal()
+	if s.References[0] != final.Hash {
+		err := cache.FilterByHash(node.store, s.References[0])
+		if err != nil {
+			return nil, err
+		}
+		final = cache.asFinal()
+	}
+	if s.References[0] != final.Hash {
+		return nil, nil
+	}
+
+	external, err := node.store.ReadRound(s.References[1])
+	if err != nil {
+		return nil, err
+	}
+	if external == nil {
+		return nil, nil
+	}
+	link, err := node.store.ReadRoundLink(s.NodeId, external.NodeId)
+	if external.Number >= link {
+		return final, err
+	}
+	return nil, err
 }
 
 func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {
