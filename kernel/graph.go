@@ -130,7 +130,6 @@ func (node *Node) tryToSignSnapshot(s *common.Snapshot) error {
 	}
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
-
 	for {
 		s.Timestamp = uint64(time.Now().UnixNano())
 		if s.Timestamp > cache.Timestamp {

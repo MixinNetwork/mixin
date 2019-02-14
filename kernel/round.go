@@ -3,7 +3,6 @@ package kernel
 import (
 	"encoding/binary"
 	"fmt"
-	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -136,20 +135,21 @@ func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, n
 	if err != nil {
 		return nil, err
 	}
+	if len(snapshots) == 0 {
+		panic(nodeIdWithNetwork)
+	}
 
-	start := snapshots[0].Timestamp
-	end := snapshots[len(snapshots)-1].Timestamp
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, number)
-	hashes := append(nodeIdWithNetwork[:], buf...)
+	start, end := ^uint64(0), uint64(0)
+	hash := crypto.NewHash(append(nodeIdWithNetwork[:], buf...))
 	for _, s := range snapshots {
-		h := crypto.NewHash(s.Payload())
-		hashes = append(hashes, h[:]...)
+		hash = hash.ByteOr(s.PayloadHash())
 		if s.Timestamp < start {
-			panic(*s)
+			start = s.Timestamp
 		}
 		if s.Timestamp > end {
-			panic(*s)
+			end = s.Timestamp
 		}
 	}
 	round := &FinalRound{
@@ -157,7 +157,10 @@ func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, n
 		Number: number,
 		Start:  start,
 		End:    end,
-		Hash:   crypto.NewHash(hashes),
+		Hash:   hash,
+	}
+	if round.End-round.Start >= config.SnapshotRoundGap {
+		panic(round)
 	}
 	return round, nil
 }
@@ -174,7 +177,7 @@ func (f *FinalRound) Copy() *FinalRound {
 }
 
 func (c *CacheRound) Gap() (uint64, uint64) {
-	start, end := uint64(time.Now().UnixNano()), uint64(0)
+	start, end := ^uint64(0), uint64(0)
 	for _, s := range c.Snapshots {
 		if s.Timestamp < start {
 			start = s.Timestamp
@@ -187,10 +190,14 @@ func (c *CacheRound) Gap() (uint64, uint64) {
 }
 
 func (c *CacheRound) asFinal() *FinalRound {
+	if len(c.Snapshots) == 0 {
+		panic(c)
+	}
+
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, c.Number)
+	start, end := ^uint64(0), uint64(0)
 	hash := crypto.NewHash(append(c.NodeId[:], buf...))
-	start, end := uint64(time.Now().UnixNano()), uint64(0)
 	for _, s := range c.Snapshots {
 		hash = hash.ByteOr(s.PayloadHash())
 		if s.Timestamp < start {
