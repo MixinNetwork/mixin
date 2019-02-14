@@ -33,7 +33,7 @@ type SyncHandle interface {
 	BuildGraph() []SyncPoint
 	FeedMempool(peer *Peer, s *common.Snapshot) error
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
-	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error)
+	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 }
 
 type SyncPoint struct {

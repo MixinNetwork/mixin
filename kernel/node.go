@@ -218,7 +218,7 @@ func (node *Node) ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.Sn
 	return node.store.ReadSnapshotsSinceTopology(offset, count)
 }
 
-func (node *Node) ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.Snapshot, error) {
+func (node *Node) ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	return node.store.ReadSnapshotsForNodeRound(nodeIdWithNetwork, round)
 }
 

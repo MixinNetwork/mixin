@@ -25,8 +25,8 @@ const (
 	graphPrefixTopology     = "TOPOLOGY"
 )
 
-func (s *BadgerStore) ReadSnapshotsForNodeRound(nodeId crypto.Hash, round uint64) ([]*common.Snapshot, error) {
-	snapshots := make([]*common.Snapshot, 0)
+func (s *BadgerStore) ReadSnapshotsForNodeRound(nodeId crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
+	snapshots := make([]*common.SnapshotWithTopologicalOrder, 0)
 
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
@@ -42,7 +42,7 @@ func (s *BadgerStore) ReadSnapshotsForNodeRound(nodeId crypto.Hash, round uint64
 		if err != nil {
 			return snapshots, err
 		}
-		var s common.Snapshot
+		var s common.SnapshotWithTopologicalOrder
 		err = msgpack.Unmarshal(v, &s)
 		if err != nil {
 			return snapshots, err

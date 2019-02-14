@@ -103,9 +103,12 @@ func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*
 		Timestamp:  meta.Timestamp,
 		References: meta.References,
 	}
-	round.Snapshots, err = store.ReadSnapshotsForNodeRound(round.NodeId, round.Number)
+	snapshots, err := store.ReadSnapshotsForNodeRound(round.NodeId, round.Number)
 	if err != nil {
 		return nil, err
+	}
+	for _, s := range snapshots {
+		round.Snapshots = append(round.Snapshots, &s.Snapshot)
 	}
 	return round, nil
 }

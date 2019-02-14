@@ -23,7 +23,7 @@ type Snapshot struct {
 
 type SnapshotWithTopologicalOrder struct {
 	Snapshot
-	TopologicalOrder uint64      `msgpack:"-"json:"topology"`
+	TopologicalOrder uint64      `json:"topology"`
 	Hash             crypto.Hash `msgpack:"-"json:"hash"`
 }
 
