@@ -11,7 +11,6 @@ import (
 )
 
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
-	// switch 1. raw new snapshot 2. finalized snapshot 3. wait more signatures
 	// if the transaction is a node accept, then create it with no references
 	// and its node id should always be the new accepted node
 	// ...
@@ -26,12 +25,13 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 
 	defer node.Graph.UpdateFinalCache()
 
-	if s.NodeId == node.IdForNetwork {
-	}
-
 	cache, final, err := node.tryToSignSnapshot(s)
 	if err != nil {
 		return err
+	}
+
+	if !node.verifySnapshotNodeSignature(s) {
+		return nil
 	}
 
 	if s.NodeId != node.IdForNetwork || len(s.Signatures) > 1 {
@@ -67,7 +67,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		logger.Println("LOCK INPUTS ERROR", err)
 		return nil
 	}
-	node.sign(s)
+	node.signSnapshot(s)
 
 	if node.IdForNetwork == s.NodeId {
 		for _, cn := range node.ConsensusNodes {
@@ -225,6 +225,23 @@ func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {
 	return node.store.WriteTransaction(&s.Transaction.Transaction)
 }
 
+func (node *Node) verifySnapshotNodeSignature(s *common.Snapshot) bool {
+	msg := s.Payload()
+	for _, cn := range node.ConsensusNodes {
+		nodeId := cn.Account.Hash().ForNetwork(node.networkId)
+		if nodeId != s.NodeId {
+			continue
+		}
+		for _, sig := range s.Signatures {
+			if cn.Account.PublicSpendKey.Verify(msg, sig) {
+				return true
+			}
+		}
+		break
+	}
+	return false
+}
+
 func (node *Node) clearConsensusSignatures(s *common.Snapshot) {
 	msg := s.Payload()
 	sigs := make([]crypto.Signature, 0)
@@ -243,7 +260,7 @@ func (node *Node) clearConsensusSignatures(s *common.Snapshot) {
 	s.Signatures = sigs
 }
 
-func (node *Node) sign(s *common.Snapshot) {
+func (node *Node) signSnapshot(s *common.Snapshot) {
 	s.Sign(node.Account.PrivateSpendKey)
 	node.clearConsensusSignatures(s)
 	node.SnapshotsPool[s.PayloadHash()] = append([]crypto.Signature{}, s.Signatures...)
