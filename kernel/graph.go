@@ -45,7 +45,6 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	if node.verifyFinalization(s) {
 		// so B created new cache round, and now A appended to an error round
 		cache.Snapshots = append(cache.Snapshots, s)
-		cache.End = s.Timestamp
 		topo := &common.SnapshotWithTopologicalOrder{
 			Snapshot:         *s,
 			TopologicalOrder: node.TopoCounter.Next(),
@@ -113,23 +112,15 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, 
 		return cache, final, nil
 	}
 
-	if s.Timestamp >= config.SnapshotRoundGap+cache.Start {
-		if len(cache.Snapshots) == 0 {
-			cache.Start = s.Timestamp
-		} else {
-			final = cache.asFinal()
-			cache = &CacheRound{
-				NodeId: s.NodeId,
-				Number: cache.Number + 1,
-				Start:  s.Timestamp,
-				End:    s.Timestamp,
-			}
+	cacheStart, _ := cache.Gap()
+	if s.Timestamp >= config.SnapshotRoundGap+cacheStart {
+		final = cache.asFinal()
+		cache = &CacheRound{
+			NodeId: s.NodeId,
+			Number: cache.Number + 1,
 		}
 	}
 
-	if s.RoundNumber != cache.Number || s.Timestamp < cache.End {
-		return cache, final, nil
-	}
 	return cache, final, nil
 }
 
@@ -142,44 +133,40 @@ func (node *Node) tryToSignSnapshot(s *common.Snapshot) error {
 
 	for {
 		s.Timestamp = uint64(time.Now().UnixNano())
-		if s.Timestamp > cache.End {
+		if s.Timestamp > cache.Timestamp {
 			break
 		}
 		time.Sleep(1 * time.Millisecond)
 	}
 
-	if s.Timestamp >= config.SnapshotRoundGap+cache.Start {
-		if len(cache.Snapshots) == 0 {
-			cache.Start = s.Timestamp
-		} else {
-			best := &FinalRound{NodeId: final.NodeId}
-			for _, r := range node.Graph.FinalRound {
-				if r.NodeId == s.NodeId {
-					continue
-				}
-				if r.Start >= best.Start && r.Start < uint64(time.Now().UnixNano()) { // FIXME
-					best = r
-				}
+	cacheStart, _ := cache.Gap()
+	if s.Timestamp >= config.SnapshotRoundGap+cacheStart {
+		best := &FinalRound{NodeId: final.NodeId}
+		for _, r := range node.Graph.FinalRound {
+			if r.NodeId == s.NodeId || r.Start < best.Start {
+				continue
 			}
-			if best.NodeId == final.NodeId {
-				panic(node.IdForNetwork)
-			}
-			references := [2]crypto.Hash{final.Hash, best.Hash}
-
-			final = cache.asFinal()
-			cache = &CacheRound{
-				NodeId:     s.NodeId,
-				Number:     cache.Number + 1,
-				Start:      s.Timestamp,
-				References: references,
-			}
-			err := node.store.StartNewRound(s.NodeId, cache.Number, references, final.Start)
-			if err != nil {
-				panic(err)
+			if r.Start+config.SnapshotRoundGap < uint64(time.Now().UnixNano()) {
+				best = r
 			}
 		}
+		if best.NodeId == final.NodeId {
+			panic(node.IdForNetwork)
+		}
+		references := [2]crypto.Hash{final.Hash, best.Hash}
+
+		final = cache.asFinal()
+		cache = &CacheRound{
+			NodeId:     s.NodeId,
+			Number:     final.Number + 1,
+			References: references,
+		}
+		err := node.store.StartNewRound(s.NodeId, cache.Number, references, final.Start)
+		if err != nil {
+			panic(err)
+		}
 	}
-	cache.End = s.Timestamp
+	cache.Timestamp = s.Timestamp
 
 	s.RoundNumber = cache.Number
 	s.References = cache.References

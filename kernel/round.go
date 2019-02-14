@@ -3,8 +3,10 @@ package kernel
 import (
 	"encoding/binary"
 	"fmt"
+	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
@@ -25,9 +27,8 @@ import (
 type CacheRound struct {
 	NodeId     crypto.Hash
 	Number     uint64
-	Start      uint64
+	Timestamp  uint64
 	References [2]crypto.Hash
-	End        uint64             `msgpack:"-"`
 	Snapshots  []*common.Snapshot `msgpack:"-"`
 }
 
@@ -65,7 +66,7 @@ func (g *RoundGraph) Print() string {
 		final := g.FinalRound[id]
 		desc = desc + fmt.Sprintf("FINAL %d %d %s\n", final.Number, final.Start, final.Hash)
 		cache := g.CacheRound[id]
-		desc = desc + fmt.Sprintf("CACHE %d %d\n", cache.Number, cache.Start)
+		desc = desc + fmt.Sprintf("CACHE %d %d\n", cache.Number, cache.Timestamp)
 	}
 	desc = desc + "ROUND GRAPH END"
 	return desc
@@ -97,7 +98,6 @@ func LoadRoundGraph(store storage.Store, networkId crypto.Hash) (*RoundGraph, er
 			graph.CacheRound[id] = &CacheRound{
 				NodeId: id,
 				Number: 1,
-				Start:  0,
 			}
 		}
 		final, err := loadFinalRoundForNode(store, id, finalRoundNumber)
@@ -121,21 +121,12 @@ func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*
 	round := &CacheRound{
 		NodeId:     nodeIdWithNetwork,
 		Number:     meta.Number,
-		Start:      meta.Timestamp,
+		Timestamp:  meta.Timestamp,
 		References: meta.References,
-		End:        0,
 	}
 	round.Snapshots, err = store.ReadSnapshotsForNodeRound(round.NodeId, round.Number)
 	if err != nil {
 		return nil, err
-	}
-	for _, s := range round.Snapshots {
-		if s.Timestamp < round.Start {
-			panic(round.NodeId.String())
-		}
-		if s.Timestamp > round.End {
-			round.End = s.Timestamp
-		}
 	}
 	return round, nil
 }
@@ -171,16 +162,6 @@ func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, n
 	return round, nil
 }
 
-func snapshotAsCacheRound(s *common.Snapshot) *CacheRound {
-	return &CacheRound{
-		NodeId:    s.NodeId,
-		Number:    s.RoundNumber,
-		Start:     s.Timestamp,
-		End:       s.Timestamp,
-		Snapshots: []*common.Snapshot{s},
-	}
-}
-
 func (c *CacheRound) Copy() *CacheRound {
 	r := *c
 	r.Snapshots = append([]*common.Snapshot{}, c.Snapshots...)
@@ -192,11 +173,24 @@ func (f *FinalRound) Copy() *FinalRound {
 	return &r
 }
 
+func (c *CacheRound) Gap() (uint64, uint64) {
+	start, end := uint64(time.Now().UnixNano()), uint64(0)
+	for _, s := range c.Snapshots {
+		if s.Timestamp < start {
+			start = s.Timestamp
+		}
+		if s.Timestamp > end {
+			end = s.Timestamp
+		}
+	}
+	return start, end
+}
+
 func (c *CacheRound) asFinal() *FinalRound {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, c.Number)
 	hash := crypto.NewHash(append(c.NodeId[:], buf...))
-	start, end := c.Snapshots[0].Timestamp, uint64(0)
+	start, end := uint64(time.Now().UnixNano()), uint64(0)
 	for _, s := range c.Snapshots {
 		hash = hash.ByteOr(s.PayloadHash())
 		if s.Timestamp < start {
@@ -212,6 +206,9 @@ func (c *CacheRound) asFinal() *FinalRound {
 		Start:  start,
 		End:    end,
 		Hash:   hash,
+	}
+	if round.End-round.Start >= config.SnapshotRoundGap {
+		panic(round)
 	}
 	return round
 }

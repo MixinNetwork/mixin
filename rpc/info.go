@@ -20,8 +20,7 @@ func getInfo(store storage.Store) (map[string]interface{}, error) {
 		cacheGraph[n.String()] = map[string]interface{}{
 			"node":      r.NodeId.String(),
 			"round":     r.Number,
-			"start":     r.Start,
-			"end":       r.End,
+			"timestamp": r.Timestamp,
 			"snapshots": r.Snapshots,
 		}
 	}
