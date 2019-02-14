@@ -57,12 +57,6 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		node.Graph.FinalRound[s.NodeId] = final
 		return nil
 	}
-
-	err = s.LockInputs(node.store)
-	if err != nil {
-		logger.Println("LOCK INPUTS ERROR", err)
-		return nil
-	}
 	node.signSnapshot(s)
 
 	if node.IdForNetwork == s.NodeId {
@@ -92,7 +86,6 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 }
 
 func (node *Node) verifySnapshot(s *common.Snapshot) (*CacheRound, *FinalRound, error) {
-	logger.Println("VERIFY SNAPSHOT", *s)
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
@@ -200,6 +193,11 @@ func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {
 		return err
 	}
 	err = s.Transaction.Validate(node.store)
+	if err != nil {
+		return err
+	}
+	// FIXME what if client want to fork this node with bad transaction
+	err = s.LockInputs(node.store)
 	if err != nil {
 		return err
 	}

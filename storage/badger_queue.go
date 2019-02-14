@@ -18,7 +18,7 @@ func (s *BadgerStore) QueueAdd(tx *common.SignedTransaction) error {
 			return err
 		}
 		key := queueTxKey(uint64(time.Now().UnixNano())) // FIXME NTP time may not monotonic increase
-		return txn.Set([]byte(key), ival)
+		return txn.Set(key, ival)
 	})
 }
 

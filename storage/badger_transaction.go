@@ -43,7 +43,7 @@ func (s *BadgerStore) WriteTransaction(tx *common.Transaction) error {
 			}
 
 			key := graphUtxoKey(in.Hash, in.Index)
-			item, err := txn.Get([]byte(key))
+			item, err := txn.Get(key)
 			if err != nil {
 				panic(fmt.Errorf("UTXO check error %s", err.Error()))
 			}
@@ -126,7 +126,7 @@ func writeTransaction(txn *badger.Txn, tx *common.Transaction) error {
 	return txn.Set(key, val)
 }
 
-func finalizeTransaction(txn *badger.Txn, tx *common.Transaction, snapHash crypto.Hash) error {
+func finalizeTransaction(txn *badger.Txn, tx *common.Transaction) error {
 	key := graphFinalizationKey(tx.PayloadHash())
 	_, err := txn.Get(key)
 	if err == nil {
@@ -134,7 +134,7 @@ func finalizeTransaction(txn *badger.Txn, tx *common.Transaction, snapHash crypt
 	} else if err != badger.ErrKeyNotFound {
 		return err
 	}
-	err = txn.Set(key, snapHash[:])
+	err = txn.Set(key, []byte{})
 	if err != nil {
 		return err
 	}
