@@ -6,7 +6,7 @@ import (
 
 type BadgerStore struct {
 	snapshotsDB *badger.DB
-	queueDB     *badger.DB
+	cacheDB     *badger.DB
 	stateDB     *badger.DB
 }
 
@@ -15,7 +15,7 @@ func NewBadgerStore(dir string) (*BadgerStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	queueDB, err := openDB(dir+"/queue", false)
+	cacheDB, err := openDB(dir+"/cache", false)
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +25,7 @@ func NewBadgerStore(dir string) (*BadgerStore, error) {
 	}
 	return &BadgerStore{
 		snapshotsDB: snapshotsDB,
-		queueDB:     queueDB,
+		cacheDB:     cacheDB,
 		stateDB:     stateDB,
 	}, nil
 }
@@ -39,7 +39,7 @@ func (store *BadgerStore) Close() error {
 	if err != nil {
 		return err
 	}
-	return store.queueDB.Close()
+	return store.cacheDB.Close()
 }
 
 func openDB(dir string, sync bool) (*badger.DB, error) {

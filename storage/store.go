@@ -15,8 +15,8 @@ type Store interface {
 	ReadConsensusNodes() []common.Node
 	CheckTransactionFinalization(hash crypto.Hash) (bool, error)
 	CheckTransactionInNode(nodeId, hash crypto.Hash) (bool, error)
-	ReadTransaction(hash crypto.Hash) (*common.Transaction, error)
-	WriteTransaction(tx *common.Transaction) error
+	ReadTransaction(hash crypto.Hash) (*common.SignedTransaction, error)
+	WriteTransaction(tx *common.SignedTransaction) error
 	StartNewRound(node crypto.Hash, number uint64, references [2]crypto.Hash, finalStart uint64) error
 	TopologySequence() uint64
 
@@ -33,6 +33,6 @@ type Store interface {
 	WriteSnapshot(*common.SnapshotWithTopologicalOrder) error
 	ReadDomains() []common.Domain
 
-	QueueAddTransaction(tx *common.SignedTransaction) error
-	QueuePollTransactions(uint64, func(k uint64, v []byte) error) error
+	CacheAppendTransactionToQueue(tx *common.SignedTransaction) error
+	CachePollTransactionsQueue(uint64, func(k uint64, v []byte) error) error
 }

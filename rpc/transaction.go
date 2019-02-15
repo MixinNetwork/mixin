@@ -29,7 +29,7 @@ func queueTransaction(store storage.Store, params []interface{}) (string, error)
 	return kernel.QueueTransaction(store, &tx)
 }
 
-func getTransaction(store storage.Store, params []interface{}) (*common.Transaction, error) {
+func getTransaction(store storage.Store, params []interface{}) (*common.SignedTransaction, error) {
 	if len(params) != 1 {
 		return nil, errors.New("invalid params count")
 	}

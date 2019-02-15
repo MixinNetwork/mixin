@@ -13,13 +13,13 @@ import (
 	"github.com/vmihailenco/msgpack"
 )
 
-func (s *BadgerStore) ReadTransaction(hash crypto.Hash) (*common.Transaction, error) {
+func (s *BadgerStore) ReadTransaction(hash crypto.Hash) (*common.SignedTransaction, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 	return readTransaction(txn, hash)
 }
 
-func (s *BadgerStore) WriteTransaction(tx *common.Transaction) error {
+func (s *BadgerStore) WriteTransaction(tx *common.SignedTransaction) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 
@@ -98,8 +98,8 @@ func (s *BadgerStore) CheckTransactionInNode(nodeId, hash crypto.Hash) (bool, er
 	return true, nil
 }
 
-func readTransaction(txn *badger.Txn, hash crypto.Hash) (*common.Transaction, error) {
-	var out common.Transaction
+func readTransaction(txn *badger.Txn, hash crypto.Hash) (*common.SignedTransaction, error) {
+	var out common.SignedTransaction
 	key := graphTransactionKey(hash)
 	err := graphReadValue(txn, key, &out)
 	if err == badger.ErrKeyNotFound {
@@ -108,7 +108,7 @@ func readTransaction(txn *badger.Txn, hash crypto.Hash) (*common.Transaction, er
 	return &out, err
 }
 
-func writeTransaction(txn *badger.Txn, tx *common.Transaction) error {
+func writeTransaction(txn *badger.Txn, tx *common.SignedTransaction) error {
 	key := graphTransactionKey(tx.PayloadHash())
 
 	// FIXME assert only, remove in future
@@ -126,7 +126,7 @@ func writeTransaction(txn *badger.Txn, tx *common.Transaction) error {
 	return txn.Set(key, val)
 }
 
-func finalizeTransaction(txn *badger.Txn, tx *common.Transaction) error {
+func finalizeTransaction(txn *badger.Txn, tx *common.SignedTransaction) error {
 	key := graphFinalizationKey(tx.PayloadHash())
 	_, err := txn.Get(key)
 	if err == nil {

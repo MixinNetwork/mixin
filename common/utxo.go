@@ -31,7 +31,7 @@ type GhostChecker interface {
 
 type NodeReader interface {
 	ReadConsensusNodes() []Node
-	ReadTransaction(hash crypto.Hash) (*Transaction, error)
+	ReadTransaction(hash crypto.Hash) (*SignedTransaction, error)
 }
 
 type DomainReader interface {

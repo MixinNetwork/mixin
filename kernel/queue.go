@@ -14,13 +14,13 @@ func QueueTransaction(store storage.Store, tx *common.SignedTransaction) (string
 	if err != nil {
 		return "", err
 	}
-	return tx.PayloadHash().String(), store.QueueAddTransaction(tx)
+	return tx.PayloadHash().String(), store.CacheAppendTransactionToQueue(tx)
 }
 
 func (node *Node) ConsumeQueue() error {
 	var offset = uint64(0)
 	for {
-		err := node.store.QueuePollTransactions(offset, func(k uint64, v []byte) error {
+		err := node.store.CachePollTransactionsQueue(offset, func(k uint64, v []byte) error {
 			var tx common.SignedTransaction
 			err := msgpack.Unmarshal(v, &tx)
 			if err != nil {

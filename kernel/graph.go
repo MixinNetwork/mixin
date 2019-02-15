@@ -234,7 +234,7 @@ func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {
 	if err != nil {
 		return err
 	}
-	return node.store.WriteTransaction(&s.Transaction.Transaction)
+	return node.store.WriteTransaction(s.Transaction)
 }
 
 func (node *Node) verifySnapshotNodeSignature(s *common.Snapshot) bool {

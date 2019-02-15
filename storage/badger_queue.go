@@ -9,25 +9,29 @@ import (
 	"github.com/vmihailenco/msgpack"
 )
 
-const queuePrefixTX = "TX"
+const (
+	cachePrefixTransactionQueue = "TRANSACTIONQUEUE"
+)
 
-func (s *BadgerStore) QueueAddTransaction(tx *common.SignedTransaction) error {
-	return s.queueDB.Update(func(txn *badger.Txn) error {
+func (s *BadgerStore) CacheAppendTransactionToQueue(tx *common.SignedTransaction) error {
+	return s.cacheDB.Update(func(txn *badger.Txn) error {
 		ival, err := msgpack.Marshal(tx)
 		if err != nil {
 			return err
 		}
-		key := queueTxKey(uint64(time.Now().UnixNano())) // FIXME NTP time may not monotonic increase
+		key := cacheTransactionQueueKey(uint64(time.Now().UnixNano())) // FIXME NTP time may not monotonic increase
 		return txn.Set(key, ival)
 	})
 }
 
-func (s *BadgerStore) QueuePollTransactions(offset uint64, hook func(k uint64, v []byte) error) error {
-	return s.queueDB.Update(func(txn *badger.Txn) error {
+func (s *BadgerStore) CachePollTransactionsQueue(offset uint64, hook func(k uint64, v []byte) error) error {
+	return s.cacheDB.Update(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
 
-		for it.Seek(queueTxKey(offset)); it.ValidForPrefix([]byte(queuePrefixTX)); it.Next() {
+		key := cacheTransactionQueueKey(offset)
+		prefix := []byte(cachePrefixTransactionQueue)
+		for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
 			item := it.Item()
 			k := item.Key()
 			v, err := item.ValueCopy(nil)
@@ -47,8 +51,8 @@ func (s *BadgerStore) QueuePollTransactions(offset uint64, hook func(k uint64, v
 	})
 }
 
-func queueTxKey(offset uint64) []byte {
+func cacheTransactionQueueKey(offset uint64) []byte {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, uint64(offset))
-	return append([]byte(queuePrefixTX), buf...)
+	return append([]byte(cachePrefixTransactionQueue), buf...)
 }
