@@ -68,9 +68,6 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 			return nil
 		}
 	} else if s.RoundNumber == cache.Number+1 {
-		if s.NodeId == node.IdForNetwork {
-			return nil
-		}
 		round, err := node.verifyReferences(s, cache)
 		if err != nil || round == nil {
 			return err

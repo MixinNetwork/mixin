@@ -46,10 +46,10 @@ func (node *Node) LoadGenesis(configDir string) error {
 		Id crypto.Hash
 	}
 	found, err := node.store.StateGet(stateKeyNetwork, &state)
-	if err != nil || state.Id == node.networkId {
+	if err != nil {
 		return err
 	}
-	if found {
+	if found && state.Id != node.networkId {
 		return fmt.Errorf("invalid genesis for network %s", state.Id.String())
 	}
 
