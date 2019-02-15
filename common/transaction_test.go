@@ -80,7 +80,7 @@ func (store storeImpl) CheckGhost(key crypto.Key) (bool, error) {
 	return false, nil
 }
 
-func (store storeImpl) LockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*UTXO, error) {
+func (store storeImpl) LockUTXO(hash crypto.Hash, index int, tx crypto.Hash, fork bool) (*UTXO, error) {
 	return nil, nil
 }
 
@@ -100,7 +100,7 @@ func (store storeImpl) CheckDepositInput(deposit *DepositData, tx crypto.Hash) e
 	return nil
 }
 
-func (store storeImpl) LockDepositInput(deposit *DepositData, tx crypto.Hash) error {
+func (store storeImpl) LockDepositInput(deposit *DepositData, tx crypto.Hash, fork bool) error {
 	return nil
 }
 

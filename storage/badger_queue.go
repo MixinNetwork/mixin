@@ -11,7 +11,7 @@ import (
 
 const queuePrefixTX = "TX"
 
-func (s *BadgerStore) QueueAdd(tx *common.SignedTransaction) error {
+func (s *BadgerStore) QueueAddTransaction(tx *common.SignedTransaction) error {
 	return s.queueDB.Update(func(txn *badger.Txn) error {
 		ival, err := msgpack.Marshal(tx)
 		if err != nil {
@@ -22,7 +22,7 @@ func (s *BadgerStore) QueueAdd(tx *common.SignedTransaction) error {
 	})
 }
 
-func (s *BadgerStore) QueuePoll(offset uint64, hook func(k uint64, v []byte) error) error {
+func (s *BadgerStore) QueuePollTransactions(offset uint64, hook func(k uint64, v []byte) error) error {
 	return s.queueDB.Update(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()

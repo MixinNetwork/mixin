@@ -33,6 +33,6 @@ type Store interface {
 	WriteSnapshot(*common.SnapshotWithTopologicalOrder) error
 	ReadDomains() []common.Domain
 
-	QueueAdd(tx *common.SignedTransaction) error
-	QueuePoll(uint64, func(k uint64, v []byte) error) error
+	QueueAddTransaction(tx *common.SignedTransaction) error
+	QueuePollTransactions(uint64, func(k uint64, v []byte) error) error
 }
