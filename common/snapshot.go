@@ -42,14 +42,14 @@ func (s *Snapshot) PayloadHash() crypto.Hash {
 	return crypto.NewHash(s.Payload())
 }
 
-func (s *Snapshot) LockInputs(locker UTXOLocker) error {
+func (s *Snapshot) LockInputs(locker UTXOLocker, fork bool) error {
 	txHash := s.Transaction.PayloadHash()
 	for _, in := range s.Transaction.Inputs {
 		var err error
 		if in.Deposit != nil {
-			err = locker.LockDepositInput(in.Deposit, txHash)
+			err = locker.LockDepositInput(in.Deposit, txHash, fork)
 		} else {
-			_, err = locker.LockUTXO(in.Hash, in.Index, txHash)
+			_, err = locker.LockUTXO(in.Hash, in.Index, txHash, fork)
 		}
 		if err != nil {
 			return err

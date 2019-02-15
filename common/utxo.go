@@ -21,8 +21,8 @@ type UTXOReader interface {
 }
 
 type UTXOLocker interface {
-	LockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*UTXO, error)
-	LockDepositInput(deposit *DepositData, tx crypto.Hash) error
+	LockUTXO(hash crypto.Hash, index int, tx crypto.Hash, fork bool) (*UTXO, error)
+	LockDepositInput(deposit *DepositData, tx crypto.Hash, fork bool) error
 }
 
 type GhostChecker interface {

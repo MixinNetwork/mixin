@@ -215,7 +215,8 @@ func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {
 	if err != nil {
 		return err
 	}
-	if finalized && !node.verifyFinalization(s) {
+	snapFinalized := node.verifyFinalization(s)
+	if finalized && !snapFinalized {
 		return fmt.Errorf("transaction %s already finalized, won't sign it any more", txHash.String())
 	}
 	if finalized {
@@ -226,12 +227,13 @@ func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {
 	if err != nil || tx != nil {
 		return err
 	}
-	err = s.Transaction.Validate(node.store)
-	if err != nil {
-		return err
+	if !snapFinalized {
+		err = s.Transaction.Validate(node.store)
+		if err != nil {
+			return err
+		}
 	}
-	// FIXME what if client want to fork this node with bad transaction
-	err = s.LockInputs(node.store)
+	err = s.LockInputs(node.store, snapFinalized)
 	if err != nil {
 		return err
 	}

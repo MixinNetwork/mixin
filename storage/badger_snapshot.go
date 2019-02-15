@@ -58,7 +58,7 @@ func (s *BadgerStore) CheckDepositInput(deposit *common.DepositData, tx crypto.H
 	return fmt.Errorf("invalid lock %s %s", hex.EncodeToString(ival), hex.EncodeToString(tx[:]))
 }
 
-func (s *BadgerStore) LockDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
+func (s *BadgerStore) LockDepositInput(deposit *common.DepositData, tx crypto.Hash, fork bool) error {
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		key := graphDepositKey(deposit)
 		ival, err := readDepositInput(txn, deposit)
@@ -71,14 +71,14 @@ func (s *BadgerStore) LockDepositInput(deposit *common.DepositData, tx crypto.Ha
 		if err != nil {
 			return err
 		}
-		if bytes.Compare(ival, tx[:]) != 0 {
+		if !fork && bytes.Compare(ival, tx[:]) != 0 {
 			return fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival))
 		}
 		return save()
 	})
 }
 
-func (s *BadgerStore) LockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*common.UTXO, error) {
+func (s *BadgerStore) LockUTXO(hash crypto.Hash, index int, tx crypto.Hash, fork bool) (*common.UTXO, error) {
 	var utxo *common.UTXO
 	err := s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		key := graphUtxoKey(hash, index)
@@ -100,7 +100,7 @@ func (s *BadgerStore) LockUTXO(hash crypto.Hash, index int, tx crypto.Hash) (*co
 			return err
 		}
 
-		if out.LockHash.HasValue() && out.LockHash != tx {
+		if !fork && out.LockHash.HasValue() && out.LockHash != tx {
 			return fmt.Errorf("utxo locked for transaction %s", out.LockHash)
 		}
 		out.LockHash = tx

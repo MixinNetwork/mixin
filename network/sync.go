@@ -62,6 +62,9 @@ func (me *Peer) syncToNeighborSince(p *Peer, offset uint64, filter map[crypto.Ha
 		offset = s.TopologicalOrder
 		filter[hash] = time.Now()
 	}
+	if len(snapshots) < 1000 {
+		time.Sleep(time.Duration(config.SnapshotRoundGap))
+	}
 	return offset, nil
 }
 
