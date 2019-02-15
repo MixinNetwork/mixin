@@ -119,8 +119,8 @@ func listSnapshotsCmd(c *cli.Context) error {
 	return err
 }
 
-func getSnapshotCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "getsnapshot", []interface{}{
+func getTransactionCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "gettransaction", []interface{}{
 		c.String("hash"),
 	})
 	fmt.Println(string(data))
@@ -276,7 +276,7 @@ func (raw signerInput) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, erro
 		}
 	}
 
-	data, err := callRPC(raw.Node, "getsnapshot", []interface{}{hash.String()})
+	data, err := callRPC(raw.Node, "gettransaction", []interface{}{hash.String()})
 	if err != nil {
 		return nil, err
 	}

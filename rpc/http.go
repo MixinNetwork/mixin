@@ -79,6 +79,8 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		} else {
 			render.New().JSON(w, http.StatusOK, snapshots)
 		}
+	default:
+		render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": "invalid method"})
 	}
 }
 

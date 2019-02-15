@@ -117,9 +117,9 @@ func main() {
 			},
 		},
 		{
-			Name:   "getsnapshot",
-			Usage:  "Get the finalized snapshot by transaction hash",
-			Action: getSnapshotCmd,
+			Name:   "gettransaction",
+			Usage:  "Get the finalized transaction by hash",
+			Action: getTransactionCmd,
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "node,n",
