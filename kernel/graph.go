@@ -7,7 +7,6 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/logger"
 )
 
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
@@ -16,7 +15,6 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	node.clearConsensusSignatures(s)
 	err := node.verifyTransactionInSnapshot(s)
 	if err != nil {
-		logger.Println("verifyTransactionInSnapshot ERROR", err)
 		return nil
 	}
 

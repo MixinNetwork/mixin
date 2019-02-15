@@ -86,6 +86,7 @@ func LoadRoundGraph(store storage.Store, networkId crypto.Hash) (*RoundGraph, er
 			return nil, err
 		}
 		graph.FinalRound[final.NodeId] = final
+		cache.Timestamp = final.Start + config.SnapshotRoundGap
 	}
 
 	logger.Println("\n" + graph.Print())

@@ -112,7 +112,12 @@ func (me *Peer) ListenNeighbors() error {
 		if err != nil {
 			return err
 		}
-		go me.acceptNeighborConnection(c)
+		go func(c Client) {
+			err := me.acceptNeighborConnection(c)
+			if err != nil {
+				logger.Println("accept neighbor error", err)
+			}
+		}(c)
 	}
 }
 
@@ -211,7 +216,7 @@ func (me *Peer) openPeerStream(peer *Peer) error {
 	pingTicker := time.NewTicker(1 * time.Second)
 	defer pingTicker.Stop()
 
-	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
+	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap))
 	defer graphTicker.Stop()
 
 	logger.Println("LOOP PEER STREAM", peer.Address)

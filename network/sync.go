@@ -30,7 +30,7 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPo
 			return offset, err
 		}
 		if len(ss) == 0 {
-			panic(fmt.Errorf("local final should never has zero snapshots %s:%d %s:%d", l.NodeId.String(), l.Number, r.NodeId.String(), r.Number))
+			panic(fmt.Errorf("final should never has zero snapshots %s:%d %s:%d", l.NodeId.String(), l.Number, r.NodeId.String(), r.Number))
 		}
 		s := ss[len(ss)-1]
 		topo := s.TopologicalOrder
@@ -50,8 +50,9 @@ func (me *Peer) syncToNeighborSince(p *Peer, offset uint64, filter map[crypto.Ha
 		return offset, err
 	}
 	for _, s := range snapshots {
-		hash := s.Transaction.PayloadHash()
+		hash := s.PayloadHash()
 		if filter[hash].Add(time.Duration(config.SnapshotRoundGap)).After(time.Now()) {
+			offset = s.TopologicalOrder
 			continue
 		}
 		err := p.SendData(buildSnapshotMessage(&s.Snapshot))
