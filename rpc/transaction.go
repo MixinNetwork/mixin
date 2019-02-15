@@ -63,7 +63,6 @@ func listSnapshots(store storage.Store, params []interface{}) ([]*common.Snapsho
 	}
 
 	for i, _ := range snapshots {
-		snapshots[i].SignedTransaction.Signatures = nil
 		snapshots[i].Signatures = nil
 	}
 	return snapshots, nil

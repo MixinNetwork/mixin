@@ -19,7 +19,7 @@ type Snapshot struct {
 	RoundNumber       uint64             `json:"round"`
 	Timestamp         uint64             `json:"timestamp"`
 	Signatures        []crypto.Signature `json:"signatures,omitempty"`
-	SignedTransaction *SignedTransaction `msgpack"-"json:"transaction"`
+	SignedTransaction *SignedTransaction `msgpack:"-"json:"transaction"`
 }
 
 type SnapshotWithTopologicalOrder struct {
