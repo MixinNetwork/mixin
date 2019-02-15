@@ -15,7 +15,6 @@ import (
 const (
 	PeerMessageTypeSnapshot       = 0
 	PeerMessageTypePing           = 1
-	PeerMessageTypePong           = 2
 	PeerMessageTypeAuthentication = 3
 	PeerMessageTypeGraph          = 4
 )
@@ -139,7 +138,7 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 		if err != nil {
 			return nil, err
 		}
-	case PeerMessageTypePing, PeerMessageTypePong:
+	case PeerMessageTypePing:
 	case PeerMessageTypeAuthentication:
 		msg.Data = data[1:]
 	}
@@ -153,10 +152,6 @@ func buildAuthenticationMessage(data []byte) []byte {
 
 func buildPingMessage() []byte {
 	return []byte{PeerMessageTypePing}
-}
-
-func buildPongMessage() []byte {
-	return []byte{PeerMessageTypePong}
 }
 
 func buildSnapshotMessage(ss *common.Snapshot) []byte {
@@ -197,21 +192,6 @@ func (me *Peer) openPeerStream(peer *Peer) error {
 		return err
 	}
 	logger.Println("AUTH PEER STREAM", peer.Address)
-
-	go func() error {
-		defer client.Close()
-
-		for {
-			data, err := client.Receive()
-			if err != nil {
-				return err
-			}
-			_, err = parseNetworkMessage(data)
-			if err != nil {
-				return err
-			}
-		}
-	}()
 
 	pingTicker := time.NewTicker(1 * time.Second)
 	defer pingTicker.Stop()
@@ -261,10 +241,6 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		}
 		switch msg.Type {
 		case PeerMessageTypePing:
-			err = client.Send(buildPongMessage())
-			if err != nil {
-				return err
-			}
 		case PeerMessageTypeSnapshot:
 			me.handle.FeedMempool(peer, msg.Snapshot)
 		case PeerMessageTypeGraph:

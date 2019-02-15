@@ -18,11 +18,11 @@ import (
 )
 
 const (
-	MaxIncomingStreams = 64
-	HandshakeTimeout   = 2 * time.Second
-	IdleTimeout        = 3 * time.Second
-	ReadDeadline       = 3 * time.Second
-	WriteDeadline      = 3 * time.Second
+	MaxIncomingStreams = 128
+	HandshakeTimeout   = 10 * time.Second
+	IdleTimeout        = 60 * time.Second
+	ReadDeadline       = 10 * time.Second
+	WriteDeadline      = 10 * time.Second
 )
 
 type QuicClient struct {
@@ -60,7 +60,7 @@ func (t *QuicTransport) Dial() (Client, error) {
 		MaxIncomingStreams: MaxIncomingStreams,
 		HandshakeTimeout:   HandshakeTimeout,
 		IdleTimeout:        IdleTimeout,
-		KeepAlive:          false,
+		KeepAlive:          true,
 	})
 	if err != nil {
 		return nil, err
@@ -80,7 +80,7 @@ func (t *QuicTransport) Listen() error {
 		MaxIncomingStreams: MaxIncomingStreams,
 		HandshakeTimeout:   HandshakeTimeout,
 		IdleTimeout:        IdleTimeout,
-		KeepAlive:          false,
+		KeepAlive:          true,
 	})
 	if err != nil {
 		return err
