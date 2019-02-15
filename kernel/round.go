@@ -199,7 +199,7 @@ func (c *CacheRound) AddSnapshot(s *common.Snapshot) bool {
 }
 
 func (c *CacheRound) FilterByMask(store storage.Store, ref crypto.Hash) error {
-	panic(fmt.Errorf("filter %s %s", c.NodeId.String(), ref.String()))
+	logger.Println(fmt.Errorf("filter %s %s", c.NodeId.String(), ref.String()))
 	/* FIXME FIND A VALID MASK
 	filter := make([]*common.Snapshot, 0)
 	for _, cs := range c.Snapshots {
@@ -218,7 +218,7 @@ func (c *CacheRound) FilterByMask(store storage.Store, ref crypto.Hash) error {
 
 func (c *CacheRound) asFinal() *FinalRound {
 	if len(c.Snapshots) == 0 {
-		panic(c)
+		return nil
 	}
 
 	sort.Slice(c.Snapshots, func(i, j int) bool {
