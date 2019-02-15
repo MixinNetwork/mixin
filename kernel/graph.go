@@ -137,6 +137,7 @@ func (node *Node) tryToSignSnapshot(s *common.Snapshot) error {
 
 	cacheStart, _ := cache.Gap()
 	if s.Timestamp >= config.SnapshotRoundGap+cacheStart {
+		final = cache.asFinal()
 		best := &FinalRound{NodeId: final.NodeId}
 		for _, r := range node.Graph.FinalRound {
 			if r.NodeId == s.NodeId || r.Start < best.Start {
@@ -149,13 +150,11 @@ func (node *Node) tryToSignSnapshot(s *common.Snapshot) error {
 		if best.NodeId == final.NodeId {
 			panic(node.IdForNetwork)
 		}
-		references := [2]crypto.Hash{final.Hash, best.Hash}
 
-		final = cache.asFinal()
 		cache = &CacheRound{
 			NodeId:     s.NodeId,
 			Number:     final.Number + 1,
-			References: references,
+			References: [2]crypto.Hash{final.Hash, best.Hash},
 		}
 		err := node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 		if err != nil {
@@ -178,7 +177,7 @@ func (node *Node) verifyReferences(s *common.Snapshot, cache *CacheRound) (*Fina
 	}
 	final := cache.asFinal()
 	if s.References[0] != final.Hash {
-		err := cache.FilterByHash(node.store, s.References[0])
+		err := cache.FilterByMask(node.store, s.References[0])
 		if err != nil {
 			return nil, err
 		}

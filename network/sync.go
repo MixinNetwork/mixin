@@ -9,10 +9,10 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
-func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []SyncPoint) (uint64, error) {
+func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPoint) (uint64, error) {
 	localFilter := make(map[crypto.Hash]*SyncPoint)
 	for _, p := range local {
-		localFilter[p.NodeId] = &p
+		localFilter[p.NodeId] = p
 	}
 
 	var offset uint64

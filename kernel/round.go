@@ -1,8 +1,10 @@
 package kernel
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
+	"sort"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -122,18 +124,25 @@ func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, n
 		panic(nodeIdWithNetwork)
 	}
 
+	sort.Slice(snapshots, func(i, j int) bool {
+		if snapshots[i].Timestamp < snapshots[j].Timestamp {
+			return true
+		}
+		if snapshots[i].Timestamp > snapshots[j].Timestamp {
+			return false
+		}
+		a, b := snapshots[i].PayloadHash(), snapshots[j].PayloadHash()
+		return bytes.Compare(a[:], b[:]) < 0
+	})
+	start := snapshots[0].Timestamp
+	end := snapshots[len(snapshots)-1].Timestamp
+
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, number)
-	start, end := snapshots[0].Timestamp, uint64(0)
 	hash := crypto.NewHash(append(nodeIdWithNetwork[:], buf...))
 	for _, s := range snapshots {
-		hash = hash.ByteOr(s.PayloadHash())
-		if s.Timestamp < start {
-			start = s.Timestamp
-		}
-		if s.Timestamp > end {
-			end = s.Timestamp
-		}
+		ph := s.PayloadHash()
+		hash = crypto.NewHash(append(hash[:], ph[:]...))
 	}
 	round := &FinalRound{
 		NodeId: nodeIdWithNetwork,
@@ -178,11 +187,20 @@ func (c *CacheRound) AddSnapshot(s *common.Snapshot) bool {
 			return false
 		}
 	}
+	start, end := c.Gap()
+	if s.Timestamp < start && s.Timestamp+config.SnapshotRoundGap <= end {
+		return false
+	}
+	if s.Timestamp > end && start+config.SnapshotRoundGap <= s.Timestamp {
+		return false
+	}
 	c.Snapshots = append(c.Snapshots, s)
 	return true
 }
 
-func (c *CacheRound) FilterByHash(store storage.Store, ref crypto.Hash) error {
+func (c *CacheRound) FilterByMask(store storage.Store, ref crypto.Hash) error {
+	panic(fmt.Errorf("filter %s %s", c.NodeId.String(), ref.String()))
+	/* FIXME FIND A VALID MASK
 	filter := make([]*common.Snapshot, 0)
 	for _, cs := range c.Snapshots {
 		ph := cs.PayloadHash()
@@ -194,6 +212,7 @@ func (c *CacheRound) FilterByHash(store storage.Store, ref crypto.Hash) error {
 		}
 	}
 	c.Snapshots = filter
+	*/
 	return nil
 }
 
@@ -202,18 +221,22 @@ func (c *CacheRound) asFinal() *FinalRound {
 		panic(c)
 	}
 
-	start, end := c.Snapshots[0].Timestamp, uint64(0)
-	for _, s := range c.Snapshots {
-		if s.Timestamp < start {
-			start = s.Timestamp
+	sort.Slice(c.Snapshots, func(i, j int) bool {
+		if c.Snapshots[i].Timestamp < c.Snapshots[j].Timestamp {
+			return true
 		}
-		if s.Timestamp > end {
-			end = s.Timestamp
+		if c.Snapshots[i].Timestamp > c.Snapshots[j].Timestamp {
+			return false
 		}
-	}
+		a, b := c.Snapshots[i].PayloadHash(), c.Snapshots[j].PayloadHash()
+		return bytes.Compare(a[:], b[:]) < 0
+	})
+	start := c.Snapshots[0].Timestamp
+	end := c.Snapshots[len(c.Snapshots)-1].Timestamp
 	if end >= start+config.SnapshotRoundGap {
 		end = start + config.SnapshotRoundGap - 1
 	}
+
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, c.Number)
 	hash := crypto.NewHash(append(c.NodeId[:], buf...))
@@ -221,7 +244,8 @@ func (c *CacheRound) asFinal() *FinalRound {
 		if s.Timestamp > end {
 			continue
 		}
-		hash = hash.ByteOr(s.PayloadHash())
+		ph := s.PayloadHash()
+		hash = crypto.NewHash(append(hash[:], ph[:]...))
 	}
 	round := &FinalRound{
 		NodeId: c.NodeId,

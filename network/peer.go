@@ -23,14 +23,14 @@ const (
 type PeerMessage struct {
 	Type       uint8
 	Snapshot   *common.Snapshot
-	FinalCache []SyncPoint
+	FinalCache []*SyncPoint
 	Data       []byte
 }
 
 type SyncHandle interface {
 	BuildAuthenticationMessage() []byte
 	Authenticate(msg []byte) (crypto.Hash, error)
-	BuildGraph() []SyncPoint
+	BuildGraph() []*SyncPoint
 	FeedMempool(peer *Peer, s *common.Snapshot) error
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
@@ -49,7 +49,7 @@ type Peer struct {
 	handle    SyncHandle
 	transport Transport
 	send      chan []byte
-	sync      chan []SyncPoint
+	sync      chan []*SyncPoint
 }
 
 func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) {
@@ -69,7 +69,7 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 		Address:      addr,
 		neighbors:    make(map[crypto.Hash]*Peer),
 		send:         make(chan []byte, 8192),
-		sync:         make(chan []SyncPoint),
+		sync:         make(chan []*SyncPoint),
 		handle:       handle,
 	}
 }
@@ -159,7 +159,7 @@ func buildSnapshotMessage(ss *common.Snapshot) []byte {
 	return append([]byte{PeerMessageTypeSnapshot}, data...)
 }
 
-func buildGraphMessage(points []SyncPoint) []byte {
+func buildGraphMessage(points []*SyncPoint) []byte {
 	data := common.MsgpackMarshalPanic(points)
 	return append([]byte{PeerMessageTypeGraph}, data...)
 }

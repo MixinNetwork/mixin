@@ -153,10 +153,10 @@ func (node *Node) NetworkId() crypto.Hash {
 	return node.networkId
 }
 
-func (node *Node) BuildGraph() []network.SyncPoint {
-	points := make([]network.SyncPoint, 0)
+func (node *Node) BuildGraph() []*network.SyncPoint {
+	points := make([]*network.SyncPoint, 0)
 	for _, c := range node.Graph.FinalCache {
-		points = append(points, network.SyncPoint{
+		points = append(points, &network.SyncPoint{
 			NodeId: c.NodeId,
 			Number: c.Number,
 		})
