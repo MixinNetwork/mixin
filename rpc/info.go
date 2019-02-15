@@ -14,7 +14,7 @@ func getInfo(store storage.Store) (map[string]interface{}, error) {
 	cacheGraph := make(map[string]interface{})
 	for n, r := range graph.CacheRound {
 		for i, _ := range r.Snapshots {
-			r.Snapshots[i].Transaction.Signatures = nil
+			r.Snapshots[i].SignedTransaction.Signatures = nil
 			r.Snapshots[i].Signatures = nil
 		}
 		cacheGraph[n.String()] = map[string]interface{}{

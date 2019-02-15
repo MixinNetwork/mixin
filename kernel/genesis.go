@@ -89,10 +89,11 @@ func (node *Node) LoadGenesis(configDir string) error {
 		signed := &common.SignedTransaction{Transaction: tx}
 		nodeId := in.Address.Hash().ForNetwork(node.networkId)
 		snapshot := common.Snapshot{
-			NodeId:      nodeId,
-			Transaction: signed,
-			RoundNumber: 0,
-			Timestamp:   uint64(time.Unix(gns.Epoch, 0).UnixNano()),
+			NodeId:            nodeId,
+			Transaction:       signed.PayloadHash(),
+			RoundNumber:       0,
+			Timestamp:         uint64(time.Unix(gns.Epoch, 0).UnixNano()),
+			SignedTransaction: signed,
 		}
 		topo := &common.SnapshotWithTopologicalOrder{
 			Snapshot:         snapshot,
@@ -180,10 +181,11 @@ func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) *comm
 	signed := &common.SignedTransaction{Transaction: tx}
 	nodeId := domain.Hash().ForNetwork(node.networkId)
 	snapshot := common.Snapshot{
-		NodeId:      nodeId,
-		Transaction: signed,
-		RoundNumber: 0,
-		Timestamp:   uint64(time.Unix(gns.Epoch, 0).UnixNano() + 1),
+		NodeId:            nodeId,
+		Transaction:       signed.PayloadHash(),
+		RoundNumber:       0,
+		Timestamp:         uint64(time.Unix(gns.Epoch, 0).UnixNano() + 1),
+		SignedTransaction: signed,
 	}
 	return &common.SnapshotWithTopologicalOrder{
 		Snapshot:         snapshot,

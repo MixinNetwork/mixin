@@ -38,7 +38,6 @@ func (s *BadgerStore) ReadSnapshotsSinceTopology(topologyOffset, count uint64) (
 		}
 		snap.Hash = snap.PayloadHash()
 		snap.TopologicalOrder = topology
-		snap.Transaction.Hash = snap.Transaction.PayloadHash()
 		snapshots = append(snapshots, &snap)
 	}
 
@@ -68,7 +67,7 @@ func (s *BadgerStore) TopologySequence() uint64 {
 
 func writeTopology(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder) error {
 	key := graphTopologyKey(snap.TopologicalOrder)
-	val := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction.PayloadHash())
+	val := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction)
 	return txn.Set(key, val[:])
 }
 

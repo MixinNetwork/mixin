@@ -22,11 +22,11 @@ func TestUTXO(t *testing.T) {
 	tx.AddInput(genesisHash, 0)
 	tx.AddInput(genesisHash, 1)
 	tx.AddScriptOutput(accounts, script, NewInteger(20000))
-	s.Transaction = &SignedTransaction{
+	s.SignedTransaction = &SignedTransaction{
 		Transaction: *tx,
 	}
 
-	utxos := s.Transaction.Transaction.UnspentOutputs()
+	utxos := s.SignedTransaction.UnspentOutputs()
 	assert.Len(utxos, 1)
 	utxo := utxos[0]
 	assert.Equal(tx.PayloadHash(), utxo.Input.Hash)

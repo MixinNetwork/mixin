@@ -58,13 +58,13 @@ func (s *BadgerStore) PruneSnapshot(snap *common.SnapshotWithTopologicalOrder) e
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 
-	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction.PayloadHash())
+	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction)
 	err := txn.Delete(key)
 	if err != nil {
 		return err
 	}
 
-	key = graphUniqueKey(snap.NodeId, snap.Transaction.PayloadHash())
+	key = graphUniqueKey(snap.NodeId, snap.Transaction)
 	err = txn.Delete(key)
 	if err != nil {
 		return err
@@ -95,14 +95,14 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) e
 		if snap.References[0] != cache.References[0] || snap.References[1] != cache.References[1] {
 			panic("snapshot references assert error")
 		}
-		tx, err := readTransaction(txn, snap.Transaction.PayloadHash())
+		tx, err := readTransaction(txn, snap.Transaction)
 		if err != nil {
 			return err
 		}
 		if tx == nil {
 			panic("snapshot transaction not exist")
 		}
-		key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction.PayloadHash())
+		key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction)
 		_, err = txn.Get(key)
 		if err == nil {
 			panic("snapshot duplication")
@@ -120,19 +120,19 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) e
 }
 
 func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder) error {
-	err := finalizeTransaction(txn, snap.Transaction)
+	err := finalizeTransaction(txn, snap.SignedTransaction)
 	if err != nil {
 		return err
 	}
 
-	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction.PayloadHash())
+	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction)
 	val := common.MsgpackMarshalPanic(snap)
 	err = txn.Set(key, val)
 	if err != nil {
 		return err
 	}
 
-	key = graphUniqueKey(snap.NodeId, snap.Transaction.PayloadHash())
+	key = graphUniqueKey(snap.NodeId, snap.Transaction)
 	err = txn.Set(key, []byte{})
 	if err != nil {
 		return err

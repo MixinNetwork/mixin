@@ -28,8 +28,9 @@ func (node *Node) ConsumeQueue() error {
 			}
 			peer := network.NewPeer(node, node.IdForNetwork, "")
 			err = node.FeedMempool(peer, &common.Snapshot{
-				NodeId:      node.IdForNetwork,
-				Transaction: &tx,
+				NodeId:            node.IdForNetwork,
+				Transaction:       tx.PayloadHash(),
+				SignedTransaction: &tx,
 			})
 			if err != nil {
 				return err

@@ -92,7 +92,7 @@ func (store storeImpl) ReadConsensusNodes() []Node {
 	return nil
 }
 
-func (store storeImpl) ReadTransaction(hash crypto.Hash) (*Transaction, error) {
+func (store storeImpl) ReadTransaction(hash crypto.Hash) (*SignedTransaction, error) {
 	return nil, nil
 }
 

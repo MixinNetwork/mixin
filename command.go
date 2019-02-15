@@ -280,15 +280,15 @@ func (raw signerInput) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, erro
 	if err != nil {
 		return nil, err
 	}
-	var snap common.SnapshotWithTopologicalOrder
-	err = json.Unmarshal(data, &snap)
+	var tx common.SignedTransaction
+	err = json.Unmarshal(data, &tx)
 	if err != nil {
 		return nil, err
 	}
-	if snap.Transaction == nil {
+	if len(tx.Signatures) == 0 {
 		return nil, fmt.Errorf("invalid input %s#%d", hash.String(), index)
 	}
-	for i, out := range snap.Transaction.Outputs {
+	for i, out := range tx.Outputs {
 		if i == index && len(out.Keys) > 0 {
 			utxo.Keys = out.Keys
 			utxo.Mask = out.Mask

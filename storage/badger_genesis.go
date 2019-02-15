@@ -20,7 +20,11 @@ func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.Sn
 		}
 	}
 	for _, snap := range snapshots {
-		err := writeSnapshot(txn, snap)
+		err := writeTransaction(txn, snap.SignedTransaction)
+		if err != nil {
+			return err
+		}
+		err = writeSnapshot(txn, snap)
 		if err != nil {
 			return err
 		}

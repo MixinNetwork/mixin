@@ -13,12 +13,13 @@ type Round struct {
 }
 
 type Snapshot struct {
-	NodeId      crypto.Hash        `json:"node"`
-	Transaction *SignedTransaction `json:"transaction"`
-	References  [2]crypto.Hash     `json:"references"`
-	RoundNumber uint64             `json:"round"`
-	Timestamp   uint64             `json:"timestamp"`
-	Signatures  []crypto.Signature `json:"signatures,omitempty"`
+	NodeId            crypto.Hash        `json:"node"`
+	Transaction       crypto.Hash        `json:"-"`
+	References        [2]crypto.Hash     `json:"references"`
+	RoundNumber       uint64             `json:"round"`
+	Timestamp         uint64             `json:"timestamp"`
+	Signatures        []crypto.Signature `json:"signatures,omitempty"`
+	SignedTransaction *SignedTransaction `msgpack"-"json:"transaction"`
 }
 
 type SnapshotWithTopologicalOrder struct {
@@ -43,13 +44,12 @@ func (s *Snapshot) PayloadHash() crypto.Hash {
 }
 
 func (s *Snapshot) LockInputs(locker UTXOLocker, fork bool) error {
-	txHash := s.Transaction.PayloadHash()
-	for _, in := range s.Transaction.Inputs {
+	for _, in := range s.SignedTransaction.Inputs {
 		var err error
 		if in.Deposit != nil {
-			err = locker.LockDepositInput(in.Deposit, txHash, fork)
+			err = locker.LockDepositInput(in.Deposit, s.Transaction, fork)
 		} else {
-			_, err = locker.LockUTXO(in.Hash, in.Index, txHash, fork)
+			_, err = locker.LockUTXO(in.Hash, in.Index, s.Transaction, fork)
 		}
 		if err != nil {
 			return err

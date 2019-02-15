@@ -200,32 +200,31 @@ func (node *Node) verifyReferences(s *common.Snapshot, cache *CacheRound) (*Fina
 }
 
 func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {
-	txHash := s.Transaction.PayloadHash()
-	in, err := node.store.CheckTransactionInNode(s.NodeId, txHash)
+	in, err := node.store.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil {
 		return err
 	} else if in {
-		return fmt.Errorf("transaction %s already snapshot by node %s", txHash.String(), s.NodeId.String())
+		return fmt.Errorf("transaction %s already snapshot by node %s", s.Transaction.String(), s.NodeId.String())
 	}
 
-	finalized, err := node.store.CheckTransactionFinalization(txHash)
+	finalized, err := node.store.CheckTransactionFinalization(s.Transaction)
 	if err != nil {
 		return err
 	}
 	snapFinalized := node.verifyFinalization(s)
 	if finalized && !snapFinalized {
-		return fmt.Errorf("transaction %s already finalized, won't sign it any more", txHash.String())
+		return fmt.Errorf("transaction %s already finalized, won't sign it any more", s.Transaction.String())
 	}
 	if finalized {
 		return nil
 	}
 
-	tx, err := node.store.ReadTransaction(txHash)
+	tx, err := node.store.ReadTransaction(s.Transaction)
 	if err != nil || tx != nil {
 		return err
 	}
 	if !snapFinalized {
-		err = s.Transaction.Validate(node.store)
+		err = s.SignedTransaction.Validate(node.store)
 		if err != nil {
 			return err
 		}
@@ -234,7 +233,7 @@ func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {
 	if err != nil {
 		return err
 	}
-	return node.store.WriteTransaction(s.Transaction)
+	return node.store.WriteTransaction(s.SignedTransaction)
 }
 
 func (node *Node) verifySnapshotNodeSignature(s *common.Snapshot) bool {

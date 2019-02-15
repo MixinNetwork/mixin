@@ -24,23 +24,23 @@ func TestSnapshot(t *testing.T) {
 	tx.AddScriptOutput(accounts, script, NewInteger(20000))
 
 	s := &Snapshot{}
-	s.Transaction = &SignedTransaction{
+	s.SignedTransaction = &SignedTransaction{
 		Transaction: *tx,
 	}
 	assert.Len(s.Signatures, 0)
-	assert.Len(s.Payload(), 596)
+	assert.Len(s.Payload(), 223)
 
 	seed := make([]byte, 64)
 	rand.Read(seed)
 	key := crypto.NewKeyFromSeed(seed)
 	s.Sign(key)
 	assert.Len(s.Signatures, 1)
-	assert.Len(s.Payload(), 596)
+	assert.Len(s.Payload(), 223)
 	assert.False(s.CheckSignature(key))
 	assert.True(s.CheckSignature(key.Public()))
 	s.Sign(key)
 	assert.Len(s.Signatures, 1)
-	assert.Len(s.Payload(), 596)
+	assert.Len(s.Payload(), 223)
 	assert.False(s.CheckSignature(key))
 	assert.True(s.CheckSignature(key.Public()))
 }
