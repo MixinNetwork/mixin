@@ -27,7 +27,8 @@ const (
 
 type QuicClient struct {
 	session quic.Session
-	stream  quic.Stream
+	send    quic.SendStream
+	receive quic.ReceiveStream
 }
 
 type QuicTransport struct {
@@ -71,7 +72,7 @@ func (t *QuicTransport) Dial() (Client, error) {
 	}
 	return &QuicClient{
 		session: sess,
-		stream:  stm,
+		send:    stm,
 	}, nil
 }
 
@@ -100,18 +101,18 @@ func (t *QuicTransport) Accept() (Client, error) {
 	}
 	return &QuicClient{
 		session: sess,
-		stream:  stm,
+		receive: stm,
 	}, nil
 }
 
 func (c *QuicClient) Receive() ([]byte, error) {
-	err := c.stream.SetReadDeadline(time.Now().Add(ReadDeadline))
+	err := c.receive.SetReadDeadline(time.Now().Add(ReadDeadline))
 	if err != nil {
 		return nil, err
 	}
 	var m TransportMessage
 	header := make([]byte, TransportMessageHeaderSize)
-	s, err := c.stream.Read(header)
+	s, err := c.receive.Read(header)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +128,7 @@ func (c *QuicClient) Receive() ([]byte, error) {
 		return nil, fmt.Errorf("quic receive invalid message size %d", m.Size)
 	}
 	data := make([]byte, m.Size)
-	s, err = c.stream.Read(data)
+	s, err = c.receive.Read(data)
 	if err != nil {
 		return nil, err
 	}
@@ -165,22 +166,24 @@ func (c *QuicClient) Send(data []byte) error {
 	}
 	data = buf.Bytes()
 
-	err = c.stream.SetWriteDeadline(time.Now().Add(WriteDeadline))
+	err = c.send.SetWriteDeadline(time.Now().Add(WriteDeadline))
 	if err != nil {
 		return err
 	}
 	header := []byte{TransportMessageVersion, 0, 0, 0, 0}
 	binary.BigEndian.PutUint32(header[1:], uint32(len(data)))
-	_, err = c.stream.Write(header)
+	_, err = c.send.Write(header)
 	if err != nil {
 		return err
 	}
-	_, err = c.stream.Write(data)
+	_, err = c.send.Write(data)
 	return err
 }
 
 func (c *QuicClient) Close() error {
-	c.stream.Close()
+	if c.send != nil {
+		c.send.Close()
+	}
 	return c.session.Close()
 }
 
