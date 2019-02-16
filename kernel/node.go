@@ -195,7 +195,8 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, error) {
 	return crypto.Hash{}, errors.New("peer authentication message signature invalid")
 }
 
-func (node *Node) AppendSnapshotQueue(peerId crypto.Hash, s *common.Snapshot) {
+func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
+	node.Peer.SendSnapshotConfirmMessage(peerId, s.PayloadHash())
 	for _, cn := range node.ConsensusNodes {
 		idForNetwork := cn.Account.Hash().ForNetwork(node.networkId)
 		if idForNetwork != peerId {
@@ -206,6 +207,19 @@ func (node *Node) AppendSnapshotQueue(peerId crypto.Hash, s *common.Snapshot) {
 		}
 		break
 	}
+}
+
+func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
+	tx, err := node.store.CacheGetTransaction(hash)
+	if err != nil || tx == nil {
+		return err
+	}
+	node.Peer.SendTransactionMessage(peerId, tx)
+	return err
+}
+
+func (node *Node) CachePutTransaction(tx *common.SignedTransaction) error {
+	return node.store.CachePutTransaction(tx)
 }
 
 func (node *Node) ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {

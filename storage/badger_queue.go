@@ -62,6 +62,7 @@ func (s *BadgerStore) QueuePollSnapshots(offset uint64, hook func(offset uint64,
 			return err
 		}
 	}
+	it.Close()
 	return txn.Commit()
 }
 

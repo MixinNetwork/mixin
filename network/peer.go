@@ -3,6 +3,7 @@ package network
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -13,24 +14,43 @@ import (
 )
 
 const (
-	PeerMessageTypeSnapshot       = 0
-	PeerMessageTypePing           = 1
-	PeerMessageTypeAuthentication = 3
-	PeerMessageTypeGraph          = 4
+	PeerMessageTypeSnapshot           = 0
+	PeerMessageTypePing               = 1
+	PeerMessageTypeAuthentication     = 3
+	PeerMessageTypeGraph              = 4
+	PeerMessageTypeSnapshotConfirm    = 5
+	PeerMessageTypeTransactionRequest = 6
+	PeerMessageTypeTransaction        = 7
 )
 
+type ConfirmMap struct {
+	sync.Map
+}
+
+func (m *ConfirmMap) Get(peerId, snap crypto.Hash) time.Time {
+	key := snap.ForNetwork(peerId)
+	val, _ := m.Load(key)
+	ts, _ := val.(time.Time)
+	return ts
+}
+
 type PeerMessage struct {
-	Type       uint8
-	Snapshot   *common.Snapshot
-	FinalCache []*SyncPoint
-	Data       []byte
+	Type            uint8
+	Snapshot        *common.Snapshot
+	SnapshotHash    crypto.Hash
+	Transaction     *common.SignedTransaction
+	TransactionHash crypto.Hash
+	FinalCache      []*SyncPoint
+	Data            []byte
 }
 
 type SyncHandle interface {
 	BuildAuthenticationMessage() []byte
 	Authenticate(msg []byte) (crypto.Hash, error)
 	BuildGraph() []*SyncPoint
-	AppendSnapshotQueue(peerId crypto.Hash, s *common.Snapshot)
+	QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot)
+	SendTransactionToPeer(peerId, tx crypto.Hash) error
+	CachePutTransaction(tx *common.SignedTransaction) error
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 }
@@ -44,11 +64,12 @@ type Peer struct {
 	IdForNetwork crypto.Hash
 	Address      string
 
-	neighbors map[crypto.Hash]*Peer
-	handle    SyncHandle
-	transport Transport
-	send      chan []byte
-	sync      chan []*SyncPoint
+	SnapshotsConfirmations *ConfirmMap
+	neighbors              map[crypto.Hash]*Peer
+	handle                 SyncHandle
+	transport              Transport
+	send                   chan []byte
+	sync                   chan []*SyncPoint
 }
 
 func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) {
@@ -64,12 +85,13 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) {
 
 func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 	return &Peer{
-		IdForNetwork: idForNetwork,
-		Address:      addr,
-		neighbors:    make(map[crypto.Hash]*Peer),
-		send:         make(chan []byte, 8192),
-		sync:         make(chan []*SyncPoint),
-		handle:       handle,
+		IdForNetwork:           idForNetwork,
+		Address:                addr,
+		SnapshotsConfirmations: new(ConfirmMap),
+		neighbors:              make(map[crypto.Hash]*Peer),
+		send:                   make(chan []byte, 8192),
+		sync:                   make(chan []*SyncPoint),
+		handle:                 handle,
 	}
 }
 
@@ -77,7 +99,17 @@ func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypt
 	return nil
 }
 
+func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, tx *common.SignedTransaction) error {
+	return nil
+}
+
 func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash) error {
+	return nil
+}
+
+func (me *Peer) ConfirmSnapshotForPeer(peerId, snap crypto.Hash) error {
+	key := snap.ForNetwork(peerId)
+	me.SnapshotsConfirmations.Store(key, time.Now())
 	return nil
 }
 
@@ -250,10 +282,15 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		switch msg.Type {
 		case PeerMessageTypePing:
 		case PeerMessageTypeSnapshot:
-			me.SendSnapshotConfirmMessage(peer.IdForNetwork, msg.Snapshot.PayloadHash())
-			me.handle.AppendSnapshotQueue(peer.IdForNetwork, msg.Snapshot)
+			me.handle.QueueAppendSnapshot(peer.IdForNetwork, msg.Snapshot)
 		case PeerMessageTypeGraph:
 			peer.sync <- msg.FinalCache
+		case PeerMessageTypeTransactionRequest:
+			me.handle.SendTransactionToPeer(peer.IdForNetwork, msg.TransactionHash)
+		case PeerMessageTypeTransaction:
+			me.handle.CachePutTransaction(msg.Transaction)
+		case PeerMessageTypeSnapshotConfirm:
+			me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash)
 		}
 	}
 }
