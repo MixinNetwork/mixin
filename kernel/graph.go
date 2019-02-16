@@ -223,17 +223,21 @@ func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {
 	if err != nil || tx != nil {
 		return err
 	}
+	signed, err := node.store.CacheGetTransaction(s.Transaction)
+	if err != nil {
+		return err
+	}
 	if !snapFinalized {
-		err = s.SignedTransaction.Validate(node.store)
+		err = signed.Validate(node.store)
 		if err != nil {
 			return err
 		}
 	}
-	err = s.LockInputs(node.store, snapFinalized)
+	err = signed.LockInputs(node.store, snapFinalized)
 	if err != nil {
 		return err
 	}
-	return node.store.WriteTransaction(s.SignedTransaction)
+	return node.store.WriteTransaction(signed)
 }
 
 func (node *Node) verifySnapshotNodeSignature(s *common.Snapshot) bool {

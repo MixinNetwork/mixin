@@ -89,15 +89,15 @@ func (node *Node) LoadGenesis(configDir string) error {
 		signed := &common.SignedTransaction{Transaction: tx}
 		nodeId := in.Address.Hash().ForNetwork(node.networkId)
 		snapshot := common.Snapshot{
-			NodeId:            nodeId,
-			Transaction:       signed.PayloadHash(),
-			RoundNumber:       0,
-			Timestamp:         uint64(time.Unix(gns.Epoch, 0).UnixNano()),
-			SignedTransaction: signed,
+			NodeId:      nodeId,
+			Transaction: signed.PayloadHash(),
+			RoundNumber: 0,
+			Timestamp:   uint64(time.Unix(gns.Epoch, 0).UnixNano()),
 		}
 		topo := &common.SnapshotWithTopologicalOrder{
-			Snapshot:         snapshot,
-			TopologicalOrder: node.TopoCounter.Next(),
+			Snapshot:          snapshot,
+			SignedTransaction: signed,
+			TopologicalOrder:  node.TopoCounter.Next(),
 		}
 		snapshots = append(snapshots, topo)
 		cacheRounds[snapshot.NodeId] = &CacheRound{
@@ -181,15 +181,15 @@ func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) *comm
 	signed := &common.SignedTransaction{Transaction: tx}
 	nodeId := domain.Hash().ForNetwork(node.networkId)
 	snapshot := common.Snapshot{
-		NodeId:            nodeId,
-		Transaction:       signed.PayloadHash(),
-		RoundNumber:       0,
-		Timestamp:         uint64(time.Unix(gns.Epoch, 0).UnixNano() + 1),
-		SignedTransaction: signed,
+		NodeId:      nodeId,
+		Transaction: signed.PayloadHash(),
+		RoundNumber: 0,
+		Timestamp:   uint64(time.Unix(gns.Epoch, 0).UnixNano() + 1),
 	}
 	return &common.SnapshotWithTopologicalOrder{
-		Snapshot:         snapshot,
-		TopologicalOrder: node.TopoCounter.Next(),
+		Snapshot:          snapshot,
+		SignedTransaction: signed,
+		TopologicalOrder:  node.TopoCounter.Next(),
 	}
 }
 

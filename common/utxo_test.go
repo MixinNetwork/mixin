@@ -10,7 +10,6 @@ import (
 func TestUTXO(t *testing.T) {
 	assert := assert.New(t)
 
-	s := &Snapshot{}
 	genesisHash := crypto.Hash{}
 	script := Script{OperatorCmp, OperatorSum, 2}
 	accounts := make([]Address, 0)
@@ -22,11 +21,8 @@ func TestUTXO(t *testing.T) {
 	tx.AddInput(genesisHash, 0)
 	tx.AddInput(genesisHash, 1)
 	tx.AddScriptOutput(accounts, script, NewInteger(20000))
-	s.SignedTransaction = &SignedTransaction{
-		Transaction: *tx,
-	}
 
-	utxos := s.SignedTransaction.UnspentOutputs()
+	utxos := tx.UnspentOutputs()
 	assert.Len(utxos, 1)
 	utxo := utxos[0]
 	assert.Equal(tx.PayloadHash(), utxo.Input.Hash)

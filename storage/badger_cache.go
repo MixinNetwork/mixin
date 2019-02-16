@@ -9,7 +9,6 @@ import (
 )
 
 const (
-	cachePrefixTransactionQueue = "TRANSACTIONQUEUE"
 	cachePrefixTransactionCache = "TRANSACTIONCACHE"
 	cachePrefixSnapshotQueue    = "SNAPSHOTQUEUE"
 	cacheKeyAllQueueSeq         = "ALLQUEUESEQ"

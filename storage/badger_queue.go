@@ -9,47 +9,6 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
-func (s *BadgerStore) QueueAppendTransaction(tx *common.SignedTransaction) error {
-	txn := s.cacheDB.NewTransaction(true)
-	defer txn.Discard()
-
-	seq, err := cacheQueueNextSeq(txn)
-	if err != nil {
-		return err
-	}
-	key := cacheTransactionQueueKey(seq)
-	val := common.MsgpackMarshalPanic(tx)
-	err = txn.SetWithTTL(key, val, config.CacheTTL)
-	if err != nil {
-		return err
-	}
-	return txn.Commit()
-}
-
-func (s *BadgerStore) QueuePollTransactions(offset uint64, hook func(k uint64, v []byte) error) error {
-	txn := s.cacheDB.NewTransaction(false)
-	defer txn.Discard()
-
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
-	defer it.Close()
-
-	key := cacheTransactionQueueKey(offset)
-	prefix := []byte(cachePrefixTransactionQueue)
-	for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
-		item := it.Item()
-		k := item.Key()
-		v, err := item.ValueCopy(nil)
-		if err != nil {
-			return err
-		}
-		err = hook(binary.BigEndian.Uint64(k[2:]), v)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (s *BadgerStore) QueueAppendSnapshot(snap *common.Snapshot) error {
 	txn := s.cacheDB.NewTransaction(true)
 	defer txn.Discard()
@@ -109,12 +68,6 @@ func cacheQueueNextSeq(txn *badger.Txn) (uint64, error) {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, seq+1)
 	return seq, txn.Set(key, buf)
-}
-
-func cacheTransactionQueueKey(offset uint64) []byte {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, uint64(offset))
-	return append([]byte(cachePrefixTransactionQueue), buf...)
 }
 
 func cacheSnapshotQueueKey(offset uint64) []byte {

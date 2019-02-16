@@ -56,7 +56,6 @@ type Transaction struct {
 	Inputs  []*Input    `json:"inputs"`
 	Outputs []*Output   `json:"outputs"`
 	Extra   []byte      `json:"extra,omitempty"`
-	Hash    crypto.Hash `msgpack:"-"json:"hash"`
 }
 
 type SignedTransaction struct {

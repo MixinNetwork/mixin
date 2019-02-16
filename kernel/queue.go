@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
-	"github.com/MixinNetwork/mixin/network"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/vmihailenco/msgpack"
 )
@@ -14,24 +13,22 @@ func QueueTransaction(store storage.Store, tx *common.SignedTransaction) (string
 	if err != nil {
 		return "", err
 	}
-	return tx.PayloadHash().String(), store.CacheAppendTransactionToQueue(tx)
+	err = store.CachePutTransaction(tx)
+	if err != nil {
+		return "", err
+	}
+	snap := &common.Snapshot{
+		Transaction: tx.PayloadHash(),
+	}
+	return tx.PayloadHash().String(), store.QueueAppendSnapshot(snap)
 }
 
 func (node *Node) ConsumeQueue() error {
 	var offset = uint64(0)
 	for {
-		err := node.store.CachePollTransactionsQueue(offset, func(k uint64, v []byte) error {
+		err := node.store.QueuePollSnapshots(offset, func(k uint64, v []byte) error {
 			var tx common.SignedTransaction
 			err := msgpack.Unmarshal(v, &tx)
-			if err != nil {
-				return err
-			}
-			peer := network.NewPeer(node, node.IdForNetwork, "")
-			err = node.FeedMempool(peer, &common.Snapshot{
-				NodeId:            node.IdForNetwork,
-				Transaction:       tx.PayloadHash(),
-				SignedTransaction: &tx,
-			})
 			if err != nil {
 				return err
 			}

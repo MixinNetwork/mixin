@@ -195,15 +195,15 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, error) {
 	return crypto.Hash{}, errors.New("peer authentication message signature invalid")
 }
 
-func (node *Node) FeedMempool(peer *network.Peer, s *common.Snapshot) error {
-	if peer.IdForNetwork == node.IdForNetwork {
+func (node *Node) FeedMempool(peerId crypto.Hash, s *common.Snapshot) error {
+	if peerId == node.IdForNetwork {
 		node.mempoolChan <- s
 		return nil
 	}
 
 	for _, cn := range node.ConsensusNodes {
 		idForNetwork := cn.Account.Hash().ForNetwork(node.networkId)
-		if idForNetwork != peer.IdForNetwork {
+		if idForNetwork != peerId {
 			continue
 		}
 		if s.CheckSignature(cn.Account.PublicSpendKey) {

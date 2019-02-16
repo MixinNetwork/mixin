@@ -30,7 +30,7 @@ type SyncHandle interface {
 	BuildAuthenticationMessage() []byte
 	Authenticate(msg []byte) (crypto.Hash, error)
 	BuildGraph() []*SyncPoint
-	FeedMempool(peer *Peer, s *common.Snapshot) error
+	FeedMempool(peerId crypto.Hash, s *common.Snapshot) error
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 }
@@ -242,7 +242,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		switch msg.Type {
 		case PeerMessageTypePing:
 		case PeerMessageTypeSnapshot:
-			me.handle.FeedMempool(peer, msg.Snapshot)
+			me.handle.FeedMempool(peer.IdForNetwork, msg.Snapshot)
 		case PeerMessageTypeGraph:
 			peer.sync <- msg.FinalCache
 		}

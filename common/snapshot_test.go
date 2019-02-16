@@ -24,9 +24,6 @@ func TestSnapshot(t *testing.T) {
 	tx.AddScriptOutput(accounts, script, NewInteger(20000))
 
 	s := &Snapshot{}
-	s.SignedTransaction = &SignedTransaction{
-		Transaction: *tx,
-	}
 	assert.Len(s.Signatures, 0)
 	assert.Len(s.Payload(), 204)
 
