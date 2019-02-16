@@ -65,11 +65,13 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 	}
 	if s.RoundNumber == cache.Number {
 		if s.References[0] != cache.References[0] || s.References[1] != cache.References[1] {
+			node.store.QueueAppendSnapshot(crypto.Hash{}, s)
 			return nil
 		}
 	} else if s.RoundNumber == cache.Number+1 {
 		round, err := node.verifyReferences(s, cache)
 		if err != nil || round == nil {
+			node.store.QueueAppendSnapshot(crypto.Hash{}, s)
 			return err
 		}
 		final = round
@@ -81,6 +83,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 		}
 		err = node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 		if err != nil {
+			node.store.QueueAppendSnapshot(crypto.Hash{}, s)
 			return err
 		}
 	}

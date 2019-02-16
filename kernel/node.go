@@ -195,23 +195,17 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, error) {
 	return crypto.Hash{}, errors.New("peer authentication message signature invalid")
 }
 
-func (node *Node) FeedMempool(peerId crypto.Hash, s *common.Snapshot) error {
-	if peerId == node.IdForNetwork {
-		node.mempoolChan <- s
-		return nil
-	}
-
+func (node *Node) AppendSnapshotQueue(peerId crypto.Hash, s *common.Snapshot) {
 	for _, cn := range node.ConsensusNodes {
 		idForNetwork := cn.Account.Hash().ForNetwork(node.networkId)
 		if idForNetwork != peerId {
 			continue
 		}
 		if s.CheckSignature(cn.Account.PublicSpendKey) {
-			node.mempoolChan <- s
+			node.store.QueueAppendSnapshot(peerId, s)
 		}
 		break
 	}
-	return nil
 }
 
 func (node *Node) ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {

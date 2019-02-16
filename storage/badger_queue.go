@@ -6,10 +6,12 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/dgraph-io/badger"
+	"github.com/vmihailenco/msgpack"
 )
 
-func (s *BadgerStore) QueueAppendSnapshot(snap *common.Snapshot) error {
+func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snapshot) error {
 	txn := s.cacheDB.NewTransaction(true)
 	defer txn.Discard()
 
@@ -19,6 +21,7 @@ func (s *BadgerStore) QueueAppendSnapshot(snap *common.Snapshot) error {
 	}
 	key := cacheSnapshotQueueKey(seq)
 	val := common.MsgpackMarshalPanic(snap)
+	val = append(peerId[:], val...)
 	err = txn.SetWithTTL(key, val, config.CacheTTL)
 	if err != nil {
 		return err
@@ -26,8 +29,8 @@ func (s *BadgerStore) QueueAppendSnapshot(snap *common.Snapshot) error {
 	return txn.Commit()
 }
 
-func (s *BadgerStore) QueuePollSnapshots(offset uint64, hook func(k uint64, v []byte) error) error {
-	txn := s.cacheDB.NewTransaction(false)
+func (s *BadgerStore) QueuePollSnapshots(offset uint64, hook func(offset uint64, peerId crypto.Hash, snap *common.Snapshot) error) error {
+	txn := s.cacheDB.NewTransaction(true)
 	defer txn.Discard()
 
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
@@ -42,12 +45,24 @@ func (s *BadgerStore) QueuePollSnapshots(offset uint64, hook func(k uint64, v []
 		if err != nil {
 			return err
 		}
-		err = hook(binary.BigEndian.Uint64(k[2:]), v)
+		off := binary.BigEndian.Uint64(k[len(cachePrefixSnapshotQueue):])
+		var peerId crypto.Hash
+		copy(peerId[:], v[:len(peerId)])
+		var snap common.Snapshot
+		err = msgpack.Unmarshal(v[len(peerId):], &snap)
+		if err != nil {
+			return err
+		}
+		err = hook(off, peerId, &snap)
+		if err != nil {
+			return err
+		}
+		err = txn.Delete(k)
 		if err != nil {
 			return err
 		}
 	}
-	return nil
+	return txn.Commit()
 }
 
 func cacheQueueNextSeq(txn *badger.Txn) (uint64, error) {

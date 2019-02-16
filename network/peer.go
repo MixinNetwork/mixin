@@ -30,7 +30,7 @@ type SyncHandle interface {
 	BuildAuthenticationMessage() []byte
 	Authenticate(msg []byte) (crypto.Hash, error)
 	BuildGraph() []*SyncPoint
-	FeedMempool(peerId crypto.Hash, s *common.Snapshot) error
+	AppendSnapshotQueue(peerId crypto.Hash, s *common.Snapshot)
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 }
@@ -71,6 +71,14 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 		sync:         make(chan []*SyncPoint),
 		handle:       handle,
 	}
+}
+
+func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypto.Hash) error {
+	return nil
+}
+
+func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash) error {
+	return nil
 }
 
 func (me *Peer) SendSnapshotMessage(idForNetwork crypto.Hash, s *common.Snapshot) error {
@@ -242,7 +250,8 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		switch msg.Type {
 		case PeerMessageTypePing:
 		case PeerMessageTypeSnapshot:
-			me.handle.FeedMempool(peer.IdForNetwork, msg.Snapshot)
+			me.SendSnapshotConfirmMessage(peer.IdForNetwork, msg.Snapshot.PayloadHash())
+			me.handle.AppendSnapshotQueue(peer.IdForNetwork, msg.Snapshot)
 		case PeerMessageTypeGraph:
 			peer.sync <- msg.FinalCache
 		}
