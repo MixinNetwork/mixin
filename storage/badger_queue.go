@@ -5,54 +5,120 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/dgraph-io/badger"
-	"github.com/vmihailenco/msgpack"
 )
 
-const (
-	cachePrefixTransactionQueue = "TRANSACTIONQUEUE"
-)
+func (s *BadgerStore) QueueAppendTransaction(tx *common.SignedTransaction) error {
+	txn := s.cacheDB.NewTransaction(true)
+	defer txn.Discard()
 
-func (s *BadgerStore) CacheAppendTransactionToQueue(tx *common.SignedTransaction) error {
-	return s.cacheDB.Update(func(txn *badger.Txn) error {
-		ival, err := msgpack.Marshal(tx)
+	seq, err := cacheQueueNextSeq(txn)
+	if err != nil {
+		return err
+	}
+	key := cacheTransactionQueueKey(seq)
+	val := common.MsgpackMarshalPanic(tx)
+	err = txn.SetWithTTL(key, val, config.CacheTTL)
+	if err != nil {
+		return err
+	}
+	return txn.Commit()
+}
+
+func (s *BadgerStore) QueuePollTransactions(offset uint64, hook func(k uint64, v []byte) error) error {
+	txn := s.cacheDB.NewTransaction(false)
+	defer txn.Discard()
+
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
+	key := cacheTransactionQueueKey(offset)
+	prefix := []byte(cachePrefixTransactionQueue)
+	for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
+		item := it.Item()
+		k := item.Key()
+		v, err := item.ValueCopy(nil)
 		if err != nil {
 			return err
 		}
-		key := cacheTransactionQueueKey(uint64(time.Now().UnixNano())) // FIXME NTP time may not monotonic increase
-		return txn.Set(key, ival)
-	})
+		err = hook(binary.BigEndian.Uint64(k[2:]), v)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (s *BadgerStore) CachePollTransactionsQueue(offset uint64, hook func(k uint64, v []byte) error) error {
-	return s.cacheDB.Update(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
-		defer it.Close()
+func (s *BadgerStore) QueueAppendSnapshot(snap *common.Snapshot) error {
+	txn := s.cacheDB.NewTransaction(true)
+	defer txn.Discard()
 
-		key := cacheTransactionQueueKey(offset)
-		prefix := []byte(cachePrefixTransactionQueue)
-		for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
-			item := it.Item()
-			k := item.Key()
-			v, err := item.ValueCopy(nil)
-			if err != nil {
-				return err
-			}
-			err = hook(binary.BigEndian.Uint64(k[2:]), v)
-			if err != nil {
-				return err
-			}
-			err = txn.Delete(k)
-			if err != nil {
-				return err
-			}
+	seq, err := cacheQueueNextSeq(txn)
+	if err != nil {
+		return err
+	}
+	key := cacheSnapshotQueueKey(seq)
+	val := common.MsgpackMarshalPanic(snap)
+	err = txn.SetWithTTL(key, val, config.CacheTTL)
+	if err != nil {
+		return err
+	}
+	return txn.Commit()
+}
+
+func (s *BadgerStore) QueuePollSnapshots(offset uint64, hook func(k uint64, v []byte) error) error {
+	txn := s.cacheDB.NewTransaction(false)
+	defer txn.Discard()
+
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
+	key := cacheSnapshotQueueKey(offset)
+	prefix := []byte(cachePrefixSnapshotQueue)
+	for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
+		item := it.Item()
+		k := item.Key()
+		v, err := item.ValueCopy(nil)
+		if err != nil {
+			return err
 		}
-		return nil
-	})
+		err = hook(binary.BigEndian.Uint64(k[2:]), v)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cacheQueueNextSeq(txn *badger.Txn) (uint64, error) {
+	var seq uint64
+	key := []byte(cacheKeyAllQueueSeq)
+	item, err := txn.Get(key)
+	if err == badger.ErrKeyNotFound {
+		seq = uint64(time.Now().UnixNano())
+	} else if err != nil {
+		return 0, err
+	} else {
+		v, err := item.ValueCopy(nil)
+		if err != nil {
+			return 0, err
+		}
+		seq = binary.BigEndian.Uint64(v)
+	}
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, seq+1)
+	return seq, txn.Set(key, buf)
 }
 
 func cacheTransactionQueueKey(offset uint64) []byte {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, uint64(offset))
 	return append([]byte(cachePrefixTransactionQueue), buf...)
+}
+
+func cacheSnapshotQueueKey(offset uint64) []byte {
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(offset))
+	return append([]byte(cachePrefixSnapshotQueue), buf...)
 }
