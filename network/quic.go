@@ -65,7 +65,7 @@ func (t *QuicTransport) Dial() (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	stm, err := sess.OpenStreamSync()
+	stm, err := sess.OpenUniStreamSync()
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func (t *QuicTransport) Accept() (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	stm, err := sess.AcceptStream()
+	stm, err := sess.AcceptUniStream()
 	if err != nil {
 		return nil, err
 	}
