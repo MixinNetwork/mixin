@@ -196,7 +196,12 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, error) {
 }
 
 func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
-	node.Peer.SendSnapshotConfirmMessage(peerId, s.PayloadHash())
+	var finalized byte
+	node.clearConsensusSignatures(s)
+	if node.verifyFinalization(s) {
+		finalized = 1
+	}
+	node.Peer.SendSnapshotConfirmMessage(peerId, s.PayloadHash(), finalized)
 	for _, cn := range node.ConsensusNodes {
 		idForNetwork := cn.Account.Hash().ForNetwork(node.networkId)
 		if idForNetwork != peerId {

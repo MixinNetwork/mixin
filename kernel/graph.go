@@ -45,7 +45,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	}
 	if node.IdForNetwork != s.NodeId {
 		// FIXME gossip peers are different from consensus nodes
-		return node.Peer.SendSnapshotMessage(s.NodeId, s)
+		return node.Peer.SendSnapshotMessage(s.NodeId, s, 0)
 	}
 
 	for _, cn := range node.ConsensusNodes {
@@ -54,7 +54,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		if time.Now().Before(node.ConsensusCache[cacheId].Add(time.Duration(config.SnapshotRoundGap * 2))) {
 			continue
 		}
-		err = node.Peer.SendSnapshotMessage(peerId, s)
+		err = node.Peer.SendSnapshotMessage(peerId, s, 0)
 		if err != nil {
 			return err
 		}

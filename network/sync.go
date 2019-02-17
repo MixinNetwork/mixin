@@ -55,12 +55,7 @@ func (me *Peer) syncToNeighborSince(p *Peer, offset uint64, filter map[crypto.Ha
 			offset = s.TopologicalOrder
 			continue
 		}
-		confirmTime := me.SnapshotsConfirmations.Get(p.IdForNetwork, hash)
-		if confirmTime.Add(config.CacheTTL / 2).After(time.Now()) {
-			offset = s.TopologicalOrder
-			continue
-		}
-		err := p.SendData(buildSnapshotMessage(&s.Snapshot))
+		err := me.SendSnapshotMessage(p.IdForNetwork, &s.Snapshot, 1)
 		if err != nil {
 			return offset, err
 		}

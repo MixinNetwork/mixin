@@ -27,8 +27,9 @@ type ConfirmMap struct {
 	sync.Map
 }
 
-func (m *ConfirmMap) Get(peerId, snap crypto.Hash) time.Time {
-	key := snap.ForNetwork(peerId)
+func (m *ConfirmMap) Get(peerId, snap crypto.Hash, finalized byte) time.Time {
+	hash := snap.ForNetwork(peerId)
+	key := crypto.NewHash(append(hash[:], finalized))
 	val, _ := m.Load(key)
 	ts, _ := val.(time.Time)
 	return ts
@@ -38,6 +39,7 @@ type PeerMessage struct {
 	Type            uint8
 	Snapshot        *common.Snapshot
 	SnapshotHash    crypto.Hash
+	Finalized       byte
 	Transaction     *common.SignedTransaction
 	TransactionHash crypto.Hash
 	FinalCache      []*SyncPoint
@@ -64,7 +66,7 @@ type Peer struct {
 	IdForNetwork crypto.Hash
 	Address      string
 
-	SnapshotsConfirmations *ConfirmMap
+	snapshotsConfirmations *ConfirmMap
 	neighbors              map[crypto.Hash]*Peer
 	handle                 SyncHandle
 	transport              Transport
@@ -87,7 +89,7 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 	return &Peer{
 		IdForNetwork:           idForNetwork,
 		Address:                addr,
-		SnapshotsConfirmations: new(ConfirmMap),
+		snapshotsConfirmations: new(ConfirmMap),
 		neighbors:              make(map[crypto.Hash]*Peer),
 		send:                   make(chan []byte, 8192),
 		sync:                   make(chan []*SyncPoint),
@@ -119,26 +121,31 @@ func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, tx *common.Sign
 	return nil
 }
 
-func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash) error {
+func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash, finalized byte) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
 	for _, p := range me.neighbors {
 		if p.IdForNetwork == idForNetwork {
-			return p.SendData(buildSnapshotConfirmMessage(snap))
+			return p.SendData(buildSnapshotConfirmMessage(snap, finalized))
 		}
 	}
 	return nil
 }
 
-func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash) error {
-	key := snap.ForNetwork(idForNetwork)
-	me.SnapshotsConfirmations.Store(key, time.Now())
+func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash, finalized byte) error {
+	hash := snap.ForNetwork(idForNetwork)
+	key := crypto.NewHash(append(hash[:], finalized))
+	me.snapshotsConfirmations.Store(key, time.Now())
 	return nil
 }
 
-func (me *Peer) SendSnapshotMessage(idForNetwork crypto.Hash, s *common.Snapshot) error {
+func (me *Peer) SendSnapshotMessage(idForNetwork crypto.Hash, s *common.Snapshot, finalized byte) error {
 	if idForNetwork == me.IdForNetwork {
+		return nil
+	}
+	confirmTime := me.snapshotsConfirmations.Get(idForNetwork, s.PayloadHash(), finalized)
+	if confirmTime.Add(config.CacheTTL / 2).After(time.Now()) {
 		return nil
 	}
 	for _, p := range me.neighbors {
@@ -206,7 +213,8 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 	case PeerMessageTypeAuthentication:
 		msg.Data = data[1:]
 	case PeerMessageTypeSnapshotConfirm:
-		copy(msg.SnapshotHash[:], data[1:])
+		msg.Finalized = data[1]
+		copy(msg.SnapshotHash[:], data[2:])
 	case PeerMessageTypeTransaction:
 		var tx common.SignedTransaction
 		err := msgpack.Unmarshal(data[1:], &tx)
@@ -234,8 +242,8 @@ func buildSnapshotMessage(ss *common.Snapshot) []byte {
 	return append([]byte{PeerMessageTypeSnapshot}, data...)
 }
 
-func buildSnapshotConfirmMessage(snap crypto.Hash) []byte {
-	return append([]byte{PeerMessageTypeSnapshotConfirm}, snap[:]...)
+func buildSnapshotConfirmMessage(snap crypto.Hash, finalized byte) []byte {
+	return append([]byte{PeerMessageTypeSnapshotConfirm, finalized}, snap[:]...)
 }
 
 func buildTransactionMessage(tx *common.SignedTransaction) []byte {
@@ -338,7 +346,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		case PeerMessageTypeTransaction:
 			me.handle.CachePutTransaction(msg.Transaction)
 		case PeerMessageTypeSnapshotConfirm:
-			me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash)
+			me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash, msg.Finalized)
 		}
 	}
 }
