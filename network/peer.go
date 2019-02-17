@@ -131,8 +131,8 @@ func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto
 	return nil
 }
 
-func (me *Peer) ConfirmSnapshotForPeer(peerId, snap crypto.Hash) error {
-	key := snap.ForNetwork(peerId)
+func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash) error {
+	key := snap.ForNetwork(idForNetwork)
 	me.SnapshotsConfirmations.Store(key, time.Now())
 	return nil
 }

@@ -47,7 +47,7 @@ func (node *Node) ConsumeQueue() error {
 				return nil
 			}
 			hash := snap.Transaction.ForNetwork(peerId)
-			if filter[hash].Add(time.Duration(config.SnapshotRoundGap)).After(time.Now()) {
+			if filter[hash].Add(time.Duration(config.SnapshotRoundGap * 2)).After(time.Now()) {
 				node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction)
 			}
 			return node.store.QueueAppendSnapshot(peerId, snap)

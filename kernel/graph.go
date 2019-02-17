@@ -18,6 +18,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	node.clearConsensusSignatures(s)
 	err := node.verifyTransactionInSnapshot(s)
 	if err != nil {
+		node.store.QueueAppendSnapshot(node.IdForNetwork, s)
 		return nil
 	}
 
@@ -31,8 +32,9 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		return nil
 	}
 
-	err = node.verifySnapshot(s)
-	if err != nil {
+	verified, err := node.verifySnapshot(s)
+	if err != nil || !verified {
+		node.store.QueueAppendSnapshot(node.IdForNetwork, s)
 		return err
 	}
 
@@ -59,23 +61,21 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	return nil
 }
 
-func (node *Node) verifySnapshot(s *common.Snapshot) error {
+func (node *Node) verifySnapshot(s *common.Snapshot) (bool, error) {
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
 	if s.RoundNumber < cache.Number || s.RoundNumber > cache.Number+1 {
-		return nil
+		return false, nil
 	}
 	if s.RoundNumber == cache.Number {
 		if s.References[0] != cache.References[0] || s.References[1] != cache.References[1] {
-			node.store.QueueAppendSnapshot(crypto.Hash{}, s)
-			return nil
+			return false, nil
 		}
 	} else if s.RoundNumber == cache.Number+1 {
 		round, err := node.verifyReferences(s, cache)
 		if err != nil || round == nil {
-			node.store.QueueAppendSnapshot(crypto.Hash{}, s)
-			return err
+			return false, err
 		}
 		final = round
 		cache = &CacheRound{
@@ -86,8 +86,7 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 		}
 		err = node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 		if err != nil {
-			node.store.QueueAppendSnapshot(crypto.Hash{}, s)
-			return err
+			return false, err
 		}
 	}
 
@@ -114,12 +113,12 @@ func (node *Node) verifySnapshot(s *common.Snapshot) error {
 		}
 		err := node.store.WriteSnapshot(topo)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 	node.Graph.CacheRound[s.NodeId] = cache
 	node.Graph.FinalRound[s.NodeId] = final
-	return nil
+	return true, nil
 }
 
 func (node *Node) tryToSignSnapshot(s *common.Snapshot) error {
