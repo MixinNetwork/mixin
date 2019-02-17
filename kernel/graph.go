@@ -16,9 +16,11 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		s.NodeId = node.IdForNetwork
 	}
 	node.clearConsensusSignatures(s)
-	err := node.verifyTransactionInSnapshot(s)
-	if err != nil {
+	queue, err := node.verifyTransactionInSnapshot(s)
+	if queue {
 		node.store.QueueAppendSnapshot(node.IdForNetwork, s)
+	}
+	if err != nil {
 		return nil
 	}
 
@@ -49,7 +51,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	for _, cn := range node.ConsensusNodes {
 		peerId := cn.Account.Hash().ForNetwork(node.networkId)
 		cacheId := s.PayloadHash().ForNetwork(peerId)
-		if time.Now().Before(node.ConsensusCache[cacheId].Add(time.Duration(config.SnapshotRoundGap))) {
+		if time.Now().Before(node.ConsensusCache[cacheId].Add(time.Duration(config.SnapshotRoundGap * 2))) {
 			continue
 		}
 		err = node.Peer.SendSnapshotMessage(peerId, s)
@@ -204,48 +206,52 @@ func (node *Node) verifyReferences(s *common.Snapshot, cache *CacheRound) (*Fina
 	return nil, err
 }
 
-func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {
+func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) (bool, error) {
 	in, err := node.store.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil {
-		return err
+		return true, err
 	} else if in {
-		return fmt.Errorf("transaction %s already snapshot by node %s", s.Transaction.String(), s.NodeId.String())
+		return false, fmt.Errorf("transaction %s already snapshot by node %s", s.Transaction.String(), s.NodeId.String())
 	}
 
 	finalized, err := node.store.CheckTransactionFinalization(s.Transaction)
 	if err != nil {
-		return err
+		return true, err
 	}
 	snapFinalized := node.verifyFinalization(s)
 	if finalized && !snapFinalized {
-		return fmt.Errorf("transaction %s already finalized, won't sign it any more", s.Transaction.String())
+		return false, fmt.Errorf("transaction %s already finalized, won't sign it any more", s.Transaction.String())
 	}
 	if finalized {
-		return nil
+		return false, nil
 	}
 
 	tx, err := node.store.ReadTransaction(s.Transaction)
 	if err != nil || tx != nil {
-		return err
+		return false, err
 	}
 	signed, err := node.store.CacheGetTransaction(s.Transaction)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if signed == nil {
-		return fmt.Errorf("transaction %s expired in cache", s.Transaction.String())
+		return false, fmt.Errorf("transaction %s expired in cache", s.Transaction.String())
 	}
 	if !snapFinalized {
 		err = signed.Validate(node.store)
 		if err != nil {
-			return err
+			return true, err
 		}
 	}
 	err = signed.LockInputs(node.store, snapFinalized)
 	if err != nil {
-		return err
+		return true, err
 	}
-	return node.store.WriteTransaction(signed)
+	err = node.store.WriteTransaction(signed)
+	if err != nil {
+		return true, err
+	}
+	return false, nil
 }
 
 func (node *Node) verifySnapshotNodeSignature(s *common.Snapshot) bool {
