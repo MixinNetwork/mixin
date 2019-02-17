@@ -15,14 +15,11 @@ func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snaps
 	txn := s.cacheDB.NewTransaction(true)
 	defer txn.Discard()
 
-	seq, err := cacheQueueNextSeq(txn)
-	if err != nil {
-		return err
-	}
+	seq := uint64(time.Now().UnixNano())
 	key := cacheSnapshotQueueKey(seq)
 	val := common.MsgpackMarshalPanic(snap)
 	val = append(peerId[:], val...)
-	err = txn.SetWithTTL(key, val, config.CacheTTL)
+	err := txn.SetWithTTL(key, val, config.CacheTTL)
 	if err != nil {
 		return err
 	}
@@ -64,26 +61,6 @@ func (s *BadgerStore) QueuePollSnapshots(offset uint64, hook func(offset uint64,
 	}
 	it.Close()
 	return txn.Commit()
-}
-
-func cacheQueueNextSeq(txn *badger.Txn) (uint64, error) {
-	var seq uint64
-	key := []byte(cacheKeyAllQueueSeq)
-	item, err := txn.Get(key)
-	if err == badger.ErrKeyNotFound {
-		seq = uint64(time.Now().UnixNano())
-	} else if err != nil {
-		return 0, err
-	} else {
-		v, err := item.ValueCopy(nil)
-		if err != nil {
-			return 0, err
-		}
-		seq = binary.BigEndian.Uint64(v)
-	}
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, seq+1)
-	return seq, txn.Set(key, buf)
 }
 
 func cacheSnapshotQueueKey(offset uint64) []byte {

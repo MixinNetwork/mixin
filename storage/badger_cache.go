@@ -11,7 +11,6 @@ import (
 const (
 	cachePrefixTransactionCache = "TRANSACTIONCACHE"
 	cachePrefixSnapshotQueue    = "SNAPSHOTQUEUE"
-	cacheKeyAllQueueSeq         = "ALLQUEUESEQ"
 )
 
 func (s *BadgerStore) CachePutTransaction(tx *common.SignedTransaction) error {
