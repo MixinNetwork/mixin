@@ -14,7 +14,7 @@ type Round struct {
 
 type Snapshot struct {
 	NodeId      crypto.Hash        `json:"node"`
-	Transaction crypto.Hash        `json:"-"`
+	Transaction crypto.Hash        `json:"transaction"`
 	References  [2]crypto.Hash     `json:"references"`
 	RoundNumber uint64             `json:"round"`
 	Timestamp   uint64             `json:"timestamp"`
@@ -23,8 +23,7 @@ type Snapshot struct {
 
 type SnapshotWithTopologicalOrder struct {
 	Snapshot
-	SignedTransaction *SignedTransaction `msgpack:"-"`
-	TopologicalOrder  uint64             `json:"topology"`
+	TopologicalOrder uint64 `json:"topology"`
 }
 
 func (s *Snapshot) Payload() []byte {

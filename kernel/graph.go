@@ -12,6 +12,9 @@ import (
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	// if the transaction is a node accept, then create it with no references
 	// and its node id should always be the new accepted node
+	if !s.NodeId.HasValue() {
+		s.NodeId = node.IdForNetwork
+	}
 	node.clearConsensusSignatures(s)
 	err := node.verifyTransactionInSnapshot(s)
 	if err != nil {
@@ -229,6 +232,9 @@ func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) error {
 	signed, err := node.store.CacheGetTransaction(s.Transaction)
 	if err != nil {
 		return err
+	}
+	if signed == nil {
+		return fmt.Errorf("transaction %s expired in cache", s.Transaction.String())
 	}
 	if !snapFinalized {
 		err = signed.Validate(node.store)

@@ -5,7 +5,7 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
-func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.SnapshotWithTopologicalOrder) error {
+func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.SignedTransaction) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 
@@ -19,12 +19,12 @@ func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.Sn
 			return err
 		}
 	}
-	for _, snap := range snapshots {
-		err := writeTransaction(txn, snap.SignedTransaction)
+	for i, snap := range snapshots {
+		err := writeTransaction(txn, transactions[i])
 		if err != nil {
 			return err
 		}
-		err = writeSnapshot(txn, snap)
+		err = writeSnapshot(txn, snap, transactions[i])
 		if err != nil {
 			return err
 		}

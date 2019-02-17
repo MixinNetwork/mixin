@@ -96,14 +96,38 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 }
 
 func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypto.Hash) error {
+	if idForNetwork == me.IdForNetwork {
+		return nil
+	}
+	for _, p := range me.neighbors {
+		if p.IdForNetwork == idForNetwork {
+			return p.SendData(buildTransactionRequestMessage(tx))
+		}
+	}
 	return nil
 }
 
 func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, tx *common.SignedTransaction) error {
+	if idForNetwork == me.IdForNetwork {
+		return nil
+	}
+	for _, p := range me.neighbors {
+		if p.IdForNetwork == idForNetwork {
+			return p.SendData(buildTransactionMessage(tx))
+		}
+	}
 	return nil
 }
 
 func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash) error {
+	if idForNetwork == me.IdForNetwork {
+		return nil
+	}
+	for _, p := range me.neighbors {
+		if p.IdForNetwork == idForNetwork {
+			return p.SendData(buildSnapshotConfirmMessage(snap))
+		}
+	}
 	return nil
 }
 
@@ -181,6 +205,17 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 	case PeerMessageTypePing:
 	case PeerMessageTypeAuthentication:
 		msg.Data = data[1:]
+	case PeerMessageTypeSnapshotConfirm:
+		copy(msg.SnapshotHash[:], data[1:])
+	case PeerMessageTypeTransaction:
+		var tx common.SignedTransaction
+		err := msgpack.Unmarshal(data[1:], &tx)
+		if err != nil {
+			return nil, err
+		}
+		msg.Transaction = &tx
+	case PeerMessageTypeTransactionRequest:
+		copy(msg.TransactionHash[:], data[1:])
 	}
 	return msg, nil
 }
@@ -197,6 +232,19 @@ func buildPingMessage() []byte {
 func buildSnapshotMessage(ss *common.Snapshot) []byte {
 	data := common.MsgpackMarshalPanic(ss)
 	return append([]byte{PeerMessageTypeSnapshot}, data...)
+}
+
+func buildSnapshotConfirmMessage(snap crypto.Hash) []byte {
+	return append([]byte{PeerMessageTypeSnapshotConfirm}, snap[:]...)
+}
+
+func buildTransactionMessage(tx *common.SignedTransaction) []byte {
+	data := common.MsgpackMarshalPanic(tx)
+	return append([]byte{PeerMessageTypeTransaction}, data...)
+}
+
+func buildTransactionRequestMessage(tx crypto.Hash) []byte {
+	return append([]byte{PeerMessageTypeTransactionRequest}, tx[:]...)
 }
 
 func buildGraphMessage(points []*SyncPoint) []byte {

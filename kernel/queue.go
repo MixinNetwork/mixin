@@ -18,10 +18,10 @@ func QueueTransaction(store storage.Store, tx *common.SignedTransaction) (string
 	if err != nil {
 		return "", err
 	}
-	snap := &common.Snapshot{
+	err = store.QueueAppendSnapshot(crypto.Hash{}, &common.Snapshot{
 		Transaction: tx.PayloadHash(),
-	}
-	return tx.PayloadHash().String(), store.QueueAppendSnapshot(crypto.Hash{}, snap)
+	})
+	return tx.PayloadHash().String(), err
 }
 
 func (node *Node) ConsumeQueue() error {
@@ -43,11 +43,14 @@ func (node *Node) ConsumeQueue() error {
 			if peerId == node.IdForNetwork || !peerId.HasValue() {
 				return nil
 			}
+			if !snap.NodeId.HasValue() {
+				return nil
+			}
 			hash := snap.Transaction.ForNetwork(peerId)
 			if filter[hash].Add(time.Duration(config.SnapshotRoundGap)).After(time.Now()) {
 				node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction)
 			}
-			return nil
+			return node.store.QueueAppendSnapshot(peerId, snap)
 		})
 		if err != nil {
 			panic(err)

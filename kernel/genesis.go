@@ -54,6 +54,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 	}
 
 	var snapshots []*common.SnapshotWithTopologicalOrder
+	var transactions []*common.SignedTransaction
 	cacheRounds := make(map[crypto.Hash]*CacheRound)
 	for _, in := range gns.Nodes {
 		seed := crypto.NewHash([]byte(in.Address.String() + "NODEACCEPT"))
@@ -95,11 +96,11 @@ func (node *Node) LoadGenesis(configDir string) error {
 			Timestamp:   uint64(time.Unix(gns.Epoch, 0).UnixNano()),
 		}
 		topo := &common.SnapshotWithTopologicalOrder{
-			Snapshot:          snapshot,
-			SignedTransaction: signed,
-			TopologicalOrder:  node.TopoCounter.Next(),
+			Snapshot:         snapshot,
+			TopologicalOrder: node.TopoCounter.Next(),
 		}
 		snapshots = append(snapshots, topo)
+		transactions = append(transactions, signed)
 		cacheRounds[snapshot.NodeId] = &CacheRound{
 			NodeId:    snapshot.NodeId,
 			Number:    0,
@@ -111,8 +112,9 @@ func (node *Node) LoadGenesis(configDir string) error {
 	if in := gns.Nodes[0]; domain.Address.String() != in.Address.String() {
 		return fmt.Errorf("invalid genesis domain input account %s %s", domain.Address.String(), in.Address.String())
 	}
-	topo := node.buildDomainSnapshot(domain.Address, gns)
+	topo, signed := node.buildDomainSnapshot(domain.Address, gns)
 	snapshots = append(snapshots, topo)
+	transactions = append(transactions, signed)
 	cacheRounds[topo.NodeId].Snapshots = append(cacheRounds[topo.NodeId].Snapshots, &topo.Snapshot)
 
 	rounds := make([]*common.Round, 0)
@@ -138,7 +140,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 		})
 	}
 
-	err = node.store.LoadGenesis(rounds, snapshots)
+	err = node.store.LoadGenesis(rounds, snapshots, transactions)
 	if err != nil {
 		return err
 	}
@@ -147,7 +149,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 	return node.store.StateSet(stateKeyNetwork, state)
 }
 
-func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) *common.SnapshotWithTopologicalOrder {
+func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) (*common.SnapshotWithTopologicalOrder, *common.SignedTransaction) {
 	seed := crypto.NewHash([]byte(domain.String() + "DOMAINACCEPT"))
 	r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
 	R := r.Public()
@@ -187,10 +189,9 @@ func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) *comm
 		Timestamp:   uint64(time.Unix(gns.Epoch, 0).UnixNano() + 1),
 	}
 	return &common.SnapshotWithTopologicalOrder{
-		Snapshot:          snapshot,
-		SignedTransaction: signed,
-		TopologicalOrder:  node.TopoCounter.Next(),
-	}
+		Snapshot:         snapshot,
+		TopologicalOrder: node.TopoCounter.Next(),
+	}, signed
 }
 
 func readGenesis(path string) (*Genesis, error) {

@@ -112,15 +112,19 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) e
 	}
 	// end assert
 
-	err := writeSnapshot(txn, snap)
+	tx, err := readTransaction(txn, snap.Transaction)
+	if err != nil {
+		return err
+	}
+	err = writeSnapshot(txn, snap, tx)
 	if err != nil {
 		return err
 	}
 	return txn.Commit()
 }
 
-func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder) error {
-	err := finalizeTransaction(txn, snap.SignedTransaction)
+func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder, tx *common.SignedTransaction) error {
+	err := finalizeTransaction(txn, tx)
 	if err != nil {
 		return err
 	}
