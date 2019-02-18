@@ -1,6 +1,9 @@
 package storage
 
 import (
+	"time"
+
+	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/badger"
 )
 
@@ -48,5 +51,19 @@ func openDB(dir string, sync bool) (*badger.DB, error) {
 	opts.ValueDir = dir
 	opts.SyncWrites = sync
 	opts.NumVersionsToKeep = 1
-	return badger.Open(opts)
+	db, err := badger.Open(opts)
+	if err != nil {
+		return nil, err
+	}
+	db.RunValueLogGC(0.1)
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			err := db.RunValueLogGC(0.5)
+			logger.Println("badger value log GC", dir, err)
+		}
+	}()
+	return db, nil
 }
