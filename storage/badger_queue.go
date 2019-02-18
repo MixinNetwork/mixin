@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/badger"
 	"github.com/vmihailenco/msgpack"
 )
@@ -93,7 +94,10 @@ func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snaps
 func (s *BadgerStore) QueuePollSnapshots(offset uint64, hook func(seq uint64, peerId crypto.Hash, snap *common.Snapshot) error) {
 	sequences, peers, snapshots := s.listSnapshotsSinceQueue(offset, 100)
 	for i, snap := range snapshots {
-		hook(sequences[i], peers[i], snap)
+		err := hook(sequences[i], peers[i], snap)
+		if err != nil {
+			logger.Println("QueuePollSnapshot ERROR", sequences[i], peers[i], snap.PayloadHash(), err)
+		}
 	}
 }
 
