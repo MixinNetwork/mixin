@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"encoding/binary"
 	"time"
 
@@ -10,6 +11,39 @@ import (
 	"github.com/dgraph-io/badger"
 	"github.com/vmihailenco/msgpack"
 )
+
+func (s *BadgerStore) QueueInfo() (uint64, uint64, error) {
+	txn := s.cacheDB.NewTransaction(false)
+	defer txn.Discard()
+
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
+	var count uint64
+	snapshots := make(map[crypto.Hash]bool)
+	prefix := []byte(cachePrefixSnapshotQueue)
+	for it.Rewind(); it.Valid(); it.Next() {
+		count = count + 1
+		item := it.Item()
+		k := item.Key()
+		if !bytes.HasPrefix(k, prefix) {
+			continue
+		}
+		v, err := item.ValueCopy(nil)
+		if err != nil {
+			return 0, 0, err
+		}
+		var peerId crypto.Hash
+		copy(peerId[:], v[:len(peerId)])
+		var snap common.Snapshot
+		err = msgpack.Unmarshal(v[len(peerId):], &snap)
+		if err != nil {
+			return 0, 0, err
+		}
+		snapshots[snap.PayloadHash()] = true
+	}
+	return count, uint64(len(snapshots)), nil
+}
 
 func (s *BadgerStore) QueueRemoveSnapshot(seq uint64, hash crypto.Hash) error {
 	txn := s.cacheDB.NewTransaction(true)
@@ -56,38 +90,47 @@ func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snaps
 	return txn.Commit()
 }
 
-func (s *BadgerStore) QueuePollSnapshots(offset uint64, hook func(seq uint64, peerId crypto.Hash, snap *common.Snapshot) error) error {
+func (s *BadgerStore) QueuePollSnapshots(offset uint64, hook func(seq uint64, peerId crypto.Hash, snap *common.Snapshot) error) {
+	sequences, peers, snapshots := s.listSnapshotsSinceQueue(offset, 100)
+	for i, snap := range snapshots {
+		hook(sequences[i], peers[i], snap)
+	}
+}
+
+func (s *BadgerStore) listSnapshotsSinceQueue(offset, limit uint64) ([]uint64, []crypto.Hash, []*common.Snapshot) {
 	txn := s.cacheDB.NewTransaction(false)
 	defer txn.Discard()
 
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
-	count := 0
+	var count uint64
+	var sequences []uint64
+	var peers []crypto.Hash
+	var snapshots []*common.Snapshot
 	key := cacheSnapshotQueueKey(offset)
 	prefix := []byte(cachePrefixSnapshotQueue)
-	for it.Seek(key); it.ValidForPrefix(prefix) && count < 100; it.Next() {
+	for it.Seek(key); it.ValidForPrefix(prefix) && count < limit; it.Next() {
 		count = count + 1
 		item := it.Item()
 		k := item.Key()
 		v, err := item.ValueCopy(nil)
 		if err != nil {
-			return err
+			return nil, nil, nil
 		}
-		off := binary.BigEndian.Uint64(k[len(cachePrefixSnapshotQueue):])
+		seq := binary.BigEndian.Uint64(k[len(cachePrefixSnapshotQueue):])
 		var peerId crypto.Hash
 		copy(peerId[:], v[:len(peerId)])
 		var snap common.Snapshot
 		err = msgpack.Unmarshal(v[len(peerId):], &snap)
 		if err != nil {
-			return err
+			return nil, nil, nil
 		}
-		err = hook(off, peerId, &snap)
-		if err != nil {
-			return err
-		}
+		sequences = append(sequences, seq)
+		peers = append(peers, peerId)
+		snapshots = append(snapshots, &snap)
 	}
-	return nil
+	return sequences, peers, snapshots
 }
 
 func cacheSnapshotQueueKey(offset uint64) []byte {

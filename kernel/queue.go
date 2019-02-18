@@ -28,7 +28,7 @@ func (node *Node) ConsumeQueue() error {
 	var offset = uint64(0)
 	filter := make(map[crypto.Hash]time.Time)
 	for {
-		err := node.store.QueuePollSnapshots(offset, func(seq uint64, peerId crypto.Hash, snap *common.Snapshot) error {
+		node.store.QueuePollSnapshots(offset, func(seq uint64, peerId crypto.Hash, snap *common.Snapshot) error {
 			offset = seq
 			err := node.store.QueueRemoveSnapshot(seq, snap.PayloadHash())
 			if err != nil {
@@ -56,9 +56,6 @@ func (node *Node) ConsumeQueue() error {
 			}
 			return node.store.QueueAppendSnapshot(peerId, snap)
 		})
-		if err != nil {
-			panic(err)
-		}
 		time.Sleep(200 * time.Millisecond)
 	}
 	return nil

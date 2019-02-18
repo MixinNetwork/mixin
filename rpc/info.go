@@ -41,5 +41,13 @@ func getInfo(store storage.Store) (map[string]interface{}, error) {
 		"final":     finalGraph,
 		"topology":  kernel.TopologicalOrder(),
 	}
+	cacheKeyCount, cacheSnapCount, err := store.QueueInfo()
+	if err != nil {
+		return info, err
+	}
+	info["queue"] = map[string]interface{}{
+		"keys":      cacheKeyCount,
+		"snapshots": cacheSnapCount,
+	}
 	return info, nil
 }
