@@ -31,17 +31,10 @@ func (s *BadgerStore) QueueInfo() (uint64, uint64, error) {
 }
 
 func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snapshot) error {
-	hash := snap.PayloadHash()
-	_, loaded := s.unique.Load(hash)
-	if loaded {
-		return nil
-	}
-
 	s.ring.Put(&PeerSnapshot{
 		PeerId:   peerId,
 		Snapshot: snap,
 	})
-	s.unique.Store(hash, true)
 	return nil
 }
 
@@ -52,7 +45,6 @@ func (s *BadgerStore) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *com
 			continue
 		}
 		ps := item.(*PeerSnapshot)
-		s.unique.Delete(ps.Snapshot.PayloadHash())
 		hook(ps.PeerId, ps.Snapshot)
 	}
 }

@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/logger"
@@ -14,7 +13,6 @@ type BadgerStore struct {
 	cacheDB     *badger.DB
 	stateDB     *badger.DB
 	ring        *queue.RingBuffer
-	unique      *sync.Map
 	closing     bool
 }
 
@@ -36,7 +34,6 @@ func NewBadgerStore(dir string) (*BadgerStore, error) {
 		cacheDB:     cacheDB,
 		stateDB:     stateDB,
 		ring:        queue.NewRingBuffer(1024 * 1024),
-		unique:      new(sync.Map),
 		closing:     false,
 	}, nil
 }
@@ -71,8 +68,13 @@ func openDB(dir string, sync bool) (*badger.DB, error) {
 		ticker := time.NewTicker(1 * time.Minute)
 		defer ticker.Stop()
 		for range ticker.C {
-			err := db.RunValueLogGC(0.5)
-			logger.Println("badger value log GC", dir, err)
+			lsm, vlog := db.Size()
+			if lsm > 1024*1024*8 || vlog > 1024*1024*32 {
+				err := db.RunValueLogGC(0.5)
+				logger.Println("badger value log GC", dir, err)
+			} else {
+				logger.Println("badger size", dir, lsm, vlog)
+			}
 		}
 	}()
 	return db, nil

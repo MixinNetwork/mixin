@@ -25,32 +25,34 @@ func QueueTransaction(store storage.Store, tx *common.SignedTransaction) (string
 }
 
 func (node *Node) ConsumeQueue() error {
+	var count uint64
 	filter := make(map[crypto.Hash]time.Time)
-	for {
-		node.store.QueuePollSnapshots(func(peerId crypto.Hash, snap *common.Snapshot) error {
-			tx, err := node.store.CacheGetTransaction(snap.Transaction)
-			if err != nil {
-				return err
-			}
-			if tx != nil {
-				node.mempoolChan <- snap
-				return nil
-			}
+	node.store.QueuePollSnapshots(func(peerId crypto.Hash, snap *common.Snapshot) error {
+		count = count + 1
+		if count%100 == 0 {
+			time.Sleep(100 * time.Millisecond)
+		}
+		tx, err := node.store.CacheGetTransaction(snap.Transaction)
+		if err != nil {
+			return err
+		}
+		if tx != nil {
+			node.mempoolChan <- snap
+			return nil
+		}
 
-			if peerId == node.IdForNetwork || !peerId.HasValue() {
-				return nil
-			}
-			if !snap.NodeId.HasValue() {
-				return nil
-			}
-			hash := snap.Transaction.ForNetwork(peerId)
-			if filter[hash].Add(time.Duration(config.SnapshotRoundGap * 2)).Before(time.Now()) {
-				node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction)
-				filter[hash] = time.Now()
-			}
-			return node.store.QueueAppendSnapshot(peerId, snap)
-		})
-		time.Sleep(200 * time.Millisecond)
-	}
+		if peerId == node.IdForNetwork || !peerId.HasValue() {
+			return nil
+		}
+		if !snap.NodeId.HasValue() {
+			return nil
+		}
+		hash := snap.Transaction.ForNetwork(peerId)
+		if filter[hash].Add(time.Duration(config.SnapshotRoundGap * 2)).Before(time.Now()) {
+			node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction)
+			filter[hash] = time.Now()
+		}
+		return node.store.QueueAppendSnapshot(peerId, snap)
+	})
 	return nil
 }
