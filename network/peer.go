@@ -166,7 +166,7 @@ func (p *Peer) SendData(data []byte) error {
 }
 
 func (me *Peer) ListenNeighbors() error {
-	transport, err := NewQuicServer(me.Address)
+	transport, err := NewTcpServer(me.Address)
 	if err != nil {
 		return err
 	}
@@ -272,7 +272,7 @@ func (me *Peer) openPeerStreamLoop(p *Peer) {
 
 func (me *Peer) openPeerStream(peer *Peer) error {
 	logger.Println("OPEN PEER STREAM", peer.Address)
-	transport, err := NewQuicClient(peer.Address)
+	transport, err := NewTcpClient(peer.Address)
 	if err != nil {
 		return err
 	}

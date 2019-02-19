@@ -133,7 +133,7 @@ func (c *QuicClient) Receive() ([]byte, error) {
 		return nil, err
 	}
 	if s != int(m.Size) {
-		return nil, fmt.Errorf("quic receive invalid message data %d", s)
+		return nil, fmt.Errorf("quic receive invalid message data %d %d", s, m.Size)
 	}
 
 	gzReader, err := gzip.NewReader(bytes.NewBuffer(data))
