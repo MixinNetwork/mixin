@@ -33,6 +33,13 @@ func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.Sn
 	return txn.Commit()
 }
 
+func (s *BadgerStore) CheckGenesisLoad() (bool, error) {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	return checkGenesisLoad(txn), nil
+}
+
 func checkGenesisLoad(txn *badger.Txn) bool {
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()

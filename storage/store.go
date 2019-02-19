@@ -11,6 +11,7 @@ type Store interface {
 	StateGet(key string, val interface{}) (bool, error)
 	StateSet(key string, val interface{}) error
 
+	CheckGenesisLoad() (bool, error)
 	LoadGenesis(rounds []*common.Round, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.SignedTransaction) error
 	ReadConsensusNodes() []common.Node
 	CheckTransactionFinalization(hash crypto.Hash) (bool, error)

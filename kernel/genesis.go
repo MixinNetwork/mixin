@@ -52,6 +52,10 @@ func (node *Node) LoadGenesis(configDir string) error {
 	if found && state.Id != node.networkId {
 		return fmt.Errorf("invalid genesis for network %s", state.Id.String())
 	}
+	loaded, err := node.store.CheckGenesisLoad()
+	if err != nil || loaded {
+		return err
+	}
 
 	var snapshots []*common.SnapshotWithTopologicalOrder
 	var transactions []*common.SignedTransaction
