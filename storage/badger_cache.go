@@ -10,8 +10,6 @@ import (
 
 const (
 	cachePrefixTransactionCache = "TRANSACTIONCACHE"
-	cachePrefixSnapshotCache    = "SNAPSHOTCACHE"
-	cachePrefixSnapshotQueue    = "SNAPSHOTQUEUE"
 )
 
 func (s *BadgerStore) CachePutTransaction(tx *common.SignedTransaction) error {
@@ -49,8 +47,4 @@ func (s *BadgerStore) CacheGetTransaction(hash crypto.Hash) (*common.SignedTrans
 
 func cacheTransactionCacheKey(hash crypto.Hash) []byte {
 	return append([]byte(cachePrefixTransactionCache), hash[:]...)
-}
-
-func cacheSnapshotCacheKey(hash crypto.Hash) []byte {
-	return append([]byte(cachePrefixSnapshotCache), hash[:]...)
 }

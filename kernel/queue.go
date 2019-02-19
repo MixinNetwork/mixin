@@ -25,16 +25,9 @@ func QueueTransaction(store storage.Store, tx *common.SignedTransaction) (string
 }
 
 func (node *Node) ConsumeQueue() error {
-	var offset = uint64(0)
 	filter := make(map[crypto.Hash]time.Time)
 	for {
-		node.store.QueuePollSnapshots(offset, func(seq uint64, peerId crypto.Hash, snap *common.Snapshot) error {
-			offset = seq
-			err := node.store.QueueRemoveSnapshot(seq, snap.PayloadHash())
-			if err != nil {
-				return err
-			}
-
+		node.store.QueuePollSnapshots(func(peerId crypto.Hash, snap *common.Snapshot) error {
 			tx, err := node.store.CacheGetTransaction(snap.Transaction)
 			if err != nil {
 				return err

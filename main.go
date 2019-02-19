@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/rpc"
@@ -152,6 +153,8 @@ func main() {
 }
 
 func kernelCmd(c *cli.Context) error {
+	runtime.GOMAXPROCS(128)
+
 	store, err := storage.NewBadgerStore(c.String("dir"))
 	if err != nil {
 		return err

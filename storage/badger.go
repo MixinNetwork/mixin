@@ -1,9 +1,11 @@
 package storage
 
 import (
+	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/logger"
+	"github.com/Workiva/go-datastructures/queue"
 	"github.com/dgraph-io/badger"
 )
 
@@ -11,6 +13,9 @@ type BadgerStore struct {
 	snapshotsDB *badger.DB
 	cacheDB     *badger.DB
 	stateDB     *badger.DB
+	ring        *queue.RingBuffer
+	unique      *sync.Map
+	closing     bool
 }
 
 func NewBadgerStore(dir string) (*BadgerStore, error) {
@@ -30,10 +35,15 @@ func NewBadgerStore(dir string) (*BadgerStore, error) {
 		snapshotsDB: snapshotsDB,
 		cacheDB:     cacheDB,
 		stateDB:     stateDB,
+		ring:        queue.NewRingBuffer(1024 * 1024),
+		unique:      new(sync.Map),
+		closing:     false,
 	}, nil
 }
 
 func (store *BadgerStore) Close() error {
+	store.closing = true
+	store.ring.Dispose()
 	err := store.snapshotsDB.Close()
 	if err != nil {
 		return err

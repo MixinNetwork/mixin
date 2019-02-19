@@ -35,8 +35,7 @@ type Store interface {
 
 	QueueInfo() (uint64, uint64, error)
 	QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snapshot) error
-	QueueRemoveSnapshot(seq uint64, hash crypto.Hash) error
-	QueuePollSnapshots(offset uint64, hook func(seq uint64, peerId crypto.Hash, snap *common.Snapshot) error)
+	QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error)
 	CachePutTransaction(tx *common.SignedTransaction) error
 	CacheGetTransaction(hash crypto.Hash) (*common.SignedTransaction, error)
 }
