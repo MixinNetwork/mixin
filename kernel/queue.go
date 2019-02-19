@@ -25,13 +25,8 @@ func QueueTransaction(store storage.Store, tx *common.SignedTransaction) (string
 }
 
 func (node *Node) ConsumeQueue() error {
-	var count uint64
 	filter := make(map[crypto.Hash]time.Time)
 	node.store.QueuePollSnapshots(func(peerId crypto.Hash, snap *common.Snapshot) error {
-		count = count + 1
-		if count%100 == 0 {
-			time.Sleep(100 * time.Millisecond)
-		}
 		tx, err := node.store.CacheGetTransaction(snap.Transaction)
 		if err != nil {
 			return err

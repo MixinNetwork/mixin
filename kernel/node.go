@@ -27,6 +27,7 @@ type Node struct {
 	Graph          *RoundGraph
 	TopoCounter    *TopologicalSequence
 	SnapshotsPool  map[crypto.Hash][]crypto.Signature
+	SignaturesPool map[crypto.Hash]crypto.Signature
 	ConsensusCache map[crypto.Hash]time.Time
 	Peer           *network.Peer
 
@@ -40,6 +41,7 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
 		ConsensusNodes: make([]common.Node, 0),
 		SnapshotsPool:  make(map[crypto.Hash][]crypto.Signature),
+		SignaturesPool: make(map[crypto.Hash]crypto.Signature),
 		ConsensusCache: make(map[crypto.Hash]time.Time),
 		store:          store,
 		mempoolChan:    make(chan *common.Snapshot, MempoolSize),
@@ -197,6 +199,11 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, error) {
 
 func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
 	hash := s.PayloadHash()
+	if len(s.Signatures) != 1 && !node.verifyFinalization(s.Signatures) {
+		node.Peer.SendSnapshotConfirmMessage(peerId, hash, 0)
+		return
+	}
+
 	sigs := make([]crypto.Signature, 0)
 	signaturesFilter := make(map[crypto.Signature]bool)
 	signersMap := make(map[crypto.Hash]bool)
@@ -218,12 +225,14 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
 	}
 	s.Signatures = sigs
 
-	var finalized byte
-	if node.verifyFinalization(s) {
-		finalized = 1
+	if node.verifyFinalization(s.Signatures) {
+	} else {
+		node.Peer.SendSnapshotConfirmMessage(peerId, hash, 0)
+		if len(s.Signatures) != 1 {
+			return
+		}
 	}
-	node.Peer.SendSnapshotConfirmMessage(peerId, hash, finalized)
-	if signersMap[peerId] && signersMap[s.NodeId] {
+	if signersMap[peerId] && (s.NodeId == node.IdForNetwork || signersMap[s.NodeId]) {
 		node.store.QueueAppendSnapshot(peerId, s)
 	}
 }

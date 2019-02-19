@@ -10,13 +10,25 @@ import (
 )
 
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
-	// if the transaction is a node accept, then create it with no references
-	// and its node id should always be the new accepted node
 	if !s.NodeId.HasValue() {
 		s.NodeId = node.IdForNetwork
 	}
-	queue, err := node.verifyTransactionInSnapshot(s)
-	if queue {
+
+	retry, err := node.verifyTransactionInSnapshot(s)
+	if retry {
+		node.store.QueueAppendSnapshot(node.IdForNetwork, s)
+	}
+	if err != nil {
+		return nil
+	}
+
+	err = node.tryToSignSnapshot(s)
+	if err != nil {
+		return err
+	}
+
+	retry, err = node.verifySnapshot(s)
+	if retry {
 		node.store.QueueAppendSnapshot(node.IdForNetwork, s)
 	}
 	if err != nil {
@@ -24,21 +36,10 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	}
 
 	defer node.Graph.UpdateFinalCache()
-
-	err = node.tryToSignSnapshot(s)
-	if err != nil {
-		return err
-	}
-
-	verified, err := node.verifySnapshot(s)
-	if err != nil || !verified {
-		node.store.QueueAppendSnapshot(node.IdForNetwork, s)
-		return err
-	}
-
-	if node.verifyFinalization(s) {
+	if node.verifyFinalization(node.SnapshotsPool[s.PayloadHash()]) {
 		return nil
 	}
+	s.Signatures = []crypto.Signature{node.SignaturesPool[s.PayloadHash()]}
 	if node.IdForNetwork != s.NodeId {
 		// FIXME gossip peers are different from consensus nodes
 		return node.Peer.SendSnapshotMessage(s.NodeId, s, 0)
@@ -60,20 +61,29 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 }
 
 func (node *Node) verifySnapshot(s *common.Snapshot) (bool, error) {
+	snapHash := s.PayloadHash()
+	osigs := node.SnapshotsPool[snapHash]
+	if s.NodeId == node.IdForNetwork && len(osigs) == 0 {
+		return false, fmt.Errorf("some node is impersonating me %s %s", node.IdForNetwork.String(), s.NodeId.String())
+	}
+
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
 	if s.RoundNumber < cache.Number || s.RoundNumber > cache.Number+1 {
-		return false, nil
+		return true, fmt.Errorf("invalid round number %d %d", s.RoundNumber, cache.Number)
 	}
 	if s.RoundNumber == cache.Number {
 		if s.References[0] != cache.References[0] || s.References[1] != cache.References[1] {
-			return false, nil
+			return true, fmt.Errorf("invalid same round references %s %s", cache.References[0].String(), cache.References[1].String())
 		}
 	} else if s.RoundNumber == cache.Number+1 {
 		round, err := node.verifyReferences(s, cache)
-		if err != nil || round == nil {
-			return false, err
+		if err != nil {
+			return true, err
+		}
+		if round == nil {
+			return true, fmt.Errorf("invalid new round references %s %s", s.References[0].String(), s.References[1].String())
 		}
 		final = round
 		cache = &CacheRound{
@@ -84,39 +94,41 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (bool, error) {
 		}
 		err = node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 		if err != nil {
-			return false, err
+			return true, err
 		}
 	}
 
-	if osigs := node.SnapshotsPool[s.PayloadHash()]; len(osigs) > 0 {
+	if len(osigs) > 0 {
 		filter := make(map[crypto.Signature]bool)
-		for _, sig := range s.Signatures {
+		for _, sig := range osigs {
 			filter[sig] = true
 		}
-		for _, sig := range osigs {
+		for _, sig := range s.Signatures {
 			if filter[sig] {
 				continue
 			}
-			s.Signatures = append(s.Signatures, sig)
+			osigs = append(osigs, sig)
 			filter[sig] = true
 		}
-		node.SnapshotsPool[s.PayloadHash()] = append([]crypto.Signature{}, s.Signatures...)
+		node.SnapshotsPool[snapHash] = append([]crypto.Signature{}, osigs...)
 	} else {
 		node.signSnapshot(s)
 	}
-	if node.verifyFinalization(s) && cache.AddSnapshot(s) {
+	osigs = node.SnapshotsPool[snapHash]
+	if node.verifyFinalization(osigs) && cache.AddSnapshot(s) {
 		topo := &common.SnapshotWithTopologicalOrder{
 			Snapshot:         *s,
 			TopologicalOrder: node.TopoCounter.Next(),
 		}
 		err := node.store.WriteSnapshot(topo)
 		if err != nil {
-			return false, err
+			return true, err
 		}
+		s.Signatures = append([]crypto.Signature{}, osigs...)
 	}
 	node.Graph.CacheRound[s.NodeId] = cache
 	node.Graph.FinalRound[s.NodeId] = final
-	return true, nil
+	return false, nil
 }
 
 func (node *Node) tryToSignSnapshot(s *common.Snapshot) error {
@@ -207,7 +219,7 @@ func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) (bool, error) 
 	if err != nil {
 		return true, err
 	}
-	snapFinalized := node.verifyFinalization(s)
+	snapFinalized := node.verifyFinalization(s.Signatures)
 	if finalized && !snapFinalized {
 		return false, fmt.Errorf("transaction %s already finalized, won't sign it any more", s.Transaction.String())
 	}
@@ -244,11 +256,19 @@ func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) (bool, error) 
 }
 
 func (node *Node) signSnapshot(s *common.Snapshot) {
-	s.Sign(node.Account.PrivateSpendKey)
-	node.SnapshotsPool[s.PayloadHash()] = append([]crypto.Signature{}, s.Signatures...)
+	msg := s.PayloadHash()
+	sig := node.Account.PrivateSpendKey.Sign(msg[:])
+	osigs := node.SnapshotsPool[msg]
+	for _, o := range osigs {
+		if o == sig {
+			panic("should never be here")
+		}
+	}
+	node.SnapshotsPool[msg] = append(osigs, sig)
+	node.SignaturesPool[msg] = sig
 }
 
-func (node *Node) verifyFinalization(s *common.Snapshot) bool {
+func (node *Node) verifyFinalization(sigs []crypto.Signature) bool {
 	consensusThreshold := len(node.ConsensusNodes) * 2 / 3
-	return len(s.Signatures) > consensusThreshold
+	return len(sigs) > consensusThreshold
 }

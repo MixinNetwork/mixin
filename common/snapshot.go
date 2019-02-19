@@ -56,14 +56,3 @@ func (tx *SignedTransaction) LockInputs(locker UTXOLocker, fork bool) error {
 	}
 	return nil
 }
-
-func (s *Snapshot) Sign(spendKey crypto.Key) {
-	msg := s.PayloadHash()
-	sig := spendKey.Sign(msg[:])
-	for _, es := range s.Signatures {
-		if es == sig {
-			return
-		}
-	}
-	s.Signatures = append(s.Signatures, sig)
-}
