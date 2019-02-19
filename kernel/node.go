@@ -196,21 +196,35 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, error) {
 }
 
 func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
+	hash := s.PayloadHash()
+	sigs := make([]crypto.Signature, 0)
+	signaturesFilter := make(map[crypto.Signature]bool)
+	signersMap := make(map[crypto.Hash]bool)
+	for _, sig := range s.Signatures {
+		if signaturesFilter[sig] {
+			continue
+		}
+		for _, cn := range node.ConsensusNodes {
+			idForNetwork := cn.Account.Hash().ForNetwork(node.networkId)
+			if signersMap[idForNetwork] {
+				continue
+			}
+			if cn.Account.PublicSpendKey.Verify(hash[:], sig) {
+				sigs = append(sigs, sig)
+				signersMap[idForNetwork] = true
+			}
+		}
+		signaturesFilter[sig] = true
+	}
+	s.Signatures = sigs
+
 	var finalized byte
-	node.clearConsensusSignatures(s)
 	if node.verifyFinalization(s) {
 		finalized = 1
 	}
-	node.Peer.SendSnapshotConfirmMessage(peerId, s.PayloadHash(), finalized)
-	for _, cn := range node.ConsensusNodes {
-		idForNetwork := cn.Account.Hash().ForNetwork(node.networkId)
-		if idForNetwork != peerId {
-			continue
-		}
-		if s.CheckSignature(cn.Account.PublicSpendKey) {
-			node.store.QueueAppendSnapshot(peerId, s)
-		}
-		break
+	node.Peer.SendSnapshotConfirmMessage(peerId, hash, finalized)
+	if signersMap[peerId] && signersMap[s.NodeId] {
+		node.store.QueueAppendSnapshot(peerId, s)
 	}
 }
 

@@ -15,7 +15,6 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	if !s.NodeId.HasValue() {
 		s.NodeId = node.IdForNetwork
 	}
-	node.clearConsensusSignatures(s)
 	queue, err := node.verifyTransactionInSnapshot(s)
 	if queue {
 		node.store.QueueAppendSnapshot(node.IdForNetwork, s)
@@ -29,9 +28,6 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	err = node.tryToSignSnapshot(s)
 	if err != nil {
 		return err
-	}
-	if !node.verifySnapshotNodeSignature(s) {
-		return nil
 	}
 
 	verified, err := node.verifySnapshot(s)
@@ -247,44 +243,8 @@ func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) (bool, error) 
 	return false, nil
 }
 
-func (node *Node) verifySnapshotNodeSignature(s *common.Snapshot) bool {
-	msg := s.Payload()
-	for _, cn := range node.ConsensusNodes {
-		nodeId := cn.Account.Hash().ForNetwork(node.networkId)
-		if nodeId != s.NodeId {
-			continue
-		}
-		for _, sig := range s.Signatures {
-			if cn.Account.PublicSpendKey.Verify(msg, sig) {
-				return true
-			}
-		}
-		break
-	}
-	return false
-}
-
-func (node *Node) clearConsensusSignatures(s *common.Snapshot) {
-	msg := s.Payload()
-	sigs := make([]crypto.Signature, 0)
-	filter := make(map[crypto.Signature]bool)
-	for _, sig := range s.Signatures {
-		if filter[sig] {
-			continue
-		}
-		for _, cn := range node.ConsensusNodes {
-			if cn.Account.PublicSpendKey.Verify(msg, sig) {
-				sigs = append(sigs, sig)
-			}
-		}
-		filter[sig] = true
-	}
-	s.Signatures = sigs
-}
-
 func (node *Node) signSnapshot(s *common.Snapshot) {
 	s.Sign(node.Account.PrivateSpendKey)
-	node.clearConsensusSignatures(s)
 	node.SnapshotsPool[s.PayloadHash()] = append([]crypto.Signature{}, s.Signatures...)
 }
 

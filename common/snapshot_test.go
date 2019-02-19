@@ -33,11 +33,21 @@ func TestSnapshot(t *testing.T) {
 	s.Sign(key)
 	assert.Len(s.Signatures, 1)
 	assert.Len(s.Payload(), 204)
-	assert.False(s.CheckSignature(key))
-	assert.True(s.CheckSignature(key.Public()))
+	assert.False(checkSignature(s, key))
+	assert.True(checkSignature(s, key.Public()))
 	s.Sign(key)
 	assert.Len(s.Signatures, 1)
 	assert.Len(s.Payload(), 204)
-	assert.False(s.CheckSignature(key))
-	assert.True(s.CheckSignature(key.Public()))
+	assert.False(checkSignature(s, key))
+	assert.True(checkSignature(s, key.Public()))
+}
+
+func checkSignature(s *Snapshot, pub crypto.Key) bool {
+	msg := s.PayloadHash()
+	for _, sig := range s.Signatures {
+		if pub.Verify(msg[:], sig) {
+			return true
+		}
+	}
+	return false
 }
