@@ -30,12 +30,12 @@ func TestSnapshot(t *testing.T) {
 	seed := make([]byte, 64)
 	rand.Read(seed)
 	key := crypto.NewKeyFromSeed(seed)
-	s.Sign(key)
+	sign(s, key)
 	assert.Len(s.Signatures, 1)
 	assert.Len(s.Payload(), 204)
 	assert.False(checkSignature(s, key))
 	assert.True(checkSignature(s, key.Public()))
-	s.Sign(key)
+	sign(s, key)
 	assert.Len(s.Signatures, 1)
 	assert.Len(s.Payload(), 204)
 	assert.False(checkSignature(s, key))
@@ -50,4 +50,15 @@ func checkSignature(s *Snapshot, pub crypto.Key) bool {
 		}
 	}
 	return false
+}
+
+func sign(s *Snapshot, key crypto.Key) {
+	msg := s.PayloadHash()
+	sig := key.Sign(msg[:])
+	for _, o := range s.Signatures {
+		if o == sig {
+			return
+		}
+	}
+	s.Signatures = append(s.Signatures, sig)
 }
