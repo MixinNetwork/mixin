@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/Workiva/go-datastructures/queue"
 	"github.com/dgraph-io/badger"
 )
 
@@ -12,7 +11,7 @@ type BadgerStore struct {
 	snapshotsDB *badger.DB
 	cacheDB     *badger.DB
 	stateDB     *badger.DB
-	ring        *queue.RingBuffer
+	ring        *RingBuffer
 	closing     bool
 }
 
@@ -33,7 +32,7 @@ func NewBadgerStore(dir string) (*BadgerStore, error) {
 		snapshotsDB: snapshotsDB,
 		cacheDB:     cacheDB,
 		stateDB:     stateDB,
-		ring:        queue.NewRingBuffer(1024 * 1024),
+		ring:        NewRingBuffer(1024 * 1024),
 		closing:     false,
 	}, nil
 }
