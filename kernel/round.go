@@ -199,24 +199,6 @@ func (c *CacheRound) AddSnapshot(s *common.Snapshot) bool {
 	return true
 }
 
-func (c *CacheRound) FilterByMask(store storage.Store, ref crypto.Hash) error {
-	logger.Println(fmt.Errorf("filter %s %s", c.NodeId.String(), ref.String()))
-	/* FIXME FIND A VALID MASK
-	filter := make([]*common.Snapshot, 0)
-	for _, cs := range c.Snapshots {
-		ph := cs.PayloadHash()
-		if ph.ByteAnd(ref) == ph {
-			filter = append(filter, cs)
-		} else if err := store.PruneSnapshot(nil); err != nil {
-			// FIXME cs to topo
-			return err
-		}
-	}
-	c.Snapshots = filter
-	*/
-	return nil
-}
-
 func (c *CacheRound) asFinal() *FinalRound {
 	if len(c.Snapshots) == 0 {
 		return nil

@@ -182,13 +182,6 @@ func (node *Node) verifyReferences(s *common.Snapshot, cache *CacheRound) (*Fina
 		return nil, nil
 	}
 	if s.References[0] != final.Hash {
-		err := cache.FilterByMask(node.store, s.References[0])
-		if err != nil {
-			return nil, err
-		}
-		final = cache.asFinal()
-	}
-	if s.References[0] != final.Hash {
 		return nil, nil
 	}
 
