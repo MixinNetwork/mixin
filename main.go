@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"runtime"
 
@@ -163,6 +165,12 @@ func kernelCmd(c *cli.Context) error {
 
 	go func() {
 		err := rpc.StartHTTP(store, c.Int("port")+1000)
+		if err != nil {
+			panic(err)
+		}
+	}()
+	go func() {
+		err := http.ListenAndServe(fmt.Sprintf(":%d", c.Int("port")+2000), http.DefaultServeMux)
 		if err != nil {
 			panic(err)
 		}
