@@ -73,12 +73,15 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (bool, error) {
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
-	if s.RoundNumber < cache.Number || s.RoundNumber > cache.Number+1 {
-		return true, fmt.Errorf("invalid round number %d %d", s.RoundNumber, cache.Number)
+	if s.RoundNumber < cache.Number {
+		return false, fmt.Errorf("expired round number %d %d", s.RoundNumber, cache.Number)
+	}
+	if s.RoundNumber > cache.Number+1 {
+		return true, fmt.Errorf("future round number %d %d", s.RoundNumber, cache.Number)
 	}
 	if s.RoundNumber == cache.Number {
 		if !s.References.Equal(cache.References) {
-			return true, fmt.Errorf("invalid same round references %s %s", cache.References.Self.String(), cache.References.External.String())
+			return false, fmt.Errorf("invalid same round references %s %s", cache.References.Self.String(), cache.References.External.String())
 		}
 	} else if s.RoundNumber == cache.Number+1 {
 		round, err := node.verifyReferences(s, cache)
