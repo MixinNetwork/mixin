@@ -195,9 +195,9 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, error) {
 }
 
 func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
-	hash := s.PayloadHash()
+	s.Hash = s.PayloadHash()
 	if len(s.Signatures) != 1 && !node.verifyFinalization(s.Signatures) {
-		node.Peer.SendSnapshotConfirmMessage(peerId, hash, 0)
+		node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
 		return
 	}
 
@@ -212,9 +212,10 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
 			if signersMap[idForNetwork] {
 				continue
 			}
-			if cn.Account.PublicSpendKey.Verify(hash[:], *sig) {
+			if cn.Account.PublicSpendKey.Verify(s.Hash[:], *sig) {
 				sigs = append(sigs, sig)
 				signersMap[idForNetwork] = true
+				break
 			}
 		}
 		signaturesFilter[sig.String()] = true
@@ -222,9 +223,9 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
 	s.Signatures = sigs
 
 	if node.verifyFinalization(s.Signatures) {
-		node.Peer.SendSnapshotConfirmMessage(peerId, hash, 1)
+		node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
 	} else {
-		node.Peer.SendSnapshotConfirmMessage(peerId, hash, 0)
+		node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
 		if len(s.Signatures) != 1 {
 			return
 		}
