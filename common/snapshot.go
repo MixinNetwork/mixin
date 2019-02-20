@@ -19,12 +19,12 @@ type Snapshot struct {
 	RoundNumber uint64             `json:"round"`
 	Timestamp   uint64             `json:"timestamp"`
 	Signatures  []crypto.Signature `json:"signatures,omitempty"`
+	Hash        crypto.Hash        `msgpack:"-"json:"hash"`
 }
 
 type SnapshotWithTopologicalOrder struct {
 	Snapshot
-	TopologicalOrder uint64      `json:"topology"`
-	Hash             crypto.Hash `msgpack:"-"json:"hash"`
+	TopologicalOrder uint64 `json:"topology"`
 }
 
 func (s *Snapshot) Payload() []byte {

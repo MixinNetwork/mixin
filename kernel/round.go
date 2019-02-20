@@ -183,17 +183,21 @@ func (c *CacheRound) Gap() (uint64, uint64) {
 }
 
 func (c *CacheRound) AddSnapshot(s *common.Snapshot) bool {
+	if !s.Hash.HasValue() {
+		panic(s)
+	}
 	for _, cs := range c.Snapshots {
-		if cs.PayloadHash() == s.PayloadHash() {
+		if cs.Hash == s.Hash {
 			return false
 		}
 	}
-	start, end := c.Gap()
-	if s.Timestamp < start && s.Timestamp+config.SnapshotRoundGap <= end {
-		return false
-	}
-	if s.Timestamp > end && start+config.SnapshotRoundGap <= s.Timestamp {
-		return false
+	if start, end := c.Gap(); start < end {
+		if s.Timestamp < start && s.Timestamp+config.SnapshotRoundGap <= end {
+			return false
+		}
+		if s.Timestamp > end && start+config.SnapshotRoundGap <= s.Timestamp {
+			return false
+		}
 	}
 	c.Snapshots = append(c.Snapshots, s)
 	return true
@@ -211,7 +215,7 @@ func (c *CacheRound) asFinal() *FinalRound {
 		if c.Snapshots[i].Timestamp > c.Snapshots[j].Timestamp {
 			return false
 		}
-		a, b := c.Snapshots[i].PayloadHash(), c.Snapshots[j].PayloadHash()
+		a, b := c.Snapshots[i].Hash, c.Snapshots[j].Hash
 		return bytes.Compare(a[:], b[:]) < 0
 	})
 	start := c.Snapshots[0].Timestamp
@@ -225,10 +229,9 @@ func (c *CacheRound) asFinal() *FinalRound {
 	hash := crypto.NewHash(append(c.NodeId[:], buf...))
 	for _, s := range c.Snapshots {
 		if s.Timestamp > end {
-			continue
+			panic(s)
 		}
-		ph := s.PayloadHash()
-		hash = crypto.NewHash(append(hash[:], ph[:]...))
+		hash = crypto.NewHash(append(hash[:], s.Hash[:]...))
 	}
 	round := &FinalRound{
 		NodeId: c.NodeId,
