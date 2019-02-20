@@ -76,9 +76,6 @@ func LoadRoundGraph(store storage.Store, networkId crypto.Hash) (*RoundGraph, er
 		if err != nil {
 			return nil, err
 		}
-		if cache == nil {
-			continue
-		}
 		graph.CacheRound[cache.NodeId] = cache
 
 		final, err := loadFinalRoundForNode(store, id, cache.Number-1)
@@ -131,15 +128,12 @@ func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, n
 		s.Hash = s.PayloadHash()
 		snapshots[i] = s
 	}
-	start, end, hash := computeRoundHash(nodeIdWithNetwork, number, snapshots)
-	round := &FinalRound{
-		NodeId: nodeIdWithNetwork,
-		Number: number,
-		Start:  start,
-		End:    end,
-		Hash:   hash,
+	cache := &CacheRound{
+		NodeId:    nodeIdWithNetwork,
+		Number:    number,
+		Snapshots: snapshots,
 	}
-	return round, nil
+	return cache.asFinal(), nil
 }
 
 func (c *CacheRound) Copy() *CacheRound {

@@ -99,6 +99,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 			RoundNumber: 0,
 			Timestamp:   uint64(time.Unix(gns.Epoch, 0).UnixNano()),
 		}
+		snapshot.Hash = snapshot.PayloadHash()
 		topo := &common.SnapshotWithTopologicalOrder{
 			Snapshot:         snapshot,
 			TopologicalOrder: node.TopoCounter.Next(),
@@ -119,7 +120,9 @@ func (node *Node) LoadGenesis(configDir string) error {
 	topo, signed := node.buildDomainSnapshot(domain.Address, gns)
 	snapshots = append(snapshots, topo)
 	transactions = append(transactions, signed)
-	cacheRounds[topo.NodeId].Snapshots = append(cacheRounds[topo.NodeId].Snapshots, &topo.Snapshot)
+	snap := &topo.Snapshot
+	snap.Hash = snap.PayloadHash()
+	cacheRounds[topo.NodeId].Snapshots = append(cacheRounds[topo.NodeId].Snapshots, snap)
 
 	rounds := make([]*common.Round, 0)
 	for i, in := range gns.Nodes {
