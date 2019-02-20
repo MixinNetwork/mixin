@@ -47,36 +47,12 @@ func (s *BadgerStore) ReadSnapshotsForNodeRound(nodeId crypto.Hash, round uint64
 		if err != nil {
 			return snapshots, err
 		}
+		s.Hash = s.PayloadHash()
 		snapshots = append(snapshots, &s)
 	}
 
 	sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].Timestamp < snapshots[j].Timestamp })
 	return snapshots, nil
-}
-
-func (s *BadgerStore) PruneSnapshot(snap *common.SnapshotWithTopologicalOrder) error {
-	txn := s.snapshotsDB.NewTransaction(true)
-	defer txn.Discard()
-
-	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction)
-	err := txn.Delete(key)
-	if err != nil {
-		return err
-	}
-
-	key = graphUniqueKey(snap.NodeId, snap.Transaction)
-	err = txn.Delete(key)
-	if err != nil {
-		return err
-	}
-
-	key = graphTopologyKey(snap.TopologicalOrder)
-	err = txn.Delete(key)
-	if err != nil {
-		return err
-	}
-
-	return txn.Commit()
 }
 
 func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) error {

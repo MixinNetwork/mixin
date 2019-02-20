@@ -30,7 +30,6 @@ type Store interface {
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadRound(hash crypto.Hash) (*common.Round, error)
 	ReadLink(from, to crypto.Hash) (uint64, error)
-	PruneSnapshot(snap *common.SnapshotWithTopologicalOrder) error
 	WriteSnapshot(*common.SnapshotWithTopologicalOrder) error
 	ReadDomains() []common.Domain
 

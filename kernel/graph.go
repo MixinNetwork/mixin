@@ -38,9 +38,6 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	defer node.Graph.UpdateFinalCache()
 	if node.verifyFinalization(node.SnapshotsPool[s.Hash]) {
 		for peerId, _ := range node.ConsensusNodes {
-			if peerId == node.IdForNetwork {
-				continue
-			}
 			err := node.Peer.SendSnapshotMessage(peerId, s, 1)
 			if err != nil {
 				return err
@@ -51,14 +48,10 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 
 	s.Signatures = []crypto.Signature{node.SignaturesPool[s.Hash]}
 	if node.IdForNetwork != s.NodeId {
-		// FIXME gossip peers are different from consensus nodes
 		return node.Peer.SendSnapshotMessage(s.NodeId, s, 0)
 	}
 
 	for peerId, _ := range node.ConsensusNodes {
-		if peerId == node.IdForNetwork {
-			continue
-		}
 		err := node.Peer.SendSnapshotMessage(peerId, s, 0)
 		if err != nil {
 			return err
