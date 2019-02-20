@@ -117,34 +117,21 @@ func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*
 }
 
 func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, number uint64) (*FinalRound, error) {
-	snapshots, err := store.ReadSnapshotsForNodeRound(nodeIdWithNetwork, number)
+	topos, err := store.ReadSnapshotsForNodeRound(nodeIdWithNetwork, number)
 	if err != nil {
 		return nil, err
 	}
-	if len(snapshots) == 0 {
+	if len(topos) == 0 {
 		panic(nodeIdWithNetwork)
 	}
 
-	sort.Slice(snapshots, func(i, j int) bool {
-		if snapshots[i].Timestamp < snapshots[j].Timestamp {
-			return true
-		}
-		if snapshots[i].Timestamp > snapshots[j].Timestamp {
-			return false
-		}
-		a, b := snapshots[i].PayloadHash(), snapshots[j].PayloadHash()
-		return bytes.Compare(a[:], b[:]) < 0
-	})
-	start := snapshots[0].Timestamp
-	end := snapshots[len(snapshots)-1].Timestamp
-
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, number)
-	hash := crypto.NewHash(append(nodeIdWithNetwork[:], buf...))
-	for _, s := range snapshots {
-		ph := s.PayloadHash()
-		hash = crypto.NewHash(append(hash[:], ph[:]...))
+	snapshots := make([]*common.Snapshot, len(topos))
+	for i, t := range topos {
+		s := &t.Snapshot
+		s.Hash = s.PayloadHash()
+		snapshots[i] = s
 	}
+	start, end, hash := computeRoundHash(nodeIdWithNetwork, number, snapshots)
 	round := &FinalRound{
 		NodeId: nodeIdWithNetwork,
 		Number: number,
@@ -152,21 +139,27 @@ func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, n
 		End:    end,
 		Hash:   hash,
 	}
-	if round.End-round.Start >= config.SnapshotRoundGap {
-		panic(round)
-	}
 	return round, nil
 }
 
 func (c *CacheRound) Copy() *CacheRound {
-	r := *c
-	r.Snapshots = append([]*common.Snapshot{}, c.Snapshots...)
-	return &r
+	return &CacheRound{
+		NodeId:     c.NodeId,
+		Number:     c.Number,
+		Timestamp:  c.Timestamp,
+		References: [2]crypto.Hash{c.References[0], c.References[1]},
+		Snapshots:  append([]*common.Snapshot{}, c.Snapshots...),
+	}
 }
 
 func (f *FinalRound) Copy() *FinalRound {
-	r := *f
-	return &r
+	return &FinalRound{
+		NodeId: f.NodeId,
+		Number: f.Number,
+		Start:  f.Start,
+		End:    f.End,
+		Hash:   f.Hash,
+	}
 }
 
 func (c *CacheRound) Gap() (uint64, uint64) {
@@ -203,36 +196,41 @@ func (c *CacheRound) AddSnapshot(s *common.Snapshot) bool {
 	return true
 }
 
+func computeRoundHash(nodeId crypto.Hash, number uint64, snapshots []*common.Snapshot) (uint64, uint64, crypto.Hash) {
+	sort.Slice(snapshots, func(i, j int) bool {
+		if snapshots[i].Timestamp < snapshots[j].Timestamp {
+			return true
+		}
+		if snapshots[i].Timestamp > snapshots[j].Timestamp {
+			return false
+		}
+		a, b := snapshots[i].Hash, snapshots[j].Hash
+		return bytes.Compare(a[:], b[:]) < 0
+	})
+	start := snapshots[0].Timestamp
+	end := snapshots[len(snapshots)-1].Timestamp
+	if end >= start+config.SnapshotRoundGap {
+		panic(nodeId)
+	}
+
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, number)
+	hash := crypto.NewHash(append(nodeId[:], buf...))
+	for _, s := range snapshots {
+		if s.Timestamp > end {
+			panic(nodeId)
+		}
+		hash = crypto.NewHash(append(hash[:], s.Hash[:]...))
+	}
+	return start, end, hash
+}
+
 func (c *CacheRound) asFinal() *FinalRound {
 	if len(c.Snapshots) == 0 {
 		return nil
 	}
 
-	sort.Slice(c.Snapshots, func(i, j int) bool {
-		if c.Snapshots[i].Timestamp < c.Snapshots[j].Timestamp {
-			return true
-		}
-		if c.Snapshots[i].Timestamp > c.Snapshots[j].Timestamp {
-			return false
-		}
-		a, b := c.Snapshots[i].Hash, c.Snapshots[j].Hash
-		return bytes.Compare(a[:], b[:]) < 0
-	})
-	start := c.Snapshots[0].Timestamp
-	end := c.Snapshots[len(c.Snapshots)-1].Timestamp
-	if end >= start+config.SnapshotRoundGap {
-		panic(c.NodeId.String())
-	}
-
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, c.Number)
-	hash := crypto.NewHash(append(c.NodeId[:], buf...))
-	for _, s := range c.Snapshots {
-		if s.Timestamp > end {
-			panic(c.NodeId.String())
-		}
-		hash = crypto.NewHash(append(hash[:], s.Hash[:]...))
-	}
+	start, end, hash := computeRoundHash(c.NodeId, c.Number, c.Snapshots)
 	round := &FinalRound{
 		NodeId: c.NodeId,
 		Number: c.Number,
