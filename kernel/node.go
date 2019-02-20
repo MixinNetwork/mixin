@@ -28,7 +28,6 @@ type Node struct {
 	TopoCounter    *TopologicalSequence
 	SnapshotsPool  map[crypto.Hash][]crypto.Signature
 	SignaturesPool map[crypto.Hash]crypto.Signature
-	ConsensusCache map[crypto.Hash]time.Time
 	Peer           *network.Peer
 
 	networkId   crypto.Hash
@@ -42,7 +41,6 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		ConsensusNodes: make(map[crypto.Hash]common.Node),
 		SnapshotsPool:  make(map[crypto.Hash][]crypto.Signature),
 		SignaturesPool: make(map[crypto.Hash]crypto.Signature),
-		ConsensusCache: make(map[crypto.Hash]time.Time),
 		store:          store,
 		mempoolChan:    make(chan *common.Snapshot, MempoolSize),
 		configDir:      dir,

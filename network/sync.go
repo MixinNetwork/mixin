@@ -44,27 +44,17 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPo
 	return offset, nil
 }
 
-func (me *Peer) syncToNeighborSince(p *Peer, offset uint64, filter map[crypto.Hash]time.Time) (uint64, error) {
+func (me *Peer) syncToNeighborSince(p *Peer, offset uint64) (uint64, error) {
 	snapshots, err := me.handle.ReadSnapshotsSinceTopology(offset, 1000)
 	if err != nil {
 		return offset, err
 	}
 	for _, s := range snapshots {
-		if len(s.Signatures) == 0 {
-			offset = s.TopologicalOrder
-			continue
-		}
-		hash := s.PayloadHash()
-		if filter[hash].Add(time.Duration(config.SnapshotRoundGap * 2)).After(time.Now()) {
-			offset = s.TopologicalOrder
-			continue
-		}
 		err := me.SendSnapshotMessage(p.IdForNetwork, &s.Snapshot, 1)
 		if err != nil {
 			return offset, err
 		}
 		offset = s.TopologicalOrder
-		filter[hash] = time.Now()
 	}
 	if len(snapshots) < 1000 {
 		time.Sleep(time.Duration(config.SnapshotRoundGap))
@@ -74,7 +64,6 @@ func (me *Peer) syncToNeighborSince(p *Peer, offset uint64, filter map[crypto.Ha
 
 func (me *Peer) syncToNeighborLoop(p *Peer) {
 	var offset uint64
-	filter := make(map[crypto.Hash]time.Time)
 	for {
 		select {
 		case g := <-p.sync:
@@ -90,7 +79,7 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 		if offset == 0 {
 			continue
 		}
-		off, err := me.syncToNeighborSince(p, offset, filter)
+		off, err := me.syncToNeighborSince(p, offset)
 		if err != nil {
 			logger.Printf("GRAPH SYNC TO %s %s", p.IdForNetwork.String(), err.Error())
 		}

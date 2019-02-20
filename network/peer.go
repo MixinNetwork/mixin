@@ -27,9 +27,7 @@ type ConfirmMap struct {
 	sync.Map
 }
 
-func (m *ConfirmMap) Get(peerId, snap crypto.Hash, finalized byte) time.Time {
-	hash := snap.ForNetwork(peerId)
-	key := crypto.NewHash(append(hash[:], finalized))
+func (m *ConfirmMap) Get(key crypto.Hash) time.Time {
 	val, _ := m.Load(key)
 	ts, _ := val.(time.Time)
 	return ts
@@ -67,6 +65,7 @@ type Peer struct {
 	Address      string
 
 	snapshotsConfirmations *ConfirmMap
+	snapshotsCaches        *ConfirmMap
 	neighbors              map[crypto.Hash]*Peer
 	handle                 SyncHandle
 	transport              Transport
@@ -90,6 +89,7 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 		IdForNetwork:           idForNetwork,
 		Address:                addr,
 		snapshotsConfirmations: new(ConfirmMap),
+		snapshotsCaches:        new(ConfirmMap),
 		neighbors:              make(map[crypto.Hash]*Peer),
 		send:                   make(chan []byte, 8192),
 		sync:                   make(chan []*SyncPoint),
@@ -141,13 +141,24 @@ func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash, finalized
 }
 
 func (me *Peer) SendSnapshotMessage(idForNetwork crypto.Hash, s *common.Snapshot, finalized byte) error {
-	if idForNetwork == me.IdForNetwork {
+	if idForNetwork == me.IdForNetwork || len(s.Signatures) == 0 {
 		return nil
 	}
-	confirmTime := me.snapshotsConfirmations.Get(idForNetwork, s.PayloadHash(), finalized)
+
+	hash := s.PayloadHash().ForNetwork(idForNetwork)
+	key := crypto.NewHash(append(hash[:], finalized))
+
+	confirmTime := me.snapshotsConfirmations.Get(key)
 	if confirmTime.Add(config.CacheTTL / 2).After(time.Now()) {
 		return nil
 	}
+
+	cacheTime := me.snapshotsCaches.Get(key)
+	if cacheTime.Add(time.Duration(config.SnapshotRoundGap * 2)).After(time.Now()) {
+		return nil
+	}
+	me.snapshotsCaches.Store(key, time.Now())
+
 	for _, p := range me.neighbors {
 		if p.IdForNetwork == idForNetwork {
 			return p.SendData(buildSnapshotMessage(s))

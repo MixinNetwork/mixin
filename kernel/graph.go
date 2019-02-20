@@ -37,8 +37,18 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 
 	defer node.Graph.UpdateFinalCache()
 	if node.verifyFinalization(node.SnapshotsPool[s.Hash]) {
+		for peerId, _ := range node.ConsensusNodes {
+			if peerId == node.IdForNetwork {
+				continue
+			}
+			err := node.Peer.SendSnapshotMessage(peerId, s, 1)
+			if err != nil {
+				return err
+			}
+		}
 		return nil
 	}
+
 	s.Signatures = []crypto.Signature{node.SignaturesPool[s.Hash]}
 	if node.IdForNetwork != s.NodeId {
 		// FIXME gossip peers are different from consensus nodes
@@ -46,15 +56,13 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	}
 
 	for peerId, _ := range node.ConsensusNodes {
-		cacheId := s.Hash.ForNetwork(peerId)
-		if time.Now().Before(node.ConsensusCache[cacheId].Add(time.Duration(config.SnapshotRoundGap * 2))) {
+		if peerId == node.IdForNetwork {
 			continue
 		}
-		err = node.Peer.SendSnapshotMessage(peerId, s, 0)
+		err := node.Peer.SendSnapshotMessage(peerId, s, 0)
 		if err != nil {
 			return err
 		}
-		node.ConsensusCache[cacheId] = time.Now()
 	}
 	return nil
 }
@@ -114,7 +122,11 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (bool, error) {
 		node.signSnapshot(s)
 	}
 	osigs = node.SnapshotsPool[s.Hash]
-	if node.verifyFinalization(osigs) && cache.AddSnapshot(s) {
+	if node.verifyFinalization(osigs) {
+		if !cache.AddSnapshot(s) {
+			return false, fmt.Errorf("snapshot expired for this cache round %s", s.Hash)
+		}
+		s.Signatures = append([]crypto.Signature{}, osigs...)
 		topo := &common.SnapshotWithTopologicalOrder{
 			Snapshot:         *s,
 			TopologicalOrder: node.TopoCounter.Next(),
@@ -123,7 +135,6 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (bool, error) {
 		if err != nil {
 			return true, err
 		}
-		s.Signatures = append([]crypto.Signature{}, osigs...)
 	}
 	node.Graph.CacheRound[s.NodeId] = cache
 	node.Graph.FinalRound[s.NodeId] = final
