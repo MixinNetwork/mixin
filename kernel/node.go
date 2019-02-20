@@ -224,6 +224,7 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
 	s.Signatures = sigs
 
 	if node.verifyFinalization(s.Signatures) {
+		node.Peer.SendSnapshotConfirmMessage(peerId, hash, 1)
 	} else {
 		node.Peer.SendSnapshotConfirmMessage(peerId, hash, 0)
 		if len(s.Signatures) != 1 {
