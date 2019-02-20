@@ -221,7 +221,7 @@ func (c *CacheRound) asFinal() *FinalRound {
 	start := c.Snapshots[0].Timestamp
 	end := c.Snapshots[len(c.Snapshots)-1].Timestamp
 	if end >= start+config.SnapshotRoundGap {
-		end = start + config.SnapshotRoundGap - 1
+		panic(c.NodeId.String())
 	}
 
 	buf := make([]byte, 8)
@@ -229,7 +229,7 @@ func (c *CacheRound) asFinal() *FinalRound {
 	hash := crypto.NewHash(append(c.NodeId[:], buf...))
 	for _, s := range c.Snapshots {
 		if s.Timestamp > end {
-			panic(s)
+			panic(c.NodeId.String())
 		}
 		hash = crypto.NewHash(append(hash[:], s.Hash[:]...))
 	}
