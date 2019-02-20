@@ -15,22 +15,22 @@ const (
 	graphPrefixNodeRemove = "NODESTATEREMOVE"
 )
 
-func (s *BadgerStore) ReadConsensusNodes() []common.Node {
-	nodes := make([]common.Node, 0)
+func (s *BadgerStore) ReadConsensusNodes() []*common.Node {
+	nodes := make([]*common.Node, 0)
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
 	accepted := readNodesInState(txn, graphPrefixNodeAccept)
 	for _, n := range accepted {
-		nodes = append(nodes, common.Node{Account: n, State: common.NodeStateAccepted})
+		nodes = append(nodes, &common.Node{Account: n, State: common.NodeStateAccepted})
 	}
 	pledging := readNodesInState(txn, graphPrefixNodePledge)
 	for _, n := range pledging {
-		nodes = append(nodes, common.Node{Account: n, State: common.NodeStatePledging})
+		nodes = append(nodes, &common.Node{Account: n, State: common.NodeStatePledging})
 	}
 	departing := readNodesInState(txn, graphPrefixNodeDepart)
 	for _, n := range departing {
-		nodes = append(nodes, common.Node{Account: n, State: common.NodeStateDeparting})
+		nodes = append(nodes, &common.Node{Account: n, State: common.NodeStateDeparting})
 	}
 	return nodes
 }

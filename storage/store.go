@@ -13,7 +13,7 @@ type Store interface {
 
 	CheckGenesisLoad() (bool, error)
 	LoadGenesis(rounds []*common.Round, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.SignedTransaction) error
-	ReadConsensusNodes() []common.Node
+	ReadConsensusNodes() []*common.Node
 	CheckTransactionFinalization(hash crypto.Hash) (bool, error)
 	CheckTransactionInNode(nodeId, hash crypto.Hash) (bool, error)
 	ReadTransaction(hash crypto.Hash) (*common.SignedTransaction, error)

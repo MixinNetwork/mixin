@@ -1,7 +1,6 @@
 package kernel
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
@@ -23,7 +22,7 @@ const (
 type Node struct {
 	IdForNetwork   crypto.Hash
 	Account        common.Address
-	ConsensusNodes map[crypto.Hash]common.Node
+	ConsensusNodes map[crypto.Hash]*common.Node
 	Graph          *RoundGraph
 	TopoCounter    *TopologicalSequence
 	SnapshotsPool  map[crypto.Hash][]crypto.Signature
@@ -38,7 +37,7 @@ type Node struct {
 
 func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
-		ConsensusNodes: make(map[crypto.Hash]common.Node),
+		ConsensusNodes: make(map[crypto.Hash]*common.Node),
 		SnapshotsPool:  make(map[crypto.Hash][]crypto.Signature),
 		SignaturesPool: make(map[crypto.Hash]crypto.Signature),
 		store:          store,
@@ -168,7 +167,7 @@ func (node *Node) BuildGraph() []*network.SyncPoint {
 func (node *Node) BuildAuthenticationMessage() []byte {
 	data := make([]byte, 8)
 	binary.BigEndian.PutUint64(data, uint64(time.Now().Unix()))
-	hash := node.Account.Hash()
+	hash := node.Account.Hash().ForNetwork(node.networkId)
 	data = append(data, hash[:]...)
 	sig := node.Account.PrivateSpendKey.Sign(data)
 	return append(data, sig[:]...)
@@ -180,19 +179,18 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, error) {
 		return crypto.Hash{}, errors.New("peer authentication message timeout")
 	}
 
-	for _, cn := range node.ConsensusNodes {
-		peerId := cn.Account.Hash()
-		if !bytes.Equal(peerId[:], msg[8:40]) {
-			continue
-		}
-		var sig crypto.Signature
-		copy(sig[:], msg[40:])
-		if cn.Account.PublicSpendKey.Verify(msg[:40], sig) {
-			return peerId.ForNetwork(node.networkId), nil
-		}
-		break
+	var peerId crypto.Hash
+	copy(peerId[:], msg[8:40])
+	peer := node.ConsensusNodes[peerId]
+	if peer == nil {
+		return crypto.Hash{}, errors.New("peer authentication invalid consensus peer")
 	}
 
+	var sig crypto.Signature
+	copy(sig[:], msg[40:])
+	if peer.Account.PublicSpendKey.Verify(msg[:40], sig) {
+		return peerId, nil
+	}
 	return crypto.Hash{}, errors.New("peer authentication message signature invalid")
 }
 

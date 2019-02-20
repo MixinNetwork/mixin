@@ -252,7 +252,7 @@ func (tx *Transaction) validateNodePledge(store DataStore) error {
 		PublicViewKey:  privateView.Public(),
 		PublicSpendKey: publicSpend,
 	}
-	nodes = append(nodes, Node{Account: acc})
+	nodes = append(nodes, &Node{Account: acc})
 	if len(nodes) != len(o.Keys) {
 		return fmt.Errorf("invalid output keys count %d %d for pledge transaction", len(nodes), len(o.Keys))
 	}
@@ -296,7 +296,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore, inputAmount Integer) 
 			continue
 		}
 		if n.State == NodeStatePledging && pledging == nil {
-			pledging = &n
+			pledging = n
 		} else {
 			return fmt.Errorf("invalid pledging nodes %s %s", pledging.Account.String(), n.Account.String())
 		}

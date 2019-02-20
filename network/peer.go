@@ -101,36 +101,33 @@ func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypt
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
-	for _, p := range me.neighbors {
-		if p.IdForNetwork == idForNetwork {
-			return p.SendData(buildTransactionRequestMessage(tx))
-		}
+	peer := me.neighbors[idForNetwork]
+	if peer == nil {
+		return nil
 	}
-	return nil
+	return peer.SendData(buildTransactionRequestMessage(tx))
 }
 
 func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, tx *common.SignedTransaction) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
-	for _, p := range me.neighbors {
-		if p.IdForNetwork == idForNetwork {
-			return p.SendData(buildTransactionMessage(tx))
-		}
+	peer := me.neighbors[idForNetwork]
+	if peer == nil {
+		return nil
 	}
-	return nil
+	return peer.SendData(buildTransactionMessage(tx))
 }
 
 func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash, finalized byte) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
-	for _, p := range me.neighbors {
-		if p.IdForNetwork == idForNetwork {
-			return p.SendData(buildSnapshotConfirmMessage(snap, finalized))
-		}
+	peer := me.neighbors[idForNetwork]
+	if peer == nil {
+		return nil
 	}
-	return nil
+	return peer.SendData(buildSnapshotConfirmMessage(snap, finalized))
 }
 
 func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash, finalized byte) error {
@@ -159,12 +156,11 @@ func (me *Peer) SendSnapshotMessage(idForNetwork crypto.Hash, s *common.Snapshot
 	}
 	me.snapshotsCaches.Store(key, time.Now())
 
-	for _, p := range me.neighbors {
-		if p.IdForNetwork == idForNetwork {
-			return p.SendData(buildSnapshotMessage(s))
-		}
+	peer := me.neighbors[idForNetwork]
+	if peer == nil {
+		return nil
 	}
-	return nil
+	return peer.SendData(buildSnapshotMessage(s))
 }
 
 func (p *Peer) SendData(data []byte) error {
