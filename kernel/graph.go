@@ -45,8 +45,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		return node.Peer.SendSnapshotMessage(s.NodeId, s, 0)
 	}
 
-	for _, cn := range node.ConsensusNodes {
-		peerId := cn.Account.Hash().ForNetwork(node.networkId)
+	for peerId, _ := range node.ConsensusNodes {
 		cacheId := s.Hash.ForNetwork(peerId)
 		if time.Now().Before(node.ConsensusCache[cacheId].Add(time.Duration(config.SnapshotRoundGap * 2))) {
 			continue

@@ -23,7 +23,7 @@ const (
 type Node struct {
 	IdForNetwork   crypto.Hash
 	Account        common.Address
-	ConsensusNodes []common.Node
+	ConsensusNodes map[crypto.Hash]common.Node
 	Graph          *RoundGraph
 	TopoCounter    *TopologicalSequence
 	SnapshotsPool  map[crypto.Hash][]crypto.Signature
@@ -39,7 +39,7 @@ type Node struct {
 
 func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
-		ConsensusNodes: make([]common.Node, 0),
+		ConsensusNodes: make(map[crypto.Hash]common.Node),
 		SnapshotsPool:  make(map[crypto.Hash][]crypto.Signature),
 		SignaturesPool: make(map[crypto.Hash]crypto.Signature),
 		ConsensusCache: make(map[crypto.Hash]time.Time),
@@ -115,7 +115,8 @@ func (node *Node) LoadConsensusNodes() error {
 		if !cn.IsAccepted() {
 			continue
 		}
-		node.ConsensusNodes = append(node.ConsensusNodes, cn)
+		idForNetwork := cn.Account.Hash().ForNetwork(node.networkId)
+		node.ConsensusNodes[idForNetwork] = cn
 	}
 	return nil
 }
@@ -211,8 +212,7 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
 		if signaturesFilter[sig] {
 			continue
 		}
-		for _, cn := range node.ConsensusNodes {
-			idForNetwork := cn.Account.Hash().ForNetwork(node.networkId)
+		for idForNetwork, cn := range node.ConsensusNodes {
 			if signersMap[idForNetwork] {
 				continue
 			}
