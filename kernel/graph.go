@@ -217,19 +217,20 @@ func (node *Node) verifyReferences(s *common.Snapshot, cache *CacheRound) (*Fina
 }
 
 func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) (bool, error) {
-	snapFinalized := node.verifyFinalization(s.Signatures)
+	cache := node.Graph.CacheRound[s.NodeId]
+	if s.RoundNumber < cache.Number && (s.NodeId != node.IdForNetwork || len(s.Signatures) != 0 || s.Timestamp != 0) {
+		return false, fmt.Errorf("snapshot %s already expired", s.Hash.String())
+	}
 
 	inNode, err := node.store.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil {
 		return true, err
 	}
-	if inNode && snapFinalized {
-		return false, nil
-	}
 	if inNode {
 		return false, fmt.Errorf("transaction %s already snapshot by node %s", s.Transaction.String(), s.NodeId.String())
 	}
 
+	snapFinalized := node.verifyFinalization(s.Signatures)
 	finalized, err := node.store.CheckTransactionFinalization(s.Transaction)
 	if err != nil {
 		return true, err
@@ -242,12 +243,15 @@ func (node *Node) verifyTransactionInSnapshot(s *common.Snapshot) (bool, error) 
 	}
 
 	tx, err := node.store.ReadTransaction(s.Transaction)
-	if err != nil || tx != nil {
-		return false, err
+	if err != nil {
+		return true, err
+	}
+	if tx != nil {
+		return false, nil
 	}
 	signed, err := node.store.CacheGetTransaction(s.Transaction)
 	if err != nil {
-		return false, err
+		return true, err
 	}
 	if signed == nil {
 		return false, fmt.Errorf("transaction %s expired in cache", s.Transaction.String())

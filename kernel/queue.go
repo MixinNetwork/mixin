@@ -40,6 +40,14 @@ func (node *Node) ConsumeQueue() error {
 			node.mempoolChan <- snap
 			return nil
 		}
+		tx, err = node.store.ReadTransaction(snap.Transaction)
+		if err != nil {
+			return err
+		}
+		if tx != nil {
+			node.mempoolChan <- snap
+			return nil
+		}
 
 		if peerId == node.IdForNetwork || !peerId.HasValue() {
 			return nil

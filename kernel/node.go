@@ -200,6 +200,11 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
 		node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
 		return
 	}
+	inNode, _ := node.store.CheckTransactionInNode(s.NodeId, s.Transaction)
+	if inNode {
+		node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
+		return
+	}
 
 	sigs := make([]*crypto.Signature, 0)
 	signaturesFilter := make(map[string]bool)
