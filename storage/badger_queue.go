@@ -1,10 +1,7 @@
 package storage
 
 import (
-	"time"
-
 	"github.com/MixinNetwork/mixin/common"
-	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/dgraph-io/badger"
 )
@@ -40,7 +37,7 @@ func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snaps
 
 func (s *BadgerStore) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error) {
 	for !s.closing {
-		item, err := s.ring.Poll(time.Duration(config.SnapshotRoundGap))
+		item, err := s.ring.Poll(0)
 		if err != nil {
 			continue
 		}
