@@ -21,7 +21,7 @@ func (s *BadgerStore) ReadRound(hash crypto.Hash) (*common.Round, error) {
 	return readRound(txn, hash)
 }
 
-func (s *BadgerStore) StartNewRound(node crypto.Hash, number uint64, references [2]crypto.Hash, finalStart uint64) error {
+func (s *BadgerStore) StartNewRound(node crypto.Hash, number uint64, references *common.RoundLink, finalStart uint64) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 
@@ -31,7 +31,7 @@ func (s *BadgerStore) StartNewRound(node crypto.Hash, number uint64, references 
 		if err != nil {
 			return err
 		}
-		external, err := readRound(txn, references[1])
+		external, err := readRound(txn, references.External)
 		if err != nil {
 			return err
 		}
@@ -41,7 +41,7 @@ func (s *BadgerStore) StartNewRound(node crypto.Hash, number uint64, references 
 		if external == nil {
 			panic("external final not exist")
 		}
-		old, err := readRound(txn, references[0])
+		old, err := readRound(txn, references.Self)
 		if err != nil {
 			return err
 		}
@@ -65,13 +65,13 @@ func (s *BadgerStore) StartNewRound(node crypto.Hash, number uint64, references 
 	return txn.Commit()
 }
 
-func startNewRound(txn *badger.Txn, node crypto.Hash, number uint64, references [2]crypto.Hash, finalStart uint64) error {
-	if references[0].HasValue() || references[1].HasValue() {
+func startNewRound(txn *badger.Txn, node crypto.Hash, number uint64, references *common.RoundLink, finalStart uint64) error {
+	if references != nil {
 		self, err := readRound(txn, node)
 		if err != nil {
 			return err
 		}
-		external, err := readRound(txn, references[1])
+		external, err := readRound(txn, references.External)
 		if err != nil {
 			return err
 		}
@@ -81,7 +81,7 @@ func startNewRound(txn *badger.Txn, node crypto.Hash, number uint64, references 
 			return err
 		}
 		self.Timestamp = finalStart
-		err = writeRound(txn, references[0], self)
+		err = writeRound(txn, references.Self, self)
 		if err != nil {
 			return err
 		}

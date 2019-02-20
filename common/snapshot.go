@@ -5,26 +5,35 @@ import (
 )
 
 type Round struct {
-	Hash       crypto.Hash    `json:"hash"`
-	NodeId     crypto.Hash    `json:"node"`
-	Number     uint64         `json:"number"`
-	Timestamp  uint64         `json:"timestamp"`
-	References [2]crypto.Hash `json:"references"`
+	Hash       crypto.Hash `json:"hash"`
+	NodeId     crypto.Hash `json:"node"`
+	Number     uint64      `json:"number"`
+	Timestamp  uint64      `json:"timestamp"`
+	References *RoundLink  `json:"references"`
+}
+
+type RoundLink struct {
+	Self     crypto.Hash `json:"self"`
+	External crypto.Hash `json:"external"`
 }
 
 type Snapshot struct {
-	NodeId      crypto.Hash        `json:"node"`
-	Transaction crypto.Hash        `json:"transaction"`
-	References  [2]crypto.Hash     `json:"references"`
-	RoundNumber uint64             `json:"round"`
-	Timestamp   uint64             `json:"timestamp"`
-	Signatures  []crypto.Signature `json:"signatures,omitempty"`
-	Hash        crypto.Hash        `msgpack:"-"json:"hash"`
+	NodeId      crypto.Hash         `json:"node"`
+	Transaction crypto.Hash         `json:"transaction"`
+	References  *RoundLink          `json:"references"`
+	RoundNumber uint64              `json:"round"`
+	Timestamp   uint64              `json:"timestamp"`
+	Signatures  []*crypto.Signature `json:"signatures,omitempty"`
+	Hash        crypto.Hash         `msgpack:"-"json:"hash"`
 }
 
 type SnapshotWithTopologicalOrder struct {
 	Snapshot
 	TopologicalOrder uint64 `json:"topology"`
+}
+
+func (m *RoundLink) Equal(n *RoundLink) bool {
+	return m.Self.String() == n.Self.String() && m.External.String() == n.External.String()
 }
 
 func (s *Snapshot) Payload() []byte {

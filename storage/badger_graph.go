@@ -68,7 +68,7 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) e
 		if cache == nil || snap.RoundNumber != cache.Number {
 			panic(fmt.Errorf("snapshot round number assert error %d %d", cache.Number, snap.RoundNumber))
 		}
-		if snap.References[0] != cache.References[0] || snap.References[1] != cache.References[1] {
+		if !snap.References.Equal(cache.References) {
 			panic("snapshot references assert error")
 		}
 		tx, err := readTransaction(txn, snap.Transaction)

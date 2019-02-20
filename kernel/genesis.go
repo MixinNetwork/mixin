@@ -140,10 +140,13 @@ func (node *Node) LoadGenesis(configDir string) error {
 			Timestamp: selfFinal.Start,
 		})
 		rounds = append(rounds, &common.Round{
-			Hash:       selfFinal.NodeId,
-			NodeId:     selfFinal.NodeId,
-			Number:     selfFinal.Number + 1,
-			References: [2]crypto.Hash{selfFinal.Hash, externalFinal.Hash},
+			Hash:   selfFinal.NodeId,
+			NodeId: selfFinal.NodeId,
+			Number: selfFinal.Number + 1,
+			References: &common.RoundLink{
+				Self:     selfFinal.Hash,
+				External: externalFinal.Hash,
+			},
 		})
 	}
 

@@ -25,8 +25,8 @@ type Node struct {
 	ConsensusNodes map[crypto.Hash]*common.Node
 	Graph          *RoundGraph
 	TopoCounter    *TopologicalSequence
-	SnapshotsPool  map[crypto.Hash][]crypto.Signature
-	SignaturesPool map[crypto.Hash]crypto.Signature
+	SnapshotsPool  map[crypto.Hash][]*crypto.Signature
+	SignaturesPool map[crypto.Hash]*crypto.Signature
 	Peer           *network.Peer
 
 	networkId   crypto.Hash
@@ -38,8 +38,8 @@ type Node struct {
 func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
 		ConsensusNodes: make(map[crypto.Hash]*common.Node),
-		SnapshotsPool:  make(map[crypto.Hash][]crypto.Signature),
-		SignaturesPool: make(map[crypto.Hash]crypto.Signature),
+		SnapshotsPool:  make(map[crypto.Hash][]*crypto.Signature),
+		SignaturesPool: make(map[crypto.Hash]*crypto.Signature),
 		store:          store,
 		mempoolChan:    make(chan *common.Snapshot, MempoolSize),
 		configDir:      dir,
@@ -201,23 +201,23 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
 		return
 	}
 
-	sigs := make([]crypto.Signature, 0)
-	signaturesFilter := make(map[crypto.Signature]bool)
+	sigs := make([]*crypto.Signature, 0)
+	signaturesFilter := make(map[string]bool)
 	signersMap := make(map[crypto.Hash]bool)
 	for _, sig := range s.Signatures {
-		if signaturesFilter[sig] {
+		if signaturesFilter[sig.String()] {
 			continue
 		}
 		for idForNetwork, cn := range node.ConsensusNodes {
 			if signersMap[idForNetwork] {
 				continue
 			}
-			if cn.Account.PublicSpendKey.Verify(hash[:], sig) {
+			if cn.Account.PublicSpendKey.Verify(hash[:], *sig) {
 				sigs = append(sigs, sig)
 				signersMap[idForNetwork] = true
 			}
 		}
-		signaturesFilter[sig] = true
+		signaturesFilter[sig.String()] = true
 	}
 	s.Signatures = sigs
 

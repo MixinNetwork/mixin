@@ -17,7 +17,7 @@ type CacheRound struct {
 	NodeId     crypto.Hash
 	Number     uint64
 	Timestamp  uint64
-	References [2]crypto.Hash
+	References *common.RoundLink
 	Snapshots  []*common.Snapshot `msgpack:"-"`
 }
 
@@ -30,16 +30,16 @@ type FinalRound struct {
 }
 
 type RoundGraph struct {
-	Nodes      []crypto.Hash
+	Nodes      []*crypto.Hash
 	CacheRound map[crypto.Hash]*CacheRound
 	FinalRound map[crypto.Hash]*FinalRound
-	FinalCache []FinalRound
+	FinalCache []*FinalRound
 }
 
 func (g *RoundGraph) UpdateFinalCache() {
-	finals := make([]FinalRound, 0)
+	finals := make([]*FinalRound, 0)
 	for _, f := range g.FinalRound {
-		finals = append(finals, FinalRound{
+		finals = append(finals, &FinalRound{
 			NodeId: f.NodeId,
 			Number: f.Number,
 			Start:  f.Start,
@@ -52,9 +52,9 @@ func (g *RoundGraph) Print() string {
 	desc := "ROUND GRAPH BEGIN\n"
 	for _, id := range g.Nodes {
 		desc = desc + fmt.Sprintf("NODE# %s\n", id)
-		final := g.FinalRound[id]
+		final := g.FinalRound[*id]
 		desc = desc + fmt.Sprintf("FINAL %d %d %s\n", final.Number, final.Start, final.Hash)
-		cache := g.CacheRound[id]
+		cache := g.CacheRound[*id]
 		desc = desc + fmt.Sprintf("CACHE %d %d\n", cache.Number, cache.Timestamp)
 	}
 	desc = desc + "ROUND GRAPH END"
@@ -70,7 +70,7 @@ func LoadRoundGraph(store storage.Store, networkId crypto.Hash) (*RoundGraph, er
 	consensusNodes := store.ReadConsensusNodes()
 	for _, cn := range consensusNodes {
 		id := cn.Account.Hash().ForNetwork(networkId)
-		graph.Nodes = append(graph.Nodes, id)
+		graph.Nodes = append(graph.Nodes, &id)
 
 		cache, err := loadHeadRoundForNode(store, id)
 		if err != nil {
@@ -140,11 +140,14 @@ func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, n
 
 func (c *CacheRound) Copy() *CacheRound {
 	return &CacheRound{
-		NodeId:     c.NodeId,
-		Number:     c.Number,
-		Timestamp:  c.Timestamp,
-		References: [2]crypto.Hash{c.References[0], c.References[1]},
-		Snapshots:  append([]*common.Snapshot{}, c.Snapshots...),
+		NodeId:    c.NodeId,
+		Number:    c.Number,
+		Timestamp: c.Timestamp,
+		References: &common.RoundLink{
+			Self:     c.References.Self,
+			External: c.References.External,
+		},
+		Snapshots: append([]*common.Snapshot{}, c.Snapshots...),
 	}
 }
 
