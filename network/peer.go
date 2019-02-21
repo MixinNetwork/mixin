@@ -100,8 +100,8 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 		snapshotsConfirmations: new(ConfirmMap),
 		snapshotsCaches:        new(ConfirmMap),
 		neighbors:              make(map[crypto.Hash]*Peer),
-		high:                   make(chan *ChanMsg, 8192),
-		normal:                 make(chan *ChanMsg, 8192),
+		high:                   make(chan *ChanMsg, 1024*1024),
+		normal:                 make(chan *ChanMsg, 1024*1024),
 		sync:                   make(chan []*SyncPoint),
 		handle:                 handle,
 	}

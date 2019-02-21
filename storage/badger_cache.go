@@ -12,6 +12,43 @@ const (
 	cachePrefixTransactionCache = "TRANSACTIONCACHE"
 )
 
+func (s *BadgerStore) CacheListTransactions(hook func(tx *common.SignedTransaction) error) error {
+	txn := s.cacheDB.NewTransaction(false)
+	defer txn.Discard()
+
+	opts := badger.DefaultIteratorOptions
+	opts.PrefetchValues = false
+	it := txn.NewIterator(opts)
+	defer it.Close()
+
+	prefix := []byte(cachePrefixTransactionCache)
+	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+		key := it.Item().Key()[len(prefix):]
+		key = append([]byte(graphPrefixFinalization), key...)
+		_, err := txn.Get(key)
+		if err == nil {
+			continue
+		} else if err != badger.ErrKeyNotFound {
+			return err
+		}
+
+		v, err := it.Item().ValueCopy(nil)
+		if err != nil {
+			return err
+		}
+		var tx common.SignedTransaction
+		err = msgpack.Unmarshal(v, &tx)
+		if err != nil {
+			return err
+		}
+		err = hook(&tx)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *BadgerStore) CachePutTransaction(tx *common.SignedTransaction) error {
 	txn := s.cacheDB.NewTransaction(true)
 	defer txn.Discard()

@@ -15,6 +15,7 @@ func Loop(store storage.Store, addr string, dir string) error {
 	globalNode = node
 	panicGo(node.ListenNeighbors)
 	panicGo(node.ConsumeMempool)
+	panicGo(node.LoadCacheToQueue)
 	return node.ConsumeQueue()
 }
 

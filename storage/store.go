@@ -38,4 +38,5 @@ type Store interface {
 	QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error)
 	CachePutTransaction(tx *common.SignedTransaction) error
 	CacheGetTransaction(hash crypto.Hash) (*common.SignedTransaction, error)
+	CacheListTransactions(hook func(tx *common.SignedTransaction) error) error
 }

@@ -21,6 +21,14 @@ func QueueTransaction(store storage.Store, tx *common.SignedTransaction) (string
 	return tx.PayloadHash().String(), err
 }
 
+func (node *Node) LoadCacheToQueue() error {
+	return node.store.CacheListTransactions(func(tx *common.SignedTransaction) error {
+		return node.store.QueueAppendSnapshot(crypto.Hash{}, &common.Snapshot{
+			Transaction: tx.PayloadHash(),
+		})
+	})
+}
+
 func (node *Node) ConsumeQueue() error {
 	node.store.QueuePollSnapshots(func(peerId crypto.Hash, snap *common.Snapshot) error {
 		tx, err := node.store.CacheGetTransaction(snap.Transaction)
