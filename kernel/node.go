@@ -221,7 +221,8 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
 	}
 	s.Signatures = sigs
 
-	if node.verifyFinalization(s.Signatures) {
+	finalized := node.verifyFinalization(s.Signatures)
+	if finalized {
 		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash, 1)
 		node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
 	} else {
@@ -231,7 +232,7 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
 		}
 	}
 	if signersMap[peerId] && (s.NodeId == node.IdForNetwork || signersMap[s.NodeId]) {
-		node.store.QueueAppendSnapshot(peerId, s)
+		node.store.QueueAppendSnapshot(peerId, s, finalized)
 	}
 }
 

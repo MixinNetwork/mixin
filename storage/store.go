@@ -34,7 +34,7 @@ type Store interface {
 	ReadDomains() []common.Domain
 
 	QueueInfo() (uint64, uint64, error)
-	QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snapshot) error
+	QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snapshot, finalized bool) error
 	QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error)
 	CachePutTransaction(tx *common.SignedTransaction) error
 	CacheGetTransaction(hash crypto.Hash) (*common.SignedTransaction, error)

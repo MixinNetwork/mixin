@@ -4,7 +4,6 @@ import (
 	"errors"
 	"runtime"
 	"sync/atomic"
-	"time"
 )
 
 var (
@@ -107,9 +106,7 @@ L:
 		if offer {
 			return false, nil
 		}
-
 		runtime.Gosched() // free up the cpu before the next iteration
-		time.Sleep(100 * time.Millisecond)
 	}
 
 	n.data = item
@@ -117,28 +114,16 @@ L:
 	return true, nil
 }
 
-// Get will return the next item in the queue.  This call will block
-// if the queue is empty.  This call will unblock when an item is added
-// to the queue or Dispose is called on the queue.  An error will be returned
-// if the queue is disposed.
-func (rb *RingBuffer) Get() (interface{}, error) {
-	return rb.Poll(0)
-}
-
 // Poll will return the next item in the queue.  This call will block
 // if the queue is empty.  This call will unblock when an item is added
 // to the queue, Dispose is called on the queue, or the timeout is reached. An
 // error will be returned if the queue is disposed or a timeout occurs. A
 // non-positive timeout will block indefinitely.
-func (rb *RingBuffer) Poll(timeout time.Duration) (interface{}, error) {
+func (rb *RingBuffer) Poll(block bool) (interface{}, error) {
 	var (
-		n     *node
-		pos   = atomic.LoadUint64(&rb.dequeue)
-		start time.Time
+		n   *node
+		pos = atomic.LoadUint64(&rb.dequeue)
 	)
-	if timeout > 0 {
-		start = time.Now()
-	}
 L:
 	for {
 		if atomic.LoadUint64(&rb.disposed) == 1 {
@@ -158,12 +143,10 @@ L:
 			pos = atomic.LoadUint64(&rb.dequeue)
 		}
 
-		if timeout > 0 && time.Since(start) >= timeout {
-			return nil, ErrTimeout
+		if !block {
+			return nil, nil
 		}
-
 		runtime.Gosched() // free up the cpu before the next iteration
-		time.Sleep(100 * time.Millisecond)
 	}
 	data := n.data
 	n.data = nil

@@ -16,7 +16,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 
 	retry, tx, err := node.verifyTransactionInSnapshot(s)
 	if retry {
-		node.store.QueueAppendSnapshot(node.IdForNetwork, s)
+		node.store.QueueAppendSnapshot(node.IdForNetwork, s, node.verifyFinalization(s.Signatures))
 	}
 	if err != nil {
 		return nil
@@ -29,7 +29,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 
 	retry, err = node.verifySnapshot(s)
 	if retry {
-		node.store.QueueAppendSnapshot(node.IdForNetwork, s)
+		node.store.QueueAppendSnapshot(node.IdForNetwork, s, node.verifyFinalization(s.Signatures))
 	}
 	if err != nil {
 		return nil

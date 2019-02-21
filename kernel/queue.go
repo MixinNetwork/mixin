@@ -17,7 +17,7 @@ func QueueTransaction(store storage.Store, tx *common.SignedTransaction) (string
 	}
 	err = store.QueueAppendSnapshot(crypto.Hash{}, &common.Snapshot{
 		Transaction: tx.PayloadHash(),
-	})
+	}, false)
 	return tx.PayloadHash().String(), err
 }
 
@@ -25,7 +25,7 @@ func (node *Node) LoadCacheToQueue() error {
 	return node.store.CacheListTransactions(func(tx *common.SignedTransaction) error {
 		return node.store.QueueAppendSnapshot(crypto.Hash{}, &common.Snapshot{
 			Transaction: tx.PayloadHash(),
-		})
+		}, false)
 	})
 }
 
@@ -55,7 +55,7 @@ func (node *Node) ConsumeQueue() error {
 			return nil
 		}
 		node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction)
-		return node.store.QueueAppendSnapshot(peerId, snap)
+		return node.store.QueueAppendSnapshot(peerId, snap, node.verifyFinalization(snap.Signatures))
 	})
 	return nil
 }
