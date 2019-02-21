@@ -71,8 +71,16 @@ func (s *BadgerStore) LockDepositInput(deposit *common.DepositData, tx crypto.Ha
 		if err != nil {
 			return err
 		}
-		if !fork && bytes.Compare(ival, tx[:]) != 0 {
-			return fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival))
+		if bytes.Compare(ival, tx[:]) != 0 {
+			if !fork {
+				return fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival))
+			}
+			var hash crypto.Hash
+			copy(hash[:], ival)
+			err := pruneTransaction(txn, hash)
+			if err != nil {
+				return err
+			}
 		}
 		return save()
 	})
@@ -100,8 +108,14 @@ func (s *BadgerStore) LockUTXO(hash crypto.Hash, index int, tx crypto.Hash, fork
 			return err
 		}
 
-		if !fork && out.LockHash.HasValue() && out.LockHash != tx {
-			return fmt.Errorf("utxo locked for transaction %s", out.LockHash)
+		if out.LockHash.HasValue() && out.LockHash != tx {
+			if !fork {
+				return fmt.Errorf("utxo locked for transaction %s", out.LockHash)
+			}
+			err := pruneTransaction(txn, out.LockHash)
+			if err != nil {
+				return err
+			}
 		}
 		out.LockHash = tx
 		err = txn.Set(key, common.MsgpackMarshalPanic(out))

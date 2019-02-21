@@ -108,6 +108,18 @@ func readTransaction(txn *badger.Txn, hash crypto.Hash) (*common.SignedTransacti
 	return &out, err
 }
 
+func pruneTransaction(txn *badger.Txn, hash crypto.Hash) error {
+	key := graphFinalizationKey(hash)
+	_, err := txn.Get(key)
+	if err == nil {
+		return fmt.Errorf("prune finalized transaction %s", hash.String())
+	} else if err != badger.ErrKeyNotFound {
+		return err
+	}
+	key = graphTransactionKey(hash)
+	return txn.Delete(key)
+}
+
 func writeTransaction(txn *badger.Txn, tx *common.SignedTransaction) error {
 	key := graphTransactionKey(tx.PayloadHash())
 
