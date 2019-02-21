@@ -340,7 +340,7 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	defer graphTicker.Stop()
 
 	if resend != nil {
-		logger.Println("RESEND PEER STREAM", resend)
+		logger.Println("RESEND PEER STREAM", resend.key.String())
 		if !me.snapshotsCaches.Exist(resend.key, time.Minute) {
 			err := client.Send(resend.data)
 			if err != nil {

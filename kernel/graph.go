@@ -67,6 +67,17 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	return nil
 }
 
+func (node *Node) clearSnapshot(s *common.Snapshot) {
+	delete(node.SnapshotsPool, s.Hash)
+	delete(node.SignaturesPool, s.Hash)
+	s.NodeId = crypto.Hash{}
+	s.Timestamp = 0
+	s.RoundNumber = 0
+	s.References = nil
+	s.Signatures = []*crypto.Signature{}
+	s.Hash = crypto.Hash{}
+}
+
 func (node *Node) verifySnapshot(s *common.Snapshot) (bool, error) {
 	s.Hash = s.PayloadHash()
 	osigs := node.SnapshotsPool[s.Hash]
@@ -78,7 +89,12 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (bool, error) {
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
 	if s.RoundNumber < cache.Number {
-		return false, fmt.Errorf("expired round number %d %d", s.RoundNumber, cache.Number)
+		err := fmt.Errorf("expired round number %d %d", s.RoundNumber, cache.Number)
+		if s.NodeId != node.IdForNetwork {
+			return false, err
+		}
+		node.clearSnapshot(s)
+		return true, err
 	}
 	if s.RoundNumber > cache.Number+1 {
 		return true, fmt.Errorf("future round number %d %d", s.RoundNumber, cache.Number)
@@ -127,7 +143,12 @@ func (node *Node) verifySnapshot(s *common.Snapshot) (bool, error) {
 	osigs = node.SnapshotsPool[s.Hash]
 	if node.verifyFinalization(osigs) {
 		if !cache.AddSnapshot(s) {
-			return false, fmt.Errorf("snapshot expired for this cache round %s", s.Hash)
+			err := fmt.Errorf("snapshot expired for this cache round %s", s.Hash)
+			if s.NodeId != node.IdForNetwork {
+				return false, err
+			}
+			node.clearSnapshot(s)
+			return true, err
 		}
 		s.Signatures = append([]*crypto.Signature{}, osigs...)
 		topo := &common.SnapshotWithTopologicalOrder{
