@@ -27,10 +27,10 @@ type ConfirmMap struct {
 	sync.Map
 }
 
-func (m *ConfirmMap) Get(key crypto.Hash) time.Time {
+func (m *ConfirmMap) Exist(key crypto.Hash, duration time.Duration) bool {
 	val, _ := m.Load(key)
 	ts, _ := val.(time.Time)
-	return ts
+	return ts.Add(duration).After(time.Now())
 }
 
 type PeerMessage struct {
@@ -60,6 +60,11 @@ type SyncPoint struct {
 	Number uint64
 }
 
+type ChanMsg struct {
+	key  crypto.Hash
+	data []byte
+}
+
 type Peer struct {
 	IdForNetwork crypto.Hash
 	Address      string
@@ -69,8 +74,8 @@ type Peer struct {
 	neighbors              map[crypto.Hash]*Peer
 	handle                 SyncHandle
 	transport              Transport
-	high                   chan []byte
-	normal                 chan []byte
+	high                   chan *ChanMsg
+	normal                 chan *ChanMsg
 	sync                   chan []*SyncPoint
 }
 
@@ -92,8 +97,8 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 		snapshotsConfirmations: new(ConfirmMap),
 		snapshotsCaches:        new(ConfirmMap),
 		neighbors:              make(map[crypto.Hash]*Peer),
-		high:                   make(chan []byte, 8192),
-		normal:                 make(chan []byte, 8192),
+		high:                   make(chan *ChanMsg, 8192),
+		normal:                 make(chan *ChanMsg, 8192),
 		sync:                   make(chan []*SyncPoint),
 		handle:                 handle,
 	}
@@ -106,17 +111,15 @@ func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypt
 
 	key := tx.ForNetwork(idForNetwork)
 	key = crypto.NewHash(append(key[:], 'R', 'Q'))
-	cacheTime := me.snapshotsCaches.Get(key)
-	if cacheTime.Add(time.Minute).After(time.Now()) {
+	if me.snapshotsCaches.Exist(key, time.Minute) {
 		return nil
 	}
-	me.snapshotsCaches.Store(key, time.Now())
 
 	peer := me.neighbors[idForNetwork]
 	if peer == nil {
 		return nil
 	}
-	return peer.SendHigh(buildTransactionRequestMessage(tx))
+	return peer.SendHigh(key, buildTransactionRequestMessage(tx))
 }
 
 func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, tx *common.SignedTransaction) error {
@@ -126,17 +129,15 @@ func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, tx *common.Sign
 
 	key := tx.PayloadHash().ForNetwork(idForNetwork)
 	key = crypto.NewHash(append(key[:], 'P', 'L'))
-	cacheTime := me.snapshotsCaches.Get(key)
-	if cacheTime.Add(time.Minute).After(time.Now()) {
+	if me.snapshotsCaches.Exist(key, time.Minute) {
 		return nil
 	}
-	me.snapshotsCaches.Store(key, time.Now())
 
 	peer := me.neighbors[idForNetwork]
 	if peer == nil {
 		return nil
 	}
-	return peer.SendHigh(buildTransactionMessage(tx))
+	return peer.SendHigh(key, buildTransactionMessage(tx))
 }
 
 func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash, finalized byte) error {
@@ -146,17 +147,15 @@ func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto
 
 	key := snap.ForNetwork(idForNetwork)
 	key = crypto.NewHash(append(key[:], finalized, 'C', 'F'))
-	cacheTime := me.snapshotsCaches.Get(key)
-	if cacheTime.Add(time.Minute).After(time.Now()) {
+	if me.snapshotsCaches.Exist(key, time.Minute) {
 		return nil
 	}
-	me.snapshotsCaches.Store(key, time.Now())
 
 	peer := me.neighbors[idForNetwork]
 	if peer == nil {
 		return nil
 	}
-	return peer.SendHigh(buildSnapshotConfirmMessage(snap, finalized))
+	return peer.SendHigh(key, buildSnapshotConfirmMessage(snap, finalized))
 }
 
 func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash, finalized byte) error {
@@ -173,37 +172,32 @@ func (me *Peer) SendSnapshotMessage(idForNetwork crypto.Hash, s *common.Snapshot
 
 	hash := s.PayloadHash().ForNetwork(idForNetwork)
 	key := crypto.NewHash(append(hash[:], finalized))
-
-	confirmTime := me.snapshotsConfirmations.Get(key)
-	if confirmTime.Add(config.CacheTTL / 2).After(time.Now()) {
+	if me.snapshotsConfirmations.Exist(key, config.CacheTTL/2) {
 		return nil
 	}
-
-	cacheTime := me.snapshotsCaches.Get(key)
-	if cacheTime.Add(time.Minute).After(time.Now()) {
+	if me.snapshotsCaches.Exist(key, time.Minute) {
 		return nil
 	}
-	me.snapshotsCaches.Store(key, time.Now())
 
 	peer := me.neighbors[idForNetwork]
 	if peer == nil {
 		return nil
 	}
-	return peer.SendNormal(buildSnapshotMessage(s))
+	return peer.SendNormal(key, buildSnapshotMessage(s))
 }
 
-func (p *Peer) SendHigh(data []byte) error {
+func (p *Peer) SendHigh(key crypto.Hash, data []byte) error {
 	select {
-	case p.high <- data:
+	case p.high <- &ChanMsg{key, data}:
 		return nil
 	case <-time.After(1 * time.Second):
 		return errors.New("peer send high timeout")
 	}
 }
 
-func (p *Peer) SendNormal(data []byte) error {
+func (p *Peer) SendNormal(key crypto.Hash, data []byte) error {
 	select {
-	case p.normal <- data:
+	case p.normal <- &ChanMsg{key, data}:
 		return nil
 	case <-time.After(1 * time.Second):
 		return errors.New("peer send normal timeout")
@@ -345,9 +339,12 @@ func (me *Peer) openPeerStream(peer *Peer) error {
 		hd, nd := false, false
 		select {
 		case msg := <-peer.high:
-			err := client.Send(msg)
-			if err != nil {
-				return err
+			if !me.snapshotsCaches.Exist(msg.key, time.Minute) {
+				err := client.Send(msg.data)
+				if err != nil {
+					return err
+				}
+				me.snapshotsCaches.Store(msg.key, time.Now())
 			}
 		default:
 			hd = true
@@ -355,9 +352,12 @@ func (me *Peer) openPeerStream(peer *Peer) error {
 
 		select {
 		case msg := <-peer.normal:
-			err := client.Send(msg)
-			if err != nil {
-				return err
+			if !me.snapshotsCaches.Exist(msg.key, time.Minute) {
+				err := client.Send(msg.data)
+				if err != nil {
+					return err
+				}
+				me.snapshotsCaches.Store(msg.key, time.Now())
 			}
 		case <-graphTicker.C:
 			err := client.Send(buildGraphMessage(me.handle.BuildGraph()))
