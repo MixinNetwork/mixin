@@ -55,7 +55,8 @@ func (g *RoundGraph) Print() string {
 		final := g.FinalRound[*id]
 		desc = desc + fmt.Sprintf("FINAL %d %d %s\n", final.Number, final.Start, final.Hash)
 		cache := g.CacheRound[*id]
-		desc = desc + fmt.Sprintf("CACHE %d %d\n", cache.Number, cache.Timestamp)
+		start, end := cache.Gap()
+		desc = desc + fmt.Sprintf("CACHE %d %d %d %d\n", cache.Number, cache.Timestamp, start, end)
 	}
 	desc = desc + "ROUND GRAPH END"
 	return desc
@@ -163,13 +164,18 @@ func (f *FinalRound) Copy() *FinalRound {
 
 func (c *CacheRound) Gap() (uint64, uint64) {
 	start, end := (^uint64(0))/2, uint64(0)
-	for _, s := range c.Snapshots {
-		if s.Timestamp < start {
-			start = s.Timestamp
-		}
-		if s.Timestamp > end {
-			end = s.Timestamp
-		}
+	count := len(c.Snapshots)
+	if count == 0 {
+		return start, end
+	}
+	sort.Slice(c.Snapshots, func(i, j int) bool {
+		return c.Snapshots[i].Timestamp < c.Snapshots[j].Timestamp
+	})
+	start = c.Snapshots[0].Timestamp
+	end = c.Snapshots[count-1].Timestamp
+	if end >= start+config.SnapshotRoundGap {
+		err := fmt.Errorf("GAP %s %d %d %d %d", c.NodeId, c.Number, start, end, start+config.SnapshotRoundGap)
+		panic(err)
 	}
 	return start, end
 }
@@ -183,7 +189,7 @@ func (c *CacheRound) AddSnapshot(s *common.Snapshot) bool {
 			return false
 		}
 	}
-	if start, end := c.Gap(); start < end {
+	if start, end := c.Gap(); start <= end {
 		if s.Timestamp < start && s.Timestamp+config.SnapshotRoundGap <= end {
 			return false
 		}
@@ -209,7 +215,8 @@ func computeRoundHash(nodeId crypto.Hash, number uint64, snapshots []*common.Sna
 	start := snapshots[0].Timestamp
 	end := snapshots[len(snapshots)-1].Timestamp
 	if end >= start+config.SnapshotRoundGap {
-		panic(nodeId)
+		err := fmt.Errorf("computeRoundHash(%s, %d) %d %d %d", nodeId, number, start, end, start+config.SnapshotRoundGap)
+		panic(err)
 	}
 
 	buf := make([]byte, 8)
