@@ -109,6 +109,7 @@ L:
 		}
 
 		runtime.Gosched() // free up the cpu before the next iteration
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	n.data = item
@@ -161,8 +162,8 @@ L:
 			return nil, ErrTimeout
 		}
 
-		time.Sleep(100 * time.Millisecond)
 		runtime.Gosched() // free up the cpu before the next iteration
+		time.Sleep(100 * time.Millisecond)
 	}
 	data := n.data
 	n.data = nil

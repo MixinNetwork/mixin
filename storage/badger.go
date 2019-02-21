@@ -11,7 +11,7 @@ type BadgerStore struct {
 	snapshotsDB *badger.DB
 	cacheDB     *badger.DB
 	stateDB     *badger.DB
-	ring        *RingBuffer
+	queue       *Queue
 	closing     bool
 }
 
@@ -32,14 +32,14 @@ func NewBadgerStore(dir string) (*BadgerStore, error) {
 		snapshotsDB: snapshotsDB,
 		cacheDB:     cacheDB,
 		stateDB:     stateDB,
-		ring:        NewRingBuffer(1024 * 1024),
+		queue:       NewQueue(),
 		closing:     false,
 	}, nil
 }
 
 func (store *BadgerStore) Close() error {
 	store.closing = true
-	store.ring.Dispose()
+	store.queue.Dispose()
 	err := store.snapshotsDB.Close()
 	if err != nil {
 		return err
