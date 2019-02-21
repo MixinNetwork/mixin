@@ -10,6 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
+	"github.com/MixinNetwork/mixin/network"
 	"github.com/MixinNetwork/mixin/storage"
 )
 
@@ -33,16 +34,15 @@ type RoundGraph struct {
 	Nodes      []*crypto.Hash
 	CacheRound map[crypto.Hash]*CacheRound
 	FinalRound map[crypto.Hash]*FinalRound
-	FinalCache []*FinalRound
+	FinalCache []*network.SyncPoint
 }
 
 func (g *RoundGraph) UpdateFinalCache() {
-	finals := make([]*FinalRound, 0)
+	finals := make([]*network.SyncPoint, 0)
 	for _, f := range g.FinalRound {
-		finals = append(finals, &FinalRound{
+		finals = append(finals, &network.SyncPoint{
 			NodeId: f.NodeId,
 			Number: f.Number,
-			Start:  f.Start,
 		})
 	}
 	g.FinalCache = finals

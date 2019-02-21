@@ -10,6 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
+	"github.com/patrickmn/go-cache"
 	"github.com/vmihailenco/msgpack"
 )
 
@@ -69,6 +70,7 @@ type Peer struct {
 	IdForNetwork crypto.Hash
 	Address      string
 
+	storeCache             *cache.Cache
 	snapshotsConfirmations *ConfirmMap
 	snapshotsCaches        *ConfirmMap
 	neighbors              map[crypto.Hash]*Peer
@@ -94,6 +96,7 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 	return &Peer{
 		IdForNetwork:           idForNetwork,
 		Address:                addr,
+		storeCache:             cache.New(config.CacheTTL, 10*time.Minute),
 		snapshotsConfirmations: new(ConfirmMap),
 		snapshotsCaches:        new(ConfirmMap),
 		neighbors:              make(map[crypto.Hash]*Peer),

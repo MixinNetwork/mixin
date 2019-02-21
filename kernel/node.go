@@ -154,14 +154,7 @@ func (node *Node) NetworkId() crypto.Hash {
 }
 
 func (node *Node) BuildGraph() []*network.SyncPoint {
-	points := make([]*network.SyncPoint, 0)
-	for _, c := range node.Graph.FinalCache {
-		points = append(points, &network.SyncPoint{
-			NodeId: c.NodeId,
-			Number: c.Number,
-		})
-	}
-	return points
+	return node.Graph.FinalCache
 }
 
 func (node *Node) BuildAuthenticationMessage() []byte {
