@@ -303,31 +303,33 @@ func buildGraphMessage(points []*SyncPoint) []byte {
 }
 
 func (me *Peer) openPeerStreamLoop(p *Peer) {
+	var resend *ChanMsg
 	for {
-		err := me.openPeerStream(p)
+		msg, err := me.openPeerStream(p, resend)
 		if err != nil {
 			logger.Println("neighbor open stream error", err)
 		}
+		resend = msg
 		time.Sleep(1 * time.Second)
 	}
 }
 
-func (me *Peer) openPeerStream(peer *Peer) error {
+func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	logger.Println("OPEN PEER STREAM", peer.Address)
 	transport, err := NewTcpClient(peer.Address)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	client, err := transport.Dial()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer client.Close()
 	logger.Println("DIAL PEER STREAM", peer.Address)
 
 	err = client.Send(buildAuthenticationMessage(me.handle.BuildAuthenticationMessage()))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	logger.Println("AUTH PEER STREAM", peer.Address)
 
@@ -337,6 +339,17 @@ func (me *Peer) openPeerStream(peer *Peer) error {
 	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap))
 	defer graphTicker.Stop()
 
+	if resend != nil {
+		logger.Println("RESEND PEER STREAM", resend)
+		if !me.snapshotsCaches.Exist(resend.key, time.Minute) {
+			err := client.Send(resend.data)
+			if err != nil {
+				return resend, err
+			}
+			me.snapshotsCaches.Store(resend.key, time.Now())
+		}
+	}
+
 	logger.Println("LOOP PEER STREAM", peer.Address)
 	for {
 		hd, nd := false, false
@@ -345,7 +358,7 @@ func (me *Peer) openPeerStream(peer *Peer) error {
 			if !me.snapshotsCaches.Exist(msg.key, time.Minute) {
 				err := client.Send(msg.data)
 				if err != nil {
-					return err
+					return msg, err
 				}
 				me.snapshotsCaches.Store(msg.key, time.Now())
 			}
@@ -358,19 +371,19 @@ func (me *Peer) openPeerStream(peer *Peer) error {
 			if !me.snapshotsCaches.Exist(msg.key, time.Minute) {
 				err := client.Send(msg.data)
 				if err != nil {
-					return err
+					return msg, err
 				}
 				me.snapshotsCaches.Store(msg.key, time.Now())
 			}
 		case <-graphTicker.C:
 			err := client.Send(buildGraphMessage(me.handle.BuildGraph()))
 			if err != nil {
-				return err
+				return nil, err
 			}
 		case <-pingTicker.C:
 			err := client.Send(buildPingMessage())
 			if err != nil {
-				return err
+				return nil, err
 			}
 		default:
 			nd = true
