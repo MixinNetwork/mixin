@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 )
@@ -45,7 +44,8 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPo
 }
 
 func (me *Peer) syncToNeighborSince(p *Peer, offset uint64) (uint64, error) {
-	snapshots, err := me.handle.ReadSnapshotsSinceTopology(offset, 1000)
+	limit := 200
+	snapshots, err := me.handle.ReadSnapshotsSinceTopology(offset, uint64(limit))
 	if err != nil {
 		return offset, err
 	}
@@ -56,8 +56,9 @@ func (me *Peer) syncToNeighborSince(p *Peer, offset uint64) (uint64, error) {
 		}
 		offset = s.TopologicalOrder
 	}
-	if len(snapshots) < 1000 {
-		time.Sleep(time.Duration(config.SnapshotRoundGap))
+	time.Sleep(100 * time.Millisecond)
+	if len(snapshots) < limit {
+		return offset, fmt.Errorf("EOF")
 	}
 	return offset, nil
 }
@@ -79,12 +80,14 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 		if offset == 0 {
 			continue
 		}
-		off, err := me.syncToNeighborSince(p, offset)
-		if err != nil {
-			logger.Printf("GRAPH SYNC TO %s %s", p.IdForNetwork.String(), err.Error())
-		}
-		if off > 0 {
-			offset = off
+		for {
+			off, err := me.syncToNeighborSince(p, offset)
+			if off > 0 {
+				offset = off
+			}
+			if err != nil {
+				break
+			}
 		}
 	}
 }

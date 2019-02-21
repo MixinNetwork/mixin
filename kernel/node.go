@@ -202,6 +202,7 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
 	}
 	inNode, _ := node.store.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if inNode {
+		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash, 1)
 		node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
 		return
 	}
@@ -228,8 +229,8 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
 	s.Signatures = sigs
 
 	if node.verifyFinalization(s.Signatures) {
-		node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
 		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash, 1)
+		node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
 	} else {
 		node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
 		if len(s.Signatures) != 1 {

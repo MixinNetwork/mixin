@@ -69,7 +69,8 @@ type Peer struct {
 	neighbors              map[crypto.Hash]*Peer
 	handle                 SyncHandle
 	transport              Transport
-	send                   chan []byte
+	high                   chan []byte
+	normal                 chan []byte
 	sync                   chan []*SyncPoint
 }
 
@@ -91,7 +92,8 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 		snapshotsConfirmations: new(ConfirmMap),
 		snapshotsCaches:        new(ConfirmMap),
 		neighbors:              make(map[crypto.Hash]*Peer),
-		send:                   make(chan []byte, 8192),
+		high:                   make(chan []byte, 8192),
+		normal:                 make(chan []byte, 8192),
 		sync:                   make(chan []*SyncPoint),
 		handle:                 handle,
 	}
@@ -101,33 +103,60 @@ func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypt
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
+
+	key := tx.ForNetwork(idForNetwork)
+	key = crypto.NewHash(append(key[:], 'R', 'Q'))
+	cacheTime := me.snapshotsCaches.Get(key)
+	if cacheTime.Add(time.Minute).After(time.Now()) {
+		return nil
+	}
+	me.snapshotsCaches.Store(key, time.Now())
+
 	peer := me.neighbors[idForNetwork]
 	if peer == nil {
 		return nil
 	}
-	return peer.SendData(buildTransactionRequestMessage(tx))
+	return peer.SendHigh(buildTransactionRequestMessage(tx))
 }
 
 func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, tx *common.SignedTransaction) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
+
+	key := tx.PayloadHash().ForNetwork(idForNetwork)
+	key = crypto.NewHash(append(key[:], 'P', 'L'))
+	cacheTime := me.snapshotsCaches.Get(key)
+	if cacheTime.Add(time.Minute).After(time.Now()) {
+		return nil
+	}
+	me.snapshotsCaches.Store(key, time.Now())
+
 	peer := me.neighbors[idForNetwork]
 	if peer == nil {
 		return nil
 	}
-	return peer.SendData(buildTransactionMessage(tx))
+	return peer.SendHigh(buildTransactionMessage(tx))
 }
 
 func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash, finalized byte) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
+
+	key := snap.ForNetwork(idForNetwork)
+	key = crypto.NewHash(append(key[:], finalized, 'C', 'F'))
+	cacheTime := me.snapshotsCaches.Get(key)
+	if cacheTime.Add(time.Minute).After(time.Now()) {
+		return nil
+	}
+	me.snapshotsCaches.Store(key, time.Now())
+
 	peer := me.neighbors[idForNetwork]
 	if peer == nil {
 		return nil
 	}
-	return peer.SendData(buildSnapshotConfirmMessage(snap, finalized))
+	return peer.SendHigh(buildSnapshotConfirmMessage(snap, finalized))
 }
 
 func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash, finalized byte) error {
@@ -151,7 +180,7 @@ func (me *Peer) SendSnapshotMessage(idForNetwork crypto.Hash, s *common.Snapshot
 	}
 
 	cacheTime := me.snapshotsCaches.Get(key)
-	if cacheTime.Add(time.Duration(config.SnapshotRoundGap * 2)).After(time.Now()) {
+	if cacheTime.Add(time.Minute).After(time.Now()) {
 		return nil
 	}
 	me.snapshotsCaches.Store(key, time.Now())
@@ -160,15 +189,24 @@ func (me *Peer) SendSnapshotMessage(idForNetwork crypto.Hash, s *common.Snapshot
 	if peer == nil {
 		return nil
 	}
-	return peer.SendData(buildSnapshotMessage(s))
+	return peer.SendNormal(buildSnapshotMessage(s))
 }
 
-func (p *Peer) SendData(data []byte) error {
+func (p *Peer) SendHigh(data []byte) error {
 	select {
-	case p.send <- data:
+	case p.high <- data:
 		return nil
 	case <-time.After(1 * time.Second):
-		return errors.New("peer send timeout")
+		return errors.New("peer send high timeout")
+	}
+}
+
+func (p *Peer) SendNormal(data []byte) error {
+	select {
+	case p.normal <- data:
+		return nil
+	case <-time.After(1 * time.Second):
+		return errors.New("peer send normal timeout")
 	}
 }
 
@@ -304,8 +342,19 @@ func (me *Peer) openPeerStream(peer *Peer) error {
 
 	logger.Println("LOOP PEER STREAM", peer.Address)
 	for {
+		hd, nd := false, false
 		select {
-		case msg := <-peer.send:
+		case msg := <-peer.high:
+			err := client.Send(msg)
+			if err != nil {
+				return err
+			}
+		default:
+			hd = true
+		}
+
+		select {
+		case msg := <-peer.normal:
 			err := client.Send(msg)
 			if err != nil {
 				return err
@@ -320,6 +369,12 @@ func (me *Peer) openPeerStream(peer *Peer) error {
 			if err != nil {
 				return err
 			}
+		default:
+			nd = true
+		}
+
+		if hd && nd {
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 }
