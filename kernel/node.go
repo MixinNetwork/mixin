@@ -187,17 +187,18 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, error) {
 	return crypto.Hash{}, errors.New("peer authentication message signature invalid")
 }
 
-func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
+func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
 	if len(s.Signatures) != 1 && !node.verifyFinalization(s.Signatures) {
-		node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
-		return
+		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
 	}
-	inNode, _ := node.store.CheckTransactionInNode(s.NodeId, s.Transaction)
+	inNode, err := node.store.CheckTransactionInNode(s.NodeId, s.Transaction)
+	if err != nil {
+		return err
+	}
 	if inNode {
 		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash, 1)
-		node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
-		return
+		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
 	}
 
 	sigs := make([]*crypto.Signature, 0)
@@ -224,16 +225,20 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) {
 	finalized := node.verifyFinalization(s.Signatures)
 	if finalized {
 		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash, 1)
-		node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
+		err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
+		if err != nil {
+			return err
+		}
 	} else {
-		node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
-		if len(s.Signatures) != 1 {
-			return
+		err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
+		if err != nil || len(s.Signatures) != 1 {
+			return err
 		}
 	}
 	if signersMap[peerId] && (s.NodeId == node.IdForNetwork || signersMap[s.NodeId]) {
-		node.store.QueueAppendSnapshot(peerId, s, finalized)
+		return node.store.QueueAppendSnapshot(peerId, s, finalized)
 	}
+	return nil
 }
 
 func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {

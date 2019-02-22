@@ -13,7 +13,6 @@ type Queue struct {
 	mutex     *sync.Mutex
 	cacheRing *RingBuffer
 	finalRing *RingBuffer
-	cacheSet  map[crypto.Hash][]*crypto.Signature
 	finalSet  map[crypto.Hash]bool
 }
 
@@ -25,7 +24,6 @@ type PeerSnapshot struct {
 func NewQueue() *Queue {
 	return &Queue{
 		mutex:     new(sync.Mutex),
-		cacheSet:  make(map[crypto.Hash][]*crypto.Signature),
 		finalSet:  make(map[crypto.Hash]bool),
 		cacheRing: NewRingBuffer(1024 * 1024),
 		finalRing: NewRingBuffer(1024 * 1024),
@@ -78,13 +76,6 @@ func (q *Queue) PutCache(ps *PeerSnapshot) error {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
-	hash := ps.Snapshot.PayloadHash()
-	_, found := q.cacheSet[hash]
-	q.cacheSet[hash] = ps.Snapshot.Signatures
-	if found {
-		return nil
-	}
-
 	for {
 		put, err := q.cacheRing.Offer(ps)
 		if err != nil || put {
@@ -103,9 +94,6 @@ func (q *Queue) PopCache() (*PeerSnapshot, error) {
 		return nil, err
 	}
 	ps := item.(*PeerSnapshot)
-	hash := ps.Snapshot.PayloadHash()
-	ps.Snapshot.Signatures = q.cacheSet[hash]
-	delete(q.cacheSet, hash)
 	return ps, nil
 }
 
@@ -138,6 +126,7 @@ func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snaps
 
 func (s *BadgerStore) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error) {
 	for !s.closing {
+		time.Sleep(1 * time.Millisecond)
 		ps, err := s.queue.PopFinal()
 		if err != nil {
 			continue

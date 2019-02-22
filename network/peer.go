@@ -49,7 +49,7 @@ type SyncHandle interface {
 	BuildAuthenticationMessage() []byte
 	Authenticate(msg []byte) (crypto.Hash, error)
 	BuildGraph() []*SyncPoint
-	QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot)
+	QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error
 	SendTransactionToPeer(peerId, tx crypto.Hash) error
 	CachePutTransaction(tx *common.SignedTransaction) error
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
@@ -161,11 +161,10 @@ func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto
 	return peer.SendHigh(key, buildSnapshotConfirmMessage(snap, finalized))
 }
 
-func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash, finalized byte) error {
+func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash, finalized byte) {
 	hash := snap.ForNetwork(idForNetwork)
 	key := crypto.NewHash(append(hash[:], finalized))
 	me.snapshotsConfirmations.Store(key, time.Now())
-	return nil
 }
 
 func (me *Peer) SendSnapshotMessage(idForNetwork crypto.Hash, s *common.Snapshot, finalized byte) error {

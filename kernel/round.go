@@ -180,12 +180,12 @@ func (c *CacheRound) Gap() (uint64, uint64) {
 	return start, end
 }
 
-func (c *CacheRound) AddSnapshot(s *common.Snapshot) bool {
+func (c *CacheRound) ValidateSnapshot(s *common.Snapshot, add bool) bool {
 	if !s.Hash.HasValue() {
 		panic(s)
 	}
 	for _, cs := range c.Snapshots {
-		if cs.Hash == s.Hash {
+		if cs.Hash == s.Hash || cs.Timestamp == s.Timestamp {
 			return false
 		}
 	}
@@ -197,7 +197,9 @@ func (c *CacheRound) AddSnapshot(s *common.Snapshot) bool {
 			return false
 		}
 	}
-	c.Snapshots = append(c.Snapshots, s)
+	if add {
+		c.Snapshots = append(c.Snapshots, s)
+	}
 	return true
 }
 
