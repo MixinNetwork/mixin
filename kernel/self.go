@@ -47,7 +47,7 @@ func (node *Node) collectSelfSignatures(s *common.Snapshot) error {
 		panic("should never be here")
 	}
 	if len(node.SnapshotsPool[s.Hash]) == 0 || node.SignaturesPool[s.Hash] == nil {
-		panic("should never be here")
+		return nil
 	}
 
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
@@ -99,30 +99,8 @@ func (node *Node) collectSelfSignatures(s *common.Snapshot) error {
 	return nil
 }
 
-func (node *Node) handleSelfFreshSnapshot(s *common.Snapshot, tx *common.SignedTransaction) error {
-	err := node.signSelfSnapshot(s)
-	if err != nil || len(s.Signatures) == 0 {
-		return err
-	}
-
-	for peerId, _ := range node.ConsensusNodes {
-		err := node.Peer.SendTransactionMessage(peerId, tx)
-		if err != nil {
-			return err
-		}
-		err = node.Peer.SendSnapshotMessage(peerId, s, 0)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (node *Node) signSelfSnapshot(s *common.Snapshot) error {
+func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.SignedTransaction) error {
 	if s.NodeId != node.IdForNetwork || len(s.Signatures) != 0 || s.Timestamp != 0 {
-		panic("should never be here")
-	}
-	if len(node.SnapshotsPool[s.Hash]) > 0 || node.SignaturesPool[s.Hash] != nil {
 		panic("should never be here")
 	}
 
@@ -172,5 +150,16 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot) error {
 	node.Graph.CacheRound[s.NodeId] = cache
 	node.Graph.FinalRound[s.NodeId] = final
 	node.signSnapshot(s)
+	s.Signatures = []*crypto.Signature{node.SignaturesPool[s.Hash]}
+	for peerId, _ := range node.ConsensusNodes {
+		err := node.Peer.SendTransactionMessage(peerId, tx)
+		if err != nil {
+			return err
+		}
+		err = node.Peer.SendSnapshotMessage(peerId, s, 0)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }

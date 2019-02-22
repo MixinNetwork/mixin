@@ -43,7 +43,7 @@ func (node *Node) verifyExternalSnapshot(s *common.Snapshot) error {
 		}
 		err := node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 		if err != nil {
-			return node.queueSnapshotOrPanic(s, false)
+			panic(err)
 		}
 	}
 

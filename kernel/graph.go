@@ -26,7 +26,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	}
 	if s.NodeId == node.IdForNetwork {
 		if len(s.Signatures) == 0 {
-			return node.handleSelfFreshSnapshot(s, tx)
+			return node.signSelfSnapshot(s, tx)
 		}
 		return node.collectSelfSignatures(s)
 	}
