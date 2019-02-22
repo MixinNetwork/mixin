@@ -13,6 +13,9 @@ const (
 )
 
 func (s *BadgerStore) CacheListTransactions(hook func(tx *common.SignedTransaction) error) error {
+	snapTxn := s.snapshotsDB.NewTransaction(false)
+	defer snapTxn.Discard()
+
 	txn := s.cacheDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -25,7 +28,7 @@ func (s *BadgerStore) CacheListTransactions(hook func(tx *common.SignedTransacti
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 		key := it.Item().Key()[len(prefix):]
 		key = append([]byte(graphPrefixFinalization), key...)
-		_, err := txn.Get(key)
+		_, err := snapTxn.Get(key)
 		if err == nil {
 			continue
 		} else if err != badger.ErrKeyNotFound {
