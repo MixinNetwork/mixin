@@ -50,7 +50,7 @@ func (node *Node) ConsumeQueue() error {
 			return nil
 		}
 
-		if peerId == node.IdForNetwork || snap.NodeId == node.IdForNetwork {
+		if peerId == node.IdForNetwork {
 			return nil
 		}
 		node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction)
