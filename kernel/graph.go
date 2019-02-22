@@ -18,6 +18,10 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		return node.handleSyncFinalSnapshot(s)
 	}
 
+	if !node.CheckSync() {
+		return node.queueSnapshotOrPanic(s, false)
+	}
+
 	tx, err := node.checkCacheSnapshotTransaction(s)
 	if err != nil {
 		return node.queueSnapshotOrPanic(s, false)

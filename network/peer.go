@@ -54,6 +54,7 @@ type SyncHandle interface {
 	CachePutTransaction(tx *common.SignedTransaction) error
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
+	UpdateSyncPoint(peerId crypto.Hash, points []*SyncPoint)
 }
 
 type SyncPoint struct {
@@ -417,6 +418,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		case PeerMessageTypeSnapshot:
 			me.handle.QueueAppendSnapshot(peer.IdForNetwork, msg.Snapshot)
 		case PeerMessageTypeGraph:
+			me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.FinalCache)
 			peer.sync <- msg.FinalCache
 		case PeerMessageTypeTransactionRequest:
 			me.handle.SendTransactionToPeer(peer.IdForNetwork, msg.TransactionHash)

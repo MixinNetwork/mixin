@@ -16,11 +16,11 @@ type BadgerStore struct {
 }
 
 func NewBadgerStore(dir string) (*BadgerStore, error) {
-	snapshotsDB, err := openDB(dir+"/snapshots", false)
+	snapshotsDB, err := openDB(dir+"/snapshots", true)
 	if err != nil {
 		return nil, err
 	}
-	cacheDB, err := openDB(dir+"/cache", false)
+	cacheDB, err := openDB(dir+"/cache", true)
 	if err != nil {
 		return nil, err
 	}

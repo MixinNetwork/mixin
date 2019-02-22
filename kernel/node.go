@@ -28,6 +28,7 @@ type Node struct {
 	SnapshotsPool  map[crypto.Hash][]*crypto.Signature
 	SignaturesPool map[crypto.Hash]*crypto.Signature
 	Peer           *network.Peer
+	SyncPoints     map[crypto.Hash]uint64
 
 	networkId   crypto.Hash
 	store       storage.Store
@@ -40,6 +41,7 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		ConsensusNodes: make(map[crypto.Hash]*common.Node),
 		SnapshotsPool:  make(map[crypto.Hash][]*crypto.Signature),
 		SignaturesPool: make(map[crypto.Hash]*crypto.Signature),
+		SyncPoints:     make(map[crypto.Hash]uint64),
 		store:          store,
 		mempoolChan:    make(chan *common.Snapshot, MempoolSize),
 		configDir:      dir,
@@ -260,6 +262,30 @@ func (node *Node) ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.Sn
 
 func (node *Node) ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	return node.store.ReadSnapshotsForNodeRound(nodeIdWithNetwork, round)
+}
+
+func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoint) {
+	if node.ConsensusNodes[peerId] == nil {
+		return
+	}
+	for _, p := range points {
+		if p.NodeId == node.IdForNetwork {
+			node.SyncPoints[peerId] = p.Number
+		}
+	}
+}
+
+func (node *Node) CheckSync() bool {
+	if len(node.SyncPoints) != len(node.ConsensusNodes)-1 {
+		return false
+	}
+	final := node.Graph.FinalRound[node.IdForNetwork].Number
+	for _, p := range node.SyncPoints {
+		if final < p {
+			return false
+		}
+	}
+	return true
 }
 
 func (node *Node) ConsumeMempool() error {
