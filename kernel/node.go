@@ -239,18 +239,27 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) er
 		}
 	}
 	if signersMap[peerId] && (s.NodeId == node.IdForNetwork || signersMap[s.NodeId]) {
-		return node.store.QueueAppendSnapshot(peerId, s, finalized)
+		if finalized {
+			return node.store.QueueAppendSnapshot(peerId, s, finalized)
+		} else if node.CheckSync() {
+			return node.store.QueueAppendSnapshot(peerId, s, finalized)
+		}
 	}
 	return nil
 }
 
 func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
-	tx, err := node.store.CacheGetTransaction(hash)
-	if err != nil || tx == nil {
+	tx, err := node.store.ReadTransaction(hash)
+	if err != nil {
 		return err
 	}
-	node.Peer.SendTransactionMessage(peerId, tx)
-	return err
+	if tx == nil {
+		tx, err = node.store.CacheGetTransaction(hash)
+		if err != nil || tx == nil {
+			return err
+		}
+	}
+	return node.Peer.SendTransactionMessage(peerId, tx)
 }
 
 func (node *Node) CachePutTransaction(tx *common.SignedTransaction) error {
