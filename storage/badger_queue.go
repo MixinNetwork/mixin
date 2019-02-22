@@ -35,10 +35,6 @@ func (q *Queue) Dispose() {
 	q.cacheRing.Dispose()
 }
 
-func (q *Queue) Len() uint64 {
-	return q.finalRing.Len() + q.cacheRing.Len()
-}
-
 func (q *Queue) PutFinal(ps *PeerSnapshot) error {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
@@ -97,7 +93,7 @@ func (q *Queue) PopCache() (*PeerSnapshot, error) {
 	return ps, nil
 }
 
-func (s *BadgerStore) QueueInfo() (uint64, uint64, error) {
+func (s *BadgerStore) QueueInfo() (uint64, uint64, uint64, error) {
 	txn := s.cacheDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -110,7 +106,7 @@ func (s *BadgerStore) QueueInfo() (uint64, uint64, error) {
 	for it.Rewind(); it.Valid(); it.Next() {
 		count = count + 1
 	}
-	return count, s.queue.Len(), nil
+	return count, s.queue.finalRing.Len(), s.queue.cacheRing.Len(), nil
 }
 
 func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snapshot, finalized bool) error {

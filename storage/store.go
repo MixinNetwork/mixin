@@ -33,7 +33,7 @@ type Store interface {
 	WriteSnapshot(*common.SnapshotWithTopologicalOrder) error
 	ReadDomains() []common.Domain
 
-	QueueInfo() (uint64, uint64, error)
+	QueueInfo() (uint64, uint64, uint64, error)
 	QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snapshot, finalized bool) error
 	QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error)
 	CachePutTransaction(tx *common.SignedTransaction) error

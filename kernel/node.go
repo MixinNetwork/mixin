@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -28,7 +29,7 @@ type Node struct {
 	SnapshotsPool  map[crypto.Hash][]*crypto.Signature
 	SignaturesPool map[crypto.Hash]*crypto.Signature
 	Peer           *network.Peer
-	SyncPoints     map[crypto.Hash]uint64
+	SyncPoints     *syncMap
 
 	networkId   crypto.Hash
 	store       storage.Store
@@ -41,7 +42,7 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		ConsensusNodes: make(map[crypto.Hash]*common.Node),
 		SnapshotsPool:  make(map[crypto.Hash][]*crypto.Signature),
 		SignaturesPool: make(map[crypto.Hash]*crypto.Signature),
-		SyncPoints:     make(map[crypto.Hash]uint64),
+		SyncPoints:     &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]uint64)},
 		store:          store,
 		mempoolChan:    make(chan *common.Snapshot, MempoolSize),
 		configDir:      dir,
@@ -270,18 +271,18 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 	}
 	for _, p := range points {
 		if p.NodeId == node.IdForNetwork {
-			node.SyncPoints[peerId] = p.Number
+			node.SyncPoints.Set(peerId, p.Number)
 		}
 	}
 }
 
 func (node *Node) CheckSync() bool {
-	if len(node.SyncPoints) != len(node.ConsensusNodes)-1 {
+	if node.SyncPoints.Len() != len(node.ConsensusNodes)-1 {
 		return false
 	}
 	final := node.Graph.FinalRound[node.IdForNetwork].Number
-	for _, p := range node.SyncPoints {
-		if final < p {
+	for id, _ := range node.ConsensusNodes {
+		if final < node.SyncPoints.Get(id) {
 			return false
 		}
 	}
@@ -298,4 +299,27 @@ func (node *Node) ConsumeMempool() error {
 			}
 		}
 	}
+}
+
+type syncMap struct {
+	mutex *sync.RWMutex
+	m     map[crypto.Hash]uint64
+}
+
+func (s *syncMap) Set(k crypto.Hash, v uint64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.m[k] = v
+}
+
+func (s *syncMap) Get(k crypto.Hash) uint64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.m[k]
+}
+
+func (s *syncMap) Len() int {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return len(s.m)
 }
