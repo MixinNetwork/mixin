@@ -1,7 +1,6 @@
 package kernel
 
 import (
-	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -88,24 +87,42 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 
 func (node *Node) LoadNodeState() error {
 	const stateKeyAccount = "account"
-	var acc common.Address
-	found, err := node.store.StateGet(stateKeyAccount, &acc)
+	var addr common.Address
+	found, err := node.store.StateGet(stateKeyAccount, &addr)
 	if err != nil {
 		return err
 	} else if !found {
-		b := make([]byte, 32)
-		_, err := rand.Read(b)
+		addr, err = node.readAccountFromConfig()
 		if err != nil {
 			panic(err)
 		}
-		acc = common.NewAddressFromSeed(b)
 	}
-	err = node.store.StateSet(stateKeyAccount, acc)
+	err = node.store.StateSet(stateKeyAccount, addr)
 	if err != nil {
 		return err
 	}
-	node.Account = acc
+	node.Account = addr
 	return nil
+}
+
+func (node *Node) readAccountFromConfig() (common.Address, error) {
+	var addr common.Address
+	f, err := ioutil.ReadFile(node.configDir + "/config.json")
+	if err != nil {
+		return addr, err
+	}
+	var config struct {
+		Key crypto.Key `json:"key"`
+	}
+	err = json.Unmarshal(f, &config)
+	if err != nil {
+		return addr, err
+	}
+	addr.PrivateSpendKey = config.Key
+	addr.PublicSpendKey = addr.PrivateSpendKey.Public()
+	addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
+	addr.PublicViewKey = addr.PrivateViewKey.Public()
+	return addr, nil
 }
 
 func (node *Node) LoadConsensusNodes() error {
