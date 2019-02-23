@@ -25,6 +25,10 @@ func createAdressCmd(c *cli.Context) error {
 		return err
 	}
 	addr := common.NewAddressFromSeed(seed)
+	if c.Bool("public") {
+		addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
+		addr.PublicViewKey = addr.PrivateViewKey.Public()
+	}
 	fmt.Printf("address:\t%s\n", addr.String())
 	fmt.Printf("view key:\t%s\n", addr.PrivateViewKey.String())
 	fmt.Printf("spend key:\t%s\n", addr.PrivateSpendKey.String())

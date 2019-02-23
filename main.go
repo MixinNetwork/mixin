@@ -45,6 +45,12 @@ func main() {
 			Name:   "createaddress",
 			Usage:  "Create a new Mixin address",
 			Action: createAdressCmd,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "public",
+					Usage: "whether mark all my transactions public",
+				},
+			},
 		},
 		{
 			Name:   "signrawtransaction",
