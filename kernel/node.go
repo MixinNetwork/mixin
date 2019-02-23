@@ -255,14 +255,16 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) er
 			return err
 		}
 	}
-	if signersMap[peerId] && (s.NodeId == node.IdForNetwork || signersMap[s.NodeId]) {
-		if finalized {
-			return node.store.QueueAppendSnapshot(peerId, s, finalized)
-		} else if node.CheckSync() {
-			return node.store.QueueAppendSnapshot(peerId, s, finalized)
-		}
+	if s.NodeId != node.IdForNetwork && !signersMap[s.NodeId] {
+		return nil
 	}
-	return nil
+	if !finalized && !signersMap[peerId] {
+		return nil
+	}
+	if !finalized && !node.CheckSync() {
+		return nil
+	}
+	return node.store.QueueAppendSnapshot(peerId, s, finalized)
 }
 
 func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
