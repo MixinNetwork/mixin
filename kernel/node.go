@@ -246,29 +246,29 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) er
 	}
 	s.Signatures = sigs
 
-	finalized := node.verifyFinalization(s.Signatures)
-	if finalized {
+	if node.verifyFinalization(s.Signatures) {
 		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash, 1)
 		err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
 		if err != nil {
 			return err
 		}
-	} else {
-		err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
-		if err != nil || len(s.Signatures) != 1 {
-			return err
-		}
+		return node.store.QueueAppendSnapshot(peerId, s, true)
 	}
-	if s.NodeId != node.IdForNetwork && !signersMap[s.NodeId] {
+
+	err = node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
+	if err != nil || len(s.Signatures) != 1 {
+		return err
+	}
+	if !signersMap[s.NodeId] && s.NodeId != node.IdForNetwork {
 		return nil
 	}
-	if !finalized && !signersMap[peerId] {
+	if !signersMap[peerId] {
 		return nil
 	}
-	if !finalized && !node.CheckSync() {
+	if !node.CheckSync() {
 		return nil
 	}
-	return node.store.QueueAppendSnapshot(peerId, s, finalized)
+	return node.store.QueueAppendSnapshot(peerId, s, false)
 }
 
 func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
@@ -312,9 +312,21 @@ func (node *Node) CheckSync() bool {
 	if node.SyncPoints.Len() != len(node.ConsensusNodes)-1 {
 		return false
 	}
-	final := node.Graph.FinalRound[node.IdForNetwork].Number
+	final := node.Graph.FinalRound[node.IdForNetwork].Copy()
+	cache := node.Graph.CacheRound[node.IdForNetwork].Copy()
 	for id, _ := range node.ConsensusNodes {
-		if final < node.SyncPoints.Get(id) {
+		remote := node.SyncPoints.Get(id)
+		if remote <= final.Number {
+			continue
+		}
+		if remote > final.Number+1 {
+			return false
+		}
+		round := cache.asFinal()
+		if round == nil {
+			return false
+		}
+		if uint64(time.Now().UnixNano()) < round.Start+config.SnapshotRoundGap*100 {
 			return false
 		}
 	}

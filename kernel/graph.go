@@ -50,6 +50,11 @@ func (node *Node) signSnapshot(s *common.Snapshot) {
 	}
 	node.SnapshotsPool[s.Hash] = append(osigs, &sig)
 	node.SignaturesPool[s.Hash] = &sig
+
+	key := append(s.Hash[:], sig[:]...)
+	key = append(key, node.Account.PublicSpendKey[:]...)
+	hash := crypto.NewHash(key).String()
+	node.signaturesCache.Set(hash, true, cache.DefaultExpiration)
 }
 
 func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto.Key) bool {
