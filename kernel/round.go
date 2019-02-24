@@ -34,10 +34,13 @@ type RoundGraph struct {
 	Nodes      []*crypto.Hash
 	CacheRound map[crypto.Hash]*CacheRound
 	FinalRound map[crypto.Hash]*FinalRound
-	FinalCache []*network.SyncPoint
+
+	FinalCache    []*network.SyncPoint
+	MyCacheRound  *FinalRound
+	MyFinalNumber uint64
 }
 
-func (g *RoundGraph) UpdateFinalCache() {
+func (g *RoundGraph) UpdateFinalCache(idForNetwork crypto.Hash) {
 	finals := make([]*network.SyncPoint, 0)
 	for _, f := range g.FinalRound {
 		finals = append(finals, &network.SyncPoint{
@@ -46,6 +49,8 @@ func (g *RoundGraph) UpdateFinalCache() {
 		})
 	}
 	g.FinalCache = finals
+	g.MyCacheRound = g.CacheRound[idForNetwork].asFinal()
+	g.MyFinalNumber = g.FinalRound[idForNetwork].Number
 }
 
 func (g *RoundGraph) Print() string {
@@ -62,7 +67,7 @@ func (g *RoundGraph) Print() string {
 	return desc
 }
 
-func LoadRoundGraph(store storage.Store, networkId crypto.Hash) (*RoundGraph, error) {
+func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (*RoundGraph, error) {
 	graph := &RoundGraph{
 		CacheRound: make(map[crypto.Hash]*CacheRound),
 		FinalRound: make(map[crypto.Hash]*FinalRound),
@@ -88,7 +93,7 @@ func LoadRoundGraph(store storage.Store, networkId crypto.Hash) (*RoundGraph, er
 	}
 
 	logger.Println("\n" + graph.Print())
-	graph.UpdateFinalCache()
+	graph.UpdateFinalCache(idForNetwork)
 	return graph, nil
 }
 

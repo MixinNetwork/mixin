@@ -7,7 +7,7 @@ import (
 )
 
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
-	defer node.Graph.UpdateFinalCache()
+	defer node.Graph.UpdateFinalCache(node.IdForNetwork)
 
 	if node.verifyFinalization(s.Signatures) {
 		valid, err := node.checkFinalSnapshotTransaction(s)

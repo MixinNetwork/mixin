@@ -67,7 +67,7 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		return nil, err
 	}
 
-	graph, err := LoadRoundGraph(node.store, node.networkId)
+	graph, err := LoadRoundGraph(node.store, node.networkId, node.IdForNetwork)
 	if err != nil {
 		return nil, err
 	}
@@ -312,21 +312,20 @@ func (node *Node) CheckSync() bool {
 	if node.SyncPoints.Len() != len(node.ConsensusNodes)-1 {
 		return false
 	}
-	final := node.Graph.FinalRound[node.IdForNetwork].Copy()
-	cache := node.Graph.CacheRound[node.IdForNetwork].Copy()
+	final := node.Graph.MyFinalNumber
+	cache := node.Graph.MyCacheRound
 	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
-		if remote <= final.Number {
+		if remote <= final {
 			continue
 		}
-		if remote > final.Number+1 {
+		if remote > final+1 {
 			return false
 		}
-		round := cache.asFinal()
-		if round == nil {
+		if cache == nil {
 			return false
 		}
-		if uint64(time.Now().UnixNano()) < round.Start+config.SnapshotRoundGap*100 {
+		if uint64(time.Now().UnixNano()) < cache.Start+config.SnapshotRoundGap*100 {
 			return false
 		}
 	}
