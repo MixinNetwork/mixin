@@ -3,6 +3,7 @@ package kernel
 import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/patrickmn/go-cache"
 )
 
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
@@ -49,6 +50,19 @@ func (node *Node) signSnapshot(s *common.Snapshot) {
 	}
 	node.SnapshotsPool[s.Hash] = append(osigs, &sig)
 	node.SignaturesPool[s.Hash] = &sig
+}
+
+func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto.Key) bool {
+	key := append(snap[:], sig[:]...)
+	key = append(key, pub[:]...)
+	hash := crypto.NewHash(key).String()
+	value, found := node.signaturesCache.Get(hash)
+	if found {
+		return value.(bool)
+	}
+	valid := pub.Verify(snap[:], sig)
+	node.signaturesCache.Set(hash, valid, cache.DefaultExpiration)
+	return valid
 }
 
 func (node *Node) queueSnapshotOrPanic(s *common.Snapshot, finalized bool) error {

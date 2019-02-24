@@ -9,10 +9,12 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/network"
 	"github.com/MixinNetwork/mixin/storage"
+	"github.com/patrickmn/go-cache"
 )
 
 const (
@@ -20,15 +22,16 @@ const (
 )
 
 type Node struct {
-	IdForNetwork   crypto.Hash
-	Account        common.Address
-	ConsensusNodes map[crypto.Hash]*common.Node
-	Graph          *RoundGraph
-	TopoCounter    *TopologicalSequence
-	SnapshotsPool  map[crypto.Hash][]*crypto.Signature
-	SignaturesPool map[crypto.Hash]*crypto.Signature
-	Peer           *network.Peer
-	SyncPoints     *syncMap
+	IdForNetwork    crypto.Hash
+	Account         common.Address
+	ConsensusNodes  map[crypto.Hash]*common.Node
+	Graph           *RoundGraph
+	TopoCounter     *TopologicalSequence
+	SnapshotsPool   map[crypto.Hash][]*crypto.Signature
+	SignaturesPool  map[crypto.Hash]*crypto.Signature
+	signaturesCache *cache.Cache
+	Peer            *network.Peer
+	SyncPoints      *syncMap
 
 	networkId   crypto.Hash
 	store       storage.Store
@@ -38,14 +41,15 @@ type Node struct {
 
 func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
-		ConsensusNodes: make(map[crypto.Hash]*common.Node),
-		SnapshotsPool:  make(map[crypto.Hash][]*crypto.Signature),
-		SignaturesPool: make(map[crypto.Hash]*crypto.Signature),
-		SyncPoints:     &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]uint64)},
-		store:          store,
-		mempoolChan:    make(chan *common.Snapshot, MempoolSize),
-		configDir:      dir,
-		TopoCounter:    getTopologyCounter(store),
+		ConsensusNodes:  make(map[crypto.Hash]*common.Node),
+		SnapshotsPool:   make(map[crypto.Hash][]*crypto.Signature),
+		SignaturesPool:  make(map[crypto.Hash]*crypto.Signature),
+		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]uint64)},
+		store:           store,
+		mempoolChan:     make(chan *common.Snapshot, MempoolSize),
+		configDir:       dir,
+		TopoCounter:     getTopologyCounter(store),
+		signaturesCache: cache.New(config.CacheTTL, 10*time.Minute),
 	}
 
 	err := node.LoadNodeState()
@@ -232,7 +236,7 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) er
 			if signersMap[idForNetwork] {
 				continue
 			}
-			if cn.Account.PublicSpendKey.Verify(s.Hash[:], *sig) {
+			if node.CacheVerify(s.Hash, *sig, cn.Account.PublicSpendKey) {
 				sigs = append(sigs, sig)
 				signersMap[idForNetwork] = true
 				break
