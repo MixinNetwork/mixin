@@ -40,6 +40,7 @@ func (q *Queue) PutFinal(ps *PeerSnapshot) error {
 	defer q.mutex.Unlock()
 
 	hash := ps.Snapshot.PayloadHash()
+	hash = hash.ForNetwork(ps.PeerId)
 	if q.finalSet[hash] {
 		return nil
 	}
@@ -64,6 +65,7 @@ func (q *Queue) PopFinal() (*PeerSnapshot, error) {
 	}
 	ps := item.(*PeerSnapshot)
 	hash := ps.Snapshot.PayloadHash()
+	hash = hash.ForNetwork(ps.PeerId)
 	delete(q.finalSet, hash)
 	return ps, nil
 }
