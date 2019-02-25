@@ -315,6 +315,9 @@ func (node *Node) CheckSync() bool {
 	final := node.Graph.MyFinalNumber
 	cache := node.Graph.MyCacheRound
 	for id, _ := range node.ConsensusNodes {
+		if id == node.IdForNetwork {
+			continue
+		}
 		remote := node.SyncPoints.Get(id)
 		if remote.Number <= final {
 			continue
