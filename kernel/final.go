@@ -40,10 +40,17 @@ func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot) error {
 	if s.RoundNumber > cache.Number+1 {
 		return node.queueSnapshotOrPanic(s, true)
 	}
-	if s.RoundNumber == cache.Number {
-		if !s.References.Equal(cache.References) {
+	if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
+		if len(cache.Snapshots) != 0 {
 			return nil
 		}
+		err := node.store.UpdateEmptyHeadRound(cache.NodeId, cache.Number, s.References)
+		if err != nil {
+			panic(err)
+		}
+		cache.References = s.References
+		node.Graph.CacheRound[s.NodeId] = cache
+		return node.handleSnapshotInput(s)
 	}
 	if s.RoundNumber == cache.Number+1 {
 		if round, err := node.startNewRound(s, cache); err != nil {
