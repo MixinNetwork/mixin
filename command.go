@@ -13,6 +13,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/vmihailenco/msgpack"
 	"gopkg.in/urfave/cli.v1"
@@ -49,6 +50,39 @@ func createAdressCmd(c *cli.Context) error {
 	fmt.Printf("view key:\t%s\n", addr.PrivateViewKey.String())
 	fmt.Printf("spend key:\t%s\n", addr.PrivateSpendKey.String())
 	return nil
+}
+
+func updateHeadReference(c *cli.Context) error {
+	store, err := storage.NewBadgerStore(c.String("dir"))
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+	node, err := kernel.SetupNode(store, "", c.String("dir"))
+	if err != nil {
+		return err
+	}
+	err = node.LoadGenesis(c.String("dir"))
+	if err != nil {
+		return err
+	}
+	if node.IdForNetwork.String() != c.String("node") {
+		return fmt.Errorf("node id not match %s", node.IdForNetwork.String())
+	}
+	round, err := store.ReadRound(node.IdForNetwork)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("node: %s round: %d self: %s external: %s\n", round.NodeId.String(), round.Number, round.References.Self.String(), round.References.External.String())
+	if round.Number != c.Uint64("round") {
+		return fmt.Errorf("round number not match %d", round.Number)
+	}
+	external, err := hex.DecodeString(c.String("external"))
+	if err != nil {
+		return err
+	}
+	copy(round.References.External[:], external)
+	return store.UpdateEmptyHeadRound(round.NodeId, round.Number, round.References)
 }
 
 func decodeTransactionCmd(c *cli.Context) error {

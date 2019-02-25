@@ -41,6 +41,9 @@ func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot) error {
 		return node.queueSnapshotOrPanic(s, true)
 	}
 	if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
+		if s.NodeId == node.IdForNetwork {
+			return nil
+		}
 		if len(cache.Snapshots) != 0 {
 			return nil
 		}

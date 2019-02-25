@@ -61,6 +61,29 @@ func main() {
 			},
 		},
 		{
+			Name:   "updateheadreference",
+			Usage:  "Update the cache round external reference, never use it unless agree by other nodes",
+			Action: updateHeadReference,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "dir",
+					Usage: "the data directory",
+				},
+				cli.StringFlag{
+					Name:  "node",
+					Usage: "self node `ID`",
+				},
+				cli.Uint64Flag{
+					Name:  "round",
+					Usage: "self cache round `NUMBER`",
+				},
+				cli.StringFlag{
+					Name:  "external",
+					Usage: "the external reference `HEX`",
+				},
+			},
+		},
+		{
 			Name:   "signrawtransaction",
 			Usage:  "Sign a JSON encoded transaction",
 			Action: signTransactionCmd,
