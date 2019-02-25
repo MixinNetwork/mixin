@@ -26,10 +26,14 @@ const (
 )
 
 func (s *BadgerStore) ReadSnapshotsForNodeRound(nodeId crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
-	snapshots := make([]*common.SnapshotWithTopologicalOrder, 0)
-
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
+
+	return readSnapshotsForNodeRound(txn, nodeId, round)
+}
+
+func readSnapshotsForNodeRound(txn *badger.Txn, nodeId crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
+	snapshots := make([]*common.SnapshotWithTopologicalOrder, 0)
 
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()

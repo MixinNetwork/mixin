@@ -19,6 +19,7 @@ type Store interface {
 	ReadTransaction(hash crypto.Hash) (*common.SignedTransaction, error)
 	WriteTransaction(tx *common.SignedTransaction) error
 	StartNewRound(node crypto.Hash, number uint64, references *common.RoundLink, finalStart uint64) error
+	UpdateEmptyHeadRound(node crypto.Hash, number uint64, references *common.RoundLink) error
 	TopologySequence() uint64
 
 	ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error)

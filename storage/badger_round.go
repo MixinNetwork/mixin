@@ -21,6 +21,53 @@ func (s *BadgerStore) ReadRound(hash crypto.Hash) (*common.Round, error) {
 	return readRound(txn, hash)
 }
 
+func (s *BadgerStore) UpdateEmptyHeadRound(node crypto.Hash, number uint64, references *common.RoundLink) error {
+	txn := s.snapshotsDB.NewTransaction(true)
+	defer txn.Discard()
+
+	self, err := readRound(txn, node)
+	if err != nil {
+		return err
+	}
+	if self.Number != number {
+		panic("round number assert error")
+	}
+	if self.References.Self != references.Self {
+		panic("self reference assert error")
+	}
+	external, err := readRound(txn, references.External)
+	if err != nil {
+		return err
+	}
+	if external == nil {
+		panic("external final not exist")
+	}
+	if external.NodeId == self.NodeId {
+		panic("self references loop")
+	}
+	snapshots, err := readSnapshotsForNodeRound(txn, node, number)
+	if err != nil {
+		return err
+	}
+	if len(snapshots) != 0 {
+		panic("round not empty")
+	}
+
+	err = writeLink(txn, node, external.NodeId, external.Number)
+	if err != nil {
+		return err
+	}
+	err = writeRound(txn, node, &common.Round{
+		NodeId:     node,
+		Number:     number,
+		References: references,
+	})
+	if err != nil {
+		return err
+	}
+	return txn.Commit()
+}
+
 func (s *BadgerStore) StartNewRound(node crypto.Hash, number uint64, references *common.RoundLink, finalStart uint64) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
@@ -40,6 +87,9 @@ func (s *BadgerStore) StartNewRound(node crypto.Hash, number uint64, references 
 		}
 		if external == nil {
 			panic("external final not exist")
+		}
+		if external.NodeId == self.NodeId {
+			panic("self references loop")
 		}
 		old, err := readRound(txn, references.Self)
 		if err != nil {
