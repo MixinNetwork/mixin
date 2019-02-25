@@ -17,10 +17,11 @@ func getInfo(store storage.Store) (map[string]interface{}, error) {
 			r.Snapshots[i].Signatures = nil
 		}
 		cacheGraph[n.String()] = map[string]interface{}{
-			"node":      r.NodeId.String(),
-			"round":     r.Number,
-			"timestamp": r.Timestamp,
-			"snapshots": r.Snapshots,
+			"node":       r.NodeId.String(),
+			"round":      r.Number,
+			"timestamp":  r.Timestamp,
+			"snapshots":  r.Snapshots,
+			"references": r.References,
 		}
 	}
 	finalGraph := make(map[string]interface{})
