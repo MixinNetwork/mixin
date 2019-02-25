@@ -60,6 +60,7 @@ type SyncHandle interface {
 type SyncPoint struct {
 	NodeId crypto.Hash
 	Number uint64
+	Hash   crypto.Hash
 }
 
 type ChanMsg struct {

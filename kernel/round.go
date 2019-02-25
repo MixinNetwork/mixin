@@ -46,6 +46,7 @@ func (g *RoundGraph) UpdateFinalCache(idForNetwork crypto.Hash) {
 		finals = append(finals, &network.SyncPoint{
 			NodeId: f.NodeId,
 			Number: f.Number,
+			Hash:   f.Hash,
 		})
 	}
 	g.FinalCache = finals

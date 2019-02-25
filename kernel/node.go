@@ -44,7 +44,7 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		ConsensusNodes:  make(map[crypto.Hash]*common.Node),
 		SnapshotsPool:   make(map[crypto.Hash][]*crypto.Signature),
 		SignaturesPool:  make(map[crypto.Hash]*crypto.Signature),
-		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]uint64)},
+		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
 		store:           store,
 		mempoolChan:     make(chan *common.Snapshot, MempoolSize),
 		configDir:       dir,
@@ -303,7 +303,7 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 	}
 	for _, p := range points {
 		if p.NodeId == node.IdForNetwork {
-			node.SyncPoints.Set(peerId, p.Number)
+			node.SyncPoints.Set(peerId, p)
 		}
 	}
 }
@@ -316,13 +316,16 @@ func (node *Node) CheckSync() bool {
 	cache := node.Graph.MyCacheRound
 	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
-		if remote <= final {
+		if remote.Number <= final {
 			continue
 		}
-		if remote > final+1 {
+		if remote.Number > final+1 {
 			return false
 		}
 		if cache == nil {
+			return false
+		}
+		if cache.Hash != remote.Hash {
 			return false
 		}
 		if uint64(time.Now().UnixNano()) < cache.Start+config.SnapshotRoundGap*100 {
@@ -346,16 +349,16 @@ func (node *Node) ConsumeMempool() error {
 
 type syncMap struct {
 	mutex *sync.RWMutex
-	m     map[crypto.Hash]uint64
+	m     map[crypto.Hash]*network.SyncPoint
 }
 
-func (s *syncMap) Set(k crypto.Hash, v uint64) {
+func (s *syncMap) Set(k crypto.Hash, p *network.SyncPoint) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.m[k] = v
+	s.m[k] = p
 }
 
-func (s *syncMap) Get(k crypto.Hash) uint64 {
+func (s *syncMap) Get(k crypto.Hash) *network.SyncPoint {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.m[k]
