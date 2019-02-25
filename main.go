@@ -50,6 +50,14 @@ func main() {
 					Name:  "public",
 					Usage: "whether mark all my transactions public",
 				},
+				cli.StringFlag{
+					Name:  "view",
+					Usage: "the private view key `HEX` instead of a random one",
+				},
+				cli.StringFlag{
+					Name:  "spend",
+					Usage: "the private spend key `HEX` instead of a random one",
+				},
 			},
 		},
 		{

@@ -29,6 +29,22 @@ func createAdressCmd(c *cli.Context) error {
 		addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
 		addr.PublicViewKey = addr.PrivateViewKey.Public()
 	}
+	if view := c.String("view"); len(view) > 0 {
+		key, err := hex.DecodeString(view)
+		if err != nil {
+			return err
+		}
+		copy(addr.PrivateViewKey[:], key)
+		addr.PublicViewKey = addr.PrivateViewKey.Public()
+	}
+	if spend := c.String("spend"); len(spend) > 0 {
+		key, err := hex.DecodeString(spend)
+		if err != nil {
+			return err
+		}
+		copy(addr.PrivateSpendKey[:], key)
+		addr.PublicSpendKey = addr.PrivateSpendKey.Public()
+	}
 	fmt.Printf("address:\t%s\n", addr.String())
 	fmt.Printf("view key:\t%s\n", addr.PrivateViewKey.String())
 	fmt.Printf("spend key:\t%s\n", addr.PrivateSpendKey.String())
