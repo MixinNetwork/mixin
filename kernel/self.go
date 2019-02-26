@@ -99,6 +99,29 @@ func (node *Node) collectSelfSignatures(s *common.Snapshot) error {
 	return nil
 }
 
+func (node *Node) determinBestRound() *FinalRound {
+	var best *FinalRound
+	var start, height uint64
+	for id, rounds := range node.Graph.RoundHistory {
+		if rc := len(rounds) - config.SnapshotReferenceThreshold; rc > 0 {
+			rounds = append([]*FinalRound{}, rounds[rc:]...)
+		}
+		node.Graph.RoundHistory[id] = rounds
+		rts, rh := rounds[0].Start, uint64(len(rounds))
+		if rounds[0].NodeId == node.IdForNetwork || rh < height {
+			continue
+		}
+		if rts+config.SnapshotRoundGap*rh > uint64(time.Now().UnixNano()) {
+			continue
+		}
+		if rh > height || rts > start {
+			best = rounds[0]
+			start, height = rts, rh
+		}
+	}
+	return best
+}
+
 func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.SignedTransaction) error {
 	if s.NodeId != node.IdForNetwork || len(s.Signatures) != 0 || s.Timestamp != 0 {
 		panic("should never be here")
@@ -116,16 +139,8 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.SignedTransact
 	}
 
 	if start, _ := cache.Gap(); s.Timestamp >= start+config.SnapshotRoundGap {
-		best := &FinalRound{}
-		for _, r := range node.Graph.FinalRound {
-			if r.NodeId == s.NodeId || r.Start < best.Start {
-				continue
-			}
-			if r.Start+config.SnapshotRoundGap < uint64(time.Now().UnixNano()) {
-				best = r
-			}
-		}
-		if !best.NodeId.HasValue() || best.NodeId == final.NodeId {
+		best := node.determinBestRound()
+		if best == nil || best.NodeId == final.NodeId {
 			panic("FIXME it is possible that no best available")
 		}
 
@@ -149,6 +164,7 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.SignedTransact
 	s.References = cache.References
 	node.Graph.CacheRound[s.NodeId] = cache
 	node.Graph.FinalRound[s.NodeId] = final
+	node.Graph.RoundHistory[s.NodeId] = append(node.Graph.RoundHistory[s.NodeId], final.Copy())
 	node.signSnapshot(s)
 	s.Signatures = []*crypto.Signature{node.SignaturesPool[s.Hash]}
 	for peerId, _ := range node.ConsensusNodes {

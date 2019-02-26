@@ -1,6 +1,8 @@
 package kernel
 
 import (
+	"fmt"
+
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/patrickmn/go-cache"
@@ -55,6 +57,36 @@ func (node *Node) signSnapshot(s *common.Snapshot) {
 	key = append(key, node.Account.PublicSpendKey[:]...)
 	hash := crypto.NewHash(key).String()
 	node.signaturesCache.Set(hash, true, cache.DefaultExpiration)
+}
+
+func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRound, error) {
+	if s.RoundNumber != cache.Number+1 {
+		panic("should never be here")
+	}
+	final := cache.asFinal()
+	if final == nil {
+		return nil, fmt.Errorf("self cache snapshots not collected yet")
+	}
+	if s.References.Self != final.Hash {
+		return nil, fmt.Errorf("self cache snapshots not match yet")
+	}
+
+	external, err := node.store.ReadRound(s.References.External)
+	if err != nil {
+		return nil, err
+	}
+	if external == nil {
+		return nil, fmt.Errorf("external round not collected yet")
+	}
+	if final.NodeId == external.NodeId {
+		return nil, nil
+	}
+
+	link, err := node.store.ReadLink(s.NodeId, external.NodeId)
+	if external.Number >= link {
+		return final, err
+	}
+	return nil, err
 }
 
 func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto.Key) bool {

@@ -35,6 +35,8 @@ type RoundGraph struct {
 	CacheRound map[crypto.Hash]*CacheRound
 	FinalRound map[crypto.Hash]*FinalRound
 
+	RoundHistory map[crypto.Hash][]*FinalRound
+
 	FinalCache    []*network.SyncPoint
 	MyCacheRound  *FinalRound
 	MyFinalNumber uint64
@@ -70,8 +72,9 @@ func (g *RoundGraph) Print() string {
 
 func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (*RoundGraph, error) {
 	graph := &RoundGraph{
-		CacheRound: make(map[crypto.Hash]*CacheRound),
-		FinalRound: make(map[crypto.Hash]*FinalRound),
+		CacheRound:   make(map[crypto.Hash]*CacheRound),
+		FinalRound:   make(map[crypto.Hash]*FinalRound),
+		RoundHistory: make(map[crypto.Hash][]*FinalRound),
 	}
 
 	consensusNodes := store.ReadConsensusNodes()
@@ -90,6 +93,7 @@ func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (*
 			return nil, err
 		}
 		graph.FinalRound[final.NodeId] = final
+		graph.RoundHistory[final.NodeId] = []*FinalRound{final.Copy()}
 		cache.Timestamp = final.Start + config.SnapshotRoundGap
 	}
 

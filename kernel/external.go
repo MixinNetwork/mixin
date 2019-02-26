@@ -49,6 +49,7 @@ func (node *Node) verifyExternalSnapshot(s *common.Snapshot) error {
 
 	node.Graph.CacheRound[s.NodeId] = cache
 	node.Graph.FinalRound[s.NodeId] = final
+	node.Graph.RoundHistory[s.NodeId] = append(node.Graph.RoundHistory[s.NodeId], final.Copy())
 	node.signSnapshot(s)
 	s.Signatures = []*crypto.Signature{node.SignaturesPool[s.Hash]}
 	return node.Peer.SendSnapshotMessage(s.NodeId, s, 0)

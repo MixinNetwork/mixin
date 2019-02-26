@@ -1,8 +1,6 @@
 package kernel
 
 import (
-	"fmt"
-
 	"github.com/MixinNetwork/mixin/common"
 )
 
@@ -92,35 +90,6 @@ func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot) error {
 
 	node.Graph.CacheRound[s.NodeId] = cache
 	node.Graph.FinalRound[s.NodeId] = final
+	node.Graph.RoundHistory[s.NodeId] = append(node.Graph.RoundHistory[s.NodeId], final.Copy())
 	return nil
-}
-
-func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRound, error) {
-	if s.RoundNumber != cache.Number+1 {
-		panic("should never be here")
-	}
-	final := cache.asFinal()
-	if final == nil {
-		return nil, fmt.Errorf("self cache snapshots not collected yet")
-	}
-	if s.References.Self != final.Hash {
-		return nil, fmt.Errorf("self cache snapshots not match yet")
-	}
-
-	external, err := node.store.ReadRound(s.References.External)
-	if err != nil {
-		return nil, err
-	}
-	if external == nil {
-		return nil, fmt.Errorf("external round not collected yet")
-	}
-	if final.NodeId == external.NodeId {
-		return nil, nil
-	}
-
-	link, err := node.store.ReadLink(s.NodeId, external.NodeId)
-	if external.Number >= link {
-		return final, err
-	}
-	return nil, err
 }
