@@ -209,7 +209,7 @@ func (p *Peer) SendNormal(key crypto.Hash, data []byte) error {
 }
 
 func (me *Peer) ListenNeighbors() error {
-	transport, err := NewTcpServer(me.Address)
+	transport, err := NewQuicServer(me.Address)
 	if err != nil {
 		return err
 	}
@@ -317,7 +317,7 @@ func (me *Peer) openPeerStreamLoop(p *Peer) {
 
 func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	logger.Println("OPEN PEER STREAM", peer.Address)
-	transport, err := NewTcpClient(peer.Address)
+	transport, err := NewQuicClient(peer.Address)
 	if err != nil {
 		return nil, err
 	}
