@@ -75,13 +75,17 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPo
 	return offset, nil
 }
 
-func (me *Peer) syncToNeighborSince(p *Peer, offset uint64) (uint64, error) {
+func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, offset uint64) (uint64, error) {
 	limit := 200
 	snapshots, err := me.cacheReadSnapshotsSinceTopology(offset, uint64(limit))
 	if err != nil {
 		return offset, err
 	}
 	for _, s := range snapshots {
+		if s.RoundNumber <= graph[s.NodeId].Number {
+			offset = s.TopologicalOrder
+			continue
+		}
 		err := me.SendSnapshotMessage(p.IdForNetwork, &s.Snapshot, 1)
 		if err != nil {
 			return offset, err
@@ -97,9 +101,14 @@ func (me *Peer) syncToNeighborSince(p *Peer, offset uint64) (uint64, error) {
 
 func (me *Peer) syncToNeighborLoop(p *Peer) {
 	var offset uint64
+	var graph map[crypto.Hash]*SyncPoint
 	for {
 		select {
 		case g := <-p.sync:
+			graph = make(map[crypto.Hash]*SyncPoint)
+			for _, r := range g {
+				graph[r.NodeId] = r
+			}
 			off, err := me.compareRoundGraphAndGetTopologicalOffset(me.handle.BuildGraph(), g)
 			if err != nil {
 				logger.Printf("GRAPH COMPARE WITH %s %s", p.IdForNetwork.String(), err.Error())
@@ -113,7 +122,7 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 			continue
 		}
 		for {
-			off, err := me.syncToNeighborSince(p, offset)
+			off, err := me.syncToNeighborSince(graph, p, offset)
 			if off > 0 {
 				offset = off
 			}
