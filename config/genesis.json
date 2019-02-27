@@ -2,6 +2,11 @@
   "epoch": 1551312000,
   "nodes": [
     {
+      "signer": "XINq9ctH1qYjxE8AsxJoH53qgNpS6hpL5mv5sFGML4Bf7tdpBD5LorhGBGpSF4tEKh9LD81XrXcaLA3CmTnCZU2NoKExsDh",
+      "payee": "XINT3KrjgaC3EkrWJQkJBvY5ZJ4YFVTtrjxTuAkYoKTM8sZKLjrGnzDBAJkNZ3gUQuSWQdk98rr3xAF5C21Zb5YwaFHQ3WF9",
+      "balance": "10000"
+    },
+    {
       "signer": "XINZekNsVBN9GP49ZsMk8jGWVdkzHmjwTGxENKoYjRrSP1E6Xxsqg77n6TWMkCbZVCtL2WYsa4wdXUjUAXSnnNnG8aefBQRm",
       "payee": "XINYDpVHXHxkFRPbP9LZak5p7FZs3mWTeKvrAzo4g9uziTW99t7LrU7me66Xhm6oXGTbYczQLvznk3hxgNSfNBaZveAmEeRM",
       "balance": "10000"
@@ -24,11 +29,6 @@
     {
       "signer": "XINRZtoDKwH2zEFK4vSv3eGGeQuB59gvyXpJ86VEdComApj1LGECaexCQRqdQDtdGvhKwRMWjstYhNcBHPwaSV7bz59htxGq",
       "payee": "XINYDpVHXHxkFRPbP9LZak5p7FZs3mWTeKvrAzo4g9uziTW99t7LrU7me66Xhm6oXGTbYczQLvznk3hxgNSfNBaZveAmEeRM",
-      "balance": "10000"
-    },
-    {
-      "signer": "XINq9ctH1qYjxE8AsxJoH53qgNpS6hpL5mv5sFGML4Bf7tdpBD5LorhGBGpSF4tEKh9LD81XrXcaLA3CmTnCZU2NoKExsDh",
-      "payee": "XINT3KrjgaC3EkrWJQkJBvY5ZJ4YFVTtrjxTuAkYoKTM8sZKLjrGnzDBAJkNZ3gUQuSWQdk98rr3xAF5C21Zb5YwaFHQ3WF9",
       "balance": "10000"
     },
     {
