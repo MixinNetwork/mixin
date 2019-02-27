@@ -26,5 +26,25 @@
   {
     "signer": "XINKmvQbX92bFgNiACvcNUZtSMrmYAErZiJhHckREbbtTLmB6KvkQNWgSvbwnAsQx35cYCq49YKLFCJtXUiNZBMqWkRpbFd3",
     "host": "119.28.59.59:7239"
+  },
+  {
+    "signer": "XINApqSd3ogfwkXpHLxU6r1G97hbHv8BjLuP8uhKzkm7Y2g8BwticWwKYvZVZX4Q4XaWiXJ4FVJ45eR35x9n2bQWuDM9PhBY",
+    "host": "mixin-node.candy.one:7239"
+  },
+  {
+    "signer": "XINRcegmfY6y8CRE1GgYC1jhjHZ3cscXzvqvWhy77jwArGGpAMzxCtpwkUwWDuC1ZyLdikr6qey9MaXP9mLgEfSQsVPRtsVc",
+    "host": "35.197.52.6:7239"
+  },
+  {
+    "signer": "XIN7W2kHuuKDM7Zjw62UAQK42C9F928EnANPz1dFrwkP9iimtZeFAd1LX6rKLwiugy2SwUJAuRkwScdMTbc6ZpyC3pXQjyQV",
+    "host": "35.202.91.5:7239"
+  },
+  {
+    "signer": "XINB4VF9E5VE9zH5JWufsBaGZABAtVSQBd1v8TAuivUvAkmA9Cad8bp4ZLBERcYN7AojZy3BNSgNrWuhhULLFzQUTceQvfhq",
+    "host": "34.85.0.5:7239"
+  },
+  {
+    "signer": "XINCVB9CGhm9Uia64JeNzmVaY6xMd2nmhrfAyLMyvvz3M8hZjYsR4mkUKHoTirkPuN6zsKBemUX9mu8WtCVR1CNXyNAwECfc",
+    "host": "35.220.158.4:7239"
   }
 ]
