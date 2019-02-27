@@ -215,7 +215,7 @@ func readGenesis(path string) (*Genesis, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(gns.Nodes) != MinimumNodeCount {
+	if len(gns.Nodes) < MinimumNodeCount {
 		return nil, fmt.Errorf("invalid genesis inputs number %d/%d", len(gns.Nodes), MinimumNodeCount)
 	}
 
