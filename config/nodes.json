@@ -26,5 +26,13 @@
   {
     "signer": "XINCVB9CGhm9Uia64JeNzmVaY6xMd2nmhrfAyLMyvvz3M8hZjYsR4mkUKHoTirkPuN6zsKBemUX9mu8WtCVR1CNXyNAwECfc",
     "host": "35.220.158.4:7239"
+  },
+  {
+    "signer": "XIN29AqXsjAjMVqrCar5ZSbn138VuhPzdQScTsK95f1tVVMZHwgG13De6tudHMBdsGpmACHvqFH5fn4ProqtvHxbWhB8Wa2f",
+    "host": "mixin-node0.eoslaomao.com:443"
+  },
+  {
+    "signer": "XINZsTSPsDFsYTYJDHnLD63nhhzhtsyokv8jK6fUHQNurGyV4WsMQrVFymsVVaNYe7YcdCPbLjSMDk3GbH1NAindN7TyTbwF",
+    "host": "mixin-node1.eoslaomao.com:443"
   }
 ]
