@@ -46,6 +46,9 @@ func (node *Node) verifyExternalSnapshot(s *common.Snapshot) error {
 			panic(err)
 		}
 	}
+	if !cache.ValidateSnapshot(s, false) {
+		return nil
+	}
 
 	node.Graph.CacheRound[s.NodeId] = cache
 	node.Graph.FinalRound[s.NodeId] = final
