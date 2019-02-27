@@ -1,0 +1,13 @@
+[Unit]
+Description=Mixin Binary Automatic Updater
+After=network.target
+
+[Service]
+User=one
+Type=simple
+ExecStart=/home/one/bin/update-mixin -bin /home/one/bin
+Restart=on-failure
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
