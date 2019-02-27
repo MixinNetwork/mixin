@@ -1,5 +1,25 @@
 [
   {
+    "signer": "XINGKRd4MZg9GEE5aGH8MQR4DVTRJonCUQhqZSkUpYVPNoHqVJ8SXs9JtJipi3Zxi2WbyNpUWHVK6hSH8vBbJm342mofKoqi",
+    "host": "34.80.48.252:7239"
+  },
+  {
+    "signer": "XINPgQeBiZhtBfefV9BsDQFUgu9jZ62G7qAxAze1dj9DJaf826ZUPs7Zez8zrVBGizPKpokbXxSJ1ToVn9diiHmA1VVvbNr8",
+    "host": "35.220.196.15:7239"
+  },
+  {
+    "signer": "XIN5cfmXHDnmacKqxov1LAp4QVWseTZmMtHS56ZFFccnF6fhkarZERMSRcTmPaJBMAziJF8ps1oNGX9iPEWmJT7H6iVfQurh",
+    "host": "34.80.49.224:7239"
+  },
+  {
+    "signer": "XINJUd27PXJ3LzzfJu8NxtThFNV3G6TrfGUAfPkSxR3YfErpYYZdFPA83PkEcoyRyyLHb3jYwHRjwDu1GxJ3ehsou8z5r86P",
+    "host": "34.80.50.16:7239"
+  },
+  {
+    "signer": "XIN9PTJRGMrKoXWXgR57dFSqbdvnToSfBHS2SToxMA72docpNkr5q3fzcx77PcqvH32YZYQMgvumsXrrRszK3WSZw8CM3T1f",
+    "host": "34.85.37.56:7239"
+  },
+  {
     "signer": "XINq9ctH1qYjxE8AsxJoH53qgNpS6hpL5mv5sFGML4Bf7tdpBD5LorhGBGpSF4tEKh9LD81XrXcaLA3CmTnCZU2NoKExsDh",
     "host": "35.188.235.212:7239"
   },
