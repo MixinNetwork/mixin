@@ -2,5 +2,9 @@
   {
     "signer": "XINq9ctH1qYjxE8AsxJoH53qgNpS6hpL5mv5sFGML4Bf7tdpBD5LorhGBGpSF4tEKh9LD81XrXcaLA3CmTnCZU2NoKExsDh",
     "host": "35.199.158.116:7239"
+  },
+  {
+    "signer": "XINKmvQbX92bFgNiACvcNUZtSMrmYAErZiJhHckREbbtTLmB6KvkQNWgSvbwnAsQx35cYCq49YKLFCJtXUiNZBMqWkRpbFd3",
+    "host": "119.28.59.59:7239"
   }
 ]
