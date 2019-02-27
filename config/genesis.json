@@ -7,10 +7,10 @@
       "balance": "10000"
     },
   ],
-  "domains": {
+  "domains": [
     {
       "signer": "XINq9ctH1qYjxE8AsxJoH53qgNpS6hpL5mv5sFGML4Bf7tdpBD5LorhGBGpSF4tEKh9LD81XrXcaLA3CmTnCZU2NoKExsDh",
       "balance": "50000"
     }
-  }
+  ]
 }

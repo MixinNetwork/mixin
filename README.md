@@ -15,7 +15,7 @@ $ go build
 The `mixin` command is both the kernel node and tools to communicate with the node RPC interface.
 
 ```
-$ ./mixin 
+$ ./mixin
 
 NAME:
    mixin - A free and lightning fast peer-to-peer transactional network for digital assets.
@@ -30,11 +30,13 @@ COMMANDS:
      kernel, k             Start the Mixin Kernel daemon
      setuptestnet          Setup the test nodes and genesis
      createaddress         Create a new Mixin address
+     updateheadreference   Update the cache round external reference, never use it unless agree by other nodes
      signrawtransaction    Sign a JSON encoded transaction
      sendrawtransaction    Broadcast a hex encoded signed raw transaction
      decoderawtransaction  Decode a raw transaction as JSON
      listsnapshots         List finalized snapshots
-     getsnapshot           Get the finalized snapshot by transaction hash
+     gettransaction        Get the finalized transaction by hash
+     getinfo               Get info from the node
      help, h               Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
@@ -60,7 +62,9 @@ Both the `view key` and `spend key` are required to spend the assets received fr
 
 ## Start a Kernel Node
 
-To start a node, create a directory `mixin` for the config and network data files, then put a genesis.json and nodes.json files in it.
+To start a node, create a directory `mixin` for the config and network data files, then put the genesis.json, nodes.json and config.json files in it.
+
+The main net genesis.json, nodes.json and an example config.example.json files can be obtained from [here](https://github.com/MixinNetwork/mixin/tree/master/config), you only need to put your own signer spend key in the config.json file.
 
 ```
 $ ./mixin help kernel
@@ -74,85 +78,6 @@ USAGE:
 OPTIONS:
    --dir value, -d value   the data directory
    --port value, -p value  the peer port to listen (default: 7239)
-```
-
-## Public Test Net
-
-We have launched a public test net based on the following genesis input, a Mixin Network is uniquely defined by the geneis input.
-
-```json
-[
-  {
-    "address": "XINW9WzZ14GuFeCKXAZbqfdkTDe8qUE8PVqvaT8Lp1x9mKTcVVnKTyZHfqAJUrK6hpcsRz7Fy4w9o99SGFttLX6oGTEgxDDp",
-    "balance": "20000",
-    "mask": "7a9a549584065b5496abe900d4c4b8634ec3cf0fb072430b0ad547888e6a090b"
-  },
-  {
-    "address": "XINVnCxzfSPp3paJaqswEZbfnoo4t7oZYFKURyq1JexCwmS2SiN4iENGaoyC3w8UvBw6WQi6hLe358x88zZsNiTD4oSvUt7U",
-    "balance": "20000",
-    "mask": "544987fabe485b82b5076770ba014dc0efdb4ea9d6f29195f0ed8d3fd887b104"
-  },
-  {
-    "address": "XIND1NybhDPsbW9PxZo5odfr8BgKrFeHhVdU47uQJGVaWr1mB4fwJoCBF8pUN6ByFJi8Y9yYYJHFr7iVwpdB8XZpc1MHRgSH",
-    "balance": "20000",
-    "mask": "7ae40fc23b410f4a291e86de0feb59d5e1fa0341bb414af797b073ec77670f0c"
-  },
-  {
-    "address": "XINBQdjusJgj8PXU6dLLtkZD4AFyCcFp7yrXPk9hEVaoSM4BGxAQh8PRB31d4oPCMGEDKR49wVcGcJBNhjhHBfgufdmzfjYs",
-    "balance": "20000",
-    "mask": "84eb77a4dfda809e8a8fbfc35dc103645d5c4ffe29adb06702c424540708e90e"
-  },
-  {
-    "address": "XINPzESkf13gy6YR2wkguodXJUjnFH3qR45wK4uWmJAmV2HnXKF8AsvFurv1m8EJMe7NiGsD87VgrDKJNH6hUEhEnjGKEPHd",
-    "balance": "20000",
-    "mask": "6763e95e69910a587d34d1d55a97b7dccbfe8886aaede1f92adbd862a2ce3306"
-  },
-  {
-    "address": "XINEB8CSrP3ihc477KsR2CgnmJ2yfNqyviHcYqtzHNyRSqSJw7aYTxFehJFmoLr8RVjqWbwhTTfBVtv7pbFpyYwdFXJnu27C",
-    "balance": "20000",
-    "mask": "0e8ae5ce4776188793d3949bd9efe19cbc60a457ed4d38c98890f27e317d8f01"
-  },
-  {
-    "address": "XINVyyRAZszyT826EEkDU8AanUNNzaELuBaUm6Spdu5KNCkpoRMiMWUjwrqgWhkQfb6yZ8MY1XUGy1nv3q1gCDpL2pkurgxK",
-    "balance": "20000",
-    "mask": "d4260863cba4d8d9bd1e23b89215fe0cac309e3325fb0ac77a31f9dcaa243c05"
-  }
-]
-```
-
-The current implementation can't accept new Kernel nodes `pledge` and `reclaim` transaction, will be added in future releases soon. To connect to the public test net, please use the following `nodes.json` config.
-
-```json
-[
-  {
-    "address": "XINEB8CSrP3ihc477KsR2CgnmJ2yfNqyviHcYqtzHNyRSqSJw7aYTxFehJFmoLr8RVjqWbwhTTfBVtv7pbFpyYwdFXJnu27C",
-    "host": "35.199.158.116:7239"
-  },
-  {
-    "address": "XINW9WzZ14GuFeCKXAZbqfdkTDe8qUE8PVqvaT8Lp1x9mKTcVVnKTyZHfqAJUrK6hpcsRz7Fy4w9o99SGFttLX6oGTEgxDDp",
-    "host": "104.198.89.213:7239"
-  },
-  {
-    "address": "XINVnCxzfSPp3paJaqswEZbfnoo4t7oZYFKURyq1JexCwmS2SiN4iENGaoyC3w8UvBw6WQi6hLe358x88zZsNiTD4oSvUt7U",
-    "host": "35.224.44.182:7239"
-  },
-  {
-    "address": "XIND1NybhDPsbW9PxZo5odfr8BgKrFeHhVdU47uQJGVaWr1mB4fwJoCBF8pUN6ByFJi8Y9yYYJHFr7iVwpdB8XZpc1MHRgSH",
-    "host": "35.240.170.36:7239"
-  },
-  {
-    "address": "XINBQdjusJgj8PXU6dLLtkZD4AFyCcFp7yrXPk9hEVaoSM4BGxAQh8PRB31d4oPCMGEDKR49wVcGcJBNhjhHBfgufdmzfjYs",
-    "host": "35.231.25.31:7239"
-  },
-  {
-    "address": "XINPzESkf13gy6YR2wkguodXJUjnFH3qR45wK4uWmJAmV2HnXKF8AsvFurv1m8EJMe7NiGsD87VgrDKJNH6hUEhEnjGKEPHd",
-    "host": "35.221.23.162:7239"
-  },
-  {
-    "address": "XINVyyRAZszyT826EEkDU8AanUNNzaELuBaUm6Spdu5KNCkpoRMiMWUjwrqgWhkQfb6yZ8MY1XUGy1nv3q1gCDpL2pkurgxK",
-    "host": "35.235.122.39:7239"
-  }
-]
 ```
 
 ## Local Test Net
