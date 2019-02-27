@@ -1,12 +1,17 @@
 package rpc
 
 import (
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 )
 
 func getInfo(store storage.Store) (map[string]interface{}, error) {
-	info := make(map[string]interface{})
+	info := map[string]interface{}{
+		"network": kernel.NetworkId(),
+		"node":    kernel.NodeIdForNetwork(),
+		"version": config.BuildVersion,
+	}
 	graph, err := kernel.LoadRoundGraph(store, kernel.NetworkId(), kernel.NodeIdForNetwork())
 	if err != nil {
 		return info, err
@@ -35,8 +40,6 @@ func getInfo(store storage.Store) (map[string]interface{}, error) {
 		}
 	}
 	info["graph"] = map[string]interface{}{
-		"network":   kernel.NetworkId(),
-		"node":      kernel.NodeIdForNetwork(),
 		"consensus": kernel.ConsensusNodes(),
 		"cache":     cacheGraph,
 		"final":     finalGraph,
