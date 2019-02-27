@@ -34,5 +34,9 @@
   {
     "signer": "XINZsTSPsDFsYTYJDHnLD63nhhzhtsyokv8jK6fUHQNurGyV4WsMQrVFymsVVaNYe7YcdCPbLjSMDk3GbH1NAindN7TyTbwF",
     "host": "mixin-node1.eoslaomao.com:443"
+  },
+  {
+    "signer": "XINBcaWrMMmnuKy3iGg4fbrpjxXx2inVNjG8g9V2u5xfbPQaowLfgapqpZW5wfY2AZU2BLvpbhrUc7UWRDWU6JifzCAeUHhA",
+    "host": "node-42.f1ex.io:443"
   }
 ]
