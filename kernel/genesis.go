@@ -18,11 +18,12 @@ const (
 type Genesis struct {
 	Epoch int64 `json:"epoch"`
 	Nodes []struct {
-		Address common.Address `json:"address"`
+		Signer  common.Address `json:"signer"`
+		Payee   common.Address `json:"payee"`
 		Balance common.Integer `json:"balance"`
 	} `json:"nodes"`
 	Domains []struct {
-		Address common.Address `json:"address"`
+		Signer  common.Address `json:"signer"`
 		Balance common.Integer `json:"balance"`
 	} `json:"domains"`
 }
@@ -40,7 +41,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 		return err
 	}
 	node.networkId = crypto.NewHash(data)
-	node.IdForNetwork = node.Account.Hash().ForNetwork(node.networkId)
+	node.IdForNetwork = node.Signer.Hash().ForNetwork(node.networkId)
 
 	var state struct {
 		Id crypto.Hash
@@ -61,12 +62,12 @@ func (node *Node) LoadGenesis(configDir string) error {
 	var transactions []*common.SignedTransaction
 	cacheRounds := make(map[crypto.Hash]*CacheRound)
 	for _, in := range gns.Nodes {
-		seed := crypto.NewHash([]byte(in.Address.String() + "NODEACCEPT"))
+		seed := crypto.NewHash([]byte(in.Signer.String() + "NODEACCEPT"))
 		r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
 		R := r.Public()
 		var keys []crypto.Key
 		for _, d := range gns.Nodes {
-			key := crypto.DeriveGhostPublicKey(&r, &d.Address.PublicViewKey, &d.Address.PublicSpendKey, 0)
+			key := crypto.DeriveGhostPublicKey(&r, &d.Signer.PublicViewKey, &d.Signer.PublicSpendKey, 0)
 			keys = append(keys, *key)
 		}
 
@@ -88,11 +89,10 @@ func (node *Node) LoadGenesis(configDir string) error {
 				},
 			},
 		}
-		tx.Extra = make([]byte, len(in.Address.PublicSpendKey))
-		copy(tx.Extra, in.Address.PublicSpendKey[:])
+		tx.Extra = append(in.Signer.PublicSpendKey[:], in.Payee.PublicSpendKey[:]...)
 
 		signed := &common.SignedTransaction{Transaction: tx}
-		nodeId := in.Address.Hash().ForNetwork(node.networkId)
+		nodeId := in.Signer.Hash().ForNetwork(node.networkId)
 		snapshot := common.Snapshot{
 			NodeId:      nodeId,
 			Transaction: signed.PayloadHash(),
@@ -114,10 +114,10 @@ func (node *Node) LoadGenesis(configDir string) error {
 	}
 
 	domain := gns.Domains[0]
-	if in := gns.Nodes[0]; domain.Address.String() != in.Address.String() {
-		return fmt.Errorf("invalid genesis domain input account %s %s", domain.Address.String(), in.Address.String())
+	if in := gns.Nodes[0]; domain.Signer.String() != in.Signer.String() {
+		return fmt.Errorf("invalid genesis domain input account %s %s", domain.Signer.String(), in.Signer.String())
 	}
-	topo, signed := node.buildDomainSnapshot(domain.Address, gns)
+	topo, signed := node.buildDomainSnapshot(domain.Signer, gns)
 	snapshots = append(snapshots, topo)
 	transactions = append(transactions, signed)
 	snap := &topo.Snapshot
@@ -126,10 +126,10 @@ func (node *Node) LoadGenesis(configDir string) error {
 
 	rounds := make([]*common.Round, 0)
 	for i, in := range gns.Nodes {
-		id := in.Address.Hash().ForNetwork(node.networkId)
-		external := gns.Nodes[0].Address.Hash().ForNetwork(node.networkId)
+		id := in.Signer.Hash().ForNetwork(node.networkId)
+		external := gns.Nodes[0].Signer.Hash().ForNetwork(node.networkId)
 		if i != len(gns.Nodes)-1 {
-			external = gns.Nodes[i+1].Address.Hash().ForNetwork(node.networkId)
+			external = gns.Nodes[i+1].Signer.Hash().ForNetwork(node.networkId)
 		}
 		selfFinal := cacheRounds[id].asFinal()
 		externalFinal := cacheRounds[external].asFinal()
@@ -165,7 +165,7 @@ func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) (*com
 	R := r.Public()
 	keys := make([]crypto.Key, 0)
 	for _, d := range gns.Nodes {
-		key := crypto.DeriveGhostPublicKey(&r, &d.Address.PublicViewKey, &d.Address.PublicSpendKey, 0)
+		key := crypto.DeriveGhostPublicKey(&r, &d.Signer.PublicViewKey, &d.Signer.PublicSpendKey, 0)
 		keys = append(keys, *key)
 	}
 
@@ -221,19 +221,23 @@ func readGenesis(path string) (*Genesis, error) {
 
 	inputsFilter := make(map[string]bool)
 	for _, in := range gns.Nodes {
-		_, err := common.NewAddressFromString(in.Address.String())
+		_, err := common.NewAddressFromString(in.Signer.String())
 		if err != nil {
 			return nil, err
 		}
 		if in.Balance.Cmp(common.NewInteger(PledgeAmount)) != 0 {
 			return nil, fmt.Errorf("invalid genesis node input amount %s", in.Balance.String())
 		}
-		if inputsFilter[in.Address.String()] {
-			return nil, fmt.Errorf("duplicated genesis node input %s", in.Address.String())
+		if inputsFilter[in.Signer.String()] {
+			return nil, fmt.Errorf("duplicated genesis node input %s", in.Signer.String())
 		}
-		privateView := in.Address.PublicSpendKey.DeterministicHashDerive()
-		if privateView.Public() != in.Address.PublicViewKey {
-			return nil, fmt.Errorf("invalid node key format %s %s", privateView.Public().String(), in.Address.PublicViewKey.String())
+		privateView := in.Signer.PublicSpendKey.DeterministicHashDerive()
+		if privateView.Public() != in.Signer.PublicViewKey {
+			return nil, fmt.Errorf("invalid node key format %s %s", privateView.Public().String(), in.Signer.PublicViewKey.String())
+		}
+		privateView = in.Payee.PublicSpendKey.DeterministicHashDerive()
+		if privateView.Public() != in.Payee.PublicViewKey {
+			return nil, fmt.Errorf("invalid node key format %s %s", privateView.Public().String(), in.Payee.PublicViewKey.String())
 		}
 	}
 
@@ -241,8 +245,8 @@ func readGenesis(path string) (*Genesis, error) {
 		return nil, fmt.Errorf("invalid genesis domain inputs count %d", len(gns.Domains))
 	}
 	domain := gns.Domains[0]
-	if domain.Address.String() != gns.Nodes[0].Address.String() {
-		return nil, fmt.Errorf("invalid genesis domain input account %s %s", domain.Address.String(), gns.Nodes[0].Address.String())
+	if domain.Signer.String() != gns.Nodes[0].Signer.String() {
+		return nil, fmt.Errorf("invalid genesis domain input account %s %s", domain.Signer.String(), gns.Nodes[0].Signer.String())
 	}
 	if domain.Balance.Cmp(common.NewInteger(50000)) != 0 {
 		return nil, fmt.Errorf("invalid genesis domain input amount %s", domain.Balance.String())

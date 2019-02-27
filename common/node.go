@@ -7,8 +7,9 @@ const (
 )
 
 type Node struct {
-	Account Address
-	State   string
+	Signer Address
+	Payee  Address
+	State  string
 }
 
 func (n *Node) IsAccepted() bool {

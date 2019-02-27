@@ -197,17 +197,19 @@ func writeUTXO(txn *badger.Txn, utxo *common.UTXO, extra []byte, genesis bool) e
 
 	switch utxo.Type {
 	case common.OutputTypeNodePledge:
-		var publicSpend crypto.Key
-		copy(publicSpend[:], extra)
-		return writeNodePledge(txn, publicSpend, utxo.Hash)
+		var signer, payee crypto.Key
+		copy(signer[:], extra[:len(signer)])
+		copy(payee[:], extra[len(signer):])
+		return writeNodePledge(txn, signer, payee, utxo.Hash)
 	case common.OutputTypeNodeAccept:
-		var publicSpend crypto.Key
-		copy(publicSpend[:], extra)
-		return writeNodeAccept(txn, publicSpend, utxo.Hash, genesis)
+		var signer, payee crypto.Key
+		copy(signer[:], extra[:len(signer)])
+		copy(payee[:], extra[len(signer):])
+		return writeNodeAccept(txn, signer, payee, utxo.Hash, genesis)
 	case common.OutputTypeDomainAccept:
-		var publicSpend crypto.Key
-		copy(publicSpend[:], extra)
-		return writeDomainAccept(txn, publicSpend, utxo.Hash)
+		var signer crypto.Key
+		copy(signer[:], extra)
+		return writeDomainAccept(txn, signer, utxo.Hash)
 	}
 
 	return nil

@@ -10,6 +10,10 @@ func (tx *Transaction) validateNodePledge(store DataStore) error {
 	if len(tx.Outputs) != 1 {
 		return fmt.Errorf("invalid outputs count %d for pledge transaction", len(tx.Outputs))
 	}
+	if len(tx.Extra) != 2*len(crypto.Key{}) {
+		return fmt.Errorf("invalid extra length %d for pledge transaction", len(tx.Extra))
+	}
+
 	o := tx.Outputs[0]
 	if o.Amount.Cmp(NewInteger(10000)) != 0 {
 		return fmt.Errorf("invalid pledge amount %s", o.Amount.String())
@@ -17,19 +21,18 @@ func (tx *Transaction) validateNodePledge(store DataStore) error {
 	nodes := store.ReadConsensusNodes()
 	for _, n := range nodes {
 		if n.State != NodeStateAccepted {
-			return fmt.Errorf("invalid node pending state %s %s", n.Account.String(), n.State)
+			return fmt.Errorf("invalid node pending state %s %s", n.Signer.String(), n.State)
 		}
 	}
 
-	var publicSpend crypto.Key
-	copy(publicSpend[:], tx.Extra)
-	privateView := publicSpend.DeterministicHashDerive()
-	acc := Address{
-		PrivateViewKey: privateView,
-		PublicViewKey:  privateView.Public(),
-		PublicSpendKey: publicSpend,
-	}
-	nodes = append(nodes, &Node{Account: acc})
+	var signer, payee Address
+	copy(signer.PublicSpendKey[:], tx.Extra[:len(signer.PublicSpendKey)])
+	copy(payee.PublicSpendKey[:], tx.Extra[len(signer.PublicSpendKey):])
+	signer.PrivateViewKey = signer.PublicSpendKey.DeterministicHashDerive()
+	signer.PublicViewKey = signer.PrivateViewKey.Public()
+	payee.PrivateViewKey = payee.PublicSpendKey.DeterministicHashDerive()
+	payee.PublicViewKey = payee.PrivateViewKey.Public()
+	nodes = append(nodes, &Node{Signer: signer, Payee: payee})
 	if len(nodes) != len(o.Keys) {
 		return fmt.Errorf("invalid output keys count %d %d for pledge transaction", len(nodes), len(o.Keys))
 	}
@@ -40,11 +43,11 @@ func (tx *Transaction) validateNodePledge(store DataStore) error {
 
 	filter := make(map[crypto.Key]bool)
 	for _, n := range nodes {
-		filter[n.Account.PublicSpendKey] = true
+		filter[n.Signer.PublicSpendKey] = true
 	}
 	for i, k := range o.Keys {
 		for _, n := range nodes {
-			ghost := crypto.ViewGhostOutputKey(&k, &n.Account.PrivateViewKey, &o.Mask, 0)
+			ghost := crypto.ViewGhostOutputKey(&k, &n.Signer.PrivateViewKey, &o.Mask, 0)
 			delete(filter, *ghost)
 		}
 		if len(filter) != len(nodes)-1-i {
@@ -65,9 +68,9 @@ func (tx *Transaction) validateNodeAccept(store DataStore, inputAmount Integer) 
 	filter := make(map[string]string)
 	nodes := store.ReadConsensusNodes()
 	for _, n := range nodes {
-		filter[n.Account.String()] = n.State
+		filter[n.Signer.String()] = n.State
 		if n.State == NodeStateDeparting {
-			return fmt.Errorf("invalid node pending state %s %s", n.Account.String(), n.State)
+			return fmt.Errorf("invalid node pending state %s %s", n.Signer.String(), n.State)
 		}
 		if n.State == NodeStateAccepted {
 			continue
@@ -75,7 +78,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore, inputAmount Integer) 
 		if n.State == NodeStatePledging && pledging == nil {
 			pledging = n
 		} else {
-			return fmt.Errorf("invalid pledging nodes %s %s", pledging.Account.String(), n.Account.String())
+			return fmt.Errorf("invalid pledging nodes %s %s", pledging.Signer.String(), n.Signer.String())
 		}
 	}
 	if pledging == nil {

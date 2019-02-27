@@ -1,30 +1,6 @@
 [
   {
-    "address": "XINEB8CSrP3ihc477KsR2CgnmJ2yfNqyviHcYqtzHNyRSqSJw7aYTxFehJFmoLr8RVjqWbwhTTfBVtv7pbFpyYwdFXJnu27C",
+    "signer": "XINq9ctH1qYjxE8AsxJoH53qgNpS6hpL5mv5sFGML4Bf7tdpBD5LorhGBGpSF4tEKh9LD81XrXcaLA3CmTnCZU2NoKExsDh",
     "host": "35.199.158.116:7239"
-  },
-  {
-    "address": "XINW9WzZ14GuFeCKXAZbqfdkTDe8qUE8PVqvaT8Lp1x9mKTcVVnKTyZHfqAJUrK6hpcsRz7Fy4w9o99SGFttLX6oGTEgxDDp",
-    "host": "104.198.89.213:7239"
-  },
-  {
-    "address": "XINVnCxzfSPp3paJaqswEZbfnoo4t7oZYFKURyq1JexCwmS2SiN4iENGaoyC3w8UvBw6WQi6hLe358x88zZsNiTD4oSvUt7U",
-    "host": "35.224.44.182:7239"
-  },
-  {
-    "address": "XIND1NybhDPsbW9PxZo5odfr8BgKrFeHhVdU47uQJGVaWr1mB4fwJoCBF8pUN6ByFJi8Y9yYYJHFr7iVwpdB8XZpc1MHRgSH",
-    "host": "35.240.170.36:7239"
-  },
-  {
-    "address": "XINBQdjusJgj8PXU6dLLtkZD4AFyCcFp7yrXPk9hEVaoSM4BGxAQh8PRB31d4oPCMGEDKR49wVcGcJBNhjhHBfgufdmzfjYs",
-    "host": "35.231.25.31:7239"
-  },
-  {
-    "address": "XINPzESkf13gy6YR2wkguodXJUjnFH3qR45wK4uWmJAmV2HnXKF8AsvFurv1m8EJMe7NiGsD87VgrDKJNH6hUEhEnjGKEPHd",
-    "host": "35.221.23.162:7239"
-  },
-  {
-    "address": "XINVyyRAZszyT826EEkDU8AanUNNzaELuBaUm6Spdu5KNCkpoRMiMWUjwrqgWhkQfb6yZ8MY1XUGy1nv3q1gCDpL2pkurgxK",
-    "host": "35.235.122.39:7239"
   }
 ]

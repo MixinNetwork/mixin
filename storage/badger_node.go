@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -22,53 +24,79 @@ func (s *BadgerStore) ReadConsensusNodes() []*common.Node {
 
 	accepted := readNodesInState(txn, graphPrefixNodeAccept)
 	for _, n := range accepted {
-		nodes = append(nodes, &common.Node{Account: n, State: common.NodeStateAccepted})
+		n.State = common.NodeStateAccepted
+		nodes = append(nodes, n)
 	}
 	pledging := readNodesInState(txn, graphPrefixNodePledge)
 	for _, n := range pledging {
-		nodes = append(nodes, &common.Node{Account: n, State: common.NodeStatePledging})
+		n.State = common.NodeStatePledging
+		nodes = append(nodes, n)
 	}
 	departing := readNodesInState(txn, graphPrefixNodeDepart)
 	for _, n := range departing {
-		nodes = append(nodes, &common.Node{Account: n, State: common.NodeStateDeparting})
+		n.State = common.NodeStateDeparting
+		nodes = append(nodes, n)
 	}
 	return nodes
 }
 
-func readNodesInState(txn *badger.Txn, nodeState string) []common.Address {
+func readNodesInState(txn *badger.Txn, nodeState string) []*common.Node {
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
 	prefix := []byte(nodeState)
-	nodes := make([]common.Address, 0)
+	nodes := make([]*common.Node, 0)
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-		nodes = append(nodes, nodeAccountForState(it.Item().Key(), nodeState))
+		item := it.Item()
+		signer := nodeSignerForState(item.Key(), nodeState)
+		ival, err := item.ValueCopy(nil)
+		if err != nil {
+			panic(err)
+		}
+		payee := nodePayee(ival)
+		nodes = append(nodes, &common.Node{
+			Signer: signer,
+			Payee:  payee,
+		})
 	}
 	return nodes
 }
 
-func writeNodeAccept(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash, genesis bool) error {
+func writeNodeAccept(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, genesis bool) error {
 	// TODO these checks are only assert kind checks, not needed at all
-	key := nodePledgeKey(publicSpend)
-	_, err := txn.Get(key)
+	key := nodePledgeKey(signer)
+	item, err := txn.Get(key)
 	if err == badger.ErrKeyNotFound {
 		if !genesis {
-			return fmt.Errorf("node not pledging yet %s", publicSpend.String())
+			return fmt.Errorf("node not pledging yet %s", signer.String())
 		}
 	} else if err != nil {
 		return err
 	}
+	if !genesis {
+		ival, err := item.ValueCopy(nil)
+		if err != nil {
+			return err
+		}
+		if bytes.Compare(payee[:], ival[:len(payee)]) != 0 {
+			return fmt.Errorf("node not accept to the same payee account %s %s", hex.EncodeToString(ival[:len(payee)]), payee.String())
+		}
+	}
 
-	key = nodeAcceptKey(publicSpend)
-	return txn.Set(key, tx[:])
+	err = txn.Delete(key)
+	if err != nil {
+		return err
+	}
+	key = nodeAcceptKey(signer)
+	return txn.Set(key, append(payee[:], tx[:]...))
 }
 
-func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash) error {
+func writeNodePledge(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash) error {
 	// TODO these checks are only assert kind checks, not needed at all
-	key := nodeAcceptKey(publicSpend)
+	key := nodeAcceptKey(signer)
 	_, err := txn.Get(key)
 	if err == nil {
-		return fmt.Errorf("node already accepted %s", publicSpend.String())
+		return fmt.Errorf("node already accepted %s", signer.String())
 	} else if err != badger.ErrKeyNotFound {
 		return err
 	}
@@ -76,22 +104,33 @@ func writeNodePledge(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash) er
 	pledging := readNodesInState(txn, graphPrefixNodePledge)
 	if len(pledging) > 0 {
 		node := pledging[0]
-		return fmt.Errorf("node %s is pledging", node.PublicSpendKey.String())
+		return fmt.Errorf("node %s is pledging", node.Signer.PublicSpendKey.String())
 	}
 
 	departing := readNodesInState(txn, graphPrefixNodeDepart)
 	if len(departing) > 0 {
 		node := departing[0]
-		return fmt.Errorf("node %s is departing", node.PublicSpendKey.String())
+		return fmt.Errorf("node %s is departing", node.Signer.PublicSpendKey.String())
 	}
 
-	key = nodePledgeKey(publicSpend)
-	return txn.Set(key, tx[:])
+	key = nodePledgeKey(signer)
+	return txn.Set(key, append(payee[:], tx[:]...))
 }
 
-func nodeAccountForState(key []byte, nodeState string) common.Address {
+func nodeSignerForState(key []byte, nodeState string) common.Address {
 	var publicSpend crypto.Key
 	copy(publicSpend[:], key[len(nodeState):])
+	privateView := publicSpend.DeterministicHashDerive()
+	return common.Address{
+		PrivateViewKey: privateView,
+		PublicViewKey:  privateView.Public(),
+		PublicSpendKey: publicSpend,
+	}
+}
+
+func nodePayee(ival []byte) common.Address {
+	var publicSpend crypto.Key
+	copy(publicSpend[:], ival[:len(publicSpend)])
 	privateView := publicSpend.DeterministicHashDerive()
 	return common.Address{
 		PrivateViewKey: privateView,

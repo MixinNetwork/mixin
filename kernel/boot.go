@@ -47,9 +47,10 @@ func ConsensusNodes() []map[string]interface{} {
 	}
 	for id, n := range globalNode.ConsensusNodes {
 		nodes = append(nodes, map[string]interface{}{
-			"node":    id,
-			"account": n.Account.String(),
-			"state":   n.State,
+			"node":   id,
+			"signer": n.Signer.String(),
+			"payee":  n.Payee.String(),
+			"state":  n.State,
 		})
 	}
 	return nodes

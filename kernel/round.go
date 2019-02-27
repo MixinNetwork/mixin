@@ -79,7 +79,7 @@ func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (*
 
 	consensusNodes := store.ReadConsensusNodes()
 	for _, cn := range consensusNodes {
-		id := cn.Account.Hash().ForNetwork(networkId)
+		id := cn.Signer.Hash().ForNetwork(networkId)
 		graph.Nodes = append(graph.Nodes, &id)
 
 		cache, err := loadHeadRoundForNode(store, id)

@@ -188,24 +188,29 @@ func getInfoCmd(c *cli.Context) error {
 }
 
 func setupTestNetCmd(c *cli.Context) error {
-	var accounts []common.Address
+	var signers, payees []common.Address
 
-	for i := 0; i < 7; i++ {
+	randomPubAccount := func() common.Address {
 		seed := make([]byte, 64)
 		_, err := rand.Read(seed)
 		if err != nil {
-			return err
+			panic(err)
 		}
 		account := common.NewAddressFromSeed(seed)
 		account.PrivateViewKey = account.PublicSpendKey.DeterministicHashDerive()
 		account.PublicViewKey = account.PrivateViewKey.Public()
-		accounts = append(accounts, account)
+		return account
+	}
+	for i := 0; i < 7; i++ {
+		signers = append(signers, randomPubAccount())
+		payees = append(payees, randomPubAccount())
 	}
 
 	inputs := make([]map[string]string, 0)
-	for _, a := range accounts {
+	for i, _ := range signers {
 		inputs = append(inputs, map[string]string{
-			"address": a.String(),
+			"signer":  signers[i].String(),
+			"payee":   payees[i].String(),
 			"balance": "10000",
 		})
 	}
@@ -214,7 +219,7 @@ func setupTestNetCmd(c *cli.Context) error {
 		"nodes": inputs,
 		"domains": []map[string]string{
 			{
-				"address": accounts[0].String(),
+				"signer":  signers[0].String(),
 				"balance": "50000",
 			},
 		},
@@ -226,10 +231,10 @@ func setupTestNetCmd(c *cli.Context) error {
 	fmt.Println(string(genesisData))
 
 	nodes := make([]map[string]string, 0)
-	for i, a := range accounts {
+	for i, a := range signers {
 		nodes = append(nodes, map[string]string{
-			"host":    fmt.Sprintf("127.0.0.1:700%d", i+1),
-			"address": a.String(),
+			"host":   fmt.Sprintf("127.0.0.1:700%d", i+1),
+			"signer": a.String(),
 		})
 	}
 	nodesData, err := json.MarshalIndent(nodes, "", "  ")
@@ -238,7 +243,7 @@ func setupTestNetCmd(c *cli.Context) error {
 	}
 	fmt.Println(string(nodesData))
 
-	for i, a := range accounts {
+	for i, a := range signers {
 		dir := fmt.Sprintf("/tmp/mixin-700%d", i+1)
 		err := os.MkdirAll(dir, 0755)
 		if err != nil {

@@ -43,7 +43,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 
 func (node *Node) signSnapshot(s *common.Snapshot) {
 	s.Hash = s.PayloadHash()
-	sig := node.Account.PrivateSpendKey.Sign(s.Hash[:])
+	sig := node.Signer.PrivateSpendKey.Sign(s.Hash[:])
 	osigs := node.SnapshotsPool[s.Hash]
 	for _, o := range osigs {
 		if o.String() == sig.String() {
@@ -54,7 +54,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) {
 	node.SignaturesPool[s.Hash] = &sig
 
 	key := append(s.Hash[:], sig[:]...)
-	key = append(key, node.Account.PublicSpendKey[:]...)
+	key = append(key, node.Signer.PublicSpendKey[:]...)
 	hash := crypto.NewHash(key).String()
 	node.signaturesCache.Set(hash, true, cache.DefaultExpiration)
 }
