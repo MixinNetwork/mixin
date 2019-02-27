@@ -6,6 +6,11 @@
       "payee": "XINT3KrjgaC3EkrWJQkJBvY5ZJ4YFVTtrjxTuAkYoKTM8sZKLjrGnzDBAJkNZ3gUQuSWQdk98rr3xAF5C21Zb5YwaFHQ3WF9",
       "balance": "10000"
     },
+    {
+      "signer": "XINKmvQbX92bFgNiACvcNUZtSMrmYAErZiJhHckREbbtTLmB6KvkQNWgSvbwnAsQx35cYCq49YKLFCJtXUiNZBMqWkRpbFd3",
+      "payee": "XINHdpM5dHAd9Y559d4Fr4kw6SZCfCGHoStp6JYWVtXsjGTsgy4UqAbh9cgiis6yzzWqz6CjgTsMPrVy33CaDK9EPZ2ruxaS",
+      "balance": "10000"
+    },
   ],
   "domains": [
     {
