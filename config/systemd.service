@@ -1,0 +1,13 @@
+[Unit]
+Description=Mixin Network Kernel Daemon
+After=network.target
+
+[Service]
+User=one
+Type=simple
+ExecStart=/home/one/bin/mixin kernel -dir /home/one/data/mixin -port 7239
+Restart=on-failure
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
