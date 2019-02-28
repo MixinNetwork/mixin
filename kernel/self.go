@@ -135,7 +135,7 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.SignedTransact
 		if s.Timestamp > cache.Timestamp {
 			break
 		}
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 	}
 
 	if start, _ := cache.Gap(); s.Timestamp >= start+config.SnapshotRoundGap {

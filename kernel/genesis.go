@@ -40,6 +40,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 	if err != nil {
 		return err
 	}
+	node.epoch = time.Unix(gns.Epoch, 0)
 	node.networkId = crypto.NewHash(data)
 	node.IdForNetwork = node.Signer.Hash().ForNetwork(node.networkId)
 
