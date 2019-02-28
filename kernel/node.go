@@ -33,7 +33,7 @@ type Node struct {
 	Peer            *network.Peer
 	SyncPoints      *syncMap
 
-	epoch       time.Time
+	epoch       uint64
 	networkId   crypto.Hash
 	store       storage.Store
 	mempoolChan chan *common.Snapshot

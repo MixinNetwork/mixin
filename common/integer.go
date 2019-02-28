@@ -62,6 +62,15 @@ func (x Integer) Sub(y Integer) (v Integer) {
 	return
 }
 
+func (x Integer) Mul(y int) (v Integer) {
+	if x.Sign() < 0 || y <= 0 {
+		panic(fmt.Sprint(x, y))
+	}
+
+	v.i.Mul(&x.i, big.NewInt(int64(y)))
+	return
+}
+
 func (x Integer) Div(y int) (v Integer) {
 	if x.Sign() < 0 || y <= 0 {
 		panic(fmt.Sprint(x, y))

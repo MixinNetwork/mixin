@@ -6,6 +6,10 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
+const (
+	MintGroupKernelNode = "KERNELNODE"
+)
+
 type MintData struct {
 	Group  string  `json:"group"`
 	Batch  uint64  `json:"batch"`
@@ -24,6 +28,9 @@ func (tx *SignedTransaction) validateMintInput(store DataStore) error {
 		return fmt.Errorf("invalid inputs count %d for mint", len(tx.Inputs))
 	}
 	mint := tx.Inputs[0].Mint
+	if mint.Group != MintGroupKernelNode {
+		return fmt.Errorf("invalid mint group %s", mint.Group)
+	}
 	dist, err := store.ReadLastMintDistribution(mint.Group)
 	if err != nil {
 		return err

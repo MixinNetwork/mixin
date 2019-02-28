@@ -40,7 +40,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 	if err != nil {
 		return err
 	}
-	node.epoch = time.Unix(gns.Epoch, 0)
+	node.epoch = uint64(time.Unix(gns.Epoch, 0).UnixNano())
 	node.networkId = crypto.NewHash(data)
 	node.IdForNetwork = node.Signer.Hash().ForNetwork(node.networkId)
 
@@ -98,7 +98,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 			NodeId:      nodeId,
 			Transaction: signed.PayloadHash(),
 			RoundNumber: 0,
-			Timestamp:   uint64(time.Unix(gns.Epoch, 0).UnixNano()),
+			Timestamp:   node.epoch,
 		}
 		snapshot.Hash = snapshot.PayloadHash()
 		topo := &common.SnapshotWithTopologicalOrder{
@@ -197,7 +197,7 @@ func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) (*com
 		NodeId:      nodeId,
 		Transaction: signed.PayloadHash(),
 		RoundNumber: 0,
-		Timestamp:   uint64(time.Unix(gns.Epoch, 0).UnixNano() + 1),
+		Timestamp:   node.epoch + 1,
 	}
 	return &common.SnapshotWithTopologicalOrder{
 		Snapshot:         snapshot,
