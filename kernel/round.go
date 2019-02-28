@@ -37,9 +37,10 @@ type RoundGraph struct {
 
 	RoundHistory map[crypto.Hash][]*FinalRound
 
-	FinalCache    []*network.SyncPoint
-	MyCacheRound  *FinalRound
-	MyFinalNumber uint64
+	GraphTimestamp uint64
+	FinalCache     []*network.SyncPoint
+	MyCacheRound   *FinalRound
+	MyFinalNumber  uint64
 }
 
 func (g *RoundGraph) UpdateFinalCache(idForNetwork crypto.Hash) {
@@ -50,6 +51,9 @@ func (g *RoundGraph) UpdateFinalCache(idForNetwork crypto.Hash) {
 			Number: f.Number,
 			Hash:   f.Hash,
 		})
+		if f.End > g.GraphTimestamp {
+			g.GraphTimestamp = f.End
+		}
 	}
 	g.FinalCache = finals
 	g.MyCacheRound = g.CacheRound[idForNetwork].asFinal()

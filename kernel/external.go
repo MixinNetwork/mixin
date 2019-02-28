@@ -1,7 +1,10 @@
 package kernel
 
 import (
+	"time"
+
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
@@ -10,6 +13,10 @@ func (node *Node) verifyExternalSnapshot(s *common.Snapshot) error {
 		panic("should never be here")
 	}
 	if len(node.SnapshotsPool[s.Hash]) > 0 || node.SignaturesPool[s.Hash] != nil {
+		return nil
+	}
+	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
+	if s.Timestamp > uint64(time.Now().UnixNano())+threshold {
 		return nil
 	}
 
