@@ -104,6 +104,14 @@ func (store storeImpl) LockDepositInput(deposit *DepositData, tx crypto.Hash, fo
 	return nil
 }
 
+func (store storeImpl) ReadLastMintDistribution(group string) (*MintDistribution, error) {
+	return nil, nil
+}
+
+func (store storeImpl) LockMintInput(mint *MintData, tx crypto.Hash, fork bool) error {
+	return nil
+}
+
 func randomAccount() Address {
 	seed := make([]byte, 64)
 	rand.Read(seed)

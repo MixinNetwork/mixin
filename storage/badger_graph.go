@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	graphPrefixGhost        = "GHOST"        // each output key should only be used once
-	graphPrefixDeposit      = "DEPOSIT"      // unspent outputs, including first consumed transaction hash
-	graphPrefixUTXO         = "UTXO"         // unspent outputs, including first consumed transaction hash
+	graphPrefixGhost        = "GHOST" // each output key should only be used once
+	graphPrefixUTXO         = "UTXO"  // unspent outputs, including first consumed transaction hash
+	graphPrefixDeposit      = "DEPOSIT"
+	graphPrefixMint         = "MINT"
 	graphPrefixTransaction  = "TRANSACTION"  // raw transaction, may not be finalized yet, if finalized with first finalized snapshot hash
 	graphPrefixFinalization = "FINALIZATION" // transaction finalization hack
 	graphPrefixUnique       = "UNIQUE"       // unique transaction in one node

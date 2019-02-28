@@ -54,7 +54,9 @@ func (s *Snapshot) PayloadHash() crypto.Hash {
 func (tx *SignedTransaction) LockInputs(locker UTXOLocker, fork bool) error {
 	for _, in := range tx.Inputs {
 		var err error
-		if in.Deposit != nil {
+		if in.Mint != nil {
+			err = locker.LockMintInput(in.Mint, tx.PayloadHash(), fork)
+		} else if in.Deposit != nil {
 			err = locker.LockDepositInput(in.Deposit, tx.PayloadHash(), fork)
 		} else {
 			_, err = locker.LockUTXO(in.Hash, in.Index, tx.PayloadHash(), fork)

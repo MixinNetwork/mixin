@@ -42,6 +42,17 @@ func (s *BadgerStore) WriteTransaction(tx *common.SignedTransaction) error {
 				continue
 			}
 
+			if in.Mint != nil {
+				ival, err := readMintInput(txn, in.Mint)
+				if err != nil {
+					panic(fmt.Errorf("mint check error %s", err.Error()))
+				}
+				if bytes.Compare(ival, txHash[:]) != 0 {
+					panic(fmt.Errorf("mint locked for transaction %s", hex.EncodeToString(ival)))
+				}
+				continue
+			}
+
 			key := graphUtxoKey(in.Hash, in.Index)
 			item, err := txn.Get(key)
 			if err != nil {
@@ -237,9 +248,4 @@ func graphUtxoKey(hash crypto.Hash, index int) []byte {
 	size := binary.PutVarint(buf, int64(index))
 	key := append([]byte(graphPrefixUTXO), hash[:]...)
 	return append(key, buf[:size]...)
-}
-
-func graphDepositKey(deposit *common.DepositData) []byte {
-	hash := crypto.NewHash(common.MsgpackMarshalPanic(deposit))
-	return append([]byte(graphPrefixDeposit), hash[:]...)
 }

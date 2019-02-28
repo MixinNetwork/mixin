@@ -367,3 +367,11 @@ func (raw signerInput) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, erro
 func (raw signerInput) CheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
 	return nil
 }
+
+func (raw signerInput) ReadLastMintDistribution(group string) (*common.MintDistribution, error) {
+	return nil, nil
+}
+
+func (raw signerInput) LockMintInput(mint *common.MintData, tx crypto.Hash, fork bool) error {
+	return nil
+}
