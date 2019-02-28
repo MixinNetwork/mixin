@@ -5,7 +5,9 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"strings"
 
+	"github.com/shopspring/decimal"
 	"github.com/vmihailenco/msgpack"
 )
 
@@ -20,10 +22,12 @@ type Integer struct {
 }
 
 func NewIntegerFromString(x string) (v Integer) {
-	var f big.Float
-	p, _, _ := big.ParseFloat(x, 10, 64, big.ToZero)
-	d := big.NewFloat(math.Pow(10, Precision))
-	f.Mul(p, d).Int(&v.i)
+	d, err := decimal.NewFromString(x)
+	if err != nil {
+		panic(err)
+	}
+	s := d.Mul(decimal.New(1, Precision)).StringFixed(0)
+	v.i.SetString(s, 10)
 	return
 }
 
@@ -58,12 +62,12 @@ func (x Integer) Sub(y Integer) (v Integer) {
 	return
 }
 
-func (x Integer) Div(y Integer) (v Integer) {
-	if x.Sign() < 0 || y.Sign() <= 0 {
+func (x Integer) Div(y int) (v Integer) {
+	if x.Sign() < 0 || y <= 0 {
 		panic(fmt.Sprint(x, y))
 	}
 
-	v.i.Div(&x.i, &y.i)
+	v.i.Div(&x.i, big.NewInt(int64(y)))
 	return
 }
 
@@ -77,11 +81,11 @@ func (x Integer) Sign() int {
 
 func (x Integer) String() string {
 	s := x.i.String()
-	if s == "0" {
-		return s
-	}
 	p := len(s) - Precision
-	return s[:p] + "." + s[p:]
+	if p > 0 {
+		return s[:p] + "." + s[p:]
+	}
+	return "0." + strings.Repeat("0", -p) + s
 }
 
 func (x Integer) MarshalMsgpack() ([]byte, error) {
