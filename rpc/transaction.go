@@ -40,8 +40,8 @@ func getTransaction(store storage.Store, params []interface{}) (*common.SignedTr
 	return store.ReadTransaction(hash)
 }
 
-func listSnapshots(store storage.Store, params []interface{}) ([]*common.SnapshotWithTopologicalOrder, error) {
-	if len(params) != 3 {
+func listSnapshots(store storage.Store, params []interface{}) ([]map[string]interface{}, error) {
+	if len(params) != 4 {
 		return nil, errors.New("invalid params count")
 	}
 	offset, err := strconv.ParseUint(fmt.Sprint(params[0]), 10, 64)
@@ -56,14 +56,39 @@ func listSnapshots(store storage.Store, params []interface{}) ([]*common.Snapsho
 	if err != nil {
 		return nil, err
 	}
+	tx, err := strconv.ParseBool(fmt.Sprint(params[3]))
+	if err != nil {
+		return nil, err
+	}
 
+	if tx {
+		snapshots, transactions, err := store.ReadSnapshotWithTransactionsSinceTopology(offset, count)
+		return snapshotsToMap(snapshots, transactions, sig), err
+	}
 	snapshots, err := store.ReadSnapshotsSinceTopology(offset, count)
-	if err != nil || sig {
-		return snapshots, err
-	}
+	return snapshotsToMap(snapshots, nil, sig), err
+}
 
-	for i, _ := range snapshots {
-		snapshots[i].Signatures = nil
+func snapshotsToMap(snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.Transaction, sig bool) []map[string]interface{} {
+	tx := len(transactions) == len(snapshots)
+	result := make([]map[string]interface{}, len(snapshots))
+	for i, s := range snapshots {
+		item := map[string]interface{}{
+			"node":       s.NodeId,
+			"references": s.References,
+			"round":      s.RoundNumber,
+			"timestamp":  s.Timestamp,
+			"hash":       s.Hash,
+		}
+		if tx {
+			item["transaction"] = transactions[i]
+		} else {
+			item["transaction"] = s.Transaction
+		}
+		if sig {
+			item["signatures"] = s.Signatures
+		}
+		result[i] = item
 	}
-	return snapshots, nil
+	return result
 }

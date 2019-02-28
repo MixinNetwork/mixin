@@ -169,6 +169,7 @@ func listSnapshotsCmd(c *cli.Context) error {
 		c.Uint64("since"),
 		c.Uint64("count"),
 		c.Bool("sig"),
+		c.Bool("tx"),
 	})
 	fmt.Println(string(data))
 	return err

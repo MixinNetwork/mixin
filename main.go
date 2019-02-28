@@ -154,6 +154,10 @@ func main() {
 					Name:  "sig",
 					Usage: "whether including the signatures",
 				},
+				cli.BoolFlag{
+					Name:  "tx",
+					Usage: "whether including the transactions",
+				},
 			},
 		},
 		{

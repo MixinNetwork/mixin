@@ -28,6 +28,7 @@ type Store interface {
 	LockDepositInput(deposit *common.DepositData, tx crypto.Hash, fork bool) error
 	CheckGhost(key crypto.Key) (bool, error)
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
+	ReadSnapshotWithTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, []*common.Transaction, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadRound(hash crypto.Hash) (*common.Round, error)
 	ReadLink(from, to crypto.Hash) (uint64, error)

@@ -8,6 +8,26 @@ import (
 	"github.com/vmihailenco/msgpack"
 )
 
+func (s *BadgerStore) ReadSnapshotWithTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, []*common.Transaction, error) {
+	snapshots, err := s.ReadSnapshotsSinceTopology(topologyOffset, count)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	transactions := make([]*common.Transaction, len(snapshots))
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	for i, s := range snapshots {
+		tx, err := readTransaction(txn, s.Transaction)
+		if err != nil {
+			return nil, nil, err
+		}
+		transactions[i] = &tx.Transaction
+	}
+	return snapshots, transactions, nil
+}
+
 func (s *BadgerStore) ReadSnapshotsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	snapshots := make([]*common.SnapshotWithTopologicalOrder, 0)
 	txn := s.snapshotsDB.NewTransaction(false)
