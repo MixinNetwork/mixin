@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -285,7 +286,12 @@ func callRPC(node, method string, params []interface{}) ([]byte, error) {
 	if err != nil {
 		panic(err)
 	}
-	req, err := http.NewRequest("POST", "http://"+node, bytes.NewReader(body))
+
+	endpoint := "http://" + node
+	if strings.HasPrefix(node, "http") {
+		endpoint = node
+	}
+	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
