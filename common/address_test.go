@@ -45,4 +45,7 @@ func TestAddress(t *testing.T) {
 	assert.Equal("0000000000000000000000000000000000000000000000000000000000000000", b.PrivateViewKey.String())
 	assert.Equal("0000000000000000000000000000000000000000000000000000000000000000", b.PrivateSpendKey.String())
 	assert.Equal("013ada6acca01c3ba1fce30afa922a029bb224d4ab158127428b9e85c7175c32", b.Hash().String())
+
+	z := NewAddressFromSeed(make([]byte, 64))
+	assert.Equal("XIN8b7CsqwqaBP7576hvWzo7uDgbU9TB5KGU4jdgYpQTi2qrQGpBtrW49ENQiLGNrYU45e2wwKRD7dEUPtuaJYps2jbR4dH", z.String())
 }

@@ -13,8 +13,11 @@ import (
 
 const Precision = 8
 
+var Zero Integer
+
 func init() {
 	msgpack.RegisterExt(0, (*Integer)(nil))
+	Zero = NewInteger(0)
 }
 
 type Integer struct {

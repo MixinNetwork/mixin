@@ -36,7 +36,15 @@ func TestGhostKey(t *testing.T) {
 	R := r.Public()
 
 	P := DeriveGhostPublicKey(&r, &A, &B, 0)
-	p := DeriveGhostPrivateKey(&R, &a, &b, 0)
+	p := DeriveGhostPrivateKey(&A, &b, &r, 0)
+	assert.NotEqual(*P, p.Public())
+	p = DeriveGhostPrivateKey(&B, &r, &a, 0)
+	assert.NotEqual(*P, p.Public())
+	p = DeriveGhostPrivateKey(&B, &a, &r, 0)
+	assert.NotEqual(*P, p.Public())
+	p = DeriveGhostPrivateKey(&A, &r, &b, 0)
+	assert.Equal(*P, p.Public())
+	p = DeriveGhostPrivateKey(&R, &a, &b, 0)
 	assert.Equal(*P, p.Public())
 
 	O := ViewGhostOutputKey(P, &a, &R, 0)

@@ -83,7 +83,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 			Outputs: []*common.Output{
 				{
 					Type:   common.OutputTypeNodeAccept,
-					Script: common.Script([]uint8{common.OperatorCmp, common.OperatorSum, uint8(len(gns.Nodes)*2/3 + 1)}),
+					Script: common.NewThresholdScript(uint8(len(gns.Nodes)*2/3 + 1)),
 					Amount: common.NewInteger(PledgeAmount),
 					Keys:   keys,
 					Mask:   R,
@@ -181,7 +181,7 @@ func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) (*com
 		Outputs: []*common.Output{
 			{
 				Type:   common.OutputTypeDomainAccept,
-				Script: common.Script([]uint8{common.OperatorCmp, common.OperatorSum, uint8(len(gns.Nodes)*2/3 + 1)}),
+				Script: common.NewThresholdScript(uint8(len(gns.Nodes)*2/3 + 1)),
 				Amount: common.NewInteger(50000),
 				Keys:   keys,
 				Mask:   R,

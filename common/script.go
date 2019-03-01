@@ -15,6 +15,10 @@ const (
 
 type Script []uint8
 
+func NewThresholdScript(threshold uint8) Script {
+	return Script{OperatorCmp, OperatorSum, threshold}
+}
+
 func (s Script) VerifyFormat() error {
 	if len(s) != 3 {
 		return fmt.Errorf("invalid script %d", len(s))
