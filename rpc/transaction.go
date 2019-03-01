@@ -79,9 +79,39 @@ func snapshotsToMap(snapshots []*common.SnapshotWithTopologicalOrder, transactio
 			"round":      s.RoundNumber,
 			"timestamp":  s.Timestamp,
 			"hash":       s.Hash,
+			"topology":   s.TopologicalOrder,
 		}
 		if tx {
-			item["transaction"] = transactions[i]
+			tx := transactions[i]
+			var inputs []map[string]interface{}
+			for _, in := range tx.Inputs {
+				if in.Hash.HasValue() {
+					inputs = append(inputs, map[string]interface{}{
+						"hash":  in.Hash,
+						"index": in.Index,
+					})
+				} else if len(in.Genesis) > 0 {
+					inputs = append(inputs, map[string]interface{}{
+						"genesis": hex.EncodeToString(in.Genesis),
+					})
+				} else if in.Deposit != nil {
+					inputs = append(inputs, map[string]interface{}{
+						"deposit": in.Deposit,
+					})
+				} else if in.Mint != nil {
+					inputs = append(inputs, map[string]interface{}{
+						"mint": in.Mint,
+					})
+				}
+			}
+			item["transaction"] = map[string]interface{}{
+				"version": tx.Version,
+				"asset":   tx.Asset,
+				"inputs":  inputs,
+				"outputs": tx.Outputs,
+				"extra":   hex.EncodeToString(tx.Extra),
+				"hash":    tx.PayloadHash(),
+			}
 		} else {
 			item["transaction"] = s.Transaction
 		}
