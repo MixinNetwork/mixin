@@ -35,16 +35,25 @@ func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) 
 		if data.Batch != graphMintBatch(item.Key(), group) {
 			panic("malformed mint data")
 		}
-		mints = append(mints, &data)
-	}
 
-	for _, m := range mints {
-		tx, err := readTransaction(txn, m.Transaction)
+		tx, err := readTransaction(txn, data.Transaction)
 		if err != nil {
 			return nil, nil, err
 		}
+		if tx == nil {
+			continue
+		}
+		_, err = txn.Get(graphFinalizationKey(data.Transaction))
+		if err == badger.ErrKeyNotFound {
+			continue
+		} else if err != nil {
+			return nil, nil, err
+		}
+
 		transactions = append(transactions, &tx.Transaction)
+		mints = append(mints, &data)
 	}
+
 	return mints, transactions, nil
 }
 
