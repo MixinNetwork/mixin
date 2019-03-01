@@ -86,6 +86,15 @@ func updateHeadReference(c *cli.Context) error {
 	return store.UpdateEmptyHeadRound(round.NodeId, round.Number, round.References)
 }
 
+func removeGraphEntries(c *cli.Context) error {
+	store, err := storage.NewBadgerStore(c.String("dir"))
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+	return store.RemoveGraphEntries(c.String("prefix"))
+}
+
 func decodeTransactionCmd(c *cli.Context) error {
 	raw, err := hex.DecodeString(c.String("raw"))
 	if err != nil {

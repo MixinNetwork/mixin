@@ -84,6 +84,21 @@ func main() {
 			},
 		},
 		{
+			Name:   "removegraphentries",
+			Usage:  "Remove data entries by prefix from the graph data storage",
+			Action: removeGraphEntries,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "dir",
+					Usage: "the data directory",
+				},
+				cli.StringFlag{
+					Name:  "prefix",
+					Usage: "the entry prefix",
+				},
+			},
+		},
+		{
 			Name:   "signrawtransaction",
 			Usage:  "Sign a JSON encoded transaction",
 			Action: signTransactionCmd,

@@ -26,6 +26,28 @@ const (
 	graphPrefixTopology     = "TOPOLOGY"
 )
 
+func (s *BadgerStore) RemoveGraphEntries(prefix string) error {
+	txn := s.snapshotsDB.NewTransaction(true)
+	defer txn.Discard()
+
+	opts := badger.DefaultIteratorOptions
+	opts.PrefetchValues = false
+	it := txn.NewIterator(opts)
+	defer it.Close()
+
+	it.Seek([]byte(prefix))
+	for ; it.ValidForPrefix([]byte(prefix)); it.Next() {
+		item := it.Item()
+		err := txn.Delete(item.Key())
+		if err != nil {
+			return err
+		}
+	}
+
+	it.Close()
+	return txn.Commit()
+}
+
 func (s *BadgerStore) ReadSnapshotsForNodeRound(nodeId crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
