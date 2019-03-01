@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/rpc"
 	"github.com/MixinNetwork/mixin/storage"
@@ -17,7 +18,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "mixin"
 	app.Usage = "A free and lightning fast peer-to-peer transactional network for digital assets."
-	app.Version = "0.0.1"
+	app.Version = config.BuildVersion
 	app.Commands = []cli.Command{
 		{
 			Name:    "kernel",
