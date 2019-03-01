@@ -126,7 +126,15 @@ func (node *Node) determinBestRound() *FinalRound {
 			start, height = rts, rh
 		}
 	}
-	return best
+	if best != nil {
+		return best
+	}
+	for _, r := range node.Graph.FinalRound {
+		if r.NodeId != node.IdForNetwork {
+			return r
+		}
+	}
+	return nil
 }
 
 func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.SignedTransaction) error {
@@ -147,8 +155,8 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.SignedTransact
 
 	if start, _ := cache.Gap(); s.Timestamp >= start+config.SnapshotRoundGap {
 		best := node.determinBestRound()
-		if best == nil || best.NodeId == final.NodeId {
-			panic("FIXME it is possible that no best available")
+		if best.NodeId == final.NodeId {
+			panic("should never be here")
 		}
 
 		final = cache.asFinal()
