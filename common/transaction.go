@@ -79,6 +79,10 @@ func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {
 	return outputs
 }
 
+func (tx *SignedTransaction) CheckMint() bool {
+	return len(tx.Inputs) == 1 && tx.Inputs[0].Mint != nil
+}
+
 func (tx *SignedTransaction) Validate(store DataStore) error {
 	if tx.Version != TxVersion {
 		return fmt.Errorf("invalid tx version %d", tx.Version)

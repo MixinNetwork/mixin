@@ -28,28 +28,28 @@ func (s *BadgerStore) CheckDepositInput(deposit *common.DepositData, tx crypto.H
 
 func (s *BadgerStore) LockDepositInput(deposit *common.DepositData, tx crypto.Hash, fork bool) error {
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
-		key := graphDepositKey(deposit)
 		ival, err := readDepositInput(txn, deposit)
-
 		if err == badger.ErrKeyNotFound {
-			return txn.Set(key, tx[:])
+			return writeDeposit(txn, deposit, tx)
 		}
 		if err != nil {
 			return err
 		}
 
-		if bytes.Compare(ival, tx[:]) != 0 {
-			if !fork {
-				return fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival))
-			}
-			var hash crypto.Hash
-			copy(hash[:], ival)
-			err := pruneTransaction(txn, hash)
-			if err != nil {
-				return err
-			}
+		if bytes.Compare(ival, tx[:]) == 0 {
+			return nil
 		}
-		return txn.Set(key, tx[:])
+
+		if !fork {
+			return fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival))
+		}
+		var hash crypto.Hash
+		copy(hash[:], ival)
+		err = pruneTransaction(txn, hash)
+		if err != nil {
+			return err
+		}
+		return writeDeposit(txn, deposit, tx)
 	})
 }
 
@@ -60,6 +60,11 @@ func readDepositInput(txn *badger.Txn, deposit *common.DepositData) ([]byte, err
 		return nil, err
 	}
 	return item.ValueCopy(nil)
+}
+
+func writeDeposit(txn *badger.Txn, deposit *common.DepositData, tx crypto.Hash) error {
+	key := graphDepositKey(deposit)
+	return txn.Set(key, tx[:])
 }
 
 func graphDepositKey(deposit *common.DepositData) []byte {

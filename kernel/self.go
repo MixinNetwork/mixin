@@ -29,6 +29,13 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Sig
 		return nil, err
 	}
 
+	if tx.CheckMint() {
+		err = node.validateMintTransaction(tx)
+		if err != nil {
+			return nil, nil
+		}
+	}
+
 	err = tx.Validate(node.store)
 	if err != nil {
 		return nil, nil

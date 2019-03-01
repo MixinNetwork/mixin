@@ -43,12 +43,12 @@ func (s *BadgerStore) WriteTransaction(tx *common.SignedTransaction) error {
 			}
 
 			if in.Mint != nil {
-				ival, err := readMintInput(txn, in.Mint)
+				dist, err := readMintInput(txn, in.Mint)
 				if err != nil {
 					panic(fmt.Errorf("mint check error %s", err.Error()))
 				}
-				if bytes.Compare(ival, txHash[:]) != 0 {
-					panic(fmt.Errorf("mint locked for transaction %s", hex.EncodeToString(ival)))
+				if dist.Transaction != txHash || dist.Amount.Cmp(in.Mint.Amount) != 0 {
+					panic(fmt.Errorf("mint locked for transaction %s", dist.Transaction.String()))
 				}
 				continue
 			}
