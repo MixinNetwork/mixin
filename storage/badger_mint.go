@@ -21,14 +21,20 @@ func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistri
 
 	dist := &common.MintDistribution{Group: group}
 	it.Seek(graphMintKey(group, ^uint64(0)))
-	if it.ValidForPrefix([]byte(graphPrefixMint)) {
+	if it.ValidForPrefix([]byte(graphPrefixMint + group)) {
 		item := it.Item()
-		dist.Batch = graphMintBatch(item.Key(), group)
 		ival, err := item.ValueCopy(nil)
 		if err != nil {
 			return nil, err
 		}
-		copy(dist.Transaction[:], ival)
+		var data common.MintDistribution
+		err = msgpack.Unmarshal(ival, &data)
+		if err != nil {
+			return nil, err
+		}
+		dist.Batch = graphMintBatch(item.Key(), group)
+		dist.Transaction = data.Transaction
+		dist.Amount = data.Amount
 	}
 	return dist, nil
 }

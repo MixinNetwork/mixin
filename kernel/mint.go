@@ -26,14 +26,14 @@ func (node *Node) MintLoop() error {
 	for {
 		time.Sleep(77 * time.Minute)
 
-		batch, amount := node.checkMintPossibility()
+		batch, amount := node.checkMintPossibility(false)
 		if amount.Sign() <= 0 || batch <= 0 {
 			continue
 		}
 
 		err := node.tryToMintKernelNode(uint64(batch), amount)
 		if err != nil {
-			logger.Println("tryToMintKernelNode", err)
+			logger.Println(node.IdForNetwork, "tryToMintKernelNode", err)
 		}
 	}
 	return nil
@@ -97,7 +97,7 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 }
 
 func (node *Node) validateMintTransaction(tx *common.SignedTransaction) error {
-	batch, amount := node.checkMintPossibility()
+	batch, amount := node.checkMintPossibility(true)
 	if amount.Sign() <= 0 || batch <= 0 {
 		return fmt.Errorf("no mint available %d %s", batch, amount.String())
 	}
@@ -119,24 +119,24 @@ func (node *Node) validateMintTransaction(tx *common.SignedTransaction) error {
 			return fmt.Errorf("invalid mint diff %s", diff.String())
 		}
 		if out.Type != common.OutputTypeScript {
-			return fmt.Errorf("invalid mint output type %d", out.Type)
+			return fmt.Errorf("invalid mint diff type %d", out.Type)
 		}
 		if out.Script.String() != common.NewThresholdScript(64).String() {
-			return fmt.Errorf("invalid mint output script %s", out.Script.String())
+			return fmt.Errorf("invalid mint diff script %s", out.Script.String())
 		}
 		if len(out.Keys) != 1 {
-			return fmt.Errorf("invalid mint output keys %d", len(out.Keys))
+			return fmt.Errorf("invalid mint diff keys %d", len(out.Keys))
 		}
 		addr := common.NewAddressFromSeed(make([]byte, 64))
 		in := fmt.Sprintf("MINTKERNELNODE%dDIFF", mint.Batch)
 		seed := crypto.NewHash([]byte(addr.String() + in))
 		r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
 		if r.Public() != out.Mask {
-			return fmt.Errorf("invalid mint output mask %s %s", r.Public().String(), out.Mask.String())
+			return fmt.Errorf("invalid mint diff mask %s %s", r.Public().String(), out.Mask.String())
 		}
 		ghost := crypto.ViewGhostOutputKey(&out.Keys[0], &addr.PrivateViewKey, &out.Mask, uint64(len(nodes)))
 		if *ghost != addr.PublicSpendKey {
-			return fmt.Errorf("invalid mint output signature %s %s", addr.PublicSpendKey.String(), ghost.String())
+			return fmt.Errorf("invalid mint diff signature %s %s", addr.PublicSpendKey.String(), ghost.String())
 		}
 		return nil
 	} else if len(nodes) != len(tx.Outputs) {
@@ -175,7 +175,7 @@ func (node *Node) validateMintTransaction(tx *common.SignedTransaction) error {
 	return nil
 }
 
-func (node *Node) checkMintPossibility() (int, common.Integer) {
+func (node *Node) checkMintPossibility(validateOnly bool) (int, common.Integer) {
 	since := node.Graph.GraphTimestamp - node.epoch
 	if since <= 0 {
 		return 0, common.Zero
@@ -190,15 +190,6 @@ func (node *Node) checkMintPossibility() (int, common.Integer) {
 		return 0, common.Zero
 	}
 
-	dist, err := node.store.ReadLastMintDistribution(common.MintGroupKernelNode)
-	if err != nil {
-		logger.Println("ReadLastMintDistribution ERROR", err)
-		return 0, common.Zero
-	}
-	if batch <= int(dist.Batch) {
-		return 0, common.Zero
-	}
-
 	pool := MintPool
 	for i := 0; i < batch/MintYearBatches; i++ {
 		pool = pool.Sub(pool.Div(MintYearShares))
@@ -207,8 +198,26 @@ func (node *Node) checkMintPossibility() (int, common.Integer) {
 	total := pool.Div(MintYearBatches)
 	light := total.Div(10)
 	full := light.Mul(9)
+
+	dist, err := node.store.ReadLastMintDistribution(common.MintGroupKernelNode)
+	if err != nil {
+		logger.Println("ReadLastMintDistribution ERROR", err)
+		return 0, common.Zero
+	}
+	logger.Println("checkMintPossibility OLD", pool, total, light, full, batch, dist.Amount, dist.Batch)
+
+	if batch < int(dist.Batch) {
+		return 0, common.Zero
+	}
+	if batch == int(dist.Batch) {
+		if validateOnly {
+			return batch, dist.Amount
+		}
+		return 0, common.Zero
+	}
+
 	amount := full.Mul(batch - int(dist.Batch))
-	logger.Println("checkMintPossibility", pool, total, light, full, amount, batch, dist.Amount, dist.Batch)
+	logger.Println("checkMintPossibility NEW", pool, total, light, full, amount, batch, dist.Amount, dist.Batch)
 	return batch, amount
 }
 
