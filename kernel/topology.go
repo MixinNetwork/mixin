@@ -19,6 +19,10 @@ func (c *TopologicalSequence) Next() uint64 {
 	return next
 }
 
+func (node *Node) TopologicalOrder() uint64 {
+	return node.TopoCounter.seq
+}
+
 func getTopologyCounter(store storage.Store) *TopologicalSequence {
 	return &TopologicalSequence{
 		seq: store.TopologySequence(),

@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -10,7 +11,7 @@ import (
 
 func (node *Node) verifyExternalSnapshot(s *common.Snapshot) error {
 	if s.NodeId == node.IdForNetwork || len(s.Signatures) != 1 {
-		panic("should never be here")
+		panic(fmt.Errorf("should never be here %s %s %d", node.IdForNetwork, s.NodeId, len(s.Signatures)))
 	}
 	if len(node.SnapshotsPool[s.Hash]) > 0 || node.SignaturesPool[s.Hash] != nil {
 		return nil

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/bugsnag/bugsnag-go"
 	"github.com/bugsnag/bugsnag-go/errors"
@@ -15,6 +16,7 @@ import (
 
 type R struct {
 	Store storage.Store
+	Node  *kernel.Node
 }
 
 type Call struct {
@@ -22,8 +24,9 @@ type Call struct {
 	Params []interface{} `json:"params"`
 }
 
-func NewRouter(store storage.Store) *httptreemux.TreeMux {
-	router, impl := httptreemux.New(), &R{Store: store}
+func NewRouter(store storage.Store, node *kernel.Node) *httptreemux.TreeMux {
+	router := httptreemux.New()
+	impl := &R{Store: store, Node: node}
 	router.POST("/", impl.handle)
 	registerHanders(router)
 	return router
@@ -52,14 +55,14 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 	}
 	switch call.Method {
 	case "getinfo":
-		info, err := getInfo(impl.Store)
+		info, err := getInfo(impl.Store, impl.Node)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
 			render.New().JSON(w, http.StatusOK, info)
 		}
 	case "sendrawtransaction":
-		id, err := queueTransaction(impl.Store, call.Params)
+		id, err := queueTransaction(impl.Node, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
@@ -110,8 +113,8 @@ func handleCORS(handler http.Handler) http.Handler {
 	})
 }
 
-func StartHTTP(store storage.Store, port int) error {
-	router := NewRouter(store)
+func StartHTTP(store storage.Store, node *kernel.Node, port int) error {
+	router := NewRouter(store, node)
 	handler := handleCORS(router)
 	handler = handlers.ProxyHeaders(handler)
 	handler = bugsnag.Handler(handler)

@@ -6,13 +6,13 @@ import (
 	"github.com/MixinNetwork/mixin/storage"
 )
 
-func getInfo(store storage.Store) (map[string]interface{}, error) {
+func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, error) {
 	info := map[string]interface{}{
-		"network": kernel.NetworkId(),
-		"node":    kernel.NodeIdForNetwork(),
+		"network": node.NetworkId(),
+		"node":    node.IdForNetwork,
 		"version": config.BuildVersion,
 	}
-	graph, err := kernel.LoadRoundGraph(store, kernel.NetworkId(), kernel.NodeIdForNetwork())
+	graph, err := kernel.LoadRoundGraph(store, node.NetworkId(), node.IdForNetwork)
 	if err != nil {
 		return info, err
 	}
@@ -40,10 +40,10 @@ func getInfo(store storage.Store) (map[string]interface{}, error) {
 		}
 	}
 	info["graph"] = map[string]interface{}{
-		"consensus": kernel.ConsensusNodes(),
+		"consensus": node.ConsensusNodes,
 		"cache":     cacheGraph,
 		"final":     finalGraph,
-		"topology":  kernel.TopologicalOrder(),
+		"topology":  node.TopologicalOrder(),
 	}
 	t, f, c, err := store.QueueInfo()
 	if err != nil {

@@ -13,7 +13,7 @@ import (
 	"github.com/vmihailenco/msgpack"
 )
 
-func queueTransaction(store storage.Store, params []interface{}) (string, error) {
+func queueTransaction(node *kernel.Node, params []interface{}) (string, error) {
 	if len(params) != 1 {
 		return "", errors.New("invalid params count")
 	}
@@ -26,7 +26,7 @@ func queueTransaction(store storage.Store, params []interface{}) (string, error)
 	if err != nil {
 		return "", err
 	}
-	return kernel.QueueTransaction(store, &tx)
+	return node.QueueTransaction(&tx)
 }
 
 func getTransaction(store storage.Store, params []interface{}) (*common.SignedTransaction, error) {

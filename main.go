@@ -245,8 +245,14 @@ func kernelCmd(c *cli.Context) error {
 	}
 	defer store.Close()
 
+	addr := fmt.Sprintf(":%d", c.Int("port"))
+	node, err := kernel.SetupNode(store, addr, c.String("dir"))
+	if err != nil {
+		return err
+	}
+
 	go func() {
-		err := rpc.StartHTTP(store, c.Int("port")+1000)
+		err := rpc.StartHTTP(store, node, c.Int("port")+1000)
 		if err != nil {
 			panic(err)
 		}
@@ -258,5 +264,5 @@ func kernelCmd(c *cli.Context) error {
 		}
 	}()
 
-	return kernel.Loop(store, fmt.Sprintf(":%d", c.Int("port")), c.String("dir"))
+	return node.Loop()
 }

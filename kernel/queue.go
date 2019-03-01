@@ -3,20 +3,19 @@ package kernel
 import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/storage"
 )
 
-func QueueTransaction(store storage.Store, tx *common.SignedTransaction) (string, error) {
-	err := tx.Validate(store)
+func (node *Node) QueueTransaction(tx *common.SignedTransaction) (string, error) {
+	err := tx.Validate(node.store)
 	if err != nil {
 		return "", err
 	}
-	err = store.CachePutTransaction(tx)
+	err = node.store.CachePutTransaction(tx)
 	if err != nil {
 		return "", err
 	}
-	err = store.QueueAppendSnapshot(NodeIdForNetwork(), &common.Snapshot{
-		NodeId:      NodeIdForNetwork(),
+	err = node.store.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+		NodeId:      node.IdForNetwork,
 		Transaction: tx.PayloadHash(),
 	}, false)
 	return tx.PayloadHash().String(), err
