@@ -35,8 +35,9 @@ func (s *BadgerStore) ReadSnapshotsSinceTopology(topologyOffset, count uint64) (
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
+	prefix := []byte(graphPrefixTopology)
 	it.Seek(graphTopologyKey(topologyOffset))
-	for ; it.ValidForPrefix([]byte(graphPrefixTopology)) && uint64(len(snapshots)) < count; it.Next() {
+	for ; it.ValidForPrefix(prefix) && uint64(len(snapshots)) < count; it.Next() {
 		item := it.Item()
 		v, err := item.ValueCopy(nil)
 		if err != nil {

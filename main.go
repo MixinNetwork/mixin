@@ -162,7 +162,7 @@ func main() {
 				},
 				cli.Uint64Flag{
 					Name:  "count,c",
-					Value: 100,
+					Value: 10,
 					Usage: "the up limit of the returned snapshots",
 				},
 				cli.BoolFlag{
@@ -188,6 +188,32 @@ func main() {
 				cli.StringFlag{
 					Name:  "hash,x",
 					Usage: "the transaction hash",
+				},
+			},
+		},
+		{
+			Name:   "listmintdistributions",
+			Usage:  "List mint distributions",
+			Action: listMintDistributionsCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "node,n",
+					Value: "127.0.0.1:8239",
+					Usage: "the node RPC endpoint",
+				},
+				cli.Uint64Flag{
+					Name:  "since,s",
+					Value: 0,
+					Usage: "the mint batch to begin with",
+				},
+				cli.Uint64Flag{
+					Name:  "count,c",
+					Value: 10,
+					Usage: "the up limit of the returned distributions",
+				},
+				cli.BoolFlag{
+					Name:  "tx",
+					Usage: "whether including the transactions",
 				},
 			},
 		},

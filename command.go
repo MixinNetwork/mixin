@@ -192,6 +192,16 @@ func getTransactionCmd(c *cli.Context) error {
 	return err
 }
 
+func listMintDistributionsCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "listmintdistributions", []interface{}{
+		c.Uint64("since"),
+		c.Uint64("count"),
+		c.Bool("tx"),
+	})
+	fmt.Println(string(data))
+	return err
+}
+
 func getInfoCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getinfo", []interface{}{})
 	fmt.Println(string(data))

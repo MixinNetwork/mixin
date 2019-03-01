@@ -44,6 +44,7 @@ type Store interface {
 
 	ReadLastMintDistribution(group string) (*common.MintDistribution, error)
 	LockMintInput(mint *common.MintData, tx crypto.Hash, fork bool) error
+	ReadMintDistributions(group string, offset, count uint64) ([]*common.MintDistribution, []*common.Transaction, error)
 
 	RemoveGraphEntries(prefix string) error
 }

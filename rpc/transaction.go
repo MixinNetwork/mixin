@@ -82,36 +82,7 @@ func snapshotsToMap(snapshots []*common.SnapshotWithTopologicalOrder, transactio
 			"topology":   s.TopologicalOrder,
 		}
 		if tx {
-			tx := transactions[i]
-			var inputs []map[string]interface{}
-			for _, in := range tx.Inputs {
-				if in.Hash.HasValue() {
-					inputs = append(inputs, map[string]interface{}{
-						"hash":  in.Hash,
-						"index": in.Index,
-					})
-				} else if len(in.Genesis) > 0 {
-					inputs = append(inputs, map[string]interface{}{
-						"genesis": hex.EncodeToString(in.Genesis),
-					})
-				} else if in.Deposit != nil {
-					inputs = append(inputs, map[string]interface{}{
-						"deposit": in.Deposit,
-					})
-				} else if in.Mint != nil {
-					inputs = append(inputs, map[string]interface{}{
-						"mint": in.Mint,
-					})
-				}
-			}
-			item["transaction"] = map[string]interface{}{
-				"version": tx.Version,
-				"asset":   tx.Asset,
-				"inputs":  inputs,
-				"outputs": tx.Outputs,
-				"extra":   hex.EncodeToString(tx.Extra),
-				"hash":    tx.PayloadHash(),
-			}
+			item["transaction"] = transactionToMap(transactions[i])
 		} else {
 			item["transaction"] = s.Transaction
 		}
@@ -121,4 +92,36 @@ func snapshotsToMap(snapshots []*common.SnapshotWithTopologicalOrder, transactio
 		result[i] = item
 	}
 	return result
+}
+
+func transactionToMap(tx *common.Transaction) map[string]interface{} {
+	var inputs []map[string]interface{}
+	for _, in := range tx.Inputs {
+		if in.Hash.HasValue() {
+			inputs = append(inputs, map[string]interface{}{
+				"hash":  in.Hash,
+				"index": in.Index,
+			})
+		} else if len(in.Genesis) > 0 {
+			inputs = append(inputs, map[string]interface{}{
+				"genesis": hex.EncodeToString(in.Genesis),
+			})
+		} else if in.Deposit != nil {
+			inputs = append(inputs, map[string]interface{}{
+				"deposit": in.Deposit,
+			})
+		} else if in.Mint != nil {
+			inputs = append(inputs, map[string]interface{}{
+				"mint": in.Mint,
+			})
+		}
+	}
+	return map[string]interface{}{
+		"version": tx.Version,
+		"asset":   tx.Asset,
+		"inputs":  inputs,
+		"outputs": tx.Outputs,
+		"extra":   hex.EncodeToString(tx.Extra),
+		"hash":    tx.PayloadHash(),
+	}
 }

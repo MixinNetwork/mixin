@@ -79,6 +79,13 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		} else {
 			render.New().JSON(w, http.StatusOK, snapshots)
 		}
+	case "listmintdistributions":
+		distributions, err := listMintDistributions(impl.Store, call.Params)
+		if err != nil {
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
+		} else {
+			render.New().JSON(w, http.StatusOK, distributions)
+		}
 	default:
 		render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": "invalid method"})
 	}

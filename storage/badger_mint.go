@@ -10,6 +10,44 @@ import (
 	"github.com/vmihailenco/msgpack"
 )
 
+func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) ([]*common.MintDistribution, []*common.Transaction, error) {
+	mints := make([]*common.MintDistribution, 0)
+	transactions := make([]*common.Transaction, 0)
+
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
+	prefix := []byte(graphPrefixMint + group)
+	it.Seek(graphMintKey(group, offset))
+	for ; it.ValidForPrefix(prefix) && uint64(len(mints)) < count; it.Next() {
+		item := it.Item()
+		ival, err := item.ValueCopy(nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		var data common.MintDistribution
+		err = msgpack.Unmarshal(ival, &data)
+		if err != nil {
+			return nil, nil, err
+		}
+		if data.Batch != graphMintBatch(item.Key(), group) {
+			panic("malformed mint data")
+		}
+		mints = append(mints, &data)
+	}
+
+	for _, m := range mints {
+		tx, err := readTransaction(txn, m.Transaction)
+		if err != nil {
+			return nil, nil, err
+		}
+		transactions = append(transactions, &tx.Transaction)
+	}
+	return mints, transactions, nil
+}
+
 func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistribution, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
