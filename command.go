@@ -275,6 +275,8 @@ func setupTestNetCmd(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
+		defer store.Close()
+
 		err = store.StateSet("account", a)
 		if err != nil {
 			return err
@@ -390,8 +392,4 @@ func (raw signerInput) CheckDepositInput(deposit *common.DepositData, tx crypto.
 
 func (raw signerInput) ReadLastMintDistribution(group string) (*common.MintDistribution, error) {
 	return nil, nil
-}
-
-func (raw signerInput) LockMintInput(mint *common.MintData, tx crypto.Hash, fork bool) error {
-	return nil
 }
