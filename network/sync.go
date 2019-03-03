@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/patrickmn/go-cache"
@@ -116,7 +117,7 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 			if off > 0 {
 				offset = off
 			}
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(time.Duration(config.SnapshotRoundGap)):
 		}
 		if offset == 0 {
 			continue
