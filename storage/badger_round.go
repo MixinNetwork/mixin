@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/binary"
+	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -103,7 +104,7 @@ func (s *BadgerStore) StartNewRound(node crypto.Hash, number uint64, references 
 			return err
 		}
 		if link > external.Number {
-			panic("external link backward")
+			panic(fmt.Sprintf("external link backward %s=>%s %d=>%d", self.NodeId, external.NodeId, link, external.Number))
 		}
 	}
 	// assert end

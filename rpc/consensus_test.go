@@ -10,6 +10,7 @@ import (
 	mathRand "math/rand"
 	"net/http"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,6 +19,11 @@ import (
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/stretchr/testify/assert"
+)
+
+const (
+	NODES  = 7
+	INPUTS = 100
 )
 
 func TestConsensus(t *testing.T) {
@@ -29,19 +35,19 @@ func TestConsensus(t *testing.T) {
 
 	accounts, err := setupTestNet(root)
 	assert.Nil(err)
-	assert.Len(accounts, 7)
+	assert.Len(accounts, NODES)
 
 	nodes := make([]string, 0)
 	for i, _ := range accounts {
 		go func(num int) {
-			dir := fmt.Sprintf("%s/mixin-1700%d", root, num+1)
+			dir := fmt.Sprintf("%s/mixin-170%02d", root, num+1)
 			store, err := storage.NewBadgerStore(dir)
 			assert.Nil(err)
 			assert.NotNil(store)
-			node, err := kernel.SetupNode(store, fmt.Sprintf(":1700%d", num+1), dir)
+			node, err := kernel.SetupNode(store, fmt.Sprintf(":170%02d", num+1), dir)
 			assert.Nil(err)
 			assert.NotNil(node)
-			host := fmt.Sprintf("127.0.0.1:1800%d", num+1)
+			host := fmt.Sprintf("127.0.0.1:180%02d", num+1)
 			nodes = append(nodes, host)
 			go StartHTTP(store, node, 18000+num+1)
 			node.Loop()
@@ -50,12 +56,12 @@ func TestConsensus(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	tl, sl := testVerifySnapshots(assert, nodes)
-	assert.Equal(8, tl)
-	assert.Equal(8, sl)
+	assert.Equal(NODES+1, tl)
+	assert.Equal(NODES+1, sl)
 
 	domainAddress := accounts[0].String()
 	deposits := make([]*common.SignedTransaction, 0)
-	for i := 0; i < 100; i++ {
+	for i := 0; i < INPUTS; i++ {
 		raw := fmt.Sprintf(`{"version":1,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1e10%03d","amount":"100.035"}}],"outputs":[{"type":0,"amount":"100.035","script":"fffe01","accounts":["%s"]}]}`, i, domainAddress)
 		mathRand.Seed(time.Now().UnixNano())
 		tx, err := testSignTransaction(nodes[mathRand.Intn(len(nodes))], accounts[0], raw)
@@ -64,29 +70,32 @@ func TestConsensus(t *testing.T) {
 		deposits = append(deposits, tx)
 	}
 
-	inputs := make(map[string]*common.SignedTransaction)
 	for _, d := range deposits {
 		mathRand.Seed(time.Now().UnixNano())
 		for n := len(nodes); n > 0; n-- {
 			randIndex := mathRand.Intn(n)
 			nodes[n-1], nodes[randIndex] = nodes[randIndex], nodes[n-1]
 		}
-		for i := mathRand.Intn(len(nodes)); i < len(nodes); i++ {
-			id, err := testSendTransaction(nodes[i], hex.EncodeToString(d.Marshal()))
-			assert.Nil(err)
-			assert.Len(id, 73)
-			inputs[d.PayloadHash().String()] = d
+		wg := &sync.WaitGroup{}
+		for i := mathRand.Intn(len(nodes) - 1); i < len(nodes); i++ {
+			wg.Add(1)
+			go func(n string, raw string) {
+				defer wg.Done()
+				id, err := testSendTransaction(n, raw)
+				assert.Nil(err)
+				assert.Len(id, 73)
+			}(nodes[i], hex.EncodeToString(d.Marshal()))
 		}
+		wg.Wait()
 	}
-	assert.Len(inputs, len(deposits))
 
 	time.Sleep(10 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
-	assert.Equal(108, tl)
+	assert.Equal(INPUTS+NODES+1, tl)
 
 	utxos := make([]*common.SignedTransaction, 0)
-	for in := range inputs {
-		raw := fmt.Sprintf(`{"version":1,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"100.035","script":"fffe01","accounts":["%s"]}]}`, in, domainAddress)
+	for _, d := range deposits {
+		raw := fmt.Sprintf(`{"version":1,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"100.035","script":"fffe01","accounts":["%s"]}]}`, d.PayloadHash().String(), domainAddress)
 		mathRand.Seed(time.Now().UnixNano())
 		tx, err := testSignTransaction(nodes[mathRand.Intn(len(nodes))], accounts[0], raw)
 		assert.Nil(err)
@@ -94,25 +103,28 @@ func TestConsensus(t *testing.T) {
 		utxos = append(utxos, tx)
 	}
 
-	inputs = make(map[string]*common.SignedTransaction)
 	for _, tx := range utxos {
 		mathRand.Seed(time.Now().UnixNano())
 		for n := len(nodes); n > 0; n-- {
 			randIndex := mathRand.Intn(n)
 			nodes[n-1], nodes[randIndex] = nodes[randIndex], nodes[n-1]
 		}
-		for i := mathRand.Intn(len(nodes)); i < len(nodes); i++ {
-			id, err := testSendTransaction(nodes[i], hex.EncodeToString(tx.Marshal()))
-			assert.Nil(err)
-			assert.Len(id, 73)
-			inputs[tx.PayloadHash().String()] = tx
+		wg := &sync.WaitGroup{}
+		for i := mathRand.Intn(len(nodes) - 1); i < len(nodes); i++ {
+			wg.Add(1)
+			go func(n string, raw string) {
+				defer wg.Done()
+				id, err := testSendTransaction(n, raw)
+				assert.Nil(err)
+				assert.Len(id, 73)
+			}(nodes[i], hex.EncodeToString(tx.Marshal()))
 		}
+		wg.Wait()
 	}
-	assert.Len(inputs, len(utxos))
 
 	time.Sleep(10 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
-	assert.Equal(208, tl)
+	assert.Equal(INPUTS*2+NODES+1, tl)
 }
 
 func testSendTransaction(node, raw string) (string, error) {
@@ -136,7 +148,7 @@ func setupTestNet(root string) ([]common.Address, error) {
 		account.PublicViewKey = account.PrivateViewKey.Public()
 		return account
 	}
-	for i := 0; i < 7; i++ {
+	for i := 0; i < NODES; i++ {
 		signers = append(signers, randomPubAccount())
 		payees = append(payees, randomPubAccount())
 	}
@@ -167,7 +179,7 @@ func setupTestNet(root string) ([]common.Address, error) {
 	nodes := make([]map[string]string, 0)
 	for i, a := range signers {
 		nodes = append(nodes, map[string]string{
-			"host":   fmt.Sprintf("127.0.0.1:1700%d", i+1),
+			"host":   fmt.Sprintf("127.0.0.1:170%02d", i+1),
 			"signer": a.String(),
 		})
 	}
@@ -177,7 +189,7 @@ func setupTestNet(root string) ([]common.Address, error) {
 	}
 
 	for i, a := range signers {
-		dir := fmt.Sprintf("%s/mixin-1700%d", root, i+1)
+		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
 		err := os.MkdirAll(dir, 0755)
 		if err != nil {
 			return nil, err

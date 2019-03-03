@@ -114,8 +114,11 @@ func (node *Node) determinBestRound() *FinalRound {
 			rounds = append([]*FinalRound{}, rounds[rc:]...)
 		}
 		node.Graph.RoundHistory[id] = rounds
+		if id != node.IdForNetwork && best == nil {
+			best = rounds[0]
+		}
 		rts, rh := rounds[0].Start, uint64(len(rounds))
-		if rounds[0].NodeId == node.IdForNetwork || rh < height {
+		if id == node.IdForNetwork || rh < height {
 			continue
 		}
 		if rts+config.SnapshotRoundGap*rh > uint64(time.Now().UnixNano()) {
@@ -126,15 +129,7 @@ func (node *Node) determinBestRound() *FinalRound {
 			start, height = rts, rh
 		}
 	}
-	if best != nil {
-		return best
-	}
-	for _, r := range node.Graph.FinalRound {
-		if r.NodeId != node.IdForNetwork {
-			return r
-		}
-	}
-	return nil
+	return best
 }
 
 func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.SignedTransaction) error {
