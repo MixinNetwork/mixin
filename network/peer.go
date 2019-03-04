@@ -337,7 +337,7 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	pingTicker := time.NewTicker(1 * time.Second)
 	defer pingTicker.Stop()
 
-	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 10))
+	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
 	defer graphTicker.Stop()
 
 	if resend != nil {

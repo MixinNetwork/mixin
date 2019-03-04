@@ -53,7 +53,7 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPo
 		if l == nil {
 			continue
 		}
-		if l.Number < r.Number {
+		if l.Number < r.Number+config.SnapshotReferenceThreshold/2 {
 			continue
 		}
 
@@ -117,18 +117,18 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 			if off > 0 {
 				offset = off
 			}
-		case <-time.After(time.Duration(config.SnapshotRoundGap)):
-		}
-		if offset == 0 {
-			continue
-		}
-		for {
-			off, err := me.syncToNeighborSince(graph, p, offset)
-			if off > 0 {
-				offset = off
+		case <-time.After(time.Duration(config.SnapshotRoundGap) * 2):
+			if offset == 0 {
+				continue
 			}
-			if err != nil {
-				break
+			for {
+				off, err := me.syncToNeighborSince(graph, p, offset)
+				if off > 0 {
+					offset = off
+				}
+				if err != nil {
+					break
+				}
 			}
 		}
 	}
