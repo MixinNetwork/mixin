@@ -68,6 +68,6 @@ func writeDeposit(txn *badger.Txn, deposit *common.DepositData, tx crypto.Hash) 
 }
 
 func graphDepositKey(deposit *common.DepositData) []byte {
-	hash := crypto.NewHash(common.MsgpackMarshalPanic(deposit))
+	hash := deposit.UniqueKey()
 	return append([]byte(graphPrefixDeposit), hash[:]...)
 }
