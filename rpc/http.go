@@ -7,7 +7,6 @@ import (
 
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/bugsnag/bugsnag-go"
 	"github.com/bugsnag/bugsnag-go/errors"
 	"github.com/dimfeld/httptreemux"
 	"github.com/gorilla/handlers"
@@ -117,7 +116,6 @@ func StartHTTP(store storage.Store, node *kernel.Node, port int) error {
 	router := NewRouter(store, node)
 	handler := handleCORS(router)
 	handler = handlers.ProxyHeaders(handler)
-	handler = bugsnag.Handler(handler)
 
 	server := &http.Server{Addr: fmt.Sprintf(":%d", port), Handler: handler}
 	return server.ListenAndServe()
