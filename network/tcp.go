@@ -87,16 +87,19 @@ func (c *TcpClient) Receive() ([]byte, error) {
 	if m.Size > TransportMessageMaxSize {
 		return nil, fmt.Errorf("tcp receive invalid message size %d", m.Size)
 	}
-	data := make([]byte, m.Size)
-	s, err = c.conn.Read(data)
-	if err != nil {
-		return nil, err
-	}
-	if s != int(m.Size) {
-		return nil, fmt.Errorf("tcp receive invalid message data %d %d", s, m.Size)
+	for {
+		data := make([]byte, int(m.Size)-len(m.Data))
+		s, err = c.conn.Read(data)
+		if err != nil {
+			return nil, err
+		}
+		m.Data = append(m.Data, data[:s]...)
+		if len(m.Data) == int(m.Size) {
+			break
+		}
 	}
 
-	gzReader, err := gzip.NewReader(bytes.NewBuffer(data))
+	gzReader, err := gzip.NewReader(bytes.NewBuffer(m.Data))
 	if err != nil {
 		return nil, err
 	}
