@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"sort"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -96,6 +97,7 @@ func (node *Node) collectSelfSignatures(s *common.Snapshot) error {
 		panic("should never be here")
 	}
 	node.Graph.CacheRound[s.NodeId] = cache
+	node.removeFromCache(s)
 
 	for peerId, _ := range node.ConsensusNodes {
 		err := node.Peer.SendSnapshotMessage(peerId, s, 1)
@@ -136,6 +138,10 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.SignedTransact
 	if s.NodeId != node.IdForNetwork || len(s.Signatures) != 0 || s.Timestamp != 0 {
 		panic("should never be here")
 	}
+	if !node.checkCacheCapability() {
+		time.Sleep(10 * time.Millisecond)
+		return node.queueSnapshotOrPanic(s, false)
+	}
 
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
@@ -167,6 +173,7 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.SignedTransact
 		if err != nil {
 			panic(err)
 		}
+		node.CachePool = make([]*common.Snapshot, 0)
 	}
 	cache.Timestamp = s.Timestamp
 
@@ -187,5 +194,34 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.SignedTransact
 			return err
 		}
 	}
+	node.CachePool = append(node.CachePool, s)
 	return nil
+}
+
+func (node *Node) checkCacheCapability() bool {
+	count := len(node.CachePool)
+	if count == 0 {
+		return true
+	}
+	sort.Slice(node.CachePool, func(i, j int) bool {
+		return node.CachePool[i].Timestamp < node.CachePool[j].Timestamp
+	})
+	start := node.CachePool[0].Timestamp
+	end := node.CachePool[count-1].Timestamp
+	if uint64(time.Now().UnixNano()) >= start+config.SnapshotRoundGap*3/2 {
+		return true
+	}
+	return end < start+config.SnapshotRoundGap/3*2
+}
+
+func (node *Node) removeFromCache(s *common.Snapshot) {
+	for i, c := range node.CachePool {
+		if c.Hash != s.Hash {
+			continue
+		}
+		l := len(node.CachePool)
+		node.CachePool[l-1], node.CachePool[i] = node.CachePool[i], node.CachePool[l-1]
+		node.CachePool = node.CachePool[:l-1]
+		return
+	}
 }

@@ -29,6 +29,7 @@ type Node struct {
 	TopoCounter     *TopologicalSequence
 	SnapshotsPool   map[crypto.Hash][]*crypto.Signature
 	SignaturesPool  map[crypto.Hash]*crypto.Signature
+	CachePool       []*common.Snapshot
 	signaturesCache *cache.Cache
 	Peer            *network.Peer
 	SyncPoints      *syncMap

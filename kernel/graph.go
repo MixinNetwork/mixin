@@ -111,8 +111,9 @@ func (node *Node) queueSnapshotOrPanic(s *common.Snapshot, finalized bool) error
 }
 
 func (node *Node) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
-	delete(node.SnapshotsPool, s.PayloadHash())
-	delete(node.SignaturesPool, s.PayloadHash())
+	delete(node.SnapshotsPool, s.Hash)
+	delete(node.SignaturesPool, s.Hash)
+	node.removeFromCache(s)
 	return node.queueSnapshotOrPanic(&common.Snapshot{
 		NodeId:      s.NodeId,
 		Transaction: s.Transaction,
