@@ -21,7 +21,7 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		return node.handleSyncFinalSnapshot(s)
 	}
 
-	if !node.CheckSync() {
+	if !node.CheckCatchUp() {
 		return node.queueSnapshotOrPanic(s, false)
 	}
 

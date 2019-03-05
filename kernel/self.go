@@ -138,13 +138,18 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.SignedTransact
 	if s.NodeId != node.IdForNetwork || len(s.Signatures) != 0 || s.Timestamp != 0 {
 		panic("should never be here")
 	}
+
+	cache := node.Graph.CacheRound[s.NodeId].Copy()
+	final := node.Graph.FinalRound[s.NodeId].Copy()
+
 	if !node.checkCacheCapability() {
 		time.Sleep(10 * time.Millisecond)
 		return node.queueSnapshotOrPanic(s, false)
 	}
-
-	cache := node.Graph.CacheRound[s.NodeId].Copy()
-	final := node.Graph.FinalRound[s.NodeId].Copy()
+	if !node.CheckSync() && len(cache.Snapshots) == 0 {
+		time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
+		return node.queueSnapshotOrPanic(s, false)
+	}
 
 	for {
 		s.Timestamp = uint64(time.Now().UnixNano())
