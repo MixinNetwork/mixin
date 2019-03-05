@@ -397,13 +397,21 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 }
 
 func (me *Peer) acceptNeighborConnection(client Client) error {
-	defer client.Close()
+	done := make(chan bool, 1)
+	receive := make(chan *PeerMessage, 1024*1024)
+
+	defer func() {
+		client.Close()
+		done <- true
+	}()
 
 	peer, err := me.authenticateNeighbor(client)
 	if err != nil {
 		logger.Println("peer authentication error", err)
 		return err
 	}
+
+	go me.handlePeerMessage(peer, receive, done)
 
 	for {
 		data, err := client.Receive()
@@ -414,19 +422,34 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		if err != nil {
 			return err
 		}
-		switch msg.Type {
-		case PeerMessageTypePing:
-		case PeerMessageTypeSnapshot:
-			me.handle.QueueAppendSnapshot(peer.IdForNetwork, msg.Snapshot)
-		case PeerMessageTypeGraph:
-			me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.FinalCache)
-			peer.sync <- msg.FinalCache
-		case PeerMessageTypeTransactionRequest:
-			me.handle.SendTransactionToPeer(peer.IdForNetwork, msg.TransactionHash)
-		case PeerMessageTypeTransaction:
-			me.handle.CachePutTransaction(msg.Transaction)
-		case PeerMessageTypeSnapshotConfirm:
-			me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash, msg.Finalized)
+		select {
+		case receive <- msg:
+		case <-time.After(1 * time.Second):
+			return errors.New("peer receive timeout")
+		}
+	}
+}
+
+func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage, done chan bool) {
+	for {
+		select {
+		case <-done:
+			return
+		case msg := <-receive:
+			switch msg.Type {
+			case PeerMessageTypePing:
+			case PeerMessageTypeSnapshot:
+				me.handle.QueueAppendSnapshot(peer.IdForNetwork, msg.Snapshot)
+			case PeerMessageTypeGraph:
+				me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.FinalCache)
+				peer.sync <- msg.FinalCache
+			case PeerMessageTypeTransactionRequest:
+				me.handle.SendTransactionToPeer(peer.IdForNetwork, msg.TransactionHash)
+			case PeerMessageTypeTransaction:
+				me.handle.CachePutTransaction(msg.Transaction)
+			case PeerMessageTypeSnapshotConfirm:
+				me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash, msg.Finalized)
+			}
 		}
 	}
 }
