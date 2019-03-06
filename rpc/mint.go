@@ -40,7 +40,7 @@ func mintsToMap(mints []*common.MintDistribution, transactions []*common.Transac
 			"amount": m.Amount,
 		}
 		if tx {
-			item["transaction"] = transactionToMap(transactions[i])
+			item["transaction"] = transactionToMap(m.Transaction, transactions[i])
 		} else {
 			item["transaction"] = m.Transaction
 		}

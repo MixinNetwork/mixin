@@ -83,7 +83,7 @@ func TestConsensus(t *testing.T) {
 				defer wg.Done()
 				id, err := testSendTransaction(n, raw)
 				assert.Nil(err)
-				assert.Len(id, 84)
+				assert.Len(id, 75)
 			}(nodes[i], hex.EncodeToString(d.Marshal()))
 		}
 		wg.Wait()
@@ -116,7 +116,7 @@ func TestConsensus(t *testing.T) {
 				defer wg.Done()
 				id, err := testSendTransaction(n, raw)
 				assert.Nil(err)
-				assert.Len(id, 84)
+				assert.Len(id, 75)
 			}(nodes[i], hex.EncodeToString(tx.Marshal()))
 		}
 		wg.Wait()
@@ -296,18 +296,17 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 		false,
 		false,
 	})
-	var resp struct {
-		Data []*common.Snapshot `json:"data"`
-	}
+
+	var snapshots []*common.Snapshot
 	if err != nil {
 		panic(err)
 	}
-	err = json.Unmarshal(data, &resp)
+	err = json.Unmarshal(data, &snapshots)
 	if err != nil {
 		panic(err)
 	}
 	filter := make(map[string]*common.Snapshot)
-	for _, s := range resp.Data {
+	for _, s := range snapshots {
 		filter[s.Hash.String()] = s
 	}
 	return filter
@@ -340,11 +339,19 @@ func callRPC(node, method string, params []interface{}) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	data, err := ioutil.ReadAll(resp.Body)
+	var result struct {
+		Data  interface{} `json:"data"`
+		Error interface{} `json:"error"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
-	return data, nil
+	if result.Error != nil {
+		return nil, fmt.Errorf("ERROR %s", result.Error)
+	}
+
+	return json.Marshal(result.Data)
 }
 
 type signerInput struct {
@@ -381,14 +388,13 @@ func (raw signerInput) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, erro
 	if err != nil {
 		return nil, err
 	}
-	var body struct {
-		Data common.SignedTransaction `json:"data"`
-	}
-	err = json.Unmarshal(data, &body)
+
+	var tx common.SignedTransaction
+	err = json.Unmarshal(data, &tx)
 	if err != nil {
 		return nil, err
 	}
-	for i, out := range body.Data.Outputs {
+	for i, out := range tx.Outputs {
 		if i == index && len(out.Keys) > 0 {
 			utxo.Keys = out.Keys
 			utxo.Mask = out.Mask

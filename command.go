@@ -169,7 +169,9 @@ func sendTransactionCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "sendrawtransaction", []interface{}{
 		c.String("raw"),
 	})
-	fmt.Println(string(data))
+	if err == nil {
+		fmt.Println(string(data))
+	}
 	return err
 }
 
@@ -180,7 +182,9 @@ func listSnapshotsCmd(c *cli.Context) error {
 		c.Bool("sig"),
 		c.Bool("tx"),
 	})
-	fmt.Println(string(data))
+	if err == nil {
+		fmt.Println(string(data))
+	}
 	return err
 }
 
@@ -188,7 +192,9 @@ func getTransactionCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "gettransaction", []interface{}{
 		c.String("hash"),
 	})
-	fmt.Println(string(data))
+	if err == nil {
+		fmt.Println(string(data))
+	}
 	return err
 }
 
@@ -198,13 +204,17 @@ func listMintDistributionsCmd(c *cli.Context) error {
 		c.Uint64("count"),
 		c.Bool("tx"),
 	})
-	fmt.Println(string(data))
+	if err == nil {
+		fmt.Println(string(data))
+	}
 	return err
 }
 
 func getInfoCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getinfo", []interface{}{})
-	fmt.Println(string(data))
+	if err == nil {
+		fmt.Println(string(data))
+	}
 	return err
 }
 
@@ -326,11 +336,19 @@ func callRPC(node, method string, params []interface{}) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	data, err := ioutil.ReadAll(resp.Body)
+	var result struct {
+		Data  interface{} `json:"data"`
+		Error interface{} `json:"error"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
-	return data, nil
+	if result.Error != nil {
+		return nil, fmt.Errorf("ERROR %s", result.Error)
+	}
+
+	return json.Marshal(result.Data)
 }
 
 type signerInput struct {
@@ -367,14 +385,12 @@ func (raw signerInput) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, erro
 	if err != nil {
 		return nil, err
 	}
-	var body struct {
-		Data common.SignedTransaction `json:"data"`
-	}
-	err = json.Unmarshal(data, &body)
+	var tx common.SignedTransaction
+	err = json.Unmarshal(data, &tx)
 	if err != nil {
 		return nil, err
 	}
-	for i, out := range body.Data.Outputs {
+	for i, out := range tx.Outputs {
 		if i == index && len(out.Keys) > 0 {
 			utxo.Keys = out.Keys
 			utxo.Mask = out.Mask

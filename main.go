@@ -233,7 +233,7 @@ func main() {
 	}
 	err := app.Run(os.Args)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 }
 

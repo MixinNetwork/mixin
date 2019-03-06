@@ -29,7 +29,7 @@ func queueTransaction(node *kernel.Node, params []interface{}) (string, error) {
 	return node.QueueTransaction(&tx)
 }
 
-func getTransaction(store storage.Store, params []interface{}) (*common.SignedTransaction, error) {
+func getTransaction(store storage.Store, params []interface{}) (map[string]interface{}, error) {
 	if len(params) != 1 {
 		return nil, errors.New("invalid params count")
 	}
@@ -37,7 +37,11 @@ func getTransaction(store storage.Store, params []interface{}) (*common.SignedTr
 	if err != nil {
 		return nil, err
 	}
-	return store.ReadTransaction(hash)
+	tx, err := store.ReadTransaction(hash)
+	if err != nil || tx == nil {
+		return nil, err
+	}
+	return transactionToMap(hash, &tx.Transaction), nil
 }
 
 func listSnapshots(store storage.Store, params []interface{}) ([]map[string]interface{}, error) {
@@ -82,7 +86,7 @@ func snapshotsToMap(snapshots []*common.SnapshotWithTopologicalOrder, transactio
 			"topology":   s.TopologicalOrder,
 		}
 		if tx {
-			item["transaction"] = transactionToMap(transactions[i])
+			item["transaction"] = transactionToMap(s.Transaction, transactions[i])
 		} else {
 			item["transaction"] = s.Transaction
 		}
@@ -94,7 +98,7 @@ func snapshotsToMap(snapshots []*common.SnapshotWithTopologicalOrder, transactio
 	return result
 }
 
-func transactionToMap(tx *common.Transaction) map[string]interface{} {
+func transactionToMap(hash crypto.Hash, tx *common.Transaction) map[string]interface{} {
 	var inputs []map[string]interface{}
 	for _, in := range tx.Inputs {
 		if in.Hash.HasValue() {
@@ -122,6 +126,6 @@ func transactionToMap(tx *common.Transaction) map[string]interface{} {
 		"inputs":  inputs,
 		"outputs": tx.Outputs,
 		"extra":   hex.EncodeToString(tx.Extra),
-		"hash":    tx.PayloadHash(),
+		"hash":    hash,
 	}
 }
