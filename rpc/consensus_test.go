@@ -83,7 +83,7 @@ func TestConsensus(t *testing.T) {
 				defer wg.Done()
 				id, err := testSendTransaction(n, raw)
 				assert.Nil(err)
-				assert.Len(id, 73)
+				assert.Len(id, 84)
 			}(nodes[i], hex.EncodeToString(d.Marshal()))
 		}
 		wg.Wait()
@@ -116,7 +116,7 @@ func TestConsensus(t *testing.T) {
 				defer wg.Done()
 				id, err := testSendTransaction(n, raw)
 				assert.Nil(err)
-				assert.Len(id, 73)
+				assert.Len(id, 84)
 			}(nodes[i], hex.EncodeToString(tx.Marshal()))
 		}
 		wg.Wait()
@@ -296,7 +296,9 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 		false,
 		false,
 	})
-	var resp []*common.Snapshot
+	var resp struct {
+		Data []*common.Snapshot `json:"data"`
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -305,7 +307,7 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 		panic(err)
 	}
 	filter := make(map[string]*common.Snapshot)
-	for _, s := range resp {
+	for _, s := range resp.Data {
 		filter[s.Hash.String()] = s
 	}
 	return filter
@@ -379,15 +381,14 @@ func (raw signerInput) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, erro
 	if err != nil {
 		return nil, err
 	}
-	var tx common.SignedTransaction
-	err = json.Unmarshal(data, &tx)
+	var body struct {
+		Data common.SignedTransaction `json:"data"`
+	}
+	err = json.Unmarshal(data, &body)
 	if err != nil {
 		return nil, err
 	}
-	if len(tx.Signatures) == 0 {
-		return nil, fmt.Errorf("invalid input %s#%d", hash.String(), index)
-	}
-	for i, out := range tx.Outputs {
+	for i, out := range body.Data.Outputs {
 		if i == index && len(out.Keys) > 0 {
 			utxo.Keys = out.Keys
 			utxo.Mask = out.Mask
