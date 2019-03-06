@@ -33,10 +33,10 @@ func NewRouter(store storage.Store, node *kernel.Node) *httptreemux.TreeMux {
 
 func registerHanders(router *httptreemux.TreeMux) {
 	router.MethodNotAllowedHandler = func(w http.ResponseWriter, r *http.Request, _ map[string]httptreemux.HandlerFunc) {
-		render.New().JSON(w, http.StatusNotFound, map[string]interface{}{})
+		render.New().JSON(w, http.StatusNotFound, map[string]interface{}{"error": "not found"})
 	}
 	router.NotFoundHandler = func(w http.ResponseWriter, r *http.Request) {
-		render.New().JSON(w, http.StatusNotFound, map[string]interface{}{})
+		render.New().JSON(w, http.StatusNotFound, map[string]interface{}{"error": "not found"})
 	}
 	router.PanicHandler = func(w http.ResponseWriter, r *http.Request, rcv interface{}) {
 		err := fmt.Errorf(string(errors.New(rcv, 2).Stack()))
@@ -58,35 +58,35 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, info)
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": info})
 		}
 	case "sendrawtransaction":
 		id, err := queueTransaction(impl.Node, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"id": id})
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": map[string]string{"hash": id}})
 		}
 	case "gettransaction":
-		snap, err := getTransaction(impl.Store, call.Params)
+		tx, err := getTransaction(impl.Store, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, snap)
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": tx})
 		}
 	case "listsnapshots":
 		snapshots, err := listSnapshots(impl.Store, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, snapshots)
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": snapshots})
 		}
 	case "listmintdistributions":
 		distributions, err := listMintDistributions(impl.Store, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, distributions)
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": distributions})
 		}
 	default:
 		render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": "invalid method"})
