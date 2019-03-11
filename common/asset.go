@@ -60,6 +60,9 @@ func (d *DepositData) AssetId() crypto.Hash {
 	switch d.Chain {
 	case EthereumChainId:
 		chainBase = EthereumChainBase
+		if d.AssetKey == "0x0000000000000000000000000000000000000000" {
+			return EthereumChainId
+		}
 	default:
 		return crypto.Hash{}
 	}
