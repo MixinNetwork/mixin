@@ -88,6 +88,10 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 		return fmt.Errorf("invalid tx version %d", tx.Version)
 	}
 
+	if len(tx.Inputs) < 1 || len(tx.Outputs) < 1 {
+		return fmt.Errorf("invalid tx inputs or outputs %d %d", len(tx.Inputs), len(tx.Outputs))
+	}
+
 	if len(tx.Inputs) != len(tx.Signatures) {
 		return fmt.Errorf("invalid tx signature number %d %d", len(tx.Inputs), len(tx.Signatures))
 	}
@@ -206,7 +210,7 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 		}
 	}
 
-	if inputAmount.Cmp(outputAmount) != 0 {
+	if inputAmount.Sign() <= 0 || inputAmount.Cmp(outputAmount) != 0 {
 		return fmt.Errorf("invalid input output amount %s %s", inputAmount.String(), outputAmount.String())
 	}
 	return nil
