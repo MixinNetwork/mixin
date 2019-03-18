@@ -14,6 +14,7 @@ type Queue struct {
 	cacheRing *RingBuffer
 	finalRing *RingBuffer
 	finalSet  map[crypto.Hash]bool
+	cacheSet  map[crypto.Hash]bool
 }
 
 type PeerSnapshot struct {
@@ -21,10 +22,25 @@ type PeerSnapshot struct {
 	Snapshot *common.Snapshot
 }
 
+func (ps *PeerSnapshot) cacheKey() crypto.Hash {
+	hash := ps.Snapshot.PayloadHash()
+	hash = hash.ForNetwork(ps.PeerId)
+	for _, sig := range ps.Snapshot.Signatures {
+		hash = crypto.NewHash(append(hash[:], sig[:]...))
+	}
+	return hash
+}
+
+func (ps *PeerSnapshot) finalKey() crypto.Hash {
+	hash := ps.Snapshot.PayloadHash()
+	return hash.ForNetwork(ps.PeerId)
+}
+
 func NewQueue() *Queue {
 	return &Queue{
 		mutex:     new(sync.Mutex),
 		finalSet:  make(map[crypto.Hash]bool),
+		cacheSet:  make(map[crypto.Hash]bool),
 		cacheRing: NewRingBuffer(1024 * 1024),
 		finalRing: NewRingBuffer(1024 * 1024),
 	}
@@ -39,8 +55,7 @@ func (q *Queue) PutFinal(ps *PeerSnapshot) error {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
-	hash := ps.Snapshot.PayloadHash()
-	hash = hash.ForNetwork(ps.PeerId)
+	hash := ps.finalKey()
 	if q.finalSet[hash] {
 		return nil
 	}
@@ -64,15 +79,19 @@ func (q *Queue) PopFinal() (*PeerSnapshot, error) {
 		return nil, err
 	}
 	ps := item.(*PeerSnapshot)
-	hash := ps.Snapshot.PayloadHash()
-	hash = hash.ForNetwork(ps.PeerId)
-	delete(q.finalSet, hash)
+	delete(q.finalSet, ps.finalKey())
 	return ps, nil
 }
 
 func (q *Queue) PutCache(ps *PeerSnapshot) error {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
+
+	hash := ps.cacheKey()
+	if q.cacheSet[hash] {
+		return nil
+	}
+	q.cacheSet[hash] = true
 
 	for {
 		put, err := q.cacheRing.Offer(ps)
@@ -92,6 +111,7 @@ func (q *Queue) PopCache() (*PeerSnapshot, error) {
 		return nil, err
 	}
 	ps := item.(*PeerSnapshot)
+	delete(q.cacheSet, ps.cacheKey())
 	return ps, nil
 }
 
