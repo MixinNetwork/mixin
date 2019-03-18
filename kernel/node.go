@@ -311,7 +311,7 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 }
 
 func (node *Node) CheckSync() bool {
-	count := 1
+	count, threshold := 1, len(node.ConsensusNodes)*2/3+1
 	final := node.Graph.MyFinalNumber
 	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
@@ -322,20 +322,21 @@ func (node *Node) CheckSync() bool {
 			count += 1
 		}
 	}
-	return count >= len(node.ConsensusNodes)*2/3+1
+	return count >= threshold
 }
 
 func (node *Node) CheckCatchUp() bool {
-	if node.SyncPoints.Len() != len(node.ConsensusNodes)-1 {
+	threshold := len(node.ConsensusNodes)*2/3 + 1
+	if node.SyncPoints.Len() < threshold {
 		return false
 	}
 	final := node.Graph.MyFinalNumber
 	cache := node.Graph.MyCacheRound
 	for id, _ := range node.ConsensusNodes {
-		if id == node.IdForNetwork {
+		remote := node.SyncPoints.Get(id)
+		if remote == nil {
 			continue
 		}
-		remote := node.SyncPoints.Get(id)
 		if remote.Number <= final {
 			continue
 		}
