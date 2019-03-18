@@ -44,7 +44,7 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Sig
 
 	err = tx.LockInputs(node.store, false)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
 	return tx, node.store.WriteTransaction(tx)
