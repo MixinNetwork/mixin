@@ -87,11 +87,6 @@ func (q *Queue) PutCache(ps *PeerSnapshot) error {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
-	if q.cacheSet[ps.key] {
-		return nil
-	}
-	q.cacheSet[ps.key] = true
-
 	for {
 		put, err := q.cacheRing.Offer(ps)
 		if err != nil || put {
@@ -110,7 +105,6 @@ func (q *Queue) PopCache() (*PeerSnapshot, error) {
 		return nil, err
 	}
 	ps := item.(*PeerSnapshot)
-	delete(q.cacheSet, ps.key)
 	return ps, nil
 }
 
