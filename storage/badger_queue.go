@@ -18,6 +18,7 @@ type Queue struct {
 }
 
 type PeerSnapshot struct {
+	key      crypto.Hash
 	PeerId   crypto.Hash
 	Snapshot *common.Snapshot
 }
@@ -55,11 +56,10 @@ func (q *Queue) PutFinal(ps *PeerSnapshot) error {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
-	hash := ps.finalKey()
-	if q.finalSet[hash] {
+	if q.finalSet[ps.key] {
 		return nil
 	}
-	q.finalSet[hash] = true
+	q.finalSet[ps.key] = true
 
 	for {
 		put, err := q.finalRing.Offer(ps)
@@ -79,7 +79,7 @@ func (q *Queue) PopFinal() (*PeerSnapshot, error) {
 		return nil, err
 	}
 	ps := item.(*PeerSnapshot)
-	delete(q.finalSet, ps.finalKey())
+	delete(q.finalSet, ps.key)
 	return ps, nil
 }
 
@@ -87,11 +87,10 @@ func (q *Queue) PutCache(ps *PeerSnapshot) error {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
-	hash := ps.cacheKey()
-	if q.cacheSet[hash] {
+	if q.cacheSet[ps.key] {
 		return nil
 	}
-	q.cacheSet[hash] = true
+	q.cacheSet[ps.key] = true
 
 	for {
 		put, err := q.cacheRing.Offer(ps)
@@ -111,7 +110,7 @@ func (q *Queue) PopCache() (*PeerSnapshot, error) {
 		return nil, err
 	}
 	ps := item.(*PeerSnapshot)
-	delete(q.cacheSet, ps.cacheKey())
+	delete(q.cacheSet, ps.key)
 	return ps, nil
 }
 
@@ -137,8 +136,10 @@ func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snaps
 		Snapshot: snap,
 	}
 	if finalized {
+		ps.key = ps.finalKey()
 		return s.queue.PutFinal(ps)
 	}
+	ps.key = ps.cacheKey()
 	return s.queue.PutCache(ps)
 }
 
