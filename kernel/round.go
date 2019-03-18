@@ -9,7 +9,6 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/network"
 	"github.com/MixinNetwork/mixin/storage"
 )
@@ -101,7 +100,6 @@ func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (*
 		cache.Timestamp = final.Start + config.SnapshotRoundGap
 	}
 
-	logger.Println("\n" + graph.Print())
 	graph.UpdateFinalCache(idForNetwork)
 	return graph, nil
 }
