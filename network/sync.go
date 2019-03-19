@@ -47,13 +47,28 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPo
 		localFilter[p.NodeId] = p
 	}
 
+	var future bool
 	var offset uint64
+
 	for _, r := range remote {
 		l := localFilter[r.NodeId]
 		if l == nil {
 			continue
 		}
-		if l.Number < r.Number+config.SnapshotReferenceThreshold/2 {
+		if l.Number > r.Number+config.SnapshotReferenceThreshold/2 {
+			future = true
+		}
+	}
+	if !future {
+		return offset, nil
+	}
+
+	for _, r := range remote {
+		l := localFilter[r.NodeId]
+		if l == nil {
+			continue
+		}
+		if l.Number < r.Number {
 			continue
 		}
 
@@ -104,31 +119,37 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 	var offset uint64
 	var graph map[crypto.Hash]*SyncPoint
 	for {
-		select {
-		case g := <-p.sync:
-			graph = make(map[crypto.Hash]*SyncPoint)
-			for _, r := range g {
-				graph[r.NodeId] = r
-			}
-			off, err := me.compareRoundGraphAndGetTopologicalOffset(me.handle.BuildGraph(), g)
-			if err != nil {
-				logger.Printf("GRAPH COMPARE WITH %s %s", p.IdForNetwork.String(), err.Error())
-			}
-			if off > 0 {
-				offset = off
-			}
-		case <-time.After(time.Duration(config.SnapshotRoundGap) * 2):
-			if offset == 0 {
-				continue
-			}
-			for {
-				off, err := me.syncToNeighborSince(graph, p, offset)
+	L:
+		for {
+			select {
+			case g := <-p.sync:
+				graph = make(map[crypto.Hash]*SyncPoint)
+				for _, r := range g {
+					graph[r.NodeId] = r
+				}
+				off, err := me.compareRoundGraphAndGetTopologicalOffset(me.handle.BuildGraph(), g)
+				if err != nil {
+					logger.Printf("GRAPH COMPARE WITH %s %s", p.IdForNetwork.String(), err.Error())
+				}
 				if off > 0 {
 					offset = off
 				}
-				if err != nil {
-					break
-				}
+			case <-time.After(time.Duration(config.SnapshotRoundGap) / 2):
+				break L
+			}
+		}
+		if offset == 0 {
+			continue
+		}
+
+		time.Sleep(time.Duration(config.SnapshotRoundGap))
+		for {
+			off, err := me.syncToNeighborSince(graph, p, offset)
+			if off > 0 {
+				offset = off
+			}
+			if err != nil {
+				break
 			}
 		}
 	}
