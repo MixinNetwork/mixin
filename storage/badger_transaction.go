@@ -56,7 +56,7 @@ func (s *BadgerStore) WriteTransaction(tx *common.SignedTransaction) error {
 			key := graphUtxoKey(in.Hash, in.Index)
 			item, err := txn.Get(key)
 			if err != nil {
-				panic(fmt.Errorf("UTXO check error %s", err.Error()))
+				panic(fmt.Errorf("UTXO check error %s %s:%d=>%s", err.Error(), in.Hash.String(), in.Index, txHash.String()))
 			}
 			ival, err := item.ValueCopy(nil)
 			if err != nil {
