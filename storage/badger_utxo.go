@@ -36,9 +36,6 @@ func (s *BadgerStore) LockUTXO(hash crypto.Hash, index int, tx crypto.Hash, fork
 	err := s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		key := graphUtxoKey(hash, index)
 		item, err := txn.Get(key)
-		if err == badger.ErrKeyNotFound {
-			return nil
-		}
 		if err != nil {
 			return err
 		}
