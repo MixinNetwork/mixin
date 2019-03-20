@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,6 +22,12 @@ func TestInteger(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal("\"20000.00000000\"", string(j))
 	err = c.UnmarshalJSON(j)
+	assert.Nil(err)
+	assert.Equal("20000.00000000", c.String())
+	p, err := c.MarshalMsgpack()
+	assert.Nil(err)
+	assert.Equal("01d1a94a2000", hex.EncodeToString(p))
+	err = c.UnmarshalMsgpack(p)
 	assert.Nil(err)
 	assert.Equal("20000.00000000", c.String())
 
@@ -44,4 +51,12 @@ func TestInteger(t *testing.T) {
 	assert.Equal("50000.00000000", n.String())
 	n = m.Div(1000000)
 	assert.Equal("0.50000000", n.String())
+
+	m = NewInteger(8273)
+	assert.Equal("8273.00000000", m.String())
+	p = MsgpackMarshalPanic(m)
+	assert.Equal("c70500c09eec3100", hex.EncodeToString(p))
+	err = MsgpackUnmarshal(p, &m)
+	assert.Nil(err)
+	assert.Equal("8273.00000000", m.String())
 }

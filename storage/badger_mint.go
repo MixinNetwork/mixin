@@ -7,7 +7,6 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/dgraph-io/badger"
-	"github.com/vmihailenco/msgpack"
 )
 
 func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) ([]*common.MintDistribution, []*common.Transaction, error) {
@@ -28,7 +27,7 @@ func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) 
 			return nil, nil, err
 		}
 		var data common.MintDistribution
-		err = msgpack.Unmarshal(ival, &data)
+		err = common.MsgpackUnmarshal(ival, &data)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -75,7 +74,7 @@ func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistri
 			return nil, err
 		}
 		var data common.MintDistribution
-		err = msgpack.Unmarshal(ival, &data)
+		err = common.MsgpackUnmarshal(ival, &data)
 		if err != nil {
 			return nil, err
 		}
@@ -122,7 +121,7 @@ func readMintInput(txn *badger.Txn, mint *common.MintData) (*common.MintDistribu
 		return nil, err
 	}
 	var dist common.MintDistribution
-	err = msgpack.Unmarshal(ival, &dist)
+	err = common.MsgpackUnmarshal(ival, &dist)
 	return &dist, err
 }
 

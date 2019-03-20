@@ -1,8 +1,8 @@
 package storage
 
 import (
+	"github.com/MixinNetwork/mixin/common"
 	"github.com/dgraph-io/badger"
-	"github.com/vmihailenco/msgpack"
 )
 
 func (s *BadgerStore) StateGet(key string, val interface{}) (bool, error) {
@@ -20,15 +20,12 @@ func (s *BadgerStore) StateGet(key string, val interface{}) (bool, error) {
 	if err != nil {
 		return true, err
 	}
-	return true, msgpack.Unmarshal(ival, val)
+	return true, common.MsgpackUnmarshal(ival, val)
 }
 
 func (s *BadgerStore) StateSet(key string, val interface{}) error {
 	return s.stateDB.Update(func(txn *badger.Txn) error {
-		ival, err := msgpack.Marshal(val)
-		if err != nil {
-			return err
-		}
+		ival := common.MsgpackMarshalPanic(val)
 		return txn.Set([]byte(key), ival)
 	})
 }

@@ -6,7 +6,6 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/dgraph-io/badger"
-	"github.com/vmihailenco/msgpack"
 )
 
 func (s *BadgerStore) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error) {
@@ -27,7 +26,7 @@ func (s *BadgerStore) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error
 	}
 
 	var out common.UTXO
-	err = msgpack.Unmarshal(ival, &out)
+	err = common.MsgpackUnmarshal(ival, &out)
 	return &out, err
 }
 
@@ -45,7 +44,7 @@ func (s *BadgerStore) LockUTXO(hash crypto.Hash, index int, tx crypto.Hash, fork
 		}
 
 		var out common.UTXOWithLock
-		err = msgpack.Unmarshal(ival, &out)
+		err = common.MsgpackUnmarshal(ival, &out)
 		if err != nil {
 			return err
 		}

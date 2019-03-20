@@ -3,8 +3,12 @@ package common
 import (
 	"bytes"
 
-	"github.com/vmihailenco/msgpack"
+	"github.com/MixinNetwork/msgpack"
 )
+
+func init() {
+	msgpack.RegisterExt(0, (*Integer)(nil))
+}
 
 func MsgpackMarshalPanic(val interface{}) []byte {
 	var buf bytes.Buffer
@@ -14,4 +18,8 @@ func MsgpackMarshalPanic(val interface{}) []byte {
 		panic(err)
 	}
 	return buf.Bytes()
+}
+
+func MsgpackUnmarshal(data []byte, val interface{}) error {
+	return msgpack.Unmarshal(data, val)
 }

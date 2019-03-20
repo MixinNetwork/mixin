@@ -16,7 +16,6 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/vmihailenco/msgpack"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -101,7 +100,7 @@ func decodeTransactionCmd(c *cli.Context) error {
 		return err
 	}
 	var tx common.SignedTransaction
-	err = msgpack.Unmarshal(raw, &tx)
+	err = common.MsgpackUnmarshal(raw, &tx)
 	if err != nil {
 		return err
 	}

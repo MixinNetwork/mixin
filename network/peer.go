@@ -11,7 +11,6 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/patrickmn/go-cache"
-	"github.com/vmihailenco/msgpack"
 )
 
 const (
@@ -242,13 +241,13 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 	switch msg.Type {
 	case PeerMessageTypeSnapshot:
 		var ss common.Snapshot
-		err := msgpack.Unmarshal(data[1:], &ss)
+		err := common.MsgpackUnmarshal(data[1:], &ss)
 		if err != nil {
 			return nil, err
 		}
 		msg.Snapshot = &ss
 	case PeerMessageTypeGraph:
-		err := msgpack.Unmarshal(data[1:], &msg.FinalCache)
+		err := common.MsgpackUnmarshal(data[1:], &msg.FinalCache)
 		if err != nil {
 			return nil, err
 		}
@@ -260,7 +259,7 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 		copy(msg.SnapshotHash[:], data[2:])
 	case PeerMessageTypeTransaction:
 		var tx common.SignedTransaction
-		err := msgpack.Unmarshal(data[1:], &tx)
+		err := common.MsgpackUnmarshal(data[1:], &tx)
 		if err != nil {
 			return nil, err
 		}

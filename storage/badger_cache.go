@@ -5,7 +5,6 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/dgraph-io/badger"
-	"github.com/vmihailenco/msgpack"
 )
 
 const (
@@ -40,7 +39,7 @@ func (s *BadgerStore) CacheListTransactions(hook func(tx *common.SignedTransacti
 			return err
 		}
 		var tx common.SignedTransaction
-		err = msgpack.Unmarshal(v, &tx)
+		err = common.MsgpackUnmarshal(v, &tx)
 		if err != nil {
 			return err
 		}
@@ -81,7 +80,7 @@ func (s *BadgerStore) CacheGetTransaction(hash crypto.Hash) (*common.SignedTrans
 		return nil, err
 	}
 	var tx common.SignedTransaction
-	err = msgpack.Unmarshal(val, &tx)
+	err = common.MsgpackUnmarshal(val, &tx)
 	return &tx, err
 }
 

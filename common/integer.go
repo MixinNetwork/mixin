@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/shopspring/decimal"
-	"github.com/vmihailenco/msgpack"
 )
 
 const Precision = 8
@@ -16,7 +15,6 @@ const Precision = 8
 var Zero Integer
 
 func init() {
-	msgpack.RegisterExt(0, (*Integer)(nil))
 	Zero = NewInteger(0)
 }
 

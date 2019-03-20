@@ -10,7 +10,6 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/dgraph-io/badger"
-	"github.com/vmihailenco/msgpack"
 )
 
 func (s *BadgerStore) ReadTransaction(hash crypto.Hash) (*common.SignedTransaction, error) {
@@ -63,7 +62,7 @@ func (s *BadgerStore) WriteTransaction(tx *common.SignedTransaction) error {
 				panic(fmt.Errorf("UTXO check error %s", err.Error()))
 			}
 			var out common.UTXOWithLock
-			err = msgpack.Unmarshal(ival, &out)
+			err = common.MsgpackUnmarshal(ival, &out)
 			if err != nil {
 				panic(fmt.Errorf("UTXO check error %s", err.Error()))
 			}

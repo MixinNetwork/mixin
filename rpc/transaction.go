@@ -10,7 +10,6 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/vmihailenco/msgpack"
 )
 
 func queueTransaction(node *kernel.Node, params []interface{}) (string, error) {
@@ -22,7 +21,7 @@ func queueTransaction(node *kernel.Node, params []interface{}) (string, error) {
 		return "", err
 	}
 	var tx common.SignedTransaction
-	err = msgpack.Unmarshal(raw, &tx)
+	err = common.MsgpackUnmarshal(raw, &tx)
 	if err != nil {
 		return "", err
 	}

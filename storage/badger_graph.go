@@ -9,7 +9,6 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/dgraph-io/badger"
-	"github.com/vmihailenco/msgpack"
 )
 
 const (
@@ -70,7 +69,7 @@ func readSnapshotsForNodeRound(txn *badger.Txn, nodeId crypto.Hash, round uint64
 			return snapshots, err
 		}
 		var s common.SnapshotWithTopologicalOrder
-		err = msgpack.Unmarshal(v, &s)
+		err = common.MsgpackUnmarshal(v, &s)
 		if err != nil {
 			return snapshots, err
 		}
@@ -157,7 +156,7 @@ func graphReadValue(txn *badger.Txn, key []byte, val interface{}) error {
 	if err != nil {
 		return err
 	}
-	return msgpack.Unmarshal(ival, &val)
+	return common.MsgpackUnmarshal(ival, &val)
 }
 
 func graphSnapshotKey(nodeId crypto.Hash, round uint64, hash crypto.Hash) []byte {

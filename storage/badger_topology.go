@@ -5,7 +5,6 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/dgraph-io/badger"
-	"github.com/vmihailenco/msgpack"
 )
 
 func (s *BadgerStore) ReadSnapshotWithTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, []*common.Transaction, error) {
@@ -53,7 +52,7 @@ func (s *BadgerStore) ReadSnapshotsSinceTopology(topologyOffset, count uint64) (
 			return snapshots, err
 		}
 		var snap common.SnapshotWithTopologicalOrder
-		err = msgpack.Unmarshal(v, &snap)
+		err = common.MsgpackUnmarshal(v, &snap)
 		if err != nil {
 			return snapshots, err
 		}
