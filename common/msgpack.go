@@ -3,7 +3,7 @@ package common
 import (
 	"bytes"
 
-	"github.com/MixinNetwork/msgpack"
+	"github.com/vmihailenco/msgpack"
 )
 
 func init() {

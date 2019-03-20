@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/MixinNetwork/go-number"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/gofrs/uuid"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +19,7 @@ func TestMsgpack(t *testing.T) {
 	utxoIndex := 1
 	utxoAmount := "8293"
 
-	charge := NewIntegerFromString(number.FromString(utxoAmount).Sub(number.FromString(amount)).Persist())
+	charge := NewIntegerFromString(utxoAmount).Sub(NewIntegerFromString(amount))
 	assert.Equal("8273.00000000", charge.String())
 	err := MsgpackUnmarshal(MsgpackMarshalPanic(charge), &charge)
 	assert.Nil(err)
