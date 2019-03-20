@@ -83,8 +83,6 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 
 	logger.Printf("Listen:\t%s\n", addr)
 	logger.Printf("Signer:\t%s\n", node.Signer.String())
-	logger.Printf("View Key:\t%s\n", node.Signer.PrivateViewKey.String())
-	logger.Printf("Spend Key:\t%s\n", node.Signer.PrivateSpendKey.String())
 	logger.Printf("Network:\t%s\n", node.networkId.String())
 	logger.Printf("Node Id:\t%s\n", node.IdForNetwork.String())
 	logger.Printf("Topology:\t%d\n", node.TopoCounter.seq)
