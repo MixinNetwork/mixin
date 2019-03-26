@@ -20,10 +20,14 @@ func (tx *SignedTransaction) verifyDepositFormat() error {
 	if err != nil {
 		return err
 	}
-	if deposit.AssetId() != tx.Asset {
-		return fmt.Errorf("invalid asset %s %s", tx.Asset, deposit.AssetId())
+	if id := deposit.Asset().AssetId(); id != tx.Asset {
+		return fmt.Errorf("invalid asset %s %s", tx.Asset, id)
 	}
 	return nil
+}
+
+func (tx *SignedTransaction) DepositData() *DepositData {
+	return tx.Inputs[0].Deposit
 }
 
 func (tx *SignedTransaction) validateDepositInput(store DataStore, msg []byte) error {

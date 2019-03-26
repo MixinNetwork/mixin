@@ -47,6 +47,12 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Sig
 		return nil, nil
 	}
 
+	if d := tx.DepositData(); d != nil {
+		err = node.store.WriteAsset(d.Asset())
+		if err != nil {
+			return nil, err
+		}
+	}
 	return tx, node.store.WriteTransaction(tx)
 }
 

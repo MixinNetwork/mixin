@@ -25,6 +25,12 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (bool, error
 		return false, err
 	}
 
+	if d := tx.DepositData(); d != nil {
+		err = node.store.WriteAsset(d.Asset())
+		if err != nil {
+			return false, err
+		}
+	}
 	return true, node.store.WriteTransaction(tx)
 }
 
