@@ -11,6 +11,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		"network": node.NetworkId(),
 		"node":    node.IdForNetwork,
 		"version": config.BuildVersion,
+		"uptime":  node.Uptime().String(),
 	}
 	graph, err := kernel.LoadRoundGraph(store, node.NetworkId(), node.IdForNetwork)
 	if err != nil {

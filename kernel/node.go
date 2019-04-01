@@ -35,6 +35,7 @@ type Node struct {
 	SyncPoints      *syncMap
 
 	epoch       uint64
+	startAt     time.Time
 	networkId   crypto.Hash
 	store       storage.Store
 	mempoolChan chan *common.Snapshot
@@ -52,6 +53,7 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		configDir:       dir,
 		TopoCounter:     getTopologyCounter(store),
 		signaturesCache: cache.New(config.CacheTTL, 10*time.Minute),
+		startAt:         time.Now(),
 	}
 
 	err := node.LoadNodeState()
@@ -175,6 +177,10 @@ func (node *Node) ListenNeighbors() error {
 
 func (node *Node) NetworkId() crypto.Hash {
 	return node.networkId
+}
+
+func (node *Node) Uptime() time.Duration {
+	return time.Now().Sub(node.startAt)
 }
 
 func (node *Node) BuildGraph() []*network.SyncPoint {
