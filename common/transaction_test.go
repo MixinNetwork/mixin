@@ -23,8 +23,10 @@ func TestTransaction(t *testing.T) {
 	store := storeImpl{seed: seed, accounts: accounts}
 
 	tx := NewTransaction(XINAssetId)
+	assert.Equal("d2cf4d6e85d76512b29f173073be167423705e207f090f8cfc3e2b61fc32b6e2", tx.PayloadHash().String())
 	tx.AddInput(genesisHash, 0)
 	tx.AddInput(genesisHash, 1)
+	assert.Equal("e31ea7bd97a59169fbef1294b4dcc00dd33b6c4cd95367614415a5d6bdb1eee8", tx.PayloadHash().String())
 	tx.AddScriptOutput(accounts, script, NewInteger(20000))
 
 	signed := &SignedTransaction{Transaction: *tx}

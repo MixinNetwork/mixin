@@ -94,6 +94,15 @@ func removeGraphEntries(c *cli.Context) error {
 	return store.RemoveGraphEntries(c.String("prefix"))
 }
 
+func validateGraphEntries(c *cli.Context) error {
+	store, err := storage.NewBadgerStore(c.String("dir"))
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+	return store.ValidateGraphEntries()
+}
+
 func decodeTransactionCmd(c *cli.Context) error {
 	raw, err := hex.DecodeString(c.String("raw"))
 	if err != nil {

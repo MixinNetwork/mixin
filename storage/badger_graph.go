@@ -26,6 +26,37 @@ const (
 	graphPrefixAsset        = "ASSET"
 )
 
+func (s *BadgerStore) ValidateGraphEntries() error {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
+	it.Seek([]byte(graphPrefixTransaction))
+	for ; it.ValidForPrefix([]byte(graphPrefixTransaction)); it.Next() {
+		item := it.Item()
+		key := item.Key()
+		val, err := item.ValueCopy(nil)
+		if err != nil {
+			return err
+		}
+
+		var hash crypto.Hash
+		var tx common.SignedTransaction
+		err = common.MsgpackUnmarshal(val, &tx)
+		if err != nil {
+			return err
+		}
+		copy(hash[:], key[len(graphPrefixTransaction):])
+		if hash.String() != tx.PayloadHash().String() {
+			fmt.Printf("MALFORMED %s %s\n", hash.String(), tx.PayloadHash().String())
+		}
+	}
+
+	return nil
+}
+
 func (s *BadgerStore) RemoveGraphEntries(prefix string) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()

@@ -100,6 +100,17 @@ func main() {
 			},
 		},
 		{
+			Name:   "validategraphentries",
+			Usage:  "Validate transaction hash integration",
+			Action: validateGraphEntries,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "dir",
+					Usage: "the data directory",
+				},
+			},
+		},
+		{
 			Name:   "signrawtransaction",
 			Usage:  "Sign a JSON encoded transaction",
 			Action: signTransactionCmd,
