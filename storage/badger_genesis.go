@@ -5,7 +5,7 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
-func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.SignedTransaction) error {
+func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.VersionedTransaction) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 

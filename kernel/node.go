@@ -56,7 +56,14 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		startAt:         time.Now(),
 	}
 
-	err := node.LoadNodeState()
+	logger.Println("Validating graph entries...")
+	invalid, err := node.store.ValidateGraphEntries()
+	if err != nil {
+		return nil, err
+	}
+	logger.Printf("Validate graph with %d invalid entries\n", invalid)
+
+	err = node.LoadNodeState()
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +298,7 @@ func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
 	return node.Peer.SendTransactionMessage(peerId, tx)
 }
 
-func (node *Node) CachePutTransaction(tx *common.SignedTransaction) error {
+func (node *Node) CachePutTransaction(tx *common.VersionedTransaction) error {
 	return node.store.CachePutTransaction(tx)
 }
 

@@ -38,7 +38,7 @@ type PeerMessage struct {
 	Snapshot        *common.Snapshot
 	SnapshotHash    crypto.Hash
 	Finalized       byte
-	Transaction     *common.SignedTransaction
+	Transaction     *common.VersionedTransaction
 	TransactionHash crypto.Hash
 	FinalCache      []*SyncPoint
 	Data            []byte
@@ -50,7 +50,7 @@ type SyncHandle interface {
 	BuildGraph() []*SyncPoint
 	QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error
 	SendTransactionToPeer(peerId, tx crypto.Hash) error
-	CachePutTransaction(tx *common.SignedTransaction) error
+	CachePutTransaction(ver *common.VersionedTransaction) error
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	UpdateSyncPoint(peerId crypto.Hash, points []*SyncPoint)
@@ -126,12 +126,12 @@ func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypt
 	return peer.SendHigh(key, buildTransactionRequestMessage(tx))
 }
 
-func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, tx *common.SignedTransaction) error {
+func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, ver *common.VersionedTransaction) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
 
-	key := tx.PayloadHash().ForNetwork(idForNetwork)
+	key := ver.PayloadHash().ForNetwork(idForNetwork)
 	key = crypto.NewHash(append(key[:], 'P', 'L'))
 	if me.snapshotsCaches.Exist(key, time.Minute) {
 		return nil
@@ -141,7 +141,7 @@ func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, tx *common.Sign
 	if peer == nil {
 		return nil
 	}
-	return peer.SendHigh(key, buildTransactionMessage(tx))
+	return peer.SendHigh(key, buildTransactionMessage(ver))
 }
 
 func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash, finalized byte) error {
@@ -258,12 +258,11 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 		msg.Finalized = data[1]
 		copy(msg.SnapshotHash[:], data[2:])
 	case PeerMessageTypeTransaction:
-		var tx common.SignedTransaction
-		err := common.MsgpackUnmarshal(data[1:], &tx)
+		ver, err := common.UnmarshalVersionedTransaction(data[1:])
 		if err != nil {
 			return nil, err
 		}
-		msg.Transaction = &tx
+		msg.Transaction = ver
 	case PeerMessageTypeTransactionRequest:
 		copy(msg.TransactionHash[:], data[1:])
 	}
@@ -288,8 +287,8 @@ func buildSnapshotConfirmMessage(snap crypto.Hash, finalized byte) []byte {
 	return append([]byte{PeerMessageTypeSnapshotConfirm, finalized}, snap[:]...)
 }
 
-func buildTransactionMessage(tx *common.SignedTransaction) []byte {
-	data := common.MsgpackMarshalPanic(tx)
+func buildTransactionMessage(ver *common.VersionedTransaction) []byte {
+	data := ver.Marshal()
 	return append([]byte{PeerMessageTypeTransaction}, data...)
 }
 

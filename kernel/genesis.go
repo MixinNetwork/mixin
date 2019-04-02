@@ -60,7 +60,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 	}
 
 	var snapshots []*common.SnapshotWithTopologicalOrder
-	var transactions []*common.SignedTransaction
+	var transactions []*common.VersionedTransaction
 	cacheRounds := make(map[crypto.Hash]*CacheRound)
 	for _, in := range gns.Nodes {
 		seed := crypto.NewHash([]byte(in.Signer.String() + "NODEACCEPT"))
@@ -92,7 +92,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 		}
 		tx.Extra = append(in.Signer.PublicSpendKey[:], in.Payee.PublicSpendKey[:]...)
 
-		signed := &common.SignedTransaction{Transaction: tx}
+		signed := tx.AsLatestVersion()
 		nodeId := in.Signer.Hash().ForNetwork(node.networkId)
 		snapshot := common.Snapshot{
 			NodeId:      nodeId,
@@ -160,7 +160,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 	return node.store.StateSet(stateKeyNetwork, state)
 }
 
-func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) (*common.SnapshotWithTopologicalOrder, *common.SignedTransaction) {
+func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) (*common.SnapshotWithTopologicalOrder, *common.VersionedTransaction) {
 	seed := crypto.NewHash([]byte(domain.String() + "DOMAINACCEPT"))
 	r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
 	R := r.Public()
@@ -191,7 +191,7 @@ func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) (*com
 	tx.Extra = make([]byte, len(domain.PublicSpendKey))
 	copy(tx.Extra, domain.PublicSpendKey[:])
 
-	signed := &common.SignedTransaction{Transaction: tx}
+	signed := tx.AsLatestVersion()
 	nodeId := domain.Hash().ForNetwork(node.networkId)
 	snapshot := common.Snapshot{
 		NodeId:      nodeId,

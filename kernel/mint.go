@@ -77,7 +77,7 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 		})
 	}
 
-	signed := &common.SignedTransaction{Transaction: *tx}
+	signed := tx.AsLatestVersion()
 	err := signed.SignInput(node.store, 0, []common.Address{node.Signer})
 	if err != nil {
 		return err
@@ -96,7 +96,7 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 	}, false)
 }
 
-func (node *Node) validateMintTransaction(tx *common.SignedTransaction) error {
+func (node *Node) validateMintTransaction(tx *common.VersionedTransaction) error {
 	batch, amount := node.checkMintPossibility(true)
 	if amount.Sign() <= 0 || batch <= 0 {
 		return fmt.Errorf("no mint available %d %s", batch, amount.String())

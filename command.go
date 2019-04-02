@@ -100,7 +100,12 @@ func validateGraphEntries(c *cli.Context) error {
 		return err
 	}
 	defer store.Close()
-	return store.ValidateGraphEntries()
+	invalid, err := store.ValidateGraphEntries()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("invalid entries: %d\n", invalid)
+	return nil
 }
 
 func decodeTransactionCmd(c *cli.Context) error {
@@ -162,7 +167,7 @@ func signTransactionCmd(c *cli.Context) error {
 	copy(account.PrivateViewKey[:], key[:32])
 	copy(account.PrivateSpendKey[:], key[32:])
 
-	signed := &common.SignedTransaction{Transaction: *tx}
+	signed := tx.AsLatestVersion()
 	for i, _ := range signed.Inputs {
 		err := signed.SignInput(raw, i, []common.Address{account})
 		if err != nil {

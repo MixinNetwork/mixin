@@ -20,12 +20,11 @@ func queueTransaction(node *kernel.Node, params []interface{}) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var tx common.SignedTransaction
-	err = common.MsgpackUnmarshal(raw, &tx)
+	ver, err := common.UnmarshalVersionedTransaction(raw)
 	if err != nil {
 		return "", err
 	}
-	return node.QueueTransaction(&tx)
+	return node.QueueTransaction(ver)
 }
 
 func getTransaction(store storage.Store, params []interface{}) (map[string]interface{}, error) {
@@ -40,7 +39,7 @@ func getTransaction(store storage.Store, params []interface{}) (map[string]inter
 	if err != nil || tx == nil {
 		return nil, err
 	}
-	return transactionToMap(hash, &tx.Transaction), nil
+	return transactionToMap(tx), nil
 }
 
 func listSnapshots(store storage.Store, params []interface{}) ([]map[string]interface{}, error) {
@@ -72,7 +71,7 @@ func listSnapshots(store storage.Store, params []interface{}) ([]map[string]inte
 	return snapshotsToMap(snapshots, nil, sig), err
 }
 
-func snapshotsToMap(snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.Transaction, sig bool) []map[string]interface{} {
+func snapshotsToMap(snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.VersionedTransaction, sig bool) []map[string]interface{} {
 	tx := len(transactions) == len(snapshots)
 	result := make([]map[string]interface{}, len(snapshots))
 	for i, s := range snapshots {
@@ -85,7 +84,7 @@ func snapshotsToMap(snapshots []*common.SnapshotWithTopologicalOrder, transactio
 			"topology":   s.TopologicalOrder,
 		}
 		if tx {
-			item["transaction"] = transactionToMap(s.Transaction, transactions[i])
+			item["transaction"] = transactionToMap(transactions[i])
 		} else {
 			item["transaction"] = s.Transaction
 		}
@@ -97,7 +96,7 @@ func snapshotsToMap(snapshots []*common.SnapshotWithTopologicalOrder, transactio
 	return result
 }
 
-func transactionToMap(hash crypto.Hash, tx *common.Transaction) map[string]interface{} {
+func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {
 	var inputs []map[string]interface{}
 	for _, in := range tx.Inputs {
 		if in.Hash.HasValue() {
@@ -125,6 +124,6 @@ func transactionToMap(hash crypto.Hash, tx *common.Transaction) map[string]inter
 		"inputs":  inputs,
 		"outputs": tx.Outputs,
 		"extra":   hex.EncodeToString(tx.Extra),
-		"hash":    hash,
+		"hash":    tx.PayloadHash(),
 	}
 }

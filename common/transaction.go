@@ -84,10 +84,9 @@ func (tx *SignedTransaction) CheckMint() bool {
 	return len(tx.Inputs) == 1 && tx.Inputs[0].Mint != nil
 }
 
-func (tx *SignedTransaction) Validate(store DataStore) error {
-	if tx.Version != TxVersion {
-		return fmt.Errorf("invalid tx version %d", tx.Version)
-	}
+func (ver *VersionedTransaction) Validate(store DataStore) error {
+	tx := &ver.SignedTransaction
+	msg := ver.PayloadMarshal()
 
 	if len(tx.Inputs) < 1 || len(tx.Outputs) < 1 {
 		return fmt.Errorf("invalid tx inputs or outputs %d %d", len(tx.Inputs), len(tx.Outputs))
@@ -101,7 +100,6 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 		return fmt.Errorf("invalid extra size %d", len(tx.Extra))
 	}
 
-	msg := MsgpackMarshalPanic(tx.Transaction)
 	if len(msg) > config.TransactionMaximumSize {
 		return fmt.Errorf("invalid transaction size %d", len(msg))
 	}
@@ -118,7 +116,7 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 			if err != nil {
 				return err
 			}
-			err = store.CheckDepositInput(in.Deposit, tx.PayloadHash())
+			err = store.CheckDepositInput(in.Deposit, ver.PayloadHash())
 			if err != nil {
 				return err
 			}
@@ -126,7 +124,7 @@ func (tx *SignedTransaction) Validate(store DataStore) error {
 			break
 		}
 		if in.Mint != nil {
-			err := tx.validateMintInput(store)
+			err := ver.validateMintInput(store)
 			if err != nil {
 				return err
 			}
@@ -240,15 +238,6 @@ func validateUTXO(utxo *UTXO, sigs []crypto.Signature, msg []byte) error {
 	}
 
 	return utxo.Script.Validate(valid)
-}
-
-func (tx *Transaction) PayloadHash() crypto.Hash {
-	msg := MsgpackMarshalPanic(tx)
-	return crypto.NewHash(msg)
-}
-
-func (tx *SignedTransaction) Marshal() []byte {
-	return MsgpackMarshalPanic(tx)
 }
 
 func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, accounts []Address) error {

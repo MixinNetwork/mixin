@@ -32,7 +32,7 @@ func (m *MintData) Distribute(tx crypto.Hash) *MintDistribution {
 	}
 }
 
-func (tx *SignedTransaction) validateMintInput(store DataStore) error {
+func (tx *VersionedTransaction) validateMintInput(store DataStore) error {
 	if len(tx.Inputs) != 1 {
 		return fmt.Errorf("invalid inputs count %d for mint", len(tx.Inputs))
 	}

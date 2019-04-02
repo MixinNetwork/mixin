@@ -54,9 +54,8 @@ func TestMsgpack(t *testing.T) {
 	priv := crypto.DeriveGhostPrivateKey(&mask, &view, &spend, uint64(utxoIndex))
 	sig := priv.Sign(msg)
 	signed.Signatures = append(signed.Signatures, []crypto.Signature{sig})
-	raw := signed.Marshal()
+	raw := MsgpackMarshalPanic(signed)
 
-	assert.Len(signed.PayloadHash().String(), 64)
 	assert.Len(hex.EncodeToString(raw), 930)
 
 	var dec SignedTransaction

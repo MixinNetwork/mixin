@@ -11,7 +11,7 @@ const (
 	cachePrefixTransactionCache = "TRANSACTIONCACHE"
 )
 
-func (s *BadgerStore) CacheListTransactions(hook func(tx *common.SignedTransaction) error) error {
+func (s *BadgerStore) CacheListTransactions(hook func(tx *common.VersionedTransaction) error) error {
 	snapTxn := s.snapshotsDB.NewTransaction(false)
 	defer snapTxn.Discard()
 
@@ -38,12 +38,11 @@ func (s *BadgerStore) CacheListTransactions(hook func(tx *common.SignedTransacti
 		if err != nil {
 			return err
 		}
-		var tx common.SignedTransaction
-		err = common.MsgpackUnmarshal(v, &tx)
+		ver, err := common.UnmarshalVersionedTransaction(v)
 		if err != nil {
 			return err
 		}
-		err = hook(&tx)
+		err = hook(ver)
 		if err != nil {
 			return err
 		}
@@ -51,12 +50,12 @@ func (s *BadgerStore) CacheListTransactions(hook func(tx *common.SignedTransacti
 	return nil
 }
 
-func (s *BadgerStore) CachePutTransaction(tx *common.SignedTransaction) error {
+func (s *BadgerStore) CachePutTransaction(tx *common.VersionedTransaction) error {
 	txn := s.cacheDB.NewTransaction(true)
 	defer txn.Discard()
 
 	key := cacheTransactionCacheKey(tx.PayloadHash())
-	val := common.MsgpackMarshalPanic(tx)
+	val := tx.Marshal()
 	err := txn.SetWithTTL(key, val, config.CacheTTL)
 	if err != nil {
 		return err
@@ -64,7 +63,7 @@ func (s *BadgerStore) CachePutTransaction(tx *common.SignedTransaction) error {
 	return txn.Commit()
 }
 
-func (s *BadgerStore) CacheGetTransaction(hash crypto.Hash) (*common.SignedTransaction, error) {
+func (s *BadgerStore) CacheGetTransaction(hash crypto.Hash) (*common.VersionedTransaction, error) {
 	txn := s.cacheDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -79,9 +78,7 @@ func (s *BadgerStore) CacheGetTransaction(hash crypto.Hash) (*common.SignedTrans
 	if err != nil {
 		return nil, err
 	}
-	var tx common.SignedTransaction
-	err = common.MsgpackUnmarshal(val, &tx)
-	return &tx, err
+	return common.UnmarshalVersionedTransaction(val)
 }
 
 func cacheTransactionCacheKey(hash crypto.Hash) []byte {

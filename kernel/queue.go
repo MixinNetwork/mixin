@@ -1,11 +1,17 @@
 package kernel
 
 import (
+	"fmt"
+
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
-func (node *Node) QueueTransaction(tx *common.SignedTransaction) (string, error) {
+func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, error) {
+	if tx.Version != common.TxVersion {
+		return "", fmt.Errorf("invalid tx version %d", tx.Version)
+	}
+
 	err := tx.Validate(node.store)
 	if err != nil {
 		return "", err
@@ -22,7 +28,7 @@ func (node *Node) QueueTransaction(tx *common.SignedTransaction) (string, error)
 }
 
 func (node *Node) LoadCacheToQueue() error {
-	return node.store.CacheListTransactions(func(tx *common.SignedTransaction) error {
+	return node.store.CacheListTransactions(func(tx *common.VersionedTransaction) error {
 		return node.store.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
 			NodeId:      node.IdForNetwork,
 			Transaction: tx.PayloadHash(),

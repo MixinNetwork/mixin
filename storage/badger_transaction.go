@@ -12,20 +12,20 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
-func (s *BadgerStore) ReadTransaction(hash crypto.Hash) (*common.SignedTransaction, error) {
+func (s *BadgerStore) ReadTransaction(hash crypto.Hash) (*common.VersionedTransaction, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 	return readTransaction(txn, hash)
 }
 
-func (s *BadgerStore) WriteTransaction(tx *common.SignedTransaction) error {
+func (s *BadgerStore) WriteTransaction(ver *common.VersionedTransaction) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 
 	// FIXME assert kind checks, not needed at all
 	if config.Debug {
-		txHash := tx.PayloadHash()
-		for _, in := range tx.Inputs {
+		txHash := ver.PayloadHash()
+		for _, in := range ver.Inputs {
 			if len(in.Genesis) > 0 {
 				continue
 			}
@@ -73,7 +73,7 @@ func (s *BadgerStore) WriteTransaction(tx *common.SignedTransaction) error {
 	}
 	// assert end
 
-	err := writeTransaction(txn, tx)
+	err := writeTransaction(txn, ver)
 	if err != nil {
 		return err
 	}
@@ -108,14 +108,17 @@ func (s *BadgerStore) CheckTransactionInNode(nodeId, hash crypto.Hash) (bool, er
 	return true, nil
 }
 
-func readTransaction(txn *badger.Txn, hash crypto.Hash) (*common.SignedTransaction, error) {
-	var out common.SignedTransaction
+func readTransaction(txn *badger.Txn, hash crypto.Hash) (*common.VersionedTransaction, error) {
 	key := graphTransactionKey(hash)
-	err := graphReadValue(txn, key, &out)
+	item, err := txn.Get(key)
 	if err == badger.ErrKeyNotFound {
 		return nil, nil
 	}
-	return &out, err
+	val, err := item.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
+	return common.UnmarshalVersionedTransaction(val)
 }
 
 func pruneTransaction(txn *badger.Txn, hash crypto.Hash) error {
@@ -130,8 +133,8 @@ func pruneTransaction(txn *badger.Txn, hash crypto.Hash) error {
 	return txn.Delete(key)
 }
 
-func writeTransaction(txn *badger.Txn, tx *common.SignedTransaction) error {
-	key := graphTransactionKey(tx.PayloadHash())
+func writeTransaction(txn *badger.Txn, ver *common.VersionedTransaction) error {
+	key := graphTransactionKey(ver.PayloadHash())
 
 	// FIXME assert only, remove in future
 	if config.Debug {
@@ -144,12 +147,12 @@ func writeTransaction(txn *badger.Txn, tx *common.SignedTransaction) error {
 	}
 	// end assert
 
-	val := common.MsgpackMarshalPanic(tx)
+	val := ver.Marshal()
 	return txn.Set(key, val)
 }
 
-func finalizeTransaction(txn *badger.Txn, tx *common.SignedTransaction) error {
-	key := graphFinalizationKey(tx.PayloadHash())
+func finalizeTransaction(txn *badger.Txn, ver *common.VersionedTransaction) error {
+	key := graphFinalizationKey(ver.PayloadHash())
 	_, err := txn.Get(key)
 	if err == nil {
 		return nil
@@ -162,15 +165,15 @@ func finalizeTransaction(txn *badger.Txn, tx *common.SignedTransaction) error {
 	}
 
 	var genesis bool
-	for _, in := range tx.Inputs {
+	for _, in := range ver.Inputs {
 		if len(in.Genesis) > 0 {
 			genesis = true
 			break
 		}
 	}
 
-	for _, utxo := range tx.UnspentOutputs() {
-		err := writeUTXO(txn, utxo, tx.Extra, genesis)
+	for _, utxo := range ver.UnspentOutputs() {
+		err := writeUTXO(txn, utxo, ver.Extra, genesis)
 		if err != nil {
 			return err
 		}

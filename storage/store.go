@@ -12,12 +12,12 @@ type Store interface {
 	StateSet(key string, val interface{}) error
 
 	CheckGenesisLoad() (bool, error)
-	LoadGenesis(rounds []*common.Round, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.SignedTransaction) error
+	LoadGenesis(rounds []*common.Round, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.VersionedTransaction) error
 	ReadConsensusNodes() []*common.Node
 	CheckTransactionFinalization(hash crypto.Hash) (bool, error)
 	CheckTransactionInNode(nodeId, hash crypto.Hash) (bool, error)
-	ReadTransaction(hash crypto.Hash) (*common.SignedTransaction, error)
-	WriteTransaction(tx *common.SignedTransaction) error
+	ReadTransaction(hash crypto.Hash) (*common.VersionedTransaction, error)
+	WriteTransaction(tx *common.VersionedTransaction) error
 	StartNewRound(node crypto.Hash, number uint64, references *common.RoundLink, finalStart uint64) error
 	UpdateEmptyHeadRound(node crypto.Hash, number uint64, references *common.RoundLink) error
 	TopologySequence() uint64
@@ -28,7 +28,7 @@ type Store interface {
 	LockDepositInput(deposit *common.DepositData, tx crypto.Hash, fork bool) error
 	CheckGhost(key crypto.Key) (bool, error)
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
-	ReadSnapshotWithTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, []*common.Transaction, error)
+	ReadSnapshotWithTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, []*common.VersionedTransaction, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadRound(hash crypto.Hash) (*common.Round, error)
 	ReadLink(from, to crypto.Hash) (uint64, error)
@@ -38,16 +38,16 @@ type Store interface {
 	QueueInfo() (uint64, uint64, uint64, error)
 	QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snapshot, finalized bool) error
 	QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error)
-	CachePutTransaction(tx *common.SignedTransaction) error
-	CacheGetTransaction(hash crypto.Hash) (*common.SignedTransaction, error)
-	CacheListTransactions(hook func(tx *common.SignedTransaction) error) error
+	CachePutTransaction(tx *common.VersionedTransaction) error
+	CacheGetTransaction(hash crypto.Hash) (*common.VersionedTransaction, error)
+	CacheListTransactions(hook func(tx *common.VersionedTransaction) error) error
 
 	ReadLastMintDistribution(group string) (*common.MintDistribution, error)
 	LockMintInput(mint *common.MintData, tx crypto.Hash, fork bool) error
-	ReadMintDistributions(group string, offset, count uint64) ([]*common.MintDistribution, []*common.Transaction, error)
+	ReadMintDistributions(group string, offset, count uint64) ([]*common.MintDistribution, []*common.VersionedTransaction, error)
 
 	RemoveGraphEntries(prefix string) error
-	ValidateGraphEntries() error
+	ValidateGraphEntries() (int, error)
 
 	WriteAsset(a *common.Asset) error
 	ReadAsset(id crypto.Hash) (*common.Asset, error)

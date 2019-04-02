@@ -9,7 +9,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
-func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.SignedTransaction, error) {
+func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, error) {
 	inNode, err := node.store.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil || inNode {
 		return nil, err
@@ -140,7 +140,7 @@ func (node *Node) determinBestRound() *FinalRound {
 	return best
 }
 
-func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.SignedTransaction) error {
+func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	if s.NodeId != node.IdForNetwork || len(s.Signatures) != 0 || s.Timestamp != 0 {
 		panic("should never be here")
 	}

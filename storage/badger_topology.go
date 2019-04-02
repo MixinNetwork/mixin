@@ -7,13 +7,13 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
-func (s *BadgerStore) ReadSnapshotWithTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, []*common.Transaction, error) {
+func (s *BadgerStore) ReadSnapshotWithTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, []*common.VersionedTransaction, error) {
 	snapshots, err := s.ReadSnapshotsSinceTopology(topologyOffset, count)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	transactions := make([]*common.Transaction, len(snapshots))
+	transactions := make([]*common.VersionedTransaction, len(snapshots))
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -22,7 +22,7 @@ func (s *BadgerStore) ReadSnapshotWithTransactionsSinceTopology(topologyOffset, 
 		if err != nil {
 			return nil, nil, err
 		}
-		transactions[i] = &tx.Transaction
+		transactions[i] = tx
 	}
 	return snapshots, transactions, nil
 }

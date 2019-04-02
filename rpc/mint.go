@@ -30,7 +30,7 @@ func listMintDistributions(store storage.Store, params []interface{}) ([]map[str
 	return mintsToMap(mints, transactions, tx), err
 }
 
-func mintsToMap(mints []*common.MintDistribution, transactions []*common.Transaction, tx bool) []map[string]interface{} {
+func mintsToMap(mints []*common.MintDistribution, transactions []*common.VersionedTransaction, tx bool) []map[string]interface{} {
 	tx = tx && len(transactions) == len(mints)
 	result := make([]map[string]interface{}, len(mints))
 	for i, m := range mints {
@@ -40,7 +40,7 @@ func mintsToMap(mints []*common.MintDistribution, transactions []*common.Transac
 			"amount": m.Amount,
 		}
 		if tx {
-			item["transaction"] = transactionToMap(m.Transaction, transactions[i])
+			item["transaction"] = transactionToMap(transactions[i])
 		} else {
 			item["transaction"] = m.Transaction
 		}

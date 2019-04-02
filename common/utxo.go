@@ -33,7 +33,7 @@ type GhostChecker interface {
 
 type NodeReader interface {
 	ReadConsensusNodes() []*Node
-	ReadTransaction(hash crypto.Hash) (*SignedTransaction, error)
+	ReadTransaction(hash crypto.Hash) (*VersionedTransaction, error)
 }
 
 type DomainReader interface {
@@ -48,7 +48,7 @@ type DataStore interface {
 	DomainReader
 }
 
-func (tx *Transaction) UnspentOutputs() []*UTXO {
+func (tx *VersionedTransaction) UnspentOutputs() []*UTXO {
 	var utxos []*UTXO
 	for i, out := range tx.Outputs {
 		utxo := &UTXO{

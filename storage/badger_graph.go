@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/badger"
 )
 
@@ -26,35 +27,36 @@ const (
 	graphPrefixAsset        = "ASSET"
 )
 
-func (s *BadgerStore) ValidateGraphEntries() error {
+func (s *BadgerStore) ValidateGraphEntries() (int, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
+	var invalid int
 	it.Seek([]byte(graphPrefixTransaction))
 	for ; it.ValidForPrefix([]byte(graphPrefixTransaction)); it.Next() {
 		item := it.Item()
 		key := item.Key()
 		val, err := item.ValueCopy(nil)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		var hash crypto.Hash
-		var tx common.SignedTransaction
-		err = common.MsgpackUnmarshal(val, &tx)
+		ver, err := common.UnmarshalVersionedTransaction(val)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		copy(hash[:], key[len(graphPrefixTransaction):])
-		if hash.String() != tx.PayloadHash().String() {
-			fmt.Printf("MALFORMED %s %s\n", hash.String(), tx.PayloadHash().String())
+		if hash.String() != ver.PayloadHash().String() {
+			invalid += 1
+			logger.Printf("MALFORMED %s %s\n", hash.String(), ver.PayloadHash().String())
 		}
 	}
 
-	return nil
+	return invalid, nil
 }
 
 func (s *BadgerStore) RemoveGraphEntries(prefix string) error {
@@ -129,11 +131,11 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) e
 		if !snap.References.Equal(cache.References) {
 			panic("snapshot references assert error")
 		}
-		tx, err := readTransaction(txn, snap.Transaction)
+		ver, err := readTransaction(txn, snap.Transaction)
 		if err != nil {
 			return err
 		}
-		if tx == nil {
+		if ver == nil {
 			panic("snapshot transaction not exist")
 		}
 		key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction)
@@ -146,19 +148,19 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) e
 	}
 	// end assert
 
-	tx, err := readTransaction(txn, snap.Transaction)
+	ver, err := readTransaction(txn, snap.Transaction)
 	if err != nil {
 		return err
 	}
-	err = writeSnapshot(txn, snap, tx)
+	err = writeSnapshot(txn, snap, ver)
 	if err != nil {
 		return err
 	}
 	return txn.Commit()
 }
 
-func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder, tx *common.SignedTransaction) error {
-	err := finalizeTransaction(txn, tx)
+func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder, ver *common.VersionedTransaction) error {
+	err := finalizeTransaction(txn, ver)
 	if err != nil {
 		return err
 	}

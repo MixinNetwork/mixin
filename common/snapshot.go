@@ -51,7 +51,7 @@ func (s *Snapshot) PayloadHash() crypto.Hash {
 	return crypto.NewHash(s.Payload())
 }
 
-func (tx *SignedTransaction) LockInputs(locker UTXOLocker, fork bool) error {
+func (tx *VersionedTransaction) LockInputs(locker UTXOLocker, fork bool) error {
 	for _, in := range tx.Inputs {
 		var err error
 		if in.Mint != nil {

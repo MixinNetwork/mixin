@@ -9,9 +9,9 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
-func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) ([]*common.MintDistribution, []*common.Transaction, error) {
+func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) ([]*common.MintDistribution, []*common.VersionedTransaction, error) {
 	mints := make([]*common.MintDistribution, 0)
-	transactions := make([]*common.Transaction, 0)
+	transactions := make([]*common.VersionedTransaction, 0)
 
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
@@ -49,7 +49,7 @@ func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) 
 			return nil, nil, err
 		}
 
-		transactions = append(transactions, &tx.Transaction)
+		transactions = append(transactions, tx)
 		mints = append(mints, &data)
 	}
 
