@@ -31,7 +31,7 @@ func UnmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
 		SignedTransaction: tx,
 	}
 
-	if tx.Version == 1 && len(tx.Inputs) == 0 && hex.EncodeToString(tx.Inputs[0].Genesis) == "6430225c42bb015b4da03102fa962e4f4ef3969e03e04345db229f8377ef7997" {
+	if tx.Version == 1 && len(tx.Inputs) == 1 && hex.EncodeToString(tx.Inputs[0].Genesis) == "6430225c42bb015b4da03102fa962e4f4ef3969e03e04345db229f8377ef7997" {
 		var ght SignedGenesisHackTransaction
 		err := MsgpackUnmarshal(val, &ght)
 		if err != nil {
