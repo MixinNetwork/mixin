@@ -58,7 +58,7 @@ func (ver *VersionedTransaction) PayloadMarshal() []byte {
 	var msg []byte
 	switch ver.Version {
 	case 0:
-		msg = MsgpackMarshalPanic(ver.BadGenesis.Transaction)
+		msg = MsgpackMarshalPanic(ver.BadGenesis.GenesisHackTransaction)
 	case TxVersion:
 		msg = MsgpackMarshalPanic(ver.SignedTransaction.Transaction)
 	}
@@ -78,13 +78,15 @@ type GenesisHackInput struct {
 	Mint    []byte
 }
 
+type GenesisHackTransaction struct {
+	Version uint8
+	Asset   crypto.Hash
+	Inputs  []*GenesisHackInput
+	Outputs []*Output
+	Extra   []byte
+}
+
 type SignedGenesisHackTransaction struct {
-	Transaction struct {
-		Version uint8
-		Asset   crypto.Hash
-		Inputs  []*GenesisHackInput
-		Outputs []*Output
-		Extra   []byte
-	}
+	GenesisHackTransaction
 	Signatures [][]crypto.Signature
 }
