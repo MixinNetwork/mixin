@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"sync"
 	"time"
@@ -61,7 +62,10 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	logger.Printf("Validate graph with %d invalid entries\n", invalid)
+	if invalid > 0 {
+		return nil, fmt.Errorf("Validate graph with %d invalid entries\n", invalid)
+	}
+	logger.Println("Validate graph with 0 invalid entries")
 
 	err = node.LoadNodeState()
 	if err != nil {
