@@ -24,20 +24,23 @@ USAGE:
    mixin [global options] command [command options] [arguments...]
 
 VERSION:
-   0.0.1
+   v0.1.14-4bcdc70d154cad0697087efa09819bdafd9971aa
 
 COMMANDS:
-     kernel, k             Start the Mixin Kernel daemon
-     setuptestnet          Setup the test nodes and genesis
-     createaddress         Create a new Mixin address
-     updateheadreference   Update the cache round external reference, never use it unless agree by other nodes
-     signrawtransaction    Sign a JSON encoded transaction
-     sendrawtransaction    Broadcast a hex encoded signed raw transaction
-     decoderawtransaction  Decode a raw transaction as JSON
-     listsnapshots         List finalized snapshots
-     gettransaction        Get the finalized transaction by hash
-     getinfo               Get info from the node
-     help, h               Shows a list of commands or help for one command
+     kernel, k              Start the Mixin Kernel daemon
+     setuptestnet           Setup the test nodes and genesis
+     createaddress          Create a new Mixin address
+     updateheadreference    Update the cache round external reference, never use it unless agree by other nodes
+     removegraphentries     Remove data entries by prefix from the graph data storage
+     validategraphentries   Validate transaction hash integration
+     signrawtransaction     Sign a JSON encoded transaction
+     sendrawtransaction     Broadcast a hex encoded signed raw transaction
+     decoderawtransaction   Decode a raw transaction as JSON
+     listsnapshots          List finalized snapshots
+     gettransaction         Get the finalized transaction by hash
+     listmintdistributions  List mint distributions
+     getinfo                Get info from the node
+     help, h                Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
    --help, -h     show help
