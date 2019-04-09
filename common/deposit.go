@@ -14,6 +14,10 @@ type DepositData struct {
 	Amount          Integer     `json:"amount"`
 }
 
+func (tx *SignedTransaction) DepositData() *DepositData {
+	return tx.Inputs[0].Deposit
+}
+
 func (tx *SignedTransaction) verifyDepositFormat() error {
 	deposit := tx.Inputs[0].Deposit
 	err := deposit.validateEthereumAssetInput()
@@ -24,10 +28,6 @@ func (tx *SignedTransaction) verifyDepositFormat() error {
 		return fmt.Errorf("invalid asset %s %s", tx.Asset, id)
 	}
 	return nil
-}
-
-func (tx *SignedTransaction) DepositData() *DepositData {
-	return tx.Inputs[0].Deposit
 }
 
 func (tx *SignedTransaction) validateDeposit(store DataStore, msg []byte, payloadHash crypto.Hash) error {

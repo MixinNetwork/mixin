@@ -54,31 +54,10 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 	payee.PrivateViewKey = payee.PublicSpendKey.DeterministicHashDerive()
 	payee.PublicViewKey = payee.PrivateViewKey.Public()
 	nodes = append(nodes, &Node{Signer: signer, Payee: payee})
-	if len(nodes) != len(o.Keys) {
-		return fmt.Errorf("invalid output keys count %d %d for pledge transaction", len(nodes), len(o.Keys))
-	}
-
-	if o.Script.VerifyFormat() != nil || int(o.Script[2]) != len(nodes)*2/3+1 {
-		return fmt.Errorf("invalid output script %s %d", o.Script, len(nodes)*2/3+1)
-	}
-
-	filter := make(map[crypto.Key]bool)
-	for _, n := range nodes {
-		filter[n.Signer.PublicSpendKey] = true
-	}
-	for i, k := range o.Keys {
-		for _, n := range nodes {
-			ghost := crypto.ViewGhostOutputKey(&k, &n.Signer.PrivateViewKey, &o.Mask, 0)
-			delete(filter, *ghost)
-		}
-		if len(filter) != len(nodes)-1-i {
-			return fmt.Errorf("invalid output keys signatures %d", len(filter))
-		}
-	}
-	return nil
+	return validateNodeOutput(nodes, o)
 }
 
-func (tx *Transaction) validateNodeAccept(store DataStore, inputAmount Integer) error {
+func (tx *Transaction) validateNodeAccept(store DataStore) error {
 	if len(tx.Outputs) != 1 {
 		return fmt.Errorf("invalid outputs count %d for accept transaction", len(tx.Outputs))
 	}
@@ -104,10 +83,6 @@ func (tx *Transaction) validateNodeAccept(store DataStore, inputAmount Integer) 
 	}
 	if pledging == nil {
 		return fmt.Errorf("no pledging node needs to get accepted")
-	}
-	nodesAmount := NewInteger(uint64(10000 * len(nodes)))
-	if inputAmount.Cmp(nodesAmount) != 0 {
-		return fmt.Errorf("invalid accept input amount %s %s", inputAmount.String(), nodesAmount.String())
 	}
 
 	lastAccept, err := store.ReadTransaction(tx.Inputs[0].Hash)
@@ -152,5 +127,36 @@ func (tx *Transaction) validateNodeAccept(store DataStore, inputAmount Integer) 
 	if filter[acc.String()] != NodeStatePledging {
 		return fmt.Errorf("invalid pledge utxo source %s", filter[acc.String()])
 	}
+
+	nodesAmount := NewInteger(uint64(10000 * len(nodes)))
+	if ao.Amount.Add(po.Amount).Cmp(nodesAmount) != 0 {
+		return fmt.Errorf("invalid accept input amount %s %s %s", ao.Amount, po.Amount, nodesAmount)
+	}
+	return validateNodeOutput(nodes, tx.Outputs[0])
+}
+
+func validateNodeOutput(nodes []*Node, o *Output) error {
+	if len(nodes) != len(o.Keys) {
+		return fmt.Errorf("invalid output keys count %d %d for pledge transaction", len(nodes), len(o.Keys))
+	}
+
+	if o.Script.VerifyFormat() != nil || int(o.Script[2]) != len(nodes)*2/3+1 {
+		return fmt.Errorf("invalid output script %s %d", o.Script, len(nodes)*2/3+1)
+	}
+
+	filter := make(map[crypto.Key]bool)
+	for _, n := range nodes {
+		filter[n.Signer.PublicSpendKey] = true
+	}
+	for i, k := range o.Keys {
+		for _, n := range nodes {
+			ghost := crypto.ViewGhostOutputKey(&k, &n.Signer.PrivateViewKey, &o.Mask, 0)
+			delete(filter, *ghost)
+		}
+		if len(filter) != len(nodes)-1-i {
+			return fmt.Errorf("invalid output keys signatures %d", len(filter))
+		}
+	}
+
 	return nil
 }
