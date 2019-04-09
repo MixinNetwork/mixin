@@ -47,34 +47,20 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 	tx := common.NewTransaction(common.XINAssetId)
 	tx.AddKernelNodeMintInput(batch, amount)
 	script := common.NewThresholdScript(1)
-	for i, n := range nodes {
+	for _, n := range nodes {
 		in := fmt.Sprintf("MINTKERNELNODE%d", batch)
-		seed := crypto.NewHash([]byte(n.Signer.String() + in))
-		r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
-		key := crypto.DeriveGhostPublicKey(&r, &n.Payee.PublicViewKey, &n.Payee.PublicSpendKey, uint64(i))
-		tx.Outputs = append(tx.Outputs, &common.Output{
-			Type:   common.OutputTypeScript,
-			Script: script,
-			Amount: per,
-			Keys:   []crypto.Key{*key},
-			Mask:   r.Public(),
-		})
+		si := crypto.NewHash([]byte(n.Signer.String() + in))
+		seed := append(si[:], si[:]...)
+		tx.AddScriptOutput([]common.Address{n.Payee}, script, per, seed)
 	}
 
 	if diff.Sign() > 0 {
 		addr := common.NewAddressFromSeed(make([]byte, 64))
 		script := common.NewThresholdScript(64)
 		in := fmt.Sprintf("MINTKERNELNODE%dDIFF", batch)
-		seed := crypto.NewHash([]byte(addr.String() + in))
-		r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
-		key := crypto.DeriveGhostPublicKey(&r, &addr.PublicViewKey, &addr.PublicSpendKey, uint64(len(tx.Outputs)))
-		tx.Outputs = append(tx.Outputs, &common.Output{
-			Type:   common.OutputTypeScript,
-			Script: script,
-			Amount: diff,
-			Keys:   []crypto.Key{*key},
-			Mask:   r.Public(),
-		})
+		si := crypto.NewHash([]byte(addr.String() + in))
+		seed := append(si[:], si[:]...)
+		tx.AddScriptOutput([]common.Address{addr}, script, diff, seed)
 	}
 
 	signed := tx.AsLatestVersion()

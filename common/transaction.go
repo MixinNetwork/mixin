@@ -369,16 +369,11 @@ func (tx *Transaction) AddInput(hash crypto.Hash, index int) {
 	tx.Inputs = append(tx.Inputs, in)
 }
 
-func (tx *Transaction) AddScriptOutput(accounts []Address, s Script, amount Integer) error {
-	seed := make([]byte, 64)
-	_, err := rand.Read(seed)
-	if err != nil {
-		return err
-	}
+func (tx *Transaction) AddOutputWithType(ot uint8, accounts []Address, s Script, amount Integer, seed []byte) {
 	r := crypto.NewKeyFromSeed(seed)
 	R := r.Public()
 	out := &Output{
-		Type:   OutputTypeScript,
+		Type:   ot,
 		Amount: amount,
 		Script: s,
 		Mask:   R,
@@ -390,5 +385,18 @@ func (tx *Transaction) AddScriptOutput(accounts []Address, s Script, amount Inte
 		out.Keys = append(out.Keys, *k)
 	}
 	tx.Outputs = append(tx.Outputs, out)
+}
+
+func (tx *Transaction) AddScriptOutput(accounts []Address, s Script, amount Integer, seed []byte) {
+	tx.AddOutputWithType(OutputTypeScript, accounts, s, amount, seed)
+}
+
+func (tx *Transaction) AddRandomScriptOutput(accounts []Address, s Script, amount Integer) error {
+	seed := make([]byte, 64)
+	_, err := rand.Read(seed)
+	if err != nil {
+		return err
+	}
+	tx.AddScriptOutput(accounts, s, amount, seed)
 	return nil
 }

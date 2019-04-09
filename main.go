@@ -128,6 +128,10 @@ func main() {
 					Name:  "key",
 					Usage: "the private key to sign the raw transaction",
 				},
+				cli.StringFlag{
+					Name:  "seed",
+					Usage: "the mask seed to hide the recipient public key",
+				},
 			},
 		},
 		{

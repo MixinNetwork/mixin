@@ -239,7 +239,7 @@ func testSignTransaction(node string, account common.Address, rawStr string) (*c
 		if out.Type != common.OutputTypeScript {
 			return nil, fmt.Errorf("invalid output type %d", out.Type)
 		}
-		tx.AddScriptOutput(out.Accounts, out.Script, out.Amount)
+		tx.AddRandomScriptOutput(out.Accounts, out.Script, out.Amount)
 	}
 
 	extra, err := hex.DecodeString(raw.Extra)

@@ -134,6 +134,18 @@ func signTransactionCmd(c *cli.Context) error {
 	}
 	raw.Node = c.String("node")
 
+	seed, err := hex.DecodeString(c.String("seed"))
+	if err != nil {
+		return err
+	}
+	if len(seed) != 64 {
+		seed = make([]byte, 64)
+		_, err := rand.Read(seed)
+		if err != nil {
+			return err
+		}
+	}
+
 	tx := common.NewTransaction(raw.Asset)
 	for _, in := range raw.Inputs {
 		if in.Deposit != nil {
@@ -147,7 +159,7 @@ func signTransactionCmd(c *cli.Context) error {
 		if out.Type != common.OutputTypeScript {
 			return fmt.Errorf("invalid output type %d", out.Type)
 		}
-		tx.AddScriptOutput(out.Accounts, out.Script, out.Amount)
+		tx.AddScriptOutput(out.Accounts, out.Script, out.Amount, seed)
 	}
 
 	extra, err := hex.DecodeString(raw.Extra)

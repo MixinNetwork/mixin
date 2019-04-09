@@ -20,7 +20,7 @@ func TestUTXO(t *testing.T) {
 	tx := NewTransaction(XINAssetId).AsLatestVersion()
 	tx.AddInput(genesisHash, 0)
 	tx.AddInput(genesisHash, 1)
-	tx.AddScriptOutput(accounts, script, NewInteger(20000))
+	tx.AddRandomScriptOutput(accounts, script, NewInteger(20000))
 
 	utxos := tx.UnspentOutputs()
 	assert.Len(utxos, 1)

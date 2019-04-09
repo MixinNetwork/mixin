@@ -63,33 +63,17 @@ func (node *Node) LoadGenesis(configDir string) error {
 	var transactions []*common.VersionedTransaction
 	cacheRounds := make(map[crypto.Hash]*CacheRound)
 	for _, in := range gns.Nodes {
-		seed := crypto.NewHash([]byte(in.Signer.String() + "NODEACCEPT"))
-		r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
-		R := r.Public()
-		var keys []crypto.Key
+		si := crypto.NewHash([]byte(in.Signer.String() + "NODEACCEPT"))
+		seed := append(si[:], si[:]...)
+		script := common.NewThresholdScript(uint8(len(gns.Nodes)*2/3 + 1))
+		accounts := []common.Address{}
 		for _, d := range gns.Nodes {
-			key := crypto.DeriveGhostPublicKey(&r, &d.Signer.PublicViewKey, &d.Signer.PublicSpendKey, 0)
-			keys = append(keys, *key)
+			accounts = append(accounts, d.Signer)
 		}
 
-		tx := common.Transaction{
-			Version: common.TxVersion,
-			Asset:   common.XINAssetId,
-			Inputs: []*common.Input{
-				{
-					Genesis: node.networkId[:],
-				},
-			},
-			Outputs: []*common.Output{
-				{
-					Type:   common.OutputTypeNodeAccept,
-					Script: common.NewThresholdScript(uint8(len(gns.Nodes)*2/3 + 1)),
-					Amount: common.NewInteger(PledgeAmount),
-					Keys:   keys,
-					Mask:   R,
-				},
-			},
-		}
+		tx := common.NewTransaction(common.XINAssetId)
+		tx.Inputs = []*common.Input{{Genesis: node.networkId[:]}}
+		tx.AddOutputWithType(common.OutputTypeNodeAccept, accounts, script, common.NewInteger(PledgeAmount), seed)
 		tx.Extra = append(in.Signer.PublicSpendKey[:], in.Payee.PublicSpendKey[:]...)
 
 		signed := tx.AsLatestVersion()
@@ -161,33 +145,16 @@ func (node *Node) LoadGenesis(configDir string) error {
 }
 
 func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) (*common.SnapshotWithTopologicalOrder, *common.VersionedTransaction) {
-	seed := crypto.NewHash([]byte(domain.String() + "DOMAINACCEPT"))
-	r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
-	R := r.Public()
-	keys := make([]crypto.Key, 0)
+	si := crypto.NewHash([]byte(domain.String() + "DOMAINACCEPT"))
+	seed := append(si[:], si[:]...)
+	script := common.NewThresholdScript(uint8(len(gns.Nodes)*2/3 + 1))
+	accounts := []common.Address{}
 	for _, d := range gns.Nodes {
-		key := crypto.DeriveGhostPublicKey(&r, &d.Signer.PublicViewKey, &d.Signer.PublicSpendKey, 0)
-		keys = append(keys, *key)
+		accounts = append(accounts, d.Signer)
 	}
-
-	tx := common.Transaction{
-		Version: common.TxVersion,
-		Asset:   common.XINAssetId,
-		Inputs: []*common.Input{
-			{
-				Genesis: node.networkId[:],
-			},
-		},
-		Outputs: []*common.Output{
-			{
-				Type:   common.OutputTypeDomainAccept,
-				Script: common.NewThresholdScript(uint8(len(gns.Nodes)*2/3 + 1)),
-				Amount: common.NewInteger(50000),
-				Keys:   keys,
-				Mask:   R,
-			},
-		},
-	}
+	tx := common.NewTransaction(common.XINAssetId)
+	tx.Inputs = []*common.Input{{Genesis: node.networkId[:]}}
+	tx.AddOutputWithType(common.OutputTypeDomainAccept, accounts, script, common.NewInteger(50000), seed)
 	tx.Extra = make([]byte, len(domain.PublicSpendKey))
 	copy(tx.Extra, domain.PublicSpendKey[:])
 

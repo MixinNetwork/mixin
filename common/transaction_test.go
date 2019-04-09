@@ -13,7 +13,9 @@ func TestTransaction(t *testing.T) {
 
 	accounts := make([]Address, 0)
 	for i := 0; i < 3; i++ {
-		accounts = append(accounts, randomAccount())
+		seed := make([]byte, 64)
+		seed[i] = byte(i)
+		accounts = append(accounts, NewAddressFromSeed(seed))
 	}
 
 	seed := make([]byte, 64)
@@ -30,7 +32,8 @@ func TestTransaction(t *testing.T) {
 	assert.Equal("e31ea7bd97a59169fbef1294b4dcc00dd33b6c4cd95367614415a5d6bdb1eee8", ver.PayloadHash().String())
 	ver.Outputs = append(ver.Outputs, &Output{Type: OutputTypeScript, Amount: NewInteger(10000), Script: script})
 	assert.Equal("4fd17e24c47139f4a7c42c5a593e1e550614afb1a3d02f126f7c46d74dede430", ver.PayloadHash().String())
-	ver.AddScriptOutput(accounts, script, NewInteger(10000))
+	ver.AddScriptOutput(accounts, script, NewInteger(10000), []byte{1})
+	assert.Equal("e86baca4221ba5ba292b639593b78b93326641eaa1d75b3400a8766762d60770", ver.PayloadHash().String())
 
 	for i, _ := range ver.Inputs {
 		err := ver.SignInput(store, i, accounts)

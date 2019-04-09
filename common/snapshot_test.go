@@ -21,7 +21,7 @@ func TestSnapshot(t *testing.T) {
 	tx := NewTransaction(XINAssetId)
 	tx.AddInput(genesisHash, 0)
 	tx.AddInput(genesisHash, 1)
-	tx.AddScriptOutput(accounts, script, NewInteger(20000))
+	tx.AddRandomScriptOutput(accounts, script, NewInteger(20000))
 
 	s := &Snapshot{}
 	assert.Len(s.Signatures, 0)
