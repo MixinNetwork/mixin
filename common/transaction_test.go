@@ -25,9 +25,12 @@ func TestTransaction(t *testing.T) {
 	ver := NewTransaction(XINAssetId).AsLatestVersion()
 	assert.Equal("d2cf4d6e85d76512b29f173073be167423705e207f090f8cfc3e2b61fc32b6e2", ver.PayloadHash().String())
 	ver.AddInput(genesisHash, 0)
+	assert.Equal("b3afe7497740e05ba83e26977fbbfe7e1c2efc312d8d9aeb93bce43b9d8c6248", ver.PayloadHash().String())
 	ver.AddInput(genesisHash, 1)
 	assert.Equal("e31ea7bd97a59169fbef1294b4dcc00dd33b6c4cd95367614415a5d6bdb1eee8", ver.PayloadHash().String())
-	ver.AddScriptOutput(accounts, script, NewInteger(20000))
+	ver.Outputs = append(ver.Outputs, &Output{Type: OutputTypeScript, Amount: NewInteger(10000), Script: script})
+	assert.Equal("4fd17e24c47139f4a7c42c5a593e1e550614afb1a3d02f126f7c46d74dede430", ver.PayloadHash().String())
+	ver.AddScriptOutput(accounts, script, NewInteger(10000))
 
 	for i, _ := range ver.Inputs {
 		err := ver.SignInput(store, i, accounts)
@@ -37,12 +40,12 @@ func TestTransaction(t *testing.T) {
 	assert.Nil(err)
 
 	outputs := ver.ViewGhostKey(&accounts[1].PrivateViewKey)
-	assert.Len(outputs, 1)
-	assert.Equal(outputs[0].Keys[1].String(), accounts[1].PublicSpendKey.String())
+	assert.Len(outputs, 2)
+	assert.Equal(outputs[1].Keys[1].String(), accounts[1].PublicSpendKey.String())
 	outputs = ver.ViewGhostKey(&accounts[1].PrivateSpendKey)
-	assert.Len(outputs, 1)
-	assert.NotEqual(outputs[0].Keys[1].String(), accounts[1].PublicSpendKey.String())
-	assert.NotEqual(outputs[0].Keys[1].String(), accounts[1].PublicViewKey.String())
+	assert.Len(outputs, 2)
+	assert.NotEqual(outputs[1].Keys[1].String(), accounts[1].PublicSpendKey.String())
+	assert.NotEqual(outputs[1].Keys[1].String(), accounts[1].PublicViewKey.String())
 }
 
 type storeImpl struct {
