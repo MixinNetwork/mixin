@@ -32,9 +32,15 @@ func (m *MintData) Distribute(tx crypto.Hash) *MintDistribution {
 	}
 }
 
-func (tx *VersionedTransaction) validateMintInput(store DataStore) error {
+func (tx *VersionedTransaction) validateMint(store DataStore) error {
 	if len(tx.Inputs) != 1 {
 		return fmt.Errorf("invalid inputs count %d for mint", len(tx.Inputs))
+	}
+	if len(tx.Outputs) != 1 {
+		return fmt.Errorf("invalid outputs count %d for mint", len(tx.Outputs))
+	}
+	if tx.Outputs[0].Type != OutputTypeScript {
+		return fmt.Errorf("invalid mint output type %d", tx.Outputs[0].Type)
 	}
 	if tx.Asset != XINAssetId {
 		return fmt.Errorf("invalid mint asset %s", tx.Asset.String())

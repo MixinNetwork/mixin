@@ -22,12 +22,17 @@ func (n *Node) IsAccepted() bool {
 	return n.State == NodeStateAccepted
 }
 
-func (tx *Transaction) validateNodePledge(store DataStore) error {
+func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UTXO) error {
 	if len(tx.Outputs) != 1 {
 		return fmt.Errorf("invalid outputs count %d for pledge transaction", len(tx.Outputs))
 	}
 	if len(tx.Extra) != 2*len(crypto.Key{}) {
 		return fmt.Errorf("invalid extra length %d for pledge transaction", len(tx.Extra))
+	}
+	for _, in := range inputs {
+		if in.Type != OutputTypeScript {
+			return fmt.Errorf("invalid utxo type %d", in.Type)
+		}
 	}
 
 	o := tx.Outputs[0]
