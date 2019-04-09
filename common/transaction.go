@@ -46,9 +46,10 @@ type Input struct {
 }
 
 type Output struct {
-	Type   uint8        `json:"type"`
-	Amount Integer      `json:"amount"`
-	Keys   []crypto.Key `json:"keys,omitempty"`
+	Type       uint8           `json:"type"`
+	Amount     Integer         `json:"amount"`
+	Keys       []crypto.Key    `json:"keys,omitempty"`
+	Withdrawal *WithdrawalData `msgpack:",omitempty"json:"withdrawal,omitempty"`
 
 	// OutputTypeScript fields
 	Script Script     `json:"script,omitempty"`

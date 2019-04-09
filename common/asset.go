@@ -60,13 +60,6 @@ func (d *DepositData) UniqueKey() crypto.Hash {
 	return crypto.NewHash([]byte(index)).ForNetwork(d.Chain)
 }
 
-func (d *DepositData) Asset() *Asset {
-	return &Asset{
-		ChainId:  d.Chain,
-		AssetKey: d.AssetKey,
-	}
-}
-
 func (a *Asset) AssetId() crypto.Hash {
 	var chainBase string
 	switch a.ChainId {

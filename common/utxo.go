@@ -51,6 +51,17 @@ type DataStore interface {
 func (tx *VersionedTransaction) UnspentOutputs() []*UTXO {
 	var utxos []*UTXO
 	for i, out := range tx.Outputs {
+		switch out.Type {
+		case OutputTypeScript,
+			OutputTypeNodePledge,
+			OutputTypeNodeAccept,
+			OutputTypeDomainAccept,
+			OutputTypeWithdrawalFuel,
+			OutputTypeWithdrawalClaim:
+		default:
+			continue
+		}
+
 		utxo := &UTXO{
 			Input: Input{
 				Hash:  tx.PayloadHash(),

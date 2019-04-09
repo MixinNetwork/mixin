@@ -46,37 +46,21 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 
 	switch txType {
 	case TransactionTypeScript:
-		for _, in := range inputsFilter {
-			if in.Type != OutputTypeScript {
-				return fmt.Errorf("invalid utxo type %d", in.Type)
-			}
-		}
+		return validateScriptTransaction(inputsFilter)
 	case TransactionTypeMint:
-		err := ver.validateMint(store)
-		if err != nil {
-			return err
-		}
+		return ver.validateMint(store)
 	case TransactionTypeDeposit:
-		err := tx.validateDeposit(store, msg, ver.PayloadHash())
-		if err != nil {
-			return err
-		}
+		return tx.validateDeposit(store, msg, ver.PayloadHash())
 	case TransactionTypeWithdrawalSubmit:
-		return fmt.Errorf("invalid transaction type %d", txType)
+		return tx.validateWithdrawalSubmit(inputsFilter)
 	case TransactionTypeWithdrawalFuel:
-		return fmt.Errorf("invalid transaction type %d", txType)
+		return tx.validateWithdrawalFuel(store, inputsFilter)
 	case TransactionTypeWithdrawalClaim:
-		return fmt.Errorf("invalid transaction type %d", txType)
+		return tx.validateWithdrawalClaim(store, inputsFilter)
 	case TransactionTypeNodePledge:
-		err := tx.validateNodePledge(store, inputsFilter)
-		if err != nil {
-			return err
-		}
+		return tx.validateNodePledge(store, inputsFilter)
 	case TransactionTypeNodeAccept:
-		err := tx.validateNodeAccept(store)
-		if err != nil {
-			return err
-		}
+		return tx.validateNodeAccept(store)
 	case TransactionTypeNodeDepart:
 		return fmt.Errorf("invalid transaction type %d", txType)
 	case TransactionTypeNodeRemove:
@@ -85,6 +69,15 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 		return fmt.Errorf("invalid transaction type %d", txType)
 	case TransactionTypeDomainRemove:
 		return fmt.Errorf("invalid transaction type %d", txType)
+	}
+	return fmt.Errorf("invalid transaction type %d", txType)
+}
+
+func validateScriptTransaction(inputs map[string]*UTXO) error {
+	for _, in := range inputs {
+		if in.Type != OutputTypeScript {
+			return fmt.Errorf("invalid utxo type %d", in.Type)
+		}
 	}
 	return nil
 }
@@ -133,9 +126,14 @@ func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
 	outputAmount := NewInteger(0)
 	outputsFilter := make(map[crypto.Key]bool)
 	for _, o := range tx.Outputs {
+		if o.Withdrawal != nil {
+			continue
+		}
+
 		if o.Amount.Sign() <= 0 {
 			return outputAmount, fmt.Errorf("invalid output amount %s", o.Amount.String())
 		}
+
 		for _, k := range o.Keys {
 			if outputsFilter[k] {
 				return outputAmount, fmt.Errorf("invalid output key %s", k.String())
@@ -148,6 +146,7 @@ func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
 				return outputAmount, fmt.Errorf("invalid output key %s", k.String())
 			}
 		}
+
 		if o.Type == OutputTypeScript {
 			err := o.Script.VerifyFormat()
 			if err != nil {

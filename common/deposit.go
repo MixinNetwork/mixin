@@ -14,6 +14,13 @@ type DepositData struct {
 	Amount          Integer     `json:"amount"`
 }
 
+func (d *DepositData) Asset() *Asset {
+	return &Asset{
+		ChainId:  d.Chain,
+		AssetKey: d.AssetKey,
+	}
+}
+
 func (tx *SignedTransaction) DepositData() *DepositData {
 	return tx.Inputs[0].Deposit
 }
