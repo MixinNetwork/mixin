@@ -1,17 +1,11 @@
 package kernel
 
 import (
-	"fmt"
-
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
 func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, error) {
-	if tx.Version != common.TxVersion {
-		return "", fmt.Errorf("invalid tx version %d", tx.Version)
-	}
-
 	err := tx.Validate(node.store)
 	if err != nil {
 		return "", err

@@ -88,6 +88,10 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 	tx := &ver.SignedTransaction
 	msg := ver.PayloadMarshal()
 
+	if ver.Version != TxVersion || tx.Version != TxVersion {
+		return fmt.Errorf("invalid tx version %d %d", ver.Version, tx.Version)
+	}
+
 	if len(tx.Inputs) < 1 || len(tx.Outputs) < 1 {
 		return fmt.Errorf("invalid tx inputs or outputs %d %d", len(tx.Inputs), len(tx.Outputs))
 	}

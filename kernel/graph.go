@@ -31,9 +31,6 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	} else if tx == nil {
 		return nil
 	}
-	if tx.Version != common.TxVersion {
-		return nil
-	}
 	if s.NodeId == node.IdForNetwork {
 		if len(s.Signatures) == 0 {
 			return node.signSelfSnapshot(s, tx)
