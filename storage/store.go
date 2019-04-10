@@ -51,6 +51,4 @@ type Store interface {
 
 	WriteAsset(a *common.Asset) error
 	ReadAsset(id crypto.Hash) (*common.Asset, error)
-
-	LockWithdrawalClaim(hash crypto.Hash, tx crypto.Hash, fork bool) error
 }
