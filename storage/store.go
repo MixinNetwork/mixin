@@ -23,7 +23,7 @@ type Store interface {
 	TopologySequence() uint64
 
 	ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error)
-	LockUTXO(hash crypto.Hash, index int, tx crypto.Hash, fork bool) (*common.UTXO, error)
+	LockUTXO(hash crypto.Hash, index int, tx crypto.Hash, fork bool) error
 	CheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error
 	LockDepositInput(deposit *common.DepositData, tx crypto.Hash, fork bool) error
 	CheckGhost(key crypto.Key) (bool, error)

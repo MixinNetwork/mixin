@@ -66,7 +66,7 @@ func (tx *VersionedTransaction) LockInputs(locker UTXOLocker, fork bool) error {
 		}
 	}
 	for _, in := range tx.Inputs {
-		_, err := locker.LockUTXO(in.Hash, in.Index, tx.PayloadHash(), fork)
+		err := locker.LockUTXO(in.Hash, in.Index, tx.PayloadHash(), fork)
 		if err != nil {
 			return err
 		}

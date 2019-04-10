@@ -87,8 +87,8 @@ func (store storeImpl) CheckGhost(key crypto.Key) (bool, error) {
 	return false, nil
 }
 
-func (store storeImpl) LockUTXO(hash crypto.Hash, index int, tx crypto.Hash, fork bool) (*UTXO, error) {
-	return nil, nil
+func (store storeImpl) LockUTXO(hash crypto.Hash, index int, tx crypto.Hash, fork bool) error {
+	return nil
 }
 
 func (store storeImpl) ReadDomains() []Domain {
