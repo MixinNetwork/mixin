@@ -56,7 +56,7 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 	case TransactionTypeWithdrawalFuel:
 		return tx.validateWithdrawalFuel(store, inputsFilter)
 	case TransactionTypeWithdrawalClaim:
-		return tx.validateWithdrawalClaim(store, inputsFilter)
+		return tx.validateWithdrawalClaim(store, inputsFilter, msg)
 	case TransactionTypeNodePledge:
 		return tx.validateNodePledge(store, inputsFilter)
 	case TransactionTypeNodeAccept:

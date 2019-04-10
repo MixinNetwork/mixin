@@ -88,7 +88,7 @@ func (tx *SignedTransaction) validateWithdrawalFuel(store DataStore, inputs map[
 	return validateWithdrawalNodeOutputs(store, fuel)
 }
 
-func (tx *SignedTransaction) validateWithdrawalClaim(store DataStore, inputs map[string]*UTXO) error {
+func (tx *SignedTransaction) validateWithdrawalClaim(store DataStore, inputs map[string]*UTXO, msg []byte) error {
 	for _, in := range inputs {
 		if in.Type != OutputTypeScript {
 			return fmt.Errorf("invalid utxo type %d", in.Type)
@@ -128,6 +128,23 @@ func (tx *SignedTransaction) validateWithdrawalClaim(store DataStore, inputs map
 	withdrawal := submit.Outputs[0].Withdrawal
 	if withdrawal == nil || submit.Outputs[0].Type != OutputTypeWithdrawalSubmit {
 		return fmt.Errorf("invalid withdrawal submit data")
+	}
+
+	var domainValid bool
+	for _, d := range store.ReadDomains() {
+		domainValid = true
+		for _, sigs := range tx.Signatures {
+			for _, sig := range sigs {
+				valid := d.Account.PublicSpendKey.Verify(msg, sig)
+				domainValid = domainValid && valid
+			}
+		}
+		if domainValid {
+			break
+		}
+	}
+	if !domainValid {
+		return fmt.Errorf("invalid domain signature for withdrawal claim")
 	}
 	return validateWithdrawalNodeOutputs(store, claim)
 }
