@@ -13,18 +13,19 @@ import (
 )
 
 const (
-	graphPrefixGhost        = "GHOST" // each output key should only be used once
-	graphPrefixUTXO         = "UTXO"  // unspent outputs, including first consumed transaction hash
-	graphPrefixDeposit      = "DEPOSIT"
-	graphPrefixMint         = "MINT"
-	graphPrefixTransaction  = "TRANSACTION"  // raw transaction, may not be finalized yet, if finalized with first finalized snapshot hash
-	graphPrefixFinalization = "FINALIZATION" // transaction finalization hack
-	graphPrefixUnique       = "UNIQUE"       // unique transaction in one node
-	graphPrefixRound        = "ROUND"        // hash|node-if-cache {node:hash,number:734,references:{self-parent-round-hash,external-round-hash}}
-	graphPrefixSnapshot     = "SNAPSHOT"     // {
-	graphPrefixLink         = "LINK"         // self-external number
-	graphPrefixTopology     = "TOPOLOGY"
-	graphPrefixAsset        = "ASSET"
+	graphPrefixGhost           = "GHOST" // each output key should only be used once
+	graphPrefixUTXO            = "UTXO"  // unspent outputs, including first consumed transaction hash
+	graphPrefixDeposit         = "DEPOSIT"
+	graphPrefixMint            = "MINT"
+	graphPrefixTransaction     = "TRANSACTION"  // raw transaction, may not be finalized yet, if finalized with first finalized snapshot hash
+	graphPrefixFinalization    = "FINALIZATION" // transaction finalization hack
+	graphPrefixUnique          = "UNIQUE"       // unique transaction in one node
+	graphPrefixRound           = "ROUND"        // hash|node-if-cache {node:hash,number:734,references:{self-parent-round-hash,external-round-hash}}
+	graphPrefixSnapshot        = "SNAPSHOT"     // {
+	graphPrefixLink            = "LINK"         // self-external number
+	graphPrefixTopology        = "TOPOLOGY"
+	graphPrefixAsset           = "ASSET"
+	graphPrefixWithdrawalClaim = "WITHDRAWALCLAIM"
 )
 
 func (s *BadgerStore) ValidateGraphEntries() (int, error) {

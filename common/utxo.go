@@ -25,6 +25,7 @@ type UTXOLocker interface {
 	LockUTXO(hash crypto.Hash, index int, tx crypto.Hash, fork bool) (*UTXO, error)
 	LockDepositInput(deposit *DepositData, tx crypto.Hash, fork bool) error
 	LockMintInput(mint *MintData, tx crypto.Hash, fork bool) error
+	LockWithdrawalClaim(hash crypto.Hash, tx crypto.Hash, fork bool) error
 }
 
 type GhostChecker interface {

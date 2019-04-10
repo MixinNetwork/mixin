@@ -52,15 +52,21 @@ func (s *Snapshot) PayloadHash() crypto.Hash {
 }
 
 func (tx *VersionedTransaction) LockInputs(locker UTXOLocker, fork bool) error {
-	for _, in := range tx.Inputs {
-		var err error
-		if in.Mint != nil {
-			err = locker.LockMintInput(in.Mint, tx.PayloadHash(), fork)
-		} else if in.Deposit != nil {
-			err = locker.LockDepositInput(in.Deposit, tx.PayloadHash(), fork)
-		} else {
-			_, err = locker.LockUTXO(in.Hash, in.Index, tx.PayloadHash(), fork)
+	switch tx.TransactionType() {
+	case TransactionTypeMint:
+		return locker.LockMintInput(tx.Inputs[0].Mint, tx.PayloadHash(), fork)
+	case TransactionTypeDeposit:
+		return locker.LockDepositInput(tx.Inputs[0].Deposit, tx.PayloadHash(), fork)
+	case TransactionTypeWithdrawalClaim:
+		var hash crypto.Hash
+		copy(hash[:], tx.Extra)
+		err := locker.LockWithdrawalClaim(hash, tx.PayloadHash(), fork)
+		if err != nil {
+			return err
 		}
+	}
+	for _, in := range tx.Inputs {
+		_, err := locker.LockUTXO(in.Hash, in.Index, tx.PayloadHash(), fork)
 		if err != nil {
 			return err
 		}

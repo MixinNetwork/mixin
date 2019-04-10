@@ -119,6 +119,10 @@ func (store storeImpl) LockMintInput(mint *MintData, tx crypto.Hash, fork bool) 
 	return nil
 }
 
+func (store storeImpl) LockWithdrawalClaim(hash, tx crypto.Hash, fork bool) error {
+	return nil
+}
+
 func randomAccount() Address {
 	seed := make([]byte, 64)
 	rand.Read(seed)
