@@ -28,6 +28,11 @@ func (k Key) Public() Key {
 	return tmp
 }
 
+func (k Key) HasValue() bool {
+	zero := Key{}
+	return bytes.Compare(k[:], zero[:]) != 0
+}
+
 func (k Key) DeterministicHashDerive() Key {
 	seed := NewHash(k[:])
 	return NewKeyFromSeed(append(seed[:], seed[:]...))

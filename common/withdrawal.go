@@ -45,6 +45,15 @@ func (tx *SignedTransaction) validateWithdrawalSubmit(inputs map[string]*UTXO) e
 	if id := submit.Withdrawal.Asset().AssetId(); id != tx.Asset {
 		return fmt.Errorf("invalid asset %s %s", tx.Asset, id)
 	}
+	if len(submit.Keys) != 0 {
+		return fmt.Errorf("invalid withdrawal submit keys %d", len(submit.Keys))
+	}
+	if len(submit.Script) != 0 {
+		return fmt.Errorf("invalid withdrawal submit script %s", submit.Script)
+	}
+	if submit.Mask.HasValue() {
+		return fmt.Errorf("invalid withdrawal submit mask %s", submit.Mask)
+	}
 	return nil
 }
 

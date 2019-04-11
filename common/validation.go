@@ -152,6 +152,12 @@ func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
 			if err != nil {
 				return outputAmount, err
 			}
+			if !o.Mask.HasValue() {
+				return outputAmount, fmt.Errorf("invalid script output empty mask %s", o.Mask)
+			}
+			if o.Withdrawal != nil {
+				return outputAmount, fmt.Errorf("invalid script output with withdrawal %s", o.Withdrawal.Address)
+			}
 		}
 		outputAmount = outputAmount.Add(o.Amount)
 	}

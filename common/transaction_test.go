@@ -1,6 +1,7 @@
 package common
 
 import (
+	"bytes"
 	"crypto/rand"
 	"testing"
 
@@ -30,10 +31,10 @@ func TestTransaction(t *testing.T) {
 	assert.Equal("b3afe7497740e05ba83e26977fbbfe7e1c2efc312d8d9aeb93bce43b9d8c6248", ver.PayloadHash().String())
 	ver.AddInput(genesisHash, 1)
 	assert.Equal("e31ea7bd97a59169fbef1294b4dcc00dd33b6c4cd95367614415a5d6bdb1eee8", ver.PayloadHash().String())
-	ver.Outputs = append(ver.Outputs, &Output{Type: OutputTypeScript, Amount: NewInteger(10000), Script: script})
-	assert.Equal("4fd17e24c47139f4a7c42c5a593e1e550614afb1a3d02f126f7c46d74dede430", ver.PayloadHash().String())
-	ver.AddScriptOutput(accounts, script, NewInteger(10000), []byte{1})
-	assert.Equal("e86baca4221ba5ba292b639593b78b93326641eaa1d75b3400a8766762d60770", ver.PayloadHash().String())
+	ver.Outputs = append(ver.Outputs, &Output{Type: OutputTypeScript, Amount: NewInteger(10000), Script: script, Mask: crypto.NewKeyFromSeed(bytes.Repeat([]byte{1}, 64))})
+	assert.Equal("56fb588ab4319a54694fbbdc85f41b913401137da83ac6724e2c3adb076460f9", ver.PayloadHash().String())
+	ver.AddScriptOutput(accounts, script, NewInteger(10000), bytes.Repeat([]byte{1}, 64))
+	assert.Equal("d0a26a0a7f05941bc748b8f605f0b990511aafb865cf759364eb1d46156e6696", ver.PayloadHash().String())
 
 	for i, _ := range ver.Inputs {
 		err := ver.SignInput(store, i, accounts)
