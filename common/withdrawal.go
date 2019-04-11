@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
@@ -109,7 +110,7 @@ func (tx *SignedTransaction) validateWithdrawalClaim(store DataStore, inputs map
 	if claim.Type != OutputTypeWithdrawalFuel {
 		return fmt.Errorf("invalid output type %d for withdrawal claim transaction", claim.Type)
 	}
-	if claim.Amount.Cmp(NewIntegerFromString("0.00000001")) != 0 {
+	if claim.Amount.Cmp(NewIntegerFromString(config.WithdrawalClaimFee)) < 0 {
 		return fmt.Errorf("invalid output amount %s for withdrawal claim transaction", claim.Amount)
 	}
 

@@ -10,4 +10,5 @@ const (
 	SnapshotReferenceThreshold = 10
 	TransactionMaximumSize     = 1024 * 1024
 	CacheTTL                   = 2 * time.Hour
+	WithdrawalClaimFee         = "0.0001"
 )
