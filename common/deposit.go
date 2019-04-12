@@ -1,11 +1,10 @@
 package common
 
 import (
-	"encoding/hex"
 	"fmt"
-	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/domains/ethereum"
 )
 
 type DepositData struct {
@@ -51,22 +50,7 @@ func (tx *SignedTransaction) verifyDepositFormat() error {
 
 	switch deposit.Asset().ChainId {
 	case EthereumChainId:
-		if len(deposit.TransactionHash) != 66 {
-			return fmt.Errorf("invalid transaction hash %s", deposit.TransactionHash)
-		}
-		if !strings.HasPrefix(deposit.TransactionHash, "0x") {
-			return fmt.Errorf("invalid transaction hash %s", deposit.TransactionHash)
-		}
-		if strings.ToLower(deposit.TransactionHash) != deposit.TransactionHash {
-			return fmt.Errorf("invalid transaction hash %s", deposit.TransactionHash)
-		}
-		h, err := hex.DecodeString(deposit.TransactionHash[2:])
-		if err != nil {
-			return fmt.Errorf("invalid transaction hash %s %s", deposit.TransactionHash, err.Error())
-		}
-		if len(h) != 32 {
-			return fmt.Errorf("invalid transaction hash %s", deposit.TransactionHash)
-		}
+		return ethereum.VerifyTransactionHash(deposit.TransactionHash)
 	}
 	return nil
 }

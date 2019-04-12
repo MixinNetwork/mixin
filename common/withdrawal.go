@@ -5,6 +5,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/domains/ethereum"
 )
 
 type WithdrawalData struct {
@@ -42,9 +43,14 @@ func (tx *SignedTransaction) validateWithdrawalSubmit(inputs map[string]*UTXO) e
 	if submit.Withdrawal == nil {
 		return fmt.Errorf("invalid withdrawal submit data")
 	}
+
+	if err := submit.Withdrawal.Asset().Verify(); err != nil {
+		return fmt.Errorf("invalid asset data %s", err.Error())
+	}
 	if id := submit.Withdrawal.Asset().AssetId(); id != tx.Asset {
 		return fmt.Errorf("invalid asset %s %s", tx.Asset, id)
 	}
+
 	if len(submit.Keys) != 0 {
 		return fmt.Errorf("invalid withdrawal submit keys %d", len(submit.Keys))
 	}
@@ -53,6 +59,11 @@ func (tx *SignedTransaction) validateWithdrawalSubmit(inputs map[string]*UTXO) e
 	}
 	if submit.Mask.HasValue() {
 		return fmt.Errorf("invalid withdrawal submit mask %s", submit.Mask)
+	}
+
+	switch submit.Withdrawal.Asset().ChainId {
+	case EthereumChainId:
+		return ethereum.VerifyAddress(submit.Withdrawal.Address)
 	}
 	return nil
 }
