@@ -147,7 +147,7 @@ func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
 			}
 		}
 
-		if o.Type == OutputTypeScript {
+		if o.Type != OutputTypeWithdrawalSubmit {
 			err := o.Script.VerifyFormat()
 			if err != nil {
 				return outputAmount, err
