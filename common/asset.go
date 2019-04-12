@@ -16,7 +16,6 @@ var (
 	EthereumChainId   crypto.Hash
 
 	XINAssetId crypto.Hash
-	CNBAssetId crypto.Hash
 )
 
 type Asset struct {
@@ -29,35 +28,31 @@ func init() {
 	EthereumChainId = crypto.NewHash([]byte(EthereumChainBase))
 
 	XINAssetId = crypto.NewHash([]byte("c94ac88f-4671-3976-b60a-09064f1811e8"))
-	CNBAssetId = crypto.NewHash([]byte("965e5c6e-434c-3fa9-b780-c50f43cd955c"))
 }
 
-func (d *DepositData) validateEthereumAssetInput() error {
-	if d.Chain != EthereumChainId {
-		return fmt.Errorf("invalid chain %s", d.Chain)
+func (a *Asset) Verify() error {
+	switch a.ChainId {
+	case EthereumChainId:
+		if len(a.AssetKey) != 42 {
+			return fmt.Errorf("invalid ethereum asset key %s", a.AssetKey)
+		}
+		if !strings.HasPrefix(a.AssetKey, "0x") {
+			return fmt.Errorf("invalid ethereum asset key %s", a.AssetKey)
+		}
+		if a.AssetKey != strings.ToLower(a.AssetKey) {
+			return fmt.Errorf("invalid ethereum asset key %s", a.AssetKey)
+		}
+		key, err := hex.DecodeString(a.AssetKey[2:])
+		if err != nil {
+			return fmt.Errorf("invalid ethereum asset key %s %s", a.AssetKey, err.Error())
+		}
+		if len(key) != 20 {
+			return fmt.Errorf("invalid ethereum asset key %s", a.AssetKey)
+		}
+		return nil
+	default:
+		return fmt.Errorf("invalid chain id %s", a.ChainId)
 	}
-	if id := d.Asset().AssetId(); id != XINAssetId && id != CNBAssetId {
-		return fmt.Errorf("invalid asset %s %s", d.AssetKey, id)
-	}
-	if d.Amount.Sign() <= 0 {
-		return fmt.Errorf("invalid amount %s", d.Amount.String())
-	}
-	if d.OutputIndex > 256 {
-		return fmt.Errorf("invalid output index %d", d.OutputIndex)
-	}
-	if len(d.TransactionHash) != 66 || !strings.HasPrefix(d.TransactionHash, "0x") {
-		return fmt.Errorf("invalid transaction hash %s", d.TransactionHash)
-	}
-	h, err := hex.DecodeString(d.TransactionHash[2:])
-	if err != nil || len(h) != 32 {
-		return fmt.Errorf("invalid transaction hash %s %s", d.TransactionHash, err)
-	}
-	return nil
-}
-
-func (d *DepositData) UniqueKey() crypto.Hash {
-	index := fmt.Sprintf("%s:%d", d.TransactionHash, d.OutputIndex)
-	return crypto.NewHash([]byte(index)).ForNetwork(d.Chain)
 }
 
 func (a *Asset) AssetId() crypto.Hash {

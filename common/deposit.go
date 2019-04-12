@@ -1,7 +1,9 @@
 package common
 
 import (
+	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
 )
@@ -21,18 +23,50 @@ func (d *DepositData) Asset() *Asset {
 	}
 }
 
+func (d *DepositData) UniqueKey() crypto.Hash {
+	index := fmt.Sprintf("%s:%d", d.TransactionHash, d.OutputIndex)
+	return crypto.NewHash([]byte(index)).ForNetwork(d.Chain)
+}
+
 func (tx *SignedTransaction) DepositData() *DepositData {
 	return tx.Inputs[0].Deposit
 }
 
 func (tx *SignedTransaction) verifyDepositFormat() error {
 	deposit := tx.Inputs[0].Deposit
-	err := deposit.validateEthereumAssetInput()
-	if err != nil {
-		return err
+	if err := deposit.Asset().Verify(); err != nil {
+		return fmt.Errorf("invalid asset data %s", err.Error())
 	}
 	if id := deposit.Asset().AssetId(); id != tx.Asset {
 		return fmt.Errorf("invalid asset %s %s", tx.Asset, id)
+	}
+
+	if deposit.Amount.Sign() <= 0 {
+		return fmt.Errorf("invalid amount %s", deposit.Amount.String())
+	}
+
+	if deposit.OutputIndex > 256 {
+		return fmt.Errorf("invalid output index %d", deposit.OutputIndex)
+	}
+
+	switch deposit.Asset().ChainId {
+	case EthereumChainId:
+		if len(deposit.TransactionHash) != 66 {
+			return fmt.Errorf("invalid transaction hash %s", deposit.TransactionHash)
+		}
+		if !strings.HasPrefix(deposit.TransactionHash, "0x") {
+			return fmt.Errorf("invalid transaction hash %s", deposit.TransactionHash)
+		}
+		if strings.ToLower(deposit.TransactionHash) != deposit.TransactionHash {
+			return fmt.Errorf("invalid transaction hash %s", deposit.TransactionHash)
+		}
+		h, err := hex.DecodeString(deposit.TransactionHash[2:])
+		if err != nil {
+			return fmt.Errorf("invalid transaction hash %s %s", deposit.TransactionHash, err.Error())
+		}
+		if len(h) != 32 {
+			return fmt.Errorf("invalid transaction hash %s", deposit.TransactionHash)
+		}
 	}
 	return nil
 }
