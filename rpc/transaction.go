@@ -118,11 +118,33 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {
 			})
 		}
 	}
+
+	var outputs []map[string]interface{}
+	for _, out := range tx.Outputs {
+		output := map[string]interface{}{
+			"type":   out.Type,
+			"amount": out.Amount,
+		}
+		if len(out.Keys) > 0 {
+			output["keys"] = out.Keys
+		}
+		if len(out.Script) > 0 {
+			output["script"] = out.Script
+		}
+		if out.Mask.HasValue() {
+			output["mask"] = out.Mask
+		}
+		if out.Withdrawal != nil {
+			output["withdrawal"] = out.Withdrawal
+		}
+		outputs = append(outputs, output)
+	}
+
 	return map[string]interface{}{
 		"version": tx.Version,
 		"asset":   tx.Asset,
 		"inputs":  inputs,
-		"outputs": tx.Outputs,
+		"outputs": outputs,
 		"extra":   hex.EncodeToString(tx.Extra),
 		"hash":    tx.PayloadHash(),
 	}
