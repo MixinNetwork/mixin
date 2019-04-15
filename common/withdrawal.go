@@ -106,7 +106,7 @@ func (tx *SignedTransaction) validateWithdrawalFuel(store DataStore, inputs map[
 	if id := withdrawal.Asset().FeeAssetId(); id != tx.Asset {
 		return fmt.Errorf("invalid fee asset %s %s", tx.Asset, id)
 	}
-	return validateWithdrawalNodeOutputs(store, fuel)
+	return nil
 }
 
 func (tx *SignedTransaction) validateWithdrawalClaim(store DataStore, inputs map[string]*UTXO, msg []byte) error {
@@ -167,10 +167,5 @@ func (tx *SignedTransaction) validateWithdrawalClaim(store DataStore, inputs map
 	if !domainValid {
 		return fmt.Errorf("invalid domain signature for withdrawal claim")
 	}
-	return validateWithdrawalNodeOutputs(store, claim)
-}
-
-func validateWithdrawalNodeOutputs(store DataStore, o *Output) error {
-	nodes := store.ReadConsensusNodes()
-	return validateNodeOutput(nodes, o)
+	return nil
 }

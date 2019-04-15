@@ -39,22 +39,13 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 	if o.Amount.Cmp(NewInteger(10000)) != 0 {
 		return fmt.Errorf("invalid pledge amount %s", o.Amount.String())
 	}
-	nodes := store.ReadConsensusNodes()
-	for _, n := range nodes {
+	for _, n := range store.ReadConsensusNodes() {
 		if n.State != NodeStateAccepted {
 			return fmt.Errorf("invalid node pending state %s %s", n.Signer.String(), n.State)
 		}
 	}
 
-	var signer, payee Address
-	copy(signer.PublicSpendKey[:], tx.Extra[:len(signer.PublicSpendKey)])
-	copy(payee.PublicSpendKey[:], tx.Extra[len(signer.PublicSpendKey):])
-	signer.PrivateViewKey = signer.PublicSpendKey.DeterministicHashDerive()
-	signer.PublicViewKey = signer.PrivateViewKey.Public()
-	payee.PrivateViewKey = payee.PublicSpendKey.DeterministicHashDerive()
-	payee.PublicViewKey = payee.PrivateViewKey.Public()
-	nodes = append(nodes, &Node{Signer: signer, Payee: payee})
-	return validateNodeOutput(nodes, o)
+	return nil
 }
 
 func (tx *Transaction) validateNodeAccept(store DataStore) error {
@@ -132,31 +123,5 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 	if ao.Amount.Add(po.Amount).Cmp(nodesAmount) != 0 {
 		return fmt.Errorf("invalid accept input amount %s %s %s", ao.Amount, po.Amount, nodesAmount)
 	}
-	return validateNodeOutput(nodes, tx.Outputs[0])
-}
-
-func validateNodeOutput(nodes []*Node, o *Output) error {
-	if len(nodes) != len(o.Keys) {
-		return fmt.Errorf("invalid output keys count %d %d for pledge transaction", len(nodes), len(o.Keys))
-	}
-
-	if o.Script.VerifyFormat() != nil || int(o.Script[2]) != len(nodes)*2/3+1 {
-		return fmt.Errorf("invalid output script %s %d", o.Script, len(nodes)*2/3+1)
-	}
-
-	filter := make(map[crypto.Key]bool)
-	for _, n := range nodes {
-		filter[n.Signer.PublicSpendKey] = true
-	}
-	for i, k := range o.Keys {
-		for _, n := range nodes {
-			ghost := crypto.ViewGhostOutputKey(&k, &n.Signer.PrivateViewKey, &o.Mask, 0)
-			delete(filter, *ghost)
-		}
-		if len(filter) != len(nodes)-1-i {
-			return fmt.Errorf("invalid output keys signatures %d", len(filter))
-		}
-	}
-
 	return nil
 }

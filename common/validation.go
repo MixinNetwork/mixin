@@ -147,7 +147,22 @@ func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
 			}
 		}
 
-		if o.Type != OutputTypeWithdrawalSubmit {
+		switch o.Type {
+		case OutputTypeWithdrawalSubmit,
+			OutputTypeWithdrawalFuel,
+			OutputTypeWithdrawalClaim,
+			OutputTypeNodePledge,
+			OutputTypeNodeAccept:
+			if len(o.Keys) != 0 {
+				return outputAmount, fmt.Errorf("invalid output keys count %d for kernel multisig transaction", len(o.Keys))
+			}
+			if len(o.Script) != 0 {
+				return outputAmount, fmt.Errorf("invalid output script %s for kernel multisig transaction", o.Script)
+			}
+			if o.Mask.HasValue() {
+				return outputAmount, fmt.Errorf("invalid output empty mask %s for kernel multisig transaction", o.Mask)
+			}
+		default:
 			err := o.Script.VerifyFormat()
 			if err != nil {
 				return outputAmount, err
@@ -167,24 +182,22 @@ func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
 func validateUTXO(utxo *UTXO, sigs []crypto.Signature, msg []byte) error {
 	switch utxo.Type {
 	case OutputTypeScript:
-	case OutputTypeNodePledge:
-	case OutputTypeNodeAccept:
+		var offset, valid int
+		for _, sig := range sigs {
+			for i, k := range utxo.Keys {
+				if i < offset {
+					continue
+				}
+				if k.Verify(msg, sig) {
+					valid = valid + 1
+					offset = i + 1
+				}
+			}
+		}
+		return utxo.Script.Validate(valid)
+	case OutputTypeNodePledge, OutputTypeNodeAccept:
+		return fmt.Errorf("should do more validation on those %d UTXOs", utxo.Type)
 	default:
 		return fmt.Errorf("invalid input type %d", utxo.Type)
 	}
-
-	var offset, valid int
-	for _, sig := range sigs {
-		for i, k := range utxo.Keys {
-			if i < offset {
-				continue
-			}
-			if k.Verify(msg, sig) {
-				valid = valid + 1
-				offset = i + 1
-			}
-		}
-	}
-
-	return utxo.Script.Validate(valid)
 }
