@@ -44,7 +44,7 @@ func (tx *SignedTransaction) verifyDepositFormat() error {
 		return fmt.Errorf("invalid amount %s", deposit.Amount.String())
 	}
 
-	if deposit.OutputIndex > 256 {
+	if deposit.OutputIndex > 1024 {
 		return fmt.Errorf("invalid output index %d", deposit.OutputIndex)
 	}
 
