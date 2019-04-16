@@ -126,12 +126,13 @@ func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
 	outputAmount := NewInteger(0)
 	outputsFilter := make(map[crypto.Key]bool)
 	for _, o := range tx.Outputs {
-		if o.Withdrawal != nil {
-			continue
-		}
-
 		if o.Amount.Sign() <= 0 {
 			return outputAmount, fmt.Errorf("invalid output amount %s", o.Amount.String())
+		}
+
+		if o.Withdrawal != nil {
+			outputAmount = outputAmount.Add(o.Amount)
+			continue
 		}
 
 		for _, k := range o.Keys {
