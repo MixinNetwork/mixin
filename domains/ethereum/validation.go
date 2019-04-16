@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gofrs/uuid"
 )
 
@@ -48,7 +49,11 @@ func VerifyAddress(address string) error {
 	if !strings.HasPrefix(address, "0x") {
 		return fmt.Errorf("invalid ethereum address %s", address)
 	}
-	if address != strings.ToLower(address) {
+	form, err := formatAddress(address)
+	if err != nil {
+		return fmt.Errorf("invalid ethereum address %s", address)
+	}
+	if form != address {
 		return fmt.Errorf("invalid ethereum address %s", address)
 	}
 	a, err := hex.DecodeString(address[2:])
@@ -94,4 +99,15 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 	sum[8] = (sum[8] & 0x3f) | 0x80
 	id := uuid.FromBytesOrNil(sum).String()
 	return crypto.NewHash([]byte(id))
+}
+
+func formatAddress(to string) (string, error) {
+	var bytesto [20]byte
+	_bytesto, err := hex.DecodeString(to[2:])
+	if err != nil {
+		return "", err
+	}
+	copy(bytesto[:], _bytesto)
+	address := common.Address(bytesto)
+	return address.Hex(), nil
 }
