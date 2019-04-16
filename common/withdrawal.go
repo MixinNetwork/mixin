@@ -127,7 +127,7 @@ func (tx *SignedTransaction) validateWithdrawalClaim(store DataStore, inputs map
 	}
 
 	claim := tx.Outputs[0]
-	if claim.Type != OutputTypeWithdrawalFuel {
+	if claim.Type != OutputTypeWithdrawalClaim {
 		return fmt.Errorf("invalid output type %d for withdrawal claim transaction", claim.Type)
 	}
 	if claim.Amount.Cmp(NewIntegerFromString(config.WithdrawalClaimFee)) < 0 {
