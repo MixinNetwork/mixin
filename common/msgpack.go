@@ -16,7 +16,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	zstdCDict, err = gozstd.NewCDict(dic)
+	zstdCDict, err = gozstd.NewCDictLevel(dic, 5)
 	if err != nil {
 		panic(err)
 	}
