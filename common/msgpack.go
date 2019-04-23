@@ -27,6 +27,7 @@ func init() {
 }
 
 var (
+	// zstd --train /tmp/zstd/* -o config/data/zstd.dic
 	zstdCDict *gozstd.CDict
 	zstdDDict *gozstd.DDict
 
