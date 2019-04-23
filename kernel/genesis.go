@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
@@ -77,6 +78,9 @@ func (node *Node) LoadGenesis(configDir string) error {
 		tx.Extra = append(in.Signer.PublicSpendKey[:], in.Payee.PublicSpendKey[:]...)
 
 		signed := tx.AsLatestVersion()
+		if node.networkId.String() == config.MainnetId {
+			signed, _ = common.UnmarshalVersionedTransaction(signed.Marshal())
+		}
 		nodeId := in.Signer.Hash().ForNetwork(node.networkId)
 		snapshot := common.Snapshot{
 			NodeId:      nodeId,
@@ -159,6 +163,9 @@ func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) (*com
 	copy(tx.Extra, domain.PublicSpendKey[:])
 
 	signed := tx.AsLatestVersion()
+	if node.networkId.String() == config.MainnetId {
+		signed, _ = common.UnmarshalVersionedTransaction(signed.Marshal())
+	}
 	nodeId := domain.Hash().ForNetwork(node.networkId)
 	snapshot := common.Snapshot{
 		NodeId:      nodeId,
