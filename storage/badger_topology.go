@@ -52,7 +52,7 @@ func (s *BadgerStore) ReadSnapshotsSinceTopology(topologyOffset, count uint64) (
 			return snapshots, err
 		}
 		var snap common.SnapshotWithTopologicalOrder
-		err = common.MsgpackUnmarshal(v, &snap)
+		err = common.DecompressMsgpackUnmarshal(v, &snap)
 		if err != nil {
 			return snapshots, err
 		}

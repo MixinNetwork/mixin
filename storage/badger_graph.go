@@ -45,7 +45,7 @@ func (s *BadgerStore) ValidateGraphEntries() (int, error) {
 		}
 
 		var hash crypto.Hash
-		ver, err := common.UnmarshalVersionedTransaction(val)
+		ver, err := common.DecompressUnmarshalVersionedTransaction(val)
 		if err != nil {
 			return 0, err
 		}
@@ -103,7 +103,7 @@ func readSnapshotsForNodeRound(txn *badger.Txn, nodeId crypto.Hash, round uint64
 			return snapshots, err
 		}
 		var s common.SnapshotWithTopologicalOrder
-		err = common.MsgpackUnmarshal(v, &s)
+		err = common.DecompressMsgpackUnmarshal(v, &s)
 		if err != nil {
 			return snapshots, err
 		}
@@ -166,7 +166,7 @@ func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder, v
 	}
 
 	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction)
-	val := common.MsgpackMarshalPanic(snap)
+	val := common.CompressMsgpackMarshalPanic(snap)
 	err = txn.Set(key, val)
 	if err != nil {
 		return err
@@ -179,18 +179,6 @@ func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder, v
 	}
 
 	return writeTopology(txn, snap)
-}
-
-func graphReadValue(txn *badger.Txn, key []byte, val interface{}) error {
-	item, err := txn.Get(key)
-	if err != nil {
-		return err
-	}
-	ival, err := item.ValueCopy(nil)
-	if err != nil {
-		return err
-	}
-	return common.MsgpackUnmarshal(ival, &val)
 }
 
 func graphSnapshotKey(nodeId crypto.Hash, round uint64, hash crypto.Hash) []byte {

@@ -26,7 +26,7 @@ func (s *BadgerStore) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error
 	}
 
 	var out common.UTXO
-	err = common.MsgpackUnmarshal(ival, &out)
+	err = common.DecompressMsgpackUnmarshal(ival, &out)
 	return &out, err
 }
 
@@ -43,7 +43,7 @@ func (s *BadgerStore) LockUTXO(hash crypto.Hash, index int, tx crypto.Hash, fork
 		}
 
 		var out common.UTXOWithLock
-		err = common.MsgpackUnmarshal(ival, &out)
+		err = common.DecompressMsgpackUnmarshal(ival, &out)
 		if err != nil {
 			return err
 		}
@@ -58,7 +58,7 @@ func (s *BadgerStore) LockUTXO(hash crypto.Hash, index int, tx crypto.Hash, fork
 			}
 		}
 		out.LockHash = tx
-		return txn.Set(key, common.MsgpackMarshalPanic(out))
+		return txn.Set(key, common.CompressMsgpackMarshalPanic(out))
 	})
 }
 

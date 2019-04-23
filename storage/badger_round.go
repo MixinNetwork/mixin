@@ -169,12 +169,21 @@ func writeLink(txn *badger.Txn, from, to crypto.Hash, link uint64) error {
 }
 
 func readRound(txn *badger.Txn, hash crypto.Hash) (*common.Round, error) {
-	var out common.Round
 	key := graphRoundKey(hash)
-	err := graphReadValue(txn, key, &out)
+	item, err := txn.Get(key)
 	if err == badger.ErrKeyNotFound {
 		return nil, nil
+	} else if err != nil {
+		return nil, err
 	}
+
+	ival, err := item.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var out common.Round
+	err = common.MsgpackUnmarshal(ival, &out)
 	return &out, err
 }
 

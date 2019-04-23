@@ -38,7 +38,7 @@ func (s *BadgerStore) CacheListTransactions(hook func(tx *common.VersionedTransa
 		if err != nil {
 			return err
 		}
-		ver, err := common.UnmarshalVersionedTransaction(v)
+		ver, err := common.DecompressUnmarshalVersionedTransaction(v)
 		if err != nil {
 			return err
 		}
@@ -55,7 +55,7 @@ func (s *BadgerStore) CachePutTransaction(tx *common.VersionedTransaction) error
 	defer txn.Discard()
 
 	key := cacheTransactionCacheKey(tx.PayloadHash())
-	val := tx.Marshal()
+	val := tx.CompressMarshal()
 	err := txn.SetWithTTL(key, val, config.CacheTTL)
 	if err != nil {
 		return err
@@ -78,7 +78,7 @@ func (s *BadgerStore) CacheGetTransaction(hash crypto.Hash) (*common.VersionedTr
 	if err != nil {
 		return nil, err
 	}
-	return common.UnmarshalVersionedTransaction(val)
+	return common.DecompressUnmarshalVersionedTransaction(val)
 }
 
 func cacheTransactionCacheKey(hash crypto.Hash) []byte {

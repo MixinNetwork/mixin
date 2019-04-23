@@ -20,6 +20,29 @@ func (tx *Transaction) AsLatestVersion() *VersionedTransaction {
 	}
 }
 
+func DecompressUnmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
+	var tx SignedTransaction
+	err := DecompressMsgpackUnmarshal(val, &tx)
+	if err != nil {
+		return nil, err
+	}
+
+	ver := &VersionedTransaction{
+		SignedTransaction: tx,
+	}
+
+	if tx.Version == 1 && len(tx.Inputs) == 1 && hex.EncodeToString(tx.Inputs[0].Genesis) == "6430225c42bb015b4da03102fa962e4f4ef3969e03e04345db229f8377ef7997" {
+		var ght SignedGenesisHackTransaction
+		err := DecompressMsgpackUnmarshal(val, &ght)
+		if err != nil {
+			return nil, err
+		}
+		ver.Version = 0
+		ver.BadGenesis = &ght
+	}
+	return ver, nil
+}
+
 func UnmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
 	var tx SignedTransaction
 	err := MsgpackUnmarshal(val, &tx)
@@ -41,6 +64,17 @@ func UnmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
 		ver.BadGenesis = &ght
 	}
 	return ver, nil
+}
+
+func (ver *VersionedTransaction) CompressMarshal() []byte {
+	var msg []byte
+	switch ver.Version {
+	case 0:
+		msg = CompressMsgpackMarshalPanic(ver.BadGenesis)
+	case TxVersion:
+		msg = CompressMsgpackMarshalPanic(ver.SignedTransaction)
+	}
+	return msg
 }
 
 func (ver *VersionedTransaction) Marshal() []byte {
