@@ -3,31 +3,55 @@ package common
 import (
 	"bytes"
 
+	"github.com/gobuffalo/packr"
+	"github.com/valyala/gozstd"
 	"github.com/vmihailenco/msgpack"
 )
 
 func init() {
 	msgpack.RegisterExt(0, (*Integer)(nil))
+
+	box := packr.NewBox("../config/data")
+	dic, err := box.Find("zstd.dic")
+	if err != nil {
+		panic(err)
+	}
+	zstdCDict, err = gozstd.NewCDict(dic)
+	if err != nil {
+		panic(err)
+	}
+	zstdDDict, err = gozstd.NewDDict(dic)
+	if err != nil {
+		panic(err)
+	}
 }
 
 var (
+	zstdCDict *gozstd.CDict
+	zstdDDict *gozstd.DDict
+
 	CompressionVersionZero   = []byte{0, 0, 0, 0}
 	CompressionVersionLatest = CompressionVersionZero
 )
 
 func CompressMsgpackMarshalPanic(val interface{}) []byte {
 	payload := MsgpackMarshalPanic(val)
+	payload = gozstd.CompressDict(nil, payload, zstdCDict)
 	return append(CompressionVersionLatest, payload...)
 }
 
 func DecompressMsgpackUnmarshal(data []byte, val interface{}) error {
-	if len(data) < len(CompressionVersionLatest)*2 {
+	header := len(CompressionVersionLatest)
+	if len(data) < header*2 {
 		return MsgpackUnmarshal(data, val)
 	}
 
-	version := data[:len(CompressionVersionLatest)]
-	payload := data[len(CompressionVersionLatest):]
+	version := data[:header]
 	if bytes.Compare(version, CompressionVersionZero) == 0 {
+		payload, err := gozstd.DecompressDict(nil, data[header:], zstdDDict)
+		if err != nil {
+			return err
+		}
 		return MsgpackUnmarshal(payload, val)
 	}
 	return MsgpackUnmarshal(data, val)
