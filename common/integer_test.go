@@ -76,4 +76,12 @@ func TestInteger(t *testing.T) {
 	err = MsgpackUnmarshal(p, &m)
 	assert.Nil(err)
 	assert.Equal("8273.00000000", m.String())
+
+	m = NewIntegerFromString("0.00000192")
+	assert.Equal("0.00000192", m.String())
+	p = MsgpackMarshalPanic(m)
+	assert.Equal("d400c0", hex.EncodeToString(p))
+	err = MsgpackUnmarshal(p, &m)
+	assert.Nil(err)
+	assert.Equal("0.00000192", m.String())
 }
