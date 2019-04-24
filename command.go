@@ -118,7 +118,7 @@ func decodeTransactionCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	data, err := json.Marshal(tx)
+	data, err := json.MarshalIndent(tx, "", "  ")
 	if err != nil {
 		return err
 	}
