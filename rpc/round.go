@@ -37,7 +37,7 @@ func getRound(store storage.Store, params []interface{}) (map[string]interface{}
 	if err != nil {
 		return nil, err
 	}
-	if round.NodeId != node || round.Hash != hash || round.Number != number || round.Timestamp != start {
+	if round.NodeId != node || round.Number != number || round.Timestamp != start {
 		return nil, fmt.Errorf("round malformed %s:%d:%d:%s %s:%d:%d:%s", node, number, start, hash, round.NodeId, round.Number, round.Timestamp, round.Hash)
 	}
 	return map[string]interface{}{
