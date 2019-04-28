@@ -88,8 +88,15 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		} else {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": distributions})
 		}
-	case "getround":
-		round, err := getRound(impl.Store, call.Params)
+	case "getroundbynumber":
+		round, err := getRoundByNumber(impl.Store, call.Params)
+		if err != nil {
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
+		} else {
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": round})
+		}
+	case "getroundbyhash":
+		round, err := getRoundByHash(impl.Store, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {

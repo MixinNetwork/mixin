@@ -162,9 +162,9 @@ func main() {
 			},
 		},
 		{
-			Name:   "getround",
+			Name:   "getroundbynumber",
 			Usage:  "Get a specific round",
-			Action: getRoundCmd,
+			Action: getRoundByNumberCmd,
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "node,n",
@@ -179,6 +179,22 @@ func main() {
 					Name:  "number",
 					Value: 0,
 					Usage: "the round number",
+				},
+			},
+		},
+		{
+			Name:   "getroundbyhash",
+			Usage:  "Get a specific round",
+			Action: getRoundByHashCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "node,n",
+					Value: "127.0.0.1:8239",
+					Usage: "the node RPC endpoint",
+				},
+				cli.StringFlag{
+					Name:  "hash",
+					Usage: "the round hash",
 				},
 			},
 		},

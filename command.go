@@ -200,10 +200,20 @@ func sendTransactionCmd(c *cli.Context) error {
 	return err
 }
 
-func getRoundCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "getround", []interface{}{
+func getRoundByNumberCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "getroundbynumber", []interface{}{
 		c.String("id"),
 		c.Uint64("number"),
+	})
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
+
+func getRoundByHashCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "getroundbyhash", []interface{}{
+		c.String("hash"),
 	})
 	if err == nil {
 		fmt.Println(string(data))
