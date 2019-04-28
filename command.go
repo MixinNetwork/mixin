@@ -333,7 +333,7 @@ var httpClient *http.Client
 
 func callRPC(node, method string, params []interface{}) ([]byte, error) {
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 3 * time.Second}
+		httpClient = &http.Client{Timeout: 60 * time.Second}
 	}
 
 	body, err := json.Marshal(map[string]interface{}{
