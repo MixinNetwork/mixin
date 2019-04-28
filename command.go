@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -58,20 +58,16 @@ func updateHeadReference(c *cli.Context) error {
 		return err
 	}
 	defer store.Close()
-	node, err := kernel.SetupNode(store, "", c.String("dir"))
+	node, err := crypto.HashFromString(c.String("node"))
 	if err != nil {
 		return err
 	}
-	err = node.LoadGenesis(c.String("dir"))
+	round, err := store.ReadRound(node)
 	if err != nil {
 		return err
 	}
-	if node.IdForNetwork.String() != c.String("node") {
-		return fmt.Errorf("node id not match %s", node.IdForNetwork.String())
-	}
-	round, err := store.ReadRound(node.IdForNetwork)
-	if err != nil {
-		return err
+	if round == nil {
+		return errors.New("node not found")
 	}
 	fmt.Printf("node: %s round: %d self: %s external: %s\n", round.NodeId.String(), round.Number, round.References.Self.String(), round.References.External.String())
 	if round.Number != c.Uint64("round") {
