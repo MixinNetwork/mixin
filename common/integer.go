@@ -99,7 +99,11 @@ func (x Integer) String() string {
 }
 
 func (x Integer) MarshalMsgpack() ([]byte, error) {
-	return x.i.Bytes(), nil
+	data := x.i.Bytes()
+	if len(data) > 1 {
+		return data, nil
+	}
+	return append([]byte{0}, data...), nil
 }
 
 func (x *Integer) UnmarshalMsgpack(data []byte) error {

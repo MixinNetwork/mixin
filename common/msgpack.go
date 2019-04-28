@@ -3,9 +3,9 @@ package common
 import (
 	"bytes"
 
-	"github.com/MixinNetwork/msgpack"
 	"github.com/gobuffalo/packr"
 	"github.com/valyala/gozstd"
+	"github.com/vmihailenco/msgpack"
 )
 
 func init() {
