@@ -41,11 +41,12 @@ func getRound(store storage.Store, params []interface{}) (map[string]interface{}
 		return nil, fmt.Errorf("round malformed %s:%d:%d:%s %s:%d:%d:%s", node, number, start, hash, round.NodeId, round.Number, round.Timestamp, round.Hash)
 	}
 	return map[string]interface{}{
-		"node":      node,
-		"hash":      hash,
-		"start":     start,
-		"end":       end,
-		"number":    number,
-		"snapshots": snapshotsToMap(snapshots, nil, false),
+		"node":       node,
+		"hash":       hash,
+		"start":      start,
+		"end":        end,
+		"number":     number,
+		"references": round.References,
+		"snapshots":  snapshotsToMap(snapshots, nil, false),
 	}, nil
 }
