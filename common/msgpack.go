@@ -75,5 +75,5 @@ func MsgpackUnmarshal(data []byte, val interface{}) error {
 	if err == nil {
 		return err
 	}
-	return fmt.Errorf("MsgpackUnmarshal: %s %s", hex.EncodeToString(val), err.Error())
+	return fmt.Errorf("MsgpackUnmarshal: %s %s", hex.EncodeToString(data), err.Error())
 }
