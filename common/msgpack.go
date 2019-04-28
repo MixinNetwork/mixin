@@ -2,11 +2,12 @@ package common
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 
+	"github.com/MixinNetwork/msgpack"
 	"github.com/gobuffalo/packr"
 	"github.com/valyala/gozstd"
-	"github.com/vmihailenco/msgpack"
 )
 
 func init() {
@@ -70,5 +71,9 @@ func MsgpackMarshalPanic(val interface{}) []byte {
 }
 
 func MsgpackUnmarshal(data []byte, val interface{}) error {
-	return msgpack.Unmarshal(data, val)
+	err := msgpack.Unmarshal(data, val)
+	if err == nil {
+		return err
+	}
+	return fmt.Errorf("MsgpackUnmarshal: %s %s", hex.EncodeToString(val), err.Error())
 }

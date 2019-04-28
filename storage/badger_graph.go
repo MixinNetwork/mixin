@@ -52,7 +52,7 @@ func (s *BadgerStore) ValidateGraphEntries() (int, error) {
 		copy(hash[:], key[len(graphPrefixTransaction):])
 		if hash.String() != ver.PayloadHash().String() {
 			invalid += 1
-			logger.Printf("MALFORMED %s %s\n", hash.String(), ver.PayloadHash().String())
+			logger.Printf("MALFORMED %s %s %#v\n", hash.String(), ver.PayloadHash().String(), ver)
 		}
 	}
 
