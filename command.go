@@ -200,6 +200,17 @@ func sendTransactionCmd(c *cli.Context) error {
 	return err
 }
 
+func getRoundCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "getround", []interface{}{
+		c.String("id"),
+		c.Uint64("number"),
+	})
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
+
 func listSnapshotsCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "listsnapshots", []interface{}{
 		c.Uint64("since"),

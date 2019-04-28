@@ -215,7 +215,7 @@ func (c *CacheRound) ValidateSnapshot(s *common.Snapshot, add bool) bool {
 	return true
 }
 
-func computeRoundHash(nodeId crypto.Hash, number uint64, snapshots []*common.Snapshot) (uint64, uint64, crypto.Hash) {
+func ComputeRoundHash(nodeId crypto.Hash, number uint64, snapshots []*common.Snapshot) (uint64, uint64, crypto.Hash) {
 	sort.Slice(snapshots, func(i, j int) bool {
 		if snapshots[i].Timestamp < snapshots[j].Timestamp {
 			return true
@@ -229,7 +229,7 @@ func computeRoundHash(nodeId crypto.Hash, number uint64, snapshots []*common.Sna
 	start := snapshots[0].Timestamp
 	end := snapshots[len(snapshots)-1].Timestamp
 	if end >= start+config.SnapshotRoundGap {
-		err := fmt.Errorf("computeRoundHash(%s, %d) %d %d %d", nodeId, number, start, end, start+config.SnapshotRoundGap)
+		err := fmt.Errorf("ComputeRoundHash(%s, %d) %d %d %d", nodeId, number, start, end, start+config.SnapshotRoundGap)
 		panic(err)
 	}
 
@@ -250,7 +250,7 @@ func (c *CacheRound) asFinal() *FinalRound {
 		return nil
 	}
 
-	start, end, hash := computeRoundHash(c.NodeId, c.Number, c.Snapshots)
+	start, end, hash := ComputeRoundHash(c.NodeId, c.Number, c.Snapshots)
 	round := &FinalRound{
 		NodeId: c.NodeId,
 		Number: c.Number,

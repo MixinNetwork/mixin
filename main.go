@@ -162,6 +162,27 @@ func main() {
 			},
 		},
 		{
+			Name:   "getround",
+			Usage:  "Get a specific round",
+			Action: getRoundCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "node,n",
+					Value: "127.0.0.1:8239",
+					Usage: "the node RPC endpoint",
+				},
+				cli.StringFlag{
+					Name:  "id",
+					Usage: "the round node id",
+				},
+				cli.Uint64Flag{
+					Name:  "number",
+					Value: 0,
+					Usage: "the round number",
+				},
+			},
+		},
+		{
 			Name:   "listsnapshots",
 			Usage:  "List finalized snapshots",
 			Action: listSnapshotsCmd,
