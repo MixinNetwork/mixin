@@ -2,6 +2,7 @@ package common
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/gobuffalo/packr"
 	"github.com/valyala/gozstd"
@@ -63,7 +64,7 @@ func MsgpackMarshalPanic(val interface{}) []byte {
 	enc := msgpack.NewEncoder(&buf).UseCompactEncoding(true)
 	err := enc.Encode(val)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("MsgpackMarshalPanic: %#v %s", val, err.Error()))
 	}
 	return buf.Bytes()
 }

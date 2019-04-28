@@ -80,7 +80,7 @@ func TestInteger(t *testing.T) {
 	m = NewIntegerFromString("0.00000192")
 	assert.Equal("0.00000192", m.String())
 	p = MsgpackMarshalPanic(m)
-	assert.Equal("d50000c0", hex.EncodeToString(p))
+	assert.Equal("d400c0", hex.EncodeToString(p))
 	err = MsgpackUnmarshal(p, &m)
 	assert.Nil(err)
 	assert.Equal("0.00000192", m.String())
