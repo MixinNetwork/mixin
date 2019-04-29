@@ -50,7 +50,7 @@ type SyncHandle interface {
 	BuildGraph() []*SyncPoint
 	QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error
 	SendTransactionToPeer(peerId, tx crypto.Hash) error
-	CachePutTransaction(ver *common.VersionedTransaction) error
+	CachePutTransaction(peerId crypto.Hash, ver *common.VersionedTransaction) error
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	UpdateSyncPoint(peerId crypto.Hash, points []*SyncPoint)
@@ -124,6 +124,12 @@ func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypt
 		return nil
 	}
 	return peer.SendHigh(key, buildTransactionRequestMessage(tx))
+}
+
+func (me *Peer) ConfirmTransactionForPeer(idForNetwork crypto.Hash, ver *common.VersionedTransaction) {
+	key := ver.PayloadHash().ForNetwork(idForNetwork)
+	key = crypto.NewHash(append(key[:], 'P', 'L'))
+	me.snapshotsCaches.Store(key, time.Now())
 }
 
 func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, ver *common.VersionedTransaction) error {
@@ -444,7 +450,7 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage, done ch
 			case PeerMessageTypeTransactionRequest:
 				me.handle.SendTransactionToPeer(peer.IdForNetwork, msg.TransactionHash)
 			case PeerMessageTypeTransaction:
-				me.handle.CachePutTransaction(msg.Transaction)
+				me.handle.CachePutTransaction(peer.IdForNetwork, msg.Transaction)
 			case PeerMessageTypeSnapshotConfirm:
 				me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash, msg.Finalized)
 			}

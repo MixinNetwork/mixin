@@ -302,7 +302,8 @@ func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
 	return node.Peer.SendTransactionMessage(peerId, tx)
 }
 
-func (node *Node) CachePutTransaction(tx *common.VersionedTransaction) error {
+func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTransaction) error {
+	node.Peer.ConfirmTransactionForPeer(peerId, tx)
 	return node.store.CachePutTransaction(tx)
 }
 
