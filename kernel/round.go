@@ -118,10 +118,10 @@ func loadRoundHistoryForNode(store storage.Store, from, to crypto.Hash, head uin
 		panic(to)
 	}
 	start := head - config.SnapshotReferenceThreshold
-	if link > start {
-		link = start
+	if start < link {
+		start = link
 	}
-	for ; start < head; start++ {
+	for ; start <= head; start++ {
 		final, err := loadFinalRoundForNode(store, to, start)
 		if err != nil {
 			return nil, err
