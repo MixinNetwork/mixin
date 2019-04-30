@@ -118,13 +118,11 @@ func (node *Node) determinBestRound() *FinalRound {
 	var best *FinalRound
 	var start, height uint64
 	for id, rounds := range node.Graph.RoundHistory {
-		if rc := len(rounds) - config.SnapshotReferenceThreshold; rc > 0 {
+		if len(rounds) > config.SnapshotReferenceThreshold {
+			rc := len(rounds) - config.SnapshotReferenceThreshold
 			rounds = append([]*FinalRound{}, rounds[rc:]...)
 		}
 		node.Graph.RoundHistory[id] = rounds
-		if id != node.IdForNetwork && best == nil {
-			best = rounds[0]
-		}
 		rts, rh := rounds[0].Start, uint64(len(rounds))
 		if id == node.IdForNetwork || rh < height {
 			continue
