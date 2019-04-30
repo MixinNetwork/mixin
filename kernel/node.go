@@ -349,7 +349,7 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 
 	final := node.Graph.MyFinalNumber
 	cache := node.Graph.MyCacheRound
-	if cache.Start+config.SnapshotRoundGap*100 > uint64(time.Now().UnixNano()) {
+	if cache == nil || cache.Start+config.SnapshotRoundGap*100 > uint64(time.Now().UnixNano()) {
 		return false
 	}
 
