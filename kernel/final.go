@@ -34,6 +34,36 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (bool, error
 	return true, node.store.WriteTransaction(tx)
 }
 
+func (node *Node) tryToStartNewRound(s *common.Snapshot) error {
+	cache := node.Graph.CacheRound[s.NodeId].Copy()
+	final := node.Graph.FinalRound[s.NodeId].Copy()
+
+	if s.RoundNumber != cache.Number+1 {
+		return nil
+	}
+
+	if round, err := node.startNewRound(s, cache); err != nil {
+		return err
+	} else if round == nil {
+		return nil
+	} else {
+		final = round
+	}
+	cache = &CacheRound{
+		NodeId:     s.NodeId,
+		Number:     s.RoundNumber,
+		Timestamp:  s.Timestamp,
+		References: s.References,
+	}
+	err := node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
+	if err != nil {
+		panic(err)
+	}
+
+	node.assignNewGraphRound(final, cache)
+	return nil
+}
+
 func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot) error {
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
@@ -94,8 +124,6 @@ func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot) error {
 		panic("should never be here")
 	}
 
-	node.Graph.CacheRound[s.NodeId] = cache
-	node.Graph.FinalRound[s.NodeId] = final
-	node.Graph.RoundHistory[s.NodeId] = append(node.Graph.RoundHistory[s.NodeId], final.Copy())
+	node.assignNewGraphRound(final, cache)
 	return nil
 }

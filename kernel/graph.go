@@ -13,6 +13,10 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	defer node.Graph.UpdateFinalCache(node.IdForNetwork)
 
 	if node.verifyFinalization(s.Signatures) {
+		err := node.tryToStartNewRound(s)
+		if err != nil {
+			return node.queueSnapshotOrPanic(s, true)
+		}
 		valid, err := node.checkFinalSnapshotTransaction(s)
 		if err != nil {
 			return node.queueSnapshotOrPanic(s, true)
@@ -78,7 +82,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 		return nil, err
 	}
 	if external == nil {
-		return nil, fmt.Errorf("external round not collected yet")
+		return nil, fmt.Errorf("external round %s not collected yet", s.References.External)
 	}
 	if final.NodeId == external.NodeId {
 		return nil, nil
@@ -89,6 +93,23 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 		return final, err
 	}
 	return nil, err
+}
+
+func (node *Node) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
+	if final.NodeId != cache.NodeId {
+		panic(fmt.Errorf("should never be here %s %s", final.NodeId, cache.NodeId))
+	}
+	node.Graph.CacheRound[final.NodeId] = cache
+	node.Graph.FinalRound[final.NodeId] = final
+	if history := node.Graph.RoundHistory[final.NodeId]; len(history) == 0 && final.Number == 0 {
+		node.Graph.RoundHistory[final.NodeId] = append(node.Graph.RoundHistory[final.NodeId], final.Copy())
+	} else if n := history[len(history)-1].Number; n > final.Number {
+		panic(fmt.Errorf("should never be here %d %d", n, final.Number))
+	} else if n+1 < final.Number {
+		panic(fmt.Errorf("should never be here %d %d", n, final.Number))
+	} else if n+1 == final.Number {
+		node.Graph.RoundHistory[final.NodeId] = append(node.Graph.RoundHistory[final.NodeId], final.Copy())
+	}
 }
 
 func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto.Key) bool {

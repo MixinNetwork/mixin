@@ -190,9 +190,7 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTrans
 
 	s.RoundNumber = cache.Number
 	s.References = cache.References
-	node.Graph.CacheRound[s.NodeId] = cache
-	node.Graph.FinalRound[s.NodeId] = final
-	node.Graph.RoundHistory[s.NodeId] = append(node.Graph.RoundHistory[s.NodeId], final.Copy())
+	node.assignNewGraphRound(final, cache)
 	node.signSnapshot(s)
 	s.Signatures = []*crypto.Signature{node.SignaturesPool[s.Hash]}
 	for peerId, _ := range node.ConsensusNodes {
