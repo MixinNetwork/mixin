@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -21,7 +22,8 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		return node.handleSyncFinalSnapshot(s)
 	}
 
-	if !node.CheckCatchUp() {
+	if !node.CheckCatchUpWithPeers() {
+		time.Sleep(100 * time.Millisecond)
 		return node.queueSnapshotOrPanic(s, false)
 	}
 

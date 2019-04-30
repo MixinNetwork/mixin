@@ -282,7 +282,7 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) er
 	if !signersMap[peerId] {
 		return nil
 	}
-	if !node.CheckCatchUp() {
+	if !node.CheckCatchUpWithPeers() {
 		return nil
 	}
 	return node.store.QueueAppendSnapshot(peerId, s, false)
@@ -326,7 +326,7 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 	}
 }
 
-func (node *Node) CheckSync() bool {
+func (node *Node) CheckBroadcastedToPeers() bool {
 	count, threshold := 1, len(node.ConsensusNodes)*2/3+1
 	final := node.Graph.MyFinalNumber
 	for id, _ := range node.ConsensusNodes {
@@ -341,7 +341,7 @@ func (node *Node) CheckSync() bool {
 	return count >= threshold
 }
 
-func (node *Node) CheckCatchUp() bool {
+func (node *Node) CheckCatchUpWithPeers() bool {
 	threshold := len(node.ConsensusNodes)*2/3 + 1
 	if node.SyncPoints.Len() < threshold {
 		return false
@@ -359,13 +359,7 @@ func (node *Node) CheckCatchUp() bool {
 		if remote.Number > final+1 {
 			return false
 		}
-		if cache == nil {
-			return false
-		}
 		if cache.Hash != remote.Hash {
-			return false
-		}
-		if uint64(time.Now().UnixNano()) < cache.Start+config.SnapshotRoundGap*100 {
 			return false
 		}
 	}

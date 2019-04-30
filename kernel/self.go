@@ -149,10 +149,10 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTrans
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
 	if !node.checkCacheCapability() {
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		return node.queueSnapshotOrPanic(s, false)
 	}
-	if !node.CheckSync() && len(cache.Snapshots) == 0 {
+	if len(cache.Snapshots) == 0 && !node.CheckBroadcastedToPeers() {
 		time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
 		return node.queueSnapshotOrPanic(s, false)
 	}
