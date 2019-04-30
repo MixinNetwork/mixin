@@ -346,8 +346,13 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 	if node.SyncPoints.Len() < threshold {
 		return false
 	}
+
 	final := node.Graph.MyFinalNumber
 	cache := node.Graph.MyCacheRound
+	if cache.Start+config.SnapshotRoundGap*100 > uint64(time.Now().UnixNano()) {
+		return false
+	}
+
 	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
 		if remote == nil {
