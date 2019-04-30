@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"math/rand"
 	"sync"
 	"time"
 
@@ -146,20 +147,33 @@ func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snaps
 func (s *BadgerStore) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error) {
 	for !s.closing {
 		time.Sleep(1 * time.Millisecond)
-		ps, err := s.queue.PopFinal()
-		if err != nil {
-			continue
-		}
-		if ps == nil {
-			ps, err = s.queue.PopCache()
+		rand.Seed(time.Now().UnixNano())
+		if rand.Intn(10) < 3 {
+			ps, err := s.queue.PopCache()
 			if err != nil {
 				continue
 			}
+			if ps == nil {
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			hook(ps.PeerId, ps.Snapshot)
+		} else {
+			ps, err := s.queue.PopFinal()
+			if err != nil {
+				continue
+			}
+			if ps == nil {
+				ps, err = s.queue.PopCache()
+				if err != nil {
+					continue
+				}
+			}
+			if ps == nil {
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			hook(ps.PeerId, ps.Snapshot)
 		}
-		if ps == nil {
-			time.Sleep(100 * time.Millisecond)
-			continue
-		}
-		hook(ps.PeerId, ps.Snapshot)
 	}
 }
