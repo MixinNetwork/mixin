@@ -93,19 +93,16 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) {
 		return
 	}
 	old := me.neighbors[idForNetwork]
-	if old == nil {
-		old = NewPeer(nil, idForNetwork, addr)
-	} else if old.Address != addr {
+	if old != nil && old.Address == addr {
 		old.closing = true
-	} else {
+	} else if old != nil {
 		return
 	}
-	peer := *old
-	peer.closing = false
-	me.neighbors[idForNetwork] = &peer
 
-	go me.openPeerStreamLoop(&peer)
-	go me.syncToNeighborLoop(&peer)
+	peer := NewPeer(nil, idForNetwork, addr)
+	me.neighbors[idForNetwork] = peer
+	go me.openPeerStreamLoop(peer)
+	go me.syncToNeighborLoop(peer)
 }
 
 func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
