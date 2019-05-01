@@ -92,18 +92,20 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) {
 		logger.Println("invalid address", addr, a.Port, a.IP)
 		return
 	}
-	peer := me.neighbors[idForNetwork]
-	if peer == nil {
-		peer = NewPeer(nil, idForNetwork, addr)
-	} else if peer.Address != addr {
-		peer.closing = true
+	old := me.neighbors[idForNetwork]
+	if old == nil {
+		old = NewPeer(nil, idForNetwork, addr)
+	} else if old.Address != addr {
+		old.closing = true
 	} else {
 		return
 	}
-	me.neighbors[peer.IdForNetwork] = peer
+	peer := *old
+	peer.closing = false
+	me.neighbors[idForNetwork] = &peer
 
-	go me.openPeerStreamLoop(peer)
-	go me.syncToNeighborLoop(peer)
+	go me.openPeerStreamLoop(&peer)
+	go me.syncToNeighborLoop(&peer)
 }
 
 func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
