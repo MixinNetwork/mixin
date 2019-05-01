@@ -36,7 +36,7 @@ func getTransaction(store storage.Store, params []interface{}) (map[string]inter
 		return nil, err
 	}
 	tx, err := store.ReadTransaction(hash)
-	if err != nil {
+	if err != nil || tx == nil {
 		return nil, err
 	}
 	return transactionToMap(tx), nil
@@ -55,7 +55,7 @@ func getSnapshot(store storage.Store, params []interface{}) (map[string]interfac
 		return nil, err
 	}
 	tx, err := store.ReadTransaction(snap.Transaction)
-	if err != nil || tx == nil {
+	if err != nil {
 		return nil, err
 	}
 	return snapshotToMap(snap, tx, true), nil
