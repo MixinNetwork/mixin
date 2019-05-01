@@ -34,6 +34,7 @@ type Node struct {
 	signaturesCache *cache.Cache
 	Peer            *network.Peer
 	SyncPoints      *syncMap
+	Listener        string
 
 	epoch       uint64
 	startAt     time.Time
@@ -67,7 +68,7 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	}
 	logger.Println("Validate graph with 0 invalid entries")
 
-	err = node.LoadNodeState()
+	err = node.LoadNodeConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -102,44 +103,35 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	return node, nil
 }
 
-func (node *Node) LoadNodeState() error {
-	const stateKeyAccount = "account"
-	var acc common.Address
-	found, err := node.store.StateGet(stateKeyAccount, &acc)
-	if err != nil {
-		return err
-	} else if !found {
-		acc, err = node.readSignerFromConfig()
-		if err != nil {
-			panic(err)
-		}
-	}
-	err = node.store.StateSet(stateKeyAccount, acc)
+func (node *Node) LoadNodeConfig() error {
+	acc, l, err := node.readConfig()
 	if err != nil {
 		return err
 	}
 	node.Signer = acc
+	node.Listener = l
 	return nil
 }
 
-func (node *Node) readSignerFromConfig() (common.Address, error) {
+func (node *Node) readConfig() (common.Address, string, error) {
 	var addr common.Address
 	f, err := ioutil.ReadFile(node.configDir + "/config.json")
 	if err != nil {
-		return addr, err
+		return addr, "", err
 	}
 	var config struct {
-		Signer crypto.Key `json:"signer"`
+		Signer   crypto.Key `json:"signer"`
+		Listener string     `json:"listener"`
 	}
 	err = json.Unmarshal(f, &config)
 	if err != nil {
-		return addr, err
+		return addr, "", err
 	}
 	addr.PrivateSpendKey = config.Signer
 	addr.PublicSpendKey = addr.PrivateSpendKey.Public()
 	addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
 	addr.PublicViewKey = addr.PrivateViewKey.Public()
-	return addr, nil
+	return addr, config.Listener, nil
 }
 
 func (node *Node) LoadConsensusNodes() error {
@@ -204,28 +196,29 @@ func (node *Node) BuildAuthenticationMessage() []byte {
 	hash := node.Signer.Hash().ForNetwork(node.networkId)
 	data = append(data, hash[:]...)
 	sig := node.Signer.PrivateSpendKey.Sign(data)
-	return append(data, sig[:]...)
+	data = append(data, sig[:]...)
+	return append(data, []byte(node.Listener)...)
 }
 
-func (node *Node) Authenticate(msg []byte) (crypto.Hash, error) {
+func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	ts := binary.BigEndian.Uint64(msg[:8])
 	if time.Now().Unix()-int64(ts) > 3 {
-		return crypto.Hash{}, errors.New("peer authentication message timeout")
+		return crypto.Hash{}, "", errors.New("peer authentication message timeout")
 	}
 
 	var peerId crypto.Hash
 	copy(peerId[:], msg[8:40])
 	peer := node.ConsensusNodes[peerId]
-	if peer == nil {
-		return crypto.Hash{}, errors.New("peer authentication invalid consensus peer")
+	if peer == nil || peerId == node.IdForNetwork {
+		return crypto.Hash{}, "", errors.New("peer authentication invalid consensus peer")
 	}
 
 	var sig crypto.Signature
-	copy(sig[:], msg[40:])
+	copy(sig[:], msg[40:40+len(sig)])
 	if peer.Signer.PublicSpendKey.Verify(msg[:40], sig) {
-		return peerId, nil
+		return peerId, string(msg[40+len(sig):]), nil
 	}
-	return crypto.Hash{}, errors.New("peer authentication message signature invalid")
+	return crypto.Hash{}, "", errors.New("peer authentication message signature invalid")
 }
 
 func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error {

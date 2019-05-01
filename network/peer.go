@@ -3,6 +3,7 @@ package network
 import (
 	"errors"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -46,7 +47,7 @@ type PeerMessage struct {
 
 type SyncHandle interface {
 	BuildAuthenticationMessage() []byte
-	Authenticate(msg []byte) (crypto.Hash, error)
+	Authenticate(msg []byte) (crypto.Hash, string, error)
 	BuildGraph() []*SyncPoint
 	QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error
 	SendTransactionToPeer(peerId, tx crypto.Hash) error
@@ -80,11 +81,23 @@ type Peer struct {
 	high                   chan *ChanMsg
 	normal                 chan *ChanMsg
 	sync                   chan []*SyncPoint
+	closing                bool
 }
 
 func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) {
-	peer := NewPeer(nil, idForNetwork, addr)
-	if peer.Address == me.Address || me.neighbors[peer.IdForNetwork] != nil {
+	if a, err := net.ResolveUDPAddr("udp", addr); err != nil {
+		logger.Println("invalid address", addr, err)
+		return
+	} else if a.Port < 80 || a.IP == nil {
+		logger.Println("invalid address", addr, a.Port, a.IP)
+		return
+	}
+	peer := me.neighbors[idForNetwork]
+	if peer == nil {
+		peer = NewPeer(nil, idForNetwork, addr)
+	} else if peer.Address != addr {
+		peer.closing = true
+	} else {
 		return
 	}
 	me.neighbors[peer.IdForNetwork] = peer
@@ -309,7 +322,7 @@ func buildGraphMessage(points []*SyncPoint) []byte {
 
 func (me *Peer) openPeerStreamLoop(p *Peer) {
 	var resend *ChanMsg
-	for {
+	for !p.closing {
 		msg, err := me.openPeerStream(p, resend)
 		if err != nil {
 			logger.Println("neighbor open stream error", err)
@@ -357,6 +370,10 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 
 	logger.Println("LOOP PEER STREAM", peer.Address)
 	for {
+		if peer.closing {
+			return nil, fmt.Errorf("PEER DONE")
+		}
+
 		hd, nd := false, false
 		select {
 		case msg := <-peer.high:
@@ -477,7 +494,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			return
 		}
 
-		id, err := me.handle.Authenticate(msg.Data)
+		id, addr, err := me.handle.Authenticate(msg.Data)
 		if err != nil {
 			auth <- err
 			return
@@ -486,6 +503,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			if id != p.IdForNetwork {
 				continue
 			}
+			me.AddNeighbor(id, addr)
 			peer = p
 			auth <- nil
 			return

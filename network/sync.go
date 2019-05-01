@@ -118,7 +118,7 @@ func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, o
 func (me *Peer) syncToNeighborLoop(p *Peer) {
 	var offset uint64
 	var graph map[crypto.Hash]*SyncPoint
-	for {
+	for !p.closing {
 	L:
 		for {
 			select {
@@ -143,7 +143,7 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 		}
 
 		time.Sleep(time.Duration(config.SnapshotRoundGap))
-		for {
+		for !p.closing {
 			off, err := me.syncToNeighborSince(graph, p, offset)
 			if off > 0 {
 				offset = off

@@ -195,17 +195,18 @@ func setupTestNet(root string) ([]common.Address, error) {
 			return nil, err
 		}
 
-		store, err := storage.NewBadgerStore(dir)
-		if err != nil {
-			return nil, err
-		}
-		defer store.Close()
-
-		err = store.StateSet("account", a)
+		configData, err := json.MarshalIndent(map[string]string{
+			"signer":   a.PrivateSpendKey.String(),
+			"listener": nodes[i]["host"],
+		}, "", "  ")
 		if err != nil {
 			return nil, err
 		}
 
+		err = ioutil.WriteFile(dir+"/config.json", configData, 0644)
+		if err != nil {
+			return nil, err
+		}
 		err = ioutil.WriteFile(dir+"/genesis.json", genesisData, 0644)
 		if err != nil {
 			return nil, err
