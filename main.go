@@ -176,7 +176,7 @@ func main() {
 					Usage: "the reference head",
 				},
 				cli.StringFlag{
-					Name:  "from",
+					Name:  "to",
 					Usage: "the reference tail",
 				},
 			},

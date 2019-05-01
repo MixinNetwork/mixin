@@ -109,7 +109,7 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		} else {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": round})
 		}
-	case "getroundlik":
+	case "getroundlink":
 		link, err := getRoundLink(impl.Store, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})

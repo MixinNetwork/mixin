@@ -25,7 +25,19 @@ func (s *BadgerStore) ReadSnapshot(hash crypto.Hash) (*common.SnapshotWithTopolo
 	if err != nil {
 		return nil, err
 	}
+	key, err := item.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	item, err = txn.Get(key)
+	if err != nil {
+		return nil, err
+	}
 	v, err := item.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
 	var snap common.SnapshotWithTopologicalOrder
 	err = common.DecompressMsgpackUnmarshal(v, &snap)
 	if err != nil {
