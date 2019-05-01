@@ -94,9 +94,9 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) {
 	}
 	old := me.neighbors[idForNetwork]
 	if old != nil && old.Address == addr {
-		old.closing = true
-	} else if old != nil {
 		return
+	} else if old != nil {
+		old.closing = true
 	}
 
 	peer := NewPeer(nil, idForNetwork, addr)
