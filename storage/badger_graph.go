@@ -24,6 +24,7 @@ const (
 	graphPrefixSnapshot     = "SNAPSHOT"     // {
 	graphPrefixLink         = "LINK"         // self-external number
 	graphPrefixTopology     = "TOPOLOGY"
+	graphPrefixSnapTopology = "SNAPTOPO"
 	graphPrefixAsset        = "ASSET"
 )
 

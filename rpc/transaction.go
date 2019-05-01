@@ -36,10 +36,29 @@ func getTransaction(store storage.Store, params []interface{}) (map[string]inter
 		return nil, err
 	}
 	tx, err := store.ReadTransaction(hash)
-	if err != nil || tx == nil {
+	if err != nil {
 		return nil, err
 	}
 	return transactionToMap(tx), nil
+}
+
+func getSnapshot(store storage.Store, params []interface{}) (map[string]interface{}, error) {
+	if len(params) != 1 {
+		return nil, errors.New("invalid params count")
+	}
+	hash, err := crypto.HashFromString(fmt.Sprint(params[0]))
+	if err != nil {
+		return nil, err
+	}
+	snap, err := store.ReadSnapshot(hash)
+	if err != nil || snap == nil {
+		return nil, err
+	}
+	tx, err := store.ReadTransaction(snap.Transaction)
+	if err != nil || tx == nil {
+		return nil, err
+	}
+	return snapshotToMap(snap, tx, true), nil
 }
 
 func listSnapshots(store storage.Store, params []interface{}) ([]map[string]interface{}, error) {
@@ -75,25 +94,33 @@ func snapshotsToMap(snapshots []*common.SnapshotWithTopologicalOrder, transactio
 	tx := len(transactions) == len(snapshots)
 	result := make([]map[string]interface{}, len(snapshots))
 	for i, s := range snapshots {
-		item := map[string]interface{}{
-			"node":       s.NodeId,
-			"references": s.References,
-			"round":      s.RoundNumber,
-			"timestamp":  s.Timestamp,
-			"hash":       s.Hash,
-			"topology":   s.TopologicalOrder,
-		}
 		if tx {
-			item["transaction"] = transactionToMap(transactions[i])
+			result[i] = snapshotToMap(s, transactions[i], sig)
 		} else {
-			item["transaction"] = s.Transaction
+			result[i] = snapshotToMap(s, nil, sig)
 		}
-		if sig {
-			item["signatures"] = s.Signatures
-		}
-		result[i] = item
 	}
 	return result
+}
+
+func snapshotToMap(s *common.SnapshotWithTopologicalOrder, tx *common.VersionedTransaction, sig bool) map[string]interface{} {
+	item := map[string]interface{}{
+		"node":       s.NodeId,
+		"references": s.References,
+		"round":      s.RoundNumber,
+		"timestamp":  s.Timestamp,
+		"hash":       s.Hash,
+		"topology":   s.TopologicalOrder,
+	}
+	if tx != nil {
+		item["transaction"] = transactionToMap(tx)
+	} else {
+		item["transaction"] = s.Transaction
+	}
+	if sig {
+		item["signatures"] = s.Signatures
+	}
+	return item
 }
 
 func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {

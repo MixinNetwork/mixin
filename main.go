@@ -162,6 +162,26 @@ func main() {
 			},
 		},
 		{
+			Name:   "getroundlink",
+			Usage:  "Get the latest link between two nodes",
+			Action: getRoundLinkCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "node,n",
+					Value: "127.0.0.1:8239",
+					Usage: "the node RPC endpoint",
+				},
+				cli.StringFlag{
+					Name:  "from",
+					Usage: "the reference head",
+				},
+				cli.StringFlag{
+					Name:  "from",
+					Usage: "the reference tail",
+				},
+			},
+		},
+		{
 			Name:   "getroundbynumber",
 			Usage:  "Get a specific round",
 			Action: getRoundByNumberCmd,
@@ -225,6 +245,22 @@ func main() {
 				cli.BoolFlag{
 					Name:  "tx",
 					Usage: "whether including the transactions",
+				},
+			},
+		},
+		{
+			Name:   "getsnapshot",
+			Usage:  "Get the snapshot by hash",
+			Action: getSnapshotCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "node,n",
+					Value: "127.0.0.1:8239",
+					Usage: "the node RPC endpoint",
+				},
+				cli.StringFlag{
+					Name:  "hash,x",
+					Usage: "the snapshot hash",
 				},
 			},
 		},

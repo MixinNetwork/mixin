@@ -4,8 +4,37 @@ import (
 	"encoding/binary"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/dgraph-io/badger"
 )
+
+func (s *BadgerStore) ReadSnapshot(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error) {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	item, err := txn.Get(graphSnapTopologyKey(hash))
+	if err != nil {
+		return nil, err
+	}
+	topo, err := item.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	item, err = txn.Get(topo)
+	if err != nil {
+		return nil, err
+	}
+	v, err := item.ValueCopy(nil)
+	var snap common.SnapshotWithTopologicalOrder
+	err = common.DecompressMsgpackUnmarshal(v, &snap)
+	if err != nil {
+		return nil, err
+	}
+	snap.Hash = hash
+	snap.TopologicalOrder = graphTopologyOrder(topo)
+	return &snap, nil
+}
 
 func (s *BadgerStore) ReadSnapshotWithTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, []*common.VersionedTransaction, error) {
 	snapshots, err := s.ReadSnapshotsSinceTopology(topologyOffset, count)
@@ -88,7 +117,16 @@ func (s *BadgerStore) TopologySequence() uint64 {
 func writeTopology(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder) error {
 	key := graphTopologyKey(snap.TopologicalOrder)
 	val := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction)
-	return txn.Set(key, val[:])
+	err := txn.Set(key, val[:])
+	if err != nil {
+		return err
+	}
+
+	return txn.Set(graphSnapTopologyKey(snap.PayloadHash()), key)
+}
+
+func graphSnapTopologyKey(hash crypto.Hash) []byte {
+	return append([]byte(graphPrefixSnapTopology), hash[:]...)
 }
 
 func graphTopologyKey(order uint64) []byte {

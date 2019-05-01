@@ -11,6 +11,21 @@ import (
 	"github.com/MixinNetwork/mixin/storage"
 )
 
+func getRoundLink(store storage.Store, params []interface{}) (uint64, error) {
+	if len(params) != 2 {
+		return 0, errors.New("invalid params count")
+	}
+	from, err := crypto.HashFromString(fmt.Sprint(params[0]))
+	if err != nil {
+		return 0, err
+	}
+	to, err := crypto.HashFromString(fmt.Sprint(params[1]))
+	if err != nil {
+		return 0, err
+	}
+	return store.ReadLink(from, to)
+}
+
 func getRoundByNumber(store storage.Store, params []interface{}) (map[string]interface{}, error) {
 	if len(params) != 2 {
 		return nil, errors.New("invalid params count")

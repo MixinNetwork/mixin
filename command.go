@@ -196,6 +196,17 @@ func sendTransactionCmd(c *cli.Context) error {
 	return err
 }
 
+func getRoundLinkCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "getroundlink", []interface{}{
+		c.String("from"),
+		c.String("to"),
+	})
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
+
 func getRoundByNumberCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getroundbynumber", []interface{}{
 		c.String("id"),
@@ -223,6 +234,16 @@ func listSnapshotsCmd(c *cli.Context) error {
 		c.Uint64("count"),
 		c.Bool("sig"),
 		c.Bool("tx"),
+	})
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
+
+func getSnapshotCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "getsnapshot", []interface{}{
+		c.String("hash"),
 	})
 	if err == nil {
 		fmt.Println(string(data))
