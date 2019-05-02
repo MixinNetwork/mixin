@@ -24,7 +24,7 @@ USAGE:
    mixin [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.1.14-4bcdc70d154cad0697087efa09819bdafd9971aa
+   v0.2.16-e64d30eb47aa89f5234baa9fd5db3c7b9e5138c6
 
 COMMANDS:
      kernel, k              Start the Mixin Kernel daemon
@@ -36,8 +36,13 @@ COMMANDS:
      signrawtransaction     Sign a JSON encoded transaction
      sendrawtransaction     Broadcast a hex encoded signed raw transaction
      decoderawtransaction   Decode a raw transaction as JSON
+     getroundlink           Get the latest link between two nodes
+     getroundbynumber       Get a specific round
+     getroundbyhash         Get a specific round
      listsnapshots          List finalized snapshots
+     getsnapshot            Get the snapshot by hash
      gettransaction         Get the finalized transaction by hash
+     getutxo                Get the UTXO by hash and index
      listmintdistributions  List mint distributions
      getinfo                Get info from the node
      help, h                Shows a list of commands or help for one command
