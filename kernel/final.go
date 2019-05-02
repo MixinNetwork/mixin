@@ -125,5 +125,6 @@ func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot) error {
 	}
 
 	node.assignNewGraphRound(final, cache)
+	node.removeFromCache(s)
 	return nil
 }
