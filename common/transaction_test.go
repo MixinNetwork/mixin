@@ -89,7 +89,7 @@ type storeImpl struct {
 	accounts []Address
 }
 
-func (store storeImpl) ReadUTXO(hash crypto.Hash, index int) (*UTXO, error) {
+func (store storeImpl) ReadUTXO(hash crypto.Hash, index int) (*UTXOWithLock, error) {
 	genesisMaskr := crypto.NewKeyFromSeed(store.seed)
 	genesisMaskR := genesisMaskr.Public()
 
@@ -103,10 +103,12 @@ func (store storeImpl) ReadUTXO(hash crypto.Hash, index int) (*UTXO, error) {
 		Script: Script{OperatorCmp, OperatorSum, uint8(index + 1)},
 		Mask:   genesisMaskR,
 	}
-	utxo := &UTXO{
-		Input:  in,
-		Output: out,
-		Asset:  XINAssetId,
+	utxo := &UTXOWithLock{
+		UTXO: UTXO{
+			Input:  in,
+			Output: out,
+			Asset:  XINAssetId,
+		},
 	}
 
 	for i := 0; i <= index; i++ {

@@ -89,7 +89,7 @@ func TestConsensus(t *testing.T) {
 		wg.Wait()
 	}
 
-	time.Sleep(15 * time.Second)
+	time.Sleep(10 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS+NODES+1, tl)
 
@@ -374,8 +374,8 @@ type signerInput struct {
 	Node  string      `json:"-"`
 }
 
-func (raw signerInput) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error) {
-	utxo := &common.UTXO{}
+func (raw signerInput) ReadUTXO(hash crypto.Hash, index int) (*common.UTXOWithLock, error) {
+	utxo := &common.UTXOWithLock{}
 
 	for _, in := range raw.Inputs {
 		if in.Hash == hash && in.Index == index && len(in.Keys) > 0 {
@@ -385,25 +385,21 @@ func (raw signerInput) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, erro
 		}
 	}
 
-	data, err := callRPC(raw.Node, "gettransaction", []interface{}{hash.String()})
+	data, err := callRPC(raw.Node, "getutxo", []interface{}{hash.String(), index})
 	if err != nil {
 		return nil, err
 	}
-
-	var tx common.SignedTransaction
-	err = json.Unmarshal(data, &tx)
+	var out common.UTXOWithLock
+	err = json.Unmarshal(data, &out)
 	if err != nil {
 		return nil, err
 	}
-	for i, out := range tx.Outputs {
-		if i == index && len(out.Keys) > 0 {
-			utxo.Keys = out.Keys
-			utxo.Mask = out.Mask
-			return utxo, nil
-		}
+	if out.Amount.Sign() == 0 {
+		return nil, fmt.Errorf("invalid input %s#%d", hash.String(), index)
 	}
-
-	return nil, fmt.Errorf("invalid input %s#%d", hash.String(), index)
+	utxo.Keys = out.Keys
+	utxo.Mask = out.Mask
+	return utxo, nil
 }
 
 func (raw signerInput) CheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
