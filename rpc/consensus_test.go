@@ -89,7 +89,7 @@ func TestConsensus(t *testing.T) {
 		wg.Wait()
 	}
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(15 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS+NODES+1, tl)
 

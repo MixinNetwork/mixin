@@ -16,6 +16,9 @@ func (node *Node) verifyExternalSnapshot(s *common.Snapshot) error {
 	if len(node.SnapshotsPool[s.Hash]) > 0 || node.SignaturesPool[s.Hash] != nil {
 		return nil
 	}
+	if node.checkCacheExist(s) {
+		return nil
+	}
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
 	if s.Timestamp > uint64(time.Now().UnixNano())+threshold {
 		return nil
@@ -56,6 +59,7 @@ func (node *Node) verifyExternalSnapshot(s *common.Snapshot) error {
 		if err != nil {
 			panic(err)
 		}
+		node.CachePool[s.NodeId] = make([]*common.Snapshot, 0)
 	}
 	if !cache.ValidateSnapshot(s, false) {
 		return nil
@@ -64,5 +68,6 @@ func (node *Node) verifyExternalSnapshot(s *common.Snapshot) error {
 	node.assignNewGraphRound(final, cache)
 	node.signSnapshot(s)
 	s.Signatures = []*crypto.Signature{node.SignaturesPool[s.Hash]}
+	node.CachePool[s.NodeId] = append(node.CachePool[s.NodeId], s)
 	return node.Peer.SendSnapshotMessage(s.NodeId, s, 0)
 }

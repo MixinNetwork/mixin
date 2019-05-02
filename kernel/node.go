@@ -30,7 +30,7 @@ type Node struct {
 	TopoCounter     *TopologicalSequence
 	SnapshotsPool   map[crypto.Hash][]*crypto.Signature
 	SignaturesPool  map[crypto.Hash]*crypto.Signature
-	CachePool       []*common.Snapshot
+	CachePool       map[crypto.Hash][]*common.Snapshot
 	signaturesCache *cache.Cache
 	Peer            *network.Peer
 	SyncPoints      *syncMap
@@ -48,6 +48,7 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
 		ConsensusNodes:  make(map[crypto.Hash]*common.Node),
 		SnapshotsPool:   make(map[crypto.Hash][]*crypto.Signature),
+		CachePool:       make(map[crypto.Hash][]*common.Snapshot),
 		SignaturesPool:  make(map[crypto.Hash]*crypto.Signature),
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
 		store:           store,

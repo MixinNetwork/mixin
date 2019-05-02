@@ -158,7 +158,7 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTrans
 		time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
 		return node.queueSnapshotOrPanic(s, false)
 	}
-	if node.checkCacheExist(s.Transaction) {
+	if node.checkCacheExist(s) {
 		return nil
 	}
 
@@ -189,7 +189,7 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTrans
 		if err != nil {
 			panic(err)
 		}
-		node.CachePool = make([]*common.Snapshot, 0)
+		node.CachePool[s.NodeId] = make([]*common.Snapshot, 0)
 	}
 	cache.Timestamp = s.Timestamp
 
@@ -208,13 +208,13 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTrans
 			return err
 		}
 	}
-	node.CachePool = append(node.CachePool, s)
+	node.CachePool[s.NodeId] = append(node.CachePool[s.NodeId], s)
 	return nil
 }
 
-func (node *Node) checkCacheExist(tx crypto.Hash) bool {
-	for _, s := range node.CachePool {
-		if s.Transaction == tx {
+func (node *Node) checkCacheExist(s *common.Snapshot) bool {
+	for _, c := range node.CachePool[s.NodeId] {
+		if c.Transaction == s.Transaction {
 			return true
 		}
 	}
@@ -222,15 +222,16 @@ func (node *Node) checkCacheExist(tx crypto.Hash) bool {
 }
 
 func (node *Node) checkCacheCapability() bool {
-	count := len(node.CachePool)
+	pool := node.CachePool[node.IdForNetwork]
+	count := len(pool)
 	if count == 0 {
 		return true
 	}
-	sort.Slice(node.CachePool, func(i, j int) bool {
-		return node.CachePool[i].Timestamp < node.CachePool[j].Timestamp
+	sort.Slice(pool, func(i, j int) bool {
+		return pool[i].Timestamp < pool[j].Timestamp
 	})
-	start := node.CachePool[0].Timestamp
-	end := node.CachePool[count-1].Timestamp
+	start := pool[0].Timestamp
+	end := pool[count-1].Timestamp
 	if uint64(time.Now().UnixNano()) >= start+config.SnapshotRoundGap*3/2 {
 		return true
 	}
@@ -238,13 +239,14 @@ func (node *Node) checkCacheCapability() bool {
 }
 
 func (node *Node) removeFromCache(s *common.Snapshot) {
-	for i, c := range node.CachePool {
+	pool := node.CachePool[s.NodeId]
+	for i, c := range pool {
 		if c.Hash != s.Hash {
 			continue
 		}
-		l := len(node.CachePool)
-		node.CachePool[l-1], node.CachePool[i] = node.CachePool[i], node.CachePool[l-1]
-		node.CachePool = node.CachePool[:l-1]
+		l := len(pool)
+		pool[l-1], pool[i] = pool[i], pool[l-1]
+		node.CachePool[s.NodeId] = pool[:l-1]
 		return
 	}
 }
