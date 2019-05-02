@@ -86,7 +86,7 @@ func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot) error {
 			panic(err)
 		}
 		cache.References = s.References
-		node.Graph.CacheRound[s.NodeId] = cache
+		node.assignNewGraphRound(final, cache)
 		return node.handleSnapshotInput(s)
 	}
 	if s.RoundNumber == cache.Number+1 {
@@ -108,6 +108,7 @@ func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot) error {
 			panic(err)
 		}
 	}
+	node.assignNewGraphRound(final, cache)
 
 	if !cache.ValidateSnapshot(s, false) {
 		return nil
