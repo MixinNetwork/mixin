@@ -111,11 +111,11 @@ func validateInputs(store DataStore, tx *SignedTransaction, msg []byte) (map[str
 			return inputsFilter, inputAmount, fmt.Errorf("invalid input asset %s %s", utxo.Asset.String(), tx.Asset.String())
 		}
 
-		err = validateUTXO(utxo, tx.Signatures[i], msg)
+		err = validateUTXO(&utxo.UTXO, tx.Signatures[i], msg)
 		if err != nil {
 			return inputsFilter, inputAmount, err
 		}
-		inputsFilter[fk] = utxo
+		inputsFilter[fk] = &utxo.UTXO
 		inputAmount = inputAmount.Add(utxo.Amount)
 	}
 

@@ -8,7 +8,7 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
-func (s *BadgerStore) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error) {
+func (s *BadgerStore) ReadUTXO(hash crypto.Hash, index int) (*common.UTXOWithLock, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -25,7 +25,7 @@ func (s *BadgerStore) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error
 		return nil, err
 	}
 
-	var out common.UTXO
+	var out common.UTXOWithLock
 	err = common.DecompressMsgpackUnmarshal(ival, &out)
 	return &out, err
 }

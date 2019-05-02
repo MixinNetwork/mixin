@@ -261,6 +261,17 @@ func getTransactionCmd(c *cli.Context) error {
 	return err
 }
 
+func getUTXOCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "getutxo", []interface{}{
+		c.String("hash"),
+		c.Uint64("index"),
+	})
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
+
 func listMintDistributionsCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "listmintdistributions", []interface{}{
 		c.Uint64("since"),
@@ -433,8 +444,8 @@ type signerInput struct {
 	Node  string      `json:"-"`
 }
 
-func (raw signerInput) ReadUTXO(hash crypto.Hash, index int) (*common.UTXO, error) {
-	utxo := &common.UTXO{}
+func (raw signerInput) ReadUTXO(hash crypto.Hash, index int) (*common.UTXOWithLock, error) {
+	utxo := &common.UTXOWithLock{}
 
 	for _, in := range raw.Inputs {
 		if in.Hash == hash && in.Index == index && len(in.Keys) > 0 {

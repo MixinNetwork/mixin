@@ -16,7 +16,7 @@ type UTXOWithLock struct {
 }
 
 type UTXOReader interface {
-	ReadUTXO(hash crypto.Hash, index int) (*UTXO, error)
+	ReadUTXO(hash crypto.Hash, index int) (*UTXOWithLock, error)
 	CheckDepositInput(deposit *DepositData, tx crypto.Hash) error
 	ReadLastMintDistribution(group string) (*MintDistribution, error)
 }

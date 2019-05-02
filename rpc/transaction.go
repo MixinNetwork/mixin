@@ -42,6 +42,44 @@ func getTransaction(store storage.Store, params []interface{}) (map[string]inter
 	return transactionToMap(tx), nil
 }
 
+func getUTXO(store storage.Store, params []interface{}) (map[string]interface{}, error) {
+	if len(params) != 2 {
+		return nil, errors.New("invalid params count")
+	}
+	hash, err := crypto.HashFromString(fmt.Sprint(params[0]))
+	if err != nil {
+		return nil, err
+	}
+	index, err := strconv.ParseUint(fmt.Sprint(params[1]), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	utxo, err := store.ReadUTXO(hash, int(index))
+	if err != nil || utxo == nil {
+		return nil, err
+	}
+
+	output := map[string]interface{}{
+		"type":   utxo.Type,
+		"hash":   hash,
+		"index":  index,
+		"amount": utxo.Amount,
+	}
+	if len(utxo.Keys) > 0 {
+		output["keys"] = utxo.Keys
+	}
+	if len(utxo.Script) > 0 {
+		output["script"] = utxo.Script
+	}
+	if utxo.Mask.HasValue() {
+		output["mask"] = utxo.Mask
+	}
+	if utxo.LockHash.HasValue() {
+		output["lock"] = utxo.LockHash
+	}
+	return output, nil
+}
+
 func getSnapshot(store storage.Store, params []interface{}) (map[string]interface{}, error) {
 	if len(params) != 1 {
 		return nil, errors.New("invalid params count")

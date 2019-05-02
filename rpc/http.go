@@ -74,6 +74,13 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		} else {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": tx})
 		}
+	case "getutxo":
+		utxo, err := getUTXO(impl.Store, call.Params)
+		if err != nil {
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
+		} else {
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": utxo})
+		}
 	case "getsnapshot":
 		snap, err := getSnapshot(impl.Store, call.Params)
 		if err != nil {

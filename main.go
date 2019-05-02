@@ -281,6 +281,27 @@ func main() {
 			},
 		},
 		{
+			Name:   "getutxo",
+			Usage:  "Get the UTXO by hash and index",
+			Action: getUTXOCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "node,n",
+					Value: "127.0.0.1:8239",
+					Usage: "the node RPC endpoint",
+				},
+				cli.StringFlag{
+					Name:  "hash,x",
+					Usage: "the transaction hash",
+				},
+				cli.Uint64Flag{
+					Name:  "index,i",
+					Value: 0,
+					Usage: "the output index",
+				},
+			},
+		},
+		{
 			Name:   "listmintdistributions",
 			Usage:  "List mint distributions",
 			Action: listMintDistributionsCmd,
