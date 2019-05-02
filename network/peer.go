@@ -84,17 +84,15 @@ type Peer struct {
 	closing                bool
 }
 
-func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) {
+func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) (*Peer, error) {
 	if a, err := net.ResolveUDPAddr("udp", addr); err != nil {
-		logger.Println("invalid address", addr, err)
-		return
+		return nil, fmt.Errorf("invalid address %s %s", addr, err)
 	} else if a.Port < 80 || a.IP == nil {
-		logger.Println("invalid address", addr, a.Port, a.IP)
-		return
+		return nil, fmt.Errorf("invalid address %s %d %s", addr, a.Port, a.IP)
 	}
 	old := me.neighbors[idForNetwork]
 	if old != nil && old.Address == addr {
-		return
+		return old, nil
 	} else if old != nil {
 		old.closing = true
 	}
@@ -103,6 +101,7 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) {
 	me.neighbors[idForNetwork] = peer
 	go me.openPeerStreamLoop(peer)
 	go me.syncToNeighborLoop(peer)
+	return peer, nil
 }
 
 func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
@@ -498,12 +497,16 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			auth <- err
 			return
 		}
-		for _, p := range me.neighbors {
-			if id != p.IdForNetwork {
+		for _, old := range me.neighbors {
+			if id != old.IdForNetwork {
 				continue
 			}
-			me.AddNeighbor(id, addr)
-			peer = p
+			add, err := me.AddNeighbor(id, addr)
+			if err == nil {
+				peer = add
+			} else {
+				peer = old
+			}
 			auth <- nil
 			return
 		}
