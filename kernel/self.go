@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"fmt"
 	"sort"
 	"time"
 
@@ -65,6 +66,9 @@ func (node *Node) collectSelfSignatures(s *common.Snapshot) error {
 	}
 
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
+	if s.RoundNumber > cache.Number {
+		panic(fmt.Sprintf("should never be here %d %d", cache.Number, s.RoundNumber))
+	}
 	if s.RoundNumber < cache.Number {
 		return node.clearAndQueueSnapshotOrPanic(s)
 	}
@@ -154,6 +158,9 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTrans
 		time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
 		return node.queueSnapshotOrPanic(s, false)
 	}
+	if node.checkCacheExist(s.Transaction) {
+		return nil
+	}
 
 	for {
 		s.Timestamp = uint64(time.Now().UnixNano())
@@ -203,6 +210,15 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTrans
 	}
 	node.CachePool = append(node.CachePool, s)
 	return nil
+}
+
+func (node *Node) checkCacheExist(tx crypto.Hash) bool {
+	for _, s := range node.CachePool {
+		if s.Transaction == tx {
+			return true
+		}
+	}
+	return false
 }
 
 func (node *Node) checkCacheCapability() bool {
