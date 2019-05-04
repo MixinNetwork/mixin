@@ -497,20 +497,17 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			auth <- err
 			return
 		}
-		for _, old := range me.neighbors {
-			if id != old.IdForNetwork {
-				continue
-			}
-			add, err := me.AddNeighbor(id, addr)
-			if err == nil {
-				peer = add
-			} else {
-				peer = old
-			}
-			auth <- nil
-			return
+
+		peer = me.neighbors[id]
+		add, err := me.AddNeighbor(id, addr)
+		if err == nil {
+			peer = add
 		}
-		auth <- errors.New("peer authentication message signature invalid")
+		if peer == nil {
+			auth <- errors.New("peer authentication message signature invalid")
+		} else {
+			auth <- nil
+		}
 	}()
 
 	select {
