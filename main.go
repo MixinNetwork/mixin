@@ -347,7 +347,12 @@ func main() {
 }
 
 func kernelCmd(c *cli.Context) error {
-	runtime.GOMAXPROCS(128)
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	err := config.Initialize(c.String("dir") + "/config.json")
+	if err != nil {
+		return err
+	}
 
 	store, err := storage.NewBadgerStore(c.String("dir"))
 	if err != nil {

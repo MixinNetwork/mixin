@@ -1,6 +1,12 @@
 package config
 
-import "time"
+import (
+	"encoding/json"
+	"io/ioutil"
+	"time"
+
+	"github.com/MixinNetwork/mixin/crypto"
+)
 
 const (
 	Debug        = true
@@ -10,6 +16,37 @@ const (
 	SnapshotRoundGap           = uint64(3 * time.Second)
 	SnapshotReferenceThreshold = 10
 	TransactionMaximumSize     = 1024 * 1024
-	CacheTTL                   = 2 * time.Hour
 	WithdrawalClaimFee         = "0.0001"
 )
+
+type custom struct {
+	Signer       crypto.Key    `json:"signer"`
+	Listener     string        `json:"listener"`
+	MaxCacheSize int           `json:"max-cache-size"`
+	CacheTTL     time.Duration `json:"cache-ttl"`
+}
+
+var Custom *custom
+
+func Initialize(file string) error {
+	if Custom != nil {
+		return nil
+	}
+	f, err := ioutil.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	var config custom
+	err = json.Unmarshal(f, &config)
+	if err != nil {
+		return err
+	}
+	if config.CacheTTL == 0 {
+		config.CacheTTL = 3600 * 2
+	}
+	if config.MaxCacheSize == 0 {
+		config.MaxCacheSize = 1024 * 32
+	}
+	Custom = &config
+	return nil
+}

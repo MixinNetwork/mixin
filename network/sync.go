@@ -8,37 +8,45 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/patrickmn/go-cache"
+	"github.com/allegro/bigcache"
 )
 
 func (me *Peer) cacheReadSnapshotsForNodeRound(nodeId crypto.Hash, final uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	key := fmt.Sprintf("SFNR%s:%d", nodeId.String(), final)
-	data, found := me.storeCache.Get(key)
-	if found {
-		return data.([]*common.SnapshotWithTopologicalOrder), nil
-	}
-	ss, err := me.handle.ReadSnapshotsForNodeRound(nodeId, final)
-	if err != nil {
+	data, err := me.storeCache.Get(key)
+	if err == bigcache.ErrEntryNotFound {
+		ss, err := me.handle.ReadSnapshotsForNodeRound(nodeId, final)
+		if err != nil {
+			return nil, err
+		}
+		err = me.storeCache.Set(key, common.MsgpackMarshalPanic(ss))
+		return ss, err
+	} else if err != nil {
 		return nil, err
 	}
-	me.storeCache.Set(key, ss, cache.DefaultExpiration)
-	return ss, nil
+	var ss []*common.SnapshotWithTopologicalOrder
+	err = common.MsgpackUnmarshal(data, &ss)
+	return ss, err
 }
 
 func (me *Peer) cacheReadSnapshotsSinceTopology(offset, limit uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	key := fmt.Sprintf("SSTME%d-%d", offset, limit)
-	data, found := me.storeCache.Get(key)
-	if found {
-		return data.([]*common.SnapshotWithTopologicalOrder), nil
-	}
-	ss, err := me.handle.ReadSnapshotsSinceTopology(offset, limit)
-	if err != nil {
+	data, err := me.storeCache.Get(key)
+	if err == bigcache.ErrEntryNotFound {
+		ss, err := me.handle.ReadSnapshotsSinceTopology(offset, limit)
+		if err != nil {
+			return nil, err
+		}
+		if uint64(len(ss)) == limit {
+			err = me.storeCache.Set(key, common.MsgpackMarshalPanic(ss))
+		}
+		return ss, err
+	} else if err != nil {
 		return nil, err
 	}
-	if uint64(len(ss)) == limit {
-		me.storeCache.Set(key, ss, cache.DefaultExpiration)
-	}
-	return ss, nil
+	var ss []*common.SnapshotWithTopologicalOrder
+	err = common.MsgpackUnmarshal(data, &ss)
+	return ss, err
 }
 
 func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPoint) (uint64, error) {

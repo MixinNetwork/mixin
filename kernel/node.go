@@ -15,7 +15,7 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/network"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/patrickmn/go-cache"
+	"github.com/allegro/bigcache"
 )
 
 const (
@@ -31,7 +31,7 @@ type Node struct {
 	SnapshotsPool   map[crypto.Hash][]*crypto.Signature
 	SignaturesPool  map[crypto.Hash]*crypto.Signature
 	CachePool       map[crypto.Hash][]*common.Snapshot
-	signaturesCache *cache.Cache
+	signaturesCache *bigcache.BigCache
 	Peer            *network.Peer
 	SyncPoints      *syncMap
 	Listener        string
@@ -46,17 +46,22 @@ type Node struct {
 
 func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
-		ConsensusNodes:  make(map[crypto.Hash]*common.Node),
-		SnapshotsPool:   make(map[crypto.Hash][]*crypto.Signature),
-		CachePool:       make(map[crypto.Hash][]*common.Snapshot),
-		SignaturesPool:  make(map[crypto.Hash]*crypto.Signature),
-		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
-		store:           store,
-		mempoolChan:     make(chan *common.Snapshot, MempoolSize),
-		configDir:       dir,
-		TopoCounter:     getTopologyCounter(store),
-		signaturesCache: cache.New(config.CacheTTL, 10*time.Minute),
-		startAt:         time.Now(),
+		ConsensusNodes: make(map[crypto.Hash]*common.Node),
+		SnapshotsPool:  make(map[crypto.Hash][]*crypto.Signature),
+		CachePool:      make(map[crypto.Hash][]*common.Snapshot),
+		SignaturesPool: make(map[crypto.Hash]*crypto.Signature),
+		SyncPoints:     &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
+		store:          store,
+		mempoolChan:    make(chan *common.Snapshot, MempoolSize),
+		configDir:      dir,
+		TopoCounter:    getTopologyCounter(store),
+		startAt:        time.Now(),
+	}
+
+	node.LoadNodeConfig()
+	err := node.LoadCacheStorage()
+	if err != nil {
+		return nil, err
 	}
 
 	logger.Println("Validating graph entries...")
@@ -68,11 +73,6 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		return nil, fmt.Errorf("Validate graph with %d invalid entries\n", invalid)
 	}
 	logger.Println("Validate graph with 0 invalid entries")
-
-	err = node.LoadNodeConfig()
-	if err != nil {
-		return nil, err
-	}
 
 	err = node.LoadGenesis(dir)
 	if err != nil {
@@ -104,35 +104,26 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	return node, nil
 }
 
-func (node *Node) LoadNodeConfig() error {
-	acc, l, err := node.readConfig()
+func (node *Node) LoadCacheStorage() error {
+	c := bigcache.DefaultConfig(config.Custom.CacheTTL * time.Second)
+	c.HardMaxCacheSize = config.Custom.MaxCacheSize
+	c.Verbose = true
+	cache, err := bigcache.NewBigCache(c)
 	if err != nil {
 		return err
 	}
-	node.Signer = acc
-	node.Listener = l
+	node.signaturesCache = cache
 	return nil
 }
 
-func (node *Node) readConfig() (common.Address, string, error) {
+func (node *Node) LoadNodeConfig() {
 	var addr common.Address
-	f, err := ioutil.ReadFile(node.configDir + "/config.json")
-	if err != nil {
-		return addr, "", err
-	}
-	var config struct {
-		Signer   crypto.Key `json:"signer"`
-		Listener string     `json:"listener"`
-	}
-	err = json.Unmarshal(f, &config)
-	if err != nil {
-		return addr, "", err
-	}
-	addr.PrivateSpendKey = config.Signer
+	addr.PrivateSpendKey = config.Custom.Signer
 	addr.PublicSpendKey = addr.PrivateSpendKey.Public()
 	addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
 	addr.PublicViewKey = addr.PrivateViewKey.Public()
-	return addr, config.Listener, nil
+	node.Signer = addr
+	node.Listener = config.Custom.Listener
 }
 
 func (node *Node) LoadConsensusNodes() error {
@@ -185,6 +176,10 @@ func (node *Node) NetworkId() crypto.Hash {
 
 func (node *Node) Uptime() time.Duration {
 	return time.Now().Sub(node.startAt)
+}
+
+func (node *Node) GetCacheStore() *bigcache.BigCache {
+	return node.signaturesCache
 }
 
 func (node *Node) BuildGraph() []*network.SyncPoint {

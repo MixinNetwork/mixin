@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
@@ -38,22 +39,30 @@ func TestConsensus(t *testing.T) {
 	assert.Len(accounts, NODES)
 
 	nodes := make([]string, 0)
+	instances := make([]*kernel.Node, 0)
+	stores := make([]storage.Store, 0)
 	for i, _ := range accounts {
-		go func(num int) {
-			dir := fmt.Sprintf("%s/mixin-170%02d", root, num+1)
-			store, err := storage.NewBadgerStore(dir)
-			assert.Nil(err)
-			assert.NotNil(store)
-			node, err := kernel.SetupNode(store, fmt.Sprintf(":170%02d", num+1), dir)
-			assert.Nil(err)
-			assert.NotNil(node)
-			host := fmt.Sprintf("127.0.0.1:180%02d", num+1)
-			nodes = append(nodes, host)
-			go StartHTTP(store, node, 18000+num+1)
-			node.Loop()
-		}(i)
+		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
+		config.Initialize(dir + "/config.json")
+		store, err := storage.NewBadgerStore(dir)
+		assert.Nil(err)
+		assert.NotNil(store)
+		stores = append(stores, store)
+		testIntializeConfig(dir + "/config.json")
+		node, err := kernel.SetupNode(store, fmt.Sprintf(":170%02d", i+1), dir)
+		assert.Nil(err)
+		assert.NotNil(node)
+		instances = append(instances, node)
+		host := fmt.Sprintf("127.0.0.1:180%02d", i+1)
+		nodes = append(nodes, host)
 	}
-	time.Sleep(5 * time.Second)
+	for i, n := range instances {
+		go func(node *kernel.Node, store storage.Store, num int) {
+			go StartHTTP(store, node, 18000+num+1)
+			go node.Loop()
+		}(n, stores[i], i)
+	}
+	time.Sleep(1 * time.Second)
 
 	tl, sl := testVerifySnapshots(assert, nodes)
 	assert.Equal(NODES+1, tl)
@@ -127,6 +136,27 @@ func TestConsensus(t *testing.T) {
 	assert.Equal(INPUTS*2+NODES+1, tl)
 }
 
+func testIntializeConfig(file string) {
+	f, _ := ioutil.ReadFile(file)
+	var c struct {
+		Signer       crypto.Key    `json:"signer"`
+		Listener     string        `json:"listener"`
+		MaxCacheSize int           `json:"max-cache-size"`
+		CacheTTL     time.Duration `json:"cache-ttl"`
+	}
+	json.Unmarshal(f, &c)
+	if c.CacheTTL == 0 {
+		c.CacheTTL = 3600
+	}
+	if c.MaxCacheSize == 0 {
+		c.MaxCacheSize = 32
+	}
+	config.Custom.Signer = c.Signer
+	config.Custom.Listener = c.Listener
+	config.Custom.CacheTTL = c.CacheTTL
+	config.Custom.MaxCacheSize = c.MaxCacheSize
+}
+
 func testSendTransaction(node, raw string) (string, error) {
 	data, err := callRPC(node, "sendrawtransaction", []interface{}{
 		raw,
@@ -195,9 +225,11 @@ func setupTestNet(root string) ([]common.Address, error) {
 			return nil, err
 		}
 
-		configData, err := json.MarshalIndent(map[string]string{
-			"signer":   a.PrivateSpendKey.String(),
-			"listener": nodes[i]["host"],
+		configData, err := json.MarshalIndent(map[string]interface{}{
+			"signer":         a.PrivateSpendKey.String(),
+			"listener":       nodes[i]["host"],
+			"cache-ttl":      3600,
+			"max-cache-size": 128,
 		}, "", "  ")
 		if err != nil {
 			return nil, err

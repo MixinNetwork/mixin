@@ -11,7 +11,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/patrickmn/go-cache"
+	"github.com/allegro/bigcache"
 )
 
 const (
@@ -46,6 +46,7 @@ type PeerMessage struct {
 }
 
 type SyncHandle interface {
+	GetCacheStore() *bigcache.BigCache
 	BuildAuthenticationMessage() []byte
 	Authenticate(msg []byte) (crypto.Hash, string, error)
 	BuildGraph() []*SyncPoint
@@ -72,7 +73,7 @@ type Peer struct {
 	IdForNetwork crypto.Hash
 	Address      string
 
-	storeCache             *cache.Cache
+	storeCache             *bigcache.BigCache
 	snapshotsConfirmations *ConfirmMap
 	snapshotsCaches        *ConfirmMap
 	neighbors              map[crypto.Hash]*Peer
@@ -105,10 +106,9 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) (*Peer, error
 }
 
 func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
-	return &Peer{
+	peer := &Peer{
 		IdForNetwork:           idForNetwork,
 		Address:                addr,
-		storeCache:             cache.New(config.CacheTTL, 10*time.Minute),
 		snapshotsConfirmations: new(ConfirmMap),
 		snapshotsCaches:        new(ConfirmMap),
 		neighbors:              make(map[crypto.Hash]*Peer),
@@ -117,6 +117,10 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 		sync:                   make(chan []*SyncPoint),
 		handle:                 handle,
 	}
+	if handle != nil {
+		peer.storeCache = handle.GetCacheStore()
+	}
+	return peer
 }
 
 func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypto.Hash) error {
@@ -192,7 +196,7 @@ func (me *Peer) SendSnapshotMessage(idForNetwork crypto.Hash, s *common.Snapshot
 
 	hash := s.PayloadHash().ForNetwork(idForNetwork)
 	key := crypto.NewHash(append(hash[:], finalized))
-	if me.snapshotsConfirmations.Exist(key, config.CacheTTL/2) {
+	if me.snapshotsConfirmations.Exist(key, config.Custom.CacheTTL*time.Second/2) {
 		return nil
 	}
 	if me.snapshotsCaches.Exist(key, time.Minute) {

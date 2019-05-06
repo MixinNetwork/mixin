@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"time"
+
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -56,7 +58,7 @@ func (s *BadgerStore) CachePutTransaction(tx *common.VersionedTransaction) error
 
 	key := cacheTransactionCacheKey(tx.PayloadHash())
 	val := tx.CompressMarshal()
-	err := txn.SetWithTTL(key, val, config.CacheTTL*8)
+	err := txn.SetWithTTL(key, val, config.Custom.CacheTTL*time.Second*8)
 	if err != nil {
 		return err
 	}

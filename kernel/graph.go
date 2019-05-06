@@ -6,7 +6,6 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/patrickmn/go-cache"
 )
 
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
@@ -62,7 +61,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) {
 	key := append(s.Hash[:], sig[:]...)
 	key = append(key, node.Signer.PublicSpendKey[:]...)
 	hash := crypto.NewHash(key).String()
-	node.signaturesCache.Set(hash, true, cache.DefaultExpiration)
+	node.signaturesCache.Set(hash, []byte{1})
 }
 
 func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRound, error) {
@@ -116,12 +115,16 @@ func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto
 	key := append(snap[:], sig[:]...)
 	key = append(key, pub[:]...)
 	hash := crypto.NewHash(key).String()
-	value, found := node.signaturesCache.Get(hash)
-	if found {
-		return value.(bool)
+	value, err := node.signaturesCache.Get(hash)
+	if err == nil {
+		return value[0] == byte(1)
 	}
 	valid := pub.Verify(snap[:], sig)
-	node.signaturesCache.Set(hash, valid, cache.DefaultExpiration)
+	if valid {
+		node.signaturesCache.Set(hash, []byte{1})
+	} else {
+		node.signaturesCache.Set(hash, []byte{0})
+	}
 	return valid
 }
 
