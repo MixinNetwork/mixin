@@ -118,7 +118,7 @@ func (node *Node) collectSelfSignatures(s *common.Snapshot) error {
 	return nil
 }
 
-func (node *Node) determinBestRound() *FinalRound {
+func (node *Node) determinBestRound(roundTime uint64) *FinalRound {
 	var best *FinalRound
 	var start, height uint64
 	for id, rounds := range node.Graph.RoundHistory {
@@ -129,6 +129,9 @@ func (node *Node) determinBestRound() *FinalRound {
 		node.Graph.RoundHistory[id] = rounds
 		rts, rh := rounds[0].Start, uint64(len(rounds))
 		if id == node.IdForNetwork || rh < height {
+			continue
+		}
+		if rts > roundTime {
 			continue
 		}
 		if rts+config.SnapshotRoundGap*rh > uint64(time.Now().UnixNano()) {
@@ -171,7 +174,11 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTrans
 	}
 
 	if start, _ := cache.Gap(); s.Timestamp >= start+config.SnapshotRoundGap {
-		best := node.determinBestRound()
+		best := node.determinBestRound(s.Timestamp)
+		if best == nil {
+			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
+			return node.clearAndQueueSnapshotOrPanic(s)
+		}
 		if best.NodeId == final.NodeId {
 			panic("should never be here")
 		}
