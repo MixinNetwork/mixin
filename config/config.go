@@ -21,8 +21,10 @@ const (
 	KernelMintTimeBegin = 7
 	KernelMintTimeEnd   = 9
 
-	KernelNodeAcceptTimeBegin = 13
-	KernelNodeAcceptTimeEnd   = 15
+	KernelNodeAcceptTimeBegin     = 13
+	KernelNodeAcceptTimeEnd       = 15
+	KernelNodePledgePeriodMinimum = 24 * time.Hour
+	KernelNodeAcceptPeriodMaximum = 7 * 24 * time.Hour
 )
 
 type custom struct {

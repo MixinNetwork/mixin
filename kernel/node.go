@@ -25,8 +25,6 @@ const (
 type Node struct {
 	IdForNetwork    crypto.Hash
 	Signer          common.Address
-	ConsensusNodes  map[crypto.Hash]*common.Node
-	ConsensusBase   int
 	Graph           *RoundGraph
 	TopoCounter     *TopologicalSequence
 	SnapshotsPool   map[crypto.Hash][]*crypto.Signature
@@ -36,6 +34,10 @@ type Node struct {
 	Peer            *network.Peer
 	SyncPoints      *syncMap
 	Listener        string
+
+	ConsensusNodes    map[crypto.Hash]*common.Node
+	ConsensusBase     int
+	ConsensusPledging *common.Node
 
 	epoch       uint64
 	startAt     time.Time
@@ -131,14 +133,17 @@ func (node *Node) LoadConsensusNodes() error {
 	node.ConsensusBase = 0
 	for _, cn := range node.store.ReadConsensusNodes() {
 		logger.Println(cn.Signer.String(), cn.State)
-		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateAccepted || cn.State == common.NodeStateDeparting {
+		switch cn.State {
+		case common.NodeStatePledging:
+			node.ConsensusPledging = cn
+			node.ConsensusBase += 1
+		case common.NodeStateAccepted:
+			idForNetwork := cn.Signer.Hash().ForNetwork(node.networkId)
+			node.ConsensusNodes[idForNetwork] = cn
+			node.ConsensusBase += 1
+		case common.NodeStateDeparting:
 			node.ConsensusBase += 1
 		}
-		if !cn.IsAccepted() {
-			continue
-		}
-		idForNetwork := cn.Signer.Hash().ForNetwork(node.networkId)
-		node.ConsensusNodes[idForNetwork] = cn
 	}
 	return nil
 }
@@ -209,6 +214,9 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	var peerId crypto.Hash
 	copy(peerId[:], msg[8:40])
 	peer := node.ConsensusNodes[peerId]
+	if node.ConsensusPledging != nil && node.ConsensusPledging.Signer.Hash().ForNetwork(node.networkId) == peerId {
+		peer = node.ConsensusPledging
+	}
 	if peer == nil || peerId == node.IdForNetwork {
 		return crypto.Hash{}, "", errors.New("peer authentication invalid consensus peer")
 	}

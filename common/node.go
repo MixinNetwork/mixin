@@ -19,10 +19,6 @@ type Node struct {
 	Transaction crypto.Hash
 }
 
-func (n *Node) IsAccepted() bool {
-	return n.State == NodeStateAccepted
-}
-
 func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UTXO) error {
 	if len(tx.Outputs) != 1 {
 		return fmt.Errorf("invalid outputs count %d for pledge transaction", len(tx.Outputs))

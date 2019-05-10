@@ -1,4 +1,5 @@
 {
+  "pledging": "76ea48b3c961b5f51753eb7a7c17009cda200c5ecd18764ec05de30ec8f1a3bc",
   "signer": "56a7904a2dfd71c397bb48584033d8cb6ddcde9b46b7d91f07d2ede061723a0b",
   "listener": "mixin-node.example.com:7239",
   "max-cache-size": 32768,
