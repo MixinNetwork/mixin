@@ -4,34 +4,34 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 )
 
-func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (bool, error) {
+func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, error) {
 	inNode, err := node.store.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil || inNode {
-		return false, err
+		return nil, err
 	}
 
 	tx, err := node.store.ReadTransaction(s.Transaction)
 	if err != nil || tx != nil {
-		return true, err
+		return tx, err
 	}
 
 	tx, err = node.store.CacheGetTransaction(s.Transaction)
 	if err != nil || tx == nil {
-		return false, err
+		return nil, err
 	}
 
 	err = tx.LockInputs(node.store, true)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	if d := tx.DepositData(); d != nil {
 		err = node.store.WriteAsset(d.Asset())
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 	}
-	return true, node.store.WriteTransaction(tx)
+	return tx, node.store.WriteTransaction(tx)
 }
 
 func (node *Node) tryToStartNewRound(s *common.Snapshot) error {
@@ -64,7 +64,7 @@ func (node *Node) tryToStartNewRound(s *common.Snapshot) error {
 	return nil
 }
 
-func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot) error {
+func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
@@ -124,8 +124,7 @@ func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot) error {
 	if !cache.ValidateSnapshot(s, true) {
 		panic("should never be here")
 	}
-
 	node.assignNewGraphRound(final, cache)
 	node.removeFromCache(s)
-	return nil
+	return node.manageConsensusNodesList(tx)
 }

@@ -16,13 +16,13 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		if err != nil {
 			return node.queueSnapshotOrPanic(s, true)
 		}
-		valid, err := node.checkFinalSnapshotTransaction(s)
+		tx, err := node.checkFinalSnapshotTransaction(s)
 		if err != nil {
 			return node.queueSnapshotOrPanic(s, true)
-		} else if !valid {
+		} else if tx == nil {
 			return nil
 		}
-		return node.handleSyncFinalSnapshot(s)
+		return node.handleSyncFinalSnapshot(s, tx)
 	}
 
 	if !node.CheckCatchUpWithPeers() {
