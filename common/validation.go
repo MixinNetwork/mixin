@@ -31,7 +31,7 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 		return fmt.Errorf("invalid transaction size %d", len(msg))
 	}
 
-	inputsFilter, inputAmount, err := validateInputs(store, tx, msg)
+	inputsFilter, inputAmount, err := validateInputs(store, tx, msg, ver.PayloadHash())
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func validateScriptTransaction(inputs map[string]*UTXO) error {
 	return nil
 }
 
-func validateInputs(store DataStore, tx *SignedTransaction, msg []byte) (map[string]*UTXO, Integer, error) {
+func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash crypto.Hash) (map[string]*UTXO, Integer, error) {
 	inputAmount := NewInteger(0)
 	inputsFilter := make(map[string]*UTXO)
 
@@ -109,6 +109,9 @@ func validateInputs(store DataStore, tx *SignedTransaction, msg []byte) (map[str
 		}
 		if utxo.Asset != tx.Asset {
 			return inputsFilter, inputAmount, fmt.Errorf("invalid input asset %s %s", utxo.Asset.String(), tx.Asset.String())
+		}
+		if utxo.LockHash.HasValue() && utxo.LockHash != hash {
+			return inputsFilter, inputAmount, fmt.Errorf("input locked for transaction %s", utxo.LockHash)
 		}
 
 		err = validateUTXO(&utxo.UTXO, tx.Signatures[i], msg)
