@@ -53,10 +53,10 @@ func readNodesInState(txn *badger.Txn, nodeState string) []*common.Node {
 		if err != nil {
 			panic(err)
 		}
-		payee := nodePayee(ival)
 		nodes = append(nodes, &common.Node{
-			Signer: signer,
-			Payee:  payee,
+			Signer:      signer,
+			Payee:       nodePayee(ival),
+			Transaction: nodeTransaction(ival),
 		})
 	}
 	return nodes
@@ -137,6 +137,12 @@ func nodePayee(ival []byte) common.Address {
 		PublicViewKey:  privateView.Public(),
 		PublicSpendKey: publicSpend,
 	}
+}
+
+func nodeTransaction(ival []byte) crypto.Hash {
+	var tx crypto.Hash
+	copy(tx[:], ival[len(crypto.Key{}):len(crypto.Key{})+len(tx)])
+	return tx
 }
 
 func nodePledgeKey(publicSpend crypto.Key) []byte {

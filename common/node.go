@@ -13,9 +13,10 @@ const (
 )
 
 type Node struct {
-	Signer Address
-	Payee  Address
-	State  string
+	Signer      Address
+	Payee       Address
+	State       string
+	Transaction crypto.Hash
 }
 
 func (n *Node) IsAccepted() bool {
@@ -52,7 +53,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 	if len(tx.Outputs) != 1 {
 		return fmt.Errorf("invalid outputs count %d for accept transaction", len(tx.Outputs))
 	}
-	if len(tx.Inputs) != 2 {
+	if len(tx.Inputs) != 1 {
 		return fmt.Errorf("invalid inputs count %d for accept transaction", len(tx.Inputs))
 	}
 	var pledging *Node
@@ -75,53 +76,30 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 	if pledging == nil {
 		return fmt.Errorf("no pledging node needs to get accepted")
 	}
+	if pledging.Transaction != tx.Inputs[0].Hash {
+		return fmt.Errorf("invalid plede utxo source %s %s", pledging.Transaction, tx.Inputs[0].Hash)
+	}
 
-	lastAccept, err := store.ReadTransaction(tx.Inputs[0].Hash)
+	lastPledge, err := store.ReadTransaction(tx.Inputs[0].Hash)
 	if err != nil {
 		return err
 	}
-	ao := lastAccept.Outputs[0]
-	if len(lastAccept.Outputs) != 1 {
-		return fmt.Errorf("invalid accept utxo count %d", len(lastAccept.Outputs))
+	if len(lastPledge.Outputs) != 1 {
+		return fmt.Errorf("invalid pledge utxo count %d", len(lastPledge.Outputs))
 	}
-	if ao.Type != OutputTypeNodeAccept {
-		return fmt.Errorf("invalid accept utxo type %d", ao.Type)
+	po := lastPledge.Outputs[0]
+	if po.Type != OutputTypeNodePledge {
+		return fmt.Errorf("invalid pledge utxo type %d", po.Type)
 	}
 	var publicSpend crypto.Key
-	copy(publicSpend[:], lastAccept.Extra)
+	copy(publicSpend[:], lastPledge.Extra)
 	privateView := publicSpend.DeterministicHashDerive()
 	acc := Address{
 		PublicViewKey:  privateView.Public(),
 		PublicSpendKey: publicSpend,
 	}
-	if filter[acc.String()] != NodeStateAccepted {
-		return fmt.Errorf("invalid accept utxo source %s", filter[acc.String()])
-	}
-
-	lastPledge, err := store.ReadTransaction(tx.Inputs[1].Hash)
-	if err != nil {
-		return err
-	}
-	po := lastPledge.Outputs[0]
-	if len(lastPledge.Outputs) != 1 {
-		return fmt.Errorf("invalid pledge utxo count %d", len(lastPledge.Outputs))
-	}
-	if po.Type != OutputTypeNodePledge {
-		return fmt.Errorf("invalid pledge utxo type %d", po.Type)
-	}
-	copy(publicSpend[:], lastPledge.Extra)
-	privateView = publicSpend.DeterministicHashDerive()
-	acc = Address{
-		PublicViewKey:  privateView.Public(),
-		PublicSpendKey: publicSpend,
-	}
 	if filter[acc.String()] != NodeStatePledging {
 		return fmt.Errorf("invalid pledge utxo source %s", filter[acc.String()])
-	}
-
-	nodesAmount := NewInteger(uint64(10000 * len(nodes)))
-	if ao.Amount.Add(po.Amount).Cmp(nodesAmount) != 0 {
-		return fmt.Errorf("invalid accept input amount %s %s %s", ao.Amount, po.Amount, nodesAmount)
 	}
 	return nil
 }

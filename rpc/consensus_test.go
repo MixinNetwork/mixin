@@ -62,7 +62,7 @@ func TestConsensus(t *testing.T) {
 			go node.Loop()
 		}(n, stores[i], i)
 	}
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	tl, sl := testVerifySnapshots(assert, nodes)
 	assert.Equal(NODES+1, tl)
