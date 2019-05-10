@@ -27,7 +27,7 @@ func (node *Node) MintLoop() error {
 	for {
 		time.Sleep(77 * time.Minute)
 
-		batch, amount := node.checkMintPossibility(false)
+		batch, amount := node.checkMintPossibility(node.Graph.GraphTimestamp, false)
 		if amount.Sign() <= 0 || batch <= 0 {
 			continue
 		}
@@ -83,8 +83,8 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 	}, false)
 }
 
-func (node *Node) validateMintTransaction(tx *common.VersionedTransaction) error {
-	batch, amount := node.checkMintPossibility(true)
+func (node *Node) validateMintTransaction(tx *common.VersionedTransaction, snapTime uint64) error {
+	batch, amount := node.checkMintPossibility(snapTime, true)
 	if amount.Sign() <= 0 || batch <= 0 {
 		return fmt.Errorf("no mint available %d %s", batch, amount.String())
 	}
@@ -162,12 +162,12 @@ func (node *Node) validateMintTransaction(tx *common.VersionedTransaction) error
 	return nil
 }
 
-func (node *Node) checkMintPossibility(validateOnly bool) (int, common.Integer) {
-	if node.Graph.GraphTimestamp <= node.epoch {
+func (node *Node) checkMintPossibility(timestamp uint64, validateOnly bool) (int, common.Integer) {
+	if timestamp <= node.epoch {
 		return 0, common.Zero
 	}
 
-	since := node.Graph.GraphTimestamp - node.epoch
+	since := timestamp - node.epoch
 	hours := int(since / 3600000000000)
 	batch := hours / 24
 	if batch < 1 {
