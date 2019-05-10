@@ -23,6 +23,9 @@ type Node struct {
 }
 
 func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UTXO) error {
+	if tx.Asset != XINAssetId {
+		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
+	}
 	if len(tx.Outputs) != 1 {
 		return fmt.Errorf("invalid outputs count %d for pledge transaction", len(tx.Outputs))
 	}
@@ -49,6 +52,9 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 }
 
 func (tx *Transaction) validateNodeAccept(store DataStore) error {
+	if tx.Asset != XINAssetId {
+		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
+	}
 	if len(tx.Outputs) != 1 {
 		return fmt.Errorf("invalid outputs count %d for accept transaction", len(tx.Outputs))
 	}

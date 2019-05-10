@@ -41,6 +41,9 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		}
 	}
 
+	if tx.Asset != common.XINAssetId {
+		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
+	}
 	if len(tx.Outputs) != 1 {
 		return fmt.Errorf("invalid outputs count %d for pledge transaction", len(tx.Outputs))
 	}
@@ -55,6 +58,9 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 }
 
 func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
+	if tx.Asset != common.XINAssetId {
+		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
+	}
 	if len(tx.Outputs) != 1 {
 		return fmt.Errorf("invalid outputs count %d for accept transaction", len(tx.Outputs))
 	}
