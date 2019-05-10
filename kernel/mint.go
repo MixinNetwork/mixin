@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 )
@@ -172,7 +173,7 @@ func (node *Node) checkMintPossibility(validateOnly bool) (int, common.Integer) 
 	if batch < 1 {
 		return 0, common.Zero
 	}
-	if hours%24 < 6 || hours%24 > 18 {
+	if hours%24 < config.KernelMintTimeBegin || hours%24 > config.KernelMintTimeEnd {
 		return 0, common.Zero
 	}
 

@@ -17,6 +17,12 @@ const (
 	SnapshotReferenceThreshold = 10
 	TransactionMaximumSize     = 1024 * 1024
 	WithdrawalClaimFee         = "0.0001"
+
+	KernelMintTimeBegin = 7
+	KernelMintTimeEnd   = 9
+
+	KernelNodeAcceptTimeBegin = 13
+	KernelNodeAcceptTimeEnd   = 15
 )
 
 type custom struct {
