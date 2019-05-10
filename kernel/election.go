@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -11,7 +12,45 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
-func (node *Node) reloadConsensusNodesList(tx *common.VersionedTransaction) error {
+func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.VersionedTransaction) error {
+	if tx.TransactionType() == common.TransactionTypeNodeAccept {
+		gns, err := readGenesis(node.configDir + "/genesis.json")
+		if err != nil {
+			return err
+		}
+		match := gns.Nodes[0]
+		distance := nodeDistance(s.NodeId, match.Signer.Hash().ForNetwork(node.networkId))
+		for _, n := range gns.Nodes {
+			id := n.Signer.Hash().ForNetwork(node.networkId)
+			if nd := nodeDistance(s.NodeId, id); nd < distance {
+				distance = nd
+				match = n
+			}
+		}
+
+		var link common.RoundLink
+		matchId := match.Signer.Hash().ForNetwork(node.networkId)
+		ss, err := node.store.ReadSnapshotsForNodeRound(matchId, 1)
+		if err != nil {
+			return err
+		}
+		if len(ss) == 0 {
+			round, err := node.store.ReadRound(matchId)
+			if err != nil {
+				return err
+			}
+			link.External = round.References.Self
+		} else {
+			link.External = ss[0].References.Self
+		}
+		_, _, self := ComputeRoundHash(s.NodeId, 0, []*common.Snapshot{s})
+		link.Self = self
+		err = node.store.StartNewRound(s.NodeId, 1, &link, s.Timestamp+config.SnapshotRoundGap+1)
+		if err != nil {
+			return err
+		}
+	}
+
 	switch tx.TransactionType() {
 	case common.TransactionTypeNodePledge, common.TransactionTypeNodeAccept, common.TransactionTypeNodeDepart, common.TransactionTypeNodeRemove:
 		err := node.LoadConsensusNodes()
@@ -25,6 +64,15 @@ func (node *Node) reloadConsensusNodesList(tx *common.VersionedTransaction) erro
 		node.Graph = graph
 	}
 	return nil
+}
+
+func nodeDistance(a, b crypto.Hash) int {
+	ai := new(big.Int).SetBytes(a[:])
+	bi := new(big.Int).SetBytes(b[:])
+	si := new(big.Int).Sub(ai, bi)
+	ai = new(big.Int).Abs(si)
+	mi := new(big.Int).Mod(ai, big.NewInt(100))
+	return int(mi.Int64())
 }
 
 func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {

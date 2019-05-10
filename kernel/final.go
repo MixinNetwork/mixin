@@ -126,5 +126,5 @@ func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot, tx *common.Version
 	}
 	node.assignNewGraphRound(final, cache)
 	node.removeFromCache(s)
-	return node.reloadConsensusNodesList(tx)
+	return node.reloadConsensusNodesList(s, tx)
 }
