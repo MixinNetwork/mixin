@@ -169,7 +169,7 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) e
 }
 
 func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder, ver *common.VersionedTransaction) error {
-	err := finalizeTransaction(txn, ver)
+	err := finalizeTransaction(txn, ver, snap)
 	if err != nil {
 		return err
 	}

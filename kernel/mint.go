@@ -163,11 +163,11 @@ func (node *Node) validateMintTransaction(tx *common.VersionedTransaction) error
 }
 
 func (node *Node) checkMintPossibility(validateOnly bool) (int, common.Integer) {
-	since := node.Graph.GraphTimestamp - node.epoch
-	if since <= 0 {
+	if node.Graph.GraphTimestamp <= node.epoch {
 		return 0, common.Zero
 	}
 
+	since := node.Graph.GraphTimestamp - node.epoch
 	hours := int(since / 3600000000000)
 	batch := hours / 24
 	if batch < 1 {

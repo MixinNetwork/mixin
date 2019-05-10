@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"encoding/binary"
+
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/dgraph-io/badger"
@@ -27,9 +29,12 @@ func (s *BadgerStore) ReadDomains() []common.Domain {
 	return domains
 }
 
-func writeDomainAccept(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash) error {
+func writeDomainAccept(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash, timestamp uint64) error {
 	key := graphDomainAcceptKey(publicSpend)
-	return txn.Set(key, tx[:])
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, timestamp)
+	val := append(tx[:], buf...)
+	return txn.Set(key, val)
 }
 
 func domainAccountForState(key []byte, domainState string) common.Address {

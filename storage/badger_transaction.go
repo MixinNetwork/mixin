@@ -151,7 +151,7 @@ func writeTransaction(txn *badger.Txn, ver *common.VersionedTransaction) error {
 	return txn.Set(key, val)
 }
 
-func finalizeTransaction(txn *badger.Txn, ver *common.VersionedTransaction) error {
+func finalizeTransaction(txn *badger.Txn, ver *common.VersionedTransaction, snap *common.SnapshotWithTopologicalOrder) error {
 	key := graphFinalizationKey(ver.PayloadHash())
 	_, err := txn.Get(key)
 	if err == nil {
@@ -159,7 +159,8 @@ func finalizeTransaction(txn *badger.Txn, ver *common.VersionedTransaction) erro
 	} else if err != badger.ErrKeyNotFound {
 		return err
 	}
-	err = txn.Set(key, []byte{})
+	snapHash := snap.PayloadHash()
+	err = txn.Set(key, snapHash[:])
 	if err != nil {
 		return err
 	}
@@ -173,7 +174,7 @@ func finalizeTransaction(txn *badger.Txn, ver *common.VersionedTransaction) erro
 	}
 
 	for _, utxo := range ver.UnspentOutputs() {
-		err := writeUTXO(txn, utxo, ver.Extra, genesis)
+		err := writeUTXO(txn, utxo, ver.Extra, snap.Timestamp, genesis)
 		if err != nil {
 			return err
 		}
@@ -181,7 +182,7 @@ func finalizeTransaction(txn *badger.Txn, ver *common.VersionedTransaction) erro
 	return nil
 }
 
-func writeUTXO(txn *badger.Txn, utxo *common.UTXO, extra []byte, genesis bool) error {
+func writeUTXO(txn *badger.Txn, utxo *common.UTXO, extra []byte, timestamp uint64, genesis bool) error {
 	for _, k := range utxo.Keys {
 		key := graphGhostKey(k)
 
@@ -208,21 +209,18 @@ func writeUTXO(txn *badger.Txn, utxo *common.UTXO, extra []byte, genesis bool) e
 		return err
 	}
 
+	var signer, payee crypto.Key
+	if len(extra) >= len(signer) {
+		copy(signer[:], extra)
+		copy(payee[:], extra[len(signer):])
+	}
 	switch utxo.Type {
 	case common.OutputTypeNodePledge:
-		var signer, payee crypto.Key
-		copy(signer[:], extra[:len(signer)])
-		copy(payee[:], extra[len(signer):])
-		return writeNodePledge(txn, signer, payee, utxo.Hash)
+		return writeNodePledge(txn, signer, payee, utxo.Hash, timestamp)
 	case common.OutputTypeNodeAccept:
-		var signer, payee crypto.Key
-		copy(signer[:], extra[:len(signer)])
-		copy(payee[:], extra[len(signer):])
-		return writeNodeAccept(txn, signer, payee, utxo.Hash, genesis)
+		return writeNodeAccept(txn, signer, payee, utxo.Hash, timestamp, genesis)
 	case common.OutputTypeDomainAccept:
-		var signer crypto.Key
-		copy(signer[:], extra)
-		return writeDomainAccept(txn, signer, utxo.Hash)
+		return writeDomainAccept(txn, signer, utxo.Hash, timestamp)
 	}
 
 	return nil

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 
@@ -57,12 +58,13 @@ func readNodesInState(txn *badger.Txn, nodeState string) []*common.Node {
 			Signer:      signer,
 			Payee:       nodePayee(ival),
 			Transaction: nodeTransaction(ival),
+			Timestamp:   nodeTimestamp(ival),
 		})
 	}
 	return nodes
 }
 
-func writeNodeAccept(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, genesis bool) error {
+func writeNodeAccept(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64, genesis bool) error {
 	// TODO these checks are only assert kind checks, not needed at all
 	key := nodePledgeKey(signer)
 	item, err := txn.Get(key)
@@ -88,10 +90,14 @@ func writeNodeAccept(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 		return err
 	}
 	key = nodeAcceptKey(signer)
-	return txn.Set(key, append(payee[:], tx[:]...))
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, timestamp)
+	val := append(payee[:], tx[:]...)
+	val = append(val, buf...)
+	return txn.Set(key, val)
 }
 
-func writeNodePledge(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash) error {
+func writeNodePledge(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
 	// TODO these checks are only assert kind checks, not needed at all
 	key := nodeAcceptKey(signer)
 	_, err := txn.Get(key)
@@ -114,7 +120,11 @@ func writeNodePledge(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash) 
 	}
 
 	key = nodePledgeKey(signer)
-	return txn.Set(key, append(payee[:], tx[:]...))
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, timestamp)
+	val := append(payee[:], tx[:]...)
+	val = append(val, buf...)
+	return txn.Set(key, val)
 }
 
 func nodeSignerForState(key []byte, nodeState string) common.Address {
@@ -141,8 +151,13 @@ func nodePayee(ival []byte) common.Address {
 
 func nodeTransaction(ival []byte) crypto.Hash {
 	var tx crypto.Hash
-	copy(tx[:], ival[len(crypto.Key{}):len(crypto.Key{})+len(tx)])
+	copy(tx[:], ival[len(crypto.Key{}):])
 	return tx
+}
+
+func nodeTimestamp(ival []byte) uint64 {
+	l := len(crypto.Key{}) + len(crypto.Hash{})
+	return binary.BigEndian.Uint64(ival[l:])
 }
 
 func nodePledgeKey(publicSpend crypto.Key) []byte {

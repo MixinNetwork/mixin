@@ -1,6 +1,8 @@
 package common
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/crypto"
@@ -17,6 +19,7 @@ type Node struct {
 	Payee       Address
 	State       string
 	Transaction crypto.Hash
+	Timestamp   uint64
 }
 
 func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UTXO) error {
@@ -96,6 +99,9 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 	}
 	if filter[acc.String()] != NodeStatePledging {
 		return fmt.Errorf("invalid pledge utxo source %s", filter[acc.String()])
+	}
+	if bytes.Compare(lastPledge.Extra, tx.Extra) != 0 {
+		return fmt.Errorf("invalid pledge and accpet key %s %s", hex.EncodeToString(lastPledge.Extra), hex.EncodeToString(tx.Extra))
 	}
 	return nil
 }
