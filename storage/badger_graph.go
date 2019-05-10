@@ -1,15 +1,19 @@
 package storage
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
+	"runtime"
 	"sort"
+	"sync/atomic"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/pb"
 )
 
 const (
@@ -28,36 +32,40 @@ const (
 	graphPrefixAsset        = "ASSET"
 )
 
-func (s *BadgerStore) ValidateGraphEntries() (int, error) {
+func (s *BadgerStore) ValidateGraphEntries() (int, int, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
-	var invalid int
-	it.Seek([]byte(graphPrefixTransaction))
-	for ; it.ValidForPrefix([]byte(graphPrefixTransaction)); it.Next() {
-		item := it.Item()
-		key := item.Key()
-		val, err := item.ValueCopy(nil)
-		if err != nil {
-			return 0, err
-		}
+	var total, invalid int64
 
-		var hash crypto.Hash
-		ver, err := common.DecompressUnmarshalVersionedTransaction(val)
-		if err != nil {
-			return 0, err
+	stream := s.snapshotsDB.NewStream()
+	stream.NumGo = runtime.NumCPU()
+	stream.Prefix = []byte(graphPrefixTransaction)
+	stream.LogPrefix = "Badger.ValidateGraphEntries"
+	stream.ChooseKey = func(item *badger.Item) bool { return true }
+	stream.KeyToList = nil
+	stream.Send = func(list *pb.KVList) error {
+		for _, item := range list.Kv {
+			atomic.AddInt64(&total, 1)
+			ver, err := common.DecompressUnmarshalVersionedTransaction(item.Value)
+			if err != nil {
+				return err
+			}
+			var hash crypto.Hash
+			copy(hash[:], item.Key[len(graphPrefixTransaction):])
+			if hash.String() != ver.PayloadHash().String() {
+				atomic.AddInt64(&invalid, 1)
+				logger.Printf("MALFORMED %s %s %#v\n", hash.String(), ver.PayloadHash().String(), ver)
+			}
 		}
-		copy(hash[:], key[len(graphPrefixTransaction):])
-		if hash.String() != ver.PayloadHash().String() {
-			invalid += 1
-			logger.Printf("MALFORMED %s %s %#v\n", hash.String(), ver.PayloadHash().String(), ver)
-		}
+		return nil
 	}
+	err := stream.Orchestrate(context.Background())
 
-	return invalid, nil
+	return int(total), int(invalid), err
 }
 
 func (s *BadgerStore) RemoveGraphEntries(prefix string) error {

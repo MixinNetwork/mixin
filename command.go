@@ -96,11 +96,11 @@ func validateGraphEntries(c *cli.Context) error {
 		return err
 	}
 	defer store.Close()
-	invalid, err := store.ValidateGraphEntries()
+	total, invalid, err := store.ValidateGraphEntries()
 	if err != nil {
 		return err
 	}
-	fmt.Printf("invalid entries: %d\n", invalid)
+	fmt.Printf("invalid entries: %d/%d\n", invalid, total)
 	return nil
 }
 

@@ -66,14 +66,14 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	}
 
 	logger.Println("Validating graph entries...")
-	invalid, err := node.store.ValidateGraphEntries()
+	total, invalid, err := node.store.ValidateGraphEntries()
 	if err != nil {
 		return nil, err
 	}
 	if invalid > 0 {
-		return nil, fmt.Errorf("Validate graph with %d invalid entries\n", invalid)
+		return nil, fmt.Errorf("Validate graph with %d/%d invalid entries\n", invalid, total)
 	}
-	logger.Println("Validate graph with 0 invalid entries")
+	logger.Printf("Validate graph with %d total entries\n", total)
 
 	err = node.LoadGenesis(dir)
 	if err != nil {
