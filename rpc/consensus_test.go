@@ -301,20 +301,28 @@ func testVerifySnapshots(assert *assert.Assertions, nodes []string) (int, int) {
 		a, b := filters[i], filters[i+1]
 		m, n := make(map[string]bool), make(map[string]bool)
 		for k, _ := range a {
+			s[k] = true
 			assert.NotNil(a[k])
 			assert.NotNil(b[k])
-			assert.Equal(b[k].Transaction, a[k].Transaction)
-			s[k] = true
-			m[a[k].Transaction.String()] = true
-			t[a[k].Transaction.String()] = true
+			if a[k] != nil && b[k] != nil {
+				assert.Equal(b[k].Transaction, a[k].Transaction)
+			}
+			if a[k] != nil {
+				m[a[k].Transaction.String()] = true
+				t[a[k].Transaction.String()] = true
+			}
 		}
 		for k, _ := range b {
+			s[k] = true
 			assert.NotNil(a[k])
 			assert.NotNil(b[k])
-			assert.Equal(b[k].Transaction, a[k].Transaction)
-			s[k] = true
-			n[b[k].Transaction.String()] = true
-			t[b[k].Transaction.String()] = true
+			if a[k] != nil && b[k] != nil {
+				assert.Equal(b[k].Transaction, a[k].Transaction)
+			}
+			if b[k] != nil {
+				n[b[k].Transaction.String()] = true
+				t[b[k].Transaction.String()] = true
+			}
 		}
 		assert.Equal(len(m), len(n))
 		assert.Equal(len(filters[i]), len(filters[i+1]))
