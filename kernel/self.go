@@ -31,9 +31,19 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Ver
 		return nil, err
 	}
 
+	err = tx.Validate(node.store)
+	if err != nil {
+		return nil, nil
+	}
+
 	switch tx.TransactionType() {
 	case common.TransactionTypeMint:
-		err = node.validateMintTransaction(tx, s.Timestamp)
+		err = node.validateMintSnapshot(s, tx)
+		if err != nil {
+			return nil, nil
+		}
+	case common.TransactionTypeNodePledge:
+		err = node.validateNodePledgeSnapshot(s, tx)
 		if err != nil {
 			return nil, nil
 		}
@@ -42,11 +52,6 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Ver
 		if err != nil {
 			return nil, nil
 		}
-	}
-
-	err = tx.Validate(node.store)
-	if err != nil {
-		return nil, nil
 	}
 
 	err = tx.LockInputs(node.store, false)

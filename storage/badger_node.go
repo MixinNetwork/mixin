@@ -16,6 +16,8 @@ const (
 	graphPrefixNodeAccept = "NODESTATEACCEPT"
 	graphPrefixNodeDepart = "NODESTATEDEPART"
 	graphPrefixNodeRemove = "NODESTATEREMOVE"
+
+	graphPrefixNodeOperation = "NODEOPERATION"
 )
 
 func (s *BadgerStore) ReadConsensusNodes() []*common.Node {
@@ -39,6 +41,67 @@ func (s *BadgerStore) ReadConsensusNodes() []*common.Node {
 		nodes = append(nodes, n)
 	}
 	return nodes
+}
+
+func (s *BadgerStore) AddNodeOperation(tx *common.VersionedTransaction, timestamp, threshold uint64) error {
+	txn := s.snapshotsDB.NewTransaction(true)
+	defer txn.Discard()
+
+	var op string
+	switch tx.TransactionType() {
+	case common.TransactionTypeNodePledge:
+		op = "PLEDGE"
+	}
+	if op == "" {
+		return fmt.Errorf("invalid operation %d %s", tx.TransactionType(), op)
+	}
+	hash := tx.PayloadHash()
+
+	lastOp, lastTx, lastTs, err := readLastNodeOperation(txn)
+	if err != nil {
+		return err
+	}
+
+	if lastTs+threshold >= timestamp {
+		if lastOp == op && lastTx == hash {
+			return nil
+		}
+		return fmt.Errorf("invalid operation lock %s %s %d", lastTx, lastOp, lastTs)
+	}
+
+	val := append(hash[:], []byte(op)...)
+	err = txn.Set(nodeOperationKey(timestamp), val)
+	if err != nil {
+		return err
+	}
+	return txn.Commit()
+}
+
+func readLastNodeOperation(txn *badger.Txn) (string, crypto.Hash, uint64, error) {
+	var timestamp uint64
+	var hash crypto.Hash
+
+	opts := badger.DefaultIteratorOptions
+	opts.PrefetchValues = false
+	opts.Reverse = true
+
+	it := txn.NewIterator(opts)
+	defer it.Close()
+
+	it.Seek(nodeOperationKey(^uint64(0)))
+	if it.ValidForPrefix([]byte(graphPrefixNodeOperation)) {
+		item := it.Item()
+		order := item.Key()[len(graphPrefixNodeOperation):]
+		timestamp = binary.BigEndian.Uint64(order)
+
+		val, err := item.ValueCopy(nil)
+		if err != nil {
+			return "", hash, timestamp, err
+		}
+		copy(hash[:], val)
+		return string(val[len(hash):]), hash, timestamp, nil
+	}
+	return "", hash, timestamp, nil
 }
 
 func readNodesInState(txn *badger.Txn, nodeState string) []*common.Node {
@@ -170,4 +233,10 @@ func nodeAcceptKey(publicSpend crypto.Key) []byte {
 
 func nodeDepartKey(publicSpend crypto.Key) []byte {
 	return append([]byte(graphPrefixNodeDepart), publicSpend[:]...)
+}
+
+func nodeOperationKey(timestamp uint64) []byte {
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, timestamp)
+	return append([]byte(graphPrefixNodeOperation), buf...)
 }

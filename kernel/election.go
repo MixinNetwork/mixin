@@ -8,9 +8,10 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/crypto"
 )
 
-func (node *Node) manageConsensusNodesList(tx *common.VersionedTransaction) error {
+func (node *Node) reloadConsensusNodesList(tx *common.VersionedTransaction) error {
 	switch tx.TransactionType() {
 	case common.TransactionTypeNodePledge, common.TransactionTypeNodeAccept, common.TransactionTypeNodeDepart, common.TransactionTypeNodeRemove:
 		err := node.LoadConsensusNodes()
@@ -24,6 +25,33 @@ func (node *Node) manageConsensusNodesList(tx *common.VersionedTransaction) erro
 		node.Graph = graph
 	}
 	return nil
+}
+
+func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
+	for _, cn := range node.ConsensusNodes {
+		if s.Timestamp < cn.Timestamp {
+			return fmt.Errorf("invalid snapshot timestamp %d %d", cn.Timestamp, s.Timestamp)
+		}
+		elapse := time.Duration(s.Timestamp - cn.Timestamp)
+		if elapse < config.KernelNodePledgePeriodMinimum {
+			return fmt.Errorf("invalid pledge period %d %d", config.KernelNodePledgePeriodMinimum, elapse)
+		}
+		if cn.State != common.NodeStateAccepted {
+			return fmt.Errorf("invalid node state %s %s", cn.Signer, cn.State)
+		}
+	}
+
+	if len(tx.Outputs) != 1 {
+		return fmt.Errorf("invalid outputs count %d for pledge transaction", len(tx.Outputs))
+	}
+	if len(tx.Extra) != 2*len(crypto.Key{}) {
+		return fmt.Errorf("invalid extra length %d for pledge transaction", len(tx.Extra))
+	}
+	if tx.Outputs[0].Amount.Cmp(common.NewInteger(10000)) != 0 {
+		return fmt.Errorf("invalid pledge amount %s", tx.Outputs[0].Amount.String())
+	}
+
+	return node.store.AddNodeOperation(tx, s.Timestamp, uint64(config.KernelNodeOperationLockThreshold))
 }
 
 func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {

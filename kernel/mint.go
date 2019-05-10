@@ -83,8 +83,8 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 	}, false)
 }
 
-func (node *Node) validateMintTransaction(tx *common.VersionedTransaction, snapTime uint64) error {
-	batch, amount := node.checkMintPossibility(snapTime, true)
+func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.VersionedTransaction) error {
+	batch, amount := node.checkMintPossibility(snap.Timestamp, true)
 	if amount.Sign() <= 0 || batch <= 0 {
 		return fmt.Errorf("no mint available %d %s", batch, amount.String())
 	}
