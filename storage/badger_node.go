@@ -220,7 +220,10 @@ func nodeTransaction(ival []byte) crypto.Hash {
 
 func nodeTimestamp(ival []byte) uint64 {
 	l := len(crypto.Key{}) + len(crypto.Hash{})
-	return binary.BigEndian.Uint64(ival[l:])
+	if len(ival) == l+8 {
+		return binary.BigEndian.Uint64(ival[l:])
+	}
+	return 0
 }
 
 func nodePledgeKey(publicSpend crypto.Key) []byte {
