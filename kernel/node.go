@@ -26,6 +26,7 @@ type Node struct {
 	IdForNetwork    crypto.Hash
 	Signer          common.Address
 	ConsensusNodes  map[crypto.Hash]*common.Node
+	ConsensusBase   int
 	Graph           *RoundGraph
 	TopoCounter     *TopologicalSequence
 	SnapshotsPool   map[crypto.Hash][]*crypto.Signature
@@ -127,9 +128,12 @@ func (node *Node) LoadNodeConfig() {
 }
 
 func (node *Node) LoadConsensusNodes() error {
-	nodes := node.store.ReadConsensusNodes()
-	for _, cn := range nodes {
+	node.ConsensusBase = 0
+	for _, cn := range node.store.ReadConsensusNodes() {
 		logger.Println(cn.Signer.String(), cn.State)
+		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateAccepted || cn.State == common.NodeStateDeparting {
+			node.ConsensusBase += 1
+		}
 		if !cn.IsAccepted() {
 			continue
 		}
