@@ -40,6 +40,7 @@ type Node struct {
 	ConsensusPledging *common.Node
 
 	epoch       uint64
+	isGenesis   bool
 	startAt     time.Time
 	networkId   crypto.Hash
 	store       storage.Store

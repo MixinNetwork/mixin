@@ -44,6 +44,11 @@ func (node *Node) LoadGenesis(configDir string) error {
 	node.epoch = uint64(time.Unix(gns.Epoch, 0).UnixNano())
 	node.networkId = crypto.NewHash(data)
 	node.IdForNetwork = node.Signer.Hash().ForNetwork(node.networkId)
+	for _, in := range gns.Nodes {
+		if in.Signer.Hash().ForNetwork(node.networkId) == node.IdForNetwork {
+			node.isGenesis = true
+		}
+	}
 
 	var state struct {
 		Id crypto.Hash
