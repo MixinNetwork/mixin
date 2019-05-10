@@ -414,7 +414,9 @@ func callRPC(node, method string, params []interface{}) ([]byte, error) {
 		Data  interface{} `json:"data"`
 		Error interface{} `json:"error"`
 	}
-	err = json.NewDecoder(resp.Body).Decode(&result)
+	dec := json.NewDecoder(resp.Body)
+	dec.UseNumber()
+	err = dec.Decode(&result)
 	if err != nil {
 		return nil, err
 	}
