@@ -31,8 +31,14 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Ver
 		return nil, err
 	}
 
-	if tx.TransactionType() == common.TransactionTypeMint {
+	switch tx.TransactionType() {
+	case common.TransactionTypeMint:
 		err = node.validateMintTransaction(tx, s.Timestamp)
+		if err != nil {
+			return nil, nil
+		}
+	case common.TransactionTypeNodeAccept:
+		err = node.validateNodeAcceptSnapshot(s, tx)
 		if err != nil {
 			return nil, nil
 		}

@@ -261,6 +261,10 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) er
 				break
 			}
 		}
+		if n := node.ConsensusPledging; n != nil && node.CacheVerify(s.Hash, *sig, n.Signer.PublicSpendKey) {
+			sigs = append(sigs, sig)
+			signersMap[n.Signer.Hash().ForNetwork(node.networkId)] = true
+		}
 		signaturesFilter[sig.String()] = true
 	}
 	s.Signatures = sigs
