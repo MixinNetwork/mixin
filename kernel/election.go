@@ -30,21 +30,16 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 
 		var link common.RoundLink
 		matchId := match.Signer.Hash().ForNetwork(node.networkId)
-		ss, err := node.store.ReadSnapshotsForNodeRound(matchId, 1)
+		ss, err := node.store.ReadSnapshotsForNodeRound(matchId, 0)
 		if err != nil {
 			return err
 		}
-		if len(ss) == 0 {
-			round, err := node.store.ReadRound(matchId)
-			if err != nil {
-				return err
-			}
-			link.External = round.References.Self
-		} else {
-			link.External = ss[0].References.Self
+		rss := make([]*common.Snapshot, len(ss))
+		for i, s := range ss {
+			rss[i] = &s.Snapshot
 		}
-		_, _, self := ComputeRoundHash(s.NodeId, 0, []*common.Snapshot{s})
-		link.Self = self
+		_, _, link.External = ComputeRoundHash(matchId, 0, rss)
+		_, _, link.Self = ComputeRoundHash(s.NodeId, 0, []*common.Snapshot{s})
 		err = node.store.StartNewRound(s.NodeId, 1, &link, s.Timestamp+config.SnapshotRoundGap+1)
 		if err != nil {
 			return err
