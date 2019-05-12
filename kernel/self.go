@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 )
 
 func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, error) {
@@ -40,16 +41,19 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Ver
 	case common.TransactionTypeMint:
 		err = node.validateMintSnapshot(s, tx)
 		if err != nil {
+			logger.Println("validateMintSnapshot", s, tx, err)
 			return nil, nil
 		}
 	case common.TransactionTypeNodePledge:
 		err = node.validateNodePledgeSnapshot(s, tx)
 		if err != nil {
+			logger.Println("validateNodePledgeSnapshot", s, tx, err)
 			return nil, nil
 		}
 	case common.TransactionTypeNodeAccept:
 		err = node.validateNodeAcceptSnapshot(s, tx)
 		if err != nil {
+			logger.Println("validateNodeAcceptSnapshot", s, tx, err)
 			return nil, nil
 		}
 	}

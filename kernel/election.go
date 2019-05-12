@@ -83,6 +83,10 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		}
 	}
 
+	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
+	if s.Timestamp > node.Graph.GraphTimestamp+threshold*2 {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Graph.GraphTimestamp, s.Timestamp)
+	}
 	if cn := node.ConsensusPledging; cn != nil {
 		return fmt.Errorf("invalid node state %s %s", cn.Signer, cn.State)
 	}
@@ -153,6 +157,11 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	hours := int(since / 3600000000000)
 	if hours%24 < config.KernelNodeAcceptTimeBegin || hours%24 > config.KernelNodeAcceptTimeEnd {
 		return fmt.Errorf("invalid node accept hour %d", hours%24)
+	}
+
+	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
+	if s.Timestamp+threshold*2 < node.Graph.GraphTimestamp {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Graph.GraphTimestamp, s.Timestamp)
 	}
 
 	if s.Timestamp < node.ConsensusPledging.Timestamp {
