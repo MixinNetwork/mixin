@@ -18,18 +18,17 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 		if err != nil {
 			return err
 		}
-		match := gns.Nodes[0]
-		distance := nodeDistance(s.NodeId, match.Signer.Hash().ForNetwork(node.networkId))
+		matchId := gns.Nodes[0].Signer.Hash().ForNetwork(node.networkId)
+		distance := nodeDistance(s.NodeId, matchId)
 		for _, n := range gns.Nodes {
 			id := n.Signer.Hash().ForNetwork(node.networkId)
 			if nd := nodeDistance(s.NodeId, id); nd < distance {
 				distance = nd
-				match = n
+				matchId = id
 			}
 		}
 
 		var link common.RoundLink
-		matchId := match.Signer.Hash().ForNetwork(node.networkId)
 		ss, err := node.store.ReadSnapshotsForNodeRound(matchId, 0)
 		if err != nil {
 			return err
@@ -84,6 +83,9 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		}
 	}
 
+	if cn := node.ConsensusPledging; cn != nil {
+		return fmt.Errorf("invalid node state %s %s", cn.Signer, cn.State)
+	}
 	if tx.Asset != common.XINAssetId {
 		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
 	}

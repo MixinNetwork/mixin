@@ -261,9 +261,12 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) er
 				break
 			}
 		}
-		if n := node.ConsensusPledging; n != nil && node.CacheVerify(s.Hash, *sig, n.Signer.PublicSpendKey) {
-			sigs = append(sigs, sig)
-			signersMap[n.Signer.Hash().ForNetwork(node.networkId)] = true
+		if n := node.ConsensusPledging; n != nil {
+			id := n.Signer.Hash().ForNetwork(node.networkId)
+			if id == s.NodeId && s.RoundNumber == 0 && node.CacheVerify(s.Hash, *sig, n.Signer.PublicSpendKey) {
+				sigs = append(sigs, sig)
+				signersMap[id] = true
+			}
 		}
 		signaturesFilter[sig.String()] = true
 	}
