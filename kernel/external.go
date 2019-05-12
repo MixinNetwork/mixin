@@ -20,9 +20,6 @@ func (node *Node) verifyExternalSnapshot(s *common.Snapshot) error {
 	if s.Timestamp > uint64(time.Now().UnixNano())+threshold {
 		return nil
 	}
-	if s.Timestamp > node.Graph.GraphTimestamp+threshold*2 {
-		return nil
-	}
 	if s.Timestamp+threshold*2 < node.Graph.GraphTimestamp {
 		return nil
 	}
