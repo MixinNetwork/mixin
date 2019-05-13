@@ -380,10 +380,14 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 		if cache == nil {
 			return false
 		}
-		if cache.Hash != remote.Hash {
+		cf := cache.asFinal()
+		if cf == nil {
 			return false
 		}
-		if cache.Start+config.SnapshotRoundGap*100 > uint64(time.Now().UnixNano()) {
+		if cf.Hash != remote.Hash {
+			return false
+		}
+		if cf.Start+config.SnapshotRoundGap*100 > uint64(time.Now().UnixNano()) {
 			return false
 		}
 	}
