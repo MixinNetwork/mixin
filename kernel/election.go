@@ -70,11 +70,15 @@ func nodeDistance(a, b crypto.Hash) int {
 }
 
 func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
+	timestamp := s.Timestamp
+	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
+		timestamp = uint64(time.Now().UnixNano())
+	}
 	for _, cn := range node.ConsensusNodes {
-		if s.Timestamp < cn.Timestamp {
-			return fmt.Errorf("invalid snapshot timestamp %d %d", cn.Timestamp, s.Timestamp)
+		if timestamp < cn.Timestamp {
+			return fmt.Errorf("invalid snapshot timestamp %d %d", cn.Timestamp, timestamp)
 		}
-		elapse := time.Duration(s.Timestamp - cn.Timestamp)
+		elapse := time.Duration(timestamp - cn.Timestamp)
 		if elapse < config.KernelNodePledgePeriodMinimum {
 			return fmt.Errorf("invalid pledge period %d %d", config.KernelNodePledgePeriodMinimum, elapse)
 		}
@@ -84,8 +88,8 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if s.Timestamp > uint64(time.Now().UnixNano())+threshold {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", time.Now().UnixNano(), s.Timestamp)
+	if timestamp > uint64(time.Now().UnixNano())+threshold {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", time.Now().UnixNano(), timestamp)
 	}
 	if cn := node.ConsensusPledging; cn != nil {
 		return fmt.Errorf("invalid node state %s %s", cn.Signer, cn.State)
@@ -103,7 +107,7 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid pledge amount %s", tx.Outputs[0].Amount.String())
 	}
 
-	return node.store.AddNodeOperation(tx, s.Timestamp, uint64(config.KernelNodeOperationLockThreshold))
+	return node.store.AddNodeOperation(tx, timestamp, uint64(config.KernelNodeOperationLockThreshold))
 }
 
 func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
