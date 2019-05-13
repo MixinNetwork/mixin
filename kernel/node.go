@@ -55,6 +55,7 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		CachePool:      make(map[crypto.Hash][]*common.Snapshot),
 		SignaturesPool: make(map[crypto.Hash]*crypto.Signature),
 		SyncPoints:     &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
+		genesisNodes:   make(map[crypto.Hash]bool),
 		store:          store,
 		mempoolChan:    make(chan *common.Snapshot, MempoolSize),
 		configDir:      dir,
