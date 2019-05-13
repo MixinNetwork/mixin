@@ -55,8 +55,10 @@ func (g *RoundGraph) UpdateFinalCache(idForNetwork crypto.Hash) {
 		}
 	}
 	g.FinalCache = finals
-	g.MyCacheRound = g.CacheRound[idForNetwork].asFinal()
-	g.MyFinalNumber = g.FinalRound[idForNetwork].Number
+	if g.FinalRound[idForNetwork] != nil {
+		g.MyCacheRound = g.CacheRound[idForNetwork].asFinal()
+		g.MyFinalNumber = g.FinalRound[idForNetwork].Number
+	}
 }
 
 func (g *RoundGraph) Print() string {
