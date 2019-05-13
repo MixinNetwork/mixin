@@ -148,7 +148,7 @@ func (node *Node) collectSelfSignatures(s *common.Snapshot, tx *common.Versioned
 			return err
 		}
 	}
-	return nil
+	return node.reloadConsensusNodesList(s, tx)
 }
 
 func (node *Node) determinBestRound(roundTime uint64) *FinalRound {
