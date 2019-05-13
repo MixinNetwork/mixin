@@ -46,7 +46,8 @@ func (node *Node) LoadGenesis(configDir string) error {
 	node.IdForNetwork = node.Signer.Hash().ForNetwork(node.networkId)
 	for _, in := range gns.Nodes {
 		id := in.Signer.Hash().ForNetwork(node.networkId)
-		node.genesisNodes[id] = true
+		node.genesisNodesMap[id] = true
+		node.genesisNodes = append(node.genesisNodes, id)
 	}
 
 	var state struct {

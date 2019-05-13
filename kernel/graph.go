@@ -130,7 +130,7 @@ func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto
 
 func (node *Node) checkInitialAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) bool {
 	final := node.Graph.FinalRound[s.NodeId]
-	return final == nil && s.RoundNumber == 0 && !node.genesisNodes[s.NodeId] && tx.TransactionType() == common.TransactionTypeNodeAccept
+	return final == nil && s.RoundNumber == 0 && !node.genesisNodesMap[s.NodeId] && tx.TransactionType() == common.TransactionTypeNodeAccept
 }
 
 func (node *Node) queueSnapshotOrPanic(s *common.Snapshot, finalized bool) error {

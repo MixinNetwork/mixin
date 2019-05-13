@@ -39,28 +39,29 @@ type Node struct {
 	ConsensusBase     int
 	ConsensusPledging *common.Node
 
-	genesisNodes map[crypto.Hash]bool
-	epoch        uint64
-	startAt      time.Time
-	networkId    crypto.Hash
-	store        storage.Store
-	mempoolChan  chan *common.Snapshot
-	configDir    string
+	genesisNodesMap map[crypto.Hash]bool
+	genesisNodes    []crypto.Hash
+	epoch           uint64
+	startAt         time.Time
+	networkId       crypto.Hash
+	store           storage.Store
+	mempoolChan     chan *common.Snapshot
+	configDir       string
 }
 
 func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	var node = &Node{
-		ConsensusNodes: make(map[crypto.Hash]*common.Node),
-		SnapshotsPool:  make(map[crypto.Hash][]*crypto.Signature),
-		CachePool:      make(map[crypto.Hash][]*common.Snapshot),
-		SignaturesPool: make(map[crypto.Hash]*crypto.Signature),
-		SyncPoints:     &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
-		genesisNodes:   make(map[crypto.Hash]bool),
-		store:          store,
-		mempoolChan:    make(chan *common.Snapshot, MempoolSize),
-		configDir:      dir,
-		TopoCounter:    getTopologyCounter(store),
-		startAt:        time.Now(),
+		ConsensusNodes:  make(map[crypto.Hash]*common.Node),
+		SnapshotsPool:   make(map[crypto.Hash][]*crypto.Signature),
+		CachePool:       make(map[crypto.Hash][]*common.Snapshot),
+		SignaturesPool:  make(map[crypto.Hash]*crypto.Signature),
+		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
+		genesisNodesMap: make(map[crypto.Hash]bool),
+		store:           store,
+		mempoolChan:     make(chan *common.Snapshot, MempoolSize),
+		configDir:       dir,
+		TopoCounter:     getTopologyCounter(store),
+		startAt:         time.Now(),
 	}
 
 	node.LoadNodeConfig()

@@ -13,38 +13,6 @@ import (
 )
 
 func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.VersionedTransaction) error {
-	if tx.TransactionType() == common.TransactionTypeNodeAccept {
-		gns, err := readGenesis(node.configDir + "/genesis.json")
-		if err != nil {
-			return err
-		}
-		matchId := gns.Nodes[0].Signer.Hash().ForNetwork(node.networkId)
-		distance := nodeDistance(s.NodeId, matchId)
-		for _, n := range gns.Nodes {
-			id := n.Signer.Hash().ForNetwork(node.networkId)
-			if nd := nodeDistance(s.NodeId, id); nd < distance {
-				distance = nd
-				matchId = id
-			}
-		}
-
-		var link common.RoundLink
-		ss, err := node.store.ReadSnapshotsForNodeRound(matchId, 0)
-		if err != nil {
-			return err
-		}
-		rss := make([]*common.Snapshot, len(ss))
-		for i, s := range ss {
-			rss[i] = &s.Snapshot
-		}
-		_, _, link.External = ComputeRoundHash(matchId, 0, rss)
-		_, _, link.Self = ComputeRoundHash(s.NodeId, 0, []*common.Snapshot{s})
-		err = node.store.StartNewRound(s.NodeId, 1, &link, s.Timestamp+config.SnapshotRoundGap+1)
-		if err != nil {
-			return err
-		}
-	}
-
 	switch tx.TransactionType() {
 	case common.TransactionTypeNodePledge, common.TransactionTypeNodeAccept, common.TransactionTypeNodeDepart, common.TransactionTypeNodeRemove:
 		err := node.LoadConsensusNodes()
@@ -67,6 +35,62 @@ func nodeDistance(a, b crypto.Hash) int {
 	ai = new(big.Int).Abs(si)
 	mi := new(big.Int).Mod(ai, big.NewInt(100))
 	return int(mi.Int64())
+}
+
+func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
+	cache := &CacheRound{
+		NodeId:    s.NodeId,
+		Number:    s.RoundNumber,
+		Timestamp: s.Timestamp,
+	}
+	if !cache.ValidateSnapshot(s, true) {
+		panic("should never be here")
+	}
+	err := node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, cache.Timestamp)
+	if err != nil {
+		panic(err)
+	}
+	topo := &common.SnapshotWithTopologicalOrder{
+		Snapshot:         *s,
+		TopologicalOrder: node.TopoCounter.Next(),
+	}
+	err = node.store.WriteSnapshot(topo)
+	if err != nil {
+		panic(err)
+	}
+	final := cache.asFinal()
+
+	cache = &CacheRound{
+		NodeId:    s.NodeId,
+		Number:    1,
+		Timestamp: s.Timestamp + config.SnapshotRoundGap + 1,
+	}
+	externalId := node.genesisNodes[0]
+	distance := nodeDistance(s.NodeId, externalId)
+	for _, id := range node.genesisNodes {
+		nd := nodeDistance(s.NodeId, id)
+		if nd < distance {
+			distance = nd
+			externalId = id
+		}
+	}
+	ss, err := node.store.ReadSnapshotsForNodeRound(externalId, 0)
+	if err != nil {
+		panic(err)
+	}
+	rss := make([]*common.Snapshot, len(ss))
+	for i, s := range ss {
+		rss[i] = &s.Snapshot
+	}
+	_, _, cache.References.External = ComputeRoundHash(externalId, 0, rss)
+	_, _, cache.References.Self = ComputeRoundHash(s.NodeId, 0, []*common.Snapshot{s})
+	err = node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, cache.Timestamp)
+	if err != nil {
+		panic(err)
+	}
+
+	node.assignNewGraphRound(final, cache)
+	return nil
 }
 
 func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {

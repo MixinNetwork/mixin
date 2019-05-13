@@ -79,19 +79,6 @@ func (node *Node) collectSelfSignatures(s *common.Snapshot, tx *common.Versioned
 	if len(node.SnapshotsPool[s.Hash]) == 0 || node.SignaturesPool[s.Hash] == nil {
 		return nil
 	}
-	if node.checkInitialAcceptSnapshot(s, tx) {
-	}
-
-	cache := node.Graph.CacheRound[s.NodeId].Copy()
-	if s.RoundNumber > cache.Number {
-		panic(fmt.Sprintf("should never be here %d %d", cache.Number, s.RoundNumber))
-	}
-	if s.RoundNumber < cache.Number {
-		return node.clearAndQueueSnapshotOrPanic(s)
-	}
-	if !cache.ValidateSnapshot(s, false) {
-		return node.clearAndQueueSnapshotOrPanic(s)
-	}
 
 	filter := make(map[string]bool)
 	osigs := node.SnapshotsPool[s.Hash]
@@ -106,6 +93,35 @@ func (node *Node) collectSelfSignatures(s *common.Snapshot, tx *common.Versioned
 		filter[sig.String()] = true
 	}
 	node.SnapshotsPool[s.Hash] = append([]*crypto.Signature{}, osigs...)
+
+	if node.checkInitialAcceptSnapshot(s, tx) {
+		if !node.verifyFinalization(osigs) {
+			return nil
+		}
+		s.Signatures = append([]*crypto.Signature{}, osigs...)
+		err := node.finalizeNodeAcceptSnapshot(s)
+		if err != nil {
+			return err
+		}
+		for peerId, _ := range node.ConsensusNodes {
+			err := node.Peer.SendSnapshotMessage(peerId, s, 1)
+			if err != nil {
+				return err
+			}
+		}
+		return node.reloadConsensusNodesList(s, tx)
+	}
+
+	cache := node.Graph.CacheRound[s.NodeId].Copy()
+	if s.RoundNumber > cache.Number {
+		panic(fmt.Sprintf("should never be here %d %d", cache.Number, s.RoundNumber))
+	}
+	if s.RoundNumber < cache.Number {
+		return node.clearAndQueueSnapshotOrPanic(s)
+	}
+	if !cache.ValidateSnapshot(s, false) {
+		return node.clearAndQueueSnapshotOrPanic(s)
+	}
 
 	if !node.verifyFinalization(osigs) {
 		return nil
@@ -167,6 +183,20 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTrans
 		panic("should never be here")
 	}
 	if node.checkInitialAcceptSnapshot(s, tx) {
+		s.Timestamp = uint64(time.Now().UnixNano())
+		node.signSnapshot(s)
+		s.Signatures = []*crypto.Signature{node.SignaturesPool[s.Hash]}
+		for peerId, _ := range node.ConsensusNodes {
+			err := node.Peer.SendTransactionMessage(peerId, tx)
+			if err != nil {
+				return err
+			}
+			err = node.Peer.SendSnapshotMessage(peerId, s, 0)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
