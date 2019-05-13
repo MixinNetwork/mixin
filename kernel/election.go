@@ -60,11 +60,6 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 	}
 	final := cache.asFinal()
 
-	cache = &CacheRound{
-		NodeId:    s.NodeId,
-		Number:    1,
-		Timestamp: s.Timestamp + config.SnapshotRoundGap + 1,
-	}
 	externalId := node.genesisNodes[0]
 	distance := nodeDistance(s.NodeId, externalId)
 	for _, id := range node.genesisNodes {
@@ -74,16 +69,17 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 			externalId = id
 		}
 	}
-	ss, err := node.store.ReadSnapshotsForNodeRound(externalId, 0)
+	external, err := loadFinalRoundForNode(node.store, externalId, 0)
 	if err != nil {
 		panic(err)
 	}
-	rss := make([]*common.Snapshot, len(ss))
-	for i, s := range ss {
-		rss[i] = &s.Snapshot
+	cache = &CacheRound{
+		NodeId:    s.NodeId,
+		Number:    1,
+		Timestamp: s.Timestamp + config.SnapshotRoundGap + 1,
 	}
-	_, _, cache.References.External = ComputeRoundHash(externalId, 0, rss)
-	_, _, cache.References.Self = ComputeRoundHash(s.NodeId, 0, []*common.Snapshot{s})
+	cache.References.Self = final.Hash
+	cache.References.External = external.Hash
 	err = node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, cache.Timestamp)
 	if err != nil {
 		panic(err)
