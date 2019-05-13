@@ -147,6 +147,6 @@ func (node *Node) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 }
 
 func (node *Node) verifyFinalization(sigs []*crypto.Signature) bool {
-	consensusThreshold := node.ConsensusBase * 2 / 3
-	return len(sigs) > consensusThreshold
+	consensusThreshold := node.ConsensusBase*2/3 + 1
+	return len(sigs) >= consensusThreshold
 }

@@ -336,7 +336,7 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 }
 
 func (node *Node) CheckBroadcastedToPeers() bool {
-	count, threshold := 1, len(node.ConsensusNodes)*2/3+1
+	count, threshold := 1, node.ConsensusBase*2/3+1
 	final := node.Graph.MyFinalNumber
 	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
@@ -351,7 +351,7 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 }
 
 func (node *Node) CheckCatchUpWithPeers() bool {
-	threshold := len(node.ConsensusNodes)*2/3 + 1
+	threshold := node.ConsensusBase*2/3 + 1
 	if node.SyncPoints.Len() < threshold {
 		return false
 	}
