@@ -219,7 +219,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 		peer = node.ConsensusPledging
 	}
 	if peer == nil || peerId == node.IdForNetwork {
-		return crypto.Hash{}, "", errors.New("peer authentication invalid consensus peer")
+		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
 	}
 
 	var sig crypto.Signature
@@ -227,7 +227,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	if peer.Signer.PublicSpendKey.Verify(msg[:40], sig) {
 		return peerId, string(msg[40+len(sig):]), nil
 	}
-	return crypto.Hash{}, "", errors.New("peer authentication message signature invalid")
+	return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
 }
 
 func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
