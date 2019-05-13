@@ -39,13 +39,13 @@ type Node struct {
 	ConsensusBase     int
 	ConsensusPledging *common.Node
 
-	epoch       uint64
-	isGenesis   bool
-	startAt     time.Time
-	networkId   crypto.Hash
-	store       storage.Store
-	mempoolChan chan *common.Snapshot
-	configDir   string
+	genesisNodes map[crypto.Hash]bool
+	epoch        uint64
+	startAt      time.Time
+	networkId    crypto.Hash
+	store        storage.Store
+	mempoolChan  chan *common.Snapshot
+	configDir    string
 }
 
 func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
