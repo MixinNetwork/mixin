@@ -72,12 +72,14 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Ver
 	return tx, node.store.WriteTransaction(tx)
 }
 
-func (node *Node) collectSelfSignatures(s *common.Snapshot) error {
+func (node *Node) collectSelfSignatures(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	if s.NodeId != node.IdForNetwork || len(s.Signatures) != 1 {
 		panic("should never be here")
 	}
 	if len(node.SnapshotsPool[s.Hash]) == 0 || node.SignaturesPool[s.Hash] == nil {
 		return nil
+	}
+	if node.checkInitialAcceptSnapshot(s, tx) {
 	}
 
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
@@ -163,6 +165,8 @@ func (node *Node) determinBestRound(roundTime uint64) *FinalRound {
 func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	if s.NodeId != node.IdForNetwork || len(s.Signatures) != 0 || s.Timestamp != 0 {
 		panic("should never be here")
+	}
+	if node.checkInitialAcceptSnapshot(s, tx) {
 	}
 
 	cache := node.Graph.CacheRound[s.NodeId].Copy()

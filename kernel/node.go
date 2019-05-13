@@ -230,7 +230,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
 }
 
-func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
+func (node *Node) VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
 	if len(s.Signatures) != 1 && !node.verifyFinalization(s.Signatures) {
 		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
@@ -278,7 +278,7 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) er
 		if err != nil {
 			return err
 		}
-		return node.store.QueueAppendSnapshot(peerId, s, true)
+		return node.QueueAppendSnapshot(peerId, s, true)
 	}
 
 	err = node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
@@ -294,7 +294,14 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) er
 	if !node.CheckCatchUpWithPeers() {
 		return nil
 	}
-	return node.store.QueueAppendSnapshot(peerId, s, false)
+	return node.QueueAppendSnapshot(peerId, s, false)
+}
+
+func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot, final bool) error {
+	if !final && node.Graph.MyCacheRound == nil {
+		return nil
+	}
+	return node.store.QueueAppendSnapshot(peerId, s, final)
 }
 
 func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {

@@ -14,7 +14,7 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 	if err != nil {
 		return "", err
 	}
-	err = node.store.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+	err = node.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
 		NodeId:      node.IdForNetwork,
 		Transaction: tx.PayloadHash(),
 	}, false)
@@ -23,7 +23,7 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 
 func (node *Node) LoadCacheToQueue() error {
 	return node.store.CacheListTransactions(func(tx *common.VersionedTransaction) error {
-		return node.store.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+		return node.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
 			NodeId:      node.IdForNetwork,
 			Transaction: tx.PayloadHash(),
 		}, false)
@@ -53,7 +53,7 @@ func (node *Node) ConsumeQueue() error {
 			return nil
 		}
 		node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction)
-		return node.store.QueueAppendSnapshot(peerId, snap, node.verifyFinalization(snap.Signatures))
+		return node.QueueAppendSnapshot(peerId, snap, node.verifyFinalization(snap.Signatures))
 	})
 	return nil
 }

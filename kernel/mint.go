@@ -77,7 +77,7 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 	if err != nil {
 		return err
 	}
-	return node.store.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+	return node.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
 		NodeId:      node.IdForNetwork,
 		Transaction: signed.PayloadHash(),
 	}, false)

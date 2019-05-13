@@ -65,6 +65,9 @@ func (node *Node) tryToStartNewRound(s *common.Snapshot) error {
 }
 
 func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
+	if node.checkInitialAcceptSnapshot(s, tx) {
+	}
+
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 

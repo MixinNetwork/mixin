@@ -9,7 +9,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
-func (node *Node) verifyExternalSnapshot(s *common.Snapshot) error {
+func (node *Node) verifyExternalSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	if s.NodeId == node.IdForNetwork || len(s.Signatures) != 1 {
 		panic(fmt.Errorf("should never be here %s %s %d", node.IdForNetwork, s.NodeId, len(s.Signatures)))
 	}
@@ -22,6 +22,12 @@ func (node *Node) verifyExternalSnapshot(s *common.Snapshot) error {
 	}
 	if s.Timestamp+threshold*2 < node.Graph.GraphTimestamp {
 		return nil
+	}
+
+	if node.checkInitialAcceptSnapshot(s, tx) {
+		node.signSnapshot(s)
+		s.Signatures = []*crypto.Signature{node.SignaturesPool[s.Hash]}
+		return node.Peer.SendSnapshotMessage(s.NodeId, s, 0)
 	}
 
 	cache := node.Graph.CacheRound[s.NodeId].Copy()

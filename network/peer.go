@@ -50,7 +50,7 @@ type SyncHandle interface {
 	BuildAuthenticationMessage() []byte
 	Authenticate(msg []byte) (crypto.Hash, string, error)
 	BuildGraph() []*SyncPoint
-	QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error
+	VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error
 	SendTransactionToPeer(peerId, tx crypto.Hash) error
 	CachePutTransaction(peerId crypto.Hash, ver *common.VersionedTransaction) error
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
@@ -462,7 +462,7 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage, done ch
 			switch msg.Type {
 			case PeerMessageTypePing:
 			case PeerMessageTypeSnapshot:
-				me.handle.QueueAppendSnapshot(peer.IdForNetwork, msg.Snapshot)
+				me.handle.VerifyAndQueueAppendSnapshot(peer.IdForNetwork, msg.Snapshot)
 			case PeerMessageTypeGraph:
 				me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.FinalCache)
 				peer.sync <- msg.FinalCache

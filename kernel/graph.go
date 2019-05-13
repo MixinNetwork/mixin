@@ -40,10 +40,10 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		if len(s.Signatures) == 0 {
 			return node.signSelfSnapshot(s, tx)
 		}
-		return node.collectSelfSignatures(s)
+		return node.collectSelfSignatures(s, tx)
 	}
 
-	return node.verifyExternalSnapshot(s)
+	return node.verifyExternalSnapshot(s, tx)
 }
 
 func (node *Node) signSnapshot(s *common.Snapshot) {
@@ -126,6 +126,11 @@ func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto
 		node.signaturesCache.Set(hash, []byte{0})
 	}
 	return valid
+}
+
+func (node *Node) checkInitialAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) bool {
+	final := node.Graph.FinalRound[s.NodeId]
+	return final == nil && s.RoundNumber == 0 && !node.genesisNodes[s.NodeId] && tx.TransactionType() == common.TransactionTypeNodeAccept
 }
 
 func (node *Node) queueSnapshotOrPanic(s *common.Snapshot, finalized bool) error {
