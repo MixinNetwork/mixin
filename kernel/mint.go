@@ -25,7 +25,7 @@ func init() {
 
 func (node *Node) MintLoop() error {
 	for {
-		time.Sleep(77 * time.Minute)
+		time.Sleep(7 * time.Minute)
 
 		batch, amount := node.checkMintPossibility(node.Graph.GraphTimestamp, false)
 		if amount.Sign() <= 0 || batch <= 0 {
@@ -84,7 +84,11 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 }
 
 func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.VersionedTransaction) error {
-	batch, amount := node.checkMintPossibility(snap.Timestamp, true)
+	timestamp := snap.Timestamp
+	if snap.Timestamp == 0 && snap.NodeId == node.IdForNetwork {
+		timestamp = uint64(time.Now().UnixNano())
+	}
+	batch, amount := node.checkMintPossibility(timestamp, true)
 	if amount.Sign() <= 0 || batch <= 0 {
 		return fmt.Errorf("no mint available %d %s", batch, amount.String())
 	}
