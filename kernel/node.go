@@ -111,7 +111,7 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 func (node *Node) LoadCacheStorage() error {
 	c := bigcache.DefaultConfig(config.Custom.CacheTTL * time.Second)
 	c.HardMaxCacheSize = config.Custom.MaxCacheSize
-	c.Verbose = true
+	c.Verbose = false
 	cache, err := bigcache.NewBigCache(c)
 	if err != nil {
 		return err

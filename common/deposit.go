@@ -28,6 +28,9 @@ func (d *DepositData) UniqueKey() crypto.Hash {
 }
 
 func (tx *SignedTransaction) DepositData() *DepositData {
+	if len(tx.Inputs) != 1 {
+		return nil
+	}
 	return tx.Inputs[0].Deposit
 }
 
