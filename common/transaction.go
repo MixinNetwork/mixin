@@ -225,6 +225,9 @@ func (tx *Transaction) AddOutputWithType(ot uint8, accounts []Address, s Script,
 		k := crypto.DeriveGhostPublicKey(&r, &a.PublicViewKey, &a.PublicSpendKey, uint64(len(tx.Outputs)))
 		out.Keys = append(out.Keys, *k)
 	}
+	if len(out.Keys) == 0 {
+		out.Mask = crypto.Key{}
+	}
 	tx.Outputs = append(tx.Outputs, out)
 }
 

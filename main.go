@@ -62,6 +62,17 @@ func main() {
 			},
 		},
 		{
+			Name:   "decodeaddress",
+			Usage:  "Decode an address as public view key and public spend key",
+			Action: decodeAddressCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "address,a",
+					Usage: "the Mixin Kernel address",
+				},
+			},
+		},
+		{
 			Name:   "updateheadreference",
 			Usage:  "Update the cache round external reference, never use it unless agree by other nodes",
 			Action: updateHeadReference,

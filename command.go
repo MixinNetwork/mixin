@@ -26,10 +26,6 @@ func createAdressCmd(c *cli.Context) error {
 		return err
 	}
 	addr := common.NewAddressFromSeed(seed)
-	if c.Bool("public") {
-		addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
-		addr.PublicViewKey = addr.PrivateViewKey.Public()
-	}
 	if view := c.String("view"); len(view) > 0 {
 		key, err := hex.DecodeString(view)
 		if err != nil {
@@ -46,9 +42,25 @@ func createAdressCmd(c *cli.Context) error {
 		copy(addr.PrivateSpendKey[:], key)
 		addr.PublicSpendKey = addr.PrivateSpendKey.Public()
 	}
+	if c.Bool("public") {
+		addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
+		addr.PublicViewKey = addr.PrivateViewKey.Public()
+	}
 	fmt.Printf("address:\t%s\n", addr.String())
 	fmt.Printf("view key:\t%s\n", addr.PrivateViewKey.String())
 	fmt.Printf("spend key:\t%s\n", addr.PrivateSpendKey.String())
+	return nil
+}
+
+func decodeAddressCmd(c *cli.Context) error {
+	addr, err := common.NewAddressFromString(c.String("address"))
+	if err != nil {
+		return err
+	}
+	fmt.Printf("public view key:\t%s\n", addr.PublicViewKey.String())
+	fmt.Printf("public spend key:\t%s\n", addr.PublicSpendKey.String())
+	fmt.Printf("spend derive private:\t%s\n", addr.PublicSpendKey.DeterministicHashDerive())
+	fmt.Printf("spend derive publlic:\t%s\n", addr.PublicSpendKey.DeterministicHashDerive().Public())
 	return nil
 }
 
@@ -152,10 +164,9 @@ func signTransactionCmd(c *cli.Context) error {
 	}
 
 	for _, out := range raw.Outputs {
-		if out.Type != common.OutputTypeScript {
-			return fmt.Errorf("invalid output type %d", out.Type)
-		}
-		tx.AddScriptOutput(out.Accounts, out.Script, out.Amount, seed)
+		hash := crypto.NewHash(seed)
+		seed = append(hash[:], hash[:]...)
+		tx.AddOutputWithType(out.Type, out.Accounts, out.Script, out.Amount, seed)
 	}
 
 	extra, err := hex.DecodeString(raw.Extra)
