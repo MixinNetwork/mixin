@@ -2,7 +2,6 @@ package storage
 
 import (
 	"encoding/binary"
-	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -13,8 +12,8 @@ import (
 )
 
 type Queue struct {
-	sync.Mutex
 	db        *badger.DB
+	finalRing *RingBuffer
 	cacheRing *RingBuffer
 	cache     *fastcache.Cache
 	order     uint64
@@ -24,6 +23,11 @@ type PeerSnapshot struct {
 	key      []byte
 	PeerId   crypto.Hash
 	Snapshot *common.Snapshot
+}
+
+func (ps *PeerSnapshot) finalKey() []byte {
+	hash := ps.Snapshot.PayloadHash().ForNetwork(ps.PeerId)
+	return []byte("BADGER:QUEUE:FINAL:" + hash.String())
 }
 
 func (ps *PeerSnapshot) cacheKey() []byte {
@@ -40,13 +44,59 @@ func NewQueue(db *badger.DB, cache *fastcache.Cache) *Queue {
 		db:        db,
 		cache:     cache,
 		cacheRing: NewRingBuffer(1024 * 1024),
+		finalRing: NewRingBuffer(1024 * 16),
 	}
 	q.order = q.snapshotQueueOrder()
+	go func() {
+		for {
+			ps, err := q.PopFinal()
+			if err != nil {
+				logger.Println("NewQueue PopFinal", err)
+			}
+			if ps == nil {
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			err = q.writeFinal(ps)
+			if err != nil {
+				logger.Println("NewQueue PopFinal", err)
+			}
+		}
+	}()
 	return q
 }
 
 func (q *Queue) Dispose() {
+	q.finalRing.Dispose()
 	q.cacheRing.Dispose()
+}
+
+func (q *Queue) PutFinal(ps *PeerSnapshot) error {
+	ps.key = ps.finalKey()
+	data := q.cache.Get(nil, ps.key)
+	if len(data) > 0 {
+		return nil
+	}
+
+	q.cache.Set(ps.key, []byte{0})
+	for {
+		put, err := q.finalRing.Offer(ps)
+		if err != nil || put {
+			return err
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return nil
+}
+
+func (q *Queue) PopFinal() (*PeerSnapshot, error) {
+	item, err := q.finalRing.Poll(false)
+	if err != nil || item == nil {
+		return nil, err
+	}
+	ps := item.(*PeerSnapshot)
+	q.cache.Del(ps.key)
+	return ps, nil
 }
 
 func (q *Queue) PutCache(ps *PeerSnapshot) error {
@@ -127,9 +177,7 @@ func (s *BadgerStore) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *com
 	}
 }
 
-func (q *Queue) PutFinal(ps *PeerSnapshot) error {
-	q.Lock()
-	defer q.Unlock()
+func (q *Queue) writeFinal(ps *PeerSnapshot) error {
 	return q.db.Update(func(txn *badger.Txn) error {
 		q.order = q.order + 1
 		key := cacheSnapshotQueueKey(q.order)
