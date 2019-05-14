@@ -443,16 +443,16 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 	for {
 		data, err := client.Receive()
 		if err != nil {
-			return err
+			return fmt.Errorf("client.Receive %s %s", peer.IdForNetwork, err.Error())
 		}
 		msg, err := parseNetworkMessage(data)
 		if err != nil {
-			return err
+			return fmt.Errorf("parseNetworkMessage %s %s", peer.IdForNetwork, err.Error())
 		}
 		select {
 		case receive <- msg:
 		case <-time.After(1 * time.Second):
-			return errors.New("peer receive timeout")
+			return fmt.Errorf("peer receive timeout %s", peer.IdForNetwork)
 		}
 	}
 }
