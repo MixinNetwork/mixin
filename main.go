@@ -6,9 +6,11 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/kernel"
+	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/rpc"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/VictoriaMetrics/fastcache"
@@ -367,6 +369,15 @@ func kernelCmd(c *cli.Context) error {
 	}
 
 	cache := fastcache.New(config.Custom.MaxCacheSize * 1024 * 1024)
+	go func() {
+		var s fastcache.Stats
+		for {
+			time.Sleep(1 * time.Minute)
+			cache.UpdateStats(&s)
+			logger.Printf("CACHE STATS GET: %d SET: %d COLLISION: %d SIZE: %dMB\n", s.GetCalls, s.SetCalls, s.Collisions, s.BytesSize/1024/1024)
+			s.Reset()
+		}
+	}()
 
 	store, err := storage.NewBadgerStore(c.String("dir"), cache)
 	if err != nil {
