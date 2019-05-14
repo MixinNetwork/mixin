@@ -111,8 +111,11 @@ func TestConsensus(t *testing.T) {
 		tx, err := testSignTransaction(nodes[mathRand.Intn(len(nodes))], accounts[0], raw)
 		assert.Nil(err)
 		assert.NotNil(tx)
-		utxos = append(utxos, &common.VersionedTransaction{SignedTransaction: *tx})
+		if tx != nil {
+			utxos = append(utxos, &common.VersionedTransaction{SignedTransaction: *tx})
+		}
 	}
+	assert.Equal(len(utxos), INPUTS)
 
 	for _, tx := range utxos {
 		mathRand.Seed(time.Now().UnixNano())
