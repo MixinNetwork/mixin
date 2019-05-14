@@ -234,7 +234,8 @@ func (node *Node) VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Sna
 	sigs := make([]*crypto.Signature, 0)
 	signaturesFilter := make(map[string]bool)
 	signersMap := make(map[crypto.Hash]bool)
-	for _, sig := range s.Signatures {
+	for i, sig := range s.Signatures {
+		s.Signatures[i] = nil
 		if signaturesFilter[sig.String()] {
 			continue
 		}
@@ -257,7 +258,10 @@ func (node *Node) VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Sna
 		}
 		signaturesFilter[sig.String()] = true
 	}
-	s.Signatures = sigs
+	s.Signatures = s.Signatures[:len(sigs)]
+	for i := range sigs {
+		s.Signatures[i] = sigs[i]
+	}
 
 	if node.verifyFinalization(s.Signatures) {
 		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash, 1)
