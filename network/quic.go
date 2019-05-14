@@ -26,9 +26,11 @@ const (
 )
 
 type QuicClient struct {
-	session quic.Session
-	send    quic.SendStream
-	receive quic.ReceiveStream
+	session  quic.Session
+	send     quic.SendStream
+	receive  quic.ReceiveStream
+	zipper   *gzip.Writer
+	unzipper *gzip.Reader
 }
 
 type QuicTransport struct {
@@ -70,9 +72,14 @@ func (t *QuicTransport) Dial() (Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	zipper, err := gzip.NewWriterLevel(nil, 3)
+	if err != nil {
+		return nil, err
+	}
 	return &QuicClient{
 		session: sess,
 		send:    stm,
+		zipper:  zipper,
 	}, nil
 }
 
@@ -100,8 +107,9 @@ func (t *QuicTransport) Accept() (Client, error) {
 		return nil, err
 	}
 	return &QuicClient{
-		session: sess,
-		receive: stm,
+		session:  sess,
+		receive:  stm,
+		unzipper: new(gzip.Reader),
 	}, nil
 }
 
@@ -139,13 +147,13 @@ func (c *QuicClient) Receive() ([]byte, error) {
 		}
 	}
 
-	gzReader, err := gzip.NewReader(bytes.NewBuffer(m.Data))
+	err = c.unzipper.Reset(bytes.NewBuffer(m.Data))
 	if err != nil {
 		return nil, err
 	}
-	defer gzReader.Close()
+	defer c.unzipper.Close()
 
-	m.Data, err = ioutil.ReadAll(gzReader)
+	m.Data, err = ioutil.ReadAll(c.unzipper)
 	return m.Data, err
 }
 
@@ -155,15 +163,12 @@ func (c *QuicClient) Send(data []byte) error {
 	}
 
 	var buf bytes.Buffer
-	gzWriter, err := gzip.NewWriterLevel(&buf, 3)
+	c.zipper.Reset(&buf)
+	_, err := c.zipper.Write(data)
 	if err != nil {
 		return err
 	}
-	_, err = gzWriter.Write(data)
-	if err != nil {
-		return err
-	}
-	err = gzWriter.Close()
+	err = c.zipper.Close()
 	if err != nil {
 		return err
 	}
