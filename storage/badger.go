@@ -33,7 +33,7 @@ func NewBadgerStore(dir string, cache *fastcache.Cache) (*BadgerStore, error) {
 		snapshotsDB: snapshotsDB,
 		cacheDB:     cacheDB,
 		stateDB:     stateDB,
-		queue:       NewQueue(cache),
+		queue:       NewQueue(cacheDB, cache),
 		closing:     false,
 	}, nil
 }
