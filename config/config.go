@@ -55,7 +55,7 @@ func Initialize(file string) error {
 		config.CacheTTL = 3600 * 2
 	}
 	if config.MaxCacheSize == 0 {
-		config.MaxCacheSize = 1024 * 32
+		config.MaxCacheSize = 1024 * 16
 	}
 	Custom = &config
 	return nil
