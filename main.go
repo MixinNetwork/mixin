@@ -381,17 +381,16 @@ func kernelCmd(c *cli.Context) error {
 	}
 
 	go func() {
-		err := rpc.StartHTTP(store, node, c.Int("port")+1000)
+		err := node.Loop()
 		if err != nil {
 			panic(err)
 		}
 	}()
 	go func() {
-		err := http.ListenAndServe(fmt.Sprintf(":%d", c.Int("port")+2000), http.DefaultServeMux)
+		err := rpc.StartHTTP(store, node, c.Int("port")+1000)
 		if err != nil {
 			panic(err)
 		}
 	}()
-
-	return node.Loop()
+	return http.ListenAndServe(fmt.Sprintf(":%d", c.Int("port")+2000), http.DefaultServeMux)
 }
