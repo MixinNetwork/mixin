@@ -6,11 +6,11 @@ import (
 )
 
 func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, error) {
-	err := tx.Validate(node.store)
+	err := tx.Validate(node.persistStore)
 	if err != nil {
 		return "", err
 	}
-	err = node.store.CachePutTransaction(tx)
+	err = node.persistStore.CachePutTransaction(tx)
 	if err != nil {
 		return "", err
 	}
@@ -22,7 +22,7 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 }
 
 func (node *Node) LoadCacheToQueue() error {
-	return node.store.CacheListTransactions(func(tx *common.VersionedTransaction) error {
+	return node.persistStore.CacheListTransactions(func(tx *common.VersionedTransaction) error {
 		return node.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
 			NodeId:      node.IdForNetwork,
 			Transaction: tx.PayloadHash(),
@@ -31,8 +31,8 @@ func (node *Node) LoadCacheToQueue() error {
 }
 
 func (node *Node) ConsumeQueue() error {
-	node.store.QueuePollSnapshots(func(peerId crypto.Hash, snap *common.Snapshot) error {
-		tx, err := node.store.CacheGetTransaction(snap.Transaction)
+	node.persistStore.QueuePollSnapshots(func(peerId crypto.Hash, snap *common.Snapshot) error {
+		tx, err := node.persistStore.CacheGetTransaction(snap.Transaction)
 		if err != nil {
 			return err
 		}
@@ -40,7 +40,7 @@ func (node *Node) ConsumeQueue() error {
 			node.mempoolChan <- snap
 			return nil
 		}
-		tx, err = node.store.ReadTransaction(snap.Transaction)
+		tx, err = node.persistStore.ReadTransaction(snap.Transaction)
 		if err != nil {
 			return err
 		}

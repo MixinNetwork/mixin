@@ -5,33 +5,33 @@ import (
 )
 
 func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, error) {
-	inNode, err := node.store.CheckTransactionInNode(s.NodeId, s.Transaction)
+	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil || inNode {
 		return nil, err
 	}
 
-	tx, err := node.store.ReadTransaction(s.Transaction)
+	tx, err := node.persistStore.ReadTransaction(s.Transaction)
 	if err != nil || tx != nil {
 		return tx, err
 	}
 
-	tx, err = node.store.CacheGetTransaction(s.Transaction)
+	tx, err = node.persistStore.CacheGetTransaction(s.Transaction)
 	if err != nil || tx == nil {
 		return nil, err
 	}
 
-	err = tx.LockInputs(node.store, true)
+	err = tx.LockInputs(node.persistStore, true)
 	if err != nil {
 		return nil, err
 	}
 
 	if d := tx.DepositData(); d != nil {
-		err = node.store.WriteAsset(d.Asset())
+		err = node.persistStore.WriteAsset(d.Asset())
 		if err != nil {
 			return nil, err
 		}
 	}
-	return tx, node.store.WriteTransaction(tx)
+	return tx, node.persistStore.WriteTransaction(tx)
 }
 
 func (node *Node) tryToStartNewRound(s *common.Snapshot) error {
@@ -55,7 +55,7 @@ func (node *Node) tryToStartNewRound(s *common.Snapshot) error {
 		Timestamp:  s.Timestamp,
 		References: s.References,
 	}
-	err := node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
+	err := node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 	if err != nil {
 		panic(err)
 	}
@@ -89,7 +89,7 @@ func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot, tx *common.Version
 		if len(cache.Snapshots) != 0 {
 			return nil
 		}
-		err := node.store.UpdateEmptyHeadRound(cache.NodeId, cache.Number, s.References)
+		err := node.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, s.References)
 		if err != nil {
 			panic(err)
 		}
@@ -111,7 +111,7 @@ func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot, tx *common.Version
 			Timestamp:  s.Timestamp,
 			References: s.References,
 		}
-		err := node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
+		err := node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 		if err != nil {
 			panic(err)
 		}
@@ -125,7 +125,7 @@ func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot, tx *common.Version
 		Snapshot:         *s,
 		TopologicalOrder: node.TopoCounter.Next(),
 	}
-	err := node.store.WriteSnapshot(topo)
+	err := node.persistStore.WriteSnapshot(topo)
 	if err != nil {
 		panic(err)
 	}

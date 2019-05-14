@@ -65,15 +65,15 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 	}
 
 	signed := tx.AsLatestVersion()
-	err := signed.SignInput(node.store, 0, []common.Address{node.Signer})
+	err := signed.SignInput(node.persistStore, 0, []common.Address{node.Signer})
 	if err != nil {
 		return err
 	}
-	err = signed.Validate(node.store)
+	err = signed.Validate(node.persistStore)
 	if err != nil {
 		return err
 	}
-	err = node.store.CachePutTransaction(signed)
+	err = node.persistStore.CachePutTransaction(signed)
 	if err != nil {
 		return err
 	}
@@ -190,7 +190,7 @@ func (node *Node) checkMintPossibility(timestamp uint64, validateOnly bool) (int
 	light := total.Div(10)
 	full := light.Mul(9)
 
-	dist, err := node.store.ReadLastMintDistribution(common.MintGroupKernelNode)
+	dist, err := node.persistStore.ReadLastMintDistribution(common.MintGroupKernelNode)
 	if err != nil {
 		logger.Println("ReadLastMintDistribution ERROR", err)
 		return 0, common.Zero

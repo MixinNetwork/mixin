@@ -61,7 +61,7 @@ func (node *Node) signSnapshot(s *common.Snapshot) {
 	key := append(s.Hash[:], sig[:]...)
 	key = append(key, node.Signer.PublicSpendKey[:]...)
 	hash := crypto.NewHash(key).String()
-	node.signaturesCache.Set(hash, []byte{1})
+	node.cacheStore.Set(hash, []byte{1})
 }
 
 func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRound, error) {
@@ -76,7 +76,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 		return nil, fmt.Errorf("self cache snapshots not match yet")
 	}
 
-	external, err := node.store.ReadRound(s.References.External)
+	external, err := node.persistStore.ReadRound(s.References.External)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 		return nil, nil
 	}
 
-	link, err := node.store.ReadLink(s.NodeId, external.NodeId)
+	link, err := node.persistStore.ReadLink(s.NodeId, external.NodeId)
 	if external.Number >= link {
 		return final, err
 	}
@@ -114,16 +114,16 @@ func (node *Node) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto.Key) bool {
 	key := append(snap[:], sig[:]...)
 	key = append(key, pub[:]...)
-	hash := crypto.NewHash(key).String()
-	value, err := node.signaturesCache.Get(hash)
+	hash := "KERNEL:SIGNATURE:" + crypto.NewHash(key).String()
+	value, err := node.cacheStore.Get(hash)
 	if err == nil {
 		return value[0] == byte(1)
 	}
 	valid := pub.Verify(snap[:], sig)
 	if valid {
-		node.signaturesCache.Set(hash, []byte{1})
+		node.cacheStore.Set(hash, []byte{1})
 	} else {
-		node.signaturesCache.Set(hash, []byte{0})
+		node.cacheStore.Set(hash, []byte{0})
 	}
 	return valid
 }
@@ -134,7 +134,7 @@ func (node *Node) checkInitialAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 }
 
 func (node *Node) queueSnapshotOrPanic(s *common.Snapshot, finalized bool) error {
-	err := node.store.QueueAppendSnapshot(node.IdForNetwork, s, finalized)
+	err := node.persistStore.QueueAppendSnapshot(node.IdForNetwork, s, finalized)
 	if err != nil {
 		panic(err)
 	}

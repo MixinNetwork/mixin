@@ -65,7 +65,7 @@ func decodeAddressCmd(c *cli.Context) error {
 }
 
 func updateHeadReference(c *cli.Context) error {
-	store, err := storage.NewBadgerStore(c.String("dir"))
+	store, err := storage.NewBadgerStore(c.String("dir"), nil)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func updateHeadReference(c *cli.Context) error {
 }
 
 func removeGraphEntries(c *cli.Context) error {
-	store, err := storage.NewBadgerStore(c.String("dir"))
+	store, err := storage.NewBadgerStore(c.String("dir"), nil)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func removeGraphEntries(c *cli.Context) error {
 }
 
 func validateGraphEntries(c *cli.Context) error {
-	store, err := storage.NewBadgerStore(c.String("dir"))
+	store, err := storage.NewBadgerStore(c.String("dir"), nil)
 	if err != nil {
 		return err
 	}
@@ -366,7 +366,7 @@ func setupTestNetCmd(c *cli.Context) error {
 			return err
 		}
 
-		store, err := storage.NewBadgerStore(dir)
+		store, err := storage.NewBadgerStore(dir, nil)
 		if err != nil {
 			return err
 		}

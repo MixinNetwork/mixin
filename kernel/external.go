@@ -58,7 +58,7 @@ func (node *Node) verifyExternalSnapshot(s *common.Snapshot, tx *common.Versione
 			Timestamp:  s.Timestamp,
 			References: s.References,
 		}
-		err := node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
+		err := node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 		if err != nil {
 			panic(err)
 		}

@@ -23,17 +23,17 @@ const (
 )
 
 type Node struct {
-	IdForNetwork    crypto.Hash
-	Signer          common.Address
-	Graph           *RoundGraph
-	TopoCounter     *TopologicalSequence
-	SnapshotsPool   map[crypto.Hash][]*crypto.Signature
-	SignaturesPool  map[crypto.Hash]*crypto.Signature
-	CachePool       map[crypto.Hash][]*common.Snapshot
-	signaturesCache *bigcache.BigCache
-	Peer            *network.Peer
-	SyncPoints      *syncMap
-	Listener        string
+	IdForNetwork   crypto.Hash
+	Signer         common.Address
+	Graph          *RoundGraph
+	TopoCounter    *TopologicalSequence
+	SnapshotsPool  map[crypto.Hash][]*crypto.Signature
+	SignaturesPool map[crypto.Hash]*crypto.Signature
+	CachePool      map[crypto.Hash][]*common.Snapshot
+	cacheStore     *bigcache.BigCache
+	Peer           *network.Peer
+	SyncPoints     *syncMap
+	Listener       string
 
 	ConsensusNodes    map[crypto.Hash]*common.Node
 	ConsensusBase     int
@@ -44,12 +44,12 @@ type Node struct {
 	epoch           uint64
 	startAt         time.Time
 	networkId       crypto.Hash
-	store           storage.Store
+	persistStore    storage.Store
 	mempoolChan     chan *common.Snapshot
 	configDir       string
 }
 
-func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
+func SetupNode(persistStore storage.Store, cacheStore *bigcache.BigCache, addr string, dir string) (*Node, error) {
 	var node = &Node{
 		ConsensusNodes:  make(map[crypto.Hash]*common.Node),
 		SnapshotsPool:   make(map[crypto.Hash][]*crypto.Signature),
@@ -57,21 +57,18 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		SignaturesPool:  make(map[crypto.Hash]*crypto.Signature),
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
 		genesisNodesMap: make(map[crypto.Hash]bool),
-		store:           store,
+		persistStore:    persistStore,
+		cacheStore:      cacheStore,
 		mempoolChan:     make(chan *common.Snapshot, MempoolSize),
 		configDir:       dir,
-		TopoCounter:     getTopologyCounter(store),
+		TopoCounter:     getTopologyCounter(persistStore),
 		startAt:         time.Now(),
 	}
 
 	node.LoadNodeConfig()
-	err := node.LoadCacheStorage()
-	if err != nil {
-		return nil, err
-	}
 
 	logger.Println("Validating graph entries...")
-	total, invalid, err := node.store.ValidateGraphEntries()
+	total, invalid, err := node.persistStore.ValidateGraphEntries()
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +87,7 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 		return nil, err
 	}
 
-	graph, err := LoadRoundGraph(node.store, node.networkId, node.IdForNetwork)
+	graph, err := LoadRoundGraph(node.persistStore, node.networkId, node.IdForNetwork)
 	if err != nil {
 		return nil, err
 	}
@@ -110,18 +107,6 @@ func SetupNode(store storage.Store, addr string, dir string) (*Node, error) {
 	return node, nil
 }
 
-func (node *Node) LoadCacheStorage() error {
-	c := bigcache.DefaultConfig(config.Custom.CacheTTL * time.Second)
-	c.HardMaxCacheSize = config.Custom.MaxCacheSize
-	c.Verbose = false
-	cache, err := bigcache.NewBigCache(c)
-	if err != nil {
-		return err
-	}
-	node.signaturesCache = cache
-	return nil
-}
-
 func (node *Node) LoadNodeConfig() {
 	var addr common.Address
 	addr.PrivateSpendKey = config.Custom.Signer
@@ -134,7 +119,7 @@ func (node *Node) LoadNodeConfig() {
 
 func (node *Node) LoadConsensusNodes() error {
 	node.ConsensusBase = 0
-	for _, cn := range node.store.ReadConsensusNodes() {
+	for _, cn := range node.persistStore.ReadConsensusNodes() {
 		logger.Println(cn.Signer.String(), cn.State)
 		switch cn.State {
 		case common.NodeStatePledging:
@@ -191,7 +176,7 @@ func (node *Node) Uptime() time.Duration {
 }
 
 func (node *Node) GetCacheStore() *bigcache.BigCache {
-	return node.signaturesCache
+	return node.cacheStore
 }
 
 func (node *Node) BuildGraph() []*network.SyncPoint {
@@ -237,7 +222,7 @@ func (node *Node) VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Sna
 	if len(s.Signatures) != 1 && !node.verifyFinalization(s.Signatures) {
 		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
 	}
-	inNode, err := node.store.CheckTransactionInNode(s.NodeId, s.Transaction)
+	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil {
 		return err
 	}
@@ -303,16 +288,16 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot, fi
 	if !final && node.Graph.MyCacheRound == nil {
 		return nil
 	}
-	return node.store.QueueAppendSnapshot(peerId, s, final)
+	return node.persistStore.QueueAppendSnapshot(peerId, s, final)
 }
 
 func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
-	tx, err := node.store.ReadTransaction(hash)
+	tx, err := node.persistStore.ReadTransaction(hash)
 	if err != nil {
 		return err
 	}
 	if tx == nil {
-		tx, err = node.store.CacheGetTransaction(hash)
+		tx, err = node.persistStore.CacheGetTransaction(hash)
 		if err != nil || tx == nil {
 			return err
 		}
@@ -322,15 +307,15 @@ func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
 
 func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTransaction) error {
 	node.Peer.ConfirmTransactionForPeer(peerId, tx)
-	return node.store.CachePutTransaction(tx)
+	return node.persistStore.CachePutTransaction(tx)
 }
 
 func (node *Node) ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
-	return node.store.ReadSnapshotsSinceTopology(offset, count)
+	return node.persistStore.ReadSnapshotsSinceTopology(offset, count)
 }
 
 func (node *Node) ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
-	return node.store.ReadSnapshotsForNodeRound(nodeIdWithNetwork, round)
+	return node.persistStore.ReadSnapshotsForNodeRound(nodeIdWithNetwork, round)
 }
 
 func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoint) {

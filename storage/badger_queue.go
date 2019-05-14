@@ -1,49 +1,45 @@
 package storage
 
 import (
-	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/allegro/bigcache"
 	"github.com/dgraph-io/badger"
 )
 
 type Queue struct {
-	mutex     *sync.Mutex
 	cacheRing *RingBuffer
 	finalRing *RingBuffer
-	finalSet  map[crypto.Hash]bool
-	cacheSet  map[crypto.Hash]bool
+	cache     *bigcache.BigCache
 }
 
 type PeerSnapshot struct {
-	key      crypto.Hash
+	key      string
 	PeerId   crypto.Hash
 	Snapshot *common.Snapshot
 }
 
-func (ps *PeerSnapshot) cacheKey() crypto.Hash {
+func (ps *PeerSnapshot) cacheKey() string {
 	hash := ps.Snapshot.PayloadHash()
 	hash = hash.ForNetwork(ps.PeerId)
 	for _, sig := range ps.Snapshot.Signatures {
 		hash = crypto.NewHash(append(hash[:], sig[:]...))
 	}
-	return hash
+	return "BADGER:QUEUE:CACHE:" + hash.String()
 }
 
-func (ps *PeerSnapshot) finalKey() crypto.Hash {
-	hash := ps.Snapshot.PayloadHash()
-	return hash.ForNetwork(ps.PeerId)
+func (ps *PeerSnapshot) finalKey() string {
+	hash := ps.Snapshot.PayloadHash().ForNetwork(ps.PeerId)
+	return "BADGER:QUEUE:FINAL:" + hash.String()
 }
 
-func NewQueue() *Queue {
+func NewQueue(cache *bigcache.BigCache) *Queue {
 	return &Queue{
-		mutex:     new(sync.Mutex),
-		finalSet:  make(map[crypto.Hash]bool),
-		cacheSet:  make(map[crypto.Hash]bool),
+		cache:     cache,
 		cacheRing: NewRingBuffer(1024 * 1024),
-		finalRing: NewRingBuffer(1024 * 1024 * 16),
+		finalRing: NewRingBuffer(1024 * 1024),
 	}
 }
 
@@ -53,14 +49,16 @@ func (q *Queue) Dispose() {
 }
 
 func (q *Queue) PutFinal(ps *PeerSnapshot) error {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
-
-	if q.finalSet[ps.key] {
-		return nil
+	ps.key = ps.finalKey()
+	_, err := q.cache.Get(ps.key)
+	if err != bigcache.ErrEntryNotFound {
+		return err
 	}
-	q.finalSet[ps.key] = true
 
+	err = q.cache.Set(ps.key, []byte{})
+	if err != nil {
+		return err
+	}
 	for {
 		put, err := q.finalRing.Offer(ps)
 		if err != nil || put {
@@ -68,30 +66,29 @@ func (q *Queue) PutFinal(ps *PeerSnapshot) error {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
+	return nil
 }
 
 func (q *Queue) PopFinal() (*PeerSnapshot, error) {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
-
 	item, err := q.finalRing.Poll(false)
 	if err != nil || item == nil {
 		return nil, err
 	}
 	ps := item.(*PeerSnapshot)
-	delete(q.finalSet, ps.key)
-	return ps, nil
+	return ps, q.cache.Delete(ps.key)
 }
 
 func (q *Queue) PutCache(ps *PeerSnapshot) error {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
-
-	if q.cacheSet[ps.key] {
-		return nil
+	ps.key = ps.cacheKey()
+	_, err := q.cache.Get(ps.key)
+	if err != bigcache.ErrEntryNotFound {
+		return err
 	}
-	q.cacheSet[ps.key] = true
 
+	err = q.cache.Set(ps.key, []byte{})
+	if err != nil {
+		return err
+	}
 	for {
 		put, err := q.cacheRing.Offer(ps)
 		if err != nil || put {
@@ -99,19 +96,16 @@ func (q *Queue) PutCache(ps *PeerSnapshot) error {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
+	return nil
 }
 
 func (q *Queue) PopCache() (*PeerSnapshot, error) {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
-
 	item, err := q.cacheRing.Poll(false)
 	if err != nil || item == nil {
 		return nil, err
 	}
 	ps := item.(*PeerSnapshot)
-	delete(q.cacheSet, ps.key)
-	return ps, nil
+	return ps, q.cache.Delete(ps.key)
 }
 
 func (s *BadgerStore) QueueInfo() (uint64, uint64, uint64, error) {
@@ -136,10 +130,8 @@ func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snaps
 		Snapshot: snap,
 	}
 	if finalized {
-		ps.key = ps.finalKey()
 		return s.queue.PutFinal(ps)
 	}
-	ps.key = ps.cacheKey()
 	return s.queue.PutCache(ps)
 }
 

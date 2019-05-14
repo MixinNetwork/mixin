@@ -6,11 +6,13 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/rpc"
 	"github.com/MixinNetwork/mixin/storage"
+	"github.com/allegro/bigcache"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -365,14 +367,22 @@ func kernelCmd(c *cli.Context) error {
 		return err
 	}
 
-	store, err := storage.NewBadgerStore(c.String("dir"))
+	cc := bigcache.DefaultConfig(config.Custom.CacheTTL * time.Second)
+	cc.HardMaxCacheSize = config.Custom.MaxCacheSize
+	cc.Verbose = false
+	cache, err := bigcache.NewBigCache(cc)
+	if err != nil {
+		return err
+	}
+
+	store, err := storage.NewBadgerStore(c.String("dir"), cache)
 	if err != nil {
 		return err
 	}
 	defer store.Close()
 
 	addr := fmt.Sprintf(":%d", c.Int("port"))
-	node, err := kernel.SetupNode(store, addr, c.String("dir"))
+	node, err := kernel.SetupNode(store, cache, addr, c.String("dir"))
 	if err != nil {
 		return err
 	}

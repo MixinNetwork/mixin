@@ -12,27 +12,27 @@ import (
 )
 
 func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, error) {
-	inNode, err := node.store.CheckTransactionInNode(s.NodeId, s.Transaction)
+	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil || inNode {
 		return nil, err
 	}
 
-	finalized, err := node.store.CheckTransactionFinalization(s.Transaction)
+	finalized, err := node.persistStore.CheckTransactionFinalization(s.Transaction)
 	if err != nil || finalized {
 		return nil, err
 	}
 
-	tx, err := node.store.ReadTransaction(s.Transaction)
+	tx, err := node.persistStore.ReadTransaction(s.Transaction)
 	if err != nil || tx != nil {
 		return tx, err
 	}
 
-	tx, err = node.store.CacheGetTransaction(s.Transaction)
+	tx, err = node.persistStore.CacheGetTransaction(s.Transaction)
 	if err != nil || tx == nil {
 		return nil, err
 	}
 
-	err = tx.Validate(node.store)
+	err = tx.Validate(node.persistStore)
 	if err != nil {
 		return nil, nil
 	}
@@ -58,18 +58,18 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Ver
 		}
 	}
 
-	err = tx.LockInputs(node.store, false)
+	err = tx.LockInputs(node.persistStore, false)
 	if err != nil {
 		return nil, nil
 	}
 
 	if d := tx.DepositData(); d != nil {
-		err = node.store.WriteAsset(d.Asset())
+		err = node.persistStore.WriteAsset(d.Asset())
 		if err != nil {
 			return nil, err
 		}
 	}
-	return tx, node.store.WriteTransaction(tx)
+	return tx, node.persistStore.WriteTransaction(tx)
 }
 
 func (node *Node) collectSelfSignatures(s *common.Snapshot, tx *common.VersionedTransaction) error {
@@ -132,7 +132,7 @@ func (node *Node) collectSelfSignatures(s *common.Snapshot, tx *common.Versioned
 		Snapshot:         *s,
 		TopologicalOrder: node.TopoCounter.Next(),
 	}
-	err := node.store.WriteSnapshot(topo)
+	err := node.persistStore.WriteSnapshot(topo)
 	if err != nil {
 		panic(err)
 	}
@@ -241,7 +241,7 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTrans
 				External: best.Hash,
 			},
 		}
-		err := node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
+		err := node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 		if err != nil {
 			panic(err)
 		}

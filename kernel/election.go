@@ -19,7 +19,7 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 		if err != nil {
 			return err
 		}
-		graph, err := LoadRoundGraph(node.store, node.networkId, node.IdForNetwork)
+		graph, err := LoadRoundGraph(node.persistStore, node.networkId, node.IdForNetwork)
 		if err != nil {
 			return err
 		}
@@ -37,7 +37,7 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 	if !cache.ValidateSnapshot(s, true) {
 		panic("should never be here")
 	}
-	err := node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, cache.Timestamp)
+	err := node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, cache.Timestamp)
 	if err != nil {
 		panic(err)
 	}
@@ -45,7 +45,7 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 		Snapshot:         *s,
 		TopologicalOrder: node.TopoCounter.Next(),
 	}
-	err = node.store.WriteSnapshot(topo)
+	err = node.persistStore.WriteSnapshot(topo)
 	if err != nil {
 		panic(err)
 	}
@@ -62,7 +62,7 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 	}
 	cache.References.Self = final.Hash
 	cache.References.External = external.Hash
-	err = node.store.StartNewRound(cache.NodeId, cache.Number, cache.References, cache.Timestamp)
+	err = node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, cache.Timestamp)
 	if err != nil {
 		panic(err)
 	}
@@ -91,7 +91,7 @@ func (node *Node) getInitialExternalReference(s *common.Snapshot) (*FinalRound, 
 		}
 	}
 
-	return loadFinalRoundForNode(node.store, externalId, 0)
+	return loadFinalRoundForNode(node.persistStore, externalId, 0)
 }
 
 func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
@@ -132,7 +132,7 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid pledge amount %s", tx.Outputs[0].Amount.String())
 	}
 
-	return node.store.AddNodeOperation(tx, timestamp, uint64(config.KernelNodeOperationLockThreshold))
+	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodeOperationLockThreshold))
 }
 
 func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
@@ -155,7 +155,7 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid plede utxo source %s %s", node.ConsensusPledging.Transaction, tx.Inputs[0].Hash)
 	}
 
-	pledge, err := node.store.ReadTransaction(tx.Inputs[0].Hash)
+	pledge, err := node.persistStore.ReadTransaction(tx.Inputs[0].Hash)
 	if err != nil {
 		return err
 	}
