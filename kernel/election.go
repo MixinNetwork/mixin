@@ -28,15 +28,6 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 	return nil
 }
 
-func nodeDistance(a, b crypto.Hash) int {
-	ai := new(big.Int).SetBytes(a[:])
-	bi := new(big.Int).SetBytes(b[:])
-	si := new(big.Int).Sub(ai, bi)
-	ai = new(big.Int).Abs(si)
-	mi := new(big.Int).Mod(ai, big.NewInt(100))
-	return int(mi.Int64())
-}
-
 func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 	cache := &CacheRound{
 		NodeId:    s.NodeId,
@@ -58,18 +49,9 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 	if err != nil {
 		panic(err)
 	}
-	final := cache.asFinal()
 
-	externalId := node.genesisNodes[0]
-	distance := nodeDistance(s.NodeId, externalId)
-	for _, id := range node.genesisNodes {
-		nd := nodeDistance(s.NodeId, id)
-		if nd < distance {
-			distance = nd
-			externalId = id
-		}
-	}
-	external, err := loadFinalRoundForNode(node.store, externalId, 0)
+	final := cache.asFinal()
+	external, err := node.getInitialExternalReference(s)
 	if err != nil {
 		panic(err)
 	}
@@ -87,6 +69,29 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 
 	node.assignNewGraphRound(final, cache)
 	return nil
+}
+
+func (node *Node) getInitialExternalReference(s *common.Snapshot) (*FinalRound, error) {
+	nodeDistance := func(a, b crypto.Hash) int {
+		ai := new(big.Int).SetBytes(a[:])
+		bi := new(big.Int).SetBytes(b[:])
+		si := new(big.Int).Sub(ai, bi)
+		ai = new(big.Int).Abs(si)
+		mi := new(big.Int).Mod(ai, big.NewInt(100))
+		return int(mi.Int64())
+	}
+
+	externalId := node.genesisNodes[0]
+	distance := nodeDistance(s.NodeId, externalId)
+	for _, id := range node.genesisNodes {
+		nd := nodeDistance(s.NodeId, id)
+		if nd < distance {
+			distance = nd
+			externalId = id
+		}
+	}
+
+	return loadFinalRoundForNode(node.store, externalId, 0)
 }
 
 func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
