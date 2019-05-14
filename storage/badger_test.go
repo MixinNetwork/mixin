@@ -15,7 +15,7 @@ func TestBadger(t *testing.T) {
 	assert.Nil(err)
 	defer os.RemoveAll(root)
 
-	store, err := NewBadgerStore(root)
+	store, err := NewBadgerStore(root, nil)
 	assert.Nil(err)
 	assert.NotNil(store)
 

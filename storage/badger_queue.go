@@ -39,7 +39,7 @@ func NewQueue(cache *bigcache.BigCache) *Queue {
 	return &Queue{
 		cache:     cache,
 		cacheRing: NewRingBuffer(1024 * 1024),
-		finalRing: NewRingBuffer(1024 * 1024),
+		finalRing: NewRingBuffer(1024 * 1024 * 16),
 	}
 }
 
