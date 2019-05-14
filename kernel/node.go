@@ -15,7 +15,7 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/network"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/allegro/bigcache"
+	"github.com/VictoriaMetrics/fastcache"
 )
 
 const (
@@ -30,7 +30,7 @@ type Node struct {
 	SnapshotsPool  map[crypto.Hash][]*crypto.Signature
 	SignaturesPool map[crypto.Hash]*crypto.Signature
 	CachePool      map[crypto.Hash][]*common.Snapshot
-	cacheStore     *bigcache.BigCache
+	cacheStore     *fastcache.Cache
 	Peer           *network.Peer
 	SyncPoints     *syncMap
 	Listener       string
@@ -49,7 +49,7 @@ type Node struct {
 	configDir       string
 }
 
-func SetupNode(persistStore storage.Store, cacheStore *bigcache.BigCache, addr string, dir string) (*Node, error) {
+func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr string, dir string) (*Node, error) {
 	var node = &Node{
 		ConsensusNodes:  make(map[crypto.Hash]*common.Node),
 		SnapshotsPool:   make(map[crypto.Hash][]*crypto.Signature),
@@ -175,7 +175,7 @@ func (node *Node) Uptime() time.Duration {
 	return time.Now().Sub(node.startAt)
 }
 
-func (node *Node) GetCacheStore() *bigcache.BigCache {
+func (node *Node) GetCacheStore() *fastcache.Cache {
 	return node.cacheStore
 }
 

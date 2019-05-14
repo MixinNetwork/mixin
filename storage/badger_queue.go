@@ -5,37 +5,37 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/allegro/bigcache"
+	"github.com/VictoriaMetrics/fastcache"
 	"github.com/dgraph-io/badger"
 )
 
 type Queue struct {
 	cacheRing *RingBuffer
 	finalRing *RingBuffer
-	cache     *bigcache.BigCache
+	cache     *fastcache.Cache
 }
 
 type PeerSnapshot struct {
-	key      string
+	key      []byte
 	PeerId   crypto.Hash
 	Snapshot *common.Snapshot
 }
 
-func (ps *PeerSnapshot) cacheKey() string {
+func (ps *PeerSnapshot) cacheKey() []byte {
 	hash := ps.Snapshot.PayloadHash()
 	hash = hash.ForNetwork(ps.PeerId)
 	for _, sig := range ps.Snapshot.Signatures {
 		hash = crypto.NewHash(append(hash[:], sig[:]...))
 	}
-	return "BADGER:QUEUE:CACHE:" + hash.String()
+	return []byte("BADGER:QUEUE:CACHE:" + hash.String())
 }
 
-func (ps *PeerSnapshot) finalKey() string {
+func (ps *PeerSnapshot) finalKey() []byte {
 	hash := ps.Snapshot.PayloadHash().ForNetwork(ps.PeerId)
-	return "BADGER:QUEUE:FINAL:" + hash.String()
+	return []byte("BADGER:QUEUE:FINAL:" + hash.String())
 }
 
-func NewQueue(cache *bigcache.BigCache) *Queue {
+func NewQueue(cache *fastcache.Cache) *Queue {
 	return &Queue{
 		cache:     cache,
 		cacheRing: NewRingBuffer(1024 * 1024),
@@ -50,15 +50,12 @@ func (q *Queue) Dispose() {
 
 func (q *Queue) PutFinal(ps *PeerSnapshot) error {
 	ps.key = ps.finalKey()
-	_, err := q.cache.Get(ps.key)
-	if err != bigcache.ErrEntryNotFound {
-		return err
+	data := q.cache.Get(nil, ps.key)
+	if len(data) > 0 {
+		return nil
 	}
 
-	err = q.cache.Set(ps.key, []byte{})
-	if err != nil {
-		return err
-	}
+	q.cache.Set(ps.key, []byte{0})
 	for {
 		put, err := q.finalRing.Offer(ps)
 		if err != nil || put {
@@ -75,20 +72,18 @@ func (q *Queue) PopFinal() (*PeerSnapshot, error) {
 		return nil, err
 	}
 	ps := item.(*PeerSnapshot)
-	return ps, q.cache.Delete(ps.key)
+	q.cache.Del(ps.key)
+	return ps, nil
 }
 
 func (q *Queue) PutCache(ps *PeerSnapshot) error {
 	ps.key = ps.cacheKey()
-	_, err := q.cache.Get(ps.key)
-	if err != bigcache.ErrEntryNotFound {
-		return err
+	data := q.cache.Get(nil, ps.key)
+	if len(data) > 0 {
+		return nil
 	}
 
-	err = q.cache.Set(ps.key, []byte{})
-	if err != nil {
-		return err
-	}
+	q.cache.Set(ps.key, []byte{0})
 	for {
 		put, err := q.cacheRing.Offer(ps)
 		if err != nil || put {
@@ -105,7 +100,8 @@ func (q *Queue) PopCache() (*PeerSnapshot, error) {
 		return nil, err
 	}
 	ps := item.(*PeerSnapshot)
-	return ps, q.cache.Delete(ps.key)
+	q.cache.Del(ps.key)
+	return ps, nil
 }
 
 func (s *BadgerStore) QueueInfo() (uint64, uint64, uint64, error) {

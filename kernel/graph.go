@@ -60,8 +60,8 @@ func (node *Node) signSnapshot(s *common.Snapshot) {
 
 	key := append(s.Hash[:], sig[:]...)
 	key = append(key, node.Signer.PublicSpendKey[:]...)
-	hash := crypto.NewHash(key).String()
-	node.cacheStore.Set(hash, []byte{1})
+	hash := "KERNEL:SIGNATURE:" + crypto.NewHash(key).String()
+	node.cacheStore.Set([]byte(hash), []byte{1})
 }
 
 func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRound, error) {
@@ -115,15 +115,15 @@ func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto
 	key := append(snap[:], sig[:]...)
 	key = append(key, pub[:]...)
 	hash := "KERNEL:SIGNATURE:" + crypto.NewHash(key).String()
-	value, err := node.cacheStore.Get(hash)
-	if err == nil {
+	value := node.cacheStore.Get(nil, []byte(hash))
+	if len(value) == 1 {
 		return value[0] == byte(1)
 	}
 	valid := pub.Verify(snap[:], sig)
 	if valid {
-		node.cacheStore.Set(hash, []byte{1})
+		node.cacheStore.Set([]byte(hash), []byte{1})
 	} else {
-		node.cacheStore.Set(hash, []byte{0})
+		node.cacheStore.Set([]byte(hash), []byte{0})
 	}
 	return valid
 }

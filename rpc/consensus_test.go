@@ -19,7 +19,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/allegro/bigcache"
+	"github.com/VictoriaMetrics/fastcache"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,12 +45,7 @@ func TestConsensus(t *testing.T) {
 	for i, _ := range accounts {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
 		config.Initialize(dir + "/config.json")
-		cc := bigcache.DefaultConfig(config.Custom.CacheTTL * time.Second)
-		cc.HardMaxCacheSize = config.Custom.MaxCacheSize
-		cc.Verbose = false
-		cache, err := bigcache.NewBigCache(cc)
-		assert.Nil(err)
-		assert.NotNil(cache)
+		cache := fastcache.New(config.Custom.MaxCacheSize * 1024 * 1024)
 		store, err := storage.NewBadgerStore(dir, cache)
 		assert.Nil(err)
 		assert.NotNil(store)

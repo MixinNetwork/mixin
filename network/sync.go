@@ -8,44 +8,39 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/allegro/bigcache"
 )
 
 func (me *Peer) cacheReadSnapshotsForNodeRound(nodeId crypto.Hash, final uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
-	key := fmt.Sprintf("SFNR%s:%d", nodeId.String(), final)
-	data, err := me.storeCache.Get(key)
-	if err == bigcache.ErrEntryNotFound {
+	key := []byte(fmt.Sprintf("SFNR%s:%d", nodeId.String(), final))
+	data := me.storeCache.Get(nil, key)
+	if len(data) == 0 {
 		ss, err := me.handle.ReadSnapshotsForNodeRound(nodeId, final)
 		if err != nil {
 			return nil, err
 		}
-		err = me.storeCache.Set(key, common.MsgpackMarshalPanic(ss))
-		return ss, err
-	} else if err != nil {
-		return nil, err
+		me.storeCache.Set(key, common.MsgpackMarshalPanic(ss))
+		return ss, nil
 	}
 	var ss []*common.SnapshotWithTopologicalOrder
-	err = common.MsgpackUnmarshal(data, &ss)
+	err := common.MsgpackUnmarshal(data, &ss)
 	return ss, err
 }
 
 func (me *Peer) cacheReadSnapshotsSinceTopology(offset, limit uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
-	key := fmt.Sprintf("SSTME%d-%d", offset, limit)
-	data, err := me.storeCache.Get(key)
-	if err == bigcache.ErrEntryNotFound {
+	key := []byte(fmt.Sprintf("SSTME%d-%d", offset, limit))
+	data := me.storeCache.Get(nil, key)
+	if len(data) == 0 {
 		ss, err := me.handle.ReadSnapshotsSinceTopology(offset, limit)
 		if err != nil {
 			return nil, err
 		}
 		if uint64(len(ss)) == limit {
-			err = me.storeCache.Set(key, common.MsgpackMarshalPanic(ss))
+			me.storeCache.Set(key, common.MsgpackMarshalPanic(ss))
 		}
-		return ss, err
-	} else if err != nil {
-		return nil, err
+		return ss, nil
 	}
 	var ss []*common.SnapshotWithTopologicalOrder
-	err = common.MsgpackUnmarshal(data, &ss)
+	err := common.MsgpackUnmarshal(data, &ss)
 	return ss, err
 }
 

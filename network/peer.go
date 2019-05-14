@@ -11,7 +11,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/allegro/bigcache"
+	"github.com/VictoriaMetrics/fastcache"
 )
 
 const (
@@ -46,7 +46,7 @@ type PeerMessage struct {
 }
 
 type SyncHandle interface {
-	GetCacheStore() *bigcache.BigCache
+	GetCacheStore() *fastcache.Cache
 	BuildAuthenticationMessage() []byte
 	Authenticate(msg []byte) (crypto.Hash, string, error)
 	BuildGraph() []*SyncPoint
@@ -73,7 +73,7 @@ type Peer struct {
 	IdForNetwork crypto.Hash
 	Address      string
 
-	storeCache             *bigcache.BigCache
+	storeCache             *fastcache.Cache
 	snapshotsConfirmations *ConfirmMap
 	snapshotsCaches        *ConfirmMap
 	neighbors              map[crypto.Hash]*Peer
