@@ -49,15 +49,23 @@ func NewQueue(db *badger.DB, cache *fastcache.Cache) *Queue {
 	q.order = q.snapshotQueueOrder()
 	go func() {
 		for {
-			ps, err := q.PopFinal()
-			if err != nil {
-				logger.Println("NewQueue PopFinal", err)
+			var snapshots []*PeerSnapshot
+			for len(snapshots) < 100 {
+				ps, err := q.PopFinal()
+				if err != nil {
+					logger.Println("NewQueue PopFinal", err)
+					break
+				}
+				if ps == nil {
+					break
+				}
+				snapshots = append(snapshots, ps)
 			}
-			if ps == nil {
+			if len(snapshots) == 0 {
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
-			err = q.writeFinal(ps)
+			err := q.writeFinals(snapshots)
 			if err != nil {
 				logger.Println("NewQueue PopFinal", err)
 			}
@@ -133,6 +141,7 @@ func (s *BadgerStore) QueueInfo() (uint64, uint64, uint64, error) {
 
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = false
+	opts.Prefix = []byte(cachePrefixTransactionCache)
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
@@ -140,6 +149,7 @@ func (s *BadgerStore) QueueInfo() (uint64, uint64, uint64, error) {
 	for it.Rewind(); it.Valid(); it.Next() {
 		count = count + 1
 	}
+	logger.Printf("QueueInfo %d %d %d\n", s.queue.snapshotQueueOrder()-s.queue.snapshotQueueLen(), s.queue.order, s.queue.finalRing.Len())
 	return count, s.queue.snapshotQueueLen(), s.queue.cacheRing.Len(), nil
 }
 
@@ -155,7 +165,7 @@ func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snaps
 }
 
 func (s *BadgerStore) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error) {
-	limit := 100
+	limit := 10000
 	for !s.closing {
 		ps, err := s.queue.PopCache()
 		if err != nil {
@@ -177,25 +187,31 @@ func (s *BadgerStore) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *com
 	}
 }
 
-func (q *Queue) writeFinal(ps *PeerSnapshot) error {
-	return q.db.Update(func(txn *badger.Txn) error {
-		q.order = q.order + 1
+func (q *Queue) writeFinals(snapshots []*PeerSnapshot) error {
+	wb := q.db.NewWriteBatch()
+	defer wb.Cancel()
+	for _, ps := range snapshots {
 		key := cacheSnapshotQueueKey(q.order)
 		val := common.MsgpackMarshalPanic(ps)
-		return txn.Set(key, val)
-	})
+		err := wb.Set(key, val, 0)
+		if err != nil {
+			return err
+		}
+		q.order = q.order + 1
+	}
+	return wb.Flush()
 }
 
 func (q *Queue) batchRetrieveSnapshots(limit int) ([]*PeerSnapshot, error) {
 	orders := make([]uint64, 0)
 	snapshots := make([]*PeerSnapshot, 0)
 	err := q.db.View(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		opts := badger.DefaultIteratorOptions
+		opts.Prefix = []byte(cachePrefixSnapshotQueue)
+		it := txn.NewIterator(opts)
 		defer it.Close()
 
-		prefix := []byte(cachePrefixSnapshotQueue)
-		it.Seek(cacheSnapshotQueueKey(0))
-		for ; it.ValidForPrefix(prefix) && len(snapshots) < limit; it.Next() {
+		for it.Rewind(); it.Valid() && len(snapshots) < limit; it.Next() {
 			item := it.Item()
 			v, err := item.ValueCopy(nil)
 			if err != nil {
