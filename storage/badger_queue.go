@@ -149,8 +149,10 @@ func (s *BadgerStore) QueueInfo() (uint64, uint64, uint64, error) {
 	for it.Rewind(); it.Valid(); it.Next() {
 		count = count + 1
 	}
-	logger.Printf("QueueInfo %d %d %d\n", s.queue.snapshotQueueOrder()-s.queue.snapshotQueueLen(), s.queue.order, s.queue.finalRing.Len())
-	return count, s.queue.snapshotQueueLen(), s.queue.cacheRing.Len(), nil
+	offset := s.queue.snapshotQueueOffset()
+	order := s.queue.snapshotQueueOrder()
+	logger.Printf("QueueInfo %d %d %d %d %d\n", offset, order, s.queue.order, order-offset, s.queue.finalRing.Len())
+	return count, order - offset, s.queue.cacheRing.Len(), nil
 }
 
 func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snapshot, finalized bool) error {
@@ -165,24 +167,50 @@ func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snaps
 }
 
 func (s *BadgerStore) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error) {
-	limit := 10000
+	start, limit := 0, 10000
+	psc := make(chan []*PeerSnapshot)
+	fuel := func(snapshots []*PeerSnapshot) {
+		for !s.closing {
+			select {
+			case psc <- snapshots:
+				return
+			case <-time.After(3 * time.Second):
+				logger.Println("QueuePollSnapshots hook TOO SLOW")
+			}
+		}
+	}
+	go func() {
+		for !s.closing {
+			snapshots, err := s.queue.batchRetrieveSnapshots(limit)
+			if err != nil {
+				logger.Println("QueuePollSnapshots batchRetrieveSnapshots", err)
+			}
+			fuel(snapshots)
+		}
+		close(psc)
+	}()
 	for !s.closing {
-		ps, err := s.queue.PopCache()
-		if err != nil {
-			logger.Println("QueuePollSnapshots PopCache", err)
-		}
-		if ps != nil {
+		for start = 0; start <= limit/10; start++ {
+			ps, err := s.queue.PopCache()
+			if err != nil {
+				logger.Println("QueuePollSnapshots PopCache", err)
+				break
+			}
+			if ps == nil {
+				break
+			}
 			hook(ps.PeerId, ps.Snapshot)
 		}
-		snapshots, err := s.queue.batchRetrieveSnapshots(limit)
-		if err != nil {
-			logger.Println("QueuePollSnapshots batchRetrieveSnapshots", err)
-		}
-		for _, ps := range snapshots {
-			hook(ps.PeerId, ps.Snapshot)
-		}
-		if len(snapshots) < limit && ps == nil {
-			time.Sleep(100 * time.Millisecond)
+		select {
+		case snapshots := <-psc:
+			for _, ps := range snapshots {
+				hook(ps.PeerId, ps.Snapshot)
+			}
+			if len(snapshots) < limit && start < 1 {
+				time.Sleep(100 * time.Millisecond)
+			}
+		case <-time.After(1 * time.Second):
+			logger.Println("QueuePollSnapshots batchRetrieveSnapshots TOO SLOW")
 		}
 	}
 }
@@ -244,7 +272,7 @@ func (q *Queue) batchRetrieveSnapshots(limit int) ([]*PeerSnapshot, error) {
 	return snapshots, wb.Flush()
 }
 
-func (q *Queue) snapshotQueueLen() uint64 {
+func (q *Queue) snapshotQueueOffset() uint64 {
 	var sequence uint64
 
 	txn := q.db.NewTransaction(false)
@@ -262,7 +290,7 @@ func (q *Queue) snapshotQueueLen() uint64 {
 		item := it.Item()
 		sequence = cacheSnapshotQueueOrder(item.Key())
 	}
-	return q.snapshotQueueOrder() - sequence
+	return sequence
 }
 
 func (q *Queue) snapshotQueueOrder() uint64 {
