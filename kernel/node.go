@@ -222,13 +222,6 @@ func (node *Node) VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Sna
 	if len(s.Signatures) != 1 && !node.verifyFinalization(s.Signatures) {
 		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
 	}
-	if r := node.Graph.FinalRound[s.NodeId]; r.Number > s.RoundNumber {
-		if node.verifyFinalization(s.Signatures) {
-			return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
-		} else {
-			return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
-		}
-	}
 	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil {
 		return err
