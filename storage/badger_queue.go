@@ -20,7 +20,7 @@ type Queue struct {
 }
 
 type PeerSnapshot struct {
-	key      []byte
+	Key      []byte
 	PeerId   crypto.Hash
 	Snapshot *common.Snapshot
 }
@@ -59,7 +59,7 @@ func NewQueue(db *badger.DB, cache *fastcache.Cache) *Queue {
 				if ps == nil {
 					break
 				}
-				exist, err := q.finalCheckSnapshot(ps.key)
+				exist, err := q.finalCheckSnapshot(ps.Key)
 				if err != nil {
 					logger.Println("NewQueue finalCheckSnapshot", err)
 					break
@@ -87,12 +87,12 @@ func (q *Queue) Dispose() {
 }
 
 func (q *Queue) PutFinal(ps *PeerSnapshot) error {
-	ps.key = ps.finalKey()
-	data := q.cache.Get(nil, ps.key)
+	ps.Key = ps.finalKey()
+	data := q.cache.Get(nil, ps.Key)
 	if len(data) > 0 {
 		return nil
 	}
-	q.cache.Set(ps.key, []byte{0})
+	q.cache.Set(ps.Key, []byte{0})
 
 	for {
 		put, err := q.finalRing.Offer(ps)
@@ -110,18 +110,18 @@ func (q *Queue) PopFinal() (*PeerSnapshot, error) {
 		return nil, err
 	}
 	ps := item.(*PeerSnapshot)
-	q.cache.Del(ps.key)
+	q.cache.Del(ps.Key)
 	return ps, nil
 }
 
 func (q *Queue) PutCache(ps *PeerSnapshot) error {
-	ps.key = ps.cacheKey()
-	data := q.cache.Get(nil, ps.key)
+	ps.Key = ps.cacheKey()
+	data := q.cache.Get(nil, ps.Key)
 	if len(data) > 0 {
 		return nil
 	}
 
-	q.cache.Set(ps.key, []byte{0})
+	q.cache.Set(ps.Key, []byte{0})
 	for {
 		put, err := q.cacheRing.Offer(ps)
 		if err != nil || put {
@@ -138,7 +138,7 @@ func (q *Queue) PopCache() (*PeerSnapshot, error) {
 		return nil, err
 	}
 	ps := item.(*PeerSnapshot)
-	q.cache.Del(ps.key)
+	q.cache.Del(ps.Key)
 	return ps, nil
 }
 
@@ -246,7 +246,7 @@ func (q *Queue) writeFinals(snapshots []*PeerSnapshot) error {
 		if err != nil {
 			return err
 		}
-		err = wb.Set(ps.key, []byte{1}, 0)
+		err = wb.Set(ps.Key, []byte{1}, 0)
 		if err != nil {
 			return err
 		}
@@ -295,7 +295,10 @@ func (q *Queue) batchRetrieveSnapshots(limit int) ([]*PeerSnapshot, error) {
 		}
 	}
 	for _, ps := range snapshots {
-		err := wb.Delete(ps.key)
+		if len(ps.Key) == 0 { // FIXME remove this after bad data fixed
+			continue
+		}
+		err := wb.Delete(ps.Key)
 		if err != nil {
 			return snapshots, err
 		}
