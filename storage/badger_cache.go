@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	cachePrefixTransactionCache = "TRANSACTIONCACHE"
-	cachePrefixSnapshotQueue    = "SNAPSHOTQUEUE"
+	cachePrefixTransactionCache  = "TRANSACTIONCACHE"
+	cachePrefixSnapshotNodeQueue = "SNAPSHOTNODEQUEUE"
+	cachePrefixSnapshotNodeMeta  = "SNAPSHOTNODEMETA"
 )
 
 func (s *BadgerStore) CacheListTransactions(hook func(tx *common.VersionedTransaction) error) error {
