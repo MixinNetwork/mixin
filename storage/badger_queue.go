@@ -59,7 +59,14 @@ func NewQueue(db *badger.DB, cache *fastcache.Cache) *Queue {
 				if ps == nil {
 					break
 				}
-				snapshots = append(snapshots, ps)
+				exist, err := q.finalCheckSnapshot(ps.key)
+				if err != nil {
+					logger.Println("NewQueue finalCheckSnapshot", err)
+					break
+				}
+				if !exist {
+					snapshots = append(snapshots, ps)
+				}
 			}
 			if len(snapshots) == 0 {
 				time.Sleep(100 * time.Millisecond)
@@ -67,7 +74,7 @@ func NewQueue(db *badger.DB, cache *fastcache.Cache) *Queue {
 			}
 			err := q.writeFinals(snapshots)
 			if err != nil {
-				logger.Println("NewQueue PopFinal", err)
+				logger.Println("NewQueue writeFinals", err)
 			}
 		}
 	}()
@@ -85,8 +92,8 @@ func (q *Queue) PutFinal(ps *PeerSnapshot) error {
 	if len(data) > 0 {
 		return nil
 	}
-
 	q.cache.Set(ps.key, []byte{0})
+
 	for {
 		put, err := q.finalRing.Offer(ps)
 		if err != nil || put {
@@ -215,6 +222,20 @@ func (s *BadgerStore) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *com
 	}
 }
 
+func (q *Queue) finalCheckSnapshot(key []byte) (bool, error) {
+	txn := q.db.NewTransaction(false)
+	defer txn.Discard()
+
+	_, err := txn.Get(key)
+	if err == badger.ErrKeyNotFound {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (q *Queue) writeFinals(snapshots []*PeerSnapshot) error {
 	wb := q.db.NewWriteBatch()
 	defer wb.Cancel()
@@ -222,6 +243,10 @@ func (q *Queue) writeFinals(snapshots []*PeerSnapshot) error {
 		key := cacheSnapshotQueueKey(q.order)
 		val := common.MsgpackMarshalPanic(ps)
 		err := wb.Set(key, val, 0)
+		if err != nil {
+			return err
+		}
+		err = wb.Set(ps.key, []byte{1}, 0)
 		if err != nil {
 			return err
 		}
@@ -265,6 +290,12 @@ func (q *Queue) batchRetrieveSnapshots(limit int) ([]*PeerSnapshot, error) {
 	for _, order := range orders {
 		key := cacheSnapshotQueueKey(order)
 		err := wb.Delete(key)
+		if err != nil {
+			return snapshots, err
+		}
+	}
+	for _, ps := range snapshots {
+		err := wb.Delete(ps.key)
 		if err != nil {
 			return snapshots, err
 		}
