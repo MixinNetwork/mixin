@@ -18,7 +18,7 @@ func (node *Node) ElectionLoop() error {
 		time.Sleep(7 * time.Minute)
 		now := uint64(time.Now().UnixNano())
 		if now < node.epoch {
-			logger.Println("LOCAL TIME INVALID %d %d", now, node.epoch)
+			logger.Printf("LOCAL TIME INVALID %d %d\n", now, node.epoch)
 			continue
 		}
 		hours := int((now-node.epoch)/3600000000000) % 24
