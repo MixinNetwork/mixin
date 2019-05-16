@@ -40,29 +40,33 @@ func (s *BadgerStore) ValidateGraphEntries() (int, int, error) {
 	defer it.Close()
 
 	var total, invalid int64
-
 	stream := s.snapshotsDB.NewStream()
 	stream.NumGo = runtime.NumCPU()
 	stream.Prefix = []byte(graphPrefixTransaction)
 	stream.LogPrefix = "Badger.ValidateGraphEntries"
-	stream.ChooseKey = func(item *badger.Item) bool { return true }
-	stream.KeyToList = nil
-	stream.Send = func(list *pb.KVList) error {
-		for _, item := range list.Kv {
-			atomic.AddInt64(&total, 1)
-			ver, err := common.DecompressUnmarshalVersionedTransaction(item.Value)
+	stream.ChooseKey = func(item *badger.Item) bool {
+		atomic.AddInt64(&total, 1)
+		err := item.Value(func(val []byte) error {
+			ver, err := common.DecompressUnmarshalVersionedTransaction(val)
 			if err != nil {
 				return err
 			}
+			key := item.Key()
 			var hash crypto.Hash
-			copy(hash[:], item.Key[len(graphPrefixTransaction):])
+			copy(hash[:], key[len(graphPrefixTransaction):])
 			if hash.String() != ver.PayloadHash().String() {
 				atomic.AddInt64(&invalid, 1)
 				logger.Printf("MALFORMED %s %s %#v\n", hash.String(), ver.PayloadHash().String(), ver)
 			}
+			return nil
+		})
+		if err != nil {
+			panic(err)
 		}
-		return nil
+		return false
 	}
+	stream.KeyToList = nil
+	stream.Send = func(list *pb.KVList) error { return nil }
 	err := stream.Orchestrate(context.Background())
 
 	return int(total), int(invalid), err
