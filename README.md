@@ -24,12 +24,13 @@ USAGE:
    mixin [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.2.16-e64d30eb47aa89f5234baa9fd5db3c7b9e5138c6
+   v0.3.2-fac0871857badab82333af6f4ad71d8ecb321e5a
 
 COMMANDS:
      kernel, k              Start the Mixin Kernel daemon
      setuptestnet           Setup the test nodes and genesis
      createaddress          Create a new Mixin address
+     decodeaddress          Decode an address as public view key and public spend key
      updateheadreference    Update the cache round external reference, never use it unless agree by other nodes
      removegraphentries     Remove data entries by prefix from the graph data storage
      validategraphentries   Validate transaction hash integration
