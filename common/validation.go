@@ -31,7 +31,7 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 		return fmt.Errorf("invalid transaction size %d", len(msg))
 	}
 
-	inputsFilter, inputAmount, err := validateInputs(store, tx, msg, ver.PayloadHash())
+	inputsFilter, inputAmount, err := validateInputs(store, tx, msg, ver.PayloadHash(), txType)
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func validateScriptTransaction(inputs map[string]*UTXO) error {
 	return nil
 }
 
-func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash crypto.Hash) (map[string]*UTXO, Integer, error) {
+func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash crypto.Hash, txType uint8) (map[string]*UTXO, Integer, error) {
 	inputAmount := NewInteger(0)
 	inputsFilter := make(map[string]*UTXO)
 
@@ -114,7 +114,7 @@ func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash cry
 			return inputsFilter, inputAmount, fmt.Errorf("input locked for transaction %s", utxo.LockHash)
 		}
 
-		err = validateUTXO(&utxo.UTXO, tx.Signatures[i], msg)
+		err = validateUTXO(&utxo.UTXO, tx.Signatures[i], msg, txType)
 		if err != nil {
 			return inputsFilter, inputAmount, err
 		}
@@ -183,7 +183,7 @@ func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
 	return outputAmount, nil
 }
 
-func validateUTXO(utxo *UTXO, sigs []crypto.Signature, msg []byte) error {
+func validateUTXO(utxo *UTXO, sigs []crypto.Signature, msg []byte, txType uint8) error {
 	switch utxo.Type {
 	case OutputTypeScript:
 		var offset, valid int
@@ -199,7 +199,12 @@ func validateUTXO(utxo *UTXO, sigs []crypto.Signature, msg []byte) error {
 			}
 		}
 		return utxo.Script.Validate(valid)
-	case OutputTypeNodePledge, OutputTypeNodeAccept:
+	case OutputTypeNodePledge:
+		if txType == TransactionTypeNodeAccept {
+			return nil
+		}
+		return fmt.Errorf("pledge input used for invalid transaction type %d", txType)
+	case OutputTypeNodeAccept:
 		return fmt.Errorf("should do more validation on those %d UTXOs", utxo.Type)
 	default:
 		return fmt.Errorf("invalid input type %d", utxo.Type)
