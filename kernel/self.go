@@ -155,6 +155,9 @@ func (node *Node) determinBestRound(roundTime uint64) *FinalRound {
 	var best *FinalRound
 	var start, height uint64
 	for id, rounds := range node.Graph.RoundHistory {
+		if !node.genesisNodesMap[id] && rounds[0].Number < config.SnapshotReferenceThreshold {
+			continue
+		}
 		if len(rounds) > config.SnapshotReferenceThreshold {
 			rc := len(rounds) - config.SnapshotReferenceThreshold
 			rounds = append([]*FinalRound{}, rounds[rc:]...)
