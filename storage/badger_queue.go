@@ -239,13 +239,13 @@ func (q *Queue) loopRetrieveSnapshotsForNode(nodeId crypto.Hash) {
 			select {
 			case q.snapshots <- snapshots:
 				return
-			case <-time.After(3 * time.Second):
+			case <-time.After(5 * time.Second):
 				logger.Println("QueuePollSnapshots hook TOO SLOW")
 			}
 		}
 	}
 	for {
-		snapshots, err := q.batchRetrieveSnapshotsForNode(nodeId, 128)
+		snapshots, err := q.batchRetrieveSnapshotsForNode(nodeId, 1024)
 		if err != nil {
 			logger.Println("QueuePollSnapshots batchRetrieveSnapshots", err)
 		}
