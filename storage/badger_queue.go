@@ -137,7 +137,7 @@ func (q *Queue) PopCache() (*PeerSnapshot, error) {
 	return ps, nil
 }
 
-func (s *BadgerStore) QueueInfo() (uint64, uint64, uint64, error) {
+func (s *BadgerStore) cacheTransactionsCount() uint64 {
 	txn := s.cacheDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -151,7 +151,28 @@ func (s *BadgerStore) QueueInfo() (uint64, uint64, uint64, error) {
 	for it.Rewind(); it.Valid(); it.Next() {
 		count = count + 1
 	}
-	return count, 0, s.queue.cacheRing.Len(), nil
+	return count
+}
+
+func (s *BadgerStore) cacheSnapshotsCount() uint64 {
+	txn := s.cacheDB.NewTransaction(false)
+	defer txn.Discard()
+
+	opts := badger.DefaultIteratorOptions
+	opts.PrefetchValues = false
+	opts.Prefix = []byte(cachePrefixSnapshotNodeQueue)
+	it := txn.NewIterator(opts)
+	defer it.Close()
+
+	var count uint64
+	for it.Rewind(); it.Valid(); it.Next() {
+		count = count + 1
+	}
+	return count
+}
+
+func (s *BadgerStore) QueueInfo() (uint64, uint64, uint64, error) {
+	return s.cacheTransactionsCount(), s.cacheSnapshotsCount(), s.queue.cacheRing.Len(), nil
 }
 
 func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snapshot, finalized bool) error {
@@ -224,7 +245,7 @@ func (q *Queue) loopRetrieveSnapshotsForNode(nodeId crypto.Hash) {
 		}
 	}
 	for {
-		snapshots, err := q.batchRetrieveSnapshotsForNode(nodeId, 256)
+		snapshots, err := q.batchRetrieveSnapshotsForNode(nodeId, 128)
 		if err != nil {
 			logger.Println("QueuePollSnapshots batchRetrieveSnapshots", err)
 		}
