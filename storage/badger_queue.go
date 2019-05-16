@@ -1,85 +1,50 @@
 package storage
 
 import (
-	"encoding/binary"
+	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/logger"
-	"github.com/VictoriaMetrics/fastcache"
 	"github.com/dgraph-io/badger"
 )
 
 type Queue struct {
-	db        *badger.DB
-	finalRing *RingBuffer
+	mutex     *sync.Mutex
 	cacheRing *RingBuffer
-	cache     *fastcache.Cache
-	snapshots chan []*PeerSnapshot
+	finalRing *RingBuffer
+	finalSet  map[crypto.Hash]bool
+	cacheSet  map[crypto.Hash]bool
 }
 
 type PeerSnapshot struct {
-	Key      []byte
+	key      crypto.Hash
 	PeerId   crypto.Hash
 	Snapshot *common.Snapshot
 }
 
-func (ps *PeerSnapshot) cacheKey() []byte {
+func (ps *PeerSnapshot) cacheKey() crypto.Hash {
 	hash := ps.Snapshot.PayloadHash()
 	hash = hash.ForNetwork(ps.PeerId)
 	for _, sig := range ps.Snapshot.Signatures {
 		hash = crypto.NewHash(append(hash[:], sig[:]...))
 	}
-	return []byte("BADGER:QUEUE:CACHE:" + hash.String())
+	return hash
 }
 
-func NewQueue(db *badger.DB, cache *fastcache.Cache) *Queue {
-	q := &Queue{
-		db:        db,
-		cache:     cache,
+func (ps *PeerSnapshot) finalKey() crypto.Hash {
+	hash := ps.Snapshot.PayloadHash()
+	return hash.ForNetwork(ps.PeerId)
+}
+
+func NewQueue() *Queue {
+	return &Queue{
+		mutex:     new(sync.Mutex),
+		finalSet:  make(map[crypto.Hash]bool),
+		cacheSet:  make(map[crypto.Hash]bool),
 		cacheRing: NewRingBuffer(1024 * 1024),
-		finalRing: NewRingBuffer(1024 * 16),
-		snapshots: make(chan []*PeerSnapshot, 32),
+		finalRing: NewRingBuffer(1024 * 1024),
 	}
-	go func() {
-		nodes := q.loadSnapshotNodesList()
-		for id, _ := range nodes {
-			go q.loopRetrieveSnapshotsForNode(id)
-		}
-		for {
-			var snapshots []*PeerSnapshot
-			for len(snapshots) < 100 {
-				ps, err := q.PopFinal()
-				if err != nil {
-					logger.Println("NewQueue PopFinal", err)
-					break
-				}
-				if ps == nil {
-					break
-				}
-				if id := ps.Snapshot.NodeId; !nodes[id] {
-					nodes[id] = true
-					err = q.writeNodeMeta(id)
-					if err != nil {
-						logger.Println("NewQueue writeNodeMeta", err)
-						break
-					}
-					go q.loopRetrieveSnapshotsForNode(id)
-				}
-				snapshots = append(snapshots, ps)
-			}
-			if len(snapshots) == 0 {
-				time.Sleep(100 * time.Millisecond)
-				continue
-			}
-			err := q.writeFinals(snapshots)
-			if err != nil {
-				logger.Println("NewQueue writeFinals", err)
-			}
-		}
-	}()
-	return q
 }
 
 func (q *Queue) Dispose() {
@@ -88,8 +53,13 @@ func (q *Queue) Dispose() {
 }
 
 func (q *Queue) PutFinal(ps *PeerSnapshot) error {
-	hash := ps.Snapshot.Hash.ForNetwork(ps.PeerId)
-	ps.Key = hash[:]
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
+	if q.finalSet[ps.key] {
+		return nil
+	}
+	q.finalSet[ps.key] = true
 
 	for {
 		put, err := q.finalRing.Offer(ps)
@@ -101,20 +71,26 @@ func (q *Queue) PutFinal(ps *PeerSnapshot) error {
 }
 
 func (q *Queue) PopFinal() (*PeerSnapshot, error) {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
 	item, err := q.finalRing.Poll(false)
 	if err != nil || item == nil {
 		return nil, err
 	}
-	return item.(*PeerSnapshot), nil
+	ps := item.(*PeerSnapshot)
+	delete(q.finalSet, ps.key)
+	return ps, nil
 }
 
 func (q *Queue) PutCache(ps *PeerSnapshot) error {
-	ps.Key = ps.cacheKey()
-	data := q.cache.Get(nil, ps.Key)
-	if len(data) > 0 {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
+	if q.cacheSet[ps.key] {
 		return nil
 	}
-	q.cache.Set(ps.Key, []byte{0})
+	q.cacheSet[ps.key] = true
 
 	for {
 		put, err := q.cacheRing.Offer(ps)
@@ -126,51 +102,32 @@ func (q *Queue) PutCache(ps *PeerSnapshot) error {
 }
 
 func (q *Queue) PopCache() (*PeerSnapshot, error) {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
 	item, err := q.cacheRing.Poll(false)
 	if err != nil || item == nil {
 		return nil, err
 	}
 	ps := item.(*PeerSnapshot)
-	q.cache.Del(ps.Key)
+	delete(q.cacheSet, ps.key)
 	return ps, nil
 }
 
-func (s *BadgerStore) cacheTransactionsCount() uint64 {
-	txn := s.cacheDB.NewTransaction(false)
-	defer txn.Discard()
-
-	opts := badger.DefaultIteratorOptions
-	opts.PrefetchValues = false
-	opts.Prefix = []byte(cachePrefixTransactionCache)
-	it := txn.NewIterator(opts)
-	defer it.Close()
-
-	var count uint64
-	for it.Rewind(); it.Valid(); it.Next() {
-		count = count + 1
-	}
-	return count
-}
-
-func (s *BadgerStore) cacheSnapshotsCount() uint64 {
-	txn := s.cacheDB.NewTransaction(false)
-	defer txn.Discard()
-
-	opts := badger.DefaultIteratorOptions
-	opts.PrefetchValues = false
-	opts.Prefix = []byte(cachePrefixSnapshotNodeQueue)
-	it := txn.NewIterator(opts)
-	defer it.Close()
-
-	var count uint64
-	for it.Rewind(); it.Valid(); it.Next() {
-		count = count + 1
-	}
-	return count
-}
-
 func (s *BadgerStore) QueueInfo() (uint64, uint64, uint64, error) {
-	return s.cacheTransactionsCount(), s.cacheSnapshotsCount(), s.queue.cacheRing.Len(), nil
+	txn := s.cacheDB.NewTransaction(false)
+	defer txn.Discard()
+
+	opts := badger.DefaultIteratorOptions
+	opts.PrefetchValues = false
+	it := txn.NewIterator(opts)
+	defer it.Close()
+
+	var count uint64
+	for it.Rewind(); it.Valid(); it.Next() {
+		count = count + 1
+	}
+	return count, s.queue.finalRing.Len(), s.queue.cacheRing.Len(), nil
 }
 
 func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snapshot, finalized bool) error {
@@ -179,157 +136,30 @@ func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snaps
 		Snapshot: snap,
 	}
 	if finalized {
+		ps.key = ps.finalKey()
 		return s.queue.PutFinal(ps)
 	}
+	ps.key = ps.cacheKey()
 	return s.queue.PutCache(ps)
 }
 
 func (s *BadgerStore) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error) {
-	start, limit := 0, 64
 	for !s.closing {
-		for start = 0; start < limit; start++ {
-			ps, err := s.queue.PopCache()
-			if err != nil {
-				logger.Println("QueuePollSnapshots PopCache", err)
-				break
-			}
-			if ps == nil {
-				break
-			}
-			hook(ps.PeerId, ps.Snapshot)
-		}
-		select {
-		case snapshots := <-s.queue.snapshots:
-			for _, ps := range snapshots {
-				hook(ps.PeerId, ps.Snapshot)
-			}
-			if len(snapshots) < 1 && start < 1 {
-				time.Sleep(100 * time.Millisecond)
-			}
-		case <-time.After(1 * time.Second):
-			logger.Println("QueuePollSnapshots batchRetrieveSnapshots TOO SLOW")
-		}
-	}
-}
-
-func (q *Queue) loadSnapshotNodesList() map[crypto.Hash]bool {
-	txn := q.db.NewTransaction(false)
-	defer txn.Discard()
-
-	opts := badger.DefaultIteratorOptions
-	opts.Prefix = []byte(cachePrefixSnapshotNodeMeta)
-	it := txn.NewIterator(opts)
-	defer it.Close()
-
-	nodes := make(map[crypto.Hash]bool)
-	for it.Rewind(); it.Valid(); it.Next() {
-		key := it.Item().Key()
-		var hash crypto.Hash
-		copy(hash[:], key[len(cachePrefixSnapshotNodeMeta):])
-		nodes[hash] = true
-	}
-	return nodes
-}
-
-func (q *Queue) loopRetrieveSnapshotsForNode(nodeId crypto.Hash) {
-	fuel := func(snapshots []*PeerSnapshot) {
-		for {
-			select {
-			case q.snapshots <- snapshots:
-				return
-			case <-time.After(5 * time.Second):
-				logger.Println("QueuePollSnapshots hook TOO SLOW")
-			}
-		}
-	}
-	for {
-		snapshots, err := q.batchRetrieveSnapshotsForNode(nodeId, 1024)
+		time.Sleep(1 * time.Millisecond)
+		ps, err := s.queue.PopFinal()
 		if err != nil {
-			logger.Println("QueuePollSnapshots batchRetrieveSnapshots", err)
+			continue
 		}
-		if len(snapshots) > 0 {
-			fuel(snapshots)
-		} else {
-			time.Sleep(300 * time.Millisecond)
-		}
-	}
-}
-
-func (q *Queue) writeNodeMeta(id crypto.Hash) error {
-	txn := q.db.NewTransaction(true)
-	defer txn.Discard()
-
-	key := append([]byte(cachePrefixSnapshotNodeMeta), id[:]...)
-	err := txn.Set(key, []byte{1})
-	if err != nil {
-		return err
-	}
-	return txn.Commit()
-}
-
-func (q *Queue) writeFinals(snapshots []*PeerSnapshot) error {
-	wb := q.db.NewWriteBatch()
-	defer wb.Cancel()
-	for _, ps := range snapshots {
-		key := cacheSnapshotNodeQueueKey(ps)
-		val := common.MsgpackMarshalPanic(ps)
-		err := wb.Set(key, val, 0)
-		if err != nil {
-			return err
-		}
-	}
-	return wb.Flush()
-}
-
-func (q *Queue) batchRetrieveSnapshotsForNode(nodeId crypto.Hash, limit int) ([]*PeerSnapshot, error) {
-	keys := make([][]byte, 0)
-	snapshots := make([]*PeerSnapshot, 0)
-	err := q.db.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.Prefix = []byte(cachePrefixSnapshotNodeQueue)
-		opts.Prefix = append(opts.Prefix, nodeId[:]...)
-		it := txn.NewIterator(opts)
-		defer it.Close()
-
-		buf := make([]byte, 8)
-		binary.BigEndian.PutUint64(buf, 0)
-		it.Seek(append(opts.Prefix, buf...))
-		for ; it.ValidForPrefix(opts.Prefix) && len(snapshots) < limit; it.Next() {
-			item := it.Item()
-			v, err := item.ValueCopy(nil)
+		if ps == nil {
+			ps, err = s.queue.PopCache()
 			if err != nil {
-				return err
+				continue
 			}
-			var ps PeerSnapshot
-			err = common.MsgpackUnmarshal(v, &ps)
-			if err != nil {
-				return err
-			}
-			ps.Snapshot.Hash = ps.Snapshot.PayloadHash()
-			snapshots = append(snapshots, &ps)
-			keys = append(keys, item.KeyCopy(nil))
 		}
-		return nil
-	})
-	if err != nil {
-		return snapshots, err
-	}
-
-	wb := q.db.NewWriteBatch()
-	defer wb.Cancel()
-	for _, key := range keys {
-		err := wb.Delete(key)
-		if err != nil {
-			return snapshots, err
+		if ps == nil {
+			time.Sleep(100 * time.Millisecond)
+			continue
 		}
+		hook(ps.PeerId, ps.Snapshot)
 	}
-	return snapshots, wb.Flush()
-}
-
-func cacheSnapshotNodeQueueKey(ps *PeerSnapshot) []byte {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, ps.Snapshot.RoundNumber)
-	key := append(ps.Snapshot.NodeId[:], buf...)
-	key = append([]byte(cachePrefixSnapshotNodeQueue), key...)
-	return append(key, ps.Key...)
 }

@@ -379,7 +379,7 @@ func kernelCmd(c *cli.Context) error {
 		}
 	}()
 
-	store, err := storage.NewBadgerStore(c.String("dir"), cache)
+	store, err := storage.NewBadgerStore(c.String("dir"))
 	if err != nil {
 		return err
 	}

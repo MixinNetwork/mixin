@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/VictoriaMetrics/fastcache"
 	"github.com/dgraph-io/badger"
 )
 
@@ -16,7 +15,7 @@ type BadgerStore struct {
 	closing     bool
 }
 
-func NewBadgerStore(dir string, cache *fastcache.Cache) (*BadgerStore, error) {
+func NewBadgerStore(dir string) (*BadgerStore, error) {
 	snapshotsDB, err := openDB(dir+"/snapshots", true)
 	if err != nil {
 		return nil, err
@@ -33,7 +32,7 @@ func NewBadgerStore(dir string, cache *fastcache.Cache) (*BadgerStore, error) {
 		snapshotsDB: snapshotsDB,
 		cacheDB:     cacheDB,
 		stateDB:     stateDB,
-		queue:       NewQueue(cacheDB, cache),
+		queue:       NewQueue(),
 		closing:     false,
 	}, nil
 }

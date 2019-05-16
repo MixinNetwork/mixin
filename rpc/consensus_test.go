@@ -46,7 +46,7 @@ func TestConsensus(t *testing.T) {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
 		config.Initialize(dir + "/config.json")
 		cache := fastcache.New(config.Custom.MaxCacheSize * 1024 * 1024)
-		store, err := storage.NewBadgerStore(dir, cache)
+		store, err := storage.NewBadgerStore(dir)
 		assert.Nil(err)
 		assert.NotNil(store)
 		stores = append(stores, store)
