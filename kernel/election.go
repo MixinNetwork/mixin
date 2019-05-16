@@ -10,7 +10,38 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 )
+
+func (node *Node) ElectionLoop() error {
+	for node.Graph.MyCacheRound == nil {
+		time.Sleep(7 * time.Minute)
+		now := uint64(time.Now().UnixNano())
+		if now < node.epoch {
+			logger.Println("LOCAL TIME INVALID %d %d", now, node.epoch)
+			continue
+		}
+		hours := int((now-node.epoch)/3600000000000) % 24
+		if hours < config.KernelNodeAcceptTimeBegin || hours > config.KernelNodeAcceptTimeEnd {
+			continue
+		}
+
+		err := node.tryToSendAcceptTransaction()
+		if err != nil {
+			logger.Println("tryToSendAcceptTransaction", err)
+		}
+	}
+	return nil
+}
+
+func (node *Node) tryToSendAcceptTransaction() error {
+	tx := common.NewTransaction(common.XINAssetId)
+	tx.AddInput(config.Custom.Pledge, 0)
+	tx.AddOutputWithType(common.OutputTypeNodeAccept, nil, common.Script{}, common.NewInteger(10000), []byte{})
+	ver := tx.AsLatestVersion()
+	_, err := node.QueueTransaction(ver)
+	return err
+}
 
 func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	switch tx.TransactionType() {

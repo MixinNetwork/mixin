@@ -119,6 +119,7 @@ func (node *Node) LoadNodeConfig() {
 
 func (node *Node) LoadConsensusNodes() error {
 	node.ConsensusBase = 0
+	node.ConsensusPledging = nil
 	for _, cn := range node.persistStore.ReadConsensusNodes() {
 		logger.Println(cn.Signer.String(), cn.State)
 		switch cn.State {
