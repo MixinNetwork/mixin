@@ -224,7 +224,7 @@ func (q *Queue) loopRetrieveSnapshotsForNode(nodeId crypto.Hash) {
 		}
 	}
 	for {
-		snapshots, err := q.batchRetrieveSnapshotsForNode(nodeId, 1024)
+		snapshots, err := q.batchRetrieveSnapshotsForNode(nodeId, 256)
 		if err != nil {
 			logger.Println("QueuePollSnapshots batchRetrieveSnapshots", err)
 		}
@@ -272,7 +272,10 @@ func (q *Queue) batchRetrieveSnapshotsForNode(nodeId crypto.Hash, limit int) ([]
 		it := txn.NewIterator(opts)
 		defer it.Close()
 
-		for it.Rewind(); it.Valid() && len(snapshots) < limit; it.Next() {
+		buf := make([]byte, 8)
+		binary.BigEndian.PutUint64(buf, 0)
+		it.Seek(append(opts.Prefix, buf...))
+		for ; it.ValidForPrefix(opts.Prefix) && len(snapshots) < limit; it.Next() {
 			item := it.Item()
 			v, err := item.ValueCopy(nil)
 			if err != nil {
@@ -285,7 +288,7 @@ func (q *Queue) batchRetrieveSnapshotsForNode(nodeId crypto.Hash, limit int) ([]
 			}
 			ps.Snapshot.Hash = ps.Snapshot.PayloadHash()
 			snapshots = append(snapshots, &ps)
-			keys = append(keys, item.Key())
+			keys = append(keys, item.KeyCopy(nil))
 		}
 		return nil
 	})
