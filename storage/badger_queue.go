@@ -98,7 +98,6 @@ func (q *Queue) PutFinal(ps *PeerSnapshot) error {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	return nil
 }
 
 func (q *Queue) PopFinal() (*PeerSnapshot, error) {
@@ -115,8 +114,8 @@ func (q *Queue) PutCache(ps *PeerSnapshot) error {
 	if len(data) > 0 {
 		return nil
 	}
-
 	q.cache.Set(ps.Key, []byte{0})
+
 	for {
 		put, err := q.cacheRing.Offer(ps)
 		if err != nil || put {
@@ -124,7 +123,6 @@ func (q *Queue) PutCache(ps *PeerSnapshot) error {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	return nil
 }
 
 func (q *Queue) PopCache() (*PeerSnapshot, error) {
