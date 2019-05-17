@@ -74,7 +74,7 @@ func (s *BadgerStore) StartNewRound(node crypto.Hash, number uint64, references 
 	defer txn.Discard()
 
 	// FIXME assert only, remove in future
-	if config.Debug {
+	if config.Debug && number != 0 {
 		self, err := readRound(txn, node)
 		if err != nil {
 			return err
@@ -117,7 +117,7 @@ func (s *BadgerStore) StartNewRound(node crypto.Hash, number uint64, references 
 }
 
 func startNewRound(txn *badger.Txn, node crypto.Hash, number uint64, references *common.RoundLink, finalStart uint64) error {
-	if references != nil {
+	if number != 0 {
 		self, err := readRound(txn, node)
 		if err != nil {
 			return err
