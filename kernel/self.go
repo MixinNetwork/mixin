@@ -11,6 +11,30 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
+func (node *Node) doSnapshotValidation(s *common.Snapshot, tx *common.VersionedTransaction) error {
+	switch tx.TransactionType() {
+	case common.TransactionTypeMint:
+		err := node.validateMintSnapshot(s, tx)
+		if err != nil {
+			logger.Println("validateMintSnapshot", s, tx, err)
+			return err
+		}
+	case common.TransactionTypeNodePledge:
+		err := node.validateNodePledgeSnapshot(s, tx)
+		if err != nil {
+			logger.Println("validateNodePledgeSnapshot", s, tx, err)
+			return err
+		}
+	case common.TransactionTypeNodeAccept:
+		err := node.validateNodeAcceptSnapshot(s, tx)
+		if err != nil {
+			logger.Println("validateNodeAcceptSnapshot", s, tx, err)
+			return err
+		}
+	}
+	return nil
+}
+
 func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, error) {
 	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil || inNode {
@@ -23,8 +47,15 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Ver
 	}
 
 	tx, err := node.persistStore.ReadTransaction(s.Transaction)
-	if err != nil || tx != nil {
-		return tx, err
+	if err != nil {
+		return nil, err
+	}
+	if tx != nil {
+		err = node.doSnapshotValidation(s, tx)
+		if err != nil {
+			return nil, nil
+		}
+		return tx, nil
 	}
 
 	tx, err = node.persistStore.CacheGetTransaction(s.Transaction)
@@ -36,26 +67,9 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Ver
 	if err != nil {
 		return nil, nil
 	}
-
-	switch tx.TransactionType() {
-	case common.TransactionTypeMint:
-		err = node.validateMintSnapshot(s, tx)
-		if err != nil {
-			logger.Println("validateMintSnapshot", s, tx, err)
-			return nil, nil
-		}
-	case common.TransactionTypeNodePledge:
-		err = node.validateNodePledgeSnapshot(s, tx)
-		if err != nil {
-			logger.Println("validateNodePledgeSnapshot", s, tx, err)
-			return nil, nil
-		}
-	case common.TransactionTypeNodeAccept:
-		err = node.validateNodeAcceptSnapshot(s, tx)
-		if err != nil {
-			logger.Println("validateNodeAcceptSnapshot", s, tx, err)
-			return nil, nil
-		}
+	err = node.doSnapshotValidation(s, tx)
+	if err != nil {
+		return nil, nil
 	}
 
 	err = tx.LockInputs(node.persistStore, false)
