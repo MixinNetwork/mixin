@@ -22,6 +22,7 @@ func main() {
 	}
 	defer db.Close()
 
+	revertSnapshot2f41191(db)
 }
 
 func revertSnapshot2f41191(db *badger.DB) {
@@ -45,6 +46,10 @@ func revertSnapshot2f41191(db *badger.DB) {
 		panic(err)
 	}
 	tx, err := hex.DecodeString("5427ccbdb99a7eadfe271be34afe3a8101e304be7a5d8a7e8be57d3990e7c270")
+	if err != nil {
+		panic(err)
+	}
+	pledgeTx, err := hex.DecodeString("9d87a3085035bba4b58bdad03ef61958f980e0377271721bd0cb3ff2d21b3f08")
 	if err != nil {
 		panic(err)
 	}
@@ -88,7 +93,7 @@ func revertSnapshot2f41191(db *badger.DB) {
 		panic(err)
 	}
 	if s.TopologicalOrder < 4000000 {
-		panic(err)
+		panic(s.TopologicalOrder)
 	}
 	item, err = txn.Get(graphTopologyKey(s.TopologicalOrder))
 	if err != nil {
@@ -163,7 +168,7 @@ func revertSnapshot2f41191(db *badger.DB) {
 	}
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, uint64(time.Now().Add(-3*24*time.Hour).UnixNano()))
-	val := append(payee, tx...)
+	val := append(payee, pledgeTx...)
 	val = append(val, buf...)
 	err = txn.Set(nodePledgeKey(signer), val)
 	if err != nil {
