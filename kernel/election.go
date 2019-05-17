@@ -15,7 +15,7 @@ import (
 
 func (node *Node) ElectionLoop() error {
 	for node.Graph.MyCacheRound == nil {
-		time.Sleep(7 * time.Minute)
+		time.Sleep(13 * time.Minute)
 		now := uint64(time.Now().UnixNano())
 		if now < node.epoch {
 			logger.Printf("LOCAL TIME INVALID %d %d\n", now, node.epoch)
@@ -35,11 +35,36 @@ func (node *Node) ElectionLoop() error {
 }
 
 func (node *Node) tryToSendAcceptTransaction() error {
+	pledging := node.ConsensusPledging
+	if pledging == nil {
+		return fmt.Errorf("no consensus pledging node")
+	}
+	if pledging.Signer != node.Signer {
+		return fmt.Errorf("invalid consensus pledging node %s %s", pledging.Signer, node.Signer)
+	}
+	pledge, err := node.persistStore.ReadTransaction(pledging.Transaction)
+	if err != nil {
+		return err
+	}
+	if pledge == nil {
+		return fmt.Errorf("pledge transaction not available yet %s", pledging.Transaction)
+	}
+	if pledge.PayloadHash() != pledging.Transaction {
+		return fmt.Errorf("pledge transaction malformed %s %s", pledging.Transaction, pledge.PayloadHash())
+	}
+	signer := node.Signer.PublicSpendKey
+	if len(pledge.Extra) != len(signer)*2 {
+		return fmt.Errorf("invalid pledge transaction extra %s", hex.EncodeToString(pledge.Extra))
+	}
+	if bytes.Compare(signer[:], pledge.Extra[:len(signer)]) != 0 {
+		return fmt.Errorf("invalid pledge transaction extra %s %s", hex.EncodeToString(pledge.Extra[:len(signer)]), signer)
+	}
 	tx := common.NewTransaction(common.XINAssetId)
-	tx.AddInput(config.Custom.Pledge, 0)
+	tx.AddInput(pledging.Transaction, 0)
 	tx.AddOutputWithType(common.OutputTypeNodeAccept, nil, common.Script{}, common.NewInteger(10000), []byte{})
+	tx.Extra = pledge.Extra
 	ver := tx.AsLatestVersion()
-	_, err := node.QueueTransaction(ver)
+	_, err = node.QueueTransaction(ver)
 	return err
 }
 

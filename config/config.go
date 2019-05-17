@@ -29,7 +29,6 @@ const (
 )
 
 type custom struct {
-	Pledge       crypto.Hash   `json:"pledge"`
 	Signer       crypto.Key    `json:"signer"`
 	Listener     string        `json:"listener"`
 	MaxCacheSize int           `json:"max-cache-size"`
