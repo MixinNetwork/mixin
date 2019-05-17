@@ -283,6 +283,9 @@ func (node *Node) VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Sna
 	if !signersMap[peerId] {
 		return nil
 	}
+	if node.checkInitialAcceptSnapshotWeak(s) {
+		return node.persistStore.QueueAppendSnapshot(peerId, s, false)
+	}
 	if !node.CheckCatchUpWithPeers() {
 		return nil
 	}

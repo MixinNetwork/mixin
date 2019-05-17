@@ -25,17 +25,18 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 		return node.handleSyncFinalSnapshot(s, tx)
 	}
 
-	if !node.CheckCatchUpWithPeers() {
-		time.Sleep(100 * time.Millisecond)
-		return node.queueSnapshotOrPanic(s, false)
-	}
-
 	tx, err := node.checkCacheSnapshotTransaction(s)
 	if err != nil {
 		return node.queueSnapshotOrPanic(s, false)
 	} else if tx == nil {
 		return nil
 	}
+
+	if !node.CheckCatchUpWithPeers() && !node.checkInitialAcceptSnapshot(s, tx) {
+		time.Sleep(100 * time.Millisecond)
+		return node.queueSnapshotOrPanic(s, false)
+	}
+
 	if s.NodeId == node.IdForNetwork {
 		if len(s.Signatures) == 0 {
 			return node.signSelfSnapshot(s, tx)
@@ -128,7 +129,7 @@ func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto
 	return valid
 }
 
-func (node *Node) checkInitialAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) bool {
+func (node *Node) checkInitialAcceptSnapshotWeak(s *common.Snapshot) bool {
 	final := node.Graph.FinalRound[s.NodeId]
 	pledge := node.ConsensusPledging
 	if final != nil || pledge == nil {
@@ -140,7 +141,11 @@ func (node *Node) checkInitialAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	if s.NodeId != pledge.Signer.Hash().ForNetwork(node.networkId) {
 		return false
 	}
-	return s.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept
+	return s.RoundNumber == 0
+}
+
+func (node *Node) checkInitialAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) bool {
+	return node.checkInitialAcceptSnapshotWeak(s) && tx.TransactionType() == common.TransactionTypeNodeAccept
 }
 
 func (node *Node) queueSnapshotOrPanic(s *common.Snapshot, finalized bool) error {

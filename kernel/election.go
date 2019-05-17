@@ -31,6 +31,7 @@ func (node *Node) ElectionLoop() error {
 			logger.Println("tryToSendAcceptTransaction", err)
 		}
 	}
+	logger.Println("ElectionLoop DONE")
 	return nil
 }
 
@@ -59,13 +60,27 @@ func (node *Node) tryToSendAcceptTransaction() error {
 	if bytes.Compare(signer[:], pledge.Extra[:len(signer)]) != 0 {
 		return fmt.Errorf("invalid pledge transaction extra %s %s", hex.EncodeToString(pledge.Extra[:len(signer)]), signer)
 	}
+
 	tx := common.NewTransaction(common.XINAssetId)
 	tx.AddInput(pledging.Transaction, 0)
 	tx.AddOutputWithType(common.OutputTypeNodeAccept, nil, common.Script{}, common.NewInteger(10000), []byte{})
 	tx.Extra = pledge.Extra
 	ver := tx.AsLatestVersion()
-	_, err = node.QueueTransaction(ver)
-	return err
+
+	err = ver.Validate(node.persistStore)
+	if err != nil {
+		return err
+	}
+	err = node.persistStore.CachePutTransaction(ver)
+	if err != nil {
+		return err
+	}
+	err = node.persistStore.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+		NodeId:      node.IdForNetwork,
+		Transaction: ver.PayloadHash(),
+	}, false)
+	logger.Println("tryToSendAcceptTransaction", ver.PayloadHash(), hex.EncodeToString(ver.Marshal()))
+	return nil
 }
 
 func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.VersionedTransaction) error {
@@ -225,11 +240,15 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid pledge and accpet key %s %s", hex.EncodeToString(pledge.Extra), hex.EncodeToString(tx.Extra))
 	}
 
+	timestamp := s.Timestamp
 	if s.RoundNumber != 0 {
 		return fmt.Errorf("invalid snapshot round %d", s.RoundNumber)
 	}
-	if s.Timestamp < node.epoch {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.epoch, s.Timestamp)
+	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
+		timestamp = uint64(time.Now().UnixNano())
+	}
+	if timestamp < node.epoch {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.epoch, timestamp)
 	}
 	if r := node.Graph.CacheRound[s.NodeId]; r != nil {
 		return fmt.Errorf("invalid graph round %s %d", s.NodeId, r.Number)
@@ -238,21 +257,21 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid graph round %s %d", s.NodeId, r.Number)
 	}
 
-	since := s.Timestamp - node.epoch
+	since := timestamp - node.epoch
 	hours := int(since / 3600000000000)
 	if hours%24 < config.KernelNodeAcceptTimeBegin || hours%24 > config.KernelNodeAcceptTimeEnd {
 		return fmt.Errorf("invalid node accept hour %d", hours%24)
 	}
 
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if s.Timestamp+threshold*2 < node.Graph.GraphTimestamp {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Graph.GraphTimestamp, s.Timestamp)
+	if timestamp+threshold*2 < node.Graph.GraphTimestamp {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Graph.GraphTimestamp, timestamp)
 	}
 
-	if s.Timestamp < node.ConsensusPledging.Timestamp {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.ConsensusPledging.Timestamp, s.Timestamp)
+	if timestamp < node.ConsensusPledging.Timestamp {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.ConsensusPledging.Timestamp, timestamp)
 	}
-	elapse := time.Duration(s.Timestamp - node.ConsensusPledging.Timestamp)
+	elapse := time.Duration(timestamp - node.ConsensusPledging.Timestamp)
 	if elapse > config.KernelNodeAcceptPeriodMaximum {
 		return fmt.Errorf("invalid accept period %d %d", config.KernelNodeAcceptPeriodMaximum, elapse)
 	}
