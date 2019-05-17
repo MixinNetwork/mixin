@@ -21,8 +21,8 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 	if len(tx.Inputs) < 1 || len(tx.Outputs) < 1 {
 		return fmt.Errorf("invalid tx inputs or outputs %d %d", len(tx.Inputs), len(tx.Outputs))
 	}
-	if len(tx.Inputs) != len(tx.Signatures) {
-		return fmt.Errorf("invalid tx signature number %d %d", len(tx.Inputs), len(tx.Signatures))
+	if len(tx.Inputs) != len(tx.Signatures) && txType != TransactionTypeNodePledge {
+		return fmt.Errorf("invalid tx signature number %d %d %d", len(tx.Inputs), len(tx.Signatures), txType)
 	}
 	if len(tx.Extra) > ExtraSizeLimit {
 		return fmt.Errorf("invalid extra size %d", len(tx.Extra))

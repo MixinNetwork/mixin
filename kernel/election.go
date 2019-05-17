@@ -39,7 +39,7 @@ func (node *Node) tryToSendAcceptTransaction() error {
 	if pledging == nil {
 		return fmt.Errorf("no consensus pledging node")
 	}
-	if pledging.Signer != node.Signer {
+	if pledging.Signer.String() != node.Signer.String() {
 		return fmt.Errorf("invalid consensus pledging node %s %s", pledging.Signer, node.Signer)
 	}
 	pledge, err := node.persistStore.ReadTransaction(pledging.Transaction)
