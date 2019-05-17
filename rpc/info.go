@@ -52,7 +52,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	}
 	if n := node.ConsensusPledging; n != nil {
 		nodes = append(nodes, map[string]interface{}{
-			"node":   n.Signer.Hash().ForNetwork(node.IdForNetwork),
+			"node":   n.Signer.Hash().ForNetwork(node.NetworkId()),
 			"signer": n.Signer.String(),
 			"payee":  n.Payee.String(),
 			"state":  n.State,
