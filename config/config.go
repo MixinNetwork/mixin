@@ -10,7 +10,7 @@ import (
 
 const (
 	Debug        = true
-	BuildVersion = "v0.3.7-BUILD_VERSION"
+	BuildVersion = "v0.3.8-BUILD_VERSION"
 
 	MainnetId                  = "6430225c42bb015b4da03102fa962e4f4ef3969e03e04345db229f8377ef7997"
 	SnapshotRoundGap           = uint64(3 * time.Second)
@@ -22,7 +22,7 @@ const (
 	KernelMintTimeEnd   = 9
 
 	KernelNodeAcceptTimeBegin        = 13
-	KernelNodeAcceptTimeEnd          = 17
+	KernelNodeAcceptTimeEnd          = 19
 	KernelNodeOperationLockThreshold = 1 * time.Hour
 	KernelNodePledgePeriodMinimum    = 24 * time.Hour
 	KernelNodeAcceptPeriodMaximum    = 7 * 24 * time.Hour
