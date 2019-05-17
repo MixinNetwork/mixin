@@ -146,20 +146,29 @@ func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snaps
 func (s *BadgerStore) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error) {
 	for !s.closing {
 		time.Sleep(1 * time.Millisecond)
-		ps, err := s.queue.PopFinal()
-		if err != nil {
-			continue
-		}
-		if ps == nil {
-			ps, err = s.queue.PopCache()
+		final, cache := 0, 0
+		for i := 0; i < 10; i++ {
+			ps, err := s.queue.PopFinal()
 			if err != nil {
-				continue
+				break
+			}
+			if ps != nil {
+				hook(ps.PeerId, ps.Snapshot)
+				final++
 			}
 		}
-		if ps == nil {
-			time.Sleep(100 * time.Millisecond)
-			continue
+		for i := 0; i < 2; i++ {
+			ps, err := s.queue.PopCache()
+			if err != nil {
+				break
+			}
+			if ps != nil {
+				hook(ps.PeerId, ps.Snapshot)
+				cache++
+			}
 		}
-		hook(ps.PeerId, ps.Snapshot)
+		if cache < 1 && final < 1 {
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
 }
