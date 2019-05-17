@@ -114,7 +114,7 @@ func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash cry
 			return inputsFilter, inputAmount, fmt.Errorf("input locked for transaction %s", utxo.LockHash)
 		}
 
-		err = validateUTXO(&utxo.UTXO, tx.Signatures[i], msg, txType)
+		err = validateUTXO(i, &utxo.UTXO, tx.Signatures, msg, txType)
 		if err != nil {
 			return inputsFilter, inputAmount, err
 		}
@@ -183,11 +183,11 @@ func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
 	return outputAmount, nil
 }
 
-func validateUTXO(utxo *UTXO, sigs []crypto.Signature, msg []byte, txType uint8) error {
+func validateUTXO(index int, utxo *UTXO, sigs [][]crypto.Signature, msg []byte, txType uint8) error {
 	switch utxo.Type {
 	case OutputTypeScript:
 		var offset, valid int
-		for _, sig := range sigs {
+		for _, sig := range sigs[index] {
 			for i, k := range utxo.Keys {
 				if i < offset {
 					continue
