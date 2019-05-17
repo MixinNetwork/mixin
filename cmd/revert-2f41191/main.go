@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/MixinNetwork/cedric/common"
+	"github.com/MixinNetwork/mixin/common"
 	"github.com/dgraph-io/badger"
 )
 
