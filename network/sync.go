@@ -45,33 +45,32 @@ func (me *Peer) cacheReadSnapshotsSinceTopology(offset, limit uint64) ([]*common
 }
 
 func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPoint) (uint64, error) {
-	localFilter := make(map[crypto.Hash]*SyncPoint)
-	for _, p := range local {
-		localFilter[p.NodeId] = p
+	remoteFilter := make(map[crypto.Hash]*SyncPoint)
+	for _, p := range remote {
+		remoteFilter[p.NodeId] = p
 	}
 
 	var future bool
 	var offset uint64
 
-	for _, r := range remote {
-		l := localFilter[r.NodeId]
-		if l == nil {
-			continue
+	for _, l := range local {
+		r := remoteFilter[l.NodeId]
+		if r == nil {
+			future = true
+			break
 		}
 		if l.Number >= r.Number+config.SnapshotReferenceThreshold/2 {
 			future = true
+			break
 		}
 	}
 	if !future {
 		return offset, nil
 	}
 
-	for _, r := range remote {
-		l := localFilter[r.NodeId]
-		if l == nil {
-			continue
-		}
-		if l.Number < r.Number {
+	for _, l := range local {
+		r := remoteFilter[l.NodeId]
+		if r != nil && r.Number > l.Number {
 			continue
 		}
 
