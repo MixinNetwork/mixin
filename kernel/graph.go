@@ -130,9 +130,8 @@ func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto
 }
 
 func (node *Node) checkInitialAcceptSnapshotWeak(s *common.Snapshot) bool {
-	final := node.Graph.FinalRound[s.NodeId]
 	pledge := node.ConsensusPledging
-	if final != nil || pledge == nil {
+	if pledge == nil {
 		return false
 	}
 	if node.genesisNodesMap[s.NodeId] {
@@ -145,6 +144,9 @@ func (node *Node) checkInitialAcceptSnapshotWeak(s *common.Snapshot) bool {
 }
 
 func (node *Node) checkInitialAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) bool {
+	if node.Graph.FinalRound[s.NodeId] != nil {
+		return false
+	}
 	return node.checkInitialAcceptSnapshotWeak(s) && tx.TransactionType() == common.TransactionTypeNodeAccept
 }
 

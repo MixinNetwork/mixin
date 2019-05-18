@@ -286,7 +286,7 @@ func (node *Node) VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Sna
 	if node.checkInitialAcceptSnapshotWeak(s) {
 		return node.persistStore.QueueAppendSnapshot(peerId, s, false)
 	}
-	if !node.CheckCatchUpWithPeers() {
+	if !node.CheckCatchUpWithPeers() { // FIXME concurrent map read write
 		return nil
 	}
 	return node.QueueAppendSnapshot(peerId, s, false)
@@ -327,7 +327,7 @@ func (node *Node) ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round
 }
 
 func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoint) {
-	if node.ConsensusNodes[peerId] == nil {
+	if node.ConsensusNodes[peerId] == nil { // FIXME concurrent map read write
 		return
 	}
 	for _, p := range points {
