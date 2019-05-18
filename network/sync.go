@@ -100,7 +100,7 @@ func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, o
 		return offset, err
 	}
 	for _, s := range snapshots {
-		if s.RoundNumber <= graph[s.NodeId].Number {
+		if r := graph[s.NodeId]; r != nil && s.RoundNumber <= r.Number {
 			offset = s.TopologicalOrder
 			continue
 		}
