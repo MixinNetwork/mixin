@@ -130,9 +130,11 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 		NodeId:    s.NodeId,
 		Number:    1,
 		Timestamp: s.Timestamp + config.SnapshotRoundGap + 1,
+		References: &common.RoundLink{
+			Self:     final.Hash,
+			External: external.Hash,
+		},
 	}
-	cache.References.Self = final.Hash
-	cache.References.External = external.Hash
 	err = node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, cache.Timestamp)
 	if err != nil {
 		panic(err)

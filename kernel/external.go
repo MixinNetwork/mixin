@@ -39,6 +39,9 @@ func (node *Node) verifyExternalSnapshot(s *common.Snapshot, tx *common.Versione
 	if s.RoundNumber > cache.Number+1 {
 		return node.queueSnapshotOrPanic(s, false)
 	}
+	if s.Timestamp <= final.Start+config.SnapshotRoundGap {
+		return nil
+	}
 	if s.RoundNumber == cache.Number {
 		if !s.References.Equal(cache.References) {
 			return nil
