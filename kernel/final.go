@@ -35,6 +35,10 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.Ver
 }
 
 func (node *Node) tryToStartNewRound(s *common.Snapshot) error {
+	if s.RoundNumber == 0 {
+		return nil
+	}
+
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
