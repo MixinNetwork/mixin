@@ -63,7 +63,7 @@ func (node *Node) tryToSendAcceptTransaction() error {
 
 	tx := common.NewTransaction(common.XINAssetId)
 	tx.AddInput(pledging.Transaction, 0)
-	tx.AddOutputWithType(common.OutputTypeNodeAccept, nil, common.Script{}, common.NewInteger(10000), []byte{})
+	tx.AddOutputWithType(common.OutputTypeNodeAccept, nil, common.Script{}, pledge.Outputs[0].Amount, []byte{})
 	tx.Extra = pledge.Extra
 	ver := tx.AsLatestVersion()
 
