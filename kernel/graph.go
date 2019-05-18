@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
@@ -85,6 +86,9 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 		return nil, fmt.Errorf("external round %s not collected yet", s.References.External)
 	}
 	if final.NodeId == external.NodeId {
+		return nil, nil
+	}
+	if !node.genesisNodesMap[external.NodeId] && external.Number < 7+config.SnapshotReferenceThreshold {
 		return nil, nil
 	}
 
