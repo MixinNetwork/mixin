@@ -20,6 +20,10 @@
     "host": "mixin-node-05.b1.run:7239"
   },
   {
+    "signer": "XINJ7LcWaCqPt9zrQFjPz2kQEy4BywpUBrBFQvTLD22siC6VH1MWEk72ftR1HbeSYrTn1VvX1HkR4EyG262JewpHbyDj83kS",
+    "host": "mixin-node-06.b1.run:7239"
+  },
+  {
     "signer": "XINq9ctH1qYjxE8AsxJoH53qgNpS6hpL5mv5sFGML4Bf7tdpBD5LorhGBGpSF4tEKh9LD81XrXcaLA3CmTnCZU2NoKExsDh",
     "host": "35.188.235.212:7239"
   },
@@ -58,5 +62,9 @@
   {
     "signer": "XINBcaWrMMmnuKy3iGg4fbrpjxXx2inVNjG8g9V2u5xfbPQaowLfgapqpZW5wfY2AZU2BLvpbhrUc7UWRDWU6JifzCAeUHhA",
     "host": "node-42.f1ex.io:443"
+  },
+  {
+    "signer": "XINLqLa2rC91M7wjzr1YC8oDQTL3DSeY3SLZAVHek6es9G6fJckjwdinrLMENfhnAwZLuDxCELedMAyWDdnPTnCZBVRxwy2P",
+    "host": "35.234.74.25:7239"
   }
 ]
