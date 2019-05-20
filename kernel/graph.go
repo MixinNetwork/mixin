@@ -173,7 +173,7 @@ func (node *Node) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 }
 
 func (node *Node) verifyFinalization(hash crypto.Hash, sigs []*crypto.Signature) bool {
-	if node.IdForNetwork.String() == config.MainnetId && hash.String() == "69407ce28b9c5344b24b26ca9ca8bf79fb6f3eb08ca14853049df69728d4867e" {
+	if node.networkId.String() == config.MainnetId && hash.String() == "69407ce28b9c5344b24b26ca9ca8bf79fb6f3eb08ca14853049df69728d4867e" {
 		consensusThreshold := node.ConsensusBase * 2 / 3
 		return len(sigs) >= consensusThreshold
 	}
