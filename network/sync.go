@@ -70,13 +70,13 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPo
 
 	for _, l := range local {
 		r := remoteFilter[l.NodeId]
-		if r == nil {
+		if r != nil && r.Number > l.Number {
 			continue
 		}
-		if r.Number > l.Number {
-			continue
+		number := uint64(0)
+		if r != nil {
+			number = r.Number
 		}
-		number := r.Number
 
 		ss, err := me.cacheReadSnapshotsForNodeRound(l.NodeId, number)
 		if err != nil {
