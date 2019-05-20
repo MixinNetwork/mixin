@@ -127,7 +127,7 @@ func (node *Node) ConsensusBase(timestamp uint64) int {
 			consensusBase++
 		}
 	}
-	if consensusBase < len(genesisNodes) {
+	if consensusBase < len(node.genesisNodes) {
 		panic(consensusBase)
 	}
 	return consensusBase
