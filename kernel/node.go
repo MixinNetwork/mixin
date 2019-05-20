@@ -35,9 +35,9 @@ type Node struct {
 	SyncPoints     *syncMap
 	Listener       string
 
+	ActiveNodes       map[crypto.Hash]*common.Node
 	ConsensusNodes    map[crypto.Hash]*common.Node
 	ConsensusPledging *common.Node
-	ActiveNodes       []*common.Node
 
 	genesisNodesMap map[crypto.Hash]bool
 	genesisNodes    []crypto.Hash
@@ -121,6 +121,9 @@ func (node *Node) ConsensusBase(timestamp uint64) int {
 	if timestamp == 0 {
 		timestamp = uint64(time.Now().UnixNano())
 	}
+	if t := node.epoch + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*2; t > timestamp {
+		timestamp = t
+	}
 	consensusBase := 0
 	for _, cn := range node.ActiveNodes {
 		if cn.Timestamp+config.SnapshotReferenceThreshold*config.SnapshotRoundGap < timestamp {
@@ -128,7 +131,7 @@ func (node *Node) ConsensusBase(timestamp uint64) int {
 		}
 	}
 	if consensusBase < len(node.genesisNodes) {
-		panic(consensusBase)
+		panic(fmt.Errorf("invalid consensus base %d %d", consensusBase, len(node.genesisNodes)))
 	}
 	return consensusBase
 }
@@ -136,19 +139,19 @@ func (node *Node) ConsensusBase(timestamp uint64) int {
 func (node *Node) LoadConsensusNodes() error {
 	node.ConsensusPledging = nil
 	node.ConsensusNodes = make(map[crypto.Hash]*common.Node)
-	node.ActiveNodes = make([]*common.Node, 0)
+	node.ActiveNodes = make(map[crypto.Hash]*common.Node)
 	for _, cn := range node.persistStore.ReadConsensusNodes() {
-		logger.Println(cn.Signer.String(), cn.State)
+		idForNetwork := cn.Signer.Hash().ForNetwork(node.networkId)
+		logger.Println(idForNetwork, cn.Signer.String(), cn.State, cn.Timestamp)
 		switch cn.State {
 		case common.NodeStatePledging:
+			node.ActiveNodes[idForNetwork] = cn
 			node.ConsensusPledging = cn
-			node.ActiveNodes = append(node.ActiveNodes, cn)
 		case common.NodeStateAccepted:
-			idForNetwork := cn.Signer.Hash().ForNetwork(node.networkId)
+			node.ActiveNodes[idForNetwork] = cn
 			node.ConsensusNodes[idForNetwork] = cn
-			node.ActiveNodes = append(node.ActiveNodes, cn)
 		case common.NodeStateDeparting:
-			node.ActiveNodes = append(node.ActiveNodes, cn)
+			node.ActiveNodes[idForNetwork] = cn
 		}
 	}
 	return nil
