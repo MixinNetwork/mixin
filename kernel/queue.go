@@ -53,7 +53,7 @@ func (node *Node) ConsumeQueue() error {
 			return nil
 		}
 		node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction)
-		return node.QueueAppendSnapshot(peerId, snap, node.verifyFinalization(snap.PayloadHash(), snap.Signatures))
+		return node.QueueAppendSnapshot(peerId, snap, node.verifyFinalization(snap.Timestamp, snap.Signatures))
 	})
 	return nil
 }

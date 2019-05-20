@@ -12,7 +12,7 @@ import (
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	defer node.Graph.UpdateFinalCache(node.IdForNetwork)
 
-	if node.verifyFinalization(s.PayloadHash(), s.Signatures) {
+	if node.verifyFinalization(s.Timestamp, s.Signatures) {
 		err := node.tryToStartNewRound(s)
 		if err != nil {
 			return node.queueSnapshotOrPanic(s, true)
@@ -172,15 +172,7 @@ func (node *Node) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 	}, false)
 }
 
-func (node *Node) verifyFinalization(hash crypto.Hash, sigs []*crypto.Signature) bool {
-	if node.networkId.String() == config.MainnetId {
-		switch hash.String() {
-		case "d94f5a1fb7cbc73451f4277b02bb4e51210634b9c5ee0dea9f58934041a464b4",
-			"69407ce28b9c5344b24b26ca9ca8bf79fb6f3eb08ca14853049df69728d4867e":
-			consensusThreshold := node.ConsensusBase * 2 / 3
-			return len(sigs) >= consensusThreshold
-		}
-	}
-	consensusThreshold := node.ConsensusBase*2/3 + 1
+func (node *Node) verifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {
+	consensusThreshold := node.ConsensusBase(timestamp)*2/3 + 1
 	return len(sigs) >= consensusThreshold
 }

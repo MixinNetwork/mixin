@@ -36,8 +36,8 @@ type Node struct {
 	Listener       string
 
 	ConsensusNodes    map[crypto.Hash]*common.Node
-	ConsensusBase     int
 	ConsensusPledging *common.Node
+	ActiveNodes       []*common.Node
 
 	genesisNodesMap map[crypto.Hash]bool
 	genesisNodes    []crypto.Hash
@@ -117,21 +117,38 @@ func (node *Node) LoadNodeConfig() {
 	node.Listener = config.Custom.Listener
 }
 
+func (node *Node) ConsensusBase(timestamp uint64) int {
+	if timestamp == 0 {
+		timestamp = uint64(time.Now().UnixNano())
+	}
+	consensusBase := 0
+	for _, cn := range node.ActiveNodes {
+		if cn.Timestamp+config.SnapshotReferenceThreshold*config.SnapshotRoundGap < timestamp {
+			consensusBase++
+		}
+	}
+	if consensusBase < len(genesisNodes) {
+		panic(consensusBase)
+	}
+	return consensusBase
+}
+
 func (node *Node) LoadConsensusNodes() error {
-	node.ConsensusBase = 0
 	node.ConsensusPledging = nil
+	node.ConsensusNodes = make(map[crypto.Hash]*common.Node)
+	node.ActiveNodes = make([]*common.Node, 0)
 	for _, cn := range node.persistStore.ReadConsensusNodes() {
 		logger.Println(cn.Signer.String(), cn.State)
 		switch cn.State {
 		case common.NodeStatePledging:
 			node.ConsensusPledging = cn
-			node.ConsensusBase += 1
+			node.ActiveNodes = append(node.ActiveNodes, cn)
 		case common.NodeStateAccepted:
 			idForNetwork := cn.Signer.Hash().ForNetwork(node.networkId)
 			node.ConsensusNodes[idForNetwork] = cn
-			node.ConsensusBase += 1
+			node.ActiveNodes = append(node.ActiveNodes, cn)
 		case common.NodeStateDeparting:
-			node.ConsensusBase += 1
+			node.ActiveNodes = append(node.ActiveNodes, cn)
 		}
 	}
 	return nil
@@ -220,7 +237,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 
 func (node *Node) VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
-	if len(s.Signatures) != 1 && !node.verifyFinalization(s.Hash, s.Signatures) {
+	if len(s.Signatures) != 1 && !node.verifyFinalization(s.Timestamp, s.Signatures) {
 		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
 	}
 	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
@@ -264,7 +281,7 @@ func (node *Node) VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Sna
 		s.Signatures[i] = sigs[i]
 	}
 
-	if node.verifyFinalization(s.Hash, s.Signatures) {
+	if node.verifyFinalization(s.Timestamp, s.Signatures) {
 		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash, 1)
 		err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
 		if err != nil {
@@ -338,7 +355,7 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 }
 
 func (node *Node) CheckBroadcastedToPeers() bool {
-	count, threshold := 1, node.ConsensusBase*2/3+1
+	count, threshold := 1, node.ConsensusBase(0)*2/3+1
 	final := node.Graph.MyFinalNumber
 	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
@@ -353,7 +370,7 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 }
 
 func (node *Node) CheckCatchUpWithPeers() bool {
-	threshold := node.ConsensusBase*2/3 + 1
+	threshold := node.ConsensusBase(0)*2/3 + 1
 	if node.SyncPoints.Len() < threshold {
 		return false
 	}
