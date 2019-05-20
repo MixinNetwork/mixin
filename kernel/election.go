@@ -274,6 +274,9 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.ConsensusPledging.Timestamp, timestamp)
 	}
 	elapse := time.Duration(timestamp - node.ConsensusPledging.Timestamp)
+	if elapse < config.KernelNodeAcceptPeriodMinimum {
+		return fmt.Errorf("invalid accept period %d %d", config.KernelNodeAcceptPeriodMinimum, elapse)
+	}
 	if elapse > config.KernelNodeAcceptPeriodMaximum {
 		return fmt.Errorf("invalid accept period %d %d", config.KernelNodeAcceptPeriodMaximum, elapse)
 	}

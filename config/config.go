@@ -24,7 +24,8 @@ const (
 	KernelNodeAcceptTimeBegin        = 13
 	KernelNodeAcceptTimeEnd          = 19
 	KernelNodeOperationLockThreshold = 1 * time.Hour
-	KernelNodePledgePeriodMinimum    = 24 * time.Hour
+	KernelNodePledgePeriodMinimum    = 12 * time.Hour
+	KernelNodeAcceptPeriodMinimum    = 12 * time.Hour
 	KernelNodeAcceptPeriodMaximum    = 7 * 24 * time.Hour
 )
 
