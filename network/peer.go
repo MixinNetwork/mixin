@@ -206,6 +206,10 @@ func (me *Peer) SendSnapshotMessage(idForNetwork crypto.Hash, s *common.Snapshot
 	if me.snapshotsCaches.Exist(key, config.Custom.CacheTTL*time.Second/2) {
 		return nil
 	}
+	key = crypto.NewHash(append(hash[:], finalized, 'S', 'S'))
+	if me.snapshotsCaches.Exist(key, time.Minute) {
+		return nil
+	}
 
 	peer := me.neighbors[idForNetwork]
 	if peer == nil {
