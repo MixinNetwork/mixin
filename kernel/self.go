@@ -109,7 +109,7 @@ func (node *Node) collectSelfSignatures(s *common.Snapshot, tx *common.Versioned
 	node.SnapshotsPool[s.Hash] = append([]*crypto.Signature{}, osigs...)
 
 	if node.checkInitialAcceptSnapshot(s, tx) {
-		if !node.verifyFinalization(osigs) {
+		if !node.verifyFinalization(s.PayloadHash(), osigs) {
 			return nil
 		}
 		s.Signatures = append([]*crypto.Signature{}, osigs...)
@@ -137,7 +137,7 @@ func (node *Node) collectSelfSignatures(s *common.Snapshot, tx *common.Versioned
 		return node.clearAndQueueSnapshotOrPanic(s)
 	}
 
-	if !node.verifyFinalization(osigs) {
+	if !node.verifyFinalization(s.PayloadHash(), osigs) {
 		return nil
 	}
 

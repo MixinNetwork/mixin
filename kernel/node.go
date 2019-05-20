@@ -220,7 +220,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 
 func (node *Node) VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
-	if len(s.Signatures) != 1 && !node.verifyFinalization(s.Signatures) {
+	if len(s.Signatures) != 1 && !node.verifyFinalization(s.Hash, s.Signatures) {
 		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
 	}
 	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
@@ -264,7 +264,7 @@ func (node *Node) VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Sna
 		s.Signatures[i] = sigs[i]
 	}
 
-	if node.verifyFinalization(s.Signatures) {
+	if node.verifyFinalization(s.Hash, s.Signatures) {
 		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash, 1)
 		err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
 		if err != nil {
