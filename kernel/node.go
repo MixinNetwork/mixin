@@ -128,7 +128,7 @@ func (node *Node) ConsensusBase(timestamp uint64) int {
 	for _, cn := range node.ActiveNodes {
 		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap
 		if cn.State == common.NodeStatePledging {
-			threshold = uint64(config.KernelNodeAcceptPeriodMinimum) / 2
+			threshold = uint64(config.KernelNodeAcceptPeriodMinimum) + threshold
 		}
 		if cn.Timestamp+threshold < timestamp {
 			consensusBase++
