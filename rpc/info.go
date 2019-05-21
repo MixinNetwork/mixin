@@ -44,10 +44,11 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	nodes := make([]map[string]interface{}, 0)
 	for id, n := range node.ConsensusNodes {
 		nodes = append(nodes, map[string]interface{}{
-			"node":   id,
-			"signer": n.Signer.String(),
-			"payee":  n.Payee.String(),
-			"state":  n.State,
+			"node":      id,
+			"signer":    n.Signer.String(),
+			"payee":     n.Payee.String(),
+			"state":     n.State,
+			"timestamp": n.Timestamp,
 		})
 	}
 	if n := node.ConsensusPledging; n != nil {

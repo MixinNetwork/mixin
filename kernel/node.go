@@ -126,7 +126,11 @@ func (node *Node) ConsensusBase(timestamp uint64) int {
 	}
 	consensusBase := 0
 	for _, cn := range node.ActiveNodes {
-		if cn.Timestamp+config.SnapshotReferenceThreshold*config.SnapshotRoundGap < timestamp {
+		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap
+		if cn.State == common.NodeStatePledging {
+			threshold = uint64(config.KernelNodeAcceptPeriodMinimum) / 2
+		}
+		if cn.Timestamp+threshold < timestamp {
 			consensusBase++
 		}
 	}
@@ -141,6 +145,9 @@ func (node *Node) LoadConsensusNodes() error {
 	node.ConsensusNodes = make(map[crypto.Hash]*common.Node)
 	node.ActiveNodes = make(map[crypto.Hash]*common.Node)
 	for _, cn := range node.persistStore.ReadConsensusNodes() {
+		if cn.Timestamp == 0 {
+			cn.Timestamp = node.epoch
+		}
 		idForNetwork := cn.Signer.Hash().ForNetwork(node.networkId)
 		logger.Println(idForNetwork, cn.Signer.String(), cn.State, cn.Timestamp)
 		switch cn.State {
