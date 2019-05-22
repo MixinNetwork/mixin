@@ -1,7 +1,7 @@
 package network
 
 const (
-	TransportMessageVersion    = 1
+	TransportMessageVersion    = 2
 	TransportMessageMaxSize    = 32 * 1024 * 1024
 	TransportMessageHeaderSize = 5
 )

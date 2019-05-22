@@ -1,8 +1,6 @@
 package network
 
 import (
-	"bytes"
-	"compress/gzip"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -10,11 +8,12 @@ import (
 	"encoding/binary"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"time"
 
+	"github.com/gobuffalo/packr"
 	"github.com/lucas-clemente/quic-go"
+	"github.com/valyala/gozstd"
 )
 
 const (
@@ -29,8 +28,8 @@ type QuicClient struct {
 	session  quic.Session
 	send     quic.SendStream
 	receive  quic.ReceiveStream
-	zipper   *gzip.Writer
-	unzipper *gzip.Reader
+	zipper   *gozstd.CDict
+	unzipper *gozstd.DDict
 }
 
 type QuicTransport struct {
@@ -72,14 +71,19 @@ func (t *QuicTransport) Dial() (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	zipper, err := gzip.NewWriterLevel(nil, 3)
+	box := packr.NewBox("../config/data")
+	dic, err := box.Find("zstd.dic")
+	if err != nil {
+		return nil, err
+	}
+	cdict, err := gozstd.NewCDictLevel(dic, 5)
 	if err != nil {
 		return nil, err
 	}
 	return &QuicClient{
 		session: sess,
 		send:    stm,
-		zipper:  zipper,
+		zipper:  cdict,
 	}, nil
 }
 
@@ -106,10 +110,19 @@ func (t *QuicTransport) Accept() (Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	box := packr.NewBox("../config/data")
+	dic, err := box.Find("zstd.dic")
+	if err != nil {
+		return nil, err
+	}
+	ddict, err := gozstd.NewDDict(dic)
+	if err != nil {
+		return nil, err
+	}
 	return &QuicClient{
 		session:  sess,
 		receive:  stm,
-		unzipper: new(gzip.Reader),
+		unzipper: ddict,
 	}, nil
 }
 
@@ -147,34 +160,16 @@ func (c *QuicClient) Receive() ([]byte, error) {
 		}
 	}
 
-	err = c.unzipper.Reset(bytes.NewBuffer(m.Data))
-	if err != nil {
-		return nil, err
-	}
-	defer c.unzipper.Close()
-
-	m.Data, err = ioutil.ReadAll(c.unzipper)
-	return m.Data, err
+	return gozstd.DecompressDict(nil, m.Data, c.unzipper)
 }
 
 func (c *QuicClient) Send(data []byte) error {
 	if l := len(data); l < 1 || l > TransportMessageMaxSize {
 		return fmt.Errorf("quic send invalid message size %d", l)
 	}
+	data = gozstd.CompressDict(nil, data, c.zipper)
 
-	var buf bytes.Buffer
-	c.zipper.Reset(&buf)
-	_, err := c.zipper.Write(data)
-	if err != nil {
-		return err
-	}
-	err = c.zipper.Close()
-	if err != nil {
-		return err
-	}
-	data = buf.Bytes()
-
-	err = c.send.SetWriteDeadline(time.Now().Add(WriteDeadline))
+	err := c.send.SetWriteDeadline(time.Now().Add(WriteDeadline))
 	if err != nil {
 		return err
 	}
