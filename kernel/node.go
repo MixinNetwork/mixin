@@ -131,11 +131,12 @@ func (node *Node) ConsensusBase(timestamp uint64) int {
 			panic("should never be here")
 		}
 		if cn.State == common.NodeStatePledging {
-			// FIXME the threshold should be optimized on both pledge and accept period
+			// FIXME the pledge transaction may be broadcasted very late
+			// at this situation, the node should be treated as evil
 			if config.KernelNodeAcceptPeriodMinimum < time.Hour {
 				panic("should never be here")
 			}
-			threshold = uint64(config.KernelNodeAcceptPeriodMinimum) - threshold
+			threshold = uint64(config.KernelNodeAcceptPeriodMinimum) - threshold*3
 		}
 		if cn.Timestamp+threshold < timestamp {
 			consensusBase++
