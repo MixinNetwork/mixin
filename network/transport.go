@@ -3,7 +3,7 @@ package network
 const (
 	TransportMessageVersion    = 2
 	TransportMessageMaxSize    = 32 * 1024 * 1024
-	TransportMessageHeaderSize = 5
+	TransportMessageHeaderSize = 6
 
 	TransportCompressionGzip   = 1
 	TransportCompressionZstd   = 2

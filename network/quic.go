@@ -159,7 +159,7 @@ func (c *QuicClient) Receive() ([]byte, error) {
 	if m.Compression != TransportCompressionGzip && m.Compression != TransportCompressionZstd {
 		return nil, fmt.Errorf("quic receive invalid message compression %d", m.Compression)
 	}
-	m.Size = binary.BigEndian.Uint32(header[1:])
+	m.Size = binary.BigEndian.Uint32(header[2:])
 	if m.Size > TransportMessageMaxSize {
 		return nil, fmt.Errorf("quic receive invalid message size %d", m.Size)
 	}
@@ -216,8 +216,8 @@ func (c *QuicClient) Send(data []byte) error {
 	if err != nil {
 		return err
 	}
-	header := []byte{TransportMessageVersion, TransportCompressionMethod, 0, 0, 0}
-	binary.BigEndian.PutUint32(header[1:], uint32(len(data)))
+	header := []byte{TransportMessageVersion, TransportCompressionMethod, 0, 0, 0, 0}
+	binary.BigEndian.PutUint32(header[2:], uint32(len(data)))
 	_, err = c.send.Write(header)
 	if err != nil {
 		return err
