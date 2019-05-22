@@ -205,7 +205,8 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid pledge amount %s", tx.Outputs[0].Amount.String())
 	}
 
-	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodeOperationLockThreshold))
+	// FIXME the node operation lock threshold should be optimized on pledging period
+	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2)
 }
 
 func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {

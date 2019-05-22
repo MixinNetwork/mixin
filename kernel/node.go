@@ -127,8 +127,15 @@ func (node *Node) ConsensusBase(timestamp uint64) int {
 	consensusBase := 0
 	for _, cn := range node.ActiveNodes {
 		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap
+		if threshold > uint64(3*time.Minute) {
+			panic("should never be here")
+		}
 		if cn.State == common.NodeStatePledging {
-			threshold = uint64(config.KernelNodeAcceptPeriodMinimum) / 2
+			// FIXME the threshold should be optimized on both pledge and accept period
+			if config.KernelNodeAcceptPeriodMinimum < time.Hour {
+				panic("should never be here")
+			}
+			threshold = uint64(config.KernelNodeAcceptPeriodMinimum) - threshold
 		}
 		if cn.Timestamp+threshold < timestamp {
 			consensusBase++
