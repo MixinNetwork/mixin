@@ -1,6 +1,8 @@
 package network
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -8,6 +10,7 @@ import (
 	"encoding/binary"
 	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"time"
 
@@ -25,11 +28,13 @@ const (
 )
 
 type QuicClient struct {
-	session  quic.Session
-	send     quic.SendStream
-	receive  quic.ReceiveStream
-	zipper   *gozstd.CDict
-	unzipper *gozstd.DDict
+	session      quic.Session
+	send         quic.SendStream
+	receive      quic.ReceiveStream
+	zstdZipper   *gozstd.CDict
+	zstdUnzipper *gozstd.DDict
+	gzipZipper   *gzip.Writer
+	gzipUnzipper *gzip.Reader
 }
 
 type QuicTransport struct {
@@ -71,6 +76,10 @@ func (t *QuicTransport) Dial() (Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	zipper, err := gzip.NewWriterLevel(nil, 3)
+	if err != nil {
+		return nil, err
+	}
 	box := packr.NewBox("../config/data")
 	dic, err := box.Find("zstd.dic")
 	if err != nil {
@@ -81,9 +90,10 @@ func (t *QuicTransport) Dial() (Client, error) {
 		return nil, err
 	}
 	return &QuicClient{
-		session: sess,
-		send:    stm,
-		zipper:  cdict,
+		session:    sess,
+		send:       stm,
+		zstdZipper: cdict,
+		gzipZipper: zipper,
 	}, nil
 }
 
@@ -120,9 +130,10 @@ func (t *QuicTransport) Accept() (Client, error) {
 		return nil, err
 	}
 	return &QuicClient{
-		session:  sess,
-		receive:  stm,
-		unzipper: ddict,
+		session:      sess,
+		receive:      stm,
+		zstdUnzipper: ddict,
+		gzipUnzipper: new(gzip.Reader),
 	}, nil
 }
 
@@ -144,6 +155,10 @@ func (c *QuicClient) Receive() ([]byte, error) {
 	if m.Version != TransportMessageVersion {
 		return nil, fmt.Errorf("quic receive invalid message version %d", m.Version)
 	}
+	m.Compression = header[1]
+	if m.Compression != TransportCompressionGzip && m.Compression != TransportCompressionZstd {
+		return nil, fmt.Errorf("quic receive invalid message compression %d", m.Compression)
+	}
 	m.Size = binary.BigEndian.Uint32(header[1:])
 	if m.Size > TransportMessageMaxSize {
 		return nil, fmt.Errorf("quic receive invalid message size %d", m.Size)
@@ -160,20 +175,48 @@ func (c *QuicClient) Receive() ([]byte, error) {
 		}
 	}
 
-	return gozstd.DecompressDict(nil, m.Data, c.unzipper)
+	switch m.Compression {
+	case TransportCompressionGzip:
+		err = c.gzipUnzipper.Reset(bytes.NewBuffer(m.Data))
+		if err != nil {
+			return nil, err
+		}
+		defer c.gzipUnzipper.Close()
+		m.Data, err = ioutil.ReadAll(c.gzipUnzipper)
+	case TransportCompressionZstd:
+		m.Data, err = gozstd.DecompressDict(nil, m.Data, c.zstdUnzipper)
+	}
+
+	return m.Data, err
 }
 
 func (c *QuicClient) Send(data []byte) error {
 	if l := len(data); l < 1 || l > TransportMessageMaxSize {
 		return fmt.Errorf("quic send invalid message size %d", l)
 	}
-	data = gozstd.CompressDict(nil, data, c.zipper)
+
+	switch TransportCompressionMethod {
+	case TransportCompressionGzip:
+		var buf bytes.Buffer
+		c.gzipZipper.Reset(&buf)
+		_, err := c.gzipZipper.Write(data)
+		if err != nil {
+			return err
+		}
+		err = c.gzipZipper.Close()
+		if err != nil {
+			return err
+		}
+		data = buf.Bytes()
+	case TransportCompressionZstd:
+		data = gozstd.CompressDict(nil, data, c.zstdZipper)
+	}
 
 	err := c.send.SetWriteDeadline(time.Now().Add(WriteDeadline))
 	if err != nil {
 		return err
 	}
-	header := []byte{TransportMessageVersion, 0, 0, 0, 0}
+	header := []byte{TransportMessageVersion, TransportCompressionMethod, 0, 0, 0}
 	binary.BigEndian.PutUint32(header[1:], uint32(len(data)))
 	_, err = c.send.Write(header)
 	if err != nil {
