@@ -24,6 +24,14 @@
     "host": "mixin-node-06.b1.run:7239"
   },
   {
+    "signer": "XINQXLM4QPjWsmPrf3XMmVLCcvdtMYHNKqCmyPPtv319WCMvGH6bhX4sxz2GaUaQN2o8GwD1JGGmcoZKCxWgg3pLxWtQFf2L",
+    "host": "mixin-node-07.b1.run:7239"
+  },
+  {
+    "signer": "XINREUBAUMqjbti5sNkCwGmjve8mLaM63xV3ZN4cWZ2ii4auuszhBv2B4MAnJuawguHcURGik4Fj5p1X9FTJbyDd4BhgDmFL",
+    "host": "35.194.136.89:7239"
+  },
+  {
     "signer": "XINq9ctH1qYjxE8AsxJoH53qgNpS6hpL5mv5sFGML4Bf7tdpBD5LorhGBGpSF4tEKh9LD81XrXcaLA3CmTnCZU2NoKExsDh",
     "host": "35.188.235.212:7239"
   },
