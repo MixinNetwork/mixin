@@ -74,5 +74,9 @@
   {
     "signer": "XINLqLa2rC91M7wjzr1YC8oDQTL3DSeY3SLZAVHek6es9G6fJckjwdinrLMENfhnAwZLuDxCELedMAyWDdnPTnCZBVRxwy2P",
     "host": "35.234.74.25:7239"
+  },
+  {
+    "signer": "XINLgiGUvnV2hDpzWFcf3QjpD6xmvzuhbqp7WqmihudXke3KSZ7JQ1h3Zuse4G5nW1jbm8JkBPRxuEZaPrQ59E3qmDUEgt6X",
+    "host": "ss2.mixin-node.tako.vip:7239"
   }
 ]
