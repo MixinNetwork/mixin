@@ -143,15 +143,15 @@ func (node *Node) ConsensusBase(timestamp uint64) int {
 		}
 	}
 	if consensusBase < len(node.genesisNodes) {
-		panic(fmt.Errorf("invalid consensus base %d %d", consensusBase, len(node.genesisNodes)))
+		panic(fmt.Errorf("invalid consensus base %d %d %d", timestamp, consensusBase, len(node.genesisNodes)))
 	}
 	return consensusBase
 }
 
 func (node *Node) LoadConsensusNodes() error {
 	node.ConsensusPledging = nil
-	node.ConsensusNodes = make(map[crypto.Hash]*common.Node)
-	node.ActiveNodes = make(map[crypto.Hash]*common.Node)
+	activeNodes := make(map[crypto.Hash]*common.Node)
+	consensusNodes := make(map[crypto.Hash]*common.Node)
 	for _, cn := range node.persistStore.ReadConsensusNodes() {
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.epoch
@@ -160,15 +160,17 @@ func (node *Node) LoadConsensusNodes() error {
 		logger.Println(idForNetwork, cn.Signer.String(), cn.State, cn.Timestamp)
 		switch cn.State {
 		case common.NodeStatePledging:
-			node.ActiveNodes[idForNetwork] = cn
+			activeNodes[idForNetwork] = cn
 			node.ConsensusPledging = cn
 		case common.NodeStateAccepted:
-			node.ActiveNodes[idForNetwork] = cn
-			node.ConsensusNodes[idForNetwork] = cn
+			activeNodes[idForNetwork] = cn
+			consensusNodes[idForNetwork] = cn
 		case common.NodeStateDeparting:
-			node.ActiveNodes[idForNetwork] = cn
+			activeNodes[idForNetwork] = cn
 		}
 	}
+	node.ActiveNodes = activeNodes
+	node.ConsensusNodes = consensusNodes
 	return nil
 }
 
