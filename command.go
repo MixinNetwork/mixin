@@ -539,11 +539,12 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"version": tx.Version,
-		"asset":   tx.Asset,
-		"inputs":  inputs,
-		"outputs": outputs,
-		"extra":   hex.EncodeToString(tx.Extra),
-		"hash":    tx.PayloadHash(),
+		"version":    tx.Version,
+		"asset":      tx.Asset,
+		"inputs":     inputs,
+		"outputs":    outputs,
+		"extra":      hex.EncodeToString(tx.Extra),
+		"hash":       tx.PayloadHash(),
+		"signatures": tx.Signatures,
 	}
 }

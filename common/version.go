@@ -12,6 +12,15 @@ type VersionedTransaction struct {
 	BadGenesis *SignedGenesisHackTransaction
 }
 
+func (tx *SignedTransaction) AsLatestVersion() *VersionedTransaction {
+	if tx.Version != TxVersion {
+		panic(tx.Version)
+	}
+	return &VersionedTransaction{
+		SignedTransaction: *tx,
+	}
+}
+
 func (tx *Transaction) AsLatestVersion() *VersionedTransaction {
 	if tx.Version != TxVersion {
 		panic(tx.Version)
