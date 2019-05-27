@@ -10,6 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/monero"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
+	"github.com/MixinNetwork/mixin/domains/tron"
 	"github.com/MixinNetwork/mixin/domains/zcash"
 )
 
@@ -68,6 +69,8 @@ func (tx *SignedTransaction) verifyDepositFormat() error {
 		return polkadot.VerifyTransactionHash(deposit.TransactionHash)
 	case eos.EOSChainId:
 		return eos.VerifyTransactionHash(deposit.TransactionHash)
+	case tron.TronChainId:
+		return tron.VerifyTransactionHash(deposit.TransactionHash)
 	}
 	return fmt.Errorf("invalid deposit chain id %s", chainId)
 }

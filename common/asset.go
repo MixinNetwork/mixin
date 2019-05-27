@@ -10,6 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/monero"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
+	"github.com/MixinNetwork/mixin/domains/tron"
 	"github.com/MixinNetwork/mixin/domains/zcash"
 )
 
@@ -42,6 +43,8 @@ func (a *Asset) Verify() error {
 		return polkadot.VerifyAssetKey(a.AssetKey)
 	case eos.EOSChainId:
 		return eos.VerifyAssetKey(a.AssetKey)
+	case tron.TronChainId:
+		return tron.VerifyAssetKey(a.AssetKey)
 	default:
 		return fmt.Errorf("invalid chain id %s", a.ChainId)
 	}
@@ -63,6 +66,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return polkadot.GenerateAssetId(a.AssetKey)
 	case eos.EOSChainId:
 		return eos.GenerateAssetId(a.AssetKey)
+	case tron.TronChainId:
+		return tron.GenerateAssetId(a.AssetKey)
 	default:
 		return crypto.Hash{}
 	}
@@ -84,6 +89,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return polkadot.PolkadotChainId
 	case eos.EOSChainId:
 		return eos.EOSChainId
+	case tron.TronChainId:
+		return tron.TronChainId
 	}
 	return crypto.Hash{}
 }
