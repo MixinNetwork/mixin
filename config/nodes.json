@@ -82,5 +82,13 @@
   {
     "signer": "XINLgiGUvnV2hDpzWFcf3QjpD6xmvzuhbqp7WqmihudXke3KSZ7JQ1h3Zuse4G5nW1jbm8JkBPRxuEZaPrQ59E3qmDUEgt6X",
     "host": "ss2.mixin-node.tako.vip:7239"
+  },
+  {
+    "signer": "XINBqc5ianx7d41WQyy9WRt9hbqBapoBg7UF1XjfAg8au3oSBfKADd6b4U5rNpXsnDzK7wWSXuJEx3gsa4JV3zw17bDZep51",
+    "host": "35.188.242.130:7239"
+  },
+  {
+    "signer": "XINTL5VNYxbx2nYNVCDkqT9EDDGDrXWCZjVyMSdda71JRE7vCMquB8hN96CZA445KnDFPGWVaCBPkdtyQHdH7sKnVDNhUV7F",
+    "host": "35.245.207.174:7239"
   }
 ]
