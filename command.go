@@ -60,7 +60,7 @@ func decodeAddressCmd(c *cli.Context) error {
 	fmt.Printf("public view key:\t%s\n", addr.PublicViewKey.String())
 	fmt.Printf("public spend key:\t%s\n", addr.PublicSpendKey.String())
 	fmt.Printf("spend derive private:\t%s\n", addr.PublicSpendKey.DeterministicHashDerive())
-	fmt.Printf("spend derive publlic:\t%s\n", addr.PublicSpendKey.DeterministicHashDerive().Public())
+	fmt.Printf("spend derive public:\t%s\n", addr.PublicSpendKey.DeterministicHashDerive().Public())
 	return nil
 }
 
