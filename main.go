@@ -22,6 +22,7 @@ func main() {
 	app.Name = "mixin"
 	app.Usage = "A free and lightning fast peer-to-peer transactional network for digital assets."
 	app.Version = config.BuildVersion
+	app.EnableBashCompletion = true
 	app.Commands = []cli.Command{
 		{
 			Name:    "kernel",
