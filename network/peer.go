@@ -438,7 +438,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 
 	peer, err := me.authenticateNeighbor(client)
 	if err != nil {
-		logger.Println("peer authentication error", err)
+		logger.Println("peer authentication error", client.RemoteAddr().String(), err)
 		return err
 	}
 

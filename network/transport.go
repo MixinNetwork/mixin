@@ -1,5 +1,7 @@
 package network
 
+import "net"
+
 const (
 	TransportMessageVersion    = 2
 	TransportMessageMaxSize    = 32 * 1024 * 1024
@@ -18,6 +20,7 @@ type TransportMessage struct {
 }
 
 type Client interface {
+	RemoteAddr() net.Addr
 	Receive() ([]byte, error)
 	Send([]byte) error
 	Close() error

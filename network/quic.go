@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"net"
 	"time"
 
 	"github.com/gobuffalo/packr"
@@ -135,6 +136,10 @@ func (t *QuicTransport) Accept() (Client, error) {
 		zstdUnzipper: ddict,
 		gzipUnzipper: new(gzip.Reader),
 	}, nil
+}
+
+func (c *QuicClient) RemoteAddr() net.Addr {
+	return c.session.RemoteAddr()
 }
 
 func (c *QuicClient) Receive() ([]byte, error) {
