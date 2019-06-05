@@ -90,5 +90,9 @@
   {
     "signer": "XINTL5VNYxbx2nYNVCDkqT9EDDGDrXWCZjVyMSdda71JRE7vCMquB8hN96CZA445KnDFPGWVaCBPkdtyQHdH7sKnVDNhUV7F",
     "host": "35.245.207.174:7239"
+  },
+  {
+    "signer": "XINNVmi4xZazh3akL9nSfoJvsqY2dfeRKYfKgbK7P6EE4GXSpNT3WsXK4PsJGuizgiDrcXRstmFUd7HVA5H2ZwydWbnkpsmy",
+    "host": "35.227.72.6:7239"
   }
 ]
