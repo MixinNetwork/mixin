@@ -92,7 +92,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 		return nil, nil
 	}
 	if !node.verifyFinalization(s.Timestamp, s.Signatures) {
-		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*7
+		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64
 		for _, r := range node.Graph.FinalRound {
 			if r.NodeId == s.NodeId {
 				continue
