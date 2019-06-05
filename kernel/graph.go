@@ -91,13 +91,15 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 	if !node.genesisNodesMap[external.NodeId] && external.Number < 7+config.SnapshotReferenceThreshold {
 		return nil, nil
 	}
-	threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*7
-	for _, r := range node.Graph.FinalRound {
-		if r.NodeId == s.NodeId {
-			continue
-		}
-		if threshold < r.Start {
-			return nil, fmt.Errorf("external reference %s too early %f", s.References.External, time.Duration(r.Start-external.Timestamp).Seconds())
+	if !node.verifyFinalization(s.Timestamp, s.Signatures) {
+		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*7
+		for _, r := range node.Graph.FinalRound {
+			if r.NodeId == s.NodeId {
+				continue
+			}
+			if threshold < r.Start {
+				return nil, fmt.Errorf("external reference %s too early %f", s.References.External, time.Duration(r.Start-external.Timestamp).Seconds())
+			}
 		}
 	}
 
