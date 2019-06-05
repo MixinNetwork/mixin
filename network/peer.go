@@ -22,6 +22,12 @@ const (
 	PeerMessageTypeSnapshotConfirm    = 5
 	PeerMessageTypeTransactionRequest = 6
 	PeerMessageTypeTransaction        = 7
+
+	PeerMessageTypeTransactionAnnoucement = 11
+	PeerMessageTypeTransactionCommitment  = 12
+	PeerMessageTypeSnapshotChallenge      = 13
+	PeerMessageTypeSnapshotResponse       = 14
+	PeerMessageTypeSnapshotFinalization   = 15
 )
 
 type ConfirmMap struct {
