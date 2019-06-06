@@ -23,7 +23,8 @@ type Snapshot struct {
 	References  *RoundLink          `json:"references"`
 	RoundNumber uint64              `json:"round"`
 	Timestamp   uint64              `json:"timestamp"`
-	Signatures  []*crypto.Signature `json:"signatures,omitempty"`
+	Signatures  []*crypto.Signature `json:"signatures,omitempty"msgpack:",omitempty"`
+	Signature   []byte              `json:"signature,omitempty"msgpack:",omitempty"`
 	Hash        crypto.Hash         `msgpack:"-"json:"hash"`
 }
 

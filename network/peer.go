@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	PeerMessageTypeSnapshot           = 0
 	PeerMessageTypePing               = 1
 	PeerMessageTypeAuthentication     = 3
 	PeerMessageTypeGraph              = 4
@@ -23,11 +22,11 @@ const (
 	PeerMessageTypeTransactionRequest = 6
 	PeerMessageTypeTransaction        = 7
 
-	PeerMessageTypeTransactionAnnoucement = 11
-	PeerMessageTypeTransactionCommitment  = 12
-	PeerMessageTypeSnapshotChallenge      = 13
-	PeerMessageTypeSnapshotResponse       = 14
-	PeerMessageTypeSnapshotFinalization   = 15
+	PeerMessageTypeSnapshotAnnoucement  = 10 // leader send snapshot to peer
+	PeerMessageTypeSnapshotCommitment   = 11 // peer generate determinsitic ri based on a and snapshot, send Ri to leader
+	PeerMessageTypeTransactionChallenge = 12 // leader send bitmask Z and aggragated R to peer
+	PeerMessageTypeSnapshotResponse     = 13 // peer generate A from nodes and Z, send response si = ri + H(R || A || M)ai to leader
+	PeerMessageTypeSnapshotFinalization = 14 // leader generate A, verify si B = ri B + H(R || A || M)ai B = Ri + H(R || A || M)Ai, then finaliz based on threshold
 )
 
 type ConfirmMap struct {
