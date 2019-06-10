@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	PeerMessageTypeSnapshotDeprecated = 0
 	PeerMessageTypePing               = 1
 	PeerMessageTypeAuthentication     = 3
 	PeerMessageTypeGraph              = 4
@@ -64,7 +65,7 @@ type SyncHandle interface {
 	BuildAuthenticationMessage() []byte
 	Authenticate(msg []byte) (crypto.Hash, string, error)
 	BuildGraph() []*SyncPoint
-	VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error
+	VerifyAndQueueAppendSnapshotdDeprecated(peerId crypto.Hash, s *common.Snapshot) error
 	SendTransactionToPeer(peerId, tx crypto.Hash) error
 	CachePutTransaction(peerId crypto.Hash, ver *common.VersionedTransaction) error
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
@@ -273,7 +274,7 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 	}
 	msg := &PeerMessage{Type: data[0]}
 	switch msg.Type {
-	case PeerMessageTypeSnapshot:
+	case PeerMessageTypeSnapshotDeprecated:
 		var ss common.Snapshot
 		err := common.MsgpackUnmarshal(data[1:], &ss)
 		if err != nil {
@@ -313,8 +314,11 @@ func buildPingMessage() []byte {
 }
 
 func buildSnapshotMessage(ss *common.Snapshot) []byte {
-	data := common.MsgpackMarshalPanic(ss)
-	return append([]byte{PeerMessageTypeSnapshot}, data...)
+	if len(ss.Signatures) > 3 {
+		data := common.MsgpackMarshalPanic(ss)
+		return append([]byte{PeerMessageTypeSnapshotDeprecated}, data...)
+	}
+	panic(ss)
 }
 
 func buildSnapshotConfirmMessage(snap crypto.Hash, finalized byte) []byte {
@@ -474,8 +478,8 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage, done ch
 		case msg := <-receive:
 			switch msg.Type {
 			case PeerMessageTypePing:
-			case PeerMessageTypeSnapshot:
-				me.handle.VerifyAndQueueAppendSnapshot(peer.IdForNetwork, msg.Snapshot)
+			case PeerMessageTypeSnapshotDeprecated:
+				me.handle.VerifyAndQueueAppendSnapshotdDeprecated(peer.IdForNetwork, msg.Snapshot)
 			case PeerMessageTypeGraph:
 				me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.FinalCache)
 				peer.sync <- msg.FinalCache

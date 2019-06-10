@@ -1,7 +1,6 @@
 package kernel
 
 import (
-	"fmt"
 	"sort"
 	"time"
 
@@ -94,75 +93,7 @@ func (node *Node) collectSelfSignatures(s *common.Snapshot, tx *common.Versioned
 		return nil
 	}
 
-	filter := make(map[string]bool)
-	osigs := node.SnapshotsPool[s.Hash]
-	for _, sig := range osigs {
-		filter[sig.String()] = true
-	}
-	for _, sig := range s.Signatures {
-		if filter[sig.String()] {
-			continue
-		}
-		osigs = append(osigs, sig)
-		filter[sig.String()] = true
-	}
-	node.SnapshotsPool[s.Hash] = append([]*crypto.Signature{}, osigs...)
-
-	if node.checkInitialAcceptSnapshot(s, tx) {
-		if !node.verifyFinalization(s.Timestamp, osigs) {
-			return nil
-		}
-		s.Signatures = append([]*crypto.Signature{}, osigs...)
-		err := node.finalizeNodeAcceptSnapshot(s)
-		if err != nil {
-			return err
-		}
-		for peerId, _ := range node.ConsensusNodes {
-			err := node.Peer.SendSnapshotMessage(peerId, s, 1)
-			if err != nil {
-				return err
-			}
-		}
-		return node.reloadConsensusNodesList(s, tx)
-	}
-
-	cache := node.Graph.CacheRound[s.NodeId].Copy()
-	if s.RoundNumber > cache.Number {
-		panic(fmt.Sprintf("should never be here %d %d", cache.Number, s.RoundNumber))
-	}
-	if s.RoundNumber < cache.Number {
-		return node.clearAndQueueSnapshotOrPanic(s)
-	}
-	if !cache.ValidateSnapshot(s, false) {
-		return node.clearAndQueueSnapshotOrPanic(s)
-	}
-
-	if !node.verifyFinalization(s.Timestamp, osigs) {
-		return nil
-	}
-
-	s.Signatures = append([]*crypto.Signature{}, osigs...)
-	topo := &common.SnapshotWithTopologicalOrder{
-		Snapshot:         *s,
-		TopologicalOrder: node.TopoCounter.Next(),
-	}
-	err := node.persistStore.WriteSnapshot(topo)
-	if err != nil {
-		panic(err)
-	}
-	if !cache.ValidateSnapshot(s, true) {
-		panic("should never be here")
-	}
-	node.Graph.CacheRound[s.NodeId] = cache
-	node.removeFromCache(s)
-
-	for peerId, _ := range node.ConsensusNodes {
-		err := node.Peer.SendSnapshotMessage(peerId, s, 1)
-		if err != nil {
-			return err
-		}
-	}
-	return node.reloadConsensusNodesList(s, tx)
+	return nil
 }
 
 func (node *Node) determinBestRound(roundTime uint64) *FinalRound {

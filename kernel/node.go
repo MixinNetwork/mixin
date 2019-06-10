@@ -255,9 +255,9 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
 }
 
-func (node *Node) VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
+func (node *Node) VerifyAndQueueAppendSnapshotdDeprecated(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
-	if len(s.Signatures) != 1 && !node.verifyFinalization(s.Timestamp, s.Signatures) {
+	if !node.verifyFinalizationDeprecated(s.Timestamp, s.Signatures) {
 		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
 	}
 	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
@@ -301,32 +301,15 @@ func (node *Node) VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Sna
 		s.Signatures[i] = sigs[i]
 	}
 
-	if node.verifyFinalization(s.Timestamp, s.Signatures) {
-		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash, 1)
-		err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
-		if err != nil {
-			return err
-		}
-		return node.QueueAppendSnapshot(peerId, s, true)
-	}
-
 	err = node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
-	if err != nil || len(s.Signatures) != 1 {
+	if err != nil {
 		return err
 	}
-	if !signersMap[s.NodeId] && s.NodeId != node.IdForNetwork {
-		return nil
+	if node.verifyFinalizationDeprecated(s.Timestamp, s.Signatures) {
+		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash, 1)
+		return node.QueueAppendSnapshot(peerId, s, true)
 	}
-	if !signersMap[peerId] {
-		return nil
-	}
-	if node.checkInitialAcceptSnapshotWeak(s) {
-		return node.persistStore.QueueAppendSnapshot(peerId, s, false)
-	}
-	if !node.CheckCatchUpWithPeers() { // FIXME concurrent map read write
-		return nil
-	}
-	return node.QueueAppendSnapshot(peerId, s, false)
+	return nil
 }
 
 func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot, final bool) error {
