@@ -43,7 +43,7 @@ func (node *Node) tryToSendAcceptTransaction() error {
 	if pledging.Signer.String() != node.Signer.String() {
 		return fmt.Errorf("invalid consensus pledging node %s %s", pledging.Signer, node.Signer)
 	}
-	pledge, err := node.persistStore.ReadTransaction(pledging.Transaction)
+	pledge, _, err := node.persistStore.ReadTransaction(pledging.Transaction)
 	if err != nil {
 		return err
 	}
@@ -229,7 +229,7 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid plede utxo source %s %s", node.ConsensusPledging.Transaction, tx.Inputs[0].Hash)
 	}
 
-	pledge, err := node.persistStore.ReadTransaction(tx.Inputs[0].Hash)
+	pledge, _, err := node.persistStore.ReadTransaction(tx.Inputs[0].Hash)
 	if err != nil {
 		return err
 	}

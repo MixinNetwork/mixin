@@ -92,7 +92,7 @@ func (tx *SignedTransaction) validateWithdrawalFuel(store DataStore, inputs map[
 		return fmt.Errorf("invalid extra %d for withdrawal fuel transaction", len(tx.Extra))
 	}
 	copy(hash[:], tx.Extra)
-	submit, err := store.ReadTransaction(hash)
+	submit, _, err := store.ReadTransaction(hash)
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (tx *SignedTransaction) validateWithdrawalClaim(store DataStore, inputs map
 		return fmt.Errorf("invalid extra %d for withdrawal claim transaction", len(tx.Extra))
 	}
 	copy(hash[:], tx.Extra)
-	submit, err := store.ReadTransaction(hash)
+	submit, _, err := store.ReadTransaction(hash)
 	if err != nil {
 		return err
 	}

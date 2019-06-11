@@ -40,7 +40,7 @@ func (node *Node) ConsumeQueue() error {
 			node.mempoolChan <- snap
 			return nil
 		}
-		tx, err = node.persistStore.ReadTransaction(snap.Transaction)
+		tx, _, err = node.persistStore.ReadTransaction(snap.Transaction)
 		if err != nil {
 			return err
 		}
