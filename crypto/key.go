@@ -52,6 +52,23 @@ func KeyMult(pub, priv *Key) *Key {
 	return &key
 }
 
+func KeyAdd(pub1, pub2 *Key) *Key {
+	var point1, point2 edwards25519.ExtendedGroupElement
+	var point3 edwards25519.CachedGroupElement
+	var point4 edwards25519.CompletedGroupElement
+	var point5 edwards25519.ProjectiveGroupElement
+	tmp := [32]byte(*pub1)
+	point1.FromBytes(&tmp)
+	tmp = [32]byte(*pub2)
+	point2.FromBytes(&tmp)
+	point2.ToCached(&point3)
+	edwards25519.GeAdd(&point4, &point1, &point3)
+	point4.ToProjective(&point5)
+	point5.ToBytes(&tmp)
+	key := Key(tmp)
+	return &key
+}
+
 func (k *Key) MultScalar(outputIndex uint64) *Key {
 	tmp := make([]byte, 12, 12)
 	length := binary.PutUvarint(tmp, outputIndex)
