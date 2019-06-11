@@ -38,7 +38,7 @@ func (k Key) DeterministicHashDerive() Key {
 	return NewKeyFromSeed(append(seed[:], seed[:]...))
 }
 
-func KeyMult(pub, priv *Key) *Key {
+func KeyMultPubPriv(pub, priv *Key) *Key {
 	var point edwards25519.ExtendedGroupElement
 	var point2 edwards25519.ProjectiveGroupElement
 
@@ -52,7 +52,7 @@ func KeyMult(pub, priv *Key) *Key {
 	return &key
 }
 
-func KeyAdd(pub1, pub2 *Key) *Key {
+func KeyAddPub(pub1, pub2 *Key) *Key {
 	var point1, point2 edwards25519.ExtendedGroupElement
 	var point3 edwards25519.CachedGroupElement
 	var point4 edwards25519.CompletedGroupElement
@@ -94,7 +94,7 @@ func DeriveGhostPublicKey(r, A, B *Key, outputIndex uint64) *Key {
 
 	tmp := [32]byte(*B)
 	point1.FromBytes(&tmp)
-	scalar := KeyMult(A, r).MultScalar(outputIndex).HashScalar()
+	scalar := KeyMultPubPriv(A, r).MultScalar(outputIndex).HashScalar()
 	edwards25519.GeScalarMultBase(&point2, scalar)
 	point2.ToCached(&point3)
 	edwards25519.GeAdd(&point4, &point1, &point3)
@@ -105,7 +105,7 @@ func DeriveGhostPublicKey(r, A, B *Key, outputIndex uint64) *Key {
 }
 
 func DeriveGhostPrivateKey(R, a, b *Key, outputIndex uint64) *Key {
-	scalar := KeyMult(R, a).MultScalar(outputIndex).HashScalar()
+	scalar := KeyMultPubPriv(R, a).MultScalar(outputIndex).HashScalar()
 	tmp := [32]byte(*b)
 	edwards25519.ScAdd(&tmp, &tmp, scalar)
 	key := Key(tmp)
@@ -120,7 +120,7 @@ func ViewGhostOutputKey(P, a, R *Key, outputIndex uint64) *Key {
 
 	tmp := [32]byte(*P)
 	point1.FromBytes(&tmp)
-	scalar := KeyMult(R, a).MultScalar(outputIndex).HashScalar()
+	scalar := KeyMultPubPriv(R, a).MultScalar(outputIndex).HashScalar()
 	edwards25519.GeScalarMultBase(&point2, scalar)
 	point2.ToCached(&point3)
 	edwards25519.GeSub(&point4, &point1, &point3)
