@@ -151,6 +151,21 @@ func (c *CosiSignature) AggregatePublicKey(publics []*Key) (*Key, error) {
 	return key, nil
 }
 
+func (c *CosiSignature) ThresholdVerify(threshold int) bool {
+	return len(c.Keys()) >= threshold
+}
+
+func (c *CosiSignature) FullVerify(publics []*Key, threshold int, message []byte) bool {
+	if !c.ThresholdVerify(threshold) {
+		return false
+	}
+	A, err := c.AggregatePublicKey(publics)
+	if err != nil {
+		return false
+	}
+	return A.Verify(message, c.Signature)
+}
+
 func (c CosiSignature) String() string {
 	return c.Signature.String() + fmt.Sprintf("%016x", c.Mask)
 }
