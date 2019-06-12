@@ -12,7 +12,7 @@ import (
 type CosiSignature struct {
 	Signature   Signature
 	Mask        uint64
-	commitments []Key
+	commitments []*Key
 }
 
 func CosiCommit(privateKey *Key, message []byte) *Key {
@@ -30,17 +30,17 @@ func CosiCommit(privateKey *Key, message []byte) *Key {
 	return &r
 }
 
-func CosiAggregateCommitment(Rs []Key, masks []int) (*CosiSignature, error) {
-	if len(Rs) != len(masks) {
-		return nil, fmt.Errorf("invalid cosi commitments and masks %d %d", len(Rs), len(masks))
+func CosiAggregateCommitment(randoms []*Key, masks []int) (*CosiSignature, error) {
+	if len(randoms) != len(masks) {
+		return nil, fmt.Errorf("invalid cosi commitments and masks %d %d", len(randoms), len(masks))
 	}
 	var encodedR *Key
 	var cosi CosiSignature
-	for i, R := range Rs {
+	for i, R := range randoms {
 		if encodedR == nil {
-			encodedR = &R
+			encodedR = R
 		} else {
-			encodedR = KeyAddPub(encodedR, &R)
+			encodedR = KeyAddPub(encodedR, R)
 		}
 		err := cosi.Mark(masks[i])
 		if err != nil {
@@ -52,9 +52,9 @@ func CosiAggregateCommitment(Rs []Key, masks []int) (*CosiSignature, error) {
 	return &cosi, nil
 }
 
-func (c *CosiSignature) AggregateResponse(publics []Key, responses [][32]byte, message []byte) error {
+func (c *CosiSignature) AggregateResponse(publics []*Key, responses []*[32]byte, message []byte) error {
 	var S *[32]byte
-	var keys []Key
+	var keys []*Key
 	for _, i := range c.Keys() {
 		if i >= len(publics) {
 			return fmt.Errorf("invalid cosi signature mask index %d/%d", i, len(publics))
@@ -77,16 +77,16 @@ func (c *CosiSignature) AggregateResponse(publics []Key, responses [][32]byte, m
 			return fmt.Errorf("invalid cosi signature response %s", sig)
 		}
 		if S == nil {
-			S = &s
+			S = s
 		} else {
-			edwards25519.ScAdd(S, S, &s)
+			edwards25519.ScAdd(S, S, s)
 		}
 	}
 	copy(c.Signature[32:], S[:])
 	return nil
 }
 
-func (c *CosiSignature) Challenge(publics []Key, message []byte) ([32]byte, error) {
+func (c *CosiSignature) Challenge(publics []*Key, message []byte) ([32]byte, error) {
 	var hramDigest [64]byte
 	var hramDigestReduced [32]byte
 	R := c.Signature[:32]
@@ -103,7 +103,7 @@ func (c *CosiSignature) Challenge(publics []Key, message []byte) ([32]byte, erro
 	return hramDigestReduced, nil
 }
 
-func (c *CosiSignature) Response(privateKey *Key, publics []Key, message []byte) ([32]byte, error) {
+func (c *CosiSignature) Response(privateKey *Key, publics []*Key, message []byte) ([32]byte, error) {
 	var s [32]byte
 	r := CosiCommit(privateKey, message)
 	messageDigestReduced := [32]byte(*r)
@@ -135,17 +135,17 @@ func (c *CosiSignature) Keys() []int {
 	return keys
 }
 
-func (c *CosiSignature) AggregatePublicKey(publics []Key) (*Key, error) {
+func (c *CosiSignature) AggregatePublicKey(publics []*Key) (*Key, error) {
 	var key *Key
-	for i := range c.Keys() {
+	for _, i := range c.Keys() {
 		if i >= len(publics) {
 			return nil, fmt.Errorf("invalid cosi signature mask index %d/%d", i, len(publics))
 		}
 		k := publics[i]
 		if key == nil {
-			key = &k
+			key = k
 		} else {
-			key = KeyAddPub(key, &k)
+			key = KeyAddPub(key, k)
 		}
 	}
 	return key, nil
