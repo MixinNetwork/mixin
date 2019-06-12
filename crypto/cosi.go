@@ -2,14 +2,17 @@ package crypto
 
 import (
 	"crypto/sha512"
+	"encoding/hex"
 	"fmt"
+	"strconv"
 
 	"github.com/MixinNetwork/mixin/crypto/edwards25519"
 )
 
 type CosiSignature struct {
-	Signature Signature
-	Mask      uint64
+	Signature   Signature
+	Mask        uint64
+	commitments []Key
 }
 
 func CosiCommit(privateKey *Key, message []byte) *Key {
@@ -43,18 +46,42 @@ func CosiAggregateCommitment(Rs []Key, masks []int) (*CosiSignature, error) {
 		if err != nil {
 			return nil, err
 		}
+		cosi.commitments = append(cosi.commitments, R)
 	}
 	copy(cosi.Signature[:32], encodedR[:])
 	return &cosi, nil
 }
 
-func (c *CosiSignature) Challenge(publics []Key, message []byte) (*[32]byte, error) {
+func (c *CosiSignature) AggregateResponse(publics []Key, responses [][32]byte, message []byte) error {
+	var S *[32]byte
+	var keys []Key
+	for _, i := range c.Keys() {
+		if i >= len(publics) {
+			return fmt.Errorf("invalid cosi signature mask index %d/%d", i, len(publics))
+		}
+		keys = append(keys, publics[i])
+	}
+	if len(keys) != len(responses) {
+		return fmt.Errorf("invalid cosi signature responses count %d/%d", len(keys), len(responses))
+	}
+	for _, s := range responses {
+		if S == nil {
+			S = &s
+		} else {
+			edwards25519.ScAdd(S, S, &s)
+		}
+	}
+	copy(c.Signature[32:], S[:])
+	return nil
+}
+
+func (c *CosiSignature) Challenge(publics []Key, message []byte) ([32]byte, error) {
 	var hramDigest [64]byte
 	var hramDigestReduced [32]byte
 	R := c.Signature[:32]
 	A, err := c.AggregatePublicKey(publics)
 	if err != nil {
-		return nil, err
+		return hramDigestReduced, err
 	}
 	h := sha512.New()
 	h.Write(R)
@@ -62,28 +89,20 @@ func (c *CosiSignature) Challenge(publics []Key, message []byte) (*[32]byte, err
 	h.Write(message)
 	h.Sum(hramDigest[:0])
 	edwards25519.ScReduce(&hramDigestReduced, &hramDigest)
-	return &hramDigestReduced, nil
+	return hramDigestReduced, nil
 }
 
-func (c *CosiSignature) Response(privateKey *Key, publics []Key, message []byte) (*[32]byte, error) {
+func (c *CosiSignature) Response(privateKey *Key, publics []Key, message []byte) ([32]byte, error) {
+	var s [32]byte
 	r := CosiCommit(privateKey, message)
 	messageDigestReduced := [32]byte(*r)
 	expandedSecretKey := [32]byte(*privateKey)
 	hramDigestReduced, err := c.Challenge(publics, message)
 	if err != nil {
-		return nil, err
+		return s, err
 	}
-	var s [32]byte
-	edwards25519.ScMulAdd(&s, hramDigestReduced, &expandedSecretKey, &messageDigestReduced)
-	return &s, nil
-}
-
-func AggregateResponse(responses []*[32]byte) *[32]byte {
-	var S *[32]byte
-	for _, s := range responses {
-		edwards25519.ScAdd(S, S, s)
-	}
-	return S
+	edwards25519.ScMulAdd(&s, &hramDigestReduced, &expandedSecretKey, &messageDigestReduced)
+	return s, nil
 }
 
 func (c *CosiSignature) Mark(i int) error {
@@ -119,4 +138,32 @@ func (c *CosiSignature) AggregatePublicKey(publics []Key) (*Key, error) {
 		}
 	}
 	return key, nil
+}
+
+func (c CosiSignature) String() string {
+	return c.Signature.String() + fmt.Sprintf("%016x", c.Mask)
+}
+
+func (c CosiSignature) MarshalJSON() ([]byte, error) {
+	return []byte(strconv.Quote(c.String())), nil
+}
+
+func (c *CosiSignature) UnmarshalJSON(b []byte) error {
+	unquoted, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	data, err := hex.DecodeString(string(unquoted))
+	if err != nil {
+		return err
+	}
+	if len(data) != len(c.Signature)+8 {
+		return fmt.Errorf("invalid signature length %d", len(data))
+	}
+	copy(c.Signature[:], data)
+	c.Mask, err = strconv.ParseUint(unquoted[len(c.Signature)*2:], 16, 64)
+	if err != nil {
+		return fmt.Errorf("invalid mask data %x", unquoted[len(c.Signature)*2:])
+	}
+	return nil
 }

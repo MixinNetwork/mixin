@@ -15,6 +15,9 @@ type Key [32]byte
 func NewKeyFromSeed(seed []byte) Key {
 	var key [32]byte
 	var src [64]byte
+	if len(seed) != len(src) {
+		panic(len(seed))
+	}
 	copy(src[:], seed)
 	edwards25519.ScReduce(&key, &src)
 	return key
