@@ -30,13 +30,14 @@ func TestCosi(t *testing.T) {
 	cosi, err := CosiAggregateCommitment(randoms, masks)
 	assert.Nil(err)
 	assert.Equal("429edaddad04026cc2e735c5fd9269382d1580ad5c972c0a5c05dd9f9d7b3f84000000000000000000000000000000000000000000000000000000000000000000000000001fffff", cosi.String())
-	assert.Len(cosi.Keys(), len(masks))
+	assert.Equal(masks, cosi.Keys())
 
 	responses := make([][32]byte, len(randoms))
 	for i := 0; i < len(responses); i++ {
-		s, err := cosi.Response(&keys[i], publics, message)
+		s, err := cosi.Response(&keys[masks[i]], publics, message)
 		assert.Nil(err)
 		responses[i] = s
+		assert.Equal("429edaddad04026cc2e735c5fd9269382d1580ad5c972c0a5c05dd9f9d7b3f84000000000000000000000000000000000000000000000000000000000000000000000000001fffff", cosi.String())
 	}
 
 	err = cosi.AggregateResponse(publics, responses, message)

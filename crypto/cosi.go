@@ -64,7 +64,18 @@ func (c *CosiSignature) AggregateResponse(publics []Key, responses [][32]byte, m
 	if len(keys) != len(responses) {
 		return fmt.Errorf("invalid cosi signature responses count %d/%d", len(keys), len(responses))
 	}
-	for _, s := range responses {
+	challenge, err := c.Challenge(publics, message)
+	if err != nil {
+		return err
+	}
+	for i, s := range responses {
+		var sig Signature
+		copy(sig[:32], c.commitments[i][:])
+		copy(sig[32:], s[:])
+		valid := keys[i].VerifyWithChallenge(message, sig, challenge)
+		if !valid {
+			return fmt.Errorf("invalid cosi signature response %s", sig)
+		}
 		if S == nil {
 			S = &s
 		} else {
