@@ -54,6 +54,8 @@ func TestCosi(t *testing.T) {
 		assert.Nil(err)
 		responses[i] = &s
 		assert.Equal("fd7285836bea7b418ed66c9d63c04f801633929bff37206dd7d02306f7bc1522000000000000000000000000000000000000000000000000000000000000000000000000001fffff", cosi.String())
+		err = cosi.VerifyResponse(publics, i, &s, message)
+		assert.Nil(err)
 	}
 
 	err = cosi.AggregateResponse(publics, responses, message)

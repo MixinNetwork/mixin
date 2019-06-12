@@ -116,6 +116,30 @@ func (c *CosiSignature) Response(privateKey *Key, publics []*Key, message []byte
 	return s, nil
 }
 
+func (c *CosiSignature) VerifyResponse(publics []*Key, signer int, s *[32]byte, message []byte) error {
+	var key *Key
+	for _, i := range c.Keys() {
+		if i >= len(publics) {
+			return fmt.Errorf("invalid cosi signature mask index %d/%d", i, len(publics))
+		}
+		if i == signer {
+			key = publics[i]
+		}
+	}
+	challenge, err := c.Challenge(publics, message)
+	if err != nil {
+		return err
+	}
+	var sig Signature
+	copy(sig[:32], c.commitments[signer][:])
+	copy(sig[32:], s[:])
+	valid := key.VerifyWithChallenge(message, sig, challenge)
+	if !valid {
+		return fmt.Errorf("invalid cosi signature response %s", sig)
+	}
+	return nil
+}
+
 func (c *CosiSignature) Mark(i int) error {
 	if i >= 64 {
 		return fmt.Errorf("invalid cosi signature mask index %d", i)
