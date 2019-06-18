@@ -19,12 +19,17 @@ type CosiSignature struct {
 func CosiCommit(privateKey *Key, message []byte) *Key {
 	var digest1, messageDigest [64]byte
 
+	pub := privateKey.Public()
 	h := sha512.New()
 	h.Write(privateKey[:32])
 	h.Sum(digest1[:0])
 	h.Reset()
+	h.Write(digest1[:])
+	h.Sum(digest1[:0])
+	h.Reset()
 	h.Write(digest1[32:])
 	h.Write(message)
+	h.Write(pub[:])
 	h.Sum(messageDigest[:0])
 
 	r := NewKeyFromSeed(messageDigest[:])

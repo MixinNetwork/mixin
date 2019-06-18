@@ -52,7 +52,7 @@ func TestCosi(t *testing.T) {
 
 	cosi, err := CosiAggregateCommitment(randoms, masks)
 	assert.Nil(err)
-	assert.Equal("c49dfba9ec603e5e66e71dba3fdb5050af8ea0c4738023b3b90ef0f9188da68a00000000000000000000000000000000000000000000000000000000000000000000000000fffc7f", cosi.String())
+	assert.Equal("fc942ee8735e7cc7c1cde60e5ae7cf65bc5943cc1b989613fc040264def6eadf00000000000000000000000000000000000000000000000000000000000000000000000000fffc7f", cosi.String())
 	assert.Equal(masks, cosi.Keys())
 
 	responses := make([]*[32]byte, len(randoms))
@@ -60,14 +60,14 @@ func TestCosi(t *testing.T) {
 		s, err := cosi.Response(keys[masks[i]], publics, message)
 		assert.Nil(err)
 		responses[i] = &s
-		assert.Equal("c49dfba9ec603e5e66e71dba3fdb5050af8ea0c4738023b3b90ef0f9188da68a00000000000000000000000000000000000000000000000000000000000000000000000000fffc7f", cosi.String())
+		assert.Equal("fc942ee8735e7cc7c1cde60e5ae7cf65bc5943cc1b989613fc040264def6eadf00000000000000000000000000000000000000000000000000000000000000000000000000fffc7f", cosi.String())
 		err = cosi.VerifyResponse(publics, masks[i], &s, message)
 		assert.Nil(err)
 	}
 
 	err = cosi.AggregateResponse(publics, responses, message)
 	assert.Nil(err)
-	assert.Equal("c49dfba9ec603e5e66e71dba3fdb5050af8ea0c4738023b3b90ef0f9188da68a3671bb12240f9656c76384aff92010a2a1462e8f2cb8f97675877085d74c37010000000000fffc7f", cosi.String())
+	assert.Equal("fc942ee8735e7cc7c1cde60e5ae7cf65bc5943cc1b989613fc040264def6eadf1a35cb59de45eab5c0d1d269e199a657adb3ba45f79de21b921ee9b7be22310b0000000000fffc7f", cosi.String())
 
 	A, err := cosi.AggregatePublicKey(publics)
 	assert.Nil(err)
