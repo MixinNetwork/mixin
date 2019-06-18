@@ -18,6 +18,7 @@ type RoundLink struct {
 }
 
 type Snapshot struct {
+	Version     uint8               `json:"version"msgpack:",omitempty"`
 	NodeId      crypto.Hash         `json:"node"`
 	Transaction crypto.Hash         `json:"transaction"`
 	References  *RoundLink          `json:"references"`
@@ -37,8 +38,9 @@ func (m *RoundLink) Equal(n *RoundLink) bool {
 	return m.Self.String() == n.Self.String() && m.External.String() == n.External.String()
 }
 
-func (s *Snapshot) Payload() []byte {
+func (s *Snapshot) payload() []byte {
 	p := Snapshot{
+		Version:     s.Version,
 		NodeId:      s.NodeId,
 		Transaction: s.Transaction,
 		References:  s.References,
@@ -49,7 +51,7 @@ func (s *Snapshot) Payload() []byte {
 }
 
 func (s *Snapshot) PayloadHash() crypto.Hash {
-	return crypto.NewHash(s.Payload())
+	return crypto.NewHash(s.payload())
 }
 
 func (tx *VersionedTransaction) LockInputs(locker UTXOLocker, fork bool) error {
