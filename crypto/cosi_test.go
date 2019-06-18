@@ -67,12 +67,14 @@ func TestCosi(t *testing.T) {
 
 	err = cosi.AggregateResponse(publics, responses, message)
 	assert.Nil(err)
-	assert.Equal("c49dfba9ec603e5e66e71dba3fdb5050af8ea0c4738023b3b90ef0f9188da68a4f09994b2e5824b024c9c1165fdaca04e431e9a15862cb52ebb6ddb230eb65010000000000fffc7f", cosi.String())
+	assert.Equal("c49dfba9ec603e5e66e71dba3fdb5050af8ea0c4738023b3b90ef0f9188da68a3671bb12240f9656c76384aff92010a2a1462e8f2cb8f97675877085d74c37010000000000fffc7f", cosi.String())
 
 	A, err := cosi.AggregatePublicKey(publics)
 	assert.Nil(err)
 	assert.Equal("b5b493bbce28209e2c24030db057554ee3d683235011ccfb21b7e615c74d937f", A.String())
 	valid := A.Verify(message, cosi.Signature)
+	assert.False(valid)
+	valid = CosiVerify(A, message, cosi.Signature)
 	assert.True(valid)
 
 	valid = cosi.ThresholdVerify(len(randoms) + 1)

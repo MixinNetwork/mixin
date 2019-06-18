@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"bytes"
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
@@ -72,7 +73,7 @@ func (c *CosiSignature) AggregateResponse(publics []*Key, responses []*[32]byte,
 		var sig Signature
 		copy(sig[:32], c.commitments[i][:])
 		copy(sig[32:], s[:])
-		valid := keys[i].VerifyWithChallenge(message, sig, challenge)
+		valid := CosiVerifyWithChallenge(keys[i], c.Signature[:32], message, sig, challenge)
 		if !valid {
 			return fmt.Errorf("invalid cosi signature response %s", sig)
 		}
@@ -107,6 +108,15 @@ func (c *CosiSignature) Response(privateKey *Key, publics []*Key, message []byte
 	var s [32]byte
 	r := CosiCommit(privateKey, message)
 	messageDigestReduced := [32]byte(*r)
+	h := sha512.New()
+	h.Write(c.Signature[:32])
+	h.Write(message)
+	var digest [64]byte
+	h.Sum(digest[:0])
+	var cReduced [32]byte
+	edwards25519.ScReduce(&cReduced, &digest)
+	edwards25519.ScMulAdd(&messageDigestReduced, &cReduced, &messageDigestReduced, &s)
+
 	expandedSecretKey := [32]byte(*privateKey)
 	hramDigestReduced, err := c.Challenge(publics, message)
 	if err != nil {
@@ -134,7 +144,7 @@ func (c *CosiSignature) VerifyResponse(publics []*Key, signer int, s *[32]byte, 
 	var sig Signature
 	copy(sig[:32], R[:])
 	copy(sig[32:], s[:])
-	valid := a.VerifyWithChallenge(message, sig, challenge)
+	valid := CosiVerifyWithChallenge(a, c.Signature[:32], message, sig, challenge)
 	if !valid {
 		return fmt.Errorf("invalid cosi signature response %s", sig)
 	}
@@ -188,7 +198,7 @@ func (c *CosiSignature) FullVerify(publics []*Key, threshold int, message []byte
 	if err != nil {
 		return false
 	}
-	return A.Verify(message, c.Signature)
+	return CosiVerify(A, message, c.Signature)
 }
 
 func (c CosiSignature) String() string {
@@ -217,4 +227,54 @@ func (c *CosiSignature) UnmarshalJSON(b []byte) error {
 		return fmt.Errorf("invalid mask data %x", unquoted[len(c.Signature)*2:])
 	}
 	return nil
+}
+
+func CosiVerifyWithChallenge(publicKey *Key, C, message []byte, sig Signature, hReduced [32]byte) bool {
+	var A edwards25519.ExtendedGroupElement
+	var publicKeyBytes [32]byte
+	copy(publicKeyBytes[:], publicKey[:])
+	if !A.FromBytes(&publicKeyBytes) {
+		return false
+	}
+	edwards25519.FeNeg(&A.X, &A.X)
+	edwards25519.FeNeg(&A.T, &A.T)
+
+	var s [32]byte
+	copy(s[:], sig[32:])
+	if !edwards25519.ScMinimal(&s) {
+		return false
+	}
+
+	h := sha512.New()
+	h.Write(C)
+	h.Write(message)
+	var digest [64]byte
+	h.Sum(digest[:0])
+	var cReduced [32]byte
+	edwards25519.ScReduce(&cReduced, &digest)
+	var RKey, cKey Key
+	copy(RKey[:], sig[:32])
+	copy(cKey[:], cReduced[:])
+	Rm := KeyMultPubPriv(&RKey, &cKey)
+
+	var R edwards25519.ProjectiveGroupElement
+	edwards25519.GeDoubleScalarMultVartime(&R, &hReduced, &A, &s)
+	var checkR [32]byte
+	R.ToBytes(&checkR)
+
+	return bytes.Equal(Rm[:], checkR[:])
+}
+
+func CosiVerify(publicKey *Key, message []byte, sig Signature) bool {
+	h := sha512.New()
+	h.Write(sig[:32])
+	h.Write(publicKey[:])
+	h.Write(message)
+	var digest [64]byte
+	h.Sum(digest[:0])
+
+	var hReduced [32]byte
+	edwards25519.ScReduce(&hReduced, &digest)
+
+	return CosiVerifyWithChallenge(publicKey, sig[:32], message, sig, hReduced)
 }
