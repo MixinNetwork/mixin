@@ -1,7 +1,13 @@
 package common
 
 import (
+	"fmt"
+
 	"github.com/MixinNetwork/mixin/crypto"
+)
+
+const (
+	SnapshotVersion = 1
 )
 
 type Round struct {
@@ -17,8 +23,17 @@ type RoundLink struct {
 	External crypto.Hash `json:"external"`
 }
 
+type DeprecatedSnapshot struct {
+	NodeId      crypto.Hash
+	Transaction crypto.Hash
+	References  *RoundLink
+	RoundNumber uint64
+	Timestamp   uint64
+	Signatures  []*crypto.Signature
+}
+
 type Snapshot struct {
-	Version     uint8               `json:"version"msgpack:",omitempty"`
+	Version     uint8               `json:"version"`
 	NodeId      crypto.Hash         `json:"node"`
 	Transaction crypto.Hash         `json:"transaction"`
 	References  *RoundLink          `json:"references"`
@@ -38,20 +53,34 @@ func (m *RoundLink) Equal(n *RoundLink) bool {
 	return m.Self.String() == n.Self.String() && m.External.String() == n.External.String()
 }
 
-func (s *Snapshot) payload() []byte {
-	p := Snapshot{
-		Version:     s.Version,
-		NodeId:      s.NodeId,
-		Transaction: s.Transaction,
-		References:  s.References,
-		RoundNumber: s.RoundNumber,
-		Timestamp:   s.Timestamp,
+func (s *Snapshot) VersionedPayload() []byte {
+	switch s.Version {
+	case 0:
+		p := DeprecatedSnapshot{
+			NodeId:      s.NodeId,
+			Transaction: s.Transaction,
+			References:  s.References,
+			RoundNumber: s.RoundNumber,
+			Timestamp:   s.Timestamp,
+		}
+		return MsgpackMarshalPanic(p)
+	case SnapshotVersion:
+		p := Snapshot{
+			Version:     s.Version,
+			NodeId:      s.NodeId,
+			Transaction: s.Transaction,
+			References:  s.References,
+			RoundNumber: s.RoundNumber,
+			Timestamp:   s.Timestamp,
+		}
+		return MsgpackMarshalPanic(p)
+	default:
+		panic(fmt.Errorf("invalid snapshot version %d", s.Version))
 	}
-	return MsgpackMarshalPanic(p)
 }
 
 func (s *Snapshot) PayloadHash() crypto.Hash {
-	return crypto.NewHash(s.payload())
+	return crypto.NewHash(s.VersionedPayload())
 }
 
 func (tx *VersionedTransaction) LockInputs(locker UTXOLocker, fork bool) error {
