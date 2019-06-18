@@ -109,21 +109,27 @@ func (c *CosiSignature) Challenge(publics []*Key, message []byte) ([32]byte, err
 func (c *CosiSignature) Response(privateKey *Key, publics []*Key, message []byte) ([32]byte, error) {
 	var s [32]byte
 	r := CosiCommit(privateKey, publics, message)
+
+	hramDigestReduced, err := c.Challenge(publics, message)
+	if err != nil {
+		return s, err
+	}
+
 	messageDigestReduced := [32]byte(*r)
 	h := sha512.New()
 	h.Write(c.Signature[:32])
 	h.Write(message)
 	var digest [64]byte
 	h.Sum(digest[:0])
+	h.Reset()
+	h.Write(digest[:32])
+	h.Write(hramDigestReduced[:])
+	h.Sum(digest[:0])
 	var cReduced [32]byte
 	edwards25519.ScReduce(&cReduced, &digest)
 	edwards25519.ScMulAdd(&messageDigestReduced, &cReduced, &messageDigestReduced, &s)
 
 	expandedSecretKey := [32]byte(*privateKey)
-	hramDigestReduced, err := c.Challenge(publics, message)
-	if err != nil {
-		return s, err
-	}
 	edwards25519.ScMulAdd(&s, &hramDigestReduced, &expandedSecretKey, &messageDigestReduced)
 	return s, nil
 }
@@ -265,6 +271,10 @@ func CosiVerifyWithChallenge(publicKey *Key, C, message []byte, sig Signature, h
 	h.Write(C)
 	h.Write(message)
 	var digest [64]byte
+	h.Sum(digest[:0])
+	h.Reset()
+	h.Write(digest[:32])
+	h.Write(hReduced[:])
 	h.Sum(digest[:0])
 	var cReduced [32]byte
 	edwards25519.ScReduce(&cReduced, &digest)

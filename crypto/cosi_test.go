@@ -67,7 +67,7 @@ func TestCosi(t *testing.T) {
 
 	err = cosi.AggregateResponse(publics, responses, message)
 	assert.Nil(err)
-	assert.Equal("4a5b1725fbf7e1963867492697e72752687c791edc9e960ec282c6de6cd9615c30b4167473c2a63f30b9d6b8c8d29397a0ec53557d4abbb3054ed605e82459080000000000fffc7f", cosi.String())
+	assert.Equal("4a5b1725fbf7e1963867492697e72752687c791edc9e960ec282c6de6cd9615c4a3acdb33942b6f1baae884e2104b3d3dde120f6b3f0215e0d15aaa3cc86230f0000000000fffc7f", cosi.String())
 
 	A, err := cosi.AggregatePublicKey(publics)
 	assert.Nil(err)
