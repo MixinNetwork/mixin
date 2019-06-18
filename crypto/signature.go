@@ -86,15 +86,6 @@ func (publicKey *Key) VerifyWithChallenge(message []byte, sig Signature, hReduce
 }
 
 func (publicKey *Key) Verify(message []byte, sig Signature) bool {
-	var A edwards25519.ExtendedGroupElement
-	var publicKeyBytes [32]byte
-	copy(publicKeyBytes[:], publicKey[:])
-	if !A.FromBytes(&publicKeyBytes) {
-		return false
-	}
-	edwards25519.FeNeg(&A.X, &A.X)
-	edwards25519.FeNeg(&A.T, &A.T)
-
 	h := sha512.New()
 	h.Write(sig[:32])
 	h.Write(publicKey[:])
@@ -105,19 +96,7 @@ func (publicKey *Key) Verify(message []byte, sig Signature) bool {
 	var hReduced [32]byte
 	edwards25519.ScReduce(&hReduced, &digest)
 
-	var R edwards25519.ProjectiveGroupElement
-	var s [32]byte
-	copy(s[:], sig[32:])
-
-	if !edwards25519.ScMinimal(&s) {
-		return false
-	}
-
-	edwards25519.GeDoubleScalarMultVartime(&R, &hReduced, &A, &s)
-
-	var checkR [32]byte
-	R.ToBytes(&checkR)
-	return bytes.Equal(sig[:32], checkR[:])
+	return publicKey.VerifyWithChallenge(message, sig, hReduced)
 }
 
 func (s Signature) String() string {
