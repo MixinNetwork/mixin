@@ -37,13 +37,13 @@ func TestCosi(t *testing.T) {
 	randoms := make([]*Key, len(keys)*2/3+1)
 	masks := make([]int, 0)
 	for i := 0; i < 7; i++ {
-		r := CosiCommit(keys[i], message)
+		r := CosiCommit(keys[i], publics, message)
 		R := r.Public()
 		randoms[i] = &R
 		masks = append(masks, i)
 	}
 	for i := 10; i < len(randoms)+3; i++ {
-		r := CosiCommit(keys[i], message)
+		r := CosiCommit(keys[i], publics, message)
 		R := r.Public()
 		randoms[i-3] = &R
 		masks = append(masks, i)
@@ -52,7 +52,7 @@ func TestCosi(t *testing.T) {
 
 	cosi, err := CosiAggregateCommitment(randoms, masks)
 	assert.Nil(err)
-	assert.Equal("fc942ee8735e7cc7c1cde60e5ae7cf65bc5943cc1b989613fc040264def6eadf00000000000000000000000000000000000000000000000000000000000000000000000000fffc7f", cosi.String())
+	assert.Equal("4a5b1725fbf7e1963867492697e72752687c791edc9e960ec282c6de6cd9615c00000000000000000000000000000000000000000000000000000000000000000000000000fffc7f", cosi.String())
 	assert.Equal(masks, cosi.Keys())
 
 	responses := make([]*[32]byte, len(randoms))
@@ -60,14 +60,14 @@ func TestCosi(t *testing.T) {
 		s, err := cosi.Response(keys[masks[i]], publics, message)
 		assert.Nil(err)
 		responses[i] = &s
-		assert.Equal("fc942ee8735e7cc7c1cde60e5ae7cf65bc5943cc1b989613fc040264def6eadf00000000000000000000000000000000000000000000000000000000000000000000000000fffc7f", cosi.String())
+		assert.Equal("4a5b1725fbf7e1963867492697e72752687c791edc9e960ec282c6de6cd9615c00000000000000000000000000000000000000000000000000000000000000000000000000fffc7f", cosi.String())
 		err = cosi.VerifyResponse(publics, masks[i], &s, message)
 		assert.Nil(err)
 	}
 
 	err = cosi.AggregateResponse(publics, responses, message)
 	assert.Nil(err)
-	assert.Equal("fc942ee8735e7cc7c1cde60e5ae7cf65bc5943cc1b989613fc040264def6eadf1a35cb59de45eab5c0d1d269e199a657adb3ba45f79de21b921ee9b7be22310b0000000000fffc7f", cosi.String())
+	assert.Equal("4a5b1725fbf7e1963867492697e72752687c791edc9e960ec282c6de6cd9615c30b4167473c2a63f30b9d6b8c8d29397a0ec53557d4abbb3054ed605e82459080000000000fffc7f", cosi.String())
 
 	A, err := cosi.AggregatePublicKey(publics)
 	assert.Nil(err)

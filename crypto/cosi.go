@@ -16,15 +16,12 @@ type CosiSignature struct {
 	commitments []*Key
 }
 
-func CosiCommit(privateKey *Key, message []byte) *Key {
+func CosiCommit(privateKey *Key, publics []*Key, message []byte) *Key {
 	var digest1, messageDigest [64]byte
+	pub := CosiHashAggregateAllPublics(publics)
 
-	pub := privateKey.Public()
 	h := sha512.New()
 	h.Write(privateKey[:32])
-	h.Sum(digest1[:0])
-	h.Reset()
-	h.Write(digest1[:])
 	h.Sum(digest1[:0])
 	h.Reset()
 	h.Write(digest1[32:])
@@ -111,7 +108,7 @@ func (c *CosiSignature) Challenge(publics []*Key, message []byte) ([32]byte, err
 
 func (c *CosiSignature) Response(privateKey *Key, publics []*Key, message []byte) ([32]byte, error) {
 	var s [32]byte
-	r := CosiCommit(privateKey, message)
+	r := CosiCommit(privateKey, publics, message)
 	messageDigestReduced := [32]byte(*r)
 	h := sha512.New()
 	h.Write(c.Signature[:32])
@@ -232,6 +229,20 @@ func (c *CosiSignature) UnmarshalJSON(b []byte) error {
 		return fmt.Errorf("invalid mask data %x", unquoted[len(c.Signature)*2:])
 	}
 	return nil
+}
+
+func CosiHashAggregateAllPublics(publics []*Key) []byte {
+	var pub *Key
+	for i, _ := range publics {
+		k := publics[i]
+		if pub == nil {
+			pub = k
+		} else {
+			pub = KeyAddPub(pub, k)
+		}
+	}
+	hash := NewHash(pub[:])
+	return hash[:]
 }
 
 func CosiVerifyWithChallenge(publicKey *Key, C, message []byte, sig Signature, hReduced [32]byte) bool {
