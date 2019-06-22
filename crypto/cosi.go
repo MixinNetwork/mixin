@@ -75,7 +75,7 @@ func (c *CosiSignature) AggregateResponse(publics []*Key, responses []*[32]byte,
 		var sig Signature
 		copy(sig[:32], c.commitments[i][:])
 		copy(sig[32:], s[:])
-		valid := CosiVerifyWithChallenge(keys[i], message, sig, challenge)
+		valid := cosiVerifyWithChallenge(keys[i], message, sig, challenge)
 		if !valid {
 			return fmt.Errorf("invalid cosi signature response %s", sig)
 		}
@@ -147,7 +147,7 @@ func (c *CosiSignature) VerifyResponse(publics []*Key, signer int, s *[32]byte, 
 	var sig Signature
 	copy(sig[:32], R[:])
 	copy(sig[32:], s[:])
-	valid := CosiVerifyWithChallenge(a, message, sig, challenge)
+	valid := cosiVerifyWithChallenge(a, message, sig, challenge)
 	if !valid {
 		return fmt.Errorf("invalid cosi signature response %s", sig)
 	}
@@ -201,7 +201,7 @@ func (c *CosiSignature) FullVerify(publics []*Key, threshold int, message []byte
 	if err != nil {
 		return false
 	}
-	return CosiVerify(A, message, c.Signature)
+	return cosiVerify(A, message, c.Signature)
 }
 
 func (c CosiSignature) String() string {
@@ -246,7 +246,7 @@ func CosiHashAggregateAllPublics(publics []*Key) []byte {
 	return hash[:]
 }
 
-func CosiVerifyWithChallenge(publicKey *Key, message []byte, sig Signature, hramReduced [32]byte) bool {
+func cosiVerifyWithChallenge(publicKey *Key, message []byte, sig Signature, hramReduced [32]byte) bool {
 	var A edwards25519.ExtendedGroupElement
 	var publicKeyBytes [32]byte
 	copy(publicKeyBytes[:], publicKey[:])
@@ -281,7 +281,7 @@ func CosiVerifyWithChallenge(publicKey *Key, message []byte, sig Signature, hram
 	return bytes.Equal(Rm[:], checkR[:])
 }
 
-func CosiVerify(publicKey *Key, message []byte, sig Signature) bool {
+func cosiVerify(publicKey *Key, message []byte, sig Signature) bool {
 	var digest [64]byte
 	h := sha512.New()
 	h.Write(sig[:32])
@@ -292,5 +292,5 @@ func CosiVerify(publicKey *Key, message []byte, sig Signature) bool {
 	var hramReduced [32]byte
 	edwards25519.ScReduce(&hramReduced, &digest)
 
-	return CosiVerifyWithChallenge(publicKey, message, sig, hramReduced)
+	return cosiVerifyWithChallenge(publicKey, message, sig, hramReduced)
 }

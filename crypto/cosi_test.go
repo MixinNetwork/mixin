@@ -74,7 +74,7 @@ func TestCosi(t *testing.T) {
 	assert.Equal("b5b493bbce28209e2c24030db057554ee3d683235011ccfb21b7e615c74d937f", A.String())
 	valid := A.Verify(message, cosi.Signature)
 	assert.False(valid)
-	valid = CosiVerify(A, message, cosi.Signature)
+	valid = cosiVerify(A, message, cosi.Signature)
 	assert.True(valid)
 
 	valid = cosi.ThresholdVerify(len(randoms) + 1)
