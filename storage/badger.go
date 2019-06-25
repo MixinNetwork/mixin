@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/v2"
 )
 
 type BadgerStore struct {

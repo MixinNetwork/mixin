@@ -6,7 +6,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/v2"
 )
 
 const (
@@ -60,7 +60,8 @@ func (s *BadgerStore) CachePutTransaction(tx *common.VersionedTransaction) error
 
 	key := cacheTransactionCacheKey(tx.PayloadHash())
 	val := tx.CompressMarshal()
-	err := txn.SetWithTTL(key, val, config.Custom.CacheTTL*time.Second*8)
+	etr := badger.NewEntry(key, val).WithTTL(config.Custom.CacheTTL * time.Second * 8)
+	err := txn.SetEntry(etr)
 	if err != nil {
 		return err
 	}
