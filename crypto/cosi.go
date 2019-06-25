@@ -1,10 +1,10 @@
 package crypto
 
 import (
-	"bytes"
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"strconv"
 
 	"github.com/MixinNetwork/mixin/crypto/edwards25519"
@@ -16,19 +16,15 @@ type CosiSignature struct {
 	commitments []*Key
 }
 
-func CosiCommit(privateKey *Key, publics []*Key, message []byte) *Key {
-	var digest1, messageDigest [64]byte
-	pub := CosiHashAggregateAllPublics(publics)
-
-	h := sha512.New()
-	h.Write(privateKey[:32])
-	h.Sum(digest1[:0])
-	h.Reset()
-	h.Write(digest1[32:])
-	h.Write(message)
-	h.Write(pub[:])
-	h.Sum(messageDigest[:0])
-
+func CosiCommit(randReader io.Reader) *Key {
+	var messageDigest [64]byte
+	n, err := randReader.Read(messageDigest[:])
+	if err != nil {
+		panic(err)
+	}
+	if n != len(messageDigest) {
+		panic(fmt.Errorf("rand read %d %d", len(messageDigest), n))
+	}
 	r := NewKeyFromSeed(messageDigest[:])
 	return &r
 }
@@ -75,7 +71,7 @@ func (c *CosiSignature) AggregateResponse(publics []*Key, responses []*[32]byte,
 		var sig Signature
 		copy(sig[:32], c.commitments[i][:])
 		copy(sig[32:], s[:])
-		valid := cosiVerifyWithChallenge(keys[i], message, sig, challenge)
+		valid := keys[i].VerifyWithChallenge(message, sig, challenge)
 		if !valid {
 			return fmt.Errorf("invalid cosi signature response %s", sig)
 		}
@@ -106,24 +102,15 @@ func (c *CosiSignature) Challenge(publics []*Key, message []byte) ([32]byte, err
 	return hramDigestReduced, nil
 }
 
-func (c *CosiSignature) Response(privateKey *Key, publics []*Key, message []byte) ([32]byte, error) {
+func (c *CosiSignature) Response(privateKey, random *Key, publics []*Key, message []byte) ([32]byte, error) {
 	var s [32]byte
-	r := CosiCommit(privateKey, publics, message)
 
 	hramDigestReduced, err := c.Challenge(publics, message)
 	if err != nil {
 		return s, err
 	}
 
-	messageDigestReduced := [32]byte(*r)
-	var digest [64]byte
-	h := sha512.New()
-	h.Write(hramDigestReduced[:])
-	h.Sum(digest[:0])
-	var cReduced [32]byte
-	edwards25519.ScReduce(&cReduced, &digest)
-	edwards25519.ScMulAdd(&messageDigestReduced, &cReduced, &messageDigestReduced, &s)
-
+	messageDigestReduced := [32]byte(*random)
 	expandedSecretKey := [32]byte(*privateKey)
 	edwards25519.ScMulAdd(&s, &hramDigestReduced, &expandedSecretKey, &messageDigestReduced)
 	return s, nil
@@ -147,7 +134,7 @@ func (c *CosiSignature) VerifyResponse(publics []*Key, signer int, s *[32]byte, 
 	var sig Signature
 	copy(sig[:32], R[:])
 	copy(sig[32:], s[:])
-	valid := cosiVerifyWithChallenge(a, message, sig, challenge)
+	valid := a.VerifyWithChallenge(message, sig, challenge)
 	if !valid {
 		return fmt.Errorf("invalid cosi signature response %s", sig)
 	}
@@ -201,7 +188,7 @@ func (c *CosiSignature) FullVerify(publics []*Key, threshold int, message []byte
 	if err != nil {
 		return false
 	}
-	return cosiVerify(A, message, c.Signature)
+	return A.Verify(message, c.Signature)
 }
 
 func (c CosiSignature) String() string {
@@ -244,53 +231,4 @@ func CosiHashAggregateAllPublics(publics []*Key) []byte {
 	}
 	hash := NewHash(pub[:])
 	return hash[:]
-}
-
-func cosiVerifyWithChallenge(publicKey *Key, message []byte, sig Signature, hramReduced [32]byte) bool {
-	var A edwards25519.ExtendedGroupElement
-	var publicKeyBytes [32]byte
-	copy(publicKeyBytes[:], publicKey[:])
-	if !A.FromBytes(&publicKeyBytes) {
-		return false
-	}
-	edwards25519.FeNeg(&A.X, &A.X)
-	edwards25519.FeNeg(&A.T, &A.T)
-
-	var s [32]byte
-	copy(s[:], sig[32:])
-	if !edwards25519.ScMinimal(&s) {
-		return false
-	}
-
-	var digest [64]byte
-	h := sha512.New()
-	h.Write(hramReduced[:])
-	h.Sum(digest[:0])
-	var cReduced [32]byte
-	edwards25519.ScReduce(&cReduced, &digest)
-	var RKey, cKey Key
-	copy(RKey[:], sig[:32])
-	copy(cKey[:], cReduced[:])
-	Rm := KeyMultPubPriv(&RKey, &cKey)
-
-	var R edwards25519.ProjectiveGroupElement
-	edwards25519.GeDoubleScalarMultVartime(&R, &hramReduced, &A, &s)
-	var checkR [32]byte
-	R.ToBytes(&checkR)
-
-	return bytes.Equal(Rm[:], checkR[:])
-}
-
-func cosiVerify(publicKey *Key, message []byte, sig Signature) bool {
-	var digest [64]byte
-	h := sha512.New()
-	h.Write(sig[:32])
-	h.Write(publicKey[:])
-	h.Write(message)
-	h.Sum(digest[:0])
-
-	var hramReduced [32]byte
-	edwards25519.ScReduce(&hramReduced, &digest)
-
-	return cosiVerifyWithChallenge(publicKey, message, sig, hramReduced)
 }
