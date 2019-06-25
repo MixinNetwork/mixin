@@ -15,9 +15,8 @@ type Store interface {
 	LoadGenesis(rounds []*common.Round, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.VersionedTransaction) error
 	ReadConsensusNodes() []*common.Node
 	AddNodeOperation(tx *common.VersionedTransaction, timestamp, threshold uint64) error
-	CheckTransactionFinalization(hash crypto.Hash) (bool, error)
 	CheckTransactionInNode(nodeId, hash crypto.Hash) (bool, error)
-	ReadTransaction(hash crypto.Hash) (*common.VersionedTransaction, error)
+	ReadTransaction(hash crypto.Hash) (*common.VersionedTransaction, string, error)
 	WriteTransaction(tx *common.VersionedTransaction) error
 	StartNewRound(node crypto.Hash, number uint64, references *common.RoundLink, finalStart uint64) error
 	UpdateEmptyHeadRound(node crypto.Hash, number uint64, references *common.RoundLink) error

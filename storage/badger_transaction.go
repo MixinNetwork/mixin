@@ -9,13 +9,33 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/v2"
 )
 
-func (s *BadgerStore) ReadTransaction(hash crypto.Hash) (*common.VersionedTransaction, error) {
+func (s *BadgerStore) ReadTransaction(hash crypto.Hash) (*common.VersionedTransaction, string, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
-	return readTransaction(txn, hash)
+	tx, err := readTransaction(txn, hash)
+	if err != nil {
+		return tx, "", err
+	}
+	key := graphFinalizationKey(hash)
+	item, err := txn.Get(key)
+	if err == badger.ErrKeyNotFound {
+		return tx, "", nil
+	} else if err != nil {
+		return tx, "", err
+	}
+	val, err := item.ValueCopy(nil)
+	if err != nil {
+		return tx, "", err
+	}
+	if len(val) == 0 {
+		return tx, "MISSING", nil
+	}
+	var final crypto.Hash
+	copy(final[:], val)
+	return tx, final.String(), nil
 }
 
 func (s *BadgerStore) WriteTransaction(ver *common.VersionedTransaction) error {
@@ -78,20 +98,6 @@ func (s *BadgerStore) WriteTransaction(ver *common.VersionedTransaction) error {
 		return err
 	}
 	return txn.Commit()
-}
-
-func (s *BadgerStore) CheckTransactionFinalization(hash crypto.Hash) (bool, error) {
-	txn := s.snapshotsDB.NewTransaction(false)
-	defer txn.Discard()
-
-	key := graphFinalizationKey(hash)
-	_, err := txn.Get(key)
-	if err == badger.ErrKeyNotFound {
-		return false, nil
-	} else if err != nil {
-		return false, err
-	}
-	return true, nil
 }
 
 func (s *BadgerStore) CheckTransactionInNode(nodeId, hash crypto.Hash) (bool, error) {

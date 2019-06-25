@@ -40,13 +40,8 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Ver
 		return nil, err
 	}
 
-	finalized, err := node.persistStore.CheckTransactionFinalization(s.Transaction)
-	if err != nil || finalized {
-		return nil, err
-	}
-
-	tx, err := node.persistStore.ReadTransaction(s.Transaction)
-	if err != nil {
+	tx, finalized, err := node.persistStore.ReadTransaction(s.Transaction)
+	if err != nil || len(finalized) > 0 {
 		return nil, err
 	}
 	if tx != nil {

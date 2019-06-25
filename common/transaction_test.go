@@ -134,8 +134,8 @@ func (store storeImpl) ReadConsensusNodes() []*Node {
 	return nil
 }
 
-func (store storeImpl) ReadTransaction(hash crypto.Hash) (*VersionedTransaction, error) {
-	return nil, nil
+func (store storeImpl) ReadTransaction(hash crypto.Hash) (*VersionedTransaction, string, error) {
+	return nil, "", nil
 }
 
 func (store storeImpl) CheckDepositInput(deposit *DepositData, tx crypto.Hash) error {

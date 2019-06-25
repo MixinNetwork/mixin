@@ -85,7 +85,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 		return fmt.Errorf("invalid plede utxo source %s %s", pledging.Transaction, tx.Inputs[0].Hash)
 	}
 
-	lastPledge, err := store.ReadTransaction(tx.Inputs[0].Hash)
+	lastPledge, _, err := store.ReadTransaction(tx.Inputs[0].Hash)
 	if err != nil {
 		return err
 	}

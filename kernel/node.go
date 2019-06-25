@@ -320,7 +320,7 @@ func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot, fi
 }
 
 func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
-	tx, err := node.persistStore.ReadTransaction(hash)
+	tx, _, err := node.persistStore.ReadTransaction(hash)
 	if err != nil {
 		return err
 	}

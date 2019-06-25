@@ -35,11 +35,15 @@ func getTransaction(store storage.Store, params []interface{}) (map[string]inter
 	if err != nil {
 		return nil, err
 	}
-	tx, err := store.ReadTransaction(hash)
+	tx, snap, err := store.ReadTransaction(hash)
 	if err != nil || tx == nil {
 		return nil, err
 	}
-	return transactionToMap(tx), nil
+	data := transactionToMap(tx)
+	if len(snap) > 0 {
+		data["snapshot"] = snap
+	}
+	return data, nil
 }
 
 func getUTXO(store storage.Store, params []interface{}) (map[string]interface{}, error) {
@@ -92,7 +96,7 @@ func getSnapshot(store storage.Store, params []interface{}) (map[string]interfac
 	if err != nil || snap == nil {
 		return nil, err
 	}
-	tx, err := store.ReadTransaction(snap.Transaction)
+	tx, _, err := store.ReadTransaction(snap.Transaction)
 	if err != nil {
 		return nil, err
 	}

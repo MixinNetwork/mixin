@@ -10,7 +10,7 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.Ver
 		return nil, err
 	}
 
-	tx, err := node.persistStore.ReadTransaction(s.Transaction)
+	tx, _, err := node.persistStore.ReadTransaction(s.Transaction)
 	if err != nil || tx != nil {
 		return tx, err
 	}
