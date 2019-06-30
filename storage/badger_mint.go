@@ -66,8 +66,9 @@ func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistri
 	defer it.Close()
 
 	dist := &common.MintDistribution{Group: group}
+	prefix := []byte(graphPrefixMint + group)
 	it.Seek(graphMintKey(group, ^uint64(0)))
-	if it.ValidForPrefix([]byte(graphPrefixMint + group)) {
+	for ; it.ValidForPrefix(prefix); it.Next() {
 		item := it.Item()
 		ival, err := item.ValueCopy(nil)
 		if err != nil {
@@ -78,9 +79,20 @@ func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistri
 		if err != nil {
 			return nil, err
 		}
+		if data.Batch != graphMintBatch(item.Key(), group) {
+			panic("malformed mint data")
+		}
+		_, err = txn.Get(graphFinalizationKey(data.Transaction))
+		if err == badger.ErrKeyNotFound {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+
 		dist.Batch = graphMintBatch(item.Key(), group)
 		dist.Transaction = data.Transaction
 		dist.Amount = data.Amount
+		break
 	}
 	return dist, nil
 }
