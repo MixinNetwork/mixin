@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/dgraph-io/badger/v2"
+	"github.com/dgraph-io/badger"
 )
 
 func main() {
@@ -91,10 +91,6 @@ func loopUTXOs(db *badger.DB, dir string) {
 }
 
 func openDB(dir string) (*badger.DB, error) {
-	opts := badger.DefaultOptions
-	opts.Dir = dir
-	opts.ValueDir = dir
-	opts.SyncWrites = true
-	opts.NumVersionsToKeep = 1
+	opts := badger.DefaultOptions(dir)
 	return badger.Open(opts)
 }

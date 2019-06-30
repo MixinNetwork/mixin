@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
-	"github.com/dgraph-io/badger/v2"
+	"github.com/dgraph-io/badger"
 )
 
 func main() {
@@ -220,10 +220,6 @@ func graphSnapTopologyKey(hash []byte) []byte {
 }
 
 func openDB(dir string) (*badger.DB, error) {
-	opts := badger.DefaultOptions
-	opts.Dir = dir
-	opts.ValueDir = dir
-	opts.SyncWrites = true
-	opts.NumVersionsToKeep = 1
+	opts := badger.DefaultOptions(dir)
 	return badger.Open(opts)
 }

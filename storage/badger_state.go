@@ -2,7 +2,7 @@ package storage
 
 import (
 	"github.com/MixinNetwork/mixin/common"
-	"github.com/dgraph-io/badger/v2"
+	"github.com/dgraph-io/badger"
 )
 
 func (s *BadgerStore) StateGet(key string, val interface{}) (bool, error) {
