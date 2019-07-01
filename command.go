@@ -108,7 +108,12 @@ func validateGraphEntries(c *cli.Context) error {
 		return err
 	}
 	defer store.Close()
-	total, invalid, err := store.ValidateGraphEntries()
+	var state struct{ Id crypto.Hash }
+	_, err = store.StateGet("network", &state)
+	if err != nil {
+		return err
+	}
+	total, invalid, err := store.ValidateGraphEntries(state.Id)
 	if err != nil {
 		return err
 	}

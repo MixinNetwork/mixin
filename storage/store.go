@@ -48,7 +48,7 @@ type Store interface {
 	ReadMintDistributions(group string, offset, count uint64) ([]*common.MintDistribution, []*common.VersionedTransaction, error)
 
 	RemoveGraphEntries(prefix string) error
-	ValidateGraphEntries() (int, int, error)
+	ValidateGraphEntries(networkId crypto.Hash) (int, int, error)
 
 	WriteAsset(a *common.Asset) error
 	ReadAsset(id crypto.Hash) (*common.Asset, error)
