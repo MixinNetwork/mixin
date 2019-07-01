@@ -68,7 +68,12 @@ func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr str
 	node.LoadNodeConfig()
 
 	logger.Println("Validating graph entries...")
-	total, invalid, err := node.persistStore.ValidateGraphEntries()
+	var state struct{ Id crypto.Hash }
+	_, err := node.persistStore.StateGet("network", &state)
+	if err != nil {
+		return nil, err
+	}
+	total, invalid, err := node.persistStore.ValidateGraphEntries(state.Id)
 	if err != nil {
 		return nil, err
 	}

@@ -1,19 +1,14 @@
 package storage
 
 import (
-	"context"
 	"encoding/binary"
 	"fmt"
-	"runtime"
 	"sort"
-	"sync/atomic"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/logger"
-	"github.com/dgraph-io/badger/v2"
-	"github.com/dgraph-io/badger/v2/pb"
+	"github.com/dgraph-io/badger"
 )
 
 const (
@@ -31,46 +26,6 @@ const (
 	graphPrefixSnapTopology = "SNAPTOPO"
 	graphPrefixAsset        = "ASSET"
 )
-
-func (s *BadgerStore) ValidateGraphEntries() (int, int, error) {
-	txn := s.snapshotsDB.NewTransaction(false)
-	defer txn.Discard()
-
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
-	defer it.Close()
-
-	var total, invalid int64
-	stream := s.snapshotsDB.NewStream()
-	stream.NumGo = runtime.NumCPU()
-	stream.Prefix = []byte(graphPrefixTransaction)
-	stream.LogPrefix = "Badger.ValidateGraphEntries"
-	stream.ChooseKey = func(item *badger.Item) bool {
-		atomic.AddInt64(&total, 1)
-		err := item.Value(func(val []byte) error {
-			ver, err := common.DecompressUnmarshalVersionedTransaction(val)
-			if err != nil {
-				return err
-			}
-			key := item.Key()
-			var hash crypto.Hash
-			copy(hash[:], key[len(graphPrefixTransaction):])
-			if hash.String() != ver.PayloadHash().String() {
-				atomic.AddInt64(&invalid, 1)
-				logger.Printf("MALFORMED %s %s %#v\n", hash.String(), ver.PayloadHash().String(), ver)
-			}
-			return nil
-		})
-		if err != nil {
-			panic(err)
-		}
-		return false
-	}
-	stream.KeyToList = nil
-	stream.Send = func(list *pb.KVList) error { return nil }
-	err := stream.Orchestrate(context.Background())
-
-	return int(total), int(invalid), err
-}
 
 func (s *BadgerStore) RemoveGraphEntries(prefix string) error {
 	txn := s.snapshotsDB.NewTransaction(true)

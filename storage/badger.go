@@ -3,8 +3,7 @@ package storage
 import (
 	"time"
 
-	"github.com/MixinNetwork/mixin/logger"
-	"github.com/dgraph-io/badger/v2"
+	"github.com/dgraph-io/badger"
 )
 
 type BadgerStore struct {
@@ -52,11 +51,8 @@ func (store *BadgerStore) Close() error {
 }
 
 func openDB(dir string, sync bool) (*badger.DB, error) {
-	opts := badger.DefaultOptions
-	opts.Dir = dir
-	opts.ValueDir = dir
+	opts := badger.DefaultOptions(dir)
 	opts.SyncWrites = sync
-	opts.NumVersionsToKeep = 1
 	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
@@ -69,10 +65,7 @@ func openDB(dir string, sync bool) (*badger.DB, error) {
 		for range ticker.C {
 			lsm, vlog := db.Size()
 			if lsm > 1024*1024*8 || vlog > 1024*1024*32 {
-				err := db.RunValueLogGC(0.5)
-				logger.Println("badger value log GC", dir, err)
-			} else {
-				logger.Println("badger size", dir, lsm, vlog)
+				db.RunValueLogGC(0.5)
 			}
 		}
 	}()
