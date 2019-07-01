@@ -70,8 +70,11 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash) error {
 		if err != nil {
 			return err
 		}
-		if round.Number != i || round.Hash != hash || round.NodeId != nodeId {
-			logger.Printf("MALFORMED ROUND %s %d %s\n", nodeId, i, hash)
+		if round == nil {
+			logger.Printf("MISSING ROUND %s %d %s\n", nodeId, i, hash)
+		}
+		if round.NodeId != nodeId || round.Number != i {
+			logger.Printf("MALFORMED ROUND %s %d %s %s %d\n", nodeId, i, hash, round.NodeId, round.Number)
 		}
 	}
 	return nil
