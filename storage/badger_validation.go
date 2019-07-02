@@ -18,11 +18,24 @@ import (
 )
 
 func (s *BadgerStore) ValidateGraphEntries(networkId crypto.Hash) (int, int, error) {
-	invalid, err := s.validateSnapshotEntries(networkId)
-	if err != nil || invalid > 0 {
-		return 0, invalid, err
+	snapshotsInvalid := make(chan int, 1)
+	snapshotsError := make(chan error, 1)
+	go func() {
+		invalid, err := s.validateSnapshotEntries(networkId)
+		snapshotsError <- err
+		snapshotsInvalid <- invalid
+	}()
+
+	total, invalid, err := s.validateTransactionEntries()
+	if err != nil {
+		return 0, 0, err
 	}
-	return s.validateTransactionEntries()
+
+	err = <-snapshotsError
+	if err != nil {
+		return 0, 0, err
+	}
+	return total, invalid + <-snapshotsInvalid, nil
 }
 
 func (s *BadgerStore) validateSnapshotEntries(networkId crypto.Hash) (int, error) {
