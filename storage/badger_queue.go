@@ -6,7 +6,6 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/dgraph-io/badger"
 )
 
 type Queue struct {
@@ -115,19 +114,7 @@ func (q *Queue) PopCache() (*PeerSnapshot, error) {
 }
 
 func (s *BadgerStore) QueueInfo() (uint64, uint64, uint64, error) {
-	txn := s.cacheDB.NewTransaction(false)
-	defer txn.Discard()
-
-	opts := badger.DefaultIteratorOptions
-	opts.PrefetchValues = false
-	it := txn.NewIterator(opts)
-	defer it.Close()
-
-	var count uint64
-	for it.Rewind(); it.Valid(); it.Next() {
-		count = count + 1
-	}
-	return count, s.queue.finalRing.Len(), s.queue.cacheRing.Len(), nil
+	return 0, s.queue.finalRing.Len(), s.queue.cacheRing.Len(), nil
 }
 
 func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snapshot, finalized bool) error {

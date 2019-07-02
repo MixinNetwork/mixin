@@ -9,3 +9,7 @@ func Println(v ...interface{}) {
 func Printf(format string, v ...interface{}) {
 	log.Printf(format, v...)
 }
+
+func Verbosef(format string, v ...interface{}) {
+	log.Printf(format, v...)
+}

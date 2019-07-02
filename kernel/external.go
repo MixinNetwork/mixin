@@ -7,6 +7,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 )
 
 func (node *Node) verifyExternalSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
@@ -49,6 +50,7 @@ func (node *Node) verifyExternalSnapshot(s *common.Snapshot, tx *common.Versione
 	}
 	if s.RoundNumber == cache.Number+1 {
 		if round, err := node.startNewRound(s, cache); err != nil {
+			logger.Verbosef("ERROR verifyExternalSnapshot %s %d %s %s %s\n", s.NodeId, s.RoundNumber, s.References.Self, s.References.External, err.Error())
 			return node.queueSnapshotOrPanic(s, false)
 		} else if round == nil {
 			return nil
