@@ -128,6 +128,9 @@ func (node *Node) collectSelfSignatures(s *common.Snapshot, tx *common.Versioned
 	if s.RoundNumber < cache.Number {
 		return node.clearAndQueueSnapshotOrPanic(s)
 	}
+	if !s.References.Equal(cache.References) {
+		return node.clearAndQueueSnapshotOrPanic(s)
+	}
 	if !cache.ValidateSnapshot(s, false) {
 		return node.clearAndQueueSnapshotOrPanic(s)
 	}
@@ -234,7 +237,53 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTrans
 		time.Sleep(300 * time.Millisecond)
 	}
 
-	if start, _ := cache.Gap(); s.Timestamp >= start+config.SnapshotRoundGap {
+	if len(cache.Snapshots) == 0 {
+		external, err := node.persistStore.ReadRound(cache.References.External)
+		if err != nil {
+			return err
+		}
+		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*128
+		for _, r := range node.Graph.FinalRound {
+			if r.NodeId == s.NodeId {
+				continue
+			}
+			if threshold > r.Start {
+				continue
+			}
+			best := node.determinBestRound(s.Timestamp)
+			if best == nil {
+				time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
+				return node.clearAndQueueSnapshotOrPanic(s)
+			}
+			if best.NodeId == final.NodeId {
+				panic("should never be here")
+			}
+			if external.Timestamp+config.SnapshotReferenceThreshold*config.SnapshotRoundGap*72 > best.Start {
+				return node.clearAndQueueSnapshotOrPanic(s)
+			}
+			link, err := node.persistStore.ReadLink(cache.NodeId, best.NodeId)
+			if err != nil {
+				return err
+			}
+			if best.Number <= link {
+				return node.clearAndQueueSnapshotOrPanic(s)
+			}
+			cache = &CacheRound{
+				NodeId: cache.NodeId,
+				Number: cache.Number,
+				References: &common.RoundLink{
+					Self:     final.Hash,
+					External: best.Hash,
+				},
+			}
+			err = node.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, cache.References)
+			if err != nil {
+				panic(err)
+			}
+			node.assignNewGraphRound(final, cache)
+			return node.clearAndQueueSnapshotOrPanic(s)
+		}
+	} else if start, _ := cache.Gap(); s.Timestamp >= start+config.SnapshotRoundGap {
 		best := node.determinBestRound(s.Timestamp)
 		if best == nil {
 			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
