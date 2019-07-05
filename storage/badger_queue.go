@@ -113,8 +113,8 @@ func (q *Queue) PopCache() (*PeerSnapshot, error) {
 	return ps, nil
 }
 
-func (s *BadgerStore) QueueInfo() (uint64, uint64, uint64, error) {
-	return 0, s.queue.finalRing.Len(), s.queue.cacheRing.Len(), nil
+func (s *BadgerStore) QueueInfo() (uint64, uint64, error) {
+	return s.queue.finalRing.Len(), s.queue.cacheRing.Len(), nil
 }
 
 func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snapshot, finalized bool) error {
