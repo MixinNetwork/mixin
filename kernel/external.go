@@ -55,10 +55,10 @@ func (node *Node) verifyExternalSnapshot(s *common.Snapshot, tx *common.Versione
 			return err
 		}
 		external, err := node.persistStore.ReadRound(s.References.External)
-		if err != nil {
+		if err != nil || external == nil {
 			return err
 		}
-		if old.Timestamp+config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64 > external.Timestamp {
+		if old.Timestamp+config.SnapshotReferenceThreshold*config.SnapshotRoundGap*32 > external.Timestamp {
 			return nil
 		}
 		link, err := node.persistStore.ReadLink(cache.NodeId, external.NodeId)
