@@ -242,25 +242,15 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTrans
 		if err != nil {
 			return err
 		}
-		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*32
-		for _, r := range node.Graph.FinalRound {
-			if r.NodeId == s.NodeId {
-				continue
-			}
-			if threshold > r.Start {
-				continue
-			}
-			best := node.determinBestRound(s.Timestamp)
-			if best == nil {
-				time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
-				return node.clearAndQueueSnapshotOrPanic(s)
-			}
-			if best.NodeId == final.NodeId {
-				panic("should never be here")
-			}
-			if external.Timestamp+config.SnapshotReferenceThreshold*config.SnapshotRoundGap*36 > best.Start {
-				return node.clearAndQueueSnapshotOrPanic(s)
-			}
+		best := node.determinBestRound(s.Timestamp)
+		if best == nil {
+			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
+			return node.clearAndQueueSnapshotOrPanic(s)
+		}
+		if best.NodeId == final.NodeId {
+			panic("should never be here")
+		}
+		if external.Timestamp+config.SnapshotReferenceThreshold*config.SnapshotRoundGap*36 < best.Start {
 			link, err := node.persistStore.ReadLink(cache.NodeId, best.NodeId)
 			if err != nil {
 				return err

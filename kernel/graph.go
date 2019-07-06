@@ -93,7 +93,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 	}
 	if !node.verifyFinalization(s.Timestamp, s.Signatures) {
 		if external.Timestamp > s.Timestamp+config.SnapshotRoundGap {
-			return nill, fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-s.Timestamp).Seconds())
+			return nil, fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-s.Timestamp).Seconds())
 		}
 		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64
 		for _, rounds := range node.Graph.RoundHistory {
