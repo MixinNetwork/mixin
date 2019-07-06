@@ -17,6 +17,10 @@ import (
 	"gopkg.in/urfave/cli.v1"
 )
 
+func init() {
+	logger.Init(config.LoggerLevel)
+}
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "mixin"
