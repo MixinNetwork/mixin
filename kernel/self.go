@@ -242,7 +242,7 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTrans
 		if err != nil {
 			return err
 		}
-		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64
+		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*32
 		for _, r := range node.Graph.FinalRound {
 			if r.NodeId == s.NodeId {
 				continue
