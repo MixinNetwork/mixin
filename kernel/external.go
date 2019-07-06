@@ -43,10 +43,45 @@ func (node *Node) verifyExternalSnapshot(s *common.Snapshot, tx *common.Versione
 	if s.Timestamp <= final.Start+config.SnapshotRoundGap {
 		return nil
 	}
-	if s.RoundNumber == cache.Number {
-		if !s.References.Equal(cache.References) {
+	if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
+		if len(cache.Snapshots) > 0 {
 			return nil
 		}
+		if s.References.Self != cache.References.Self {
+			return nil
+		}
+		old, err := node.persistStore.ReadRound(cache.References.External)
+		if err != nil {
+			return err
+		}
+		external, err := node.persistStore.ReadRound(s.References.External)
+		if err != nil || external == nil {
+			return err
+		}
+		if old.Timestamp+config.SnapshotReferenceThreshold*config.SnapshotRoundGap*32 > external.Timestamp {
+			return nil
+		}
+		link, err := node.persistStore.ReadLink(cache.NodeId, external.NodeId)
+		if err != nil {
+			return err
+		}
+		if external.Number <= link {
+			return nil
+		}
+		cache = &CacheRound{
+			NodeId: cache.NodeId,
+			Number: cache.Number,
+			References: &common.RoundLink{
+				Self:     s.References.Self,
+				External: s.References.External,
+			},
+		}
+		err = node.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, cache.References)
+		if err != nil {
+			panic(err)
+		}
+		node.assignNewGraphRound(final, cache)
+		return node.queueSnapshotOrPanic(s, false)
 	}
 	if s.RoundNumber == cache.Number+1 {
 		if round, err := node.startNewRound(s, cache); err != nil {

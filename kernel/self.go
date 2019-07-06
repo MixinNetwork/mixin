@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"fmt"
 	"sort"
 	"time"
 
@@ -88,7 +89,78 @@ func (node *Node) collectSelfSignatures(s *common.Snapshot, tx *common.Versioned
 		return nil
 	}
 
-	return nil
+	filter := make(map[string]bool)
+	osigs := node.SnapshotsPool[s.Hash]
+	for _, sig := range osigs {
+		filter[sig.String()] = true
+	}
+	for _, sig := range s.Signatures {
+		if filter[sig.String()] {
+			continue
+		}
+		osigs = append(osigs, sig)
+		filter[sig.String()] = true
+	}
+	node.SnapshotsPool[s.Hash] = append([]*crypto.Signature{}, osigs...)
+
+	if node.checkInitialAcceptSnapshot(s, tx) {
+		if !node.verifyFinalizationDeprecated(s.Timestamp, osigs) {
+			return nil
+		}
+		s.Signatures = append([]*crypto.Signature{}, osigs...)
+		err := node.finalizeNodeAcceptSnapshot(s)
+		if err != nil {
+			return err
+		}
+		for peerId, _ := range node.ConsensusNodes {
+			err := node.Peer.SendSnapshotMessage(peerId, s, 1)
+			if err != nil {
+				return err
+			}
+		}
+		return node.reloadConsensusNodesList(s, tx)
+	}
+
+	cache := node.Graph.CacheRound[s.NodeId].Copy()
+	if s.RoundNumber > cache.Number {
+		panic(fmt.Sprintf("should never be here %d %d", cache.Number, s.RoundNumber))
+	}
+	if s.RoundNumber < cache.Number {
+		return node.clearAndQueueSnapshotOrPanic(s)
+	}
+	if !s.References.Equal(cache.References) {
+		return node.clearAndQueueSnapshotOrPanic(s)
+	}
+	if !cache.ValidateSnapshot(s, false) {
+		return node.clearAndQueueSnapshotOrPanic(s)
+	}
+
+	if !node.verifyFinalizationDeprecated(s.Timestamp, osigs) {
+		return nil
+	}
+
+	s.Signatures = append([]*crypto.Signature{}, osigs...)
+	topo := &common.SnapshotWithTopologicalOrder{
+		Snapshot:         *s,
+		TopologicalOrder: node.TopoCounter.Next(),
+	}
+	err := node.persistStore.WriteSnapshot(topo)
+	if err != nil {
+		panic(err)
+	}
+	if !cache.ValidateSnapshot(s, true) {
+		panic("should never be here")
+	}
+	node.Graph.CacheRound[s.NodeId] = cache
+	node.removeFromCache(s)
+
+	for peerId, _ := range node.ConsensusNodes {
+		err := node.Peer.SendSnapshotMessage(peerId, s, 1)
+		if err != nil {
+			return err
+		}
+	}
+	return node.reloadConsensusNodesList(s, tx)
 }
 
 func (node *Node) determinBestRound(roundTime uint64) *FinalRound {
@@ -165,7 +237,37 @@ func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTrans
 		time.Sleep(300 * time.Millisecond)
 	}
 
-	if start, _ := cache.Gap(); s.Timestamp >= start+config.SnapshotRoundGap {
+	if len(cache.Snapshots) == 0 {
+		external, err := node.persistStore.ReadRound(cache.References.External)
+		if err != nil {
+			return err
+		}
+		best := node.determinBestRound(s.Timestamp)
+		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*36
+		if best != nil && best.NodeId != final.NodeId && threshold < best.Start {
+			link, err := node.persistStore.ReadLink(cache.NodeId, best.NodeId)
+			if err != nil {
+				return err
+			}
+			if best.Number <= link {
+				return node.clearAndQueueSnapshotOrPanic(s)
+			}
+			cache = &CacheRound{
+				NodeId: cache.NodeId,
+				Number: cache.Number,
+				References: &common.RoundLink{
+					Self:     final.Hash,
+					External: best.Hash,
+				},
+			}
+			err = node.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, cache.References)
+			if err != nil {
+				panic(err)
+			}
+			node.assignNewGraphRound(final, cache)
+			return node.clearAndQueueSnapshotOrPanic(s)
+		}
+	} else if start, _ := cache.Gap(); s.Timestamp >= start+config.SnapshotRoundGap {
 		best := node.determinBestRound(s.Timestamp)
 		if best == nil {
 			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
