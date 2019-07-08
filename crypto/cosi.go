@@ -218,17 +218,3 @@ func (c *CosiSignature) UnmarshalJSON(b []byte) error {
 	}
 	return nil
 }
-
-func CosiHashAggregateAllPublics(publics []*Key) []byte {
-	var pub *Key
-	for i, _ := range publics {
-		k := publics[i]
-		if pub == nil {
-			pub = k
-		} else {
-			pub = KeyAddPub(pub, k)
-		}
-	}
-	hash := NewHash(pub[:])
-	return hash[:]
-}
