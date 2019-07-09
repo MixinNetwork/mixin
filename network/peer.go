@@ -35,8 +35,12 @@ type PeerMessage struct {
 	SnapshotHash    crypto.Hash
 	Transaction     *common.VersionedTransaction
 	TransactionHash crypto.Hash
+	Cosi            crypto.CosiSignature
+	Commitment      crypto.Key
+	Response        [32]byte
+	WantTx          bool
 	FinalCache      []*SyncPoint
-	Data            []byte
+	Auth            []byte
 }
 
 type SyncHandle interface {
@@ -44,11 +48,16 @@ type SyncHandle interface {
 	BuildAuthenticationMessage() []byte
 	Authenticate(msg []byte) (crypto.Hash, string, error)
 	BuildGraph() []*SyncPoint
-	SendTransactionToPeer(peerId, tx crypto.Hash) error
-	CachePutTransaction(peerId crypto.Hash, ver *common.VersionedTransaction) error
+	UpdateSyncPoint(peerId crypto.Hash, points []*SyncPoint)
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
-	UpdateSyncPoint(peerId crypto.Hash, points []*SyncPoint)
+	SendTransactionToPeer(peerId, tx crypto.Hash) error
+	CachePutTransaction(peerId crypto.Hash, ver *common.VersionedTransaction) error
+	CosiCommit(peerId crypto.Hash, s *common.Snapshot) error
+	CosiAggregateCommitments(peerId crypto.Hash, snap crypto.Hash, commitment crypto.Key, wantTx bool) error
+	CosiChallenge(peerId crypto.Hash, snap crypto.Hash, cosi crypto.CosiSignature, ver *common.VersionedTransaction) error
+	CosiAggregateResponses(peerId crypto.Hash, snap crypto.Hash, response [32]byte) error
+	VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error
 }
 
 type SyncPoint struct {
@@ -212,7 +221,7 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 		}
 	case PeerMessageTypePing:
 	case PeerMessageTypeAuthentication:
-		msg.Data = data[1:]
+		msg.Auth = data[1:]
 	case PeerMessageTypeSnapshotConfirm:
 		copy(msg.SnapshotHash[:], data[1:])
 	case PeerMessageTypeTransaction:
@@ -223,6 +232,43 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 		msg.Transaction = ver
 	case PeerMessageTypeTransactionRequest:
 		copy(msg.TransactionHash[:], data[1:])
+	case PeerMessageTypeSnapshotAnnoucement:
+		err := common.MsgpackUnmarshal(data[1:], &msg.Snapshot)
+		if err != nil {
+			return nil, err
+		}
+	case PeerMessageTypeSnapshotCommitment:
+		if len(data[1:]) != 65 {
+			return nil, fmt.Errorf("invalid commitment message size %d", len(data[1:]))
+		}
+		copy(msg.SnapshotHash[:], data[1:])
+		copy(msg.Commitment[:], data[33:])
+		msg.WantTx = data[65] == 1
+	case PeerMessageTypeTransactionChallenge:
+		if len(data[1:]) < 104 {
+			return nil, fmt.Errorf("invalid challenge message size %d", len(data[1:]))
+		}
+		copy(msg.SnapshotHash[:], data[1:])
+		copy(msg.Cosi.Signature[:], data[33:])
+		msg.Cosi.Mask = binary.BigEndian.Uint64(data[97:105])
+		if len(data[1:]) > 104 {
+			ver, err := common.UnmarshalVersionedTransaction(data[105:])
+			if err != nil {
+				return nil, err
+			}
+			msg.Transaction = ver
+		}
+	case PeerMessageTypeSnapshotResponse:
+		if len(data[1:]) != 64 {
+			return nil, fmt.Errorf("invalid response message size %d", len(data[1:]))
+		}
+		copy(msg.SnapshotHash[:], data[1:])
+		copy(msg.Response[:], data[33:])
+	case PeerMessageTypeSnapshotFinalization:
+		err := common.MsgpackUnmarshal(data[1:], &msg.Snapshot)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return msg, nil
 }
@@ -442,6 +488,16 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage, done ch
 				me.handle.CachePutTransaction(peer.IdForNetwork, msg.Transaction)
 			case PeerMessageTypeSnapshotConfirm:
 				me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash)
+			case PeerMessageTypeSnapshotAnnoucement:
+				me.handle.CosiCommit(peer.IdForNetwork, msg.Snapshot)
+			case PeerMessageTypeSnapshotCommitment:
+				me.handle.CosiAggregateCommitments(peer.IdForNetwork, msg.SnapshotHash, msg.Commitment, msg.WantTx)
+			case PeerMessageTypeTransactionChallenge:
+				me.handle.CosiChallenge(peer.IdForNetwork, msg.SnapshotHash, msg.Cosi, msg.Transaction)
+			case PeerMessageTypeSnapshotResponse:
+				me.handle.CosiAggregateResponses(peer.IdForNetwork, msg.SnapshotHash, msg.Response)
+			case PeerMessageTypeSnapshotFinalization:
+				me.handle.VerifyAndQueueAppendSnapshotFinalization(peer.IdForNetwork, msg.Snapshot)
 			}
 		}
 	}
@@ -466,7 +522,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			return
 		}
 
-		id, addr, err := me.handle.Authenticate(msg.Data)
+		id, addr, err := me.handle.Authenticate(msg.Auth)
 		if err != nil {
 			auth <- err
 			return

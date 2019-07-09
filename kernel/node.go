@@ -123,6 +123,30 @@ func (node *Node) LoadNodeConfig() {
 	node.Listener = config.Custom.Listener
 }
 
+func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
+	if timestamp == 0 {
+		timestamp = uint64(time.Now().UnixNano())
+	}
+	if t := node.epoch + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*2; t > timestamp {
+		timestamp = t
+	}
+
+	var keys []*crypto.Key
+	for _, cn := range node.ActiveNodes {
+		if cn.State != common.NodeStateAccepted {
+			continue
+		}
+		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap
+		if threshold > uint64(3*time.Minute) {
+			panic("should never be here")
+		}
+		if cn.Timestamp+threshold < timestamp {
+			keys = append(keys, &cn.Signer.PublicSpendKey)
+		}
+	}
+	return keys
+}
+
 func (node *Node) ConsensusBase(timestamp uint64) int {
 	if timestamp == 0 {
 		timestamp = uint64(time.Now().UnixNano())
@@ -261,18 +285,18 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
 }
 
-func (node *Node) VerifyAndQueueAppendSnapshotdDeprecated(peerId crypto.Hash, s *common.Snapshot) error {
+func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
-	if !node.verifyFinalizationDeprecated(s.Timestamp, s.Signatures) {
-		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
+	if !node.verifyFinalization(s.Timestamp, s.Signatures) {
+		return nil
 	}
 	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil {
 		return err
 	}
 	if inNode {
-		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash, 1)
-		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
+		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
+		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
 	}
 
 	sigs := make([]*crypto.Signature, 0)
@@ -306,16 +330,12 @@ func (node *Node) VerifyAndQueueAppendSnapshotdDeprecated(peerId crypto.Hash, s 
 	for i := range sigs {
 		s.Signatures[i] = sigs[i]
 	}
+	if !node.verifyFinalization(s.Timestamp, s.Signatures) {
+		return nil
+	}
 
-	err = node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
-	if err != nil {
-		return err
-	}
-	if node.verifyFinalizationDeprecated(s.Timestamp, s.Signatures) {
-		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash, 1)
-		return node.QueueAppendSnapshot(peerId, s, true)
-	}
-	return nil
+	node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
+	return node.QueueAppendSnapshot(peerId, s, true)
 }
 
 func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot, final bool) error {
@@ -340,7 +360,6 @@ func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
 }
 
 func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTransaction) error {
-	node.Peer.ConfirmTransactionForPeer(peerId, tx)
 	return node.persistStore.CachePutTransaction(tx)
 }
 
