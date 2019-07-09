@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	PeerMessageTypeSnapshotDeprecated = 0
 	PeerMessageTypePing               = 1
 	PeerMessageTypeAuthentication     = 3
 	PeerMessageTypeGraph              = 4
@@ -24,36 +23,16 @@ const (
 	PeerMessageTypeTransaction        = 7
 
 	PeerMessageTypeSnapshotAnnoucement  = 10 // leader send snapshot to peer
-	PeerMessageTypeSnapshotCommitment   = 11 // peer generate determinsitic ri based on a and snapshot, send Ri to leader
+	PeerMessageTypeSnapshotCommitment   = 11 // peer generate ri based, send Ri to leader
 	PeerMessageTypeTransactionChallenge = 12 // leader send bitmask Z and aggragated R to peer
 	PeerMessageTypeSnapshotResponse     = 13 // peer generate A from nodes and Z, send response si = ri + H(R || A || M)ai to leader
 	PeerMessageTypeSnapshotFinalization = 14 // leader generate A, verify si B = ri B + H(R || A || M)ai B = Ri + H(R || A || M)Ai, then finaliz based on threshold
 )
 
-type ConfirmMap struct {
-	cache *fastcache.Cache
-}
-
-func (m *ConfirmMap) Exist(key crypto.Hash, duration time.Duration) bool {
-	val := m.cache.Get(nil, key[:])
-	if len(val) == 8 {
-		ts := time.Unix(0, int64(binary.BigEndian.Uint64(val)))
-		return ts.Add(duration).After(time.Now())
-	}
-	return false
-}
-
-func (m *ConfirmMap) Store(key crypto.Hash, ts time.Time) {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, uint64(ts.UnixNano()))
-	m.cache.Set(key[:], buf)
-}
-
 type PeerMessage struct {
 	Type            uint8
 	Snapshot        *common.Snapshot
 	SnapshotHash    crypto.Hash
-	Finalized       byte
 	Transaction     *common.VersionedTransaction
 	TransactionHash crypto.Hash
 	FinalCache      []*SyncPoint
@@ -65,7 +44,6 @@ type SyncHandle interface {
 	BuildAuthenticationMessage() []byte
 	Authenticate(msg []byte) (crypto.Hash, string, error)
 	BuildGraph() []*SyncPoint
-	VerifyAndQueueAppendSnapshotdDeprecated(peerId crypto.Hash, s *common.Snapshot) error
 	SendTransactionToPeer(peerId, tx crypto.Hash) error
 	CachePutTransaction(peerId crypto.Hash, ver *common.VersionedTransaction) error
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
@@ -89,7 +67,7 @@ type Peer struct {
 	Address      string
 
 	storeCache      *fastcache.Cache
-	snapshotsCaches *ConfirmMap
+	snapshotsCaches *confirmMap
 	neighbors       map[crypto.Hash]*Peer
 	handle          SyncHandle
 	transport       Transport
@@ -131,115 +109,68 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 	}
 	if handle != nil {
 		peer.storeCache = handle.GetCacheStore()
-		peer.snapshotsCaches = &ConfirmMap{cache: peer.storeCache}
+		peer.snapshotsCaches = &confirmMap{cache: peer.storeCache}
 	}
 	return peer
 }
 
-func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypto.Hash) error {
+func (me *Peer) SendSnapshotAnnouncementMessage(idForNetwork crypto.Hash, s *common.Snapshot) error {
+	data := buildSnapshotAnnouncementMessage(s)
+	return me.sendSnapshotMessagetoPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeSnapshotAnnoucement, data)
+}
+
+func (me *Peer) SendSnapshotCommitmentMessage(idForNetwork crypto.Hash, snap crypto.Hash, R crypto.Key, wantTx bool) error {
+	data := buildSnapshotCommitmentMessage(snap, R, wantTx)
+	return me.sendSnapshotMessagetoPeer(idForNetwork, snap, PeerMessageTypeSnapshotCommitment, data)
+}
+
+func (me *Peer) SendTransactionChallengeMessage(idForNetwork crypto.Hash, snap crypto.Hash, cosi crypto.CosiSignature, tx *common.VersionedTransaction) error {
+	data := buildTransactionChallengeMessage(snap, cosi, tx)
+	return me.sendSnapshotMessagetoPeer(idForNetwork, snap, PeerMessageTypeTransactionChallenge, data)
+}
+
+func (me *Peer) SendSnapshotResponseMessage(idForNetwork crypto.Hash, snap crypto.Hash, si [32]byte) error {
+	data := buildSnapshotResponseMessage(snap, si)
+	return me.sendSnapshotMessagetoPeer(idForNetwork, snap, PeerMessageTypeSnapshotResponse, data)
+}
+
+func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *common.Snapshot) error {
 	if idForNetwork == me.IdForNetwork {
-		return nil
-	}
-
-	key := tx.ForNetwork(idForNetwork)
-	key = crypto.NewHash(append(key[:], 'R', 'Q'))
-	if me.snapshotsCaches.Exist(key, time.Minute) {
-		return nil
-	}
-
-	peer := me.neighbors[idForNetwork]
-	if peer == nil {
-		return nil
-	}
-	return peer.SendHigh(key, buildTransactionRequestMessage(tx))
-}
-
-func (me *Peer) ConfirmTransactionForPeer(idForNetwork crypto.Hash, ver *common.VersionedTransaction) {
-	key := ver.PayloadHash().ForNetwork(idForNetwork)
-	key = crypto.NewHash(append(key[:], 'P', 'L'))
-	me.snapshotsCaches.Store(key, time.Now())
-}
-
-func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, ver *common.VersionedTransaction) error {
-	if idForNetwork == me.IdForNetwork {
-		return nil
-	}
-
-	key := ver.PayloadHash().ForNetwork(idForNetwork)
-	key = crypto.NewHash(append(key[:], 'P', 'L'))
-	if me.snapshotsCaches.Exist(key, time.Minute) {
-		return nil
-	}
-
-	peer := me.neighbors[idForNetwork]
-	if peer == nil {
-		return nil
-	}
-	return peer.SendHigh(key, buildTransactionMessage(ver))
-}
-
-func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash, finalized byte) error {
-	if idForNetwork == me.IdForNetwork {
-		return nil
-	}
-
-	key := snap.ForNetwork(idForNetwork)
-	key = crypto.NewHash(append(key[:], finalized, 'C', 'F'))
-	if me.snapshotsCaches.Exist(key, time.Minute) {
-		return nil
-	}
-
-	peer := me.neighbors[idForNetwork]
-	if peer == nil {
-		return nil
-	}
-	return peer.SendHigh(key, buildSnapshotConfirmMessage(snap, finalized))
-}
-
-func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash, finalized byte) {
-	hash := snap.ForNetwork(idForNetwork)
-	key := crypto.NewHash(append(hash[:], finalized, 'S', 'C'))
-	me.snapshotsCaches.Store(key, time.Now())
-}
-
-func (me *Peer) SendSnapshotMessage(idForNetwork crypto.Hash, s *common.Snapshot, finalized byte) error {
-	if idForNetwork == me.IdForNetwork || len(s.Signatures) == 0 {
 		return nil
 	}
 
 	hash := s.PayloadHash().ForNetwork(idForNetwork)
-	key := crypto.NewHash(append(hash[:], finalized, 'S', 'C'))
+	key := crypto.NewHash(append(hash[:], 'S', 'C', 'O'))
 	if me.snapshotsCaches.Exist(key, config.Custom.CacheTTL*time.Second/2) {
 		return nil
 	}
-	key = crypto.NewHash(append(hash[:], finalized, 'S', 'S'))
-	if me.snapshotsCaches.Exist(key, time.Minute) {
-		return nil
-	}
 
-	peer := me.neighbors[idForNetwork]
-	if peer == nil {
-		return nil
-	}
-	return peer.SendNormal(key, buildSnapshotMessage(s))
+	data := buildSnapshotFinalizationMessage(s)
+	return me.sendSnapshotMessagetoPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeSnapshotFinalization, data)
 }
 
-func (p *Peer) SendHigh(key crypto.Hash, data []byte) error {
-	select {
-	case p.high <- &ChanMsg{key, data}:
-		return nil
-	case <-time.After(1 * time.Second):
-		return errors.New("peer send high timeout")
-	}
+func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash) error {
+	key := snap.ForNetwork(idForNetwork)
+	key = crypto.NewHash(append(key[:], 'S', 'N', 'A', 'P', PeerMessageTypeSnapshotConfirm))
+	return me.sendHighToPeer(idForNetwork, key, buildSnapshotConfirmMessage(snap))
 }
 
-func (p *Peer) SendNormal(key crypto.Hash, data []byte) error {
-	select {
-	case p.normal <- &ChanMsg{key, data}:
-		return nil
-	case <-time.After(1 * time.Second):
-		return errors.New("peer send normal timeout")
-	}
+func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypto.Hash) error {
+	key := tx.ForNetwork(idForNetwork)
+	key = crypto.NewHash(append(key[:], 'T', 'X', PeerMessageTypeTransactionRequest))
+	return me.sendHighToPeer(idForNetwork, key, buildTransactionRequestMessage(tx))
+}
+
+func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, ver *common.VersionedTransaction) error {
+	key := ver.PayloadHash().ForNetwork(idForNetwork)
+	key = crypto.NewHash(append(key[:], 'T', 'X', PeerMessageTypeTransaction))
+	return me.sendHighToPeer(idForNetwork, key, buildTransactionMessage(ver))
+}
+
+func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash) {
+	hash := snap.ForNetwork(idForNetwork)
+	key := crypto.NewHash(append(hash[:], 'S', 'C', 'O'))
+	me.snapshotsCaches.Store(key, time.Now())
 }
 
 func (me *Peer) ListenNeighbors() error {
@@ -274,13 +205,6 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 	}
 	msg := &PeerMessage{Type: data[0]}
 	switch msg.Type {
-	case PeerMessageTypeSnapshotDeprecated:
-		var ss common.Snapshot
-		err := common.MsgpackUnmarshal(data[1:], &ss)
-		if err != nil {
-			return nil, err
-		}
-		msg.Snapshot = &ss
 	case PeerMessageTypeGraph:
 		err := common.MsgpackUnmarshal(data[1:], &msg.FinalCache)
 		if err != nil {
@@ -290,8 +214,7 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 	case PeerMessageTypeAuthentication:
 		msg.Data = data[1:]
 	case PeerMessageTypeSnapshotConfirm:
-		msg.Finalized = data[1]
-		copy(msg.SnapshotHash[:], data[2:])
+		copy(msg.SnapshotHash[:], data[1:])
 	case PeerMessageTypeTransaction:
 		ver, err := common.UnmarshalVersionedTransaction(data[1:])
 		if err != nil {
@@ -313,16 +236,48 @@ func buildPingMessage() []byte {
 	return []byte{PeerMessageTypePing}
 }
 
-func buildSnapshotMessage(ss *common.Snapshot) []byte {
-	if len(ss.Signatures) > 3 {
-		data := common.MsgpackMarshalPanic(ss)
-		return append([]byte{PeerMessageTypeSnapshotDeprecated}, data...)
-	}
-	panic(ss)
+func buildSnapshotAnnouncementMessage(s *common.Snapshot) []byte {
+	data := common.MsgpackMarshalPanic(s)
+	return append([]byte{PeerMessageTypeSnapshotAnnoucement}, data...)
 }
 
-func buildSnapshotConfirmMessage(snap crypto.Hash, finalized byte) []byte {
-	return append([]byte{PeerMessageTypeSnapshotConfirm, finalized}, snap[:]...)
+func buildSnapshotCommitmentMessage(snap crypto.Hash, R crypto.Key, wantTx bool) []byte {
+	data := []byte{PeerMessageTypeSnapshotCommitment}
+	data = append(data, snap[:]...)
+	data = append(data, R[:]...)
+	if wantTx {
+		return append(data, byte(1))
+	}
+	return append(data, byte(0))
+}
+
+func buildTransactionChallengeMessage(snap crypto.Hash, cosi crypto.CosiSignature, tx *common.VersionedTransaction) []byte {
+	mask := make([]byte, 8)
+	binary.BigEndian.PutUint64(mask, cosi.Mask)
+	data := []byte{PeerMessageTypeTransactionChallenge}
+	data = append(data, snap[:]...)
+	data = append(data, cosi.Signature[:]...)
+	data = append(data, mask...)
+	if tx != nil {
+		pl := tx.Marshal()
+		return append(data, pl...)
+	}
+	return data
+}
+
+func buildSnapshotResponseMessage(snap crypto.Hash, si [32]byte) []byte {
+	data := []byte{PeerMessageTypeSnapshotResponse}
+	data = append(data, snap[:]...)
+	return append(data, si[:]...)
+}
+
+func buildSnapshotFinalizationMessage(s *common.Snapshot) []byte {
+	data := common.MsgpackMarshalPanic(s)
+	return append([]byte{PeerMessageTypeSnapshotFinalization}, data...)
+}
+
+func buildSnapshotConfirmMessage(snap crypto.Hash) []byte {
+	return append([]byte{PeerMessageTypeSnapshotConfirm}, snap[:]...)
 }
 
 func buildTransactionMessage(ver *common.VersionedTransaction) []byte {
@@ -478,8 +433,6 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage, done ch
 		case msg := <-receive:
 			switch msg.Type {
 			case PeerMessageTypePing:
-			case PeerMessageTypeSnapshotDeprecated:
-				me.handle.VerifyAndQueueAppendSnapshotdDeprecated(peer.IdForNetwork, msg.Snapshot)
 			case PeerMessageTypeGraph:
 				me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.FinalCache)
 				peer.sync <- msg.FinalCache
@@ -488,7 +441,7 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage, done ch
 			case PeerMessageTypeTransaction:
 				me.handle.CachePutTransaction(peer.IdForNetwork, msg.Transaction)
 			case PeerMessageTypeSnapshotConfirm:
-				me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash, msg.Finalized)
+				me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash)
 			}
 		}
 	}
@@ -542,4 +495,65 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 		return nil, errors.New("peer authentication timeout")
 	}
 	return peer, nil
+}
+
+func (me *Peer) sendHighToPeer(idForNetwork, key crypto.Hash, data []byte) error {
+	if idForNetwork == me.IdForNetwork {
+		return nil
+	}
+	peer := me.neighbors[idForNetwork]
+	if peer == nil {
+		return nil
+	}
+	if me.snapshotsCaches.Exist(key, time.Minute) {
+		return nil
+	}
+
+	select {
+	case peer.high <- &ChanMsg{key, data}:
+		return nil
+	case <-time.After(1 * time.Second):
+		return errors.New("peer send high timeout")
+	}
+}
+
+func (me *Peer) sendSnapshotMessagetoPeer(idForNetwork crypto.Hash, snap crypto.Hash, typ byte, data []byte) error {
+	if idForNetwork == me.IdForNetwork {
+		return nil
+	}
+	peer := me.neighbors[idForNetwork]
+	if peer == nil {
+		return nil
+	}
+	hash := snap.ForNetwork(idForNetwork)
+	key := crypto.NewHash(append(hash[:], 'S', 'N', 'A', 'P', typ))
+	if me.snapshotsCaches.Exist(key, time.Minute) {
+		return nil
+	}
+
+	select {
+	case peer.normal <- &ChanMsg{key, data}:
+		return nil
+	case <-time.After(1 * time.Second):
+		return errors.New("peer send normal timeout")
+	}
+}
+
+type confirmMap struct {
+	cache *fastcache.Cache
+}
+
+func (m *confirmMap) Exist(key crypto.Hash, duration time.Duration) bool {
+	val := m.cache.Get(nil, key[:])
+	if len(val) == 8 {
+		ts := time.Unix(0, int64(binary.BigEndian.Uint64(val)))
+		return ts.Add(duration).After(time.Now())
+	}
+	return false
+}
+
+func (m *confirmMap) Store(key crypto.Hash, ts time.Time) {
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(ts.UnixNano()))
+	m.cache.Set(key[:], buf)
 }

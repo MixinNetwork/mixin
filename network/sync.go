@@ -108,7 +108,7 @@ func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, o
 			offset = s.TopologicalOrder
 			continue
 		}
-		err := me.SendSnapshotMessage(p.IdForNetwork, &s.Snapshot, 1)
+		err := me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot)
 		if err != nil {
 			return offset, err
 		}

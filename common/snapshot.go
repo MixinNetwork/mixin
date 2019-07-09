@@ -33,15 +33,15 @@ type DeprecatedSnapshot struct {
 }
 
 type Snapshot struct {
-	Version     uint8               `json:"version"`
-	NodeId      crypto.Hash         `json:"node"`
-	Transaction crypto.Hash         `json:"transaction"`
-	References  *RoundLink          `json:"references"`
-	RoundNumber uint64              `json:"round"`
-	Timestamp   uint64              `json:"timestamp"`
-	Signatures  []*crypto.Signature `json:"signatures,omitempty"msgpack:",omitempty"`
-	Signature   []byte              `json:"signature,omitempty"msgpack:",omitempty"`
-	Hash        crypto.Hash         `msgpack:"-"json:"hash"`
+	Version     uint8                 `json:"version"`
+	NodeId      crypto.Hash           `json:"node"`
+	Transaction crypto.Hash           `json:"transaction"`
+	References  *RoundLink            `json:"references"`
+	RoundNumber uint64                `json:"round"`
+	Timestamp   uint64                `json:"timestamp"`
+	Signatures  []*crypto.Signature   `json:"signatures,omitempty"msgpack:",omitempty"`
+	Signature   *crypto.CosiSignature `json:"signature,omitempty"msgpack:",omitempty"`
+	Hash        crypto.Hash           `msgpack:"-"json:"hash"`
 }
 
 type SnapshotWithTopologicalOrder struct {
