@@ -15,6 +15,7 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 		return "", err
 	}
 	err = node.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: tx.PayloadHash(),
 	}, false)
@@ -24,6 +25,7 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 func (node *Node) LoadCacheToQueue() error {
 	return node.persistStore.CacheListTransactions(func(tx *common.VersionedTransaction) error {
 		return node.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+			Version:     common.SnapshotVersion,
 			NodeId:      node.IdForNetwork,
 			Transaction: tx.PayloadHash(),
 		}, false)
@@ -32,28 +34,18 @@ func (node *Node) LoadCacheToQueue() error {
 
 func (node *Node) ConsumeQueue() error {
 	node.persistStore.QueuePollSnapshots(func(peerId crypto.Hash, snap *common.Snapshot) error {
-		tx, err := node.persistStore.CacheGetTransaction(snap.Transaction)
-		if err != nil {
-			return err
+		m := &CosiAction{Snapshot: snap}
+		if snap.Version == 0 {
+			m.Action = CosiActionFinalization
+		} else if snap.Signature != nil {
+			m.Action = CosiActionFinalization
+		} else if snap.NodeId != node.IdForNetwork {
+			m.Action = CosiActionExternalAnnouncement
+		} else {
+			m.Action = CosiActionSelfEmpty
 		}
-		if tx != nil {
-			node.mempoolChan <- snap
-			return nil
-		}
-		tx, _, err = node.persistStore.ReadTransaction(snap.Transaction)
-		if err != nil {
-			return err
-		}
-		if tx != nil {
-			node.mempoolChan <- snap
-			return nil
-		}
-
-		if peerId == node.IdForNetwork {
-			return nil
-		}
-		node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction)
-		return node.QueueAppendSnapshot(peerId, snap, node.verifyFinalizationDeprecated(snap.Timestamp, snap.Signatures))
+		node.cosiActionsChan <- m
+		return nil
 	})
 	return nil
 }

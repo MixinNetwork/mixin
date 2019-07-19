@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"encoding/binary"
 	"fmt"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	defer node.Graph.UpdateFinalCache(node.IdForNetwork)
 
-	if node.verifyFinalizationDeprecated(s.Timestamp, s.Signatures) {
+	if node.verifyFinalization(s.Timestamp, s.Signatures) {
 		err := node.tryToStartNewRound(s)
 		if err != nil {
 			return node.queueSnapshotOrPanic(s, true)
@@ -91,7 +92,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 	if !node.genesisNodesMap[external.NodeId] && external.Number < 7+config.SnapshotReferenceThreshold {
 		return nil, nil
 	}
-	if !node.verifyFinalizationDeprecated(s.Timestamp, s.Signatures) {
+	if !node.verifyFinalization(s.Timestamp, s.Signatures) {
 		if external.Timestamp > s.Timestamp+config.SnapshotRoundGap {
 			return nil, fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-s.Timestamp).Seconds())
 		}
@@ -151,6 +152,29 @@ func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto
 	return valid
 }
 
+func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, publics []*crypto.Key, threshold int) bool {
+	key := common.MsgpackMarshalPanic(sig)
+	key = append(snap[:], key...)
+	for _, pub := range publics {
+		key = append(key, pub[:]...)
+	}
+	tbuf := make([]byte, 8)
+	binary.BigEndian.PutUint64(tbuf, uint64(threshold))
+	key = append(key, tbuf...)
+	hash := "KERNEL:COSISIGNATURE:" + crypto.NewHash(key).String()
+	value := node.cacheStore.Get(nil, []byte(hash))
+	if len(value) == 1 {
+		return value[0] == byte(1)
+	}
+	valid := sig.FullVerify(publics, threshold, snap[:])
+	if valid {
+		node.cacheStore.Set([]byte(hash), []byte{1})
+	} else {
+		node.cacheStore.Set([]byte(hash), []byte{0})
+	}
+	return valid
+}
+
 func (node *Node) checkInitialAcceptSnapshotWeak(s *common.Snapshot) bool {
 	pledge := node.ConsensusPledging
 	if pledge == nil {
@@ -190,7 +214,7 @@ func (node *Node) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 	}, false)
 }
 
-func (node *Node) verifyFinalizationDeprecated(timestamp uint64, sigs []*crypto.Signature) bool {
+func (node *Node) verifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {
 	consensusThreshold := node.ConsensusBase(timestamp)*2/3 + 1
 	return len(sigs) >= consensusThreshold
 }

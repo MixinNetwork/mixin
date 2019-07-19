@@ -68,7 +68,7 @@ func (me *Peer) SendSnapshotCommitmentMessage(idForNetwork crypto.Hash, snap cry
 	return me.sendSnapshotMessagetoPeer(idForNetwork, snap, PeerMessageTypeSnapshotCommitment, data)
 }
 
-func (me *Peer) SendTransactionChallengeMessage(idForNetwork crypto.Hash, snap crypto.Hash, cosi crypto.CosiSignature, tx *common.VersionedTransaction) error {
+func (me *Peer) SendTransactionChallengeMessage(idForNetwork crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, tx *common.VersionedTransaction) error {
 	data := buildTransactionChallengeMessage(snap, cosi, tx)
 	return me.sendSnapshotMessagetoPeer(idForNetwork, snap, PeerMessageTypeTransactionChallenge, data)
 }
@@ -141,7 +141,7 @@ func buildSnapshotCommitmentMessage(snap crypto.Hash, R crypto.Key, wantTx bool)
 	return append(data, byte(0))
 }
 
-func buildTransactionChallengeMessage(snap crypto.Hash, cosi crypto.CosiSignature, tx *common.VersionedTransaction) []byte {
+func buildTransactionChallengeMessage(snap crypto.Hash, cosi *crypto.CosiSignature, tx *common.VersionedTransaction) []byte {
 	mask := make([]byte, 8)
 	binary.BigEndian.PutUint64(mask, cosi.Mask)
 	data := []byte{PeerMessageTypeTransactionChallenge}
