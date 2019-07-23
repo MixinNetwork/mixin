@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/crypto"
 )
 
 func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, error) {
@@ -62,75 +63,54 @@ func (node *Node) tryToStartNewRound(s *common.Snapshot) error {
 	return nil
 }
 
-func (node *Node) handleSyncFinalSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
-	if node.checkInitialAcceptSnapshot(s, tx) {
-		err := node.finalizeNodeAcceptSnapshot(s)
-		if err != nil {
-			return err
-		}
-		return node.reloadConsensusNodesList(s, tx)
-	}
-
-	cache := node.Graph.CacheRound[s.NodeId].Copy()
-	final := node.Graph.FinalRound[s.NodeId].Copy()
-
-	if s.RoundNumber < cache.Number {
+func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapshot) error {
+	if !node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
 		return nil
 	}
-	if s.RoundNumber > cache.Number+1 {
-		return node.queueSnapshotOrPanic(s, true)
-	}
-	if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
-		if s.NodeId == node.IdForNetwork {
-			return nil
-		}
-		if len(cache.Snapshots) != 0 {
-			return nil
-		}
-		err := node.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, s.References)
-		if err != nil {
-			panic(err)
-		}
-		cache.References = s.References
-		node.assignNewGraphRound(final, cache)
-		return node.handleSnapshotInput(s)
-	}
-	if s.RoundNumber == cache.Number+1 {
-		if round, err := node.startNewRound(s, cache); err != nil {
-			return node.queueSnapshotOrPanic(s, true)
-		} else if round == nil {
-			return nil
-		} else {
-			final = round
-		}
-		cache = &CacheRound{
-			NodeId:     s.NodeId,
-			Number:     s.RoundNumber,
-			Timestamp:  s.Timestamp,
-			References: s.References,
-		}
-		err := node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
-		if err != nil {
-			panic(err)
-		}
-	}
-	node.assignNewGraphRound(final, cache)
-
-	if !cache.ValidateSnapshot(s, false) {
-		return nil
-	}
-	topo := &common.SnapshotWithTopologicalOrder{
-		Snapshot:         *s,
-		TopologicalOrder: node.TopoCounter.Next(),
-	}
-	err := node.persistStore.WriteSnapshot(topo)
+	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	if !cache.ValidateSnapshot(s, true) {
-		panic("should never be here")
+	if inNode {
+		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
+		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
 	}
-	node.assignNewGraphRound(final, cache)
-	node.removeFromCache(s)
-	return node.reloadConsensusNodesList(s, tx)
+
+	sigs := make([]*crypto.Signature, 0)
+	signaturesFilter := make(map[string]bool)
+	signersMap := make(map[crypto.Hash]bool)
+	for i, sig := range s.Signatures {
+		s.Signatures[i] = nil
+		if signaturesFilter[sig.String()] {
+			continue
+		}
+		for idForNetwork, cn := range node.ConsensusNodes {
+			if signersMap[idForNetwork] {
+				continue
+			}
+			if node.CacheVerify(s.Hash, *sig, cn.Signer.PublicSpendKey) {
+				sigs = append(sigs, sig)
+				signersMap[idForNetwork] = true
+				break
+			}
+		}
+		if n := node.ConsensusPledging; n != nil {
+			id := n.Signer.Hash().ForNetwork(node.networkId)
+			if id == s.NodeId && s.RoundNumber == 0 && node.CacheVerify(s.Hash, *sig, n.Signer.PublicSpendKey) {
+				sigs = append(sigs, sig)
+				signersMap[id] = true
+			}
+		}
+		signaturesFilter[sig.String()] = true
+	}
+	s.Signatures = s.Signatures[:len(sigs)]
+	for i := range sigs {
+		s.Signatures[i] = sigs[i]
+	}
+	if !node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
+		return nil
+	}
+
+	node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
+	return node.QueueAppendSnapshot(peerId, s, true)
 }
