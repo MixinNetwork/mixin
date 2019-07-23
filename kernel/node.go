@@ -29,7 +29,6 @@ type Node struct {
 	Signer       common.Address
 	Graph        *RoundGraph
 	TopoCounter  *TopologicalSequence
-	CachePool    map[crypto.Hash][]*common.Snapshot
 	cacheStore   *fastcache.Cache
 	Peer         *network.Peer
 	SyncPoints   *syncMap
@@ -55,7 +54,6 @@ type Node struct {
 
 func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr string, dir string) (*Node, error) {
 	var node = &Node{
-		CachePool:       make(map[crypto.Hash][]*common.Snapshot),
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
 		genesisNodesMap: make(map[crypto.Hash]bool),
 		persistStore:    persistStore,

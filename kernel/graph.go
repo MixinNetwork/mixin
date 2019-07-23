@@ -13,7 +13,7 @@ import (
 func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	defer node.Graph.UpdateFinalCache(node.IdForNetwork)
 
-	if node.verifyFinalization(s.Timestamp, s.Signatures) {
+	if node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
 		err := node.tryToStartNewRound(s)
 		if err != nil {
 			return node.queueSnapshotOrPanic(s, true)
@@ -40,9 +40,6 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	}
 
 	if s.NodeId == node.IdForNetwork {
-		if len(s.Signatures) == 0 {
-			return node.signSelfSnapshot(s, tx)
-		}
 		return node.collectSelfSignatures(s, tx)
 	}
 
@@ -92,7 +89,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 	if !node.genesisNodesMap[external.NodeId] && external.Number < 7+config.SnapshotReferenceThreshold {
 		return nil, nil
 	}
-	if !node.verifyFinalization(s.Timestamp, s.Signatures) {
+	if !node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
 		if external.Timestamp > s.Timestamp+config.SnapshotRoundGap {
 			return nil, fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-s.Timestamp).Seconds())
 		}
@@ -214,7 +211,7 @@ func (node *Node) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 	}, false)
 }
 
-func (node *Node) verifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {
+func (node *Node) legacyVerifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {
 	consensusThreshold := node.ConsensusBase(timestamp)*2/3 + 1
 	return len(sigs) >= consensusThreshold
 }

@@ -58,6 +58,7 @@ func (node *Node) ConsumeQueue() error {
 			node.cosiActionsChan <- m
 			return nil
 		}
+
 		tx, _, err = node.persistStore.ReadTransaction(snap.Transaction)
 		if err != nil {
 			return err
@@ -70,8 +71,9 @@ func (node *Node) ConsumeQueue() error {
 		if peerId == node.IdForNetwork {
 			return nil
 		}
+		finalized := m.Action == CosiActionFinalization
 		node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction)
-		return node.QueueAppendSnapshot(peerId, snap, node.verifyFinalization(snap.Timestamp, snap.Signatures))
+		return node.QueueAppendSnapshot(peerId, snap, finalized)
 	})
 	return nil
 }

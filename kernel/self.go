@@ -2,7 +2,6 @@ package kernel
 
 import (
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -35,16 +34,16 @@ func (node *Node) doSnapshotValidation(s *common.Snapshot, tx *common.VersionedT
 	return nil
 }
 
-func (node *Node) checkTransaction(snap, tx crypto.Hash) (*common.VersionedTransaction, bool, error) {
-	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
+func (node *Node) checkTransaction(nodeId, hash crypto.Hash) (*common.VersionedTransaction, bool, error) {
+	inNode, err := node.persistStore.CheckTransactionInNode(nodeId, hash)
 	if err != nil || inNode {
 		return nil, inNode, err
 	}
-	tx, finalized, err := node.persistStore.ReadTransaction(s.Transaction)
+	tx, finalized, err := node.persistStore.ReadTransaction(hash)
 	if err != nil || len(finalized) > 0 || tx != nil {
 		return tx, len(finalized) > 0, err
 	}
-	tx, err = node.persistStore.CacheGetTransaction(s.Transaction)
+	tx, err = node.persistStore.CacheGetTransaction(hash)
 	return tx, false, err
 }
 
@@ -204,163 +203,4 @@ func (node *Node) determinBestRound(roundTime uint64) *FinalRound {
 		}
 	}
 	return best
-}
-
-func (node *Node) signSelfSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
-	if s.NodeId != node.IdForNetwork || len(s.Signatures) != 0 || s.Timestamp != 0 {
-		panic("should never be here")
-	}
-	if node.checkInitialAcceptSnapshot(s, tx) {
-		s.Timestamp = uint64(time.Now().UnixNano())
-		node.signSnapshot(s)
-		s.Signatures = []*crypto.Signature{node.SignaturesPool[s.Hash]}
-		for peerId, _ := range node.ConsensusNodes {
-			err := node.Peer.SendTransactionMessage(peerId, tx)
-			if err != nil {
-				return err
-			}
-			err = node.Peer.SendSnapshotMessage(peerId, s, 0)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	cache := node.Graph.CacheRound[s.NodeId].Copy()
-	final := node.Graph.FinalRound[s.NodeId].Copy()
-
-	if !node.checkCacheCapability() {
-		time.Sleep(10 * time.Millisecond)
-		return node.queueSnapshotOrPanic(s, false)
-	}
-	if len(cache.Snapshots) == 0 && !node.CheckBroadcastedToPeers() {
-		time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
-		return node.queueSnapshotOrPanic(s, false)
-	}
-	if node.checkCacheExist(s) {
-		return nil
-	}
-
-	for {
-		s.Timestamp = uint64(time.Now().UnixNano())
-		if s.Timestamp > cache.Timestamp {
-			break
-		}
-		time.Sleep(300 * time.Millisecond)
-	}
-
-	if len(cache.Snapshots) == 0 {
-		external, err := node.persistStore.ReadRound(cache.References.External)
-		if err != nil {
-			return err
-		}
-		best := node.determinBestRound(s.Timestamp)
-		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*36
-		if best != nil && best.NodeId != final.NodeId && threshold < best.Start {
-			link, err := node.persistStore.ReadLink(cache.NodeId, best.NodeId)
-			if err != nil {
-				return err
-			}
-			if best.Number <= link {
-				return node.clearAndQueueSnapshotOrPanic(s)
-			}
-			cache = &CacheRound{
-				NodeId: cache.NodeId,
-				Number: cache.Number,
-				References: &common.RoundLink{
-					Self:     final.Hash,
-					External: best.Hash,
-				},
-			}
-			err = node.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, cache.References)
-			if err != nil {
-				panic(err)
-			}
-			node.assignNewGraphRound(final, cache)
-			return node.clearAndQueueSnapshotOrPanic(s)
-		}
-	} else if start, _ := cache.Gap(); s.Timestamp >= start+config.SnapshotRoundGap {
-		best := node.determinBestRound(s.Timestamp)
-		if best == nil {
-			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
-			return node.clearAndQueueSnapshotOrPanic(s)
-		}
-		if best.NodeId == final.NodeId {
-			panic("should never be here")
-		}
-
-		final = cache.asFinal()
-		cache = &CacheRound{
-			NodeId: s.NodeId,
-			Number: final.Number + 1,
-			References: &common.RoundLink{
-				Self:     final.Hash,
-				External: best.Hash,
-			},
-		}
-		err := node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
-		if err != nil {
-			panic(err)
-		}
-		node.CachePool[s.NodeId] = make([]*common.Snapshot, 0)
-	}
-	cache.Timestamp = s.Timestamp
-
-	s.RoundNumber = cache.Number
-	s.References = cache.References
-	node.assignNewGraphRound(final, cache)
-	node.signSnapshot(s)
-	s.Signatures = []*crypto.Signature{node.SignaturesPool[s.Hash]}
-	for peerId, _ := range node.ConsensusNodes {
-		err := node.Peer.SendTransactionMessage(peerId, tx)
-		if err != nil {
-			return err
-		}
-		err = node.Peer.SendSnapshotMessage(peerId, s, 0)
-		if err != nil {
-			return err
-		}
-	}
-	node.CachePool[s.NodeId] = append(node.CachePool[s.NodeId], s)
-	return nil
-}
-
-func (node *Node) checkCacheExist(s *common.Snapshot) bool {
-	for _, c := range node.CachePool[s.NodeId] {
-		if c.Transaction == s.Transaction {
-			return true
-		}
-	}
-	return false
-}
-
-func (node *Node) checkCacheCapability() bool {
-	pool := node.CachePool[node.IdForNetwork]
-	count := len(pool)
-	if count == 0 {
-		return true
-	}
-	sort.Slice(pool, func(i, j int) bool {
-		return pool[i].Timestamp < pool[j].Timestamp
-	})
-	start := pool[0].Timestamp
-	end := pool[count-1].Timestamp
-	if uint64(time.Now().UnixNano()) >= start+config.SnapshotRoundGap*3/2 {
-		return true
-	}
-	return end < start+config.SnapshotRoundGap/3*2
-}
-
-func (node *Node) removeFromCache(s *common.Snapshot) {
-	pool := node.CachePool[s.NodeId]
-	for i, c := range pool {
-		if c.Hash != s.Hash {
-			continue
-		}
-		l := len(pool)
-		pool[l-1], pool[i] = pool[i], pool[l-1]
-		node.CachePool[s.NodeId] = pool[:l-1]
-		return
-	}
 }
