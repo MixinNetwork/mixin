@@ -46,24 +46,6 @@ func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
 	return node.verifyExternalSnapshot(s, tx)
 }
 
-func (node *Node) signSnapshot(s *common.Snapshot) {
-	s.Hash = s.PayloadHash()
-	sig := node.Signer.PrivateSpendKey.Sign(s.Hash[:])
-	osigs := node.SnapshotsPool[s.Hash]
-	for _, o := range osigs {
-		if o.String() == sig.String() {
-			panic("should never be here")
-		}
-	}
-	node.SnapshotsPool[s.Hash] = append(osigs, &sig)
-	node.SignaturesPool[s.Hash] = &sig
-
-	key := append(s.Hash[:], sig[:]...)
-	key = append(key, node.Signer.PublicSpendKey[:]...)
-	hash := "KERNEL:SIGNATURE:" + crypto.NewHash(key).String()
-	node.cacheStore.Set([]byte(hash), []byte{1})
-}
-
 func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRound, error) {
 	if s.RoundNumber != cache.Number+1 {
 		panic("should never be here")

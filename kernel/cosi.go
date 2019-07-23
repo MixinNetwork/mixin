@@ -2,11 +2,13 @@ package kernel
 
 import (
 	"crypto/rand"
+	"fmt"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 )
 
 const (
@@ -80,6 +82,11 @@ func (node *Node) cosiHandleAction(m *CosiAction) error {
 }
 
 func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
+	if !node.CheckCatchUpWithPeers() {
+		time.Sleep(100 * time.Millisecond)
+		return node.queueSnapshotOrPanic(m.Snapshot, false)
+	}
+
 	s := m.Snapshot
 	if s.NodeId != node.IdForNetwork || s.Version != common.SnapshotVersion || s.Signature != nil || s.Timestamp != 0 {
 		panic("should never be here")
@@ -202,25 +209,181 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 }
 
 func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
-	tx, finalized, err := node.checkTransaction(m.Snapshot.NodeId, m.Snapshot.Transaction)
+	if !node.CheckCatchUpWithPeers() {
+		time.Sleep(100 * time.Millisecond)
+		return nil
+	}
+
+	s := m.Snapshot
+	if s.NodeId == node.IdForNetwork || s.Signature != nil {
+		panic(fmt.Errorf("should never be here %s %s %s", node.IdForNetwork, s.NodeId, s.Signature))
+	}
+	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
+	if s.Timestamp > uint64(time.Now().UnixNano())+threshold {
+		return nil
+	}
+	if s.Timestamp+threshold*2 < node.Graph.GraphTimestamp {
+		return nil
+	}
+
+	tx, finalized, err := node.checkTransaction(s.NodeId, s.Transaction)
 	if err != nil || finalized {
 		return err
 	}
-	err = node.verifyExternalSnapshot(m.Snapshot, m.Transaction)
-	if err != nil {
-		return err
-	}
+
 	v := &CosiVerifier{
 		Snapshot: m.Snapshot,
 		random:   crypto.CosiCommit(rand.Reader),
 	}
-	s := m.Snapshot
+	if node.checkInitialAcceptSnapshot(s, tx) {
+		node.CosiVerifiers[s.PayloadHash()] = v
+		node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.PayloadHash(), v.random.Public(), tx == nil)
+	}
+
+	cache := node.Graph.CacheRound[s.NodeId].Copy()
+	final := node.Graph.FinalRound[s.NodeId].Copy()
+
+	if s.RoundNumber < cache.Number {
+		return nil
+	}
+	if s.RoundNumber > cache.Number+1 {
+		return node.queueSnapshotOrPanic(s, false)
+	}
+	if s.Timestamp <= final.Start+config.SnapshotRoundGap {
+		return nil
+	}
+	if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
+		if len(cache.Snapshots) > 0 {
+			return nil
+		}
+		if s.References.Self != cache.References.Self {
+			return nil
+		}
+		old, err := node.persistStore.ReadRound(cache.References.External)
+		if err != nil {
+			return err
+		}
+		external, err := node.persistStore.ReadRound(s.References.External)
+		if err != nil || external == nil {
+			return err
+		}
+		if old.Timestamp+config.SnapshotReferenceThreshold*config.SnapshotRoundGap*32 > external.Timestamp {
+			return nil
+		}
+		link, err := node.persistStore.ReadLink(cache.NodeId, external.NodeId)
+		if err != nil {
+			return err
+		}
+		if external.Number <= link {
+			return nil
+		}
+		cache = &CacheRound{
+			NodeId: cache.NodeId,
+			Number: cache.Number,
+			References: &common.RoundLink{
+				Self:     s.References.Self,
+				External: s.References.External,
+			},
+		}
+		err = node.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, cache.References)
+		if err != nil {
+			panic(err)
+		}
+		node.assignNewGraphRound(final, cache)
+		return node.queueSnapshotOrPanic(s, false)
+	}
+	if s.RoundNumber == cache.Number+1 {
+		if round, err := node.startNewRound(s, cache); err != nil {
+			logger.Verbosef("ERROR verifyExternalSnapshot %s %d %s %s %s\n", s.NodeId, s.RoundNumber, s.References.Self, s.References.External, err.Error())
+			return node.queueSnapshotOrPanic(s, false)
+		} else if round == nil {
+			return nil
+		} else {
+			final = round
+		}
+		cache = &CacheRound{
+			NodeId:     s.NodeId,
+			Number:     s.RoundNumber,
+			Timestamp:  s.Timestamp,
+			References: s.References,
+		}
+		err := node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
+		if err != nil {
+			panic(err)
+		}
+	}
+	node.assignNewGraphRound(final, cache)
+
+	if !cache.ValidateSnapshot(s, false) {
+		return nil
+	}
+
 	node.CosiVerifiers[s.PayloadHash()] = v
 	node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.PayloadHash(), v.random.Public(), tx == nil)
 	return nil
 }
 
+func (node *Node) cosiHandleCommitment(m *CosiAction) error {
+	if !node.CheckCatchUpWithPeers() {
+		time.Sleep(100 * time.Millisecond)
+		return nil
+	}
+
+	ann := node.CosiAggregators[m.SnapshotHash]
+	if ann == nil {
+		return nil
+	}
+	if ann.committed[m.PeerId] {
+		return nil
+	}
+	ann.committed[m.PeerId] = true
+	cn := node.ConsensusNodes[m.PeerId]
+	if cn == nil {
+		return nil
+	}
+	base := node.ConsensusBase(ann.Snapshot.Timestamp)
+	if len(ann.Commitments) >= base {
+		return nil
+	}
+	for i, n := range node.SortedConsensusNodes {
+		if n.Signer.Hash().ForNetwork(node.networkId) == m.PeerId {
+			ann.Masks = append(ann.Masks, i)
+			ann.Commitments = append(ann.Commitments, m.Commitment)
+			ann.WantTxs[m.PeerId] = m.WantTx
+			break
+		}
+	}
+	if len(ann.Commitments) < base {
+		return nil
+	}
+	tx, finalized, err := node.checkTransaction(m.SnapshotHash, ann.Snapshot.Transaction)
+	if err != nil || finalized || tx == nil {
+		return err
+	}
+	cosi, err := crypto.CosiAggregateCommitment(ann.Commitments, ann.Masks)
+	if err != nil {
+		return err
+	}
+	ann.Snapshot.Signature = cosi
+	for id, _ := range node.ConsensusNodes {
+		if ann.WantTxs[id] {
+			err = node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, tx)
+		} else {
+			err = node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, nil)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (node *Node) cosiHandleChallenge(m *CosiAction) error {
+	if !node.CheckCatchUpWithPeers() {
+		time.Sleep(100 * time.Millisecond)
+		return nil
+	}
+
 	v := node.CosiVerifiers[m.SnapshotHash]
 	if v == nil {
 		return nil
@@ -235,6 +398,11 @@ func (node *Node) cosiHandleChallenge(m *CosiAction) error {
 }
 
 func (node *Node) cosiHandleResponse(m *CosiAction) error {
+	if !node.CheckCatchUpWithPeers() {
+		time.Sleep(100 * time.Millisecond)
+		return nil
+	}
+
 	agg := node.CosiAggregators[m.SnapshotHash]
 	if agg == nil {
 		return nil
@@ -326,56 +494,6 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 		WantTx:       wantTx,
 	}
 	node.cosiActionsChan <- m
-	return nil
-}
-
-func (node *Node) cosiHandleCommitment(m *CosiAction) error {
-	ann := node.CosiAggregators[m.SnapshotHash]
-	if ann == nil {
-		return nil
-	}
-	if ann.committed[m.PeerId] {
-		return nil
-	}
-	ann.committed[m.PeerId] = true
-	cn := node.ConsensusNodes[m.PeerId]
-	if cn == nil {
-		return nil
-	}
-	base := node.ConsensusBase(ann.Snapshot.Timestamp)
-	if len(ann.Commitments) >= base {
-		return nil
-	}
-	for i, n := range node.SortedConsensusNodes {
-		if n.Signer.Hash().ForNetwork(node.networkId) == m.PeerId {
-			ann.Masks = append(ann.Masks, i)
-			ann.Commitments = append(ann.Commitments, m.Commitment)
-			ann.WantTxs[m.PeerId] = m.WantTx
-			break
-		}
-	}
-	if len(ann.Commitments) < base {
-		return nil
-	}
-	tx, finalized, err := node.checkTransaction(m.SnapshotHash, ann.Snapshot.Transaction)
-	if err != nil || finalized || tx == nil {
-		return err
-	}
-	cosi, err := crypto.CosiAggregateCommitment(ann.Commitments, ann.Masks)
-	if err != nil {
-		return err
-	}
-	ann.Snapshot.Signature = cosi
-	for id, _ := range node.ConsensusNodes {
-		if ann.WantTxs[id] {
-			err = node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, tx)
-		} else {
-			err = node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, nil)
-		}
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
