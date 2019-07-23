@@ -13,7 +13,7 @@ import (
 type CosiSignature struct {
 	Signature   Signature
 	Mask        uint64
-	commitments []*Key
+	commitments map[int]*Key
 }
 
 func CosiCommit(randReader io.Reader) *Key {
@@ -29,29 +29,28 @@ func CosiCommit(randReader io.Reader) *Key {
 	return &r
 }
 
-func CosiAggregateCommitment(randoms []*Key, masks []int) (*CosiSignature, error) {
-	if len(randoms) != len(masks) {
-		return nil, fmt.Errorf("invalid cosi commitments and masks %d %d", len(randoms), len(masks))
-	}
+func CosiAggregateCommitment(randoms map[int]*Key) (*CosiSignature, error) {
 	var encodedR *Key
-	var cosi CosiSignature
+	cosi := CosiSignature{
+		commitments: make(map[int]*Key),
+	}
 	for i, R := range randoms {
 		if encodedR == nil {
 			encodedR = R
 		} else {
 			encodedR = KeyAddPub(encodedR, R)
 		}
-		err := cosi.Mark(masks[i])
+		err := cosi.Mark(i)
 		if err != nil {
 			return nil, err
 		}
-		cosi.commitments = append(cosi.commitments, R)
+		cosi.commitments[i] = R
 	}
 	copy(cosi.Signature[:32], encodedR[:])
 	return &cosi, nil
 }
 
-func (c *CosiSignature) AggregateResponse(publics []*Key, responses []*[32]byte, message []byte, strict bool) error {
+func (c *CosiSignature) AggregateResponse(publics []*Key, responses map[int]*[32]byte, message []byte, strict bool) error {
 	var S *[32]byte
 	var keys []*Key
 	for _, i := range c.Keys() {
@@ -72,7 +71,7 @@ func (c *CosiSignature) AggregateResponse(publics []*Key, responses []*[32]byte,
 			var sig Signature
 			copy(sig[:32], c.commitments[i][:])
 			copy(sig[32:], s[:])
-			valid := keys[i].VerifyWithChallenge(message, sig, challenge)
+			valid := publics[i].VerifyWithChallenge(message, sig, challenge)
 			if !valid {
 				return fmt.Errorf("invalid cosi signature response %s", sig)
 			}
@@ -120,13 +119,13 @@ func (c *CosiSignature) Response(privateKey, random *Key, publics []*Key, messag
 
 func (c *CosiSignature) VerifyResponse(publics []*Key, signer int, s *[32]byte, message []byte) error {
 	var a, R *Key
-	for i, k := range c.Keys() {
+	for _, k := range c.Keys() {
 		if k >= len(publics) {
 			return fmt.Errorf("invalid cosi signature mask index %d/%d", k, len(publics))
 		}
 		if k == signer {
 			a = publics[k]
-			R = c.commitments[i]
+			R = c.commitments[k]
 		}
 	}
 	if R == nil {

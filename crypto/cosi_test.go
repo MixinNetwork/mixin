@@ -36,7 +36,7 @@ func TestCosi(t *testing.T) {
 
 	randReader := blake2xb.New(nil)
 	message := []byte("Schnorr Signature in Mixin Kernel")
-	randoms := make([]*Key, len(keys)*2/3+1)
+	randoms := make(map[int]*Key)
 	randKeys := make([]*Key, len(keys)*2/3+1)
 	masks := make([]int, 0)
 	for i := 0; i < 7; i++ {
@@ -46,25 +46,25 @@ func TestCosi(t *testing.T) {
 		randoms[i] = &R
 		masks = append(masks, i)
 	}
-	for i := 10; i < len(randoms)+3; i++ {
+	for i := 10; i < len(randKeys)+3; i++ {
 		r := CosiCommit(randReader)
 		R := r.Public()
 		randKeys[i-3] = r
-		randoms[i-3] = &R
+		randoms[i] = &R
 		masks = append(masks, i)
 	}
 	assert.Len(masks, len(randoms))
 
-	cosi, err := CosiAggregateCommitment(randoms, masks)
+	cosi, err := CosiAggregateCommitment(randoms)
 	assert.Nil(err)
 	assert.Equal("81a085ca768adc4901b5484ecc3cdbb4eee68307f78cd5ea041d7d4425496bd100000000000000000000000000000000000000000000000000000000000000000000000000fffc7f", cosi.String())
 	assert.Equal(masks, cosi.Keys())
 
-	responses := make([]*[32]byte, len(randoms))
-	for i := 0; i < len(responses); i++ {
+	responses := make(map[int]*[32]byte)
+	for i := 0; i < len(masks); i++ {
 		s, err := cosi.Response(keys[masks[i]], randKeys[i], publics, message)
 		assert.Nil(err)
-		responses[i] = &s
+		responses[masks[i]] = &s
 		assert.Equal("81a085ca768adc4901b5484ecc3cdbb4eee68307f78cd5ea041d7d4425496bd100000000000000000000000000000000000000000000000000000000000000000000000000fffc7f", cosi.String())
 		err = cosi.VerifyResponse(publics, masks[i], &s, message)
 		assert.Nil(err)
