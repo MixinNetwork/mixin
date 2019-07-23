@@ -10,42 +10,6 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
-func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
-	defer node.Graph.UpdateFinalCache(node.IdForNetwork)
-
-	if node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
-		err := node.tryToStartNewRound(s)
-		if err != nil {
-			return node.queueSnapshotOrPanic(s, true)
-		}
-		tx, err := node.checkFinalSnapshotTransaction(s)
-		if err != nil {
-			return node.queueSnapshotOrPanic(s, true)
-		} else if tx == nil {
-			return nil
-		}
-		return node.handleSyncFinalSnapshot(s, tx)
-	}
-
-	tx, err := node.checkCacheSnapshotTransaction(s)
-	if err != nil {
-		return node.queueSnapshotOrPanic(s, false)
-	} else if tx == nil {
-		return nil
-	}
-
-	if !node.CheckCatchUpWithPeers() && !node.checkInitialAcceptSnapshot(s, tx) {
-		time.Sleep(100 * time.Millisecond)
-		return node.queueSnapshotOrPanic(s, false)
-	}
-
-	if s.NodeId == node.IdForNetwork {
-		return node.collectSelfSignatures(s, tx)
-	}
-
-	return node.verifyExternalSnapshot(s, tx)
-}
-
 func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRound, error) {
 	if s.RoundNumber != cache.Number+1 {
 		panic("should never be here")
@@ -184,10 +148,11 @@ func (node *Node) queueSnapshotOrPanic(s *common.Snapshot, finalized bool) error
 }
 
 func (node *Node) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
-	delete(node.SnapshotsPool, s.Hash)
-	delete(node.SignaturesPool, s.Hash)
-	node.removeFromCache(s)
+	delete(node.CosiVerifiers, s.Hash)
+	delete(node.CosiAggregators, s.Hash)
+	delete(node.CosiAggregators, s.Transaction)
 	return node.queueSnapshotOrPanic(&common.Snapshot{
+		Version:     common.SnapshotVersion,
 		NodeId:      s.NodeId,
 		Transaction: s.Transaction,
 	}, false)
