@@ -337,8 +337,7 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 		return nil
 	}
 	ann.committed[m.PeerId] = true
-	cn := node.ConsensusNodes[m.PeerId]
-	if cn == nil {
+	if node.ConsensusNodes[m.PeerId] == nil {
 		return nil
 	}
 	base := node.ConsensusBase(ann.Snapshot.Timestamp)
@@ -444,33 +443,77 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 	if node.ConsensusNodes[m.PeerId] == nil {
 		return nil
 	}
-	index := -1
-	for i, cn := range node.SortedConsensusNodes {
-		if cn.Signer.Hash().ForNetwork(node.networkId) == m.PeerId {
-			index = i
-		}
-	}
-	if index < 0 {
+	if len(agg.Responses) >= len(agg.Commitments) {
 		return nil
 	}
-	publics := node.ConsensusKeys(agg.Snapshot.Timestamp)
-	err := agg.Snapshot.Signature.VerifyResponse(publics, index, m.Response, m.SnapshotHash[:])
-	if err != nil {
-		return nil
+
+	s := agg.Snapshot
+	tx, finalized, err := node.checkTransaction(s.NodeId, s.Transaction)
+	if err != nil || finalized || tx == nil {
+		return err
 	}
+
 	agg.responsed[m.PeerId] = true
 	agg.Responses = append(agg.Responses, m.Response)
 	if len(agg.Responses) != len(agg.Commitments) {
 		return nil
 	}
-	agg.Snapshot.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash[:])
+
+	publics := node.ConsensusKeys(s.Timestamp)
+	base := node.ConsensusBase(s.Timestamp)
+	s.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash[:])
+	if !node.CacheVerifyCosi(m.SnapshotHash, s.Signature, publics, base) {
+		return nil
+	}
+
+	if node.checkInitialAcceptSnapshot(s, tx) {
+		err := node.finalizeNodeAcceptSnapshot(s)
+		if err != nil {
+			return err
+		}
+		for id, _ := range node.ConsensusNodes {
+			err := node.Peer.SendSnapshotFinalizationMessage(id, s)
+			if err != nil {
+				return err
+			}
+		}
+		return node.reloadConsensusNodesList(s, tx)
+	}
+
+	cache := node.Graph.CacheRound[s.NodeId].Copy()
+	if s.RoundNumber > cache.Number {
+		panic(fmt.Sprintf("should never be here %d %d", cache.Number, s.RoundNumber))
+	}
+	if s.RoundNumber < cache.Number {
+		return node.clearAndQueueSnapshotOrPanic(s)
+	}
+	if !s.References.Equal(cache.References) {
+		return node.clearAndQueueSnapshotOrPanic(s)
+	}
+	if !cache.ValidateSnapshot(s, false) {
+		return node.clearAndQueueSnapshotOrPanic(s)
+	}
+
+	topo := &common.SnapshotWithTopologicalOrder{
+		Snapshot:         *s,
+		TopologicalOrder: node.TopoCounter.Next(),
+	}
+	err = node.persistStore.WriteSnapshot(topo)
+	if err != nil {
+		panic(err)
+	}
+	if !cache.ValidateSnapshot(s, true) {
+		panic("should never be here")
+	}
+	node.Graph.CacheRound[s.NodeId] = cache
+
 	for id, _ := range node.ConsensusNodes {
 		err := node.Peer.SendSnapshotFinalizationMessage(id, agg.Snapshot)
 		if err != nil {
 			return err
 		}
 	}
-	return nil
+	return node.reloadConsensusNodesList(s, tx)
 }
 
 func (node *Node) cosiHandleFinalization(m *CosiAction) error {
@@ -510,8 +553,7 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 	if s.Signature != nil || s.Timestamp != 0 {
 		return nil
 	}
-	cn := node.ConsensusNodes[s.NodeId]
-	if cn == nil {
+	if node.ConsensusNodes[s.NodeId] == nil {
 		return nil
 	}
 	return node.QueueAppendSnapshot(peerId, s, false)
@@ -540,6 +582,39 @@ func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Has
 }
 
 func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Hash, response *[32]byte) error {
+	agg := node.CosiAggregators[snap]
+	if agg == nil {
+		return nil
+	}
+	if agg.responsed[peerId] {
+		return nil
+	}
+	if node.ConsensusNodes[peerId] == nil {
+		return nil
+	}
+
+	s := agg.Snapshot
+	tx, finalized, err := node.checkTransaction(s.NodeId, s.Transaction)
+	if err != nil || finalized || tx == nil {
+		return err
+	}
+
+	index := -1
+	for i, cn := range node.SortedConsensusNodes {
+		if cn.Signer.Hash().ForNetwork(node.networkId) == peerId {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
+		return nil
+	}
+	publics := node.ConsensusKeys(s.Timestamp)
+	err = s.Signature.VerifyResponse(publics, index, response, snap[:])
+	if err != nil {
+		return nil
+	}
+
 	m := &CosiAction{
 		Action:       CosiActionSelfResponse,
 		SnapshotHash: snap,
