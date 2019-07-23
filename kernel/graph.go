@@ -152,8 +152,8 @@ func (node *Node) queueSnapshotOrPanic(peerId crypto.Hash, s *common.Snapshot, f
 
 func (node *Node) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 	delete(node.CosiVerifiers, s.Hash)
-	delete(node.CosiAggregators, s.Hash)
-	delete(node.CosiAggregators, s.Transaction)
+	node.CosiAggregators.Delete(s.Hash)
+	node.CosiAggregators.Delete(s.Transaction)
 	return node.queueSnapshotOrPanic(node.IdForNetwork, &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      s.NodeId,

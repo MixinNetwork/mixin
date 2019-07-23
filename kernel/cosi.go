@@ -3,6 +3,7 @@ package kernel
 import (
 	"crypto/rand"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -134,8 +135,8 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 
 	if node.checkInitialAcceptSnapshot(s, tx) {
 		s.Timestamp = uint64(time.Now().UnixNano())
-		node.CosiAggregators[s.Transaction] = agg
-		node.CosiAggregators[s.Hash] = agg
+		node.CosiAggregators.Set(s.Transaction, agg)
+		node.CosiAggregators.Set(s.PayloadHash(), agg)
 		for peerId, _ := range node.ConsensusNodes {
 			err := node.Peer.SendSnapshotAnnouncementMessage(peerId, s)
 			if err != nil {
@@ -145,10 +146,10 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 		return nil
 	}
 
-	if node.CosiAggregators[s.Transaction] != nil {
+	if node.CosiAggregators.Get(s.Transaction) != nil {
 		return nil
 	}
-	node.CosiAggregators[s.Transaction] = agg
+	node.CosiAggregators.Set(s.Transaction, agg)
 
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
@@ -225,7 +226,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	s.References = cache.References
 	s.Hash = s.PayloadHash()
 	node.assignNewGraphRound(final, cache)
-	node.CosiAggregators[s.Hash] = agg
+	node.CosiAggregators.Set(s.Hash, agg)
 	for peerId, _ := range node.ConsensusNodes {
 		err := node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot)
 		if err != nil {
@@ -356,7 +357,7 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 		return nil
 	}
 
-	ann := node.CosiAggregators[m.SnapshotHash]
+	ann := node.CosiAggregators.Get(m.SnapshotHash)
 	if ann == nil {
 		return nil
 	}
@@ -467,7 +468,7 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 		return nil
 	}
 
-	agg := node.CosiAggregators[m.SnapshotHash]
+	agg := node.CosiAggregators.Get(m.SnapshotHash)
 	if agg == nil {
 		return nil
 	}
@@ -693,7 +694,7 @@ func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Has
 }
 
 func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Hash, response *[32]byte) error {
-	agg := node.CosiAggregators[snap]
+	agg := node.CosiAggregators.Get(snap)
 	if agg == nil {
 		return nil
 	}
@@ -752,4 +753,27 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 	}
 	node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
 	return node.QueueAppendSnapshot(peerId, s, true)
+}
+
+type aggregatorMap struct {
+	mutex *sync.RWMutex
+	m     map[crypto.Hash]*CosiAggregator
+}
+
+func (s *aggregatorMap) Set(k crypto.Hash, p *CosiAggregator) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.m[k] = p
+}
+
+func (s *aggregatorMap) Get(k crypto.Hash) *CosiAggregator {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.m[k]
+}
+
+func (s *aggregatorMap) Delete(k crypto.Hash) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	delete(s.m, k)
 }
