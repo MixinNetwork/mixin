@@ -24,7 +24,6 @@ const (
 	graphPrefixLink         = "LINK"         // self-external number
 	graphPrefixTopology     = "TOPOLOGY"
 	graphPrefixSnapTopology = "SNAPTOPO"
-	graphPrefixAsset        = "ASSET"
 )
 
 func (s *BadgerStore) RemoveGraphEntries(prefix string) error {

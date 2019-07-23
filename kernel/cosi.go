@@ -388,8 +388,39 @@ func (node *Node) cosiHandleChallenge(m *CosiAction) error {
 	if v == nil {
 		return nil
 	}
+
+	s := v.Snapshot
+	tx, finalized, err := node.checkTransaction(s.NodeId, s.Transaction)
+	if err != nil || finalized {
+		return err
+	}
+	if tx == nil {
+		tx = m.Transaction
+	}
+	if tx == nil {
+		return nil
+	}
+
+	err = node.doSnapshotValidation(s, tx)
+	if err != nil {
+		return nil
+	}
+	err = tx.Validate(node.persistStore)
+	if err != nil {
+		return nil
+	}
+
+	err = tx.LockInputs(node.persistStore, false)
+	if err != nil {
+		return nil
+	}
+	err = node.persistStore.WriteTransaction(tx)
+	if err != nil {
+		return err
+	}
+
 	priv := node.Signer.PrivateSpendKey
-	publics := node.ConsensusKeys(v.Snapshot.Timestamp)
+	publics := node.ConsensusKeys(s.Timestamp)
 	response, err := m.Signature.Response(&priv, v.random, publics, m.SnapshotHash[:])
 	if err != nil {
 		return err

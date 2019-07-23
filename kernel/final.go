@@ -25,12 +25,6 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.Ver
 		return nil, err
 	}
 
-	if d := tx.DepositData(); d != nil {
-		err = node.persistStore.WriteAsset(d.Asset())
-		if err != nil {
-			return nil, err
-		}
-	}
 	return tx, node.persistStore.WriteTransaction(tx)
 }
 
