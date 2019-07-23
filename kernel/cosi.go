@@ -643,21 +643,9 @@ func (node *Node) handleFinalization(m *CosiAction) error {
 	}
 	m.Transaction = tx
 	s := m.Snapshot
-
-	if s.Version == 0 {
-		if !node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
-			return nil
-		}
-		return node.cosiHandleFinalization(m)
-	}
-
-	if s.Version != common.SnapshotVersion || s.Signature == nil {
-		return nil
-	}
 	s.Hash = s.PayloadHash()
-	publics := node.ConsensusKeys(s.Timestamp)
-	base := node.ConsensusThreshold(s.Timestamp)
-	if !node.CacheVerifyCosi(s.Hash, s.Signature, publics, base) {
+
+	if !node.verifyFinalization(s) {
 		return nil
 	}
 	return node.cosiHandleFinalization(m)

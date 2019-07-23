@@ -35,7 +35,10 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 	if !node.genesisNodesMap[external.NodeId] && external.Number < 7+config.SnapshotReferenceThreshold {
 		return nil, nil
 	}
-	if !node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
+	if !node.verifyFinalization(s) {
+		if external.Number+config.SnapshotSyncRoundThreshold < node.Graph.FinalRound[external.NodeId].Number {
+			return nil, fmt.Errorf("external reference %s too early %d %d", s.References.External, external.Number, node.Graph.FinalRound[external.NodeId].Number)
+		}
 		if external.Timestamp > s.Timestamp+config.SnapshotRoundGap {
 			return nil, fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-s.Timestamp).Seconds())
 		}
@@ -156,6 +159,18 @@ func (node *Node) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 		NodeId:      s.NodeId,
 		Transaction: s.Transaction,
 	}, false)
+}
+
+func (node *Node) verifyFinalization(s *common.Snapshot) bool {
+	if s.Version == 0 {
+		return node.legacyVerifyFinalization(s.Timestamp, s.Signatures)
+	}
+	if s.Version != common.SnapshotVersion || s.Signature == nil {
+		return false
+	}
+	publics := node.ConsensusKeys(s.Timestamp)
+	base := node.ConsensusThreshold(s.Timestamp)
+	return node.CacheVerifyCosi(s.PayloadHash(), s.Signature, publics, base)
 }
 
 func (node *Node) legacyVerifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {
