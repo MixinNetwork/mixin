@@ -93,8 +93,12 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 }
 
 func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
+	tx, finalized, err := node.checkTransaction(m.Snapshot.PayloadHash(), m.Snapshot.Transaction)
+	if err != nil || finalized {
+		return err
+	}
 	s := m.Snapshot
-	err := node.verifyExternalSnapshot(s, m.Transaction)
+	err = node.verifyExternalSnapshot(s, m.Transaction)
 	if err != nil {
 		return err
 	}
@@ -102,9 +106,8 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		Snapshot: s,
 		r:        crypto.CosiCommit(rand.Reader),
 	}
-	wantTx := CheckTransactionInCache(m.Transaction)
 	node.CosiVerifiers[s.PayloadHash()] = v
-	node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.PayloadHash(), v.r.Public(), wantTx)
+	node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.PayloadHash(), v.r.Public(), tx == nil)
 	return nil
 }
 
@@ -233,6 +236,10 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 	}
 	if len(ann.Commitments) < base {
 		return nil
+	}
+	tx, finalized, err := node.checkTransaction(m.SnapshotHash, ann.Snapshot.Transaction)
+	if err != nil || finalized || tx == nil {
+		return err
 	}
 	cosi, err := crypto.CosiAggregateCommitment(ann.Commitments, ann.Masks)
 	if err != nil {

@@ -35,6 +35,19 @@ func (node *Node) doSnapshotValidation(s *common.Snapshot, tx *common.VersionedT
 	return nil
 }
 
+func (node *Node) checkTransaction(snap, tx crypto.Hash) (*common.VersionedTransaction, bool, error) {
+	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
+	if err != nil || inNode {
+		return nil, inNode, err
+	}
+	tx, finalized, err := node.persistStore.ReadTransaction(s.Transaction)
+	if err != nil || len(finalized) > 0 || tx != nil {
+		return tx, len(finalized) > 0, err
+	}
+	tx, err = node.persistStore.CacheGetTransaction(s.Transaction)
+	return tx, false, err
+}
+
 func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, error) {
 	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil || inNode {
