@@ -75,7 +75,10 @@ func (node *Node) cosiHandleAction(m *CosiAction) error {
 }
 
 func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
-	signSelf(m.Snapshot)
+	err := node.signSelfSnapshot(m.Snapshot, m.Transaction)
+	if err != nil {
+		return err
+	}
 	node.CosiAggregators[m.Snapshot.PayloadHash()] = &CosiAggregator{
 		Snapshot: m.Snapshot,
 		WantTxs:  make(map[crypto.Hash]bool),
@@ -91,7 +94,10 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 
 func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 	s := m.Snapshot
-	validateExternal(s)
+	err := node.verifyExternalSnapshot(s, m.Transaction)
+	if err != nil {
+		return err
+	}
 	v := &CosiVerifier{
 		Snapshot: s,
 		r:        crypto.CosiCommit(rand.Reader),
@@ -124,12 +130,28 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 	if agg.responsed[m.PeerId] {
 		return nil
 	}
+	if node.ConsensusNodes[m.PeerId] == nil {
+		return nil
+	}
+	index := -1
+	for i, cn := range node.SortedConsensusNodes {
+		if cn.Signer.Hash().ForNetwork(node.networkId) == m.PeerId {
+			index = i
+		}
+	}
+	if index < 0 {
+		return nil
+	}
+	publics := node.ConsensusKeys(agg.Snapshot.Timestamp)
+	err := agg.Signature.VerifyResponse(publics, index, m.Response, m.SnapshotHash[:])
+	if err != nil {
+		return nil
+	}
 	agg.responsed[m.PeerId] = true
 	agg.Responses = append(agg.Responses, m.Response)
 	if len(agg.Responses) != len(agg.Commitments) {
 		return nil
 	}
-	publics := node.ConsensusKeys(agg.Snapshot.Timestamp)
 	agg.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash[:])
 	agg.Snapshot.Signature = agg.Signature
 	for id, _ := range node.ConsensusNodes {
