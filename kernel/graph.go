@@ -139,8 +139,8 @@ func (node *Node) checkInitialAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	return node.checkInitialAcceptSnapshotWeak(s) && tx.TransactionType() == common.TransactionTypeNodeAccept
 }
 
-func (node *Node) queueSnapshotOrPanic(s *common.Snapshot, finalized bool) error {
-	err := node.persistStore.QueueAppendSnapshot(node.IdForNetwork, s, finalized)
+func (node *Node) queueSnapshotOrPanic(peerId crypto.Hash, s *common.Snapshot, finalized bool) error {
+	err := node.persistStore.QueueAppendSnapshot(peerId, s, finalized)
 	if err != nil {
 		panic(err)
 	}
@@ -151,7 +151,7 @@ func (node *Node) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 	delete(node.CosiVerifiers, s.Hash)
 	delete(node.CosiAggregators, s.Hash)
 	delete(node.CosiAggregators, s.Transaction)
-	return node.queueSnapshotOrPanic(&common.Snapshot{
+	return node.queueSnapshotOrPanic(node.IdForNetwork, &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      s.NodeId,
 		Transaction: s.Transaction,
@@ -159,6 +159,5 @@ func (node *Node) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 }
 
 func (node *Node) legacyVerifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {
-	consensusThreshold := node.ConsensusBase(timestamp)*2/3 + 1
-	return len(sigs) >= consensusThreshold
+	return len(sigs) >= node.ConsensusThreshold(timestamp)
 }

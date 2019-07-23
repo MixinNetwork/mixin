@@ -129,6 +129,9 @@ func (c *CosiSignature) VerifyResponse(publics []*Key, signer int, s *[32]byte, 
 			R = c.commitments[i]
 		}
 	}
+	if R == nil {
+		return fmt.Errorf("invalid cosi signature mask index %d", signer)
+	}
 	challenge, err := c.Challenge(publics, message)
 	if err != nil {
 		return err

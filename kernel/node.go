@@ -148,7 +148,7 @@ func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
 	return keys
 }
 
-func (node *Node) ConsensusBase(timestamp uint64) int {
+func (node *Node) ConsensusThreshold(timestamp uint64) int {
 	if timestamp == 0 {
 		timestamp = uint64(time.Now().UnixNano())
 	}
@@ -176,7 +176,7 @@ func (node *Node) ConsensusBase(timestamp uint64) int {
 	if consensusBase < len(node.genesisNodes) {
 		panic(fmt.Errorf("invalid consensus base %d %d %d", timestamp, consensusBase, len(node.genesisNodes)))
 	}
-	return consensusBase
+	return consensusBase*2/3 + 1
 }
 
 func (node *Node) LoadConsensusNodes() error {
@@ -350,7 +350,7 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 }
 
 func (node *Node) CheckBroadcastedToPeers() bool {
-	count, threshold := 1, node.ConsensusBase(0)*2/3+1
+	count, threshold := 1, node.ConsensusThreshold(0)
 	final := node.Graph.MyFinalNumber
 	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
@@ -365,7 +365,7 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 }
 
 func (node *Node) CheckCatchUpWithPeers() bool {
-	threshold := node.ConsensusBase(0)*2/3 + 1
+	threshold := node.ConsensusThreshold(0)
 	if node.SyncPoints.Len() < threshold {
 		return false
 	}

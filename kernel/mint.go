@@ -78,6 +78,7 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 		return err
 	}
 	return node.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: signed.PayloadHash(),
 	}, false)

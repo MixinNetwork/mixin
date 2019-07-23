@@ -34,7 +34,7 @@ func (node *Node) LoadCacheToQueue() error {
 
 func (node *Node) ConsumeQueue() error {
 	node.persistStore.QueuePollSnapshots(func(peerId crypto.Hash, snap *common.Snapshot) error {
-		m := &CosiAction{Snapshot: snap}
+		m := &CosiAction{PeerId: peerId, Snapshot: snap}
 		if snap.Version == 0 {
 			m.Action = CosiActionFinalization
 		} else if snap.Signature != nil {
