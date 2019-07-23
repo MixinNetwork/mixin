@@ -55,6 +55,8 @@ type Node struct {
 func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr string, dir string) (*Node, error) {
 	var node = &Node{
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
+		CosiAggregators: make(map[crypto.Hash]*CosiAggregator),
+		CosiVerifiers:   make(map[crypto.Hash]*CosiVerifier),
 		genesisNodesMap: make(map[crypto.Hash]bool),
 		persistStore:    persistStore,
 		cacheStore:      cacheStore,
