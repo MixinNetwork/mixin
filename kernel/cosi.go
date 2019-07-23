@@ -461,7 +461,7 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 
 	publics := node.ConsensusKeys(s.Timestamp)
 	base := node.ConsensusBase(s.Timestamp)
-	s.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash[:])
+	s.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash[:], false)
 	if !node.CacheVerifyCosi(m.SnapshotHash, s.Signature, publics, base) {
 		return nil
 	}

@@ -70,7 +70,7 @@ func TestCosi(t *testing.T) {
 		assert.Nil(err)
 	}
 
-	err = cosi.AggregateResponse(publics, responses, message)
+	err = cosi.AggregateResponse(publics, responses, message, true)
 	assert.Nil(err)
 	assert.Equal("81a085ca768adc4901b5484ecc3cdbb4eee68307f78cd5ea041d7d4425496bd142d036ee5382af36ba979ddbaaf7023f5e59cb79d884642a7b1cf662adedb7040000000000fffc7f", cosi.String())
 
