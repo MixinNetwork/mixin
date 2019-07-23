@@ -57,6 +57,8 @@ func (node *Node) CosiLoop() error {
 }
 
 func (node *Node) cosiHandleAction(m *CosiAction) error {
+	defer node.Graph.UpdateFinalCache(node.IdForNetwork)
+
 	switch m.Action {
 	case CosiActionSelfEmpty:
 		return node.cosiSendAnnouncement(m)
@@ -175,6 +177,18 @@ func (node *Node) legacyHandleFinalization(s *common.Snapshot) error {
 }
 
 func (node *Node) handleFinalization(m *CosiAction) error {
+	err := node.tryToStartNewRound(m.Snapshot)
+	if err != nil {
+		return node.queueSnapshotOrPanic(m.Snapshot, true)
+	}
+
+	tx, err := node.checkFinalSnapshotTransaction(m.Snapshot)
+	if err != nil {
+		return node.queueSnapshotOrPanic(m.Snapshot, true)
+	} else if tx == nil {
+		return nil
+	}
+
 	if m.Snapshot.Version == 0 {
 		return node.legacyHandleFinalization(m.Snapshot)
 	}

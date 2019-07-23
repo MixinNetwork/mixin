@@ -44,8 +44,34 @@ func (node *Node) ConsumeQueue() error {
 		} else {
 			m.Action = CosiActionSelfEmpty
 		}
-		node.cosiActionsChan <- m
-		return nil
+
+		if m.Action == CosiActionExternalAnnouncement {
+			node.cosiActionsChan <- m
+			return nil
+		}
+
+		tx, err := node.persistStore.CacheGetTransaction(snap.Transaction)
+		if err != nil {
+			return err
+		}
+		if tx != nil {
+			node.cosiActionsChan <- m
+			return nil
+		}
+		tx, _, err = node.persistStore.ReadTransaction(snap.Transaction)
+		if err != nil {
+			return err
+		}
+		if tx != nil {
+			node.cosiActionsChan <- m
+			return nil
+		}
+
+		if peerId == node.IdForNetwork {
+			return nil
+		}
+		node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction)
+		return node.QueueAppendSnapshot(peerId, snap, node.verifyFinalization(snap.Timestamp, snap.Signatures))
 	})
 	return nil
 }
