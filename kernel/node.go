@@ -40,6 +40,9 @@ type Node struct {
 	SortedConsensusNodes []*common.Node
 	ConsensusPledging    *common.Node
 
+	CosiAggregators map[crypto.Hash]*CosiAggregator
+	CosiVerifiers   map[crypto.Hash]*CosiVerifier
+
 	genesisNodesMap map[crypto.Hash]bool
 	genesisNodes    []crypto.Hash
 	epoch           uint64
