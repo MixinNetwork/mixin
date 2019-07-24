@@ -25,10 +25,12 @@ func TestSnapshot(t *testing.T) {
 
 	s := &Snapshot{Version: SnapshotVersion}
 	assert.Len(s.VersionedPayload(), 133)
+	assert.Equal("da2c8a9f34d14ba24a4a09dfacf9506396c48a7705152f082b5795860dad89cf", s.PayloadHash().String())
 
 	s = &Snapshot{}
 	assert.Len(s.Signatures, 0)
 	assert.Len(s.VersionedPayload(), 136)
+	assert.Equal("fb08f9901437365528fdca2ad2e6cea782793d82286f152d6c147e41ec078074", s.PayloadHash().String())
 
 	seed := make([]byte, 64)
 	rand.Read(seed)
