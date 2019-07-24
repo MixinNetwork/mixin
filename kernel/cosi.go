@@ -358,8 +358,8 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 	if len(ann.Commitments) >= base {
 		return nil
 	}
-	for i, n := range node.SortedConsensusNodes {
-		if n.Signer.Hash().ForNetwork(node.networkId) == m.PeerId {
+	for i, id := range node.SortedConsensusNodes {
+		if id == m.PeerId {
 			ann.Commitments[i] = m.Commitment
 			ann.WantTxs[m.PeerId] = m.WantTx
 			break
@@ -460,8 +460,8 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 	}
 
 	agg.responsed[m.PeerId] = true
-	for i, cn := range node.SortedConsensusNodes {
-		if cn.Signer.Hash().ForNetwork(node.networkId) == m.PeerId {
+	for i, id := range node.SortedConsensusNodes {
+		if id == m.PeerId {
 			agg.Responses[i] = m.Response
 			break
 		}
@@ -624,6 +624,10 @@ func (node *Node) handleFinalization(m *CosiAction) error {
 }
 
 func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot) error {
+	if node.ConsensusNodes[s.NodeId] == nil {
+		return nil
+	}
+
 	if s.Version != common.SnapshotVersion {
 		return nil
 	}
@@ -633,14 +637,15 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 	if s.Signature != nil || s.Timestamp == 0 {
 		return nil
 	}
-	if node.ConsensusNodes[s.NodeId] == nil {
-		return nil
-	}
 	s.Hash = s.PayloadHash()
 	return node.QueueAppendSnapshot(peerId, s, false)
 }
 
 func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool) error {
+	if node.ConsensusNodes[peerId] == nil {
+		return nil
+	}
+
 	m := &CosiAction{
 		PeerId:       peerId,
 		Action:       CosiActionSelfCommitment,
@@ -653,6 +658,10 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 }
 
 func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, ver *common.VersionedTransaction) error {
+	if node.ConsensusNodes[peerId] == nil {
+		return nil
+	}
+
 	m := &CosiAction{
 		PeerId:       peerId,
 		Action:       CosiActionExternalChallenge,
@@ -665,14 +674,12 @@ func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Has
 }
 
 func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Hash, response *[32]byte) error {
+	if node.ConsensusNodes[peerId] == nil {
+		return nil
+	}
+
 	agg := node.CosiAggregators.Get(snap)
 	if agg == nil {
-		return nil
-	}
-	if agg.responsed[peerId] {
-		return nil
-	}
-	if node.ConsensusNodes[peerId] == nil {
 		return nil
 	}
 
@@ -683,8 +690,8 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 	}
 
 	index := -1
-	for i, cn := range node.SortedConsensusNodes {
-		if cn.Signer.Hash().ForNetwork(node.networkId) == peerId {
+	for i, id := range node.SortedConsensusNodes {
+		if id == peerId {
 			index = i
 			break
 		}
@@ -709,6 +716,10 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 }
 
 func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error {
+	if node.ConsensusNodes[peerId] == nil {
+		return nil
+	}
+
 	if s.Version == 0 {
 		return node.legacyAppendFinalization(peerId, s)
 	}

@@ -36,7 +36,7 @@ type Node struct {
 
 	ActiveNodes          []*common.Node
 	ConsensusNodes       map[crypto.Hash]*common.Node
-	SortedConsensusNodes []*common.Node
+	SortedConsensusNodes []crypto.Hash
 	ConsensusPledging    *common.Node
 
 	CosiAggregators *aggregatorMap
@@ -133,7 +133,10 @@ func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
 	}
 
 	var keys []*crypto.Key
-	for _, cn := range node.SortedConsensusNodes {
+	for _, cn := range node.ActiveNodes {
+		if cn.State != common.NodeStateAccepted {
+			continue
+		}
 		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap
 		if threshold > uint64(3*time.Minute) {
 			panic("should never be here")
@@ -180,7 +183,7 @@ func (node *Node) LoadConsensusNodes() error {
 	node.ConsensusPledging = nil
 	activeNodes := make([]*common.Node, 0)
 	consensusNodes := make(map[crypto.Hash]*common.Node)
-	sortedConsensusNodes := make([]*common.Node, 0)
+	sortedConsensusNodes := make([]crypto.Hash, 0)
 	for _, cn := range node.persistStore.ReadConsensusNodes() {
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.epoch
@@ -212,7 +215,8 @@ func (node *Node) LoadConsensusNodes() error {
 	})
 	for _, n := range activeNodes {
 		if n.State == common.NodeStateAccepted {
-			sortedConsensusNodes = append(sortedConsensusNodes, n)
+			id := n.Signer.Hash().ForNetwork(node.networkId)
+			sortedConsensusNodes = append(sortedConsensusNodes, id)
 		}
 	}
 	node.ActiveNodes = activeNodes
