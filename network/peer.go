@@ -151,11 +151,7 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	}
 
 	logger.Println("LOOP PEER STREAM", peer.Address)
-	for {
-		if peer.closing {
-			return nil, fmt.Errorf("PEER DONE")
-		}
-
+	for !peer.closing {
 		hd, nd := false, false
 		select {
 		case msg := <-peer.high:
@@ -197,6 +193,8 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
+
+	return nil, fmt.Errorf("PEER DONE")
 }
 
 func (me *Peer) acceptNeighborConnection(client Client) error {

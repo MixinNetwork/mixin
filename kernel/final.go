@@ -64,6 +64,7 @@ func (node *Node) tryToStartNewRound(s *common.Snapshot) error {
 }
 
 func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapshot) error {
+	s.Hash = s.PayloadHash()
 	if !node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
 		return nil
 	}
@@ -112,5 +113,9 @@ func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapsho
 	}
 
 	node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
+	err = node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
+	if err != nil {
+		return err
+	}
 	return node.QueueAppendSnapshot(peerId, s, true)
 }

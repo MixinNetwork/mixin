@@ -133,10 +133,7 @@ func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
 	}
 
 	var keys []*crypto.Key
-	for _, cn := range node.ActiveNodes {
-		if cn.State != common.NodeStateAccepted {
-			continue
-		}
+	for _, cn := range node.SortedConsensusNodes {
 		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap
 		if threshold > uint64(3*time.Minute) {
 			panic("should never be here")

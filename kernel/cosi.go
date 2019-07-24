@@ -251,6 +251,7 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 	if node.checkInitialAcceptSnapshot(s, tx) {
 		node.CosiVerifiers[s.Hash] = v
 		node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil)
+		return nil
 	}
 
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
@@ -721,7 +722,17 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 	if !node.CacheVerifyCosi(s.Hash, s.Signature, publics, base) {
 		return nil
 	}
+
 	node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
+	err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
+	if err != nil {
+		return err
+	}
+
+	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
+	if err != nil || inNode {
+		return err
+	}
 	return node.QueueAppendSnapshot(peerId, s, true)
 }
 
