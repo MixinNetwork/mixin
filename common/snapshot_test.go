@@ -23,7 +23,10 @@ func TestSnapshot(t *testing.T) {
 	tx.AddInput(genesisHash, 1)
 	tx.AddRandomScriptOutput(accounts, script, NewInteger(20000))
 
-	s := &Snapshot{}
+	s := &Snapshot{Version: SnapshotVersion}
+	assert.Len(s.VersionedPayload(), 133)
+
+	s = &Snapshot{}
 	assert.Len(s.Signatures, 0)
 	assert.Len(s.VersionedPayload(), 136)
 
