@@ -57,6 +57,9 @@ func (c *CosiSignature) AggregateResponse(publics []*Key, responses map[int]*[32
 		if i >= len(publics) {
 			return fmt.Errorf("invalid cosi signature mask index %d/%d", i, len(publics))
 		}
+		if responses[i] == nil {
+			return fmt.Errorf("invalid cosi signature responses with missing key %d", i)
+		}
 		keys = append(keys, publics[i])
 	}
 	if len(keys) != len(responses) {
@@ -67,13 +70,16 @@ func (c *CosiSignature) AggregateResponse(publics []*Key, responses map[int]*[32
 		return err
 	}
 	for i, s := range responses {
+		if c.commitments[i] == nil {
+			return fmt.Errorf("invalid cosi signature response %s", hex.EncodeToString(s[:]))
+		}
 		if strict {
 			var sig Signature
 			copy(sig[:32], c.commitments[i][:])
 			copy(sig[32:], s[:])
 			valid := publics[i].VerifyWithChallenge(message, sig, challenge)
 			if !valid {
-				return fmt.Errorf("invalid cosi signature response %s", sig)
+				return fmt.Errorf("invalid cosi signature response %s", hex.EncodeToString(s[:]))
 			}
 		}
 		if S == nil {
