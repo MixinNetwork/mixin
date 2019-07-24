@@ -37,6 +37,7 @@ type Node struct {
 	ActiveNodes          []*common.Node
 	ConsensusNodes       map[crypto.Hash]*common.Node
 	SortedConsensusNodes []crypto.Hash
+	ConsensusIndex       int
 	ConsensusPledging    *common.Node
 
 	CosiAggregators *aggregatorMap
@@ -55,6 +56,7 @@ type Node struct {
 func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr string, dir string) (*Node, error) {
 	var node = &Node{
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
+		ConsensusIndex:  -1,
 		CosiAggregators: &aggregatorMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*CosiAggregator)},
 		CosiVerifiers:   make(map[crypto.Hash]*CosiVerifier),
 		genesisNodesMap: make(map[crypto.Hash]bool),
@@ -222,6 +224,11 @@ func (node *Node) LoadConsensusNodes() error {
 	node.ActiveNodes = activeNodes
 	node.ConsensusNodes = consensusNodes
 	node.SortedConsensusNodes = sortedConsensusNodes
+	for i, id := range node.SortedConsensusNodes {
+		if id == node.IdForNetwork {
+			node.ConsensusIndex = i
+		}
+	}
 	return nil
 }
 
