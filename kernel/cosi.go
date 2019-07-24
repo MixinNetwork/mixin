@@ -99,28 +99,13 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	if finalized || tx == nil {
 		return nil
 	}
-	err = node.doSnapshotValidation(s, tx)
+	err = node.validateKernelSnapshot(s, tx)
 	if err != nil {
 		return nil
 	}
-
-	old, _, err := node.persistStore.ReadTransaction(s.Transaction)
+	err = node.writeTransaction(tx)
 	if err != nil {
-		return err
-	}
-	if old == nil {
-		err = tx.Validate(node.persistStore)
-		if err != nil {
-			return nil
-		}
-		err = tx.LockInputs(node.persistStore, false)
-		if err != nil {
-			return nil
-		}
-		err = node.persistStore.WriteTransaction(tx)
-		if err != nil {
-			return err
-		}
+		return nil
 	}
 
 	agg := &CosiAggregator{
@@ -429,28 +414,13 @@ func (node *Node) cosiHandleChallenge(m *CosiAction) error {
 	if err != nil || finalized || tx == nil {
 		return err
 	}
-	err = node.doSnapshotValidation(s, tx)
+	err = node.validateKernelSnapshot(s, tx)
 	if err != nil {
 		return nil
 	}
-
-	old, _, err := node.persistStore.ReadTransaction(s.Transaction)
+	err = node.writeTransaction(tx)
 	if err != nil {
-		return err
-	}
-	if old == nil {
-		err = tx.Validate(node.persistStore)
-		if err != nil {
-			return nil
-		}
-		err = tx.LockInputs(node.persistStore, false)
-		if err != nil {
-			return nil
-		}
-		err = node.persistStore.WriteTransaction(tx)
-		if err != nil {
-			return err
-		}
+		return nil
 	}
 
 	priv := node.Signer.PrivateSpendKey

@@ -9,7 +9,7 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
-func (node *Node) doSnapshotValidation(s *common.Snapshot, tx *common.VersionedTransaction) error {
+func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	switch tx.TransactionType() {
 	case common.TransactionTypeMint:
 		err := node.validateMintSnapshot(s, tx)
@@ -31,6 +31,22 @@ func (node *Node) doSnapshotValidation(s *common.Snapshot, tx *common.VersionedT
 		}
 	}
 	return nil
+}
+
+func (node *Node) writeTransaction(tx *common.VersionedTransaction) error {
+	old, _, err := node.persistStore.ReadTransaction(tx.PayloadHash())
+	if err != nil || old != nil {
+		return err
+	}
+	err = tx.Validate(node.persistStore)
+	if err != nil {
+		return nil
+	}
+	err = tx.LockInputs(node.persistStore, false)
+	if err != nil {
+		return nil
+	}
+	return node.persistStore.WriteTransaction(tx)
 }
 
 func (node *Node) checkTransaction(nodeId, hash crypto.Hash) (*common.VersionedTransaction, bool, error) {
