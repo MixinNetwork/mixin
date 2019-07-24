@@ -7,7 +7,6 @@ import (
 
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/bugsnag/bugsnag-go/errors"
 	"github.com/dimfeld/httptreemux"
 	"github.com/gorilla/handlers"
 	"github.com/unrolled/render"
@@ -39,8 +38,7 @@ func registerHanders(router *httptreemux.TreeMux) {
 		render.New().JSON(w, http.StatusNotFound, map[string]interface{}{"error": "not found"})
 	}
 	router.PanicHandler = func(w http.ResponseWriter, r *http.Request, rcv interface{}) {
-		err := fmt.Errorf(string(errors.New(rcv, 2).Stack()))
-		render.New().JSON(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
+		render.New().JSON(w, http.StatusInternalServerError, map[string]interface{}{"error": "server error"})
 	}
 }
 
