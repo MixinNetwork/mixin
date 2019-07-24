@@ -228,7 +228,7 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 	}
 
 	s := m.Snapshot
-	if s.NodeId == node.IdForNetwork || s.Signature != nil {
+	if s.NodeId == node.IdForNetwork || s.Signature != nil || s.Version != common.SnapshotVersion || s.Timestamp == 0 {
 		panic(fmt.Errorf("should never be here %s %s %s", node.IdForNetwork, s.NodeId, s.Signature))
 	}
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
@@ -601,24 +601,24 @@ func (node *Node) cosiHandleFinalization(m *CosiAction) error {
 }
 
 func (node *Node) handleFinalization(m *CosiAction) error {
-	err := node.tryToStartNewRound(m.Snapshot)
-	if err != nil {
-		return node.queueSnapshotOrPanic(m.PeerId, m.Snapshot, true)
+	s := m.Snapshot
+	s.Hash = s.PayloadHash()
+	if !node.verifyFinalization(s) {
+		return nil
 	}
 
-	tx, err := node.checkFinalSnapshotTransaction(m.Snapshot)
+	err := node.tryToStartNewRound(s)
 	if err != nil {
-		return node.queueSnapshotOrPanic(m.PeerId, m.Snapshot, true)
+		return node.queueSnapshotOrPanic(m.PeerId, s, true)
+	}
+
+	tx, err := node.checkFinalSnapshotTransaction(s)
+	if err != nil {
+		return node.queueSnapshotOrPanic(m.PeerId, s, true)
 	} else if tx == nil {
 		return nil
 	}
 	m.Transaction = tx
-	s := m.Snapshot
-	s.Hash = s.PayloadHash()
-
-	if !node.verifyFinalization(s) {
-		return nil
-	}
 	return node.cosiHandleFinalization(m)
 }
 
