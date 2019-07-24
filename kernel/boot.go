@@ -2,7 +2,7 @@ package kernel
 
 func (node *Node) Loop() error {
 	panicGo(node.ListenNeighbors)
-	panicGo(node.ConsumeMempool)
+	panicGo(node.CosiLoop)
 	panicGo(node.LoadCacheToQueue)
 	panicGo(node.MintLoop)
 	panicGo(node.ElectionLoop)

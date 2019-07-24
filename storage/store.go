@@ -49,7 +49,4 @@ type Store interface {
 
 	RemoveGraphEntries(prefix string) error
 	ValidateGraphEntries(networkId crypto.Hash) (int, int, error)
-
-	WriteAsset(a *common.Asset) error
-	ReadAsset(id crypto.Hash) (*common.Asset, error)
 }

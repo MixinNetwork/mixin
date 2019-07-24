@@ -1,11 +1,13 @@
 package kernel
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"sort"
 	"sync"
 	"time"
 
@@ -23,21 +25,23 @@ const (
 )
 
 type Node struct {
-	IdForNetwork   crypto.Hash
-	Signer         common.Address
-	Graph          *RoundGraph
-	TopoCounter    *TopologicalSequence
-	SnapshotsPool  map[crypto.Hash][]*crypto.Signature
-	SignaturesPool map[crypto.Hash]*crypto.Signature
-	CachePool      map[crypto.Hash][]*common.Snapshot
-	cacheStore     *fastcache.Cache
-	Peer           *network.Peer
-	SyncPoints     *syncMap
-	Listener       string
+	IdForNetwork crypto.Hash
+	Signer       common.Address
+	Graph        *RoundGraph
+	TopoCounter  *TopologicalSequence
+	cacheStore   *fastcache.Cache
+	Peer         *network.Peer
+	SyncPoints   *syncMap
+	Listener     string
 
-	ActiveNodes       map[crypto.Hash]*common.Node
-	ConsensusNodes    map[crypto.Hash]*common.Node
-	ConsensusPledging *common.Node
+	ActiveNodes          []*common.Node
+	ConsensusNodes       map[crypto.Hash]*common.Node
+	SortedConsensusNodes []crypto.Hash
+	ConsensusIndex       int
+	ConsensusPledging    *common.Node
+
+	CosiAggregators *aggregatorMap
+	CosiVerifiers   map[crypto.Hash]*CosiVerifier
 
 	genesisNodesMap map[crypto.Hash]bool
 	genesisNodes    []crypto.Hash
@@ -45,21 +49,20 @@ type Node struct {
 	startAt         time.Time
 	networkId       crypto.Hash
 	persistStore    storage.Store
-	mempoolChan     chan *common.Snapshot
+	cosiActionsChan chan *CosiAction
 	configDir       string
 }
 
 func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr string, dir string) (*Node, error) {
 	var node = &Node{
-		ConsensusNodes:  make(map[crypto.Hash]*common.Node),
-		SnapshotsPool:   make(map[crypto.Hash][]*crypto.Signature),
-		CachePool:       make(map[crypto.Hash][]*common.Snapshot),
-		SignaturesPool:  make(map[crypto.Hash]*crypto.Signature),
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
+		ConsensusIndex:  -1,
+		CosiAggregators: &aggregatorMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*CosiAggregator)},
+		CosiVerifiers:   make(map[crypto.Hash]*CosiVerifier),
 		genesisNodesMap: make(map[crypto.Hash]bool),
 		persistStore:    persistStore,
 		cacheStore:      cacheStore,
-		mempoolChan:     make(chan *common.Snapshot, MempoolSize),
+		cosiActionsChan: make(chan *CosiAction, MempoolSize),
 		configDir:       dir,
 		TopoCounter:     getTopologyCounter(persistStore),
 		startAt:         time.Now(),
@@ -123,7 +126,31 @@ func (node *Node) LoadNodeConfig() {
 	node.Listener = config.Custom.Listener
 }
 
-func (node *Node) ConsensusBase(timestamp uint64) int {
+func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
+	if timestamp == 0 {
+		timestamp = uint64(time.Now().UnixNano())
+	}
+	if t := node.epoch + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*2; t > timestamp {
+		timestamp = t
+	}
+
+	var keys []*crypto.Key
+	for _, cn := range node.ActiveNodes {
+		if cn.State != common.NodeStateAccepted {
+			continue
+		}
+		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap
+		if threshold > uint64(3*time.Minute) {
+			panic("should never be here")
+		}
+		if cn.Timestamp+threshold < timestamp {
+			keys = append(keys, &cn.Signer.PublicSpendKey)
+		}
+	}
+	return keys
+}
+
+func (node *Node) ConsensusThreshold(timestamp uint64) int {
 	if timestamp == 0 {
 		timestamp = uint64(time.Now().UnixNano())
 	}
@@ -151,13 +178,14 @@ func (node *Node) ConsensusBase(timestamp uint64) int {
 	if consensusBase < len(node.genesisNodes) {
 		panic(fmt.Errorf("invalid consensus base %d %d %d", timestamp, consensusBase, len(node.genesisNodes)))
 	}
-	return consensusBase
+	return consensusBase*2/3 + 1
 }
 
 func (node *Node) LoadConsensusNodes() error {
 	node.ConsensusPledging = nil
-	activeNodes := make(map[crypto.Hash]*common.Node)
+	activeNodes := make([]*common.Node, 0)
 	consensusNodes := make(map[crypto.Hash]*common.Node)
+	sortedConsensusNodes := make([]crypto.Hash, 0)
 	for _, cn := range node.persistStore.ReadConsensusNodes() {
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.epoch
@@ -166,17 +194,41 @@ func (node *Node) LoadConsensusNodes() error {
 		logger.Println(idForNetwork, cn.Signer.String(), cn.State, cn.Timestamp)
 		switch cn.State {
 		case common.NodeStatePledging:
-			activeNodes[idForNetwork] = cn
 			node.ConsensusPledging = cn
+			activeNodes = append(activeNodes, cn)
 		case common.NodeStateAccepted:
-			activeNodes[idForNetwork] = cn
 			consensusNodes[idForNetwork] = cn
+			activeNodes = append(activeNodes, cn)
 		case common.NodeStateDeparting:
-			activeNodes[idForNetwork] = cn
+			activeNodes = append(activeNodes, cn)
+		}
+	}
+	sort.Slice(activeNodes, func(i, j int) bool {
+		a, b := activeNodes[i], activeNodes[j]
+		if a.Timestamp < b.Timestamp {
+			return true
+		}
+		if a.Timestamp == b.Timestamp {
+			ai := a.Signer.Hash().ForNetwork(node.networkId)
+			bi := b.Signer.Hash().ForNetwork(node.networkId)
+			return bytes.Compare(ai[:], bi[:]) < 0
+		}
+		return false
+	})
+	for _, n := range activeNodes {
+		if n.State == common.NodeStateAccepted {
+			id := n.Signer.Hash().ForNetwork(node.networkId)
+			sortedConsensusNodes = append(sortedConsensusNodes, id)
 		}
 	}
 	node.ActiveNodes = activeNodes
 	node.ConsensusNodes = consensusNodes
+	node.SortedConsensusNodes = sortedConsensusNodes
+	for i, id := range node.SortedConsensusNodes {
+		if id == node.IdForNetwork {
+			node.ConsensusIndex = i
+		}
+	}
 	return nil
 }
 
@@ -261,80 +313,6 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
 }
 
-func (node *Node) VerifyAndQueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
-	s.Hash = s.PayloadHash()
-	if len(s.Signatures) != 1 && !node.verifyFinalization(s.Timestamp, s.Signatures) {
-		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
-	}
-	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
-	if err != nil {
-		return err
-	}
-	if inNode {
-		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash, 1)
-		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
-	}
-
-	sigs := make([]*crypto.Signature, 0)
-	signaturesFilter := make(map[string]bool)
-	signersMap := make(map[crypto.Hash]bool)
-	for i, sig := range s.Signatures {
-		s.Signatures[i] = nil
-		if signaturesFilter[sig.String()] {
-			continue
-		}
-		for idForNetwork, cn := range node.ConsensusNodes {
-			if signersMap[idForNetwork] {
-				continue
-			}
-			if node.CacheVerify(s.Hash, *sig, cn.Signer.PublicSpendKey) {
-				sigs = append(sigs, sig)
-				signersMap[idForNetwork] = true
-				break
-			}
-		}
-		if n := node.ConsensusPledging; n != nil {
-			id := n.Signer.Hash().ForNetwork(node.networkId)
-			if id == s.NodeId && s.RoundNumber == 0 && node.CacheVerify(s.Hash, *sig, n.Signer.PublicSpendKey) {
-				sigs = append(sigs, sig)
-				signersMap[id] = true
-			}
-		}
-		signaturesFilter[sig.String()] = true
-	}
-	s.Signatures = s.Signatures[:len(sigs)]
-	for i := range sigs {
-		s.Signatures[i] = sigs[i]
-	}
-
-	if node.verifyFinalization(s.Timestamp, s.Signatures) {
-		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash, 1)
-		err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 1)
-		if err != nil {
-			return err
-		}
-		return node.QueueAppendSnapshot(peerId, s, true)
-	}
-
-	err = node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, 0)
-	if err != nil || len(s.Signatures) != 1 {
-		return err
-	}
-	if !signersMap[s.NodeId] && s.NodeId != node.IdForNetwork {
-		return nil
-	}
-	if !signersMap[peerId] {
-		return nil
-	}
-	if node.checkInitialAcceptSnapshotWeak(s) {
-		return node.persistStore.QueueAppendSnapshot(peerId, s, false)
-	}
-	if !node.CheckCatchUpWithPeers() { // FIXME concurrent map read write
-		return nil
-	}
-	return node.QueueAppendSnapshot(peerId, s, false)
-}
-
 func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot, final bool) error {
 	if !final && node.Graph.MyCacheRound == nil {
 		return nil
@@ -357,7 +335,6 @@ func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
 }
 
 func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTransaction) error {
-	node.Peer.ConfirmTransactionForPeer(peerId, tx)
 	return node.persistStore.CachePutTransaction(tx)
 }
 
@@ -381,7 +358,7 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 }
 
 func (node *Node) CheckBroadcastedToPeers() bool {
-	count, threshold := 1, node.ConsensusBase(0)*2/3+1
+	count, threshold := 1, node.ConsensusThreshold(0)
 	final := node.Graph.MyFinalNumber
 	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
@@ -396,7 +373,7 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 }
 
 func (node *Node) CheckCatchUpWithPeers() bool {
-	threshold := node.ConsensusBase(0)*2/3 + 1
+	threshold := node.ConsensusThreshold(0)
 	if node.SyncPoints.Len() < threshold {
 		return false
 	}
@@ -429,18 +406,6 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 		}
 	}
 	return true
-}
-
-func (node *Node) ConsumeMempool() error {
-	for {
-		select {
-		case s := <-node.mempoolChan:
-			err := node.handleSnapshotInput(s)
-			if err != nil {
-				return err
-			}
-		}
-	}
 }
 
 type syncMap struct {

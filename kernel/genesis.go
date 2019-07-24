@@ -88,6 +88,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 		}
 		nodeId := in.Signer.Hash().ForNetwork(node.networkId)
 		snapshot := common.Snapshot{
+			Version:     common.SnapshotVersion,
 			NodeId:      nodeId,
 			Transaction: signed.PayloadHash(),
 			RoundNumber: 0,
@@ -173,6 +174,7 @@ func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) (*com
 	}
 	nodeId := domain.Hash().ForNetwork(node.networkId)
 	snapshot := common.Snapshot{
+		Version:     common.SnapshotVersion,
 		NodeId:      nodeId,
 		Transaction: signed.PayloadHash(),
 		RoundNumber: 0,

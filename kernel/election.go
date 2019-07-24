@@ -76,6 +76,7 @@ func (node *Node) tryToSendAcceptTransaction() error {
 		return err
 	}
 	err = node.persistStore.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: ver.PayloadHash(),
 	}, false)

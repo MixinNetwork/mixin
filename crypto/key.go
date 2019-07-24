@@ -15,6 +15,9 @@ type Key [32]byte
 func NewKeyFromSeed(seed []byte) Key {
 	var key [32]byte
 	var src [64]byte
+	if len(seed) != len(src) {
+		panic(len(seed))
+	}
 	copy(src[:], seed)
 	edwards25519.ScReduce(&key, &src)
 	return key
@@ -38,7 +41,7 @@ func (k Key) DeterministicHashDerive() Key {
 	return NewKeyFromSeed(append(seed[:], seed[:]...))
 }
 
-func KeyMult(pub, priv *Key) *Key {
+func KeyMultPubPriv(pub, priv *Key) *Key {
 	var point edwards25519.ExtendedGroupElement
 	var point2 edwards25519.ProjectiveGroupElement
 
@@ -48,6 +51,23 @@ func KeyMult(pub, priv *Key) *Key {
 	edwards25519.GeScalarMult(&point2, &tmp, &point)
 
 	point2.ToBytes(&tmp)
+	key := Key(tmp)
+	return &key
+}
+
+func KeyAddPub(pub1, pub2 *Key) *Key {
+	var point1, point2 edwards25519.ExtendedGroupElement
+	var point3 edwards25519.CachedGroupElement
+	var point4 edwards25519.CompletedGroupElement
+	var point5 edwards25519.ProjectiveGroupElement
+	tmp := [32]byte(*pub1)
+	point1.FromBytes(&tmp)
+	tmp = [32]byte(*pub2)
+	point2.FromBytes(&tmp)
+	point2.ToCached(&point3)
+	edwards25519.GeAdd(&point4, &point1, &point3)
+	point4.ToProjective(&point5)
+	point5.ToBytes(&tmp)
 	key := Key(tmp)
 	return &key
 }
@@ -77,7 +97,7 @@ func DeriveGhostPublicKey(r, A, B *Key, outputIndex uint64) *Key {
 
 	tmp := [32]byte(*B)
 	point1.FromBytes(&tmp)
-	scalar := KeyMult(A, r).MultScalar(outputIndex).HashScalar()
+	scalar := KeyMultPubPriv(A, r).MultScalar(outputIndex).HashScalar()
 	edwards25519.GeScalarMultBase(&point2, scalar)
 	point2.ToCached(&point3)
 	edwards25519.GeAdd(&point4, &point1, &point3)
@@ -88,7 +108,7 @@ func DeriveGhostPublicKey(r, A, B *Key, outputIndex uint64) *Key {
 }
 
 func DeriveGhostPrivateKey(R, a, b *Key, outputIndex uint64) *Key {
-	scalar := KeyMult(R, a).MultScalar(outputIndex).HashScalar()
+	scalar := KeyMultPubPriv(R, a).MultScalar(outputIndex).HashScalar()
 	tmp := [32]byte(*b)
 	edwards25519.ScAdd(&tmp, &tmp, scalar)
 	key := Key(tmp)
@@ -103,7 +123,7 @@ func ViewGhostOutputKey(P, a, R *Key, outputIndex uint64) *Key {
 
 	tmp := [32]byte(*P)
 	point1.FromBytes(&tmp)
-	scalar := KeyMult(R, a).MultScalar(outputIndex).HashScalar()
+	scalar := KeyMultPubPriv(R, a).MultScalar(outputIndex).HashScalar()
 	edwards25519.GeScalarMultBase(&point2, scalar)
 	point2.ToCached(&point3)
 	edwards25519.GeSub(&point4, &point1, &point3)

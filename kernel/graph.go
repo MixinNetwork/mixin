@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"encoding/binary"
 	"fmt"
 	"time"
 
@@ -8,63 +9,6 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 )
-
-func (node *Node) handleSnapshotInput(s *common.Snapshot) error {
-	defer node.Graph.UpdateFinalCache(node.IdForNetwork)
-
-	if node.verifyFinalization(s.Timestamp, s.Signatures) {
-		err := node.tryToStartNewRound(s)
-		if err != nil {
-			return node.queueSnapshotOrPanic(s, true)
-		}
-		tx, err := node.checkFinalSnapshotTransaction(s)
-		if err != nil {
-			return node.queueSnapshotOrPanic(s, true)
-		} else if tx == nil {
-			return nil
-		}
-		return node.handleSyncFinalSnapshot(s, tx)
-	}
-
-	tx, err := node.checkCacheSnapshotTransaction(s)
-	if err != nil {
-		return node.queueSnapshotOrPanic(s, false)
-	} else if tx == nil {
-		return nil
-	}
-
-	if !node.CheckCatchUpWithPeers() && !node.checkInitialAcceptSnapshot(s, tx) {
-		time.Sleep(100 * time.Millisecond)
-		return node.queueSnapshotOrPanic(s, false)
-	}
-
-	if s.NodeId == node.IdForNetwork {
-		if len(s.Signatures) == 0 {
-			return node.signSelfSnapshot(s, tx)
-		}
-		return node.collectSelfSignatures(s, tx)
-	}
-
-	return node.verifyExternalSnapshot(s, tx)
-}
-
-func (node *Node) signSnapshot(s *common.Snapshot) {
-	s.Hash = s.PayloadHash()
-	sig := node.Signer.PrivateSpendKey.Sign(s.Hash[:])
-	osigs := node.SnapshotsPool[s.Hash]
-	for _, o := range osigs {
-		if o.String() == sig.String() {
-			panic("should never be here")
-		}
-	}
-	node.SnapshotsPool[s.Hash] = append(osigs, &sig)
-	node.SignaturesPool[s.Hash] = &sig
-
-	key := append(s.Hash[:], sig[:]...)
-	key = append(key, node.Signer.PublicSpendKey[:]...)
-	hash := "KERNEL:SIGNATURE:" + crypto.NewHash(key).String()
-	node.cacheStore.Set([]byte(hash), []byte{1})
-}
 
 func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRound, error) {
 	if s.RoundNumber != cache.Number+1 {
@@ -91,7 +35,10 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 	if !node.genesisNodesMap[external.NodeId] && external.Number < 7+config.SnapshotReferenceThreshold {
 		return nil, nil
 	}
-	if !node.verifyFinalization(s.Timestamp, s.Signatures) {
+	if !node.verifyFinalization(s) {
+		if external.Number+config.SnapshotSyncRoundThreshold < node.Graph.FinalRound[external.NodeId].Number {
+			return nil, fmt.Errorf("external reference %s too early %d %d", s.References.External, external.Number, node.Graph.FinalRound[external.NodeId].Number)
+		}
 		if external.Timestamp > s.Timestamp+config.SnapshotRoundGap {
 			return nil, fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-s.Timestamp).Seconds())
 		}
@@ -151,6 +98,29 @@ func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto
 	return valid
 }
 
+func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, publics []*crypto.Key, threshold int) bool {
+	key := common.MsgpackMarshalPanic(sig)
+	key = append(snap[:], key...)
+	for _, pub := range publics {
+		key = append(key, pub[:]...)
+	}
+	tbuf := make([]byte, 8)
+	binary.BigEndian.PutUint64(tbuf, uint64(threshold))
+	key = append(key, tbuf...)
+	hash := "KERNEL:COSISIGNATURE:" + crypto.NewHash(key).String()
+	value := node.cacheStore.Get(nil, []byte(hash))
+	if len(value) == 1 {
+		return value[0] == byte(1)
+	}
+	valid := sig.FullVerify(publics, threshold, snap[:])
+	if valid {
+		node.cacheStore.Set([]byte(hash), []byte{1})
+	} else {
+		node.cacheStore.Set([]byte(hash), []byte{0})
+	}
+	return valid
+}
+
 func (node *Node) checkInitialAcceptSnapshotWeak(s *common.Snapshot) bool {
 	pledge := node.ConsensusPledging
 	if pledge == nil {
@@ -172,8 +142,8 @@ func (node *Node) checkInitialAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	return node.checkInitialAcceptSnapshotWeak(s) && tx.TransactionType() == common.TransactionTypeNodeAccept
 }
 
-func (node *Node) queueSnapshotOrPanic(s *common.Snapshot, finalized bool) error {
-	err := node.persistStore.QueueAppendSnapshot(node.IdForNetwork, s, finalized)
+func (node *Node) queueSnapshotOrPanic(peerId crypto.Hash, s *common.Snapshot, finalized bool) error {
+	err := node.persistStore.QueueAppendSnapshot(peerId, s, finalized)
 	if err != nil {
 		panic(err)
 	}
@@ -181,16 +151,28 @@ func (node *Node) queueSnapshotOrPanic(s *common.Snapshot, finalized bool) error
 }
 
 func (node *Node) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
-	delete(node.SnapshotsPool, s.Hash)
-	delete(node.SignaturesPool, s.Hash)
-	node.removeFromCache(s)
-	return node.queueSnapshotOrPanic(&common.Snapshot{
+	delete(node.CosiVerifiers, s.Hash)
+	node.CosiAggregators.Delete(s.Hash)
+	node.CosiAggregators.Delete(s.Transaction)
+	return node.queueSnapshotOrPanic(node.IdForNetwork, &common.Snapshot{
+		Version:     common.SnapshotVersion,
 		NodeId:      s.NodeId,
 		Transaction: s.Transaction,
 	}, false)
 }
 
-func (node *Node) verifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {
-	consensusThreshold := node.ConsensusBase(timestamp)*2/3 + 1
-	return len(sigs) >= consensusThreshold
+func (node *Node) verifyFinalization(s *common.Snapshot) bool {
+	if s.Version == 0 {
+		return node.legacyVerifyFinalization(s.Timestamp, s.Signatures)
+	}
+	if s.Version != common.SnapshotVersion || s.Signature == nil {
+		return false
+	}
+	publics := node.ConsensusKeys(s.Timestamp)
+	base := node.ConsensusThreshold(s.Timestamp)
+	return node.CacheVerifyCosi(s.PayloadHash(), s.Signature, publics, base)
+}
+
+func (node *Node) legacyVerifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {
+	return len(sigs) >= node.ConsensusThreshold(timestamp)
 }

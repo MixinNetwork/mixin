@@ -104,11 +104,15 @@ func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, o
 		return offset, err
 	}
 	for _, s := range snapshots {
-		if r := graph[s.NodeId]; r != nil && s.RoundNumber <= r.Number {
+		var remoteRound uint64
+		if r := graph[s.NodeId]; r != nil {
+			remoteRound = r.Number
+		}
+		if s.RoundNumber <= remoteRound || s.RoundNumber >= remoteRound+config.SnapshotSyncRoundThreshold {
 			offset = s.TopologicalOrder
 			continue
 		}
-		err := me.SendSnapshotMessage(p.IdForNetwork, &s.Snapshot, 1)
+		err := me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot)
 		if err != nil {
 			return offset, err
 		}
