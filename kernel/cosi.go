@@ -768,8 +768,8 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		return err
 	}
 
-	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
-	if err != nil || inNode {
+	_, finalized, err := node.persistStore.ReadTransaction(s.Transaction)
+	if err != nil || len(finalized) > 0 {
 		return err
 	}
 	return node.QueueAppendSnapshot(peerId, s, true)

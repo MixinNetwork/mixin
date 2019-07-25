@@ -6,11 +6,6 @@ import (
 )
 
 func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, error) {
-	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
-	if err != nil || inNode {
-		return nil, err
-	}
-
 	tx, _, err := node.persistStore.ReadTransaction(s.Transaction)
 	if err != nil || tx != nil {
 		return tx, err
@@ -68,13 +63,15 @@ func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapsho
 	if !node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
 		return nil
 	}
-	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
+
+	node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
+	err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
 	if err != nil {
 		return err
 	}
-	if inNode {
-		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
-		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
+	_, finalized, err := node.persistStore.ReadTransaction(s.Transaction)
+	if err != nil || len(finalized) > 0 {
+		return err
 	}
 
 	sigs := make([]*crypto.Signature, 0)
@@ -112,9 +109,8 @@ func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapsho
 		return nil
 	}
 
-	node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
-	err = node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
-	if err != nil {
+	_, finalized, err = node.persistStore.ReadTransaction(s.Transaction)
+	if err != nil || len(finalized) > 0 {
 		return err
 	}
 	return node.QueueAppendSnapshot(peerId, s, true)

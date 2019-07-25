@@ -18,7 +18,6 @@ const (
 	graphPrefixMint         = "MINT"
 	graphPrefixTransaction  = "TRANSACTION"  // raw transaction, may not be finalized yet, if finalized with first finalized snapshot hash
 	graphPrefixFinalization = "FINALIZATION" // transaction finalization hack
-	graphPrefixUnique       = "UNIQUE"       // unique transaction in one node
 	graphPrefixRound        = "ROUND"        // hash|node-if-cache {node:hash,number:734,references:{self-parent-round-hash,external-round-hash}}
 	graphPrefixSnapshot     = "SNAPSHOT"     // {
 	graphPrefixLink         = "LINK"         // self-external number
@@ -135,12 +134,6 @@ func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder, v
 	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction)
 	val := common.CompressMsgpackMarshalPanic(snap)
 	err = txn.Set(key, val)
-	if err != nil {
-		return err
-	}
-
-	key = graphUniqueKey(snap.NodeId, snap.Transaction)
-	err = txn.Set(key, []byte{})
 	if err != nil {
 		return err
 	}

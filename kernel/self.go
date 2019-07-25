@@ -9,11 +9,6 @@ import (
 )
 
 func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, bool, error) {
-	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
-	if err != nil || inNode {
-		return nil, inNode, err
-	}
-
 	tx, finalized, err := node.persistStore.ReadTransaction(s.Transaction)
 	if tx != nil {
 		err = node.validateKernelSnapshot(s, tx)
