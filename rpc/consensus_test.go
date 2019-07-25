@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	NODES  = 7
+	NODES  = 9
 	INPUTS = 100
 )
 

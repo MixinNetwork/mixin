@@ -5,9 +5,44 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
-	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 )
+
+func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, bool, error) {
+	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
+	if err != nil || inNode {
+		return nil, inNode, err
+	}
+
+	tx, finalized, err := node.persistStore.ReadTransaction(s.Transaction)
+	if tx != nil {
+		err = node.validateKernelSnapshot(s, tx)
+	}
+	if err != nil || len(finalized) > 0 || tx != nil {
+		return tx, len(finalized) > 0, err
+	}
+
+	tx, err = node.persistStore.CacheGetTransaction(s.Transaction)
+	if err != nil || tx == nil {
+		return nil, false, err
+	}
+
+	err = tx.Validate(node.persistStore)
+	if err != nil {
+		return nil, false, err
+	}
+	err = node.validateKernelSnapshot(s, tx)
+	if err != nil {
+		return nil, false, err
+	}
+
+	err = tx.LockInputs(node.persistStore, false)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return tx, false, node.persistStore.WriteTransaction(tx)
+}
 
 func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	switch tx.TransactionType() {
@@ -31,35 +66,6 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 		}
 	}
 	return nil
-}
-
-func (node *Node) writeTransaction(tx *common.VersionedTransaction) error {
-	old, _, err := node.persistStore.ReadTransaction(tx.PayloadHash())
-	if err != nil || old != nil {
-		return err
-	}
-	err = tx.Validate(node.persistStore)
-	if err != nil {
-		return nil
-	}
-	err = tx.LockInputs(node.persistStore, false)
-	if err != nil {
-		return nil
-	}
-	return node.persistStore.WriteTransaction(tx)
-}
-
-func (node *Node) checkTransaction(nodeId, hash crypto.Hash) (*common.VersionedTransaction, bool, error) {
-	inNode, err := node.persistStore.CheckTransactionInNode(nodeId, hash)
-	if err != nil || inNode {
-		return nil, inNode, err
-	}
-	tx, finalized, err := node.persistStore.ReadTransaction(hash)
-	if err != nil || len(finalized) > 0 || tx != nil {
-		return tx, len(finalized) > 0, err
-	}
-	tx, err = node.persistStore.CacheGetTransaction(hash)
-	return tx, false, err
 }
 
 func (node *Node) determinBestRound(roundTime uint64) *FinalRound {

@@ -95,20 +95,9 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 		return nil
 	}
 
-	tx, finalized, err := node.checkTransaction(s.NodeId, m.Snapshot.Transaction)
-	if err != nil {
-		return node.queueSnapshotOrPanic(m.PeerId, s, false)
-	}
-	if finalized || tx == nil {
+	tx, finalized, err := node.checkCacheSnapshotTransaction(s)
+	if err != nil || finalized || tx == nil {
 		return nil
-	}
-	err = node.validateKernelSnapshot(s, tx)
-	if err != nil {
-		return nil
-	}
-	err = node.writeTransaction(tx)
-	if err != nil {
-		return node.queueSnapshotOrPanic(m.PeerId, s, false)
 	}
 
 	agg := &CosiAggregator{
@@ -257,9 +246,9 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		return nil
 	}
 
-	tx, finalized, err := node.checkTransaction(s.NodeId, s.Transaction)
+	tx, finalized, err := node.checkCacheSnapshotTransaction(s)
 	if err != nil || finalized {
-		return err
+		return nil
 	}
 
 	v := &CosiVerifier{
@@ -386,16 +375,8 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 		return nil
 	}
 
-	tx, finalized, err := node.checkTransaction(m.SnapshotHash, ann.Snapshot.Transaction)
+	tx, finalized, err := node.checkCacheSnapshotTransaction(ann.Snapshot)
 	if err != nil || finalized || tx == nil {
-		return err
-	}
-	err = node.validateKernelSnapshot(ann.Snapshot, tx)
-	if err != nil {
-		return nil
-	}
-	err = node.writeTransaction(tx)
-	if err != nil {
 		return nil
 	}
 
@@ -450,16 +431,8 @@ func (node *Node) cosiHandleChallenge(m *CosiAction) error {
 	}
 
 	s := v.Snapshot
-	tx, finalized, err := node.checkTransaction(s.NodeId, s.Transaction)
+	tx, finalized, err := node.checkCacheSnapshotTransaction(s)
 	if err != nil || finalized || tx == nil {
-		return err
-	}
-	err = node.validateKernelSnapshot(s, tx)
-	if err != nil {
-		return nil
-	}
-	err = node.writeTransaction(tx)
-	if err != nil {
 		return nil
 	}
 
@@ -510,16 +483,8 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 	}
 
 	s := agg.Snapshot
-	tx, finalized, err := node.checkTransaction(s.NodeId, s.Transaction)
+	tx, finalized, err := node.checkCacheSnapshotTransaction(s)
 	if err != nil || finalized || tx == nil {
-		return err
-	}
-	err = node.validateKernelSnapshot(s, tx)
-	if err != nil {
-		return nil
-	}
-	err = node.writeTransaction(tx)
-	if err != nil {
 		return nil
 	}
 
@@ -747,9 +712,9 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 	}
 
 	s := agg.Snapshot
-	tx, finalized, err := node.checkTransaction(s.NodeId, s.Transaction)
+	tx, finalized, err := node.checkCacheSnapshotTransaction(s)
 	if err != nil || finalized || tx == nil {
-		return err
+		return nil
 	}
 
 	index := -1
