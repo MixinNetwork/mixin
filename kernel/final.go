@@ -6,6 +6,11 @@ import (
 )
 
 func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, error) {
+	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
+	if err != nil || inNode {
+		return nil, err
+	}
+
 	tx, _, err := node.persistStore.ReadTransaction(s.Transaction)
 	if err != nil || tx != nil {
 		return tx, err
@@ -69,8 +74,8 @@ func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapsho
 	if err != nil {
 		return err
 	}
-	_, finalized, err := node.persistStore.ReadTransaction(s.Transaction)
-	if err != nil || len(finalized) > 0 {
+	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
+	if err != nil || inNode {
 		return err
 	}
 
@@ -109,9 +114,5 @@ func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapsho
 		return nil
 	}
 
-	_, finalized, err = node.persistStore.ReadTransaction(s.Transaction)
-	if err != nil || len(finalized) > 0 {
-		return err
-	}
 	return node.QueueAppendSnapshot(peerId, s, true)
 }
