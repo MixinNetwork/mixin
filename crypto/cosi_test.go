@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"crypto/rand"
 	"fmt"
 	"testing"
 
@@ -10,6 +11,8 @@ import (
 
 func TestCosi(t *testing.T) {
 	assert := assert.New(t)
+
+	assert.NotEqual(CosiCommit(rand.Reader).String(), CosiCommit(rand.Reader).String())
 
 	keys := make([]*Key, 31)
 	publics := make([]*Key, len(keys))

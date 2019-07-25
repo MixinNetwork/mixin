@@ -251,10 +251,7 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		return nil
 	}
 
-	v := &CosiVerifier{
-		Snapshot: m.Snapshot,
-		random:   crypto.CosiCommit(rand.Reader),
-	}
+	v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
 	if node.checkInitialAcceptSnapshot(s, tx) {
 		node.CosiVerifiers[s.Hash] = v
 		return node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil)
