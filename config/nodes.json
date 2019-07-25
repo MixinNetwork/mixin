@@ -96,6 +96,14 @@
     "host": "35.245.207.174:7239"
   },
   {
+    "signer": "XIN8zEm9fT85ZjWFoQ1hvSqBUF11N3X3pkZ2hiX8SrTC1PRVSaanoYPR9uCSwg2auj73hL6c1q5Nwtb4B6zV5eiyFpYRDkyW",
+    "host": "35.185.16.229:7239"
+  },
+  {
+    "signer": "XINDc93Cvfd5WaKhjNEykgFWDUU9kxDMuaSBZqZSkrLnWyMWocQbK46JxSoXkNEoZ9sHkcdGuurvQq5sWkHHc2B9rvfo2rLT",
+    "host": "mixin-node-01.poolin.com:7239"
+  },
+  {
     "signer": "XINNVmi4xZazh3akL9nSfoJvsqY2dfeRKYfKgbK7P6EE4GXSpNT3WsXK4PsJGuizgiDrcXRstmFUd7HVA5H2ZwydWbnkpsmy",
     "host": "35.227.72.6:7239"
   }
