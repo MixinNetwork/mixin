@@ -1,6 +1,9 @@
 package kernel
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 )
@@ -32,6 +35,9 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.Ver
 func (node *Node) tryToStartNewRound(s *common.Snapshot) error {
 	if s.RoundNumber == 0 {
 		return nil
+	}
+	if node.Graph.CacheRound[s.NodeId] == nil {
+		return fmt.Errorf("node not accepted yet %s %d %s", s.NodeId, s.RoundNumber, time.Unix(0, int64(s.Timestamp)).String())
 	}
 
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
