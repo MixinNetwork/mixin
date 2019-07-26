@@ -82,18 +82,19 @@ func (node *Node) LoadGenesis(configDir string) error {
 		tx.AddOutputWithType(common.OutputTypeNodeAccept, accounts, script, common.NewInteger(PledgeAmount), seed)
 		tx.Extra = append(in.Signer.PublicSpendKey[:], in.Payee.PublicSpendKey[:]...)
 
-		signed := tx.AsLatestVersion()
-		if node.networkId.String() == config.MainnetId {
-			signed, _ = common.UnmarshalVersionedTransaction(signed.Marshal())
-		}
 		nodeId := in.Signer.Hash().ForNetwork(node.networkId)
 		snapshot := common.Snapshot{
 			Version:     common.SnapshotVersion,
 			NodeId:      nodeId,
-			Transaction: signed.PayloadHash(),
 			RoundNumber: 0,
 			Timestamp:   node.epoch,
 		}
+		signed := tx.AsLatestVersion()
+		if node.networkId.String() == config.MainnetId {
+			snapshot.Version = 0
+			signed, _ = common.UnmarshalVersionedTransaction(signed.Marshal())
+		}
+		snapshot.Transaction = signed.PayloadHash()
 		snapshot.Hash = snapshot.PayloadHash()
 		topo := &common.SnapshotWithTopologicalOrder{
 			Snapshot:         snapshot,
@@ -179,6 +180,9 @@ func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) (*com
 		Transaction: signed.PayloadHash(),
 		RoundNumber: 0,
 		Timestamp:   node.epoch + 1,
+	}
+	if node.networkId.String() == config.MainnetId {
+		snapshot.Version = 0
 	}
 	return &common.SnapshotWithTopologicalOrder{
 		Snapshot:         snapshot,
