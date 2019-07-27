@@ -1,6 +1,8 @@
 package rpc
 
 import (
+	"time"
+
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
@@ -8,10 +10,11 @@ import (
 
 func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, error) {
 	info := map[string]interface{}{
-		"network": node.NetworkId(),
-		"node":    node.IdForNetwork,
-		"version": config.BuildVersion,
-		"uptime":  node.Uptime().String(),
+		"network":   node.NetworkId(),
+		"node":      node.IdForNetwork,
+		"version":   config.BuildVersion,
+		"uptime":    node.Uptime().String(),
+		"timestamp": time.Unix(0, int64(node.Graph.GraphTimestamp)),
 	}
 	graph, err := kernel.LoadRoundGraph(store, node.NetworkId(), node.IdForNetwork)
 	if err != nil {
