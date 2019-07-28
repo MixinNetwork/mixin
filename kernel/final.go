@@ -88,8 +88,7 @@ func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapsho
 	sigs := make([]*crypto.Signature, 0)
 	signaturesFilter := make(map[string]bool)
 	signersMap := make(map[crypto.Hash]bool)
-	for i, sig := range s.Signatures {
-		s.Signatures[i] = nil
+	for _, sig := range s.Signatures {
 		if signaturesFilter[sig.String()] {
 			continue
 		}
@@ -112,10 +111,8 @@ func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapsho
 		}
 		signaturesFilter[sig.String()] = true
 	}
-	s.Signatures = s.Signatures[:len(sigs)]
-	for i := range sigs {
-		s.Signatures[i] = sigs[i]
-	}
+	s.Signatures = sigs
+
 	if !node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
 		return nil
 	}

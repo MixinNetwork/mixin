@@ -203,6 +203,8 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	}
 	cache.Timestamp = s.Timestamp
 
+	// TODO check cache snapshot timestamp gap*2/3
+
 	s.RoundNumber = cache.Number
 	s.References = cache.References
 	s.Hash = s.PayloadHash()
@@ -227,7 +229,11 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		time.Sleep(100 * time.Millisecond)
 		return nil
 	}
-	if node.ConsensusNodes[m.PeerId] == nil {
+	cn := node.ConsensusNodes[m.PeerId]
+	if cn == nil {
+		return nil
+	}
+	if cn.Timestamp > m.Snapshot.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) {
 		return nil
 	}
 
@@ -344,11 +350,15 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 		time.Sleep(100 * time.Millisecond)
 		return nil
 	}
-	if node.ConsensusNodes[m.PeerId] == nil {
+	cn := node.ConsensusNodes[m.PeerId]
+	if cn == nil {
 		return nil
 	}
 
 	ann := node.CosiAggregators.Get(m.SnapshotHash)
+	if cn.Timestamp > ann.Snapshot.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) {
+		return nil
+	}
 	if ann == nil || ann.Snapshot.Hash != m.SnapshotHash {
 		return nil
 	}
