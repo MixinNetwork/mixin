@@ -356,13 +356,13 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 	}
 
 	ann := node.CosiAggregators.Get(m.SnapshotHash)
-	if cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) >= ann.Snapshot.Timestamp && !node.genesisNodesMap[cn.IdForNetwork(node.networkId)] {
-		return nil
-	}
 	if ann == nil || ann.Snapshot.Hash != m.SnapshotHash {
 		return nil
 	}
 	if ann.committed[m.PeerId] {
+		return nil
+	}
+	if cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) >= ann.Snapshot.Timestamp && !node.genesisNodesMap[cn.IdForNetwork(node.networkId)] {
 		return nil
 	}
 	ann.committed[m.PeerId] = true
