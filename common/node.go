@@ -15,11 +15,19 @@ const (
 )
 
 type Node struct {
-	Signer      Address
-	Payee       Address
-	State       string
-	Transaction crypto.Hash
-	Timestamp   uint64
+	Signer       Address
+	Payee        Address
+	State        string
+	Transaction  crypto.Hash
+	Timestamp    uint64
+	idForNetwork crypto.Hash
+}
+
+func (n *Node) IdForNetwork(networkId crypto.Hash) crypto.Hash {
+	if !n.idForNetwork.HasValue() {
+		n.idForNetwork = n.Signer.Hash().ForNetwork(networkId)
+	}
+	return n.idForNetwork
 }
 
 func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UTXO) error {

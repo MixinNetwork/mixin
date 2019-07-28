@@ -233,7 +233,7 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 	if cn == nil {
 		return nil
 	}
-	if cn.Timestamp > m.Snapshot.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) {
+	if cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) >= m.Snapshot.Timestamp && !node.genesisNodesMap[cn.IdForNetwork(node.networkId)] {
 		return nil
 	}
 
@@ -356,7 +356,7 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 	}
 
 	ann := node.CosiAggregators.Get(m.SnapshotHash)
-	if cn.Timestamp > ann.Snapshot.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) {
+	if cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) >= ann.Snapshot.Timestamp && !node.genesisNodesMap[cn.IdForNetwork(node.networkId)] {
 		return nil
 	}
 	if ann == nil || ann.Snapshot.Hash != m.SnapshotHash {

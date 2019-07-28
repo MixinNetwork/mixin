@@ -130,20 +130,13 @@ func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
 	if timestamp == 0 {
 		timestamp = uint64(time.Now().UnixNano())
 	}
-	if t := node.epoch + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*2; t > timestamp {
-		timestamp = t
-	}
 
 	var keys []*crypto.Key
 	for _, cn := range node.ActiveNodes {
 		if cn.State != common.NodeStateAccepted {
 			continue
 		}
-		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap
-		if threshold > uint64(3*time.Minute) {
-			panic("should never be here")
-		}
-		if cn.Timestamp+threshold < timestamp {
+		if node.genesisNodesMap[cn.IdForNetwork(node.networkId)] || cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) < timestamp {
 			keys = append(keys, &cn.Signer.PublicSpendKey)
 		}
 	}
@@ -153,9 +146,6 @@ func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
 func (node *Node) ConsensusThreshold(timestamp uint64) int {
 	if timestamp == 0 {
 		timestamp = uint64(time.Now().UnixNano())
-	}
-	if t := node.epoch + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*2; t > timestamp {
-		timestamp = t
 	}
 	consensusBase := 0
 	for _, cn := range node.ActiveNodes {
@@ -171,7 +161,7 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 			}
 			threshold = uint64(config.KernelNodeAcceptPeriodMinimum) - threshold*3
 		}
-		if cn.Timestamp+threshold < timestamp {
+		if node.genesisNodesMap[cn.IdForNetwork(node.networkId)] || cn.Timestamp+threshold < timestamp {
 			consensusBase++
 		}
 	}
