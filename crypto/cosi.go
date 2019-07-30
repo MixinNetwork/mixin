@@ -152,7 +152,7 @@ func (c *CosiSignature) VerifyResponse(publics []*Key, signer int, s *[32]byte, 
 }
 
 func (c *CosiSignature) Mark(i int) error {
-	if i >= 64 {
+	if i >= 64 || i < 0 {
 		return fmt.Errorf("invalid cosi signature mask index %d", i)
 	}
 	c.Mask ^= (1 << uint64(i))

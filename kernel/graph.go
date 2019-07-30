@@ -142,8 +142,9 @@ func (node *Node) checkInitialAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	return node.checkInitialAcceptSnapshotWeak(s) && tx.TransactionType() == common.TransactionTypeNodeAccept
 }
 
-func (node *Node) queueSnapshotOrPanic(peerId crypto.Hash, s *common.Snapshot, finalized bool) error {
-	err := node.persistStore.QueueAppendSnapshot(peerId, s, finalized)
+func (node *Node) queueSnapshotOrPanic(peerId crypto.Hash, s *common.Snapshot) error {
+	time.Sleep(10 * time.Millisecond)
+	err := node.persistStore.QueueAppendSnapshot(peerId, s, false)
 	if err != nil {
 		panic(err)
 	}
@@ -158,7 +159,7 @@ func (node *Node) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 		Version:     common.SnapshotVersion,
 		NodeId:      s.NodeId,
 		Transaction: s.Transaction,
-	}, false)
+	})
 }
 
 func (node *Node) verifyFinalization(s *common.Snapshot) bool {

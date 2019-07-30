@@ -82,17 +82,15 @@ func (node *Node) cosiHandleAction(m *CosiAction) error {
 }
 
 func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
-	if !node.CheckCatchUpWithPeers() && !node.checkInitialAcceptSnapshotWeak(m.Snapshot) {
-		time.Sleep(100 * time.Millisecond)
-		return node.queueSnapshotOrPanic(m.PeerId, m.Snapshot, false)
-	}
-
 	s := m.Snapshot
 	if s.NodeId != node.IdForNetwork || s.NodeId != m.PeerId {
 		panic("should never be here")
 	}
 	if s.Version != common.SnapshotVersion || s.Signature != nil || s.Timestamp != 0 {
 		return nil
+	}
+	if !node.CheckCatchUpWithPeers() && !node.checkInitialAcceptSnapshotWeak(m.Snapshot) {
+		return node.queueSnapshotOrPanic(m.PeerId, m.Snapshot)
 	}
 
 	tx, finalized, err := node.checkCacheSnapshotTransaction(s)
@@ -128,10 +126,6 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 		return nil
 	}
 
-	if node.CosiAggregators.Get(s.Transaction) != nil {
-		return nil
-	}
-
 	if node.Graph.FinalRound[s.NodeId] == nil {
 		return nil
 	}
@@ -140,15 +134,14 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
 	if len(cache.Snapshots) == 0 && !node.CheckBroadcastedToPeers() {
-		time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
-		return node.queueSnapshotOrPanic(m.PeerId, s, false)
+		return node.clearAndQueueSnapshotOrPanic(s)
 	}
 	for {
 		s.Timestamp = uint64(time.Now().UnixNano())
 		if s.Timestamp > cache.Timestamp {
 			break
 		}
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	if len(cache.Snapshots) == 0 {
@@ -184,7 +177,6 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	} else if start, _ := cache.Gap(); s.Timestamp >= start+config.SnapshotRoundGap {
 		best := node.determinBestRound(s.Timestamp)
 		if best == nil {
-			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
 			return node.clearAndQueueSnapshotOrPanic(s)
 		}
 		if best.NodeId == final.NodeId {
@@ -207,7 +199,12 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	}
 	cache.Timestamp = s.Timestamp
 
-	// TODO check cache snapshot timestamp gap*2/3
+	if agg := node.CosiAggregators.Get(s.Transaction); agg != nil && agg.Snapshot.RoundNumber == s.RoundNumber {
+		return node.clearAndQueueSnapshotOrPanic(s)
+	}
+	if len(cache.Snapshots) > 0 && s.Timestamp > cache.Snapshots[0].Timestamp+uint64(config.SnapshotRoundGap*4/5) {
+		return node.clearAndQueueSnapshotOrPanic(s)
+	}
 
 	s.RoundNumber = cache.Number
 	s.References = cache.References
@@ -230,7 +227,6 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 
 func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 	if node.ConsensusIndex < 0 || !node.CheckCatchUpWithPeers() {
-		time.Sleep(100 * time.Millisecond)
 		return nil
 	}
 	cn := node.getPeerConsensusNode(m.PeerId)
@@ -278,7 +274,7 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		return nil
 	}
 	if s.RoundNumber > cache.Number+1 {
-		return node.queueSnapshotOrPanic(m.PeerId, s, false)
+		return node.queueSnapshotOrPanic(m.PeerId, s)
 	}
 	if s.Timestamp <= final.Start+config.SnapshotRoundGap {
 		return nil
@@ -321,12 +317,12 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 			panic(err)
 		}
 		node.assignNewGraphRound(final, cache)
-		return node.queueSnapshotOrPanic(m.PeerId, s, false)
+		return node.queueSnapshotOrPanic(m.PeerId, s)
 	}
 	if s.RoundNumber == cache.Number+1 {
 		if round, err := node.startNewRound(s, cache); err != nil {
 			logger.Verbosef("ERROR verifyExternalSnapshot %s %d %s %s %s\n", s.NodeId, s.RoundNumber, s.References.Self, s.References.External, err.Error())
-			return node.queueSnapshotOrPanic(m.PeerId, s, false)
+			return node.queueSnapshotOrPanic(m.PeerId, s)
 		} else if round == nil {
 			return nil
 		} else {
@@ -367,7 +363,6 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 		return nil
 	}
 	if !node.CheckCatchUpWithPeers() && !node.checkInitialAcceptSnapshotWeak(ann.Snapshot) {
-		time.Sleep(100 * time.Millisecond)
 		return nil
 	}
 	if cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) >= ann.Snapshot.Timestamp && !node.genesisNodesMap[cn.IdForNetwork(node.networkId)] {
@@ -426,7 +421,6 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 
 func (node *Node) cosiHandleChallenge(m *CosiAction) error {
 	if node.ConsensusIndex < 0 || !node.CheckCatchUpWithPeers() {
-		time.Sleep(100 * time.Millisecond)
 		return nil
 	}
 	if node.getPeerConsensusNode(m.PeerId) == nil {
@@ -485,7 +479,6 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 		return nil
 	}
 	if !node.CheckCatchUpWithPeers() && !node.checkInitialAcceptSnapshotWeak(agg.Snapshot) {
-		time.Sleep(100 * time.Millisecond)
 		return nil
 	}
 	agg.responsed[m.PeerId] = true
@@ -587,7 +580,7 @@ func (node *Node) cosiHandleFinalization(m *CosiAction) error {
 		return nil
 	}
 	if s.RoundNumber > cache.Number+1 {
-		return node.queueSnapshotOrPanic(m.PeerId, s, true)
+		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	}
 	if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
 		if s.NodeId == node.IdForNetwork {
@@ -602,11 +595,11 @@ func (node *Node) cosiHandleFinalization(m *CosiAction) error {
 		}
 		cache.References = s.References
 		node.assignNewGraphRound(final, cache)
-		return node.queueSnapshotOrPanic(m.PeerId, s, true)
+		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	}
 	if s.RoundNumber == cache.Number+1 {
 		if round, err := node.startNewRound(s, cache); err != nil {
-			return node.queueSnapshotOrPanic(m.PeerId, s, true)
+			return node.QueueAppendSnapshot(m.PeerId, s, true)
 		} else if round == nil {
 			return nil
 		} else {
@@ -652,12 +645,12 @@ func (node *Node) handleFinalization(m *CosiAction) error {
 
 	err := node.tryToStartNewRound(s)
 	if err != nil {
-		return node.queueSnapshotOrPanic(m.PeerId, s, true)
+		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	}
 
 	tx, err := node.checkFinalSnapshotTransaction(s)
 	if err != nil {
-		return node.queueSnapshotOrPanic(m.PeerId, s, true)
+		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	} else if tx == nil {
 		return nil
 	}
