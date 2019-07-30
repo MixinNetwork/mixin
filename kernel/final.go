@@ -28,7 +28,6 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.Ver
 	if err != nil {
 		return nil, err
 	}
-
 	return tx, node.persistStore.WriteTransaction(tx)
 }
 

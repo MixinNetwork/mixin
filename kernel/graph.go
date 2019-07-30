@@ -170,6 +170,9 @@ func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 		return false
 	}
 	publics := node.ConsensusKeys(s.Timestamp)
+	if node.checkInitialAcceptSnapshotWeak(s) {
+		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
+	}
 	base := node.ConsensusThreshold(s.Timestamp)
 	return node.CacheVerifyCosi(s.PayloadHash(), s.Signature, publics, base)
 }

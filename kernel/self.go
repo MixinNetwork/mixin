@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -59,6 +60,9 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 			logger.Println("validateNodeAcceptSnapshot", s, tx, err)
 			return err
 		}
+	}
+	if s.NodeId != node.IdForNetwork && s.RoundNumber == 0 && tx.TransactionType() != common.TransactionTypeNodeAccept {
+		return fmt.Errorf("invalid initial transaction type %d", tx.TransactionType())
 	}
 	return nil
 }

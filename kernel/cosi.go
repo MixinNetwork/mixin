@@ -114,7 +114,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 		v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
 		R := v.random.Public()
 		node.CosiVerifiers[s.Hash] = v
-		agg.Commitments[node.ConsensusIndex] = &R
+		agg.Commitments[len(node.SortedConsensusNodes)] = &R
 		node.CosiAggregators.Set(s.Hash, agg)
 		node.CosiAggregators.Set(s.Transaction, agg)
 		for peerId, _ := range node.ConsensusNodes {
@@ -126,7 +126,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 		return nil
 	}
 
-	if node.Graph.FinalRound[s.NodeId] == nil {
+	if node.ConsensusIndex < 0 || node.Graph.FinalRound[s.NodeId] == nil {
 		return nil
 	}
 
@@ -258,7 +258,7 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 	}
 
 	v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
-	if node.checkInitialAcceptSnapshot(s, tx) {
+	if node.checkInitialAcceptSnapshotWeak(s) {
 		node.CosiVerifiers[s.Hash] = v
 		return node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil)
 	}
@@ -398,6 +398,9 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 	v := node.CosiVerifiers[m.SnapshotHash]
 	priv := node.Signer.PrivateSpendKey
 	publics := node.ConsensusKeys(ann.Snapshot.Timestamp)
+	if node.checkInitialAcceptSnapshot(ann.Snapshot, tx) {
+		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
+	}
 	response, err := cosi.Response(&priv, v.random, publics, m.SnapshotHash[:])
 	if err != nil {
 		return err
@@ -450,6 +453,9 @@ func (node *Node) cosiHandleChallenge(m *CosiAction) error {
 	copy(sig[32:], m.Signature.Signature[32:])
 	pub := node.getPeerConsensusNode(s.NodeId).Signer.PublicSpendKey
 	publics := node.ConsensusKeys(s.Timestamp)
+	if node.checkInitialAcceptSnapshot(s, tx) {
+		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
+	}
 	challenge, err := m.Signature.Challenge(publics, m.SnapshotHash[:])
 	if err != nil {
 		return nil
@@ -507,6 +513,9 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 	}
 
 	publics := node.ConsensusKeys(s.Timestamp)
+	if node.checkInitialAcceptSnapshot(s, tx) {
+		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
+	}
 	s.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash[:], false)
 	if !node.CacheVerifyCosi(m.SnapshotHash, s.Signature, publics, base) {
 		return nil
@@ -654,6 +663,10 @@ func (node *Node) handleFinalization(m *CosiAction) error {
 	} else if tx == nil {
 		return nil
 	}
+	if s.RoundNumber == 0 && tx.TransactionType() != common.TransactionTypeNodeAccept {
+		return fmt.Errorf("invalid initial transaction type %d", tx.TransactionType())
+	}
+
 	m.Transaction = tx
 	return node.cosiHandleFinalization(m)
 }
@@ -736,6 +749,9 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 		return nil
 	}
 	publics := node.ConsensusKeys(s.Timestamp)
+	if node.checkInitialAcceptSnapshot(s, tx) {
+		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
+	}
 	err = s.Signature.VerifyResponse(publics, index, response, snap[:])
 	if err != nil {
 		return nil
@@ -765,6 +781,9 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 
 	s.Hash = s.PayloadHash()
 	publics := node.ConsensusKeys(s.Timestamp)
+	if node.checkInitialAcceptSnapshotWeak(s) {
+		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
+	}
 	base := node.ConsensusThreshold(s.Timestamp)
 	if !node.CacheVerifyCosi(s.Hash, s.Signature, publics, base) {
 		return nil
