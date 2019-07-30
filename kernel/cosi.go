@@ -82,7 +82,7 @@ func (node *Node) cosiHandleAction(m *CosiAction) error {
 }
 
 func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
-	if node.ConsensusIndex < 0 || !node.CheckCatchUpWithPeers() {
+	if !node.CheckCatchUpWithPeers() && !node.checkInitialAcceptSnapshotWeak(m.Snapshot) {
 		time.Sleep(100 * time.Millisecond)
 		return node.queueSnapshotOrPanic(m.PeerId, m.Snapshot, false)
 	}
@@ -129,6 +129,10 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	}
 
 	if node.CosiAggregators.Get(s.Transaction) != nil {
+		return nil
+	}
+
+	if node.Graph.FinalRound[s.NodeId] == nil {
 		return nil
 	}
 
@@ -229,7 +233,7 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		time.Sleep(100 * time.Millisecond)
 		return nil
 	}
-	cn := node.ConsensusNodes[m.PeerId]
+	cn := node.getPeerConsensusNode(m.PeerId)
 	if cn == nil {
 		return nil
 	}
@@ -261,6 +265,10 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 	if node.checkInitialAcceptSnapshot(s, tx) {
 		node.CosiVerifiers[s.Hash] = v
 		return node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil)
+	}
+
+	if node.Graph.FinalRound[s.NodeId] == nil {
+		return nil
 	}
 
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
@@ -346,10 +354,6 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 }
 
 func (node *Node) cosiHandleCommitment(m *CosiAction) error {
-	if node.ConsensusIndex < 0 || !node.CheckCatchUpWithPeers() {
-		time.Sleep(100 * time.Millisecond)
-		return nil
-	}
 	cn := node.ConsensusNodes[m.PeerId]
 	if cn == nil {
 		return nil
@@ -360,6 +364,10 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 		return nil
 	}
 	if ann.committed[m.PeerId] {
+		return nil
+	}
+	if !node.CheckCatchUpWithPeers() && !node.checkInitialAcceptSnapshotWeak(ann.Snapshot) {
+		time.Sleep(100 * time.Millisecond)
 		return nil
 	}
 	if cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) >= ann.Snapshot.Timestamp && !node.genesisNodesMap[cn.IdForNetwork(node.networkId)] {
@@ -421,7 +429,7 @@ func (node *Node) cosiHandleChallenge(m *CosiAction) error {
 		time.Sleep(100 * time.Millisecond)
 		return nil
 	}
-	if node.ConsensusNodes[m.PeerId] == nil {
+	if node.getPeerConsensusNode(m.PeerId) == nil {
 		return nil
 	}
 
@@ -446,7 +454,7 @@ func (node *Node) cosiHandleChallenge(m *CosiAction) error {
 	var sig crypto.Signature
 	copy(sig[:], s.Commitment[:])
 	copy(sig[32:], m.Signature.Signature[32:])
-	pub := node.ConsensusNodes[s.NodeId].Signer.PublicSpendKey
+	pub := node.getPeerConsensusNode(s.NodeId).Signer.PublicSpendKey
 	publics := node.ConsensusKeys(s.Timestamp)
 	challenge, err := m.Signature.Challenge(publics, m.SnapshotHash[:])
 	if err != nil {
@@ -465,10 +473,6 @@ func (node *Node) cosiHandleChallenge(m *CosiAction) error {
 }
 
 func (node *Node) cosiHandleResponse(m *CosiAction) error {
-	if node.ConsensusIndex < 0 || !node.CheckCatchUpWithPeers() {
-		time.Sleep(100 * time.Millisecond)
-		return nil
-	}
 	if node.ConsensusNodes[m.PeerId] == nil {
 		return nil
 	}
@@ -478,6 +482,10 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 		return nil
 	}
 	if agg.responsed[m.PeerId] {
+		return nil
+	}
+	if !node.CheckCatchUpWithPeers() && !node.checkInitialAcceptSnapshotWeak(agg.Snapshot) {
+		time.Sleep(100 * time.Millisecond)
 		return nil
 	}
 	agg.responsed[m.PeerId] = true
@@ -658,7 +666,7 @@ func (node *Node) handleFinalization(m *CosiAction) error {
 }
 
 func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot, commitment *crypto.Key) error {
-	if node.ConsensusNodes[s.NodeId] == nil {
+	if node.getPeerConsensusNode(peerId) == nil {
 		return nil
 	}
 
@@ -693,7 +701,7 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 }
 
 func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, ver *common.VersionedTransaction) error {
-	if node.ConsensusNodes[peerId] == nil {
+	if node.getPeerConsensusNode(peerId) == nil {
 		return nil
 	}
 
@@ -751,7 +759,7 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 }
 
 func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error {
-	if node.ConsensusNodes[peerId] == nil {
+	if node.getPeerConsensusNode(peerId) == nil {
 		return nil
 	}
 
@@ -780,6 +788,13 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		return err
 	}
 	return node.QueueAppendSnapshot(peerId, s, true)
+}
+
+func (node *Node) getPeerConsensusNode(peerId crypto.Hash) *common.Node {
+	if n := node.ConsensusPledging; n != nil && n.IdForNetwork(node.networkId) == peerId {
+		return n
+	}
+	return node.ConsensusNodes[peerId]
 }
 
 type aggregatorMap struct {

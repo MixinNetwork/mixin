@@ -33,7 +33,7 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.Ver
 }
 
 func (node *Node) tryToStartNewRound(s *common.Snapshot) error {
-	if s.RoundNumber == 0 {
+	if node.checkInitialAcceptSnapshotWeak(s) {
 		return nil
 	}
 	if node.Graph.CacheRound[s.NodeId] == nil {

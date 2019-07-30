@@ -129,7 +129,7 @@ func (node *Node) checkInitialAcceptSnapshotWeak(s *common.Snapshot) bool {
 	if node.genesisNodesMap[s.NodeId] {
 		return false
 	}
-	if s.NodeId != pledge.Signer.Hash().ForNetwork(node.networkId) {
+	if s.NodeId != pledge.IdForNetwork(node.networkId) {
 		return false
 	}
 	return s.RoundNumber == 0
