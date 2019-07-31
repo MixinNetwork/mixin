@@ -749,7 +749,7 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 		return nil
 	}
 	publics := node.ConsensusKeys(s.Timestamp)
-	if node.checkInitialAcceptSnapshot(s, tx) {
+	if node.checkInitialAcceptSnapshotWeak(s) {
 		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
 	}
 	err = s.Signature.VerifyResponse(publics, index, response, snap[:])
