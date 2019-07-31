@@ -66,7 +66,7 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 		neighbors:    make(map[crypto.Hash]*Peer),
 		high:         make(chan *ChanMsg, 1024*1024),
 		normal:       make(chan *ChanMsg, 1024*1024),
-		sync:         make(chan []*SyncPoint),
+		sync:         make(chan []*SyncPoint, 1024*1024),
 		handle:       handle,
 	}
 	if handle != nil {

@@ -129,34 +129,13 @@ func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, o
 }
 
 func (me *Peer) syncToNeighborLoop(p *Peer) {
-	var offset uint64
-	var graph map[crypto.Hash]*SyncPoint
 	for !p.closing {
-	L:
-		for {
-			select {
-			case g := <-p.sync:
-				graph = make(map[crypto.Hash]*SyncPoint)
-				for _, r := range g {
-					graph[r.NodeId] = r
-				}
-				off, err := me.compareRoundGraphAndGetTopologicalOffset(me.handle.BuildGraph(), g)
-				if err != nil {
-					logger.Printf("GRAPH COMPARE WITH %s %s", p.IdForNetwork.String(), err.Error())
-				}
-				if off > 0 {
-					offset = off
-				}
-			case <-time.After(time.Duration(config.SnapshotRoundGap) / 2):
-				break L
-			}
-		}
+		graph, offset := me.getSyncPointOffset(p)
 		if offset == 0 {
 			continue
 		}
 
-		time.Sleep(time.Duration(config.SnapshotRoundGap))
-		for !p.closing {
+		for {
 			off, err := me.syncToNeighborSince(graph, p, offset)
 			if off > 0 {
 				offset = off
@@ -164,6 +143,29 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 			if err != nil {
 				break
 			}
+		}
+	}
+}
+
+func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64) {
+	var offset uint64
+	var graph map[crypto.Hash]*SyncPoint
+	for {
+		select {
+		case g := <-p.sync:
+			graph = make(map[crypto.Hash]*SyncPoint)
+			for _, r := range g {
+				graph[r.NodeId] = r
+			}
+			off, err := me.compareRoundGraphAndGetTopologicalOffset(me.handle.BuildGraph(), g)
+			if err != nil {
+				logger.Printf("GRAPH COMPARE WITH %s %s", p.IdForNetwork.String(), err.Error())
+			}
+			if off > 0 {
+				offset = off
+			}
+		case <-time.After(time.Duration(config.SnapshotRoundGap) / 2):
+			return graph, offset
 		}
 	}
 }
