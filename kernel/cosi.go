@@ -90,7 +90,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 		return nil
 	}
 	if !node.CheckCatchUpWithPeers() && !node.checkInitialAcceptSnapshotWeak(m.Snapshot) {
-		return node.queueSnapshotOrPanic(m.PeerId, m.Snapshot)
+		return nil
 	}
 
 	tx, finalized, err := node.checkCacheSnapshotTransaction(s)
