@@ -7,8 +7,8 @@ The Mixin BFT-DAG network reference implementation, the Trusted Execution Enviro
 Install golang and setup `GOPATH` following this guide https://golang.org/doc/install.
 
 ```bash
-$ go get -u github.com/MixinNetwork/mixin
-$ cd $GOPATH/src/github.com/MixinNetwork/mixin
+$ git clone git@github.com:MixinNetwork/mixin.git
+$ cd mixin
 $ go build
 ```
 
