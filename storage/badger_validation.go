@@ -2,40 +2,23 @@ package storage
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
-	"runtime"
 	"sort"
-	"sync/atomic"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/dgraph-io/badger"
-	"github.com/dgraph-io/badger/pb"
 )
 
 func (s *BadgerStore) ValidateGraphEntries(networkId crypto.Hash) (int, int, error) {
-	snapshotsInvalid := make(chan int, 1)
-	snapshotsError := make(chan error, 1)
-	go func() {
-		invalid, err := s.validateSnapshotEntries(networkId)
-		snapshotsError <- err
-		snapshotsInvalid <- invalid
-	}()
-
-	total, invalid, err := s.validateTransactionEntries()
+	invalid, err := s.validateSnapshotEntries(networkId)
 	if err != nil {
 		return 0, 0, err
 	}
-
-	err = <-snapshotsError
-	if err != nil {
-		return 0, 0, err
-	}
-	return total, invalid + <-snapshotsInvalid, nil
+	return 0, invalid, nil
 }
 
 func (s *BadgerStore) validateSnapshotEntries(networkId crypto.Hash) (int, error) {
@@ -75,11 +58,44 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash) (int, e
 	}
 
 	logger.Printf("SNAPSHOT VALIDATE NODE %s %d ROUNDS\n", nodeId, head.Number)
-	var invalid int
-	for i := uint64(0); i < head.Number; i++ {
+	start, invalid := head.Number-10, 0
+	if head.Number < 10 {
+		start = 0
+	}
+	for i := start; i < head.Number; i++ {
 		snapshots, err := readSnapshotsForNodeRound(txn, nodeId, i)
 		if err != nil {
 			return invalid, err
+		}
+		for _, s := range snapshots {
+			item, err := txn.Get(graphTransactionKey(s.Transaction))
+			if err != nil {
+				return invalid, err
+			}
+			val, err := item.ValueCopy(nil)
+			if err != nil {
+				return invalid, err
+			}
+			ver, err := common.DecompressUnmarshalVersionedTransaction(val)
+			if err != nil {
+				return invalid, err
+			}
+			if s.Transaction.String() != ver.PayloadHash().String() {
+				logger.Printf("MALFORMED TRANSACTION %s %s %#v\n", s.Transaction, ver.PayloadHash(), ver)
+				invalid += 1
+			}
+			item, err = txn.Get(graphFinalizationKey(s.Transaction))
+			if err != nil {
+				return invalid, err
+			}
+			val, err = item.ValueCopy(nil)
+			if err != nil {
+				return invalid, err
+			}
+			if s.Hash.String() != hex.EncodeToString(val) {
+				logger.Printf("MALFORMED FINALIZATION %s %s\n", s.Hash, hex.EncodeToString(val))
+				invalid += 1
+			}
 		}
 		_, _, hash := computeRoundHash(nodeId, i, snapshots)
 		round, err := readRound(txn, hash)
@@ -95,40 +111,6 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash) (int, e
 		}
 	}
 	return invalid, nil
-}
-
-func (s *BadgerStore) validateTransactionEntries() (int, int, error) {
-	var total, invalid int64
-	stream := s.snapshotsDB.NewStream()
-	stream.NumGo = runtime.NumCPU()
-	stream.Prefix = []byte(graphPrefixTransaction)
-	stream.LogPrefix = "Badger.ValidateGraphEntries"
-	stream.ChooseKey = func(item *badger.Item) bool {
-		atomic.AddInt64(&total, 1)
-		err := item.Value(func(val []byte) error {
-			ver, err := common.DecompressUnmarshalVersionedTransaction(val)
-			if err != nil {
-				return err
-			}
-			key := item.Key()
-			var hash crypto.Hash
-			copy(hash[:], key[len(graphPrefixTransaction):])
-			if hash.String() != ver.PayloadHash().String() {
-				atomic.AddInt64(&invalid, 1)
-				logger.Printf("MALFORMED TRANSACTION %s %s %#v\n", hash.String(), ver.PayloadHash().String(), ver)
-			}
-			return nil
-		})
-		if err != nil {
-			panic(err)
-		}
-		return false
-	}
-	stream.KeyToList = nil
-	stream.Send = func(list *pb.KVList) error { return nil }
-	err := stream.Orchestrate(context.Background())
-
-	return int(total), int(invalid), err
 }
 
 func (s *BadgerStore) readAllNodes() []*common.Node {
