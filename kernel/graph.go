@@ -48,9 +48,6 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 			if r.NodeId == s.NodeId {
 				continue
 			}
-			if len(rounds) > config.SnapshotReferenceThreshold {
-				r = rounds[len(rounds)-config.SnapshotReferenceThreshold]
-			}
 			if threshold < r.Start {
 				return nil, fmt.Errorf("external reference %s too early %f", s.References.External, time.Duration(r.Start-external.Timestamp).Seconds())
 			}
