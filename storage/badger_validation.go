@@ -14,33 +14,31 @@ import (
 )
 
 func (s *BadgerStore) ValidateGraphEntries(networkId crypto.Hash) (int, int, error) {
-	invalid, err := s.validateSnapshotEntries(networkId)
-	if err != nil {
-		return 0, 0, err
-	}
-	return 0, invalid, nil
+	return s.validateSnapshotEntries(networkId)
 }
 
-func (s *BadgerStore) validateSnapshotEntries(networkId crypto.Hash) (int, error) {
+func (s *BadgerStore) validateSnapshotEntries(networkId crypto.Hash) (int, int, error) {
 	nodes := s.readAllNodes()
-	stats := make(chan int, len(nodes))
+	stats := make(chan [2]int, len(nodes))
 	for _, n := range nodes {
 		go func(nodeId crypto.Hash) {
-			invalid, err := s.validateSnapshotEntriesForNode(nodeId)
+			total, invalid, err := s.validateSnapshotEntriesForNode(nodeId)
 			if err != nil {
 				logger.Printf("SNAPSHOT VALIDATION ERROR FOR NODE %s %s\n", nodeId, err.Error())
 			}
-			stats <- invalid
+			stats <- [2]int{total, invalid}
 		}(n.Signer.Hash().ForNetwork(networkId))
 	}
-	var invalid int
+	var total, invalid int
 	for i := 0; i < len(nodes); i++ {
-		invalid = invalid + <-stats
+		stat := <-stats
+		total += stat[0]
+		invalid += stat[1]
 	}
-	return invalid, nil
+	return total, invalid, nil
 }
 
-func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash) (int, error) {
+func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash) (int, int, error) {
 	logger.Printf("SNAPSHOT VALIDATE NODE %s BEGIN\n", nodeId)
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer func() {
@@ -50,35 +48,37 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash) (int, e
 
 	head, err := readRound(txn, nodeId)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	if head == nil {
 		logger.Printf("SNAPSHOT VALIDATE NODE %s 0 ROUND\n", nodeId)
-		return 0, nil
+		return 0, 0, nil
 	}
 
 	logger.Printf("SNAPSHOT VALIDATE NODE %s %d ROUNDS\n", nodeId, head.Number)
-	start, invalid := head.Number-10, 0
+	start := head.Number - 10
 	if head.Number < 10 {
 		start = 0
 	}
+	invalid, total := 0, 0
 	for i := start; i < head.Number; i++ {
 		snapshots, err := readSnapshotsForNodeRound(txn, nodeId, i)
 		if err != nil {
-			return invalid, err
+			return total, invalid, err
 		}
 		for _, s := range snapshots {
+			total += 1
 			item, err := txn.Get(graphTransactionKey(s.Transaction))
 			if err != nil {
-				return invalid, err
+				return total, invalid, err
 			}
 			val, err := item.ValueCopy(nil)
 			if err != nil {
-				return invalid, err
+				return total, invalid, err
 			}
 			ver, err := common.DecompressUnmarshalVersionedTransaction(val)
 			if err != nil {
-				return invalid, err
+				return total, invalid, err
 			}
 			if s.Transaction.String() != ver.PayloadHash().String() {
 				logger.Printf("MALFORMED TRANSACTION %s %s %#v\n", s.Transaction, ver.PayloadHash(), ver)
@@ -86,11 +86,11 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash) (int, e
 			}
 			item, err = txn.Get(graphFinalizationKey(s.Transaction))
 			if err != nil {
-				return invalid, err
+				return total, invalid, err
 			}
 			val, err = item.ValueCopy(nil)
 			if err != nil {
-				return invalid, err
+				return total, invalid, err
 			}
 			if s.Hash.String() != hex.EncodeToString(val) {
 				logger.Printf("MALFORMED FINALIZATION %s %s\n", s.Hash, hex.EncodeToString(val))
@@ -100,7 +100,7 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash) (int, e
 		_, _, hash := computeRoundHash(nodeId, i, snapshots)
 		round, err := readRound(txn, hash)
 		if err != nil {
-			return invalid, err
+			return total, invalid, err
 		}
 		if round == nil {
 			logger.Printf("MISSING ROUND %s %d %s\n", nodeId, i, hash)
@@ -110,7 +110,7 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash) (int, e
 			invalid += 1
 		}
 	}
-	return invalid, nil
+	return total, invalid, nil
 }
 
 func (s *BadgerStore) readAllNodes() []*common.Node {
