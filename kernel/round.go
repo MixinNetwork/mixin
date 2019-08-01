@@ -59,6 +59,24 @@ func (g *RoundGraph) UpdateFinalCache(idForNetwork crypto.Hash) {
 		g.MyCacheRound = g.CacheRound[idForNetwork]
 		g.MyFinalNumber = g.FinalRound[idForNetwork].Number
 	}
+	for id, rounds := range g.RoundHistory {
+		best := rounds[len(rounds)-1].Start
+		if rounds[0].Start+config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64 > best && len(rounds) <= config.SnapshotReferenceThreshold {
+			continue
+		}
+		newRounds := make([]*FinalRound, 0)
+		for _, r := range rounds {
+			if r.Start+config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64 < best {
+				continue
+			}
+			newRounds = append(newRounds, r)
+		}
+		if len(newRounds) > config.SnapshotReferenceThreshold {
+			rc := len(newRounds) - config.SnapshotReferenceThreshold
+			newRounds = append([]*FinalRound{}, newRounds[rc:]...)
+		}
+		g.RoundHistory[id] = newRounds
+	}
 }
 
 func (g *RoundGraph) Print() string {
@@ -101,7 +119,7 @@ func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (*
 		if err != nil {
 			return nil, err
 		}
-		history, err := loadRoundHistoryForNode(store, idForNetwork, final.NodeId, final.Number)
+		history, err := loadRoundHistoryForNode(store, idForNetwork, final)
 		if err != nil {
 			return nil, err
 		}
@@ -114,23 +132,26 @@ func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (*
 	return graph, nil
 }
 
-func loadRoundHistoryForNode(store storage.Store, from, to crypto.Hash, head uint64) ([]*FinalRound, error) {
+func loadRoundHistoryForNode(store storage.Store, from crypto.Hash, to *FinalRound) ([]*FinalRound, error) {
 	var history []*FinalRound
-	link, err := store.ReadLink(from, to)
+	link, err := store.ReadLink(from, to.NodeId)
 	if err != nil {
 		return nil, err
 	}
-	if link > head {
+	if link > to.Number {
 		panic(to)
 	}
-	start := head - config.SnapshotReferenceThreshold
-	if start < link || head < config.SnapshotReferenceThreshold {
+	start := to.Number - config.SnapshotReferenceThreshold
+	if start < link || to.Number < config.SnapshotReferenceThreshold {
 		start = link
 	}
-	for ; start <= head; start++ {
-		final, err := loadFinalRoundForNode(store, to, start)
+	for ; start <= to.Number; start++ {
+		final, err := loadFinalRoundForNode(store, to.NodeId, start)
 		if err != nil {
 			return nil, err
+		}
+		if final.Start+config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64 < to.Start {
+			continue
 		}
 		history = append(history, final)
 	}
