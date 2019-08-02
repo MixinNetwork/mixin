@@ -15,7 +15,7 @@ func (me *Peer) cacheReadSnapshotsForNodeRound(nodeId crypto.Hash, final uint64)
 	data := me.storeCache.Get(nil, key)
 	if len(data) == 0 {
 		ss, err := me.handle.ReadSnapshotsForNodeRound(nodeId, final)
-		if err != nil {
+		if err != nil || len(ss) == 0 {
 			return nil, err
 		}
 		me.storeCache.Set(key, common.MsgpackMarshalPanic(ss))
