@@ -61,18 +61,18 @@ func (g *RoundGraph) UpdateFinalCache(idForNetwork crypto.Hash) {
 	}
 	for id, rounds := range g.RoundHistory {
 		best := rounds[len(rounds)-1].Start
-		if rounds[0].Start+config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64 > best && len(rounds) <= config.SnapshotReferenceThreshold {
+		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap * 64
+		if rounds[0].Start+threshold > best && len(rounds) <= config.SnapshotReferenceThreshold {
 			continue
 		}
 		newRounds := make([]*FinalRound, 0)
 		for _, r := range rounds {
-			if r.Start+config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64 < best {
+			if r.Start+threshold <= best {
 				continue
 			}
 			newRounds = append(newRounds, r)
 		}
-		if len(newRounds) > config.SnapshotReferenceThreshold {
-			rc := len(newRounds) - config.SnapshotReferenceThreshold
+		if rc := len(newRounds) - config.SnapshotReferenceThreshold; rc > 0 {
 			newRounds = append([]*FinalRound{}, newRounds[rc:]...)
 		}
 		g.RoundHistory[id] = newRounds
