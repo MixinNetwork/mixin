@@ -12,6 +12,10 @@ func (s *BadgerStore) ReadSnapshot(hash crypto.Hash) (*common.SnapshotWithTopolo
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
+	return readSnapshotWithTopo(txn, hash)
+}
+
+func readSnapshotWithTopo(txn *badger.Txn, hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error) {
 	item, err := txn.Get(graphSnapTopologyKey(hash))
 	if err != nil {
 		return nil, err

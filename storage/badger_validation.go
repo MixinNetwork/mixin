@@ -20,20 +20,26 @@ func (s *BadgerStore) ValidateGraphEntries(networkId crypto.Hash) (int, int, err
 func (s *BadgerStore) validateSnapshotEntries(networkId crypto.Hash) (int, int, error) {
 	nodes := s.ReadAllNodes()
 	stats := make(chan [2]int, len(nodes))
+	errchan := make(chan error, len(nodes))
 	for _, n := range nodes {
 		go func(nodeId crypto.Hash) {
 			total, invalid, err := s.validateSnapshotEntriesForNode(nodeId)
 			if err != nil {
 				logger.Printf("SNAPSHOT VALIDATION ERROR FOR NODE %s %s\n", nodeId, err.Error())
+				errchan <- err
 			}
 			stats <- [2]int{total, invalid}
 		}(n.Signer.Hash().ForNetwork(networkId))
 	}
 	var total, invalid int
 	for i := 0; i < len(nodes); i++ {
-		stat := <-stats
-		total += stat[0]
-		invalid += stat[1]
+		select {
+		case stat := <-stats:
+			total += stat[0]
+			invalid += stat[1]
+		case err := <-errchan:
+			return total, invalid, err
+		}
 	}
 	return total, invalid, nil
 }
@@ -93,7 +99,15 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash) (int, i
 				return total, invalid, err
 			}
 			if s.Hash.String() != hex.EncodeToString(val) {
-				logger.Printf("MALFORMED FINALIZATION %s %s\n", s.Hash, hex.EncodeToString(val))
+				logger.Printf("DUPLICATED FINALIZATION %s %s\n", s.Hash, hex.EncodeToString(val))
+			}
+			dup, _ := crypto.HashFromString(hex.EncodeToString(val))
+			topo, err := readSnapshotWithTopo(txn, dup)
+			if err != nil {
+				return total, invalid, err
+			}
+			if topo.Transaction.String() != s.Transaction.String() {
+				logger.Printf("MALFORMED FINALIZATION %s %s\n", s.Hash, topo.Hash)
 				invalid += 1
 			}
 		}
