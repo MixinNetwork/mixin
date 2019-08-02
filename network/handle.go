@@ -47,6 +47,7 @@ type SyncHandle interface {
 	Authenticate(msg []byte) (crypto.Hash, string, error)
 	BuildGraph() []*SyncPoint
 	UpdateSyncPoint(peerId crypto.Hash, points []*SyncPoint)
+	ReadAllNodes() []crypto.Hash
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	SendTransactionToPeer(peerId, tx crypto.Hash) error

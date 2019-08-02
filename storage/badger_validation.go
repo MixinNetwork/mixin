@@ -18,7 +18,7 @@ func (s *BadgerStore) ValidateGraphEntries(networkId crypto.Hash) (int, int, err
 }
 
 func (s *BadgerStore) validateSnapshotEntries(networkId crypto.Hash) (int, int, error) {
-	nodes := s.readAllNodes()
+	nodes := s.ReadAllNodes()
 	stats := make(chan [2]int, len(nodes))
 	for _, n := range nodes {
 		go func(nodeId crypto.Hash) {
@@ -113,7 +113,7 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash) (int, i
 	return total, invalid, nil
 }
 
-func (s *BadgerStore) readAllNodes() []*common.Node {
+func (s *BadgerStore) ReadAllNodes() []*common.Node {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 

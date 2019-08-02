@@ -128,6 +128,19 @@ func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, o
 	return offset, nil
 }
 
+func (me *Peer) syncHeadRoundToRemote(graph map[crypto.Hash]*SyncPoint, p *Peer, nodeId crypto.Hash) {
+	var remoteFinal uint64
+	if r := graph[nodeId]; r != nil {
+		remoteFinal = r.Number
+	}
+	for i := remoteFinal; i < remoteFinal+3; i++ {
+		ss, _ := me.cacheReadSnapshotsForNodeRound(nodeId, i)
+		for _, s := range ss {
+			me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot)
+		}
+	}
+}
+
 func (me *Peer) syncToNeighborLoop(p *Peer) {
 	for !p.closing {
 		graph, offset := me.getSyncPointOffset(p)
@@ -143,6 +156,10 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 			if err != nil {
 				break
 			}
+		}
+		nodes := me.handle.ReadAllNodes()
+		for _, n := range nodes {
+			me.syncHeadRoundToRemote(graph, p, n)
 		}
 	}
 }
@@ -164,7 +181,7 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 			if off > 0 {
 				offset = off
 			}
-		case <-time.After(time.Duration(config.SnapshotRoundGap) / 2):
+		case <-time.After(time.Duration(config.SnapshotRoundGap)):
 			return graph, offset
 		}
 	}

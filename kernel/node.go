@@ -328,6 +328,15 @@ func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTr
 	return node.persistStore.CachePutTransaction(tx)
 }
 
+func (node *Node) ReadAllNodes() []crypto.Hash {
+	nodes := node.persistStore.ReadAllNodes()
+	hashes := make([]crypto.Hash, len(nodes))
+	for i, n := range nodes {
+		hashes[i] = n.IdForNetwork(node.networkId)
+	}
+	return hashes
+}
+
 func (node *Node) ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	return node.persistStore.ReadSnapshotsSinceTopology(offset, count)
 }
