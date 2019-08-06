@@ -211,23 +211,22 @@ func (tx *Transaction) AddInput(hash crypto.Hash, index int) {
 }
 
 func (tx *Transaction) AddOutputWithType(ot uint8, accounts []Address, s Script, amount Integer, seed []byte) {
-	r := crypto.NewKeyFromSeed(seed)
-	R := r.Public()
 	out := &Output{
 		Type:   ot,
 		Amount: amount,
 		Script: s,
-		Mask:   R,
 		Keys:   make([]crypto.Key, 0),
 	}
 
-	for _, a := range accounts {
-		k := crypto.DeriveGhostPublicKey(&r, &a.PublicViewKey, &a.PublicSpendKey, uint64(len(tx.Outputs)))
-		out.Keys = append(out.Keys, *k)
+	if len(accounts) > 0 {
+		r := crypto.NewKeyFromSeed(seed)
+		out.Mask = r.Public()
+		for _, a := range accounts {
+			k := crypto.DeriveGhostPublicKey(&r, &a.PublicViewKey, &a.PublicSpendKey, uint64(len(tx.Outputs)))
+			out.Keys = append(out.Keys, *k)
+		}
 	}
-	if len(out.Keys) == 0 {
-		out.Mask = crypto.Key{}
-	}
+
 	tx.Outputs = append(tx.Outputs, out)
 }
 
