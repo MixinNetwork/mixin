@@ -405,7 +405,11 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 	if err != nil {
 		return err
 	}
-	ann.Responses[node.ConsensusIndex] = &response
+	if node.checkInitialAcceptSnapshot(ann.Snapshot, tx) {
+		ann.Responses[len(node.SortedConsensusNodes)] = &response
+	} else {
+		ann.Responses[node.ConsensusIndex] = &response
+	}
 	copy(cosi.Signature[32:], response[:])
 	for id, _ := range node.ConsensusNodes {
 		if wantTx, found := ann.WantTxs[id]; !found {
