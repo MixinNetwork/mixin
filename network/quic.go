@@ -3,7 +3,6 @@ package network
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -73,7 +72,7 @@ func (t *QuicTransport) Dial() (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	stm, err := sess.OpenUniStreamSync(context.Background())
+	stm, err := sess.OpenUniStreamSync()
 	if err != nil {
 		return nil, err
 	}
@@ -113,11 +112,11 @@ func (t *QuicTransport) Listen() error {
 }
 
 func (t *QuicTransport) Accept() (Client, error) {
-	sess, err := t.listener.Accept(context.Background())
+	sess, err := t.listener.Accept()
 	if err != nil {
 		return nil, err
 	}
-	stm, err := sess.AcceptUniStream(context.Background())
+	stm, err := sess.AcceptUniStream()
 	if err != nil {
 		return nil, err
 	}

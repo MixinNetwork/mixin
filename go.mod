@@ -17,7 +17,7 @@ require (
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/gorilla/handlers v1.4.2
-	github.com/lucas-clemente/quic-go v0.12.0
+	github.com/lucas-clemente/quic-go v0.11.2
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/nwaples/rardecode v1.0.0 // indirect
 	github.com/pierrec/lz4 v2.2.6+incompatible // indirect
