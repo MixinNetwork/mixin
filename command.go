@@ -16,7 +16,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/storage"
-	"gopkg.in/urfave/cli.v1"
+	"github.com/urfave/cli"
 )
 
 func createAdressCmd(c *cli.Context) error {

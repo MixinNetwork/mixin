@@ -17,20 +17,20 @@ require (
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/gorilla/handlers v1.4.2
-	github.com/lucas-clemente/quic-go v0.11.2
+	github.com/lucas-clemente/quic-go v0.12.0
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/nwaples/rardecode v1.0.0 // indirect
 	github.com/pierrec/lz4 v2.2.6+incompatible // indirect
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/shopspring/decimal v0.0.0-20180709203117-cd690d0c9e24
 	github.com/stretchr/testify v1.3.0
-	github.com/unrolled/render v1.0.0
+	github.com/unrolled/render v1.0.1
+	github.com/urfave/cli v1.21.0
 	github.com/valyala/gozstd v1.5.1
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	go.dedis.ch/kyber/v3 v3.0.4
 	golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80 // indirect
-	golang.org/x/sys v0.0.0-20190801041406-cbf593c0f2f3 // indirect
-	gopkg.in/urfave/cli.v1 v1.20.0
+	golang.org/x/sys v0.0.0-20190804053845-51ab0e2deafa // indirect
 )

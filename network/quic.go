@@ -3,6 +3,7 @@ package network
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -45,11 +46,7 @@ type QuicTransport struct {
 }
 
 func NewQuicServer(addr string) (*QuicTransport, error) {
-	tlsConf, err := generateTLSConfig()
-	if err != nil {
-		return nil, err
-	}
-
+	tlsConf := generateTLSConfig()
 	return &QuicTransport{
 		addr: addr,
 		tls:  tlsConf,
@@ -59,7 +56,10 @@ func NewQuicServer(addr string) (*QuicTransport, error) {
 func NewQuicClient(addr string) (*QuicTransport, error) {
 	return &QuicTransport{
 		addr: addr,
-		tls:  &tls.Config{InsecureSkipVerify: true},
+		tls: &tls.Config{
+			InsecureSkipVerify: true,
+			NextProtos:         []string{"mixin-quic-peer"},
+		},
 	}, nil
 }
 
@@ -73,7 +73,7 @@ func (t *QuicTransport) Dial() (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	stm, err := sess.OpenUniStreamSync()
+	stm, err := sess.OpenUniStreamSync(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -113,11 +113,11 @@ func (t *QuicTransport) Listen() error {
 }
 
 func (t *QuicTransport) Accept() (Client, error) {
-	sess, err := t.listener.Accept()
+	sess, err := t.listener.Accept(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	stm, err := sess.AcceptUniStream()
+	stm, err := sess.AcceptUniStream(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +238,7 @@ func (c *QuicClient) Close() error {
 	return c.session.Close()
 }
 
-func generateTLSConfig() (*tls.Config, error) {
+func generateTLSConfig() *tls.Config {
 	key, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		panic(err)
@@ -255,5 +255,8 @@ func generateTLSConfig() (*tls.Config, error) {
 	if err != nil {
 		panic(err)
 	}
-	return &tls.Config{Certificates: []tls.Certificate{tlsCert}}, nil
+	return &tls.Config{
+		Certificates: []tls.Certificate{tlsCert},
+		NextProtos:   []string{"mixin-quic-peer"},
+	}
 }

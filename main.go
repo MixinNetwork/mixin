@@ -14,7 +14,7 @@ import (
 	"github.com/MixinNetwork/mixin/rpc"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/VictoriaMetrics/fastcache"
-	"gopkg.in/urfave/cli.v1"
+	"github.com/urfave/cli"
 )
 
 func init() {
