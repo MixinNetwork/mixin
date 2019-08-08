@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
@@ -150,6 +151,12 @@ func StartHTTP(store storage.Store, node *kernel.Node, port int) error {
 	handler := handleCORS(router)
 	handler = handlers.ProxyHeaders(handler)
 
-	server := &http.Server{Addr: fmt.Sprintf(":%d", port), Handler: handler}
+	server := &http.Server{
+		Addr:         fmt.Sprintf(":%d", port),
+		Handler:      handler,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
 	return server.ListenAndServe()
 }
