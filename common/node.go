@@ -78,9 +78,6 @@ func (tx *Transaction) validateNodeCancel(store DataStore) error {
 	if cancel.Type != OutputTypeNodeCancel || script.Type != OutputTypeScript {
 		return fmt.Errorf("invalid outputs type %d %d for cancel transaction", cancel.Type, script.Type)
 	}
-	if cancel.Amount.Cmp(NewInteger(100)) != 0 {
-		return fmt.Errorf("invalid script output amount %s for cancel transaction", cancel.Amount)
-	}
 	if len(script.Keys) != 1 {
 		return fmt.Errorf("invalid script output keys %d for cancel transaction", len(script.Keys))
 	}
@@ -119,6 +116,9 @@ func (tx *Transaction) validateNodeCancel(store DataStore) error {
 	po := lastPledge.Outputs[0]
 	if po.Type != OutputTypeNodePledge {
 		return fmt.Errorf("invalid pledge utxo type %d", po.Type)
+	}
+	if cancel.Amount.Cmp(po.Amount.Div(100)) != 0 {
+		return fmt.Errorf("invalid script output amount %s for cancel transaction", cancel.Amount)
 	}
 	var publicSpend crypto.Key
 	copy(publicSpend[:], lastPledge.Extra)

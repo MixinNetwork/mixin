@@ -86,7 +86,11 @@ func (node *Node) tryToSendAcceptTransaction() error {
 
 func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	switch tx.TransactionType() {
-	case common.TransactionTypeNodePledge, common.TransactionTypeNodeAccept, common.TransactionTypeNodeDepart, common.TransactionTypeNodeRemove:
+	case common.TransactionTypeNodePledge,
+		common.TransactionTypeNodeCancel,
+		common.TransactionTypeNodeAccept,
+		common.TransactionTypeNodeDepart,
+		common.TransactionTypeNodeRemove:
 		err := node.LoadConsensusNodes()
 		if err != nil {
 			return err
@@ -211,6 +215,103 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 }
 
 func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
+	if tx.Asset != common.XINAssetId {
+		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
+	}
+	if len(tx.Outputs) != 2 {
+		return fmt.Errorf("invalid outputs count %d for cancel transaction", len(tx.Outputs))
+	}
+	if len(tx.Inputs) != 1 {
+		return fmt.Errorf("invalid inputs count %d for cancel transaction", len(tx.Inputs))
+	}
+	if len(tx.Extra) != len(crypto.Key{})*3 {
+		return fmt.Errorf("invalid extra %s for cancel transaction", hex.EncodeToString(tx.Extra))
+	}
+	cancel, script := tx.Outputs[0], tx.Outputs[1]
+	if cancel.Type != common.OutputTypeNodeCancel || script.Type != common.OutputTypeScript {
+		return fmt.Errorf("invalid outputs type %d %d for cancel transaction", cancel.Type, script.Type)
+	}
+	if len(script.Keys) != 1 {
+		return fmt.Errorf("invalid script output keys %d for cancel transaction", len(script.Keys))
+	}
+	if node.ConsensusPledging == nil {
+		return fmt.Errorf("invalid consensus status")
+	}
+	if node.ConsensusPledging.Transaction != tx.Inputs[0].Hash {
+		return fmt.Errorf("invalid plede utxo source %s %s", node.ConsensusPledging.Transaction, tx.Inputs[0].Hash)
+	}
+
+	pledge, _, err := node.persistStore.ReadTransaction(tx.Inputs[0].Hash)
+	if err != nil {
+		return err
+	}
+	if len(pledge.Outputs) != 1 {
+		return fmt.Errorf("invalid pledge utxo count %d", len(pledge.Outputs))
+	}
+	if pledge.Outputs[0].Type != common.OutputTypeNodePledge {
+		return fmt.Errorf("invalid pledge utxo type %d", pledge.Outputs[0].Type)
+	}
+	if cancel.Amount.Cmp(pledge.Outputs[0].Amount.Div(100)) != 0 {
+		return fmt.Errorf("invalid script output amount %s for cancel transaction", cancel.Amount)
+	}
+	pit, _, err := node.persistStore.ReadTransaction(pledge.Inputs[0].Hash)
+	if err != nil {
+		return err
+	}
+	if pit == nil {
+		return fmt.Errorf("invalid pledge input source %s:%d", pledge.Inputs[0].Hash, pledge.Inputs[0].Index)
+	}
+	pi := pit.Outputs[pledge.Inputs[0].Index]
+	if len(pi.Keys) != 1 {
+		return fmt.Errorf("invalid pledge input source keys %d", len(pi.Keys))
+	}
+	var a crypto.Key
+	copy(a[:], tx.Extra[len(crypto.Key{})*2:])
+	pledgeSpend := crypto.ViewGhostOutputKey(&pi.Keys[0], &a, &pi.Mask, uint64(pledge.Inputs[0].Index))
+	targetSpend := crypto.ViewGhostOutputKey(&script.Keys[0], &a, &script.Mask, 1)
+	if bytes.Compare(pledge.Extra, tx.Extra[:len(crypto.Key{})*2]) != 0 {
+		return fmt.Errorf("invalid pledge and accpet key %s %s", hex.EncodeToString(pledge.Extra), hex.EncodeToString(tx.Extra))
+	}
+	if bytes.Compare(pledgeSpend[:], targetSpend[:]) != 0 {
+		return fmt.Errorf("invalid pledge and cancel target %s %s", pledgeSpend, targetSpend)
+	}
+
+	timestamp := s.Timestamp
+	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
+		timestamp = uint64(time.Now().UnixNano())
+	}
+	if timestamp < node.epoch {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.epoch, timestamp)
+	}
+	if r := node.Graph.CacheRound[s.NodeId]; r != nil {
+		return fmt.Errorf("invalid graph round %s %d", s.NodeId, r.Number)
+	}
+	if r := node.Graph.FinalRound[s.NodeId]; r != nil {
+		return fmt.Errorf("invalid graph round %s %d", s.NodeId, r.Number)
+	}
+
+	since := timestamp - node.epoch
+	hours := int(since / 3600000000000)
+	if hours%24 < config.KernelNodeAcceptTimeBegin || hours%24 > config.KernelNodeAcceptTimeEnd {
+		return fmt.Errorf("invalid node cancel hour %d", hours%24)
+	}
+
+	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
+	if timestamp+threshold*2 < node.Graph.GraphTimestamp {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Graph.GraphTimestamp, timestamp)
+	}
+
+	if timestamp < node.ConsensusPledging.Timestamp {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.ConsensusPledging.Timestamp, timestamp)
+	}
+	elapse := time.Duration(timestamp - node.ConsensusPledging.Timestamp)
+	if elapse < config.KernelNodeAcceptPeriodMinimum {
+		return fmt.Errorf("invalid cancel period %d %d", config.KernelNodeAcceptPeriodMinimum, elapse)
+	}
+	if elapse > config.KernelNodeAcceptPeriodMaximum {
+		return fmt.Errorf("invalid cancel period %d %d", config.KernelNodeAcceptPeriodMaximum, elapse)
+	}
+
 	return nil
 }
 
