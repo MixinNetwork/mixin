@@ -60,7 +60,7 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 	case TransactionTypeNodePledge:
 		return tx.validateNodePledge(store, inputsFilter)
 	case TransactionTypeNodeCancel:
-		return tx.validateNodeCancel(store)
+		return tx.validateNodeCancel(store, msg, ver.Signatures)
 	case TransactionTypeNodeAccept:
 		return tx.validateNodeAccept(store)
 	case TransactionTypeNodeDepart:
