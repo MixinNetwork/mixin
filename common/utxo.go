@@ -54,6 +54,7 @@ func (tx *VersionedTransaction) UnspentOutputs() []*UTXO {
 		switch out.Type {
 		case OutputTypeScript,
 			OutputTypeNodePledge,
+			OutputTypeNodeCancel,
 			OutputTypeNodeAccept,
 			OutputTypeDomainAccept,
 			OutputTypeWithdrawalFuel,

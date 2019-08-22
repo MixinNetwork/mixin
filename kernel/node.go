@@ -153,16 +153,25 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 		if threshold > uint64(3*time.Minute) {
 			panic("should never be here")
 		}
-		if cn.State == common.NodeStatePledging {
+		switch cn.State {
+		case common.NodeStatePledging:
 			// FIXME the pledge transaction may be broadcasted very late
 			// at this situation, the node should be treated as evil
 			if config.KernelNodeAcceptPeriodMinimum < time.Hour {
 				panic("should never be here")
 			}
 			threshold = uint64(config.KernelNodeAcceptPeriodMinimum) - threshold*3
-		}
-		if node.genesisNodesMap[cn.IdForNetwork(node.networkId)] || cn.Timestamp+threshold < timestamp {
+			if cn.Timestamp+threshold < timestamp {
+				consensusBase++
+			}
+		case common.NodeStateAccepted:
+			if node.genesisNodesMap[cn.IdForNetwork(node.networkId)] || cn.Timestamp+threshold < timestamp {
+				consensusBase++
+			}
+		case common.NodeStateDeparting:
 			consensusBase++
+		case common.NodeStateRemoved:
+		case common.NodeStateCancelled:
 		}
 	}
 	if consensusBase < len(node.genesisNodes) {

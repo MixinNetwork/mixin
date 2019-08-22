@@ -16,6 +16,7 @@ const (
 	graphPrefixNodeAccept = "NODESTATEACCEPT"
 	graphPrefixNodeDepart = "NODESTATEDEPART"
 	graphPrefixNodeRemove = "NODESTATEREMOVE"
+	graphPrefixNodeCancel = "NODESTATECANCEL"
 
 	graphPrefixNodeOperation = "NODEOPERATION"
 )
@@ -38,6 +39,16 @@ func (s *BadgerStore) ReadConsensusNodes() []*common.Node {
 	departing := readNodesInState(txn, graphPrefixNodeDepart)
 	for _, n := range departing {
 		n.State = common.NodeStateDeparting
+		nodes = append(nodes, n)
+	}
+	removed := readNodesInState(txn, graphPrefixNodeRemove)
+	for _, n := range removed {
+		n.State = common.NodeStateRemoved
+		nodes = append(nodes, n)
+	}
+	cancelled := readNodesInState(txn, graphPrefixNodeCancel)
+	for _, n := range cancelled {
+		n.State = common.NodeStateCancelled
 		nodes = append(nodes, n)
 	}
 	return nodes
@@ -125,6 +136,28 @@ func readNodesInState(txn *badger.Txn, nodeState string) []*common.Node {
 		})
 	}
 	return nodes
+}
+
+func writeNodeCancel(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
+	// TODO these checks are only assert kind checks, not needed at all
+	key := nodePledgeKey(signer)
+	_, err := txn.Get(key)
+	if err == badger.ErrKeyNotFound {
+		return fmt.Errorf("node not pledging yet %s", signer.String())
+	} else if err != nil {
+		return err
+	}
+
+	err = txn.Delete(key)
+	if err != nil {
+		return err
+	}
+	key = nodeCancelKey(signer)
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, timestamp)
+	val := append(payee[:], tx[:]...)
+	val = append(val, buf...)
+	return txn.Set(key, val)
 }
 
 func writeNodeAccept(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64, genesis bool) error {
@@ -228,6 +261,10 @@ func nodeTimestamp(ival []byte) uint64 {
 
 func nodePledgeKey(publicSpend crypto.Key) []byte {
 	return append([]byte(graphPrefixNodePledge), publicSpend[:]...)
+}
+
+func nodeCancelKey(publicSpend crypto.Key) []byte {
+	return append([]byte(graphPrefixNodeCancel), publicSpend[:]...)
 }
 
 func nodeAcceptKey(publicSpend crypto.Key) []byte {

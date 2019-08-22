@@ -223,6 +223,8 @@ func writeUTXO(txn *badger.Txn, utxo *common.UTXO, extra []byte, timestamp uint6
 	switch utxo.Type {
 	case common.OutputTypeNodePledge:
 		return writeNodePledge(txn, signer, payee, utxo.Hash, timestamp)
+	case common.OutputTypeNodeCancel:
+		return writeNodeCancel(txn, signer, payee, utxo.Hash, timestamp)
 	case common.OutputTypeNodeAccept:
 		return writeNodeAccept(txn, signer, payee, utxo.Hash, timestamp, genesis)
 	case common.OutputTypeDomainAccept:

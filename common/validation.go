@@ -59,6 +59,8 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 		return tx.validateWithdrawalClaim(store, inputsFilter, msg)
 	case TransactionTypeNodePledge:
 		return tx.validateNodePledge(store, inputsFilter)
+	case TransactionTypeNodeCancel:
+		return tx.validateNodeCancel(store)
 	case TransactionTypeNodeAccept:
 		return tx.validateNodeAccept(store)
 	case TransactionTypeNodeDepart:
@@ -156,6 +158,7 @@ func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
 			OutputTypeWithdrawalFuel,
 			OutputTypeWithdrawalClaim,
 			OutputTypeNodePledge,
+			OutputTypeNodeCancel,
 			OutputTypeNodeAccept:
 			if len(o.Keys) != 0 {
 				return outputAmount, fmt.Errorf("invalid output keys count %d for kernel multisig transaction", len(o.Keys))
@@ -200,11 +203,13 @@ func validateUTXO(index int, utxo *UTXO, sigs [][]crypto.Signature, msg []byte, 
 		}
 		return utxo.Script.Validate(valid)
 	case OutputTypeNodePledge:
-		if txType == TransactionTypeNodeAccept {
+		if txType == TransactionTypeNodeAccept || txType == TransactionTypeNodeCancel {
 			return nil
 		}
 		return fmt.Errorf("pledge input used for invalid transaction type %d", txType)
 	case OutputTypeNodeAccept:
+		return fmt.Errorf("should do more validation on those %d UTXOs", utxo.Type)
+	case OutputTypeNodeCancel:
 		return fmt.Errorf("should do more validation on those %d UTXOs", utxo.Type)
 	default:
 		return fmt.Errorf("invalid input type %d", utxo.Type)

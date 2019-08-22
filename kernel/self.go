@@ -54,6 +54,12 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 			logger.Println("validateNodePledgeSnapshot", s, tx, err)
 			return err
 		}
+	case common.TransactionTypeNodeCancel:
+		err := node.validateNodeCancelSnapshot(s, tx)
+		if err != nil {
+			logger.Println("validateNodeCancelSnapshot", s, tx, err)
+			return err
+		}
 	case common.TransactionTypeNodeAccept:
 		err := node.validateNodeAcceptSnapshot(s, tx)
 		if err != nil {
