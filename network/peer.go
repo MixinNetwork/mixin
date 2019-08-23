@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/config"
@@ -19,7 +20,7 @@ type Peer struct {
 
 	storeCache      *fastcache.Cache
 	snapshotsCaches *confirmMap
-	neighbors       map[crypto.Hash]*Peer
+	neighbors       *neighborMap
 	handle          SyncHandle
 	transport       Transport
 	high            chan *ChanMsg
@@ -45,7 +46,7 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) (*Peer, error
 	} else if a.Port < 80 || a.IP == nil {
 		return nil, fmt.Errorf("invalid address %s %d %s", addr, a.Port, a.IP)
 	}
-	old := me.neighbors[idForNetwork]
+	old := me.neighbors.Get(idForNetwork)
 	if old != nil && old.Address == addr {
 		return old, nil
 	} else if old != nil {
@@ -53,7 +54,7 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) (*Peer, error
 	}
 
 	peer := NewPeer(nil, idForNetwork, addr)
-	me.neighbors[idForNetwork] = peer
+	me.neighbors.Set(idForNetwork, peer)
 	go me.openPeerStreamLoop(peer)
 	go me.syncToNeighborLoop(peer)
 	return peer, nil
@@ -63,7 +64,7 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 	peer := &Peer{
 		IdForNetwork: idForNetwork,
 		Address:      addr,
-		neighbors:    make(map[crypto.Hash]*Peer),
+		neighbors:    &neighborMap{m: make(map[crypto.Hash]*Peer)},
 		high:         make(chan *ChanMsg, 1024*1024),
 		normal:       make(chan *ChanMsg, 1024*1024),
 		sync:         make(chan []*SyncPoint, 1024*1024),
@@ -256,7 +257,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			return
 		}
 
-		peer = me.neighbors[id]
+		peer = me.neighbors.Get(id)
 		add, err := me.AddNeighbor(id, addr)
 		if err == nil {
 			peer = add
@@ -285,7 +286,7 @@ func (me *Peer) sendHighToPeer(idForNetwork, key crypto.Hash, data []byte) error
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
-	peer := me.neighbors[idForNetwork]
+	peer := me.neighbors.Get(idForNetwork)
 	if peer == nil {
 		return nil
 	}
@@ -305,7 +306,7 @@ func (me *Peer) sendSnapshotMessagetoPeer(idForNetwork crypto.Hash, snap crypto.
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
-	peer := me.neighbors[idForNetwork]
+	peer := me.neighbors.Get(idForNetwork)
 	if peer == nil {
 		return nil
 	}
@@ -340,4 +341,23 @@ func (m *confirmMap) store(key crypto.Hash, ts time.Time) {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, uint64(ts.UnixNano()))
 	m.cache.Set(key[:], buf)
+}
+
+type neighborMap struct {
+	sync.RWMutex
+	m map[crypto.Hash]*Peer
+}
+
+func (m *neighborMap) Get(key crypto.Hash) *Peer {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.m[key]
+}
+
+func (m *neighborMap) Set(key crypto.Hash, v *Peer) {
+	m.Lock()
+	defer m.Unlock()
+
+	m.m[key] = v
 }
