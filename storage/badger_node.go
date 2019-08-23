@@ -62,6 +62,8 @@ func (s *BadgerStore) AddNodeOperation(tx *common.VersionedTransaction, timestam
 	switch tx.TransactionType() {
 	case common.TransactionTypeNodePledge:
 		op = "PLEDGE"
+	case common.TransactionTypeNodeCancel:
+		op = "CANCEL"
 	}
 	if op == "" {
 		return fmt.Errorf("invalid operation %d %s", tx.TransactionType(), op)
