@@ -213,6 +213,89 @@ func sendTransactionCmd(c *cli.Context) error {
 	return err
 }
 
+func cancelNodeCmd(c *cli.Context) error {
+	seed := make([]byte, 64)
+	_, err := rand.Read(seed)
+	if err != nil {
+		return err
+	}
+	viewKey, err := crypto.KeyFromString(c.String("view"))
+	if err != nil {
+		return err
+	}
+	spendKey, err := crypto.KeyFromString(c.String("spend"))
+	if err != nil {
+		return err
+	}
+	receiver, err := common.NewAddressFromString(c.String("receiver"))
+	if err != nil {
+		return err
+	}
+	account := common.Address{PrivateViewKey: viewKey, PrivateSpendKey: spendKey}
+	if account.String() != receiver.String() {
+		return fmt.Errorf("invalid key and receiver %s %s", account, receiver)
+	}
+
+	b, err := hex.DecodeString(c.String("pledge"))
+	if err != nil {
+		return err
+	}
+	pledge, err := common.UnmarshalVersionedTransaction(b)
+	if err != nil {
+		return err
+	}
+	if pledge.TransactionType() != common.TransactionTypeNodePledge {
+		return fmt.Errorf("invalid pledge transaction type %d", pledge.TransactionType())
+	}
+
+	b, err = hex.DecodeString(c.String("source"))
+	if err != nil {
+		return err
+	}
+	source, err := common.UnmarshalVersionedTransaction(b)
+	if err != nil {
+		return err
+	}
+	if source.TransactionType() != common.TransactionTypeScript {
+		return fmt.Errorf("invalid source transaction type %d", source.TransactionType())
+	}
+
+	if source.PayloadHash() != pledge.Inputs[0].Hash {
+		return fmt.Errorf("invalid source transaction hash %s %s", source.PayloadHash(), pledge.Inputs[0].Hash)
+	}
+	if len(source.Outputs) != 1 || len(source.Outputs[0].Keys) != 1 {
+		return fmt.Errorf("invalid source transaction outputs %d %d", len(source.Outputs), len(source.Outputs[0].Keys))
+	}
+	pig := crypto.ViewGhostOutputKey(&source.Outputs[0].Keys[0], &viewKey, &source.Outputs[0].Mask, 0)
+	if pig.String() != receiver.PublicSpendKey.String() {
+		return fmt.Errorf("invalid source and receiver %s %s", pig.String(), receiver.PublicSpendKey)
+	}
+
+	tx := common.NewTransaction(common.XINAssetId)
+	tx.AddInput(pledge.PayloadHash(), 0)
+	tx.AddOutputWithType(common.OutputTypeNodeCancel, nil, common.Script{}, pledge.Outputs[0].Amount.Div(100), seed)
+	tx.AddScriptOutput([]common.Address{receiver}, common.NewThresholdScript(1), pledge.Outputs[0].Amount.Sub(tx.Outputs[0].Amount), seed)
+	tx.Extra = append(pledge.Extra, viewKey[:]...)
+	utxo := &common.UTXO{
+		Input: common.Input{
+			Hash:  pledge.PayloadHash(),
+			Index: 0,
+		},
+		Output: common.Output{
+			Type: common.OutputTypeNodePledge,
+			Keys: source.Outputs[0].Keys,
+			Mask: source.Outputs[0].Mask,
+		},
+	}
+	signed := tx.AsLatestVersion()
+	err = signed.SignUTXO(utxo, []common.Address{account})
+	if err != nil {
+		return err
+	}
+	fmt.Println(hex.EncodeToString(signed.Marshal()))
+	return nil
+}
+
 func getRoundLinkCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getroundlink", []interface{}{
 		c.String("from"),

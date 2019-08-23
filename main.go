@@ -181,6 +181,33 @@ func main() {
 			},
 		},
 		{
+			Name:   "buildnodecanceltransaction",
+			Usage:  "Build the transaction to cancel a pledging node",
+			Action: cancelNodeCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "view",
+					Usage: "the private view key which signs the pledging transaction",
+				},
+				cli.StringFlag{
+					Name:  "spend",
+					Usage: "the private spend key which signs the pledging transaction",
+				},
+				cli.StringFlag{
+					Name:  "receiver",
+					Usage: "the address to receive the refund",
+				},
+				cli.StringFlag{
+					Name:  "pledge",
+					Usage: "the hex of raw pledge transaction",
+				},
+				cli.StringFlag{
+					Name:  "source",
+					Usage: "the hex of raw pledging input transaction",
+				},
+			},
+		},
+		{
 			Name:   "getroundlink",
 			Usage:  "Get the latest link between two nodes",
 			Action: getRoundLinkCmd,

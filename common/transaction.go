@@ -141,6 +141,29 @@ func (tx *SignedTransaction) TransactionType() uint8 {
 	return TransactionTypeUnknown
 }
 
+func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []Address) error {
+	msg := MsgpackMarshalPanic(signed.Transaction)
+
+	if len(accounts) == 0 {
+		return nil
+	}
+
+	keysFilter := make(map[string]bool)
+	for _, k := range utxo.Keys {
+		keysFilter[k.String()] = true
+	}
+
+	sigs := make([]crypto.Signature, 0)
+	for _, acc := range accounts {
+		priv := crypto.DeriveGhostPrivateKey(&utxo.Mask, &acc.PrivateViewKey, &acc.PrivateSpendKey, uint64(utxo.Index))
+		if keysFilter[priv.Public().String()] {
+			sigs = append(sigs, priv.Sign(msg))
+		}
+	}
+	signed.Signatures = append(signed.Signatures, sigs)
+	return nil
+}
+
 func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, accounts []Address) error {
 	msg := MsgpackMarshalPanic(signed.Transaction)
 

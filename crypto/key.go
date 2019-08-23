@@ -23,6 +23,19 @@ func NewKeyFromSeed(seed []byte) Key {
 	return key
 }
 
+func KeyFromString(s string) (Key, error) {
+	var key Key
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		return key, err
+	}
+	if len(b) != len(key) {
+		return key, fmt.Errorf("invalid key size %d", len(b))
+	}
+	copy(key[:], b)
+	return key, nil
+}
+
 func (k Key) Public() Key {
 	var point edwards25519.ExtendedGroupElement
 	tmp := [32]byte(k)

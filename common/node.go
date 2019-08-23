@@ -87,6 +87,9 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs [][]
 	if len(script.Keys) != 1 {
 		return fmt.Errorf("invalid script output keys %d for cancel transaction", len(script.Keys))
 	}
+	if script.Script.String() != NewThresholdScript(1).String() {
+		return fmt.Errorf("invalid script output script %s for cancel transaction", script.Script)
+	}
 
 	var pledging *Node
 	filter := make(map[string]string)
