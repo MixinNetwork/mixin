@@ -602,7 +602,11 @@ func (node *Node) cosiHandleFinalization(m *CosiAction) error {
 		if len(cache.Snapshots) != 0 {
 			return nil
 		}
-		err := node.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, s.References)
+		external, err := node.persistStore.ReadRound(s.References.External)
+		if err != nil || external == nil {
+			return err
+		}
+		err = node.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, s.References)
 		if err != nil {
 			panic(err)
 		}
