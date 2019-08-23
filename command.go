@@ -231,7 +231,12 @@ func cancelNodeCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	account := common.Address{PrivateViewKey: viewKey, PrivateSpendKey: spendKey}
+	account := common.Address{
+		PrivateViewKey:  viewKey,
+		PrivateSpendKey: spendKey,
+		PublicViewKey:   viewKey.Public(),
+		PublicSpendKey:  spendKey.Public(),
+	}
 	if account.String() != receiver.String() {
 		return fmt.Errorf("invalid key and receiver %s %s", account, receiver)
 	}
