@@ -283,12 +283,6 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 	if timestamp < node.epoch {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.epoch, timestamp)
 	}
-	if r := node.Graph.CacheRound[s.NodeId]; r != nil {
-		return fmt.Errorf("invalid graph round %s %d", s.NodeId, r.Number)
-	}
-	if r := node.Graph.FinalRound[s.NodeId]; r != nil {
-		return fmt.Errorf("invalid graph round %s %d", s.NodeId, r.Number)
-	}
 
 	since := timestamp - node.epoch
 	hours := int(since / 3600000000000)
