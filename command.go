@@ -301,6 +301,39 @@ func cancelNodeCmd(c *cli.Context) error {
 	return nil
 }
 
+func decodePledgeNodeCmd(c *cli.Context) error {
+	b, err := hex.DecodeString(c.String("raw"))
+	if err != nil {
+		return err
+	}
+	pledge, err := common.UnmarshalVersionedTransaction(b)
+	if err != nil {
+		return err
+	}
+	if len(pledge.Extra) != len(crypto.Key{})*2 {
+		return fmt.Errorf("invalid extra %s", hex.EncodeToString(pledge.Extra))
+	}
+	signerPublicSpend, err := crypto.KeyFromString(hex.EncodeToString(pledge.Extra[:32]))
+	if err != nil {
+		return err
+	}
+	payeePublicSpend, err := crypto.KeyFromString(hex.EncodeToString(pledge.Extra[32:]))
+	if err != nil {
+		return err
+	}
+	signer := common.Address{
+		PublicSpendKey: signerPublicSpend,
+		PublicViewKey:  signerPublicSpend.DeterministicHashDerive().Public(),
+	}
+	payee := common.Address{
+		PublicSpendKey: payeePublicSpend,
+		PublicViewKey:  payeePublicSpend.DeterministicHashDerive().Public(),
+	}
+	fmt.Printf("signer: %s\n", signer)
+	fmt.Printf("payee: %s\n", payee)
+	return nil
+}
+
 func getRoundLinkCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getroundlink", []interface{}{
 		c.String("from"),

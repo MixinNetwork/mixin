@@ -208,6 +208,17 @@ func main() {
 			},
 		},
 		{
+			Name:   "decodenodepledgetransaction",
+			Usage:  "Decode the extra info of a pledge transaction",
+			Action: decodePledgeNodeCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "raw",
+					Usage: "the raw pledge transaction",
+				},
+			},
+		},
+		{
 			Name:   "getroundlink",
 			Usage:  "Get the latest link between two nodes",
 			Action: getRoundLinkCmd,
