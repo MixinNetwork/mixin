@@ -41,16 +41,6 @@ func (s *BadgerStore) ReadConsensusNodes() []*common.Node {
 		n.State = common.NodeStateDeparting
 		nodes = append(nodes, n)
 	}
-	removed := readNodesInState(txn, graphPrefixNodeRemove)
-	for _, n := range removed {
-		n.State = common.NodeStateRemoved
-		nodes = append(nodes, n)
-	}
-	cancelled := readNodesInState(txn, graphPrefixNodeCancel)
-	for _, n := range cancelled {
-		n.State = common.NodeStateCancelled
-		nodes = append(nodes, n)
-	}
 	return nodes
 }
 

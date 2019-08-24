@@ -170,8 +170,6 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 			}
 		case common.NodeStateDeparting:
 			consensusBase++
-		case common.NodeStateRemoved:
-		case common.NodeStateCancelled:
 		}
 	}
 	if consensusBase < len(node.genesisNodes) {
