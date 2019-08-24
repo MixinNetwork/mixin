@@ -102,7 +102,7 @@ func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (*
 
 	consensusNodes := store.ReadConsensusNodes()
 	for _, cn := range consensusNodes {
-		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateCancelled {
+		if cn.State == common.NodeStatePledging {
 			continue
 		}
 
