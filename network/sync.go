@@ -165,6 +165,9 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 }
 
 func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64) {
+	ticker := time.NewTicker(time.Duration(config.SnapshotRoundGap))
+	defer ticker.Stop()
+
 	var offset uint64
 	var graph map[crypto.Hash]*SyncPoint
 	for {
@@ -181,7 +184,7 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 			if off > 0 {
 				offset = off
 			}
-		case <-time.After(time.Duration(config.SnapshotRoundGap) / 7):
+		case <-ticker.C:
 			return graph, offset
 		}
 	}
