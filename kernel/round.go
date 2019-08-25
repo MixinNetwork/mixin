@@ -138,18 +138,20 @@ func loadRoundHistoryForNode(store storage.Store, from crypto.Hash, to *FinalRou
 	if err != nil {
 		return nil, err
 	}
-	end := to.Number
-	if end > 1 {
-		end = end - 1
+	if to.Number > 7 {
+		to, err = loadFinalRoundForNode(store, to.NodeId, to.Number-1)
+		if err != nil {
+			return nil, err
+		}
 	}
-	if link > end {
+	if link > to.Number {
 		panic(to)
 	}
-	start := end - config.SnapshotReferenceThreshold
-	if start < link || end < config.SnapshotReferenceThreshold {
+	start := to.Number - config.SnapshotReferenceThreshold
+	if start < link || to.Number < config.SnapshotReferenceThreshold {
 		start = link
 	}
-	for ; start <= end; start++ {
+	for ; start <= to.Number; start++ {
 		final, err := loadFinalRoundForNode(store, to.NodeId, start)
 		if err != nil {
 			return nil, err
