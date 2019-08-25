@@ -110,5 +110,13 @@
   {
     "signer": "XINY16134uAm16ae2WWNGPbZoFP8LuZncyUuuaP8Mq1PFznshsqrRxznUcnvzP6TcxhHdodoqW58swjaC1AyeL54N9V2iwUb",
     "host": "35.237.226.29:7239"
+  },
+  {
+    "signer": "XINAXRLxyH3aw73NRp9W3CuoiQrK4mfhN2wVLY9ZJn7Zq9J46zGxYqnqzACdgJcvVirGVbn3ZDPC6DMafXbCMydN7PjMTMHg",
+    "host": "34.83.129.200:7239"
+  },
+  {
+    "signer": "XINERSAxyqdUfe4kcUK6UqDi4mMqi6qQo1CovEaJ8G16qiJKvK3CfbC2UeNhjReDPBN4PXHBMb4ZvMDedrPXYDDPvs74UmZP",
+    "host": "35.233.138.56:7239"
   }
 ]
