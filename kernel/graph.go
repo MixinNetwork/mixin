@@ -52,7 +52,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 				continue
 			}
 			if threshold < r.Start {
-				return nil, fmt.Errorf("external reference %s too early %s %f", s.References.External, r.NodeId, time.Duration(r.Start-external.Timestamp).Seconds())
+				return nil, fmt.Errorf("external reference %s too early %s:%d %f", s.References.External, r.NodeId, r.Number, time.Duration(r.Start-threshold).Seconds())
 			}
 		}
 	}
