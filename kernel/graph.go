@@ -16,7 +16,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 	}
 	final := cache.asFinal()
 	if final == nil {
-		return nil, fmt.Errorf("self cache snapshots not collected yet")
+		return nil, fmt.Errorf("self cache snapshots not collected yet %s %d", s.NodeId, s.RoundNumber)
 	}
 	if s.References.Self != final.Hash {
 		return nil, fmt.Errorf("self cache snapshots not match yet %s", s.References.Self)
