@@ -138,12 +138,6 @@ func loadRoundHistoryForNode(store storage.Store, from crypto.Hash, to *FinalRou
 	if err != nil {
 		return nil, err
 	}
-	if to.Number > 7 {
-		to, err = loadFinalRoundForNode(store, to.NodeId, to.Number-1)
-		if err != nil {
-			return nil, err
-		}
-	}
 	if link > to.Number {
 		panic(to)
 	}

@@ -81,9 +81,6 @@ func (node *Node) determinBestRound(roundTime uint64) *FinalRound {
 			continue
 		}
 		rts, rh := rounds[0].Start, uint64(len(rounds))
-		if len(rounds) > 1 {
-			rts = rounds[1].Start
-		}
 		if id == node.IdForNetwork || rh < height {
 			continue
 		}
@@ -95,9 +92,6 @@ func (node *Node) determinBestRound(roundTime uint64) *FinalRound {
 		}
 		if rh > height || rts > start {
 			best = rounds[0]
-			if len(rounds) > 1 {
-				best = rounds[1]
-			}
 			start, height = rts, rh
 		}
 	}

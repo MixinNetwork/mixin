@@ -45,7 +45,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64
 		for _, rounds := range node.Graph.RoundHistory {
 			r := rounds[0]
-			if r.NodeId == s.NodeId {
+			if r.NodeId == s.NodeId || len(rounds) == 1 {
 				continue
 			}
 			if !node.genesisNodesMap[r.NodeId] && r.Number < 7+config.SnapshotReferenceThreshold*2 {
