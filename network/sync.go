@@ -181,7 +181,7 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 			if off > 0 {
 				offset = off
 			}
-		case <-time.After(time.Duration(config.SnapshotRoundGap)):
+		case <-time.After(time.Duration(config.SnapshotRoundGap) / 7):
 			return graph, offset
 		}
 	}
