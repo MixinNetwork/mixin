@@ -36,6 +36,17 @@ func KeyFromString(s string) (Key, error) {
 	return key, nil
 }
 
+func (k Key) CheckKey() bool {
+	var point edwards25519.ExtendedGroupElement
+	tmp := [32]byte(k)
+	return point.FromBytes(&tmp)
+}
+
+func (k Key) CheckScalar() bool {
+	tmp := [32]byte(k)
+	return edwards25519.ScValid(&tmp)
+}
+
 func (k Key) Public() Key {
 	var point edwards25519.ExtendedGroupElement
 	tmp := [32]byte(k)
@@ -55,6 +66,13 @@ func (k Key) DeterministicHashDerive() Key {
 }
 
 func KeyMultPubPriv(pub, priv *Key) *Key {
+	if !pub.CheckKey() {
+		panic(pub.String())
+	}
+	if !priv.CheckScalar() {
+		panic(priv.String())
+	}
+
 	var point edwards25519.ExtendedGroupElement
 	var point2 edwards25519.ProjectiveGroupElement
 
@@ -69,6 +87,13 @@ func KeyMultPubPriv(pub, priv *Key) *Key {
 }
 
 func KeyAddPub(pub1, pub2 *Key) *Key {
+	if !pub1.CheckKey() {
+		panic(pub1.String())
+	}
+	if !pub2.CheckKey() {
+		panic(pub2.String())
+	}
+
 	var point1, point2 edwards25519.ExtendedGroupElement
 	var point3 edwards25519.CachedGroupElement
 	var point4 edwards25519.CompletedGroupElement

@@ -1292,6 +1292,23 @@ func GeScalarMultBase(h *ExtendedGroupElement, a *[32]byte) {
 	}
 }
 
+func signum(a int64) int64 {
+	return a>>63 - ((-a) >> 63)
+}
+
+func ScValid(s *[32]byte) bool {
+	s0 := load4(s[:])
+	s1 := load4(s[4:])
+	s2 := load4(s[8:])
+	s3 := load4(s[12:])
+	s4 := load4(s[16:])
+	s5 := load4(s[20:])
+	s6 := load4(s[24:])
+	s7 := load4(s[28:])
+	return (signum(1559614444-s0)+(signum(1477600026-s1)<<1)+(signum(2734136534-s2)<<2)+(signum(350157278-s3)<<3)+(signum(-s4)<<4)+(signum(-s5)<<5)+(signum(-s6)<<6)+(signum(268435456-s7)<<7))>>8 == 0
+
+}
+
 // The scalars are GF(2^252 + 27742317777372353535851937790883648493).
 
 // Input:

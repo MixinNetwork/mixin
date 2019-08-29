@@ -145,6 +145,9 @@ func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
 				return outputAmount, fmt.Errorf("invalid output key %s", k.String())
 			}
 			outputsFilter[k] = true
+			if !k.CheckKey() {
+				return outputAmount, fmt.Errorf("invalid output key format %s", k.String())
+			}
 			exist, err := store.CheckGhost(k)
 			if err != nil {
 				return outputAmount, err
