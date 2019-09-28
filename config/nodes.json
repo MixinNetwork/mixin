@@ -118,5 +118,9 @@
   {
     "signer": "XINERSAxyqdUfe4kcUK6UqDi4mMqi6qQo1CovEaJ8G16qiJKvK3CfbC2UeNhjReDPBN4PXHBMb4ZvMDedrPXYDDPvs74UmZP",
     "host": "35.233.138.56:7239"
+  },
+  {
+    "signer": "XIN8ABRhW3uiGiDX6MDPNc3hy8Tm2rW8sGEeBoKcigMubbZznhGJLquuyRuAt8Kww3tu6mDn1h8131zghXbwqjvZTSmmh7Ma",
+    "host": "34.66.213.188:7239"
   }
 ]
