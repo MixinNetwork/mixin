@@ -143,7 +143,7 @@ func main() {
 					Name:  "raw",
 					Usage: "the JSON encoded raw transaction",
 				},
-				cli.StringFlag{
+				cli.StringSliceFlag{
 					Name:  "key",
 					Usage: "the private key to sign the raw transaction",
 				},

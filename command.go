@@ -181,20 +181,25 @@ func signTransactionCmd(c *cli.Context) error {
 	}
 	tx.Extra = extra
 
-	key, err := hex.DecodeString(c.String("key"))
-	if err != nil {
-		return err
+	keys := c.StringSlice("key")
+	var accounts []common.Address
+	for _, s := range keys {
+		key, err := hex.DecodeString(s)
+		if err != nil {
+			return err
+		}
+		if len(key) != 64 {
+			return fmt.Errorf("invalid key length %d", len(key))
+		}
+		var account common.Address
+		copy(account.PrivateViewKey[:], key[:32])
+		copy(account.PrivateSpendKey[:], key[32:])
+		accounts = append(accounts, account)
 	}
-	if len(key) != 64 {
-		return fmt.Errorf("invalid key length %d", len(key))
-	}
-	var account common.Address
-	copy(account.PrivateViewKey[:], key[:32])
-	copy(account.PrivateSpendKey[:], key[32:])
 
 	signed := tx.AsLatestVersion()
 	for i, _ := range signed.Inputs {
-		err := signed.SignInput(raw, i, []common.Address{account})
+		err := signed.SignInput(raw, i, accounts)
 		if err != nil {
 			return err
 		}
