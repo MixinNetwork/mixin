@@ -170,9 +170,19 @@ func signTransactionCmd(c *cli.Context) error {
 	}
 
 	for _, out := range raw.Outputs {
-		hash := crypto.NewHash(seed)
-		seed = append(hash[:], hash[:]...)
-		tx.AddOutputWithType(out.Type, out.Accounts, out.Script, out.Amount, seed)
+		if out.Mask.HasValue() {
+			tx.Outputs = append(tx.Outputs, &common.Output{
+				Type:   out.Type,
+				Amount: out.Amount,
+				Keys:   out.Keys,
+				Script: out.Script,
+				Mask:   out.Mask,
+			})
+		} else {
+			hash := crypto.NewHash(seed)
+			seed = append(hash[:], hash[:]...)
+			tx.AddOutputWithType(out.Type, out.Accounts, out.Script, out.Amount, seed)
+		}
 	}
 
 	extra, err := hex.DecodeString(raw.Extra)
@@ -594,9 +604,11 @@ type signerInput struct {
 	} `json:"inputs"`
 	Outputs []struct {
 		Type     uint8            `json:"type"`
+		Mask     crypto.Key       `json:"mask"`
+		Keys     []crypto.Key     `json:"keys"`
+		Amount   common.Integer   `json:"amount"`
 		Script   common.Script    `json:"script"`
 		Accounts []common.Address `json:"accounts"`
-		Amount   common.Integer   `json:"amount"`
 	}
 	Asset crypto.Hash `json:"asset"`
 	Extra string      `json:"extra"`
