@@ -64,6 +64,29 @@ func decodeAddressCmd(c *cli.Context) error {
 	return nil
 }
 
+func decryptGhostCmd(c *cli.Context) error {
+	view, err := crypto.KeyFromString(c.String("view"))
+	if err != nil {
+		return err
+	}
+	key, err := crypto.KeyFromString(c.String("key"))
+	if err != nil {
+		return err
+	}
+	mask, err := crypto.KeyFromString(c.String("mask"))
+	if err != nil {
+		return err
+	}
+
+	spend := crypto.ViewGhostOutputKey(&key, &view, &mask, c.Uint64("index"))
+	addr := common.Address{
+		PublicViewKey:  view.Public(),
+		PublicSpendKey: *spend,
+	}
+	fmt.Printf(addr.String())
+	return nil
+}
+
 func updateHeadReference(c *cli.Context) error {
 	store, err := storage.NewBadgerStore(c.String("dir"))
 	if err != nil {

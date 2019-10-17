@@ -81,6 +81,29 @@ func main() {
 			},
 		},
 		{
+			Name:   "decryptghostkey",
+			Usage:  "Decrypt a ghost key with the private view key",
+			Action: decryptGhostCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "view",
+					Usage: "the private view key",
+				},
+				cli.StringFlag{
+					Name:  "key",
+					Usage: "the ghost key",
+				},
+				cli.StringFlag{
+					Name:  "mask",
+					Usage: "the ghost mask",
+				},
+				cli.Uint64Flag{
+					Name:  "index",
+					Usage: "the output index",
+				},
+			},
+		},
+		{
 			Name:   "updateheadreference",
 			Usage:  "Update the cache round external reference, never use it unless agree by other nodes",
 			Action: updateHeadReference,
