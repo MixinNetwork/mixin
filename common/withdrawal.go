@@ -5,6 +5,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/domains/bitcoin"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 )
 
@@ -64,6 +65,8 @@ func (tx *SignedTransaction) validateWithdrawalSubmit(inputs map[string]*UTXO) e
 	switch submit.Withdrawal.Asset().ChainId {
 	case EthereumChainId:
 		return ethereum.VerifyAddress(submit.Withdrawal.Address)
+	case BitcoinChainId:
+		return bitcoin.VerifyAddress(submit.Withdrawal.Address)
 	}
 	return nil
 }

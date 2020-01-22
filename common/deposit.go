@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/domains/bitcoin"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 )
 
@@ -54,6 +55,8 @@ func (tx *SignedTransaction) verifyDepositFormat() error {
 	switch deposit.Asset().ChainId {
 	case EthereumChainId:
 		return ethereum.VerifyTransactionHash(deposit.TransactionHash)
+	case BitcoinChainId:
+		return bitcoin.VerifyTransactionHash(deposit.TransactionHash)
 	}
 	return nil
 }

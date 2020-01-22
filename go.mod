@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/MixinNetwork/msgpack v4.0.5+incompatible
 	github.com/VictoriaMetrics/fastcache v1.5.5
+	github.com/btcsuite/btcd v0.0.0-20171128150713-2e60448ffcc6
 	github.com/btcsuite/btcutil v0.0.0-20191219182022-e17c9730c422
 	github.com/dgraph-io/badger/v2 v2.0.1
 	github.com/dimfeld/httptreemux v5.0.1+incompatible
