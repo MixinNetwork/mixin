@@ -122,5 +122,9 @@
   {
     "signer": "XIN8ABRhW3uiGiDX6MDPNc3hy8Tm2rW8sGEeBoKcigMubbZznhGJLquuyRuAt8Kww3tu6mDn1h8131zghXbwqjvZTSmmh7Ma",
     "host": "34.66.213.188:7239"
+  },
+  {
+    "signer": "XIN3ntCzd1FqjSxrYM1f9abN3wY5DcydkDviEVgZL3paV7oYEeKnwzbMLwoRVANwyiu7w9mRrPf2eTpPaLRgQow9rSr3hzWH",
+    "host": "mixin-node1.exinpool.com:7239"
   }
 ]
