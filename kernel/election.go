@@ -190,6 +190,17 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		}
 	}
 
+	if timestamp < node.epoch {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.epoch, timestamp)
+	}
+	since := timestamp - node.epoch
+	days := int(since / 3600000000000 / 24)
+	elp := time.Duration((days%MintYearBatches)*24) * time.Hour
+	eta := time.Duration((MintYearBatches-days%MintYearBatches)*24) * time.Hour
+	if eta < config.KernelNodeAcceptPeriodMaximum*2 || elp < config.KernelNodeAcceptPeriodMinimum*2 {
+		return fmt.Errorf("invalid pledge timestamp %d %d", eta, elp)
+	}
+
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
 	if timestamp > uint64(time.Now().UnixNano())+threshold {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", time.Now().UnixNano(), timestamp)
@@ -206,8 +217,23 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	if len(tx.Extra) != 2*len(crypto.Key{}) {
 		return fmt.Errorf("invalid extra length %d for pledge transaction", len(tx.Extra))
 	}
-	if tx.Outputs[0].Amount.Cmp(common.NewInteger(10000)) != 0 {
+	if tx.Outputs[0].Amount.Cmp(pledgeAmount(time.Duration(since))) != 0 {
 		return fmt.Errorf("invalid pledge amount %s", tx.Outputs[0].Amount.String())
+	}
+
+	var signerSpend, payeeSpend crypto.Key
+	copy(signerSpend[:], tx.Extra)
+	copy(payeeSpend[:], tx.Extra[len(signerSpend):])
+	for _, n := range node.persistStore.ReadAllNodes() {
+		if n.State != common.NodeStateAccepted && n.State != common.NodeStateCancelled && n.State != common.NodeStateRemoved {
+			return fmt.Errorf("invalid node pending state %s %s", n.Signer.String(), n.State)
+		}
+		if n.Signer.PublicSpendKey.String() == signerSpend.String() {
+			return fmt.Errorf("invalid node signer key %s %s", hex.EncodeToString(tx.Extra), n.Signer)
+		}
+		if n.Payee.PublicSpendKey.String() == payeeSpend.String() {
+			return fmt.Errorf("invalid node payee key %s %s", hex.EncodeToString(tx.Extra), n.Payee)
+		}
 	}
 
 	// FIXME the node operation lock threshold should be optimized on pledging period
