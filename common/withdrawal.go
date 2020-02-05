@@ -63,9 +63,9 @@ func (tx *SignedTransaction) validateWithdrawalSubmit(inputs map[string]*UTXO) e
 	}
 
 	switch submit.Withdrawal.Asset().ChainId {
-	case EthereumChainId:
+	case ethereum.EthereumChainId:
 		return ethereum.VerifyAddress(submit.Withdrawal.Address)
-	case BitcoinChainId:
+	case bitcoin.BitcoinChainId:
 		return bitcoin.VerifyAddress(submit.Withdrawal.Address)
 	}
 	return nil

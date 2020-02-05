@@ -53,9 +53,9 @@ func (tx *SignedTransaction) verifyDepositFormat() error {
 	}
 
 	switch deposit.Asset().ChainId {
-	case EthereumChainId:
+	case ethereum.EthereumChainId:
 		return ethereum.VerifyTransactionHash(deposit.TransactionHash)
-	case BitcoinChainId:
+	case bitcoin.BitcoinChainId:
 		return bitcoin.VerifyTransactionHash(deposit.TransactionHash)
 	}
 	return nil
