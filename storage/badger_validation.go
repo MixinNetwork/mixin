@@ -133,7 +133,9 @@ func (s *BadgerStore) ReadAllNodes() []*common.Node {
 
 	nodes := s.ReadConsensusNodes()
 	removed := readNodesInState(txn, graphPrefixNodeRemove)
-	return append(nodes, removed...)
+	nodes = append(nodes, removed...)
+	canceled := readNodesInState(txn, graphPrefixNodeCancel)
+	return append(nodes, canceled...)
 }
 
 func computeRoundHash(nodeId crypto.Hash, number uint64, snapshots []*common.SnapshotWithTopologicalOrder) (uint64, uint64, crypto.Hash) {

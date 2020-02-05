@@ -52,9 +52,18 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 	if o.Amount.Cmp(NewInteger(10000)) != 0 {
 		return fmt.Errorf("invalid pledge amount %s", o.Amount.String())
 	}
-	for _, n := range store.ReadConsensusNodes() {
+	var signerSpend, payeeSpend crypto.Key
+	copy(signerSpend[:], tx.Extra)
+	copy(payeeSpend[:], tx.Extra[len(signerSpend):])
+	for _, n := range store.ReadAllNodes() {
 		if n.State != NodeStateAccepted && n.State != NodeStateCancelled && n.State != NodeStateRemoved {
 			return fmt.Errorf("invalid node pending state %s %s", n.Signer.String(), n.State)
+		}
+		if n.Signer.PublicSpendKey.String() == signerSpend.String() {
+			return fmt.Errorf("invalid node signer key %s %s", hex.EncodeToString(tx.Extra), n.Signer)
+		}
+		if n.Payee.PublicSpendKey.String() == payeeSpend.String() {
+			return fmt.Errorf("invalid node payee key %s %s", hex.EncodeToString(tx.Extra), n.Payee)
 		}
 	}
 

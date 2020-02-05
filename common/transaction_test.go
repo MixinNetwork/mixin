@@ -130,6 +130,10 @@ func (store storeImpl) ReadDomains() []Domain {
 	return nil
 }
 
+func (store storeImpl) ReadAllNodes() []*Node {
+	return nil
+}
+
 func (store storeImpl) ReadConsensusNodes() []*Node {
 	return nil
 }
