@@ -87,6 +87,11 @@ func VerifyTransactionHash(hash string) error {
 }
 
 func GenerateAssetId(assetKey string) crypto.Hash {
+	err := VerifyAssetKey(assetKey)
+	if err != nil {
+		panic(assetKey)
+	}
+
 	if assetKey == "0x0000000000000000000000000000000000000000" {
 		return EthereumChainId
 	}
