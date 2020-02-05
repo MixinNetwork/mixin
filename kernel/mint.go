@@ -13,14 +13,18 @@ import (
 
 var (
 	MintPool        common.Integer
+	MintLiquidity   common.Integer
 	MintYearShares  int
 	MintYearBatches int
+	MintNodeMaximum int
 )
 
 func init() {
 	MintPool = common.NewInteger(500000)
+	MintLiquidity = common.NewInteger(500000)
 	MintYearShares = 10
 	MintYearBatches = 365
+	MintNodeMaximum = 50
 }
 
 func (node *Node) MintLoop() error {
@@ -38,6 +42,17 @@ func (node *Node) MintLoop() error {
 		}
 	}
 	return nil
+}
+
+func pledgeAmount(sinceEpoch time.Duration) common.Integer {
+	batch := int(sinceEpoch / 3600000000000 / 24)
+	liquidity, pool := MintLiquidity, MintPool
+	for i := 0; i < batch/MintYearBatches; i++ {
+		share := pool.Div(MintYearShares)
+		liquidity = liquidity.Add(share)
+		pool = pool.Sub(share)
+	}
+	return liquidity.Div(MintNodeMaximum)
 }
 
 func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error {

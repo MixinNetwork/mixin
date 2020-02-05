@@ -13,7 +13,6 @@ import (
 
 const (
 	MinimumNodeCount = 7
-	PledgeAmount     = 10000
 )
 
 type Genesis struct {
@@ -79,7 +78,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 
 		tx := common.NewTransaction(common.XINAssetId)
 		tx.Inputs = []*common.Input{{Genesis: node.networkId[:]}}
-		tx.AddOutputWithType(common.OutputTypeNodeAccept, accounts, script, common.NewInteger(PledgeAmount), seed)
+		tx.AddOutputWithType(common.OutputTypeNodeAccept, accounts, script, pledgeAmount(0), seed)
 		tx.Extra = append(in.Signer.PublicSpendKey[:], in.Payee.PublicSpendKey[:]...)
 
 		nodeId := in.Signer.Hash().ForNetwork(node.networkId)
@@ -211,7 +210,7 @@ func readGenesis(path string) (*Genesis, error) {
 		if err != nil {
 			return nil, err
 		}
-		if in.Balance.Cmp(common.NewInteger(PledgeAmount)) != 0 {
+		if in.Balance.Cmp(pledgeAmount(0)) != 0 {
 			return nil, fmt.Errorf("invalid genesis node input amount %s", in.Balance.String())
 		}
 		if inputsFilter[in.Signer.String()] {

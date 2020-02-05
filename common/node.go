@@ -48,10 +48,6 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 		}
 	}
 
-	o := tx.Outputs[0]
-	if o.Amount.Cmp(NewInteger(10000)) != 0 {
-		return fmt.Errorf("invalid pledge amount %s", o.Amount.String())
-	}
 	var signerSpend, payeeSpend crypto.Key
 	copy(signerSpend[:], tx.Extra)
 	copy(payeeSpend[:], tx.Extra[len(signerSpend):])
