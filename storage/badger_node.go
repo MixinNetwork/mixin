@@ -14,7 +14,7 @@ import (
 const (
 	graphPrefixNodePledge = "NODESTATEPLEDGE"
 	graphPrefixNodeAccept = "NODESTATEACCEPT"
-	graphPrefixNodeDepart = "NODESTATEDEPART"
+	graphPrefixNodeResign = "NODESTATERESIGN"
 	graphPrefixNodeRemove = "NODESTATEREMOVE"
 	graphPrefixNodeCancel = "NODESTATECANCEL"
 
@@ -36,9 +36,9 @@ func (s *BadgerStore) ReadConsensusNodes() []*common.Node {
 		n.State = common.NodeStatePledging
 		nodes = append(nodes, n)
 	}
-	departing := readNodesInState(txn, graphPrefixNodeDepart)
-	for _, n := range departing {
-		n.State = common.NodeStateDeparting
+	resigning := readNodesInState(txn, graphPrefixNodeResign)
+	for _, n := range resigning {
+		n.State = common.NodeStateResigning
 		nodes = append(nodes, n)
 	}
 	return nodes
@@ -201,10 +201,10 @@ func writeNodePledge(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 		return fmt.Errorf("node %s is pledging", node.Signer.PublicSpendKey.String())
 	}
 
-	departing := readNodesInState(txn, graphPrefixNodeDepart)
-	if len(departing) > 0 {
-		node := departing[0]
-		return fmt.Errorf("node %s is departing", node.Signer.PublicSpendKey.String())
+	resigning := readNodesInState(txn, graphPrefixNodeResign)
+	if len(resigning) > 0 {
+		node := resigning[0]
+		return fmt.Errorf("node %s is resigning", node.Signer.PublicSpendKey.String())
 	}
 
 	key = nodePledgeKey(signer)
@@ -263,8 +263,8 @@ func nodeAcceptKey(publicSpend crypto.Key) []byte {
 	return append([]byte(graphPrefixNodeAccept), publicSpend[:]...)
 }
 
-func nodeDepartKey(publicSpend crypto.Key) []byte {
-	return append([]byte(graphPrefixNodeDepart), publicSpend[:]...)
+func nodeResignKey(publicSpend crypto.Key) []byte {
+	return append([]byte(graphPrefixNodeResign), publicSpend[:]...)
 }
 
 func nodeOperationKey(timestamp uint64) []byte {

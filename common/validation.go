@@ -63,7 +63,7 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 		return tx.validateNodeCancel(store, msg, ver.Signatures)
 	case TransactionTypeNodeAccept:
 		return tx.validateNodeAccept(store)
-	case TransactionTypeNodeDepart:
+	case TransactionTypeNodeResign:
 		return fmt.Errorf("invalid transaction type %d", txType)
 	case TransactionTypeNodeRemove:
 		return fmt.Errorf("invalid transaction type %d", txType)

@@ -89,7 +89,7 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 	case common.TransactionTypeNodePledge,
 		common.TransactionTypeNodeCancel,
 		common.TransactionTypeNodeAccept,
-		common.TransactionTypeNodeDepart,
+		common.TransactionTypeNodeResign,
 		common.TransactionTypeNodeRemove:
 		err := node.LoadConsensusNodes()
 		if err != nil {

@@ -11,7 +11,7 @@ import (
 const (
 	NodeStatePledging  = "PLEDGING"
 	NodeStateAccepted  = "ACCEPTED"
-	NodeStateDeparting = "DEPARTING"
+	NodeStateResigning = "RESIGNING"
 	NodeStateRemoved   = "REMOVED"
 	NodeStateCancelled = "CANCELLED"
 )
@@ -101,7 +101,7 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs [][]
 	nodes := store.ReadConsensusNodes()
 	for _, n := range nodes {
 		filter[n.Signer.String()] = n.State
-		if n.State == NodeStateDeparting {
+		if n.State == NodeStateResigning {
 			return fmt.Errorf("invalid node pending state %s %s", n.Signer.String(), n.State)
 		}
 		if n.State == NodeStateAccepted || n.State == NodeStateCancelled || n.State == NodeStateRemoved {
@@ -187,7 +187,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 	nodes := store.ReadConsensusNodes()
 	for _, n := range nodes {
 		filter[n.Signer.String()] = n.State
-		if n.State == NodeStateDeparting {
+		if n.State == NodeStateResigning {
 			return fmt.Errorf("invalid node pending state %s %s", n.Signer.String(), n.State)
 		}
 		if n.State == NodeStateAccepted || n.State == NodeStateCancelled || n.State == NodeStateRemoved {
