@@ -31,7 +31,65 @@ func (node *Node) ElectionLoop() error {
 			logger.Println("tryToSendAcceptTransaction", err)
 		}
 	}
-	logger.Println("ElectionLoop DONE")
+
+	for {
+		candi, err := node.checkRemovePosibility()
+		if err != nil {
+			logger.Verbosef("checkRemovePosibility %s", err.Error())
+			time.Sleep(13 * time.Minute)
+			continue
+		}
+
+		err = node.tryToSendRemoveTransaction(candi)
+		if err != nil {
+			logger.Println("tryToSendRemoveTransaction", err)
+		}
+	}
+
+	return nil
+}
+
+func (node *Node) checkRemovePosibility() (*common.Node, error) {
+	if p := node.ConsensusPledging; p != nil {
+		return nil, fmt.Errorf("still pledging now %s", p.Signer.String())
+	}
+
+	now := uint64(time.Now().UnixNano())
+	if now < node.epoch {
+		return nil, fmt.Errorf("local time invalid %d %d", now, node.epoch)
+	}
+	hours := (now - node.epoch) / 3600000000000
+	if hours%24 < config.KernelNodeAcceptTimeBegin || hours%24 > config.KernelNodeAcceptTimeEnd {
+		return nil, fmt.Errorf("invalid node remove hour %d", hours%24)
+	}
+
+	days := int((now - node.epoch) / 3600000000000 / 24)
+	threshold := time.Duration(days%MintYearBatches*MintYearBatches) * 24 * time.Hour
+	candi := node.sortMintNodes()[0]
+	if t := node.epoch + uint64(threshold); candi.Timestamp > t {
+		return nil, fmt.Errorf("all old nodes removed %d %d", candi.Timestamp, t)
+	}
+
+	for _, cn := range node.persistStore.ReadAllNodes() {
+		if cn.Timestamp == 0 {
+			cn.Timestamp = node.epoch
+		}
+		if now < cn.Timestamp {
+			return nil, fmt.Errorf("invalid timestamp %d %d", cn.Timestamp, now)
+		}
+		elapse := time.Duration(now - cn.Timestamp)
+		if elapse < config.KernelNodePledgePeriodMinimum {
+			return nil, fmt.Errorf("invalid period %d %d", config.KernelNodePledgePeriodMinimum, elapse)
+		}
+		if cn.State != common.NodeStateAccepted && cn.State != common.NodeStateCancelled && cn.State != common.NodeStateRemoved {
+			return nil, fmt.Errorf("invalid node pending state %s %s", cn.Signer, cn.State)
+		}
+	}
+
+	return candi, nil
+}
+
+func (node *Node) tryToSendRemoveTransaction(candi *common.Node) error {
 	return nil
 }
 
@@ -177,18 +235,6 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
 		timestamp = uint64(time.Now().UnixNano())
 	}
-	for _, cn := range node.ConsensusNodes {
-		if timestamp < cn.Timestamp {
-			return fmt.Errorf("invalid snapshot timestamp %d %d", cn.Timestamp, timestamp)
-		}
-		elapse := time.Duration(timestamp - cn.Timestamp)
-		if elapse < config.KernelNodePledgePeriodMinimum {
-			return fmt.Errorf("invalid pledge period %d %d", config.KernelNodePledgePeriodMinimum, elapse)
-		}
-		if cn.State != common.NodeStateAccepted {
-			return fmt.Errorf("invalid node state %s %s", cn.Signer, cn.State)
-		}
-	}
 
 	if timestamp < node.epoch {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.epoch, timestamp)
@@ -199,6 +245,30 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	eta := time.Duration((MintYearBatches-days%MintYearBatches)*24) * time.Hour
 	if eta < config.KernelNodeAcceptPeriodMaximum*2 || elp < config.KernelNodeAcceptPeriodMinimum*2 {
 		return fmt.Errorf("invalid pledge timestamp %d %d", eta, elp)
+	}
+
+	var signerSpend crypto.Key
+	copy(signerSpend[:], tx.Extra)
+	for _, cn := range node.persistStore.ReadAllNodes() {
+		if cn.Timestamp == 0 {
+			cn.Timestamp = node.epoch
+		}
+		if timestamp < cn.Timestamp {
+			return fmt.Errorf("invalid snapshot timestamp %d %d", cn.Timestamp, timestamp)
+		}
+		elapse := time.Duration(timestamp - cn.Timestamp)
+		if elapse < config.KernelNodePledgePeriodMinimum {
+			return fmt.Errorf("invalid pledge period %d %d", config.KernelNodePledgePeriodMinimum, elapse)
+		}
+		if cn.State != common.NodeStateAccepted && cn.State != common.NodeStateCancelled && cn.State != common.NodeStateRemoved {
+			return fmt.Errorf("invalid node pending state %s %s", cn.Signer, cn.State)
+		}
+		if cn.Signer.PublicSpendKey.String() == signerSpend.String() {
+			return fmt.Errorf("invalid node signer key %s %s", hex.EncodeToString(tx.Extra), cn.Signer)
+		}
+		if cn.Payee.PublicSpendKey.String() == signerSpend.String() {
+			return fmt.Errorf("invalid node payee key %s %s", hex.EncodeToString(tx.Extra), cn.Payee)
+		}
 	}
 
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
@@ -219,21 +289,6 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 	if tx.Outputs[0].Amount.Cmp(pledgeAmount(time.Duration(since))) != 0 {
 		return fmt.Errorf("invalid pledge amount %s", tx.Outputs[0].Amount.String())
-	}
-
-	var signerSpend, payeeSpend crypto.Key
-	copy(signerSpend[:], tx.Extra)
-	copy(payeeSpend[:], tx.Extra[len(signerSpend):])
-	for _, n := range node.persistStore.ReadAllNodes() {
-		if n.State != common.NodeStateAccepted && n.State != common.NodeStateCancelled && n.State != common.NodeStateRemoved {
-			return fmt.Errorf("invalid node pending state %s %s", n.Signer.String(), n.State)
-		}
-		if n.Signer.PublicSpendKey.String() == signerSpend.String() {
-			return fmt.Errorf("invalid node signer key %s %s", hex.EncodeToString(tx.Extra), n.Signer)
-		}
-		if n.Payee.PublicSpendKey.String() == payeeSpend.String() {
-			return fmt.Errorf("invalid node payee key %s %s", hex.EncodeToString(tx.Extra), n.Payee)
-		}
 	}
 
 	// FIXME the node operation lock threshold should be optimized on pledging period
@@ -334,6 +389,13 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 
 	// FIXME the node operation lock threshold should be optimized on pledging period
 	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2)
+}
+
+func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
+	// sort node list by timestamp and id
+	// random snapshot node id like the mint transaction
+	// input should be the accept transaction input
+	return nil
 }
 
 func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
