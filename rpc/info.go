@@ -14,8 +14,14 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		"node":      node.IdForNetwork,
 		"version":   config.BuildVersion,
 		"uptime":    node.Uptime().String(),
+		"epoch":     time.Unix(0, int64(node.Epoch)),
 		"timestamp": time.Unix(0, int64(node.Graph.GraphTimestamp)),
 	}
+	pool, err := node.PoolSize()
+	if err != nil {
+		return info, err
+	}
+	info["pool"] = pool
 	graph, err := kernel.LoadRoundGraph(store, node.NetworkId(), node.IdForNetwork)
 	if err != nil {
 		return info, err

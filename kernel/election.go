@@ -18,11 +18,11 @@ func (node *Node) ElectionLoop() error {
 	for node.Graph.MyCacheRound == nil {
 		time.Sleep(13 * time.Minute)
 		now := uint64(time.Now().UnixNano())
-		if now < node.epoch {
-			logger.Printf("LOCAL TIME INVALID %d %d\n", now, node.epoch)
+		if now < node.Epoch {
+			logger.Printf("LOCAL TIME INVALID %d %d\n", now, node.Epoch)
 			continue
 		}
-		hours := int((now-node.epoch)/3600000000000) % 24
+		hours := int((now-node.Epoch)/3600000000000) % 24
 		if hours < config.KernelNodeAcceptTimeBegin || hours > config.KernelNodeAcceptTimeEnd {
 			continue
 		}
@@ -56,10 +56,10 @@ func (node *Node) checkRemovePosibility() (*common.Node, error) {
 	}
 
 	now := uint64(time.Now().UnixNano())
-	if now < node.epoch {
-		return nil, fmt.Errorf("local time invalid %d %d", now, node.epoch)
+	if now < node.Epoch {
+		return nil, fmt.Errorf("local time invalid %d %d", now, node.Epoch)
 	}
-	hours := (now - node.epoch) / 3600000000000
+	hours := (now - node.Epoch) / 3600000000000
 	if hours%24 < config.KernelNodeAcceptTimeBegin || hours%24 > config.KernelNodeAcceptTimeEnd {
 		return nil, fmt.Errorf("invalid node remove hour %d", hours%24)
 	}
@@ -78,15 +78,15 @@ func (node *Node) checkRemovePosibility() (*common.Node, error) {
 	})
 
 	candi := nodes[0]
-	days := int((now - node.epoch) / 3600000000000 / 24)
+	days := int((now - node.Epoch) / 3600000000000 / 24)
 	threshold := time.Duration(days%MintYearBatches*MintYearBatches) * 24 * time.Hour
-	if t := node.epoch + uint64(threshold); candi.Timestamp > t {
+	if t := node.Epoch + uint64(threshold); candi.Timestamp > t {
 		return nil, fmt.Errorf("all old nodes removed %d %d", candi.Timestamp, t)
 	}
 
 	for _, cn := range nodes {
 		if cn.Timestamp == 0 {
-			cn.Timestamp = node.epoch
+			cn.Timestamp = node.Epoch
 		}
 		if now < cn.Timestamp {
 			return nil, fmt.Errorf("invalid timestamp %d %d", cn.Timestamp, now)
@@ -105,6 +105,10 @@ func (node *Node) checkRemovePosibility() (*common.Node, error) {
 
 func (node *Node) tryToSendRemoveTransaction(candi *common.Node) error {
 	return nil
+}
+
+func (node *Node) buildRemoveTransaction(candi *common.Node) (*common.Transaction, error) {
+	return nil, nil
 }
 
 func (node *Node) tryToSendAcceptTransaction() error {
@@ -250,10 +254,10 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		timestamp = uint64(time.Now().UnixNano())
 	}
 
-	if timestamp < node.epoch {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.epoch, timestamp)
+	if timestamp < node.Epoch {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
 	}
-	since := timestamp - node.epoch
+	since := timestamp - node.Epoch
 	days := int(since / 3600000000000 / 24)
 	elp := time.Duration((days%MintYearBatches)*24) * time.Hour
 	eta := time.Duration((MintYearBatches-days%MintYearBatches)*24) * time.Hour
@@ -265,7 +269,7 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	copy(signerSpend[:], tx.Extra)
 	for _, cn := range node.persistStore.ReadAllNodes() {
 		if cn.Timestamp == 0 {
-			cn.Timestamp = node.epoch
+			cn.Timestamp = node.Epoch
 		}
 		if timestamp < cn.Timestamp {
 			return fmt.Errorf("invalid snapshot timestamp %d %d", cn.Timestamp, timestamp)
@@ -375,11 +379,11 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
 		timestamp = uint64(time.Now().UnixNano())
 	}
-	if timestamp < node.epoch {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.epoch, timestamp)
+	if timestamp < node.Epoch {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
 	}
 
-	since := timestamp - node.epoch
+	since := timestamp - node.Epoch
 	hours := int(since / 3600000000000)
 	if hours%24 < config.KernelNodeAcceptTimeBegin || hours%24 > config.KernelNodeAcceptTimeEnd {
 		return fmt.Errorf("invalid node cancel hour %d", hours%24)
@@ -453,8 +457,8 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
 		timestamp = uint64(time.Now().UnixNano())
 	}
-	if timestamp < node.epoch {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.epoch, timestamp)
+	if timestamp < node.Epoch {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
 	}
 	if r := node.Graph.CacheRound[s.NodeId]; r != nil {
 		return fmt.Errorf("invalid graph round %s %d", s.NodeId, r.Number)
@@ -463,7 +467,7 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid graph round %s %d", s.NodeId, r.Number)
 	}
 
-	since := timestamp - node.epoch
+	since := timestamp - node.Epoch
 	hours := int(since / 3600000000000)
 	if hours%24 < config.KernelNodeAcceptTimeBegin || hours%24 > config.KernelNodeAcceptTimeEnd {
 		return fmt.Errorf("invalid node accept hour %d", hours%24)

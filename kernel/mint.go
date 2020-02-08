@@ -44,6 +44,22 @@ func (node *Node) MintLoop() error {
 	return nil
 }
 
+func (node *Node) PoolSize() (common.Integer, error) {
+	dist, err := node.persistStore.ReadLastMintDistribution(common.MintGroupKernelNode)
+	if err != nil {
+		return common.Zero, err
+	}
+	mint, pool := common.Zero, MintPool
+	for i := 0; i < int(dist.Batch)/MintYearBatches; i++ {
+		year := pool.Div(MintYearShares)
+		mint = mint.Add(year.Div(10).Mul(9))
+		pool = pool.Sub(year)
+	}
+	day := pool.Div(MintYearShares).Div(MintYearBatches)
+	mint = mint.Add(day.Div(10).Mul(9).Mul(int(dist.Batch) % MintYearBatches))
+	return MintPool.Sub(mint), nil
+}
+
 func pledgeAmount(sinceEpoch time.Duration) common.Integer {
 	batch := int(sinceEpoch / 3600000000000 / 24)
 	liquidity, pool := MintLiquidity, MintPool
@@ -183,11 +199,11 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 }
 
 func (node *Node) checkMintPossibility(timestamp uint64, validateOnly bool) (int, common.Integer) {
-	if timestamp <= node.epoch {
+	if timestamp <= node.Epoch {
 		return 0, common.Zero
 	}
 
-	since := timestamp - node.epoch
+	since := timestamp - node.Epoch
 	hours := int(since / 3600000000000)
 	batch := hours / 24
 	if batch < 1 {

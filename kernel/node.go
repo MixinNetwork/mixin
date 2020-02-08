@@ -45,7 +45,7 @@ type Node struct {
 
 	genesisNodesMap map[crypto.Hash]bool
 	genesisNodes    []crypto.Hash
-	epoch           uint64
+	Epoch           uint64
 	startAt         time.Time
 	networkId       crypto.Hash
 	persistStore    storage.Store
@@ -185,7 +185,7 @@ func (node *Node) LoadConsensusNodes() error {
 	sortedConsensusNodes := make([]crypto.Hash, 0)
 	for _, cn := range node.persistStore.ReadConsensusNodes() {
 		if cn.Timestamp == 0 {
-			cn.Timestamp = node.epoch
+			cn.Timestamp = node.Epoch
 		}
 		idForNetwork := cn.Signer.Hash().ForNetwork(node.networkId)
 		logger.Println(idForNetwork, cn.Signer.String(), cn.State, cn.Timestamp)

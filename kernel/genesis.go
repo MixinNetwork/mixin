@@ -40,7 +40,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 	if err != nil {
 		return err
 	}
-	node.epoch = uint64(time.Unix(gns.Epoch, 0).UnixNano())
+	node.Epoch = uint64(time.Unix(gns.Epoch, 0).UnixNano())
 	node.networkId = crypto.NewHash(data)
 	node.IdForNetwork = node.Signer.Hash().ForNetwork(node.networkId)
 	for _, in := range gns.Nodes {
@@ -86,7 +86,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 			Version:     common.SnapshotVersion,
 			NodeId:      nodeId,
 			RoundNumber: 0,
-			Timestamp:   node.epoch,
+			Timestamp:   node.Epoch,
 		}
 		signed := tx.AsLatestVersion()
 		if node.networkId.String() == config.MainnetId {
@@ -178,7 +178,7 @@ func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) (*com
 		NodeId:      nodeId,
 		Transaction: signed.PayloadHash(),
 		RoundNumber: 0,
-		Timestamp:   node.epoch + 1,
+		Timestamp:   node.Epoch + 1,
 	}
 	if node.networkId.String() == config.MainnetId {
 		snapshot.Version = 0
