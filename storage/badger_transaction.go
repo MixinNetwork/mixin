@@ -227,6 +227,8 @@ func writeUTXO(txn *badger.Txn, utxo *common.UTXO, extra []byte, timestamp uint6
 		return writeNodeCancel(txn, signer, payee, utxo.Hash, timestamp)
 	case common.OutputTypeNodeAccept:
 		return writeNodeAccept(txn, signer, payee, utxo.Hash, timestamp, genesis)
+	case common.OutputTypeNodeRemove:
+		return writeNodeRemove(txn, signer, payee, utxo.Hash, timestamp)
 	case common.OutputTypeDomainAccept:
 		return writeDomainAccept(txn, signer, utxo.Hash, timestamp)
 	}

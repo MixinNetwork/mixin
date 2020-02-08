@@ -232,3 +232,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 	}
 	return nil
 }
+
+func (tx *Transaction) validateNodeRemove(store DataStore) error {
+	return nil
+}

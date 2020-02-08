@@ -57,6 +57,7 @@ func (tx *VersionedTransaction) UnspentOutputs() []*UTXO {
 			OutputTypeNodePledge,
 			OutputTypeNodeCancel,
 			OutputTypeNodeAccept,
+			OutputTypeNodeRemove,
 			OutputTypeDomainAccept,
 			OutputTypeWithdrawalFuel,
 			OutputTypeWithdrawalClaim:

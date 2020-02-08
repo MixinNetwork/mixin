@@ -152,6 +152,28 @@ func writeNodeCancel(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 	return txn.Set(key, val)
 }
 
+func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
+	// TODO these checks are only assert kind checks, not needed at all
+	key := nodeAcceptKey(signer)
+	_, err := txn.Get(key)
+	if err == badger.ErrKeyNotFound {
+		return fmt.Errorf("node not accepted yet %s", signer.String())
+	} else if err != nil {
+		return err
+	}
+
+	err = txn.Delete(key)
+	if err != nil {
+		return err
+	}
+	key = nodeRemoveKey(signer)
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, timestamp)
+	val := append(payee[:], tx[:]...)
+	val = append(val, buf...)
+	return txn.Set(key, val)
+}
+
 func writeNodeAccept(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64, genesis bool) error {
 	// TODO these checks are only assert kind checks, not needed at all
 	key := nodePledgeKey(signer)
@@ -263,8 +285,8 @@ func nodeAcceptKey(publicSpend crypto.Key) []byte {
 	return append([]byte(graphPrefixNodeAccept), publicSpend[:]...)
 }
 
-func nodeResignKey(publicSpend crypto.Key) []byte {
-	return append([]byte(graphPrefixNodeResign), publicSpend[:]...)
+func nodeRemoveKey(publicSpend crypto.Key) []byte {
+	return append([]byte(graphPrefixNodeRemove), publicSpend[:]...)
 }
 
 func nodeOperationKey(timestamp uint64) []byte {

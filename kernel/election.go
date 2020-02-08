@@ -34,7 +34,7 @@ func (node *Node) ElectionLoop() error {
 	}
 
 	for {
-		candi, err := node.checkRemovePosibility()
+		candi, err := node.checkRemovePosibility(uint64(time.Now().UnixNano()))
 		if err != nil {
 			logger.Verbosef("checkRemovePosibility %s", err.Error())
 			time.Sleep(13 * time.Minute)
@@ -50,12 +50,11 @@ func (node *Node) ElectionLoop() error {
 	return nil
 }
 
-func (node *Node) checkRemovePosibility() (*common.Node, error) {
+func (node *Node) checkRemovePosibility(now uint64) (*common.Node, error) {
 	if p := node.ConsensusPledging; p != nil {
 		return nil, fmt.Errorf("still pledging now %s", p.Signer.String())
 	}
 
-	now := uint64(time.Now().UnixNano())
 	if now < node.Epoch {
 		return nil, fmt.Errorf("local time invalid %d %d", now, node.Epoch)
 	}
@@ -107,7 +106,7 @@ func (node *Node) tryToSendRemoveTransaction(candi *common.Node) error {
 	return nil
 }
 
-func (node *Node) buildRemoveTransaction(candi *common.Node) (*common.Transaction, error) {
+func (node *Node) buildRemoveTransaction(candi *common.Node) (*common.VersionedTransaction, error) {
 	return nil, nil
 }
 
@@ -410,9 +409,21 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 }
 
 func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
-	// sort node list by timestamp and id
-	// random snapshot node id like the mint transaction
-	// input should be the accept transaction input
+	timestamp := s.Timestamp
+	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
+		timestamp = uint64(time.Now().UnixNano())
+	}
+	candi, err := node.checkRemovePosibility(timestamp)
+	if err != nil {
+		return err
+	}
+	cantx, err := node.buildRemoveTransaction(candi)
+	if err != nil {
+		return err
+	}
+	if cantx.PayloadHash() != tx.PayloadHash() {
+		return fmt.Errorf("invalid node remove transaction %s %s", cantx.PayloadHash(), tx.PayloadHash())
+	}
 	return nil
 }
 
