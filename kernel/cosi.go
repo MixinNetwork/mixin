@@ -447,6 +447,14 @@ func (node *Node) cosiHandleChallenge(m *CosiAction) error {
 	}
 
 	s := v.Snapshot
+	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
+	if s.Timestamp > uint64(time.Now().UnixNano())+threshold {
+		return nil
+	}
+	if s.Timestamp+threshold*2 < node.Graph.GraphTimestamp {
+		return nil
+	}
+
 	tx, finalized, err := node.checkCacheSnapshotTransaction(s)
 	if err != nil || finalized || tx == nil {
 		return nil
