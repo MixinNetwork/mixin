@@ -36,7 +36,7 @@ func (node *Node) ElectionLoop() error {
 	for {
 		candi, err := node.checkRemovePosibility(uint64(time.Now().UnixNano()))
 		if err != nil {
-			logger.Verbosef("checkRemovePosibility %s", err.Error())
+			logger.Printf("checkRemovePosibility %s", err.Error())
 			time.Sleep(13 * time.Minute)
 			continue
 		}
@@ -97,8 +97,8 @@ func (node *Node) checkRemovePosibility(now uint64) (*common.Node, error) {
 	}
 
 	days := int((now - node.Epoch) / 3600000000000 / 24)
-	threshold := time.Duration(days%MintYearBatches*MintYearBatches) * 24 * time.Hour
-	if t := node.Epoch + uint64(threshold); candi.Timestamp > t {
+	threshold := time.Duration(days/MintYearBatches*MintYearBatches) * 24 * time.Hour
+	if t := node.Epoch + uint64(threshold); candi.Timestamp >= t {
 		return nil, fmt.Errorf("all old nodes removed %d %d", candi.Timestamp, t)
 	}
 
@@ -157,7 +157,7 @@ func (node *Node) buildRemoveTransaction(candi *common.Node) (*common.VersionedT
 	in := fmt.Sprintf("NODEREMOVE%s", candi.Signer.String())
 	si := crypto.NewHash([]byte(candi.Payee.String() + in))
 	seed := append(si[:], si[:]...)
-	tx.AddScriptOutput([]common.Address{candi.Payee}, script, accept.Outputs[0].Amount, seed)
+	tx.AddOutputWithType(common.OutputTypeNodeRemove, []common.Address{candi.Payee}, script, accept.Outputs[0].Amount, seed)
 
 	return tx.AsLatestVersion(), nil
 }
