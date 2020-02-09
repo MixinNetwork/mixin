@@ -103,11 +103,60 @@ func (node *Node) checkRemovePosibility(now uint64) (*common.Node, error) {
 }
 
 func (node *Node) tryToSendRemoveTransaction(candi *common.Node) error {
-	return nil
+	signed, err := node.buildRemoveTransaction(candi)
+	if err != nil {
+		return err
+	}
+
+	err = signed.SignInput(node.persistStore, 0, []common.Address{node.Signer})
+	if err != nil {
+		return err
+	}
+	err = signed.Validate(node.persistStore)
+	if err != nil {
+		return err
+	}
+	err = node.persistStore.CachePutTransaction(signed)
+	if err != nil {
+		return err
+	}
+	return node.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+		Version:     common.SnapshotVersion,
+		NodeId:      node.IdForNetwork,
+		Transaction: signed.PayloadHash(),
+	}, false)
 }
 
 func (node *Node) buildRemoveTransaction(candi *common.Node) (*common.VersionedTransaction, error) {
-	return nil, nil
+	accept, _, err := node.persistStore.ReadTransaction(candi.Transaction)
+	if err != nil {
+		return nil, err
+	}
+	if accept == nil {
+		return nil, fmt.Errorf("accept transaction not available yet %s", candi.Transaction)
+	}
+	if accept.PayloadHash() != candi.Transaction {
+		return nil, fmt.Errorf("accept transaction malformed %s %s", candi.Transaction, accept.PayloadHash())
+	}
+	signer := candi.Signer.PublicSpendKey
+	payee := candi.Payee.PublicSpendKey[:]
+	if len(accept.Extra) != len(signer)*2 {
+		return nil, fmt.Errorf("invalid accept transaction extra %s", hex.EncodeToString(accept.Extra))
+	}
+	if bytes.Compare(append(signer[:], payee...), accept.Extra) != 0 {
+		return nil, fmt.Errorf("invalid accept transaction extra %s %s %s", hex.EncodeToString(accept.Extra), signer, hex.EncodeToString(payee))
+	}
+
+	tx := common.NewTransaction(common.XINAssetId)
+	tx.AddInput(candi.Transaction, 0)
+	tx.Extra = accept.Extra
+	script := common.NewThresholdScript(1)
+	in := fmt.Sprintf("NODEREMOVE%s", candi.Signer.String())
+	si := crypto.NewHash([]byte(candi.Payee.String() + in))
+	seed := append(si[:], si[:]...)
+	tx.AddScriptOutput([]common.Address{candi.Payee}, script, accept.Outputs[0].Amount, seed)
+
+	return tx.AsLatestVersion(), nil
 }
 
 func (node *Node) tryToSendAcceptTransaction() error {

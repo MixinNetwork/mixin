@@ -211,7 +211,10 @@ func validateUTXO(index int, utxo *UTXO, sigs [][]crypto.Signature, msg []byte, 
 		}
 		return fmt.Errorf("pledge input used for invalid transaction type %d", txType)
 	case OutputTypeNodeAccept:
-		return fmt.Errorf("should do more validation on those %d UTXOs", utxo.Type)
+		if txType == TransactionTypeNodeRemove {
+			return nil
+		}
+		return fmt.Errorf("accept input used for invalid transaction type %d", txType)
 	case OutputTypeNodeCancel:
 		return fmt.Errorf("should do more validation on those %d UTXOs", utxo.Type)
 	default:

@@ -234,5 +234,32 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 }
 
 func (tx *Transaction) validateNodeRemove(store DataStore) error {
+	if tx.Asset != XINAssetId {
+		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
+	}
+	if len(tx.Outputs) != 1 {
+		return fmt.Errorf("invalid outputs count %d for remove transaction", len(tx.Outputs))
+	}
+	if len(tx.Inputs) != 1 {
+		return fmt.Errorf("invalid inputs count %d for remove transaction", len(tx.Inputs))
+	}
+
+	accept, _, err := store.ReadTransaction(tx.Inputs[0].Hash)
+	if err != nil {
+		return err
+	}
+	if accept.PayloadHash() != tx.Inputs[0].Hash {
+		return fmt.Errorf("accept transaction malformed %s %s", tx.Inputs[0].Hash, accept.PayloadHash())
+	}
+	if len(accept.Outputs) != 1 {
+		return fmt.Errorf("invalid accept utxo count %d", len(accept.Outputs))
+	}
+	ao := accept.Outputs[0]
+	if ao.Type != OutputTypeNodeAccept {
+		return fmt.Errorf("invalid accept utxo type %d", ao.Type)
+	}
+	if bytes.Compare(accept.Extra, tx.Extra) != 0 {
+		return fmt.Errorf("invalid accept and remove key %s %s", hex.EncodeToString(accept.Extra), hex.EncodeToString(tx.Extra))
+	}
 	return nil
 }
