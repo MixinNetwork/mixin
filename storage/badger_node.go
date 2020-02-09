@@ -140,6 +140,18 @@ func writeNodeCancel(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 		return err
 	}
 
+	pledging := readNodesInState(txn, graphPrefixNodePledge)
+	if len(pledging) > 0 {
+		node := pledging[0]
+		return fmt.Errorf("node %s is pledging", node.Signer.PublicSpendKey.String())
+	}
+
+	resigning := readNodesInState(txn, graphPrefixNodeResign)
+	if len(resigning) > 0 {
+		node := resigning[0]
+		return fmt.Errorf("node %s is resigning", node.Signer.PublicSpendKey.String())
+	}
+
 	err = txn.Delete(key)
 	if err != nil {
 		return err
@@ -160,6 +172,18 @@ func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 		return fmt.Errorf("node not accepted yet %s", signer.String())
 	} else if err != nil {
 		return err
+	}
+
+	pledging := readNodesInState(txn, graphPrefixNodePledge)
+	if len(pledging) > 0 {
+		node := pledging[0]
+		return fmt.Errorf("node %s is pledging", node.Signer.PublicSpendKey.String())
+	}
+
+	resigning := readNodesInState(txn, graphPrefixNodeResign)
+	if len(resigning) > 0 {
+		node := resigning[0]
+		return fmt.Errorf("node %s is resigning", node.Signer.PublicSpendKey.String())
 	}
 
 	err = txn.Delete(key)
