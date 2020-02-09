@@ -191,7 +191,7 @@ func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
 
 func validateUTXO(index int, utxo *UTXO, sigs [][]crypto.Signature, msg []byte, txType uint8) error {
 	switch utxo.Type {
-	case OutputTypeScript:
+	case OutputTypeScript, OutputTypeNodeRemove:
 		var offset, valid int
 		for _, sig := range sigs[index] {
 			for i, k := range utxo.Keys {
