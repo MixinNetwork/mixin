@@ -77,12 +77,6 @@ func (node *Node) checkRemovePosibility(now uint64) (*common.Node, error) {
 	})
 
 	candi := nodes[0]
-	days := int((now - node.Epoch) / 3600000000000 / 24)
-	threshold := time.Duration(days%MintYearBatches*MintYearBatches) * 24 * time.Hour
-	if t := node.Epoch + uint64(threshold); candi.Timestamp > t {
-		return nil, fmt.Errorf("all old nodes removed %d %d", candi.Timestamp, t)
-	}
-
 	for _, cn := range nodes {
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.Epoch
@@ -97,6 +91,15 @@ func (node *Node) checkRemovePosibility(now uint64) (*common.Node, error) {
 		if cn.State != common.NodeStateAccepted && cn.State != common.NodeStateCancelled && cn.State != common.NodeStateRemoved {
 			return nil, fmt.Errorf("invalid node pending state %s %s", cn.Signer, cn.State)
 		}
+		if cn.State == common.NodeStateAccepted && candi.State != common.NodeStateAccepted {
+			candi = cn
+		}
+	}
+
+	days := int((now - node.Epoch) / 3600000000000 / 24)
+	threshold := time.Duration(days%MintYearBatches*MintYearBatches) * 24 * time.Hour
+	if t := node.Epoch + uint64(threshold); candi.Timestamp > t {
+		return nil, fmt.Errorf("all old nodes removed %d %d", candi.Timestamp, t)
 	}
 
 	return candi, nil
