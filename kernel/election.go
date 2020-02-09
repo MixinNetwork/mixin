@@ -34,9 +34,9 @@ func (node *Node) ElectionLoop() error {
 	}
 
 	for {
-		candi, err := node.checkRemovePosibility(uint64(time.Now().UnixNano()))
+		candi, err := node.checkRemovePossibility(uint64(time.Now().UnixNano()))
 		if err != nil {
-			logger.Printf("checkRemovePosibility %s", err.Error())
+			logger.Printf("checkRemovePossibility %s", err.Error())
 			time.Sleep(13 * time.Minute)
 			continue
 		}
@@ -50,7 +50,7 @@ func (node *Node) ElectionLoop() error {
 	return nil
 }
 
-func (node *Node) checkRemovePosibility(now uint64) (*common.Node, error) {
+func (node *Node) checkRemovePossibility(now uint64) (*common.Node, error) {
 	if p := node.ConsensusPledging; p != nil {
 		return nil, fmt.Errorf("still pledging now %s", p.Signer.String())
 	}
@@ -465,7 +465,7 @@ func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.Vers
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
 		timestamp = uint64(time.Now().UnixNano())
 	}
-	candi, err := node.checkRemovePosibility(timestamp)
+	candi, err := node.checkRemovePossibility(timestamp)
 	if err != nil {
 		return err
 	}
