@@ -27,20 +27,11 @@ func (s *BadgerStore) ReadConsensusNodes() []*common.Node {
 	defer txn.Discard()
 
 	accepted := readNodesInState(txn, graphPrefixNodeAccept)
-	for _, n := range accepted {
-		n.State = common.NodeStateAccepted
-		nodes = append(nodes, n)
-	}
+	nodes = append(nodes, accepted...)
 	pledging := readNodesInState(txn, graphPrefixNodePledge)
-	for _, n := range pledging {
-		n.State = common.NodeStatePledging
-		nodes = append(nodes, n)
-	}
+	nodes = append(nodes, pledging...)
 	resigning := readNodesInState(txn, graphPrefixNodeResign)
-	for _, n := range resigning {
-		n.State = common.NodeStateResigning
-		nodes = append(nodes, n)
-	}
+	nodes = append(nodes, resigning...)
 	return nodes
 }
 
@@ -120,12 +111,25 @@ func readNodesInState(txn *badger.Txn, nodeState string) []*common.Node {
 		if err != nil {
 			panic(err)
 		}
-		nodes = append(nodes, &common.Node{
+		n := &common.Node{
 			Signer:      signer,
 			Payee:       nodePayee(ival),
 			Transaction: nodeTransaction(ival),
 			Timestamp:   nodeTimestamp(ival),
-		})
+		}
+		switch nodeState {
+		case graphPrefixNodePledge:
+			n.State = common.NodeStatePledging
+		case graphPrefixNodeAccept:
+			n.State = common.NodeStateAccepted
+		case graphPrefixNodeResign:
+			n.State = common.NodeStateResigning
+		case graphPrefixNodeRemove:
+			n.State = common.NodeStateRemoved
+		case graphPrefixNodeCancel:
+			n.State = common.NodeStateCancelled
+		}
+		nodes = append(nodes, n)
 	}
 	return nodes
 }
