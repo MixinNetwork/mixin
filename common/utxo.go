@@ -61,8 +61,10 @@ func (tx *VersionedTransaction) UnspentOutputs() []*UTXO {
 			OutputTypeDomainAccept,
 			OutputTypeWithdrawalFuel,
 			OutputTypeWithdrawalClaim:
-		default:
+		case OutputTypeWithdrawalSubmit:
 			continue
+		default:
+			panic(out.Type)
 		}
 
 		utxo := &UTXO{

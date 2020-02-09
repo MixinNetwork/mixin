@@ -333,7 +333,7 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 			return fmt.Errorf("invalid node signer key %s %s", hex.EncodeToString(tx.Extra), cn.Signer)
 		}
 		if cn.Payee.PublicSpendKey.String() == signerSpend.String() {
-			return fmt.Errorf("invalid node payee key %s %s", hex.EncodeToString(tx.Extra), cn.Payee)
+			return fmt.Errorf("invalid node signer key %s %s", hex.EncodeToString(tx.Extra), cn.Payee)
 		}
 	}
 

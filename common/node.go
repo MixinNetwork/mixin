@@ -58,7 +58,7 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 			return fmt.Errorf("invalid node signer key %s %s", hex.EncodeToString(tx.Extra), n.Signer)
 		}
 		if n.Payee.PublicSpendKey.String() == signerSpend.String() {
-			return fmt.Errorf("invalid node payee key %s %s", hex.EncodeToString(tx.Extra), n.Payee)
+			return fmt.Errorf("invalid node signer key %s %s", hex.EncodeToString(tx.Extra), n.Payee)
 		}
 	}
 
