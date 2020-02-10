@@ -70,6 +70,15 @@ func TestTransaction(t *testing.T) {
 
 	for i, _ := range ver.Inputs {
 		err := ver.SignInput(store, i, accounts)
+		assert.NotNil(err)
+		assert.Contains(err.Error(), "invalid key for the input")
+	}
+	err = ver.Validate(store)
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "invalid tx signature number")
+
+	for i, _ := range ver.Inputs {
+		err := ver.SignInput(store, i, accounts[0:i+1])
 		assert.Nil(err)
 	}
 	err = ver.Validate(store)
