@@ -93,27 +93,23 @@ func (node *Node) checkRemovePossibility(now uint64) (*common.Node, error) {
 }
 
 func (node *Node) tryToSendRemoveTransaction(candi *common.Node) error {
-	signed, err := node.buildRemoveTransaction(candi)
+	tx, err := node.buildRemoveTransaction(candi)
 	if err != nil {
 		return err
 	}
 
-	err = signed.SignInput(node.persistStore, 0, []common.Address{node.Signer})
+	err = tx.Validate(node.persistStore)
 	if err != nil {
 		return err
 	}
-	err = signed.Validate(node.persistStore)
-	if err != nil {
-		return err
-	}
-	err = node.persistStore.CachePutTransaction(signed)
+	err = node.persistStore.CachePutTransaction(tx)
 	if err != nil {
 		return err
 	}
 	return node.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
-		Transaction: signed.PayloadHash(),
+		Transaction: tx.PayloadHash(),
 	}, false)
 }
 

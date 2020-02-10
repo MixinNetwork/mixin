@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/VictoriaMetrics/fastcache"
@@ -48,6 +49,23 @@ func TestNodeRemovePossibility(t *testing.T) {
 	candi, err = node.checkRemovePossibility(uint64(now.UnixNano()))
 	assert.Nil(err)
 	assert.NotNil(candi)
+	assert.Equal("028d97996a0b78f48e43f90e82137dbca60199519453a8fbf6e04b1e4d11efc9", candi.IdForNetwork(node.networkId).String())
+
+	tx, err := node.buildRemoveTransaction(candi)
+	assert.Nil(err)
+	assert.NotNil(tx)
+	assert.Equal("d5af53561d99eb52af2b98b57d3fb0cc8ae4c6449ec6c89d8427201051a947a2", tx.PayloadHash().String())
+	assert.Equal(common.XINAssetId, tx.Asset)
+	assert.Equal(pledgeAmount(0), tx.Outputs[0].Amount)
+	assert.Equal("fffe01", tx.Outputs[0].Script.String())
+	assert.Equal(uint8(common.OutputTypeNodeRemove), tx.Outputs[0].Type)
+	assert.Equal(uint8(common.TransactionTypeNodeRemove), tx.TransactionType())
+
+	err = tx.SignInput(node.persistStore, 0, []common.Address{node.Signer})
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "invalid key for the input")
+	err = tx.Validate(node.persistStore)
+	assert.Nil(err)
 }
 
 func setupTestNode(assert *assert.Assertions, dir string) *Node {

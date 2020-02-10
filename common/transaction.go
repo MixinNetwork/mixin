@@ -194,9 +194,10 @@ func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, account
 	sigs := make([]crypto.Signature, 0)
 	for _, acc := range accounts {
 		priv := crypto.DeriveGhostPrivateKey(&utxo.Mask, &acc.PrivateViewKey, &acc.PrivateSpendKey, uint64(in.Index))
-		if keysFilter[priv.Public().String()] {
-			sigs = append(sigs, priv.Sign(msg))
+		if !keysFilter[priv.Public().String()] {
+			return fmt.Errorf("invalid key for the input %s", acc.String())
 		}
+		sigs = append(sigs, priv.Sign(msg))
 	}
 	signed.Signatures = append(signed.Signatures, sigs)
 	return nil

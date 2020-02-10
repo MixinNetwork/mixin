@@ -23,11 +23,16 @@ type Node struct {
 	Transaction  crypto.Hash
 	Timestamp    uint64
 	idForNetwork crypto.Hash
+	networkId    crypto.Hash
 }
 
 func (n *Node) IdForNetwork(networkId crypto.Hash) crypto.Hash {
 	if !n.idForNetwork.HasValue() {
 		n.idForNetwork = n.Signer.Hash().ForNetwork(networkId)
+		n.networkId = networkId
+	}
+	if n.networkId != networkId {
+		panic(fmt.Errorf("invalid network id %s %s", n.networkId, networkId))
 	}
 	return n.idForNetwork
 }
