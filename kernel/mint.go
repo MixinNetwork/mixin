@@ -256,3 +256,19 @@ func (node *Node) sortMintNodes() []*common.Node {
 	})
 	return nodes
 }
+
+func (node *Node) sortAllNodesByTimestampAndId() []*common.Node {
+	nodes := node.persistStore.ReadAllNodes()
+	sort.Slice(nodes, func(i, j int) bool {
+		if nodes[i].Timestamp < nodes[j].Timestamp {
+			return true
+		}
+		if nodes[i].Timestamp > nodes[j].Timestamp {
+			return false
+		}
+		a := nodes[i].Signer.Hash().ForNetwork(node.networkId)
+		b := nodes[j].Signer.Hash().ForNetwork(node.networkId)
+		return a.String() < b.String()
+	})
+	return nodes
+}

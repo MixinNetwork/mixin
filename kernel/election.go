@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"sort"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -63,19 +62,7 @@ func (node *Node) checkRemovePossibility(now uint64) (*common.Node, error) {
 		return nil, fmt.Errorf("invalid node remove hour %d", hours%24)
 	}
 
-	nodes := node.persistStore.ReadAllNodes()
-	sort.Slice(nodes, func(i, j int) bool {
-		if nodes[i].Timestamp < nodes[j].Timestamp {
-			return true
-		}
-		if nodes[i].Timestamp > nodes[j].Timestamp {
-			return false
-		}
-		a := nodes[i].Signer.Hash().ForNetwork(node.networkId)
-		b := nodes[j].Signer.Hash().ForNetwork(node.networkId)
-		return a.String() < b.String()
-	})
-
+	nodes := node.sortAllNodesByTimestampAndId()
 	candi := nodes[0]
 	for _, cn := range nodes {
 		if cn.Timestamp == 0 {
