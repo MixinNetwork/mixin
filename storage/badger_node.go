@@ -161,10 +161,7 @@ func writeNodeCancel(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 		return err
 	}
 	key = nodeCancelKey(signer)
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, timestamp)
-	val := append(payee[:], tx[:]...)
-	val = append(val, buf...)
+	val := nodeEntryValue(payee, tx, timestamp)
 	return txn.Set(key, val)
 }
 
@@ -195,10 +192,7 @@ func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 		return err
 	}
 	key = nodeRemoveKey(signer)
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, timestamp)
-	val := append(payee[:], tx[:]...)
-	val = append(val, buf...)
+	val := nodeEntryValue(payee, tx, timestamp)
 	return txn.Set(key, val)
 }
 
@@ -228,10 +222,7 @@ func writeNodeAccept(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 		return err
 	}
 	key = nodeAcceptKey(signer)
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, timestamp)
-	val := append(payee[:], tx[:]...)
-	val = append(val, buf...)
+	val := nodeEntryValue(payee, tx, timestamp)
 	return txn.Set(key, val)
 }
 
@@ -258,11 +249,15 @@ func writeNodePledge(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 	}
 
 	key = nodePledgeKey(signer)
+	val := nodeEntryValue(payee, tx, timestamp)
+	return txn.Set(key, val)
+}
+
+func nodeEntryValue(payee crypto.Key, tx crypto.Hash, timestamp uint64) []byte {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, timestamp)
 	val := append(payee[:], tx[:]...)
-	val = append(val, buf...)
-	return txn.Set(key, val)
+	return append(val, buf...)
 }
 
 func nodeSignerForState(key []byte, nodeState string) common.Address {
