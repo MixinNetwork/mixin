@@ -82,6 +82,9 @@ func (node *Node) checkRemovePossibility(now uint64) (*common.Node, error) {
 			candi = cn
 		}
 	}
+	if candi.State != common.NodeStateAccepted {
+		return nil, fmt.Errorf("invalid node state %s %s", candi.IdForNetwork(node.networkId), candi.State)
+	}
 
 	days := int((now - node.Epoch) / 3600000000000 / 24)
 	threshold := time.Duration(days/MintYearBatches*MintYearBatches) * 24 * time.Hour
