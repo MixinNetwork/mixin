@@ -33,10 +33,10 @@ func (node *Node) ElectionLoop() error {
 	}
 
 	for {
+		time.Sleep(13 * time.Minute)
 		candi, err := node.checkRemovePossibility(uint64(time.Now().UnixNano()))
 		if err != nil {
 			logger.Printf("checkRemovePossibility %s", err.Error())
-			time.Sleep(13 * time.Minute)
 			continue
 		}
 
