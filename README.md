@@ -24,29 +24,32 @@ USAGE:
    mixin [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.3.2-fac0871857badab82333af6f4ad71d8ecb321e5a
+   v0.6.0-b1d678319311b9a429597c5a8e31deb493c0d86e
 
 COMMANDS:
-     kernel, k              Start the Mixin Kernel daemon
-     setuptestnet           Setup the test nodes and genesis
-     createaddress          Create a new Mixin address
-     decodeaddress          Decode an address as public view key and public spend key
-     updateheadreference    Update the cache round external reference, never use it unless agree by other nodes
-     removegraphentries     Remove data entries by prefix from the graph data storage
-     validategraphentries   Validate transaction hash integration
-     signrawtransaction     Sign a JSON encoded transaction
-     sendrawtransaction     Broadcast a hex encoded signed raw transaction
-     decoderawtransaction   Decode a raw transaction as JSON
-     getroundlink           Get the latest link between two nodes
-     getroundbynumber       Get a specific round
-     getroundbyhash         Get a specific round
-     listsnapshots          List finalized snapshots
-     getsnapshot            Get the snapshot by hash
-     gettransaction         Get the finalized transaction by hash
-     getutxo                Get the UTXO by hash and index
-     listmintdistributions  List mint distributions
-     getinfo                Get info from the node
-     help, h                Shows a list of commands or help for one command
+   kernel, k                    Start the Mixin Kernel daemon
+   setuptestnet                 Setup the test nodes and genesis
+   createaddress                Create a new Mixin address
+   decodeaddress                Decode an address as public view key and public spend key
+   decryptghostkey              Decrypt a ghost key with the private view key
+   updateheadreference          Update the cache round external reference, never use it unless agree by other nodes
+   removegraphentries           Remove data entries by prefix from the graph data storage
+   validategraphentries         Validate transaction hash integration
+   signrawtransaction           Sign a JSON encoded transaction
+   sendrawtransaction           Broadcast a hex encoded signed raw transaction
+   decoderawtransaction         Decode a raw transaction as JSON
+   buildnodecanceltransaction   Build the transaction to cancel a pledging node
+   decodenodepledgetransaction  Decode the extra info of a pledge transaction
+   getroundlink                 Get the latest link between two nodes
+   getroundbynumber             Get a specific round
+   getroundbyhash               Get a specific round
+   listsnapshots                List finalized snapshots
+   getsnapshot                  Get the snapshot by hash
+   gettransaction               Get the finalized transaction by hash
+   getutxo                      Get the UTXO by hash and index
+   listmintdistributions        List mint distributions
+   getinfo                      Get info from the node
+   help, h                      Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
    --help, -h     show help
