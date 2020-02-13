@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/binary"
+	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -53,6 +54,9 @@ func readSnapshotWithTopo(txn *badger.Txn, hash crypto.Hash) (*common.SnapshotWi
 }
 
 func (s *BadgerStore) ReadSnapshotWithTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, []*common.VersionedTransaction, error) {
+	if count > 500 {
+		return nil, nil, fmt.Errorf("count %d too large, the maximum is 500", count)
+	}
 	snapshots, err := s.ReadSnapshotsSinceTopology(topologyOffset, count)
 	if err != nil {
 		return nil, nil, err

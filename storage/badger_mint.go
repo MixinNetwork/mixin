@@ -10,6 +10,10 @@ import (
 )
 
 func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) ([]*common.MintDistribution, []*common.VersionedTransaction, error) {
+	if count > 500 {
+		return nil, nil, fmt.Errorf("count %d too large, the maximum is 500", count)
+	}
+
 	mints := make([]*common.MintDistribution, 0)
 	transactions := make([]*common.VersionedTransaction, 0)
 
