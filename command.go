@@ -460,6 +460,14 @@ func listMintDistributionsCmd(c *cli.Context) error {
 	return err
 }
 
+func listAllNodesCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "listallnodes", []interface{}{})
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
+
 func getInfoCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getinfo", []interface{}{})
 	if err == nil {

@@ -101,6 +101,13 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		} else {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": distributions})
 		}
+	case "listallnodes":
+		nodes, err := listAllNodes(impl.Store, impl.Node)
+		if err != nil {
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
+		} else {
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": nodes})
+		}
 	case "getroundbynumber":
 		round, err := getRoundByNumber(impl.Store, call.Params)
 		if err != nil {

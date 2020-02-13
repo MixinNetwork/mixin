@@ -257,7 +257,7 @@ func (node *Node) sortMintNodes() []*common.Node {
 	return nodes
 }
 
-func (node *Node) sortAllNodesByTimestampAndId() []*common.Node {
+func (node *Node) SortAllNodesByTimestampAndId() []*common.Node {
 	nodes := node.persistStore.ReadAllNodes()
 	sort.Slice(nodes, func(i, j int) bool {
 		if nodes[i].Timestamp < nodes[j].Timestamp {

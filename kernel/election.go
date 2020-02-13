@@ -62,7 +62,7 @@ func (node *Node) checkRemovePossibility(now uint64) (*common.Node, error) {
 		return nil, fmt.Errorf("invalid node remove hour %d", hours%24)
 	}
 
-	nodes := node.sortAllNodesByTimestampAndId()
+	nodes := node.SortAllNodesByTimestampAndId()
 	candi := nodes[0]
 	for _, cn := range nodes {
 		if cn.Timestamp == 0 {

@@ -408,6 +408,18 @@ func main() {
 			},
 		},
 		{
+			Name:   "listallnodes",
+			Usage:  "List all nodes ever existed",
+			Action: listAllNodesCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "node,n",
+					Value: "127.0.0.1:8239",
+					Usage: "the node RPC endpoint",
+				},
+			},
+		},
+		{
 			Name:   "getinfo",
 			Usage:  "Get info from the node",
 			Action: getInfoCmd,
