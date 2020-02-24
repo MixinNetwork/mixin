@@ -231,6 +231,7 @@ func setupTestNet(root string) ([]common.Address, error) {
 		}
 
 		configData, err := json.MarshalIndent(map[string]interface{}{
+			"environment":    "test",
 			"signer":         a.PrivateSpendKey.String(),
 			"listener":       nodes[i]["host"],
 			"cache-ttl":      3600,
