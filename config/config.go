@@ -32,6 +32,7 @@ const (
 )
 
 type custom struct {
+	Environment  string        `json:"environment"`
 	Signer       crypto.Key    `json:"signer"`
 	Listener     string        `json:"listener"`
 	MaxCacheSize int           `json:"max-cache-size"`

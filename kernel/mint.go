@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 )
 
@@ -118,7 +119,7 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.VersionedTransaction) error {
 	timestamp := snap.Timestamp
 	if snap.Timestamp == 0 && snap.NodeId == node.IdForNetwork {
-		timestamp = uint64(time.Now().UnixNano())
+		timestamp = uint64(clock.Now().UnixNano())
 	}
 	batch, amount := node.checkMintPossibility(timestamp, true)
 	if amount.Sign() <= 0 || batch <= 0 {

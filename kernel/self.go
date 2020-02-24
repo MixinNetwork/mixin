@@ -2,10 +2,10 @@ package kernel
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 )
 
@@ -93,7 +93,7 @@ func (node *Node) determinBestRound(roundTime uint64) *FinalRound {
 		if rts > roundTime {
 			continue
 		}
-		if rts+config.SnapshotRoundGap*rh > uint64(time.Now().UnixNano()) {
+		if rts+config.SnapshotRoundGap*rh > uint64(clock.Now().UnixNano()) {
 			continue
 		}
 		if rh > height || rts > start {

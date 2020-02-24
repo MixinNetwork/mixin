@@ -10,13 +10,14 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 )
 
 func (node *Node) ElectionLoop() error {
 	for node.Graph.MyCacheRound == nil {
 		time.Sleep(13 * time.Minute)
-		now := uint64(time.Now().UnixNano())
+		now := uint64(clock.Now().UnixNano())
 		if now < node.Epoch {
 			logger.Printf("LOCAL TIME INVALID %d %d\n", now, node.Epoch)
 			continue
@@ -34,7 +35,7 @@ func (node *Node) ElectionLoop() error {
 
 	for {
 		time.Sleep(13 * time.Minute)
-		candi, err := node.checkRemovePossibility(uint64(time.Now().UnixNano()))
+		candi, err := node.checkRemovePossibility(uint64(clock.Now().UnixNano()))
 		if err != nil {
 			logger.Printf("checkRemovePossibility %s", err.Error())
 			continue
@@ -291,7 +292,7 @@ func (node *Node) getInitialExternalReference(s *common.Snapshot) (*FinalRound, 
 func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	timestamp := s.Timestamp
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
-		timestamp = uint64(time.Now().UnixNano())
+		timestamp = uint64(clock.Now().UnixNano())
 	}
 
 	if timestamp < node.Epoch {
@@ -330,8 +331,8 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if timestamp > uint64(time.Now().UnixNano())+threshold {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", time.Now().UnixNano(), timestamp)
+	if timestamp > uint64(clock.Now().UnixNano())+threshold {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", clock.Now().UnixNano(), timestamp)
 	}
 	if cn := node.ConsensusPledging; cn != nil {
 		return fmt.Errorf("invalid node state %s %s", cn.Signer, cn.State)
@@ -417,7 +418,7 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 
 	timestamp := s.Timestamp
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
-		timestamp = uint64(time.Now().UnixNano())
+		timestamp = uint64(clock.Now().UnixNano())
 	}
 	if timestamp < node.Epoch {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
@@ -452,7 +453,7 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	timestamp := s.Timestamp
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
-		timestamp = uint64(time.Now().UnixNano())
+		timestamp = uint64(clock.Now().UnixNano())
 	}
 	candi, err := node.checkRemovePossibility(timestamp)
 	if err != nil {
@@ -507,7 +508,7 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid snapshot round %d", s.RoundNumber)
 	}
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
-		timestamp = uint64(time.Now().UnixNano())
+		timestamp = uint64(clock.Now().UnixNano())
 	}
 	if timestamp < node.Epoch {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)

@@ -14,6 +14,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/network"
 	"github.com/MixinNetwork/mixin/storage"
@@ -65,13 +66,13 @@ func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr str
 		cosiActionsChan: make(chan *CosiAction, MempoolSize),
 		configDir:       dir,
 		TopoCounter:     getTopologyCounter(persistStore),
-		startAt:         time.Now(),
+		startAt:         clock.Now(),
 	}
 
 	node.LoadNodeConfig()
 
 	logger.Println("Validating graph entries...")
-	start := time.Now()
+	start := clock.Now()
 	var state struct{ Id crypto.Hash }
 	_, err := node.persistStore.StateGet("network", &state)
 	if err != nil {
@@ -84,7 +85,7 @@ func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr str
 	if invalid > 0 {
 		return nil, fmt.Errorf("Validate graph with %d/%d invalid entries\n", invalid, total)
 	}
-	logger.Printf("Validate graph with %d total entries in %s\n", total, time.Now().Sub(start).String())
+	logger.Printf("Validate graph with %d total entries in %s\n", total, clock.Now().Sub(start).String())
 
 	err = node.LoadGenesis(dir)
 	if err != nil {
@@ -128,7 +129,7 @@ func (node *Node) LoadNodeConfig() {
 
 func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
 	if timestamp == 0 {
-		timestamp = uint64(time.Now().UnixNano())
+		timestamp = uint64(clock.Now().UnixNano())
 	}
 
 	var keys []*crypto.Key
@@ -145,7 +146,7 @@ func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
 
 func (node *Node) ConsensusThreshold(timestamp uint64) int {
 	if timestamp == 0 {
-		timestamp = uint64(time.Now().UnixNano())
+		timestamp = uint64(clock.Now().UnixNano())
 	}
 	consensusBase := 0
 	for _, cn := range node.ActiveNodes {
@@ -265,7 +266,7 @@ func (node *Node) NetworkId() crypto.Hash {
 }
 
 func (node *Node) Uptime() time.Duration {
-	return time.Now().Sub(node.startAt)
+	return clock.Now().Sub(node.startAt)
 }
 
 func (node *Node) GetCacheStore() *fastcache.Cache {
@@ -278,7 +279,7 @@ func (node *Node) BuildGraph() []*network.SyncPoint {
 
 func (node *Node) BuildAuthenticationMessage() []byte {
 	data := make([]byte, 8)
-	binary.BigEndian.PutUint64(data, uint64(time.Now().Unix()))
+	binary.BigEndian.PutUint64(data, uint64(clock.Now().Unix()))
 	hash := node.Signer.Hash().ForNetwork(node.networkId)
 	data = append(data, hash[:]...)
 	sig := node.Signer.PrivateSpendKey.Sign(data)
@@ -288,7 +289,7 @@ func (node *Node) BuildAuthenticationMessage() []byte {
 
 func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	ts := binary.BigEndian.Uint64(msg[:8])
-	if time.Now().Unix()-int64(ts) > 3 {
+	if clock.Now().Unix()-int64(ts) > 3 {
 		return crypto.Hash{}, "", errors.New("peer authentication message timeout")
 	}
 
@@ -407,7 +408,7 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 		if cf.Hash != remote.Hash {
 			return false
 		}
-		if cf.Start+config.SnapshotRoundGap*100 > uint64(time.Now().UnixNano()) {
+		if cf.Start+config.SnapshotRoundGap*100 > uint64(clock.Now().UnixNano()) {
 			return false
 		}
 	}

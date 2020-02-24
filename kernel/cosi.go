@@ -9,6 +9,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 )
 
@@ -109,7 +110,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	}
 
 	if node.checkInitialAcceptSnapshot(s, tx) {
-		s.Timestamp = uint64(time.Now().UnixNano())
+		s.Timestamp = uint64(clock.Now().UnixNano())
 		s.Hash = s.PayloadHash()
 		v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
 		R := v.random.Public()
@@ -137,7 +138,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 		return node.clearAndQueueSnapshotOrPanic(s)
 	}
 	for {
-		s.Timestamp = uint64(time.Now().UnixNano())
+		s.Timestamp = uint64(clock.Now().UnixNano())
 		if s.Timestamp > cache.Timestamp {
 			break
 		}
@@ -245,7 +246,7 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		return nil
 	}
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if s.Timestamp > uint64(time.Now().UnixNano())+threshold {
+	if s.Timestamp > uint64(clock.Now().UnixNano())+threshold {
 		return nil
 	}
 	if s.Timestamp+threshold*2 < node.Graph.GraphTimestamp {
@@ -448,7 +449,7 @@ func (node *Node) cosiHandleChallenge(m *CosiAction) error {
 
 	s := v.Snapshot
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if s.Timestamp > uint64(time.Now().UnixNano())+threshold {
+	if s.Timestamp > uint64(clock.Now().UnixNano())+threshold {
 		return nil
 	}
 	if s.Timestamp+threshold*2 < node.Graph.GraphTimestamp {
