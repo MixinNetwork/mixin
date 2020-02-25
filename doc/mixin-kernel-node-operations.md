@@ -1,8 +1,8 @@
 # Mixin Kernel Node Operations
 
-This article describes the basic operations to run a Mixin Kernel Full Node, which validates all transactions and records snapshots in the ledger. 
+This article describes the basic operations to run a Mixin Kernel Full Node, which validates all transactions and records snapshots in the ledger.
 
-To read this article, you need to have a good understanding of the transaction data format. You can find details at [Mixin Kernel Transactions](../mixin-kernel-transactions.md).
+To read this article, you need to have a good understanding of the transaction data format. You can find details at [Mixin Kernel Transactions](./mixin-kernel-transactions.md).
 
 ## Boot Node
 
@@ -12,35 +12,35 @@ To boot a fresh Mixin Kernel Full Node, you need to generate your keys, send the
 
 2. Add `mixin` to your `$PATH`, then create a directory `~/mixin` with `genesis.json` and `nodes.json` in it.
 
-3. Generate your own node signer and payee keys by executing `mixin createaddress --public` twice. 
+3. Generate your own node signer and payee keys by executing `mixin createaddress --public` twice.
 
 4. Store your signer and payee spend key securely and they can't be recovered if you lost them.
 
 5. Rename `config.example.json` to `config.json` and put it in`~/mixin`. Edit `~/mixin/config.json` with your own `signer` private spend key and `listener`.
 
-6. Send the pledge transaction to any other running Kernel Node, if it failes due to pending node operations, wait and try again.
+6. Send the pledge transaction to any other running Kernel Node, if it fails due to pending node operations, wait and try again.
 
 7. If your pledge transaction succeed, you can run the daemon `mixin kernel -d ~/mixin`.
 
-## Kenel Concepts
+## Kernel Concepts
 
-There are 5 Kernel Node operations, `pledge`, `cancel`, `accept`, `resign` and `remove`. 
+There are 5 Kernel Node operations, `pledge`, `cancel`, `accept`, `resign` and `remove`.
 
-Every successfull Kernel Node operation will prevent further Kernel Node operations for at least 12 hours.
+Every successful Kernel Node operation will prevent further Kernel Node operations for at least 12 hours.
 
 A Kernel Year is 365 natural days, and all nodes will be removed one by one at the beginning of a new Kernel Year.
 
-The Kernel Pledge Amount is 10000XIN for the first Kernel Year, and will change every Kernel Year.
+The Kernel Pledge Amount is 10000 XIN for the first Kernel Year, and will change every Kernel Year.
 
 ## Pledge Transaction
 
 This transaction will pledge your node, and the node will be accepted to the Kernel by the automatic accept transaction.
 
-- **inputs**: any amout of inputs from any signers, with the exact total Kernel Pledge Amount and all should be the type `0x00`.
+- **inputs**: any amount of inputs from any signers, with the exact total Kernel Pledge Amount and all should be the type `0x00`.
 
 - **outputs**: one single output with type `0xa3`, the exact Kernel Pledge Amount, zero keys, empty script and empty mask.
 
-- **extra**: 64 bytes extra which is the concat of signer public spend key and payee public spend key.
+- **extra**: 64 bytes extra which is the concatenation of signer public spend key and payee public spend key.
 
 This transaction can be sent out at any time before 14 days of the next Kernel Year and after 24 hours of a new Kernel Year.
 
@@ -70,7 +70,7 @@ After the pledge transaction, you can start your kernel daemon, then the daemon 
 
 - **extra**: 64 bytes same as the pledge transaction extra.
 
-This transaction must get snapshoted by the exact fresh node as its first snapshot.
+This transaction must get snapshot by the exact fresh node as its first snapshot.
 
 This transaction must be sent out after at least 12 hours of the pledge transaction, no more than 168 hours after the pledge transaction and from 13:00 UTC to 19:00 UTC.
 
@@ -92,7 +92,7 @@ This transaction will block any further `pledge`, `cancel`, or `resign` transact
 
 ## Remove Transaction
 
-When a new Kernel Year started or a resign transaction snapshoted, the Kernel will send out a remove transaction automatically.
+When a new Kernel Year starts or a resign transaction gets snapshot, the Kernel will send out a remove transaction automatically.
 
 - **inputs**: the single accept transaction output as the only input.
 
@@ -100,7 +100,7 @@ When a new Kernel Year started or a resign transaction snapshoted, the Kernel wi
 
 - **extra**: 64 bytes same as the accept transaction extra.
 
-This transaction must not get snapshoted by the node to be removed.
+This transaction must not get snapshot by the node to be removed.
 
 This transaction must be sent out after at least 12 hours of the resign transaction, and from 13:00 UTC to 19:00 UTC.
 
