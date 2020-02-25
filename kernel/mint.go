@@ -89,7 +89,7 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 
 	if diff.Sign() > 0 {
 		addr := common.NewAddressFromSeed(make([]byte, 64))
-		script := common.NewThresholdScript(64)
+		script := common.NewThresholdScript(common.Operator64)
 		in := fmt.Sprintf("MINTKERNELNODE%dDIFF", batch)
 		si := crypto.NewHash([]byte(addr.String() + in))
 		seed := append(si[:], si[:]...)
@@ -145,7 +145,7 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 		if out.Type != common.OutputTypeScript {
 			return fmt.Errorf("invalid mint diff type %d", out.Type)
 		}
-		if out.Script.String() != common.NewThresholdScript(64).String() {
+		if out.Script.String() != common.NewThresholdScript(common.Operator64).String() {
 			return fmt.Errorf("invalid mint diff script %s", out.Script.String())
 		}
 		if len(out.Keys) != 1 {

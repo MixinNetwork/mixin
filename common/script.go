@@ -21,10 +21,13 @@ func NewThresholdScript(threshold uint8) Script {
 
 func (s Script) VerifyFormat() error {
 	if len(s) != 3 {
-		return fmt.Errorf("invalid script %d", len(s))
+		return fmt.Errorf("invalid script length %d", len(s))
 	}
 	if s[0] != OperatorCmp || s[1] != OperatorSum {
-		return fmt.Errorf("invalid script %d %d", s[0], s[1])
+		return fmt.Errorf("invalid script operators %d %d", s[0], s[1])
+	}
+	if s[2] > Operator64 {
+		return fmt.Errorf("invalid script threshold %d", s[2])
 	}
 	return nil
 }
