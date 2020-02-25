@@ -49,7 +49,7 @@ All transaction related API exposed externally have and should always have a con
 
 - **outputs**: an array of output objects, which can be used as the inputs of future transactions.
 
-- **version**: an int number to hint the current transaction format.
+- **version**: a uint8 number to hint the current transaction format.
 
 The genesis input is only used when the network boot from genesis.json, only those genesis Kernel Nodes accept transactions have this kind of inputs.
 
@@ -102,6 +102,6 @@ The output target is always masked and can be spent according to the type and sc
 
 - **mask**: HEX representation of 32 bytes key, which is used to parse the ghost keys.
 
-- **script**: HEX representation of `{0xff, 0xfe, T}`, while `0 <=T <= 0x40`, where T is the required number of signatures from keys to spend this output.
+- **script**: HEX representation of `{0xff, 0xfe, T}`, while `0 <= T <= 0x40`, where T is the required number of signatures from keys to spend this output.
 
-- **type**: an int to constraint when and how this output can be spent as an input, usually 0 which means it can be spent once the script fulfilled.
+- **type**: a uint8 number to constraint when and how this output can be spent as an input, usually 0 which means it can be spent once the script fulfilled.
