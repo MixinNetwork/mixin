@@ -32,11 +32,12 @@ const (
 )
 
 type custom struct {
-	Environment  string        `json:"environment"`
-	Signer       crypto.Key    `json:"signer"`
-	Listener     string        `json:"listener"`
-	MaxCacheSize int           `json:"max-cache-size"`
-	CacheTTL     time.Duration `json:"cache-ttl"`
+	Environment    string        `json:"environment"`
+	Signer         crypto.Key    `json:"signer"`
+	Listener       string        `json:"listener"`
+	MaxCacheSize   int           `json:"max-cache-size"`
+	ElectionTicker int           `json:"election-ticker"`
+	CacheTTL       time.Duration `json:"cache-ttl"`
 }
 
 var Custom *custom
@@ -59,6 +60,9 @@ func Initialize(file string) error {
 	}
 	if config.MaxCacheSize == 0 {
 		config.MaxCacheSize = 1024 * 16
+	}
+	if config.ElectionTicker == 0 {
+		config.ElectionTicker = 700
 	}
 	Custom = &config
 	return nil
