@@ -46,13 +46,15 @@ func TestConsensus(t *testing.T) {
 	for i, _ := range accounts {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
 		config.Initialize(dir + "/config.json")
-		kernel.TestMockDiff(epoch.Sub(time.Now()))
 		cache := fastcache.New(config.Custom.MaxCacheSize * 1024 * 1024)
 		store, err := storage.NewBadgerStore(dir)
 		assert.Nil(err)
 		assert.NotNil(store)
 		stores = append(stores, store)
 		testIntializeConfig(dir + "/config.json")
+		if i == 0 {
+			kernel.TestMockDiff(epoch.Sub(time.Now()))
+		}
 		node, err := kernel.SetupNode(store, cache, fmt.Sprintf(":170%02d", i+1), dir)
 		assert.Nil(err)
 		assert.NotNil(node)
@@ -71,6 +73,8 @@ func TestConsensus(t *testing.T) {
 	tl, sl := testVerifySnapshots(assert, nodes)
 	assert.Equal(NODES+1, tl)
 	assert.Equal(NODES+1, sl)
+	gt := testVerifyInfo(assert, nodes)
+	assert.True(gt.Timestamp.Before(epoch.Add(1 * time.Second)))
 
 	domainAddress := accounts[0].String()
 	deposits := make([]*common.VersionedTransaction, 0)
@@ -105,6 +109,8 @@ func TestConsensus(t *testing.T) {
 	time.Sleep(10 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS+NODES+1, tl)
+	gt = testVerifyInfo(assert, nodes)
+	assert.True(gt.Timestamp.Before(epoch.Add(1 * time.Second)))
 
 	utxos := make([]*common.VersionedTransaction, 0)
 	for _, d := range deposits {
@@ -141,11 +147,29 @@ func TestConsensus(t *testing.T) {
 	time.Sleep(10 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1, tl)
+	gt = testVerifyInfo(assert, nodes)
+	assert.True(gt.Timestamp.Before(epoch.Add(21 * time.Second)))
+
+	kernel.TestMockDiff((config.KernelMintTimeBegin + 24) * time.Hour)
+	time.Sleep(3 * time.Second)
+	tl, sl = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1, tl)
+	gt = testVerifyInfo(assert, nodes)
+	assert.True(gt.Timestamp.Before(epoch.Add(21 * time.Second)))
 
 	testBuildPledgeInput(assert, nodes[0], accounts[0], utxos)
 	time.Sleep(3 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1, tl)
+	gt = testVerifyInfo(assert, nodes)
+	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
+
+	kernel.TestMockDiff(24 * time.Hour)
+	time.Sleep(3 * time.Second)
+	tl, sl = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1, tl)
+	gt = testVerifyInfo(assert, nodes)
+	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
 }
 
 func testIntializeConfig(file string) {
@@ -344,6 +368,16 @@ func testSignTransaction(node string, account common.Address, rawStr string) (*c
 	return signed, nil
 }
 
+func testVerifyInfo(assert *assert.Assertions, nodes []string) Info {
+	info := testGetGraphInfo(nodes[0])
+	for _, n := range nodes {
+		a := testGetGraphInfo(n)
+		assert.Equal(info.Timestamp, a.Timestamp)
+		assert.Equal(info.PoolSize, a.PoolSize)
+	}
+	return info
+}
+
 func testVerifySnapshots(assert *assert.Assertions, nodes []string) (int, int) {
 	filters := make([]map[string]*common.Snapshot, 0)
 	for _, n := range nodes {
@@ -404,6 +438,34 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 		filter[s.Hash.String()] = s
 	}
 	return filter
+}
+
+type Info struct {
+	Timestamp time.Time
+	PoolSize  common.Integer
+}
+
+func testGetGraphInfo(node string) Info {
+	data, err := callRPC(node, "getinfo", []interface{}{})
+	if err != nil {
+		panic(err)
+	}
+	var info struct {
+		Timestamp string         `json:"timestamp"`
+		PoolSize  common.Integer `json:"pool"`
+	}
+	err = json.Unmarshal(data, &info)
+	if err != nil {
+		panic(err)
+	}
+	t, err := time.Parse(time.RFC3339Nano, info.Timestamp)
+	if err != nil {
+		panic(err)
+	}
+	return Info{
+		Timestamp: t,
+		PoolSize:  info.PoolSize,
+	}
 }
 
 var httpClient *http.Client
