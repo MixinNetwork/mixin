@@ -22,18 +22,18 @@ All snapshot related API exposed externally have and should always have a consis
 }
 ```
 
-- hash: HEX representation of a 32 bytes hash, which is the unique snapshot identifier.
+- **hash**: HEX representation of a 32 bytes hash, which is the unique snapshot identifier.
 
-- node: HEX representation of a 32 bytes hash, which is the node id which leads this snapshot.
+- **node**: HEX representation of a 32 bytes hash, which is the node id which leads this snapshot.
 
-- references: the previous round hashes of the leading node and another node conforms to the consensus.
+- **references**: the previous round hashes of the leading node and another node conforms to the consensus.
 
-- round: a uint64 round number of this snapshot, round is similar to the block of Bitcoin.
+- **round**: a uint64 round number of this snapshot, round is similar to the block of Bitcoin.
 
-- timestamp: a uint64 nanosecond since Unix epoch, which is provided by the leading node and agreed upon consensus.
+- **timestamp**: a uint64 nanosecond since Unix epoch, which is provided by the leading node and agreed upon consensus.
 
-- topology: a uint64 number as the snapshot order in all snapshots, this value is the only node provided value, not included in the hash and not agreed by consensus.
+- **topology**: a uint64 number as the snapshot order in all snapshots, this value is the only node provided value, **NOT** included in the hash and not agreed by consensus.
 
-- transaction: HEX representation of a 32 bytes hash, which is the transaction hash included by this snapshot.
+- **transaction**: HEX representation of a 32 bytes hash, which is the transaction hash included by this snapshot.
 
-- version: a uint8 number to hint the current snapshot format.
+- **version**: a uint8 number to hint the current snapshot format.
