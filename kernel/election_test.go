@@ -8,6 +8,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/stretchr/testify/assert"
@@ -60,12 +61,20 @@ func TestNodeRemovePossibility(t *testing.T) {
 	assert.Equal("fffe01", tx.Outputs[0].Script.String())
 	assert.Equal(uint8(common.OutputTypeNodeRemove), tx.Outputs[0].Type)
 	assert.Equal(uint8(common.TransactionTypeNodeRemove), tx.TransactionType())
+	assert.Len(tx.Outputs[0].Keys, 1)
 
 	err = tx.SignInput(node.persistStore, 0, []common.Address{node.Signer})
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid key for the input")
 	err = tx.Validate(node.persistStore)
 	assert.Nil(err)
+
+	payee, err := common.NewAddressFromString("XINYDpVHXHxkFRPbP9LZak5p7FZs3mWTeKvrAzo4g9uziTW99t7LrU7me66Xhm6oXGTbYczQLvznk3hxgNSfNBaZveAmEeRM")
+	assert.Nil(err)
+	mask := tx.Outputs[0].Mask
+	ghost := tx.Outputs[0].Keys[0]
+	view := payee.PublicSpendKey.DeterministicHashDerive()
+	assert.Equal(payee.PublicSpendKey.String(), crypto.ViewGhostOutputKey(&ghost, &view, &mask, 0).String())
 }
 
 func setupTestNode(assert *assert.Assertions, dir string) *Node {
