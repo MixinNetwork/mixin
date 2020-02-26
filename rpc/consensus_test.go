@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	NODES  = 9
+	NODES  = 8
 	INPUTS = 100
 )
 
@@ -164,12 +164,6 @@ func TestConsensus(t *testing.T) {
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.Before(epoch.Add(61 * time.Second)))
 
-	time.Sleep(3 * time.Second)
-	tl, sl = testVerifySnapshots(assert, nodes)
-	assert.Equal(INPUTS*2+NODES+1+1, tl)
-	gt = testVerifyInfo(assert, nodes)
-	assert.True(gt.Timestamp.Before(epoch.Add(61 * time.Second)))
-
 	pn := testPledgeNewNode(assert, nodes[0], accounts[0], gdata, ndata, input, root)
 	time.Sleep(3 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
@@ -183,6 +177,28 @@ func TestConsensus(t *testing.T) {
 	assert.Equal(all[NODES].Signer.String(), pn.Signer.String())
 	assert.Equal(all[NODES].Payee.String(), pn.Payee.String())
 	assert.Equal("PLEDGING", all[NODES].State)
+
+	kernel.TestMockDiff(11 * time.Hour)
+	time.Sleep(3 * time.Second)
+	all = testListNodes(nodes[0])
+	assert.Len(all, NODES+1)
+	assert.Equal(all[NODES].Signer.String(), pn.Signer.String())
+	assert.Equal(all[NODES].Payee.String(), pn.Payee.String())
+	assert.Equal("PLEDGING", all[NODES].State)
+
+	kernel.TestMockDiff(1 * time.Hour)
+	time.Sleep(5 * time.Second)
+	all = testListNodes(nodes[0])
+	assert.Len(all, NODES+1)
+	assert.Equal(all[NODES].Signer.String(), pn.Signer.String())
+	assert.Equal(all[NODES].Payee.String(), pn.Payee.String())
+	assert.Equal("ACCEPTED", all[NODES].State)
+
+	tl, sl = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1+2+1, tl)
+	gt = testVerifyInfo(assert, nodes)
+	assert.True(gt.Timestamp.After(epoch.Add((config.KernelMintTimeBegin + 24) * time.Hour)))
+	assert.Equal("499876.71232883", gt.PoolSize.String())
 }
 
 func testIntializeConfig(file string) {
@@ -279,6 +295,18 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 	ver := common.VersionedTransaction{SignedTransaction: *tx}
 	_, err = testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
 	assert.Nil(err)
+
+	config.Initialize(dir + "/config.json")
+	cache := fastcache.New(config.Custom.MaxCacheSize * 1024 * 1024)
+	store, err := storage.NewBadgerStore(dir)
+	assert.Nil(err)
+	assert.NotNil(store)
+	testIntializeConfig(dir + "/config.json")
+	pnode, err := kernel.SetupNode(store, cache, fmt.Sprintf(":170%02d", 99), dir)
+	assert.Nil(err)
+	assert.NotNil(pnode)
+	go pnode.Loop()
+
 	return Node{Signer: signer, Payee: payee}
 }
 
