@@ -39,12 +39,14 @@ func TestConsensus(t *testing.T) {
 	assert.Nil(err)
 	assert.Len(accounts, NODES)
 
+	epoch := time.Unix(1551312000, 0)
 	nodes := make([]string, 0)
 	instances := make([]*kernel.Node, 0)
 	stores := make([]storage.Store, 0)
 	for i, _ := range accounts {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
 		config.Initialize(dir + "/config.json")
+		kernel.TestMockDiff(epoch.Sub(time.Now()))
 		cache := fastcache.New(config.Custom.MaxCacheSize * 1024 * 1024)
 		store, err := storage.NewBadgerStore(dir)
 		assert.Nil(err)
@@ -139,15 +141,22 @@ func TestConsensus(t *testing.T) {
 	time.Sleep(10 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1, tl)
+
+	testBuildPledgeInput(assert, nodes[0], accounts[0], utxos)
+	time.Sleep(3 * time.Second)
+	tl, sl = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1, tl)
 }
 
 func testIntializeConfig(file string) {
 	f, _ := ioutil.ReadFile(file)
 	var c struct {
-		Signer       crypto.Key    `json:"signer"`
-		Listener     string        `json:"listener"`
-		MaxCacheSize int           `json:"max-cache-size"`
-		CacheTTL     time.Duration `json:"cache-ttl"`
+		Environment    string        `json:"environment"`
+		Signer         crypto.Key    `json:"signer"`
+		Listener       string        `json:"listener"`
+		MaxCacheSize   int           `json:"max-cache-size"`
+		ElectionTicker int           `json:"election-ticker"`
+		CacheTTL       time.Duration `json:"cache-ttl"`
 	}
 	json.Unmarshal(f, &c)
 	if c.CacheTTL == 0 {
@@ -156,10 +165,47 @@ func testIntializeConfig(file string) {
 	if c.MaxCacheSize == 0 {
 		c.MaxCacheSize = 32
 	}
+	if c.ElectionTicker == 0 {
+		c.ElectionTicker = 2
+	}
+	config.Custom.Environment = c.Environment
 	config.Custom.Signer = c.Signer
 	config.Custom.Listener = c.Listener
 	config.Custom.CacheTTL = c.CacheTTL
 	config.Custom.MaxCacheSize = c.MaxCacheSize
+	config.Custom.ElectionTicker = c.ElectionTicker
+}
+
+func testBuildPledgeInput(assert *assert.Assertions, node string, domain common.Address, utxos []*common.VersionedTransaction) (string, error) {
+	inputs := []map[string]interface{}{}
+	for _, tx := range utxos {
+		inputs = append(inputs, map[string]interface{}{
+			"hash":  tx.PayloadHash().String(),
+			"index": 0,
+		})
+	}
+	raw, err := json.Marshal(map[string]interface{}{
+		"version": 1,
+		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
+		"inputs":  inputs,
+		"outputs": []map[string]interface{}{{
+			"type":     0,
+			"amount":   "3.5",
+			"script":   "fffe01",
+			"accounts": []string{domain.String()},
+		}, {
+			"type":     0,
+			"amount":   "10000",
+			"script":   "fffe01",
+			"accounts": []string{domain.String()},
+		}},
+	})
+	tx, err := testSignTransaction(node, domain, string(raw))
+	assert.Nil(err)
+	ver := common.VersionedTransaction{SignedTransaction: *tx}
+	input, err := testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
+	assert.Nil(err)
+	return input, err
 }
 
 func testSendTransaction(node, raw string) (string, error) {
@@ -197,7 +243,7 @@ func setupTestNet(root string) ([]common.Address, error) {
 		})
 	}
 	genesis := map[string]interface{}{
-		"epoch": time.Now().Unix(),
+		"epoch": 1551312000,
 		"nodes": inputs,
 		"domains": []map[string]string{
 			{
@@ -231,11 +277,12 @@ func setupTestNet(root string) ([]common.Address, error) {
 		}
 
 		configData, err := json.MarshalIndent(map[string]interface{}{
-			"environment":    "test",
-			"signer":         a.PrivateSpendKey.String(),
-			"listener":       nodes[i]["host"],
-			"cache-ttl":      3600,
-			"max-cache-size": 128,
+			"environment":     "test",
+			"signer":          a.PrivateSpendKey.String(),
+			"listener":        nodes[i]["host"],
+			"cache-ttl":       3600,
+			"election-ticker": 2,
+			"max-cache-size":  128,
 		}, "", "  ")
 		if err != nil {
 			return nil, err

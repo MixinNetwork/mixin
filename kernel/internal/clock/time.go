@@ -26,7 +26,7 @@ func MockDiff(at time.Duration) {
 
 	mutex.Lock()
 	defer mutex.Unlock()
-	mockDiff = at
+	mockDiff += at
 }
 
 func Now() time.Time {

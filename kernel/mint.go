@@ -30,7 +30,7 @@ func init() {
 
 func (node *Node) MintLoop() error {
 	for {
-		time.Sleep(7 * time.Minute)
+		time.Sleep(time.Duration(config.Custom.ElectionTicker) * time.Second)
 
 		batch, amount := node.checkMintPossibility(node.Graph.GraphTimestamp, false)
 		if amount.Sign() <= 0 || batch <= 0 {
