@@ -35,8 +35,7 @@ func TestConsensus(t *testing.T) {
 	assert.Nil(err)
 	defer os.RemoveAll(root)
 
-	accounts, err := setupTestNet(root)
-	assert.Nil(err)
+	accounts, gdata, ndata := setupTestNet(root)
 	assert.Len(accounts, NODES)
 
 	epoch := time.Unix(1551312000, 0)
@@ -148,28 +147,42 @@ func TestConsensus(t *testing.T) {
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1, tl)
 	gt = testVerifyInfo(assert, nodes)
-	assert.True(gt.Timestamp.Before(epoch.Add(21 * time.Second)))
+	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
 
 	kernel.TestMockDiff((config.KernelMintTimeBegin + 24) * time.Hour)
 	time.Sleep(3 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1, tl)
 	gt = testVerifyInfo(assert, nodes)
-	assert.True(gt.Timestamp.Before(epoch.Add(21 * time.Second)))
+	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
 
-	testBuildPledgeInput(assert, nodes[0], accounts[0], utxos)
+	input, err := testBuildPledgeInput(assert, nodes[0], accounts[0], utxos)
+	assert.Nil(err)
 	time.Sleep(3 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1, tl)
 	gt = testVerifyInfo(assert, nodes)
-	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
+	assert.True(gt.Timestamp.Before(epoch.Add(61 * time.Second)))
 
-	kernel.TestMockDiff(24 * time.Hour)
 	time.Sleep(3 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1, tl)
 	gt = testVerifyInfo(assert, nodes)
-	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
+	assert.True(gt.Timestamp.Before(epoch.Add(61 * time.Second)))
+
+	pn := testPledgeNewNode(assert, nodes[0], accounts[0], gdata, ndata, input, root)
+	time.Sleep(3 * time.Second)
+	tl, sl = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1+2, tl)
+	gt = testVerifyInfo(assert, nodes)
+	assert.True(gt.Timestamp.After(epoch.Add((config.KernelMintTimeBegin + 24) * time.Hour)))
+	assert.Equal("499876.71232883", gt.PoolSize.String())
+
+	all := testListNodes(nodes[0])
+	assert.Len(all, NODES+1)
+	assert.Equal(all[NODES].Signer.String(), pn.Signer.String())
+	assert.Equal(all[NODES].Payee.String(), pn.Payee.String())
+	assert.Equal("PLEDGING", all[NODES].State)
 }
 
 func testIntializeConfig(file string) {
@@ -198,6 +211,75 @@ func testIntializeConfig(file string) {
 	config.Custom.CacheTTL = c.CacheTTL
 	config.Custom.MaxCacheSize = c.MaxCacheSize
 	config.Custom.ElectionTicker = c.ElectionTicker
+}
+
+func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Address, genesisData, nodesData []byte, input, root string) Node {
+	var signer, payee common.Address
+
+	randomPubAccount := func() common.Address {
+		seed := make([]byte, 64)
+		_, err := rand.Read(seed)
+		if err != nil {
+			panic(err)
+		}
+		account := common.NewAddressFromSeed(seed)
+		account.PrivateViewKey = account.PublicSpendKey.DeterministicHashDerive()
+		account.PublicViewKey = account.PrivateViewKey.Public()
+		return account
+	}
+	signer = randomPubAccount()
+	payee = randomPubAccount()
+
+	dir := fmt.Sprintf("%s/mixin-17099", root)
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		panic(err)
+	}
+
+	configData, err := json.MarshalIndent(map[string]interface{}{
+		"environment":     "test",
+		"signer":          signer.PrivateSpendKey.String(),
+		"listener":        "127.0.0.1:17099",
+		"cache-ttl":       3600,
+		"election-ticker": 2,
+		"max-cache-size":  128,
+	}, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+
+	err = ioutil.WriteFile(dir+"/config.json", configData, 0644)
+	if err != nil {
+		panic(err)
+	}
+	err = ioutil.WriteFile(dir+"/genesis.json", genesisData, 0644)
+	if err != nil {
+		panic(err)
+	}
+	err = ioutil.WriteFile(dir+"/nodes.json", nodesData, 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	raw, err := json.Marshal(map[string]interface{}{
+		"version": 1,
+		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
+		"inputs": []map[string]interface{}{{
+			"hash":  input,
+			"index": 1,
+		}},
+		"outputs": []map[string]interface{}{{
+			"type":   common.OutputTypeNodePledge,
+			"amount": "10000",
+		}},
+		"extra": signer.PublicSpendKey.String() + payee.PublicSpendKey.String(),
+	})
+	tx, err := testSignTransaction(node, domain, string(raw))
+	assert.Nil(err)
+	ver := common.VersionedTransaction{SignedTransaction: *tx}
+	_, err = testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
+	assert.Nil(err)
+	return Node{Signer: signer, Payee: payee}
 }
 
 func testBuildPledgeInput(assert *assert.Assertions, node string, domain common.Address, utxos []*common.VersionedTransaction) (string, error) {
@@ -229,7 +311,9 @@ func testBuildPledgeInput(assert *assert.Assertions, node string, domain common.
 	ver := common.VersionedTransaction{SignedTransaction: *tx}
 	input, err := testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
 	assert.Nil(err)
-	return input, err
+	var hash map[string]string
+	err = json.Unmarshal([]byte(input), &hash)
+	return hash["hash"], err
 }
 
 func testSendTransaction(node, raw string) (string, error) {
@@ -239,7 +323,7 @@ func testSendTransaction(node, raw string) (string, error) {
 	return string(data), err
 }
 
-func setupTestNet(root string) ([]common.Address, error) {
+func setupTestNet(root string) ([]common.Address, []byte, []byte) {
 	var signers, payees []common.Address
 
 	randomPubAccount := func() common.Address {
@@ -278,7 +362,7 @@ func setupTestNet(root string) ([]common.Address, error) {
 	}
 	genesisData, err := json.MarshalIndent(genesis, "", "  ")
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
 	nodes := make([]map[string]string, 0)
@@ -290,14 +374,14 @@ func setupTestNet(root string) ([]common.Address, error) {
 	}
 	nodesData, err := json.MarshalIndent(nodes, "", "  ")
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
 	for i, a := range signers {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
 		err := os.MkdirAll(dir, 0755)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 
 		configData, err := json.MarshalIndent(map[string]interface{}{
@@ -309,30 +393,30 @@ func setupTestNet(root string) ([]common.Address, error) {
 			"max-cache-size":  128,
 		}, "", "  ")
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 
 		err = ioutil.WriteFile(dir+"/config.json", configData, 0644)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 		err = ioutil.WriteFile(dir+"/genesis.json", genesisData, 0644)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 		err = ioutil.WriteFile(dir+"/nodes.json", nodesData, 0644)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 	}
-	return signers, nil
+	return signers, genesisData, nodesData
 }
 
 func testSignTransaction(node string, account common.Address, rawStr string) (*common.SignedTransaction, error) {
 	var raw signerInput
 	err := json.Unmarshal([]byte(rawStr), &raw)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	raw.Node = node
 
@@ -346,15 +430,29 @@ func testSignTransaction(node string, account common.Address, rawStr string) (*c
 	}
 
 	for _, out := range raw.Outputs {
-		if out.Type != common.OutputTypeScript {
-			return nil, fmt.Errorf("invalid output type %d", out.Type)
+		if out.Mask.HasValue() {
+			tx.Outputs = append(tx.Outputs, &common.Output{
+				Type:   out.Type,
+				Amount: out.Amount,
+				Keys:   out.Keys,
+				Script: out.Script,
+				Mask:   out.Mask,
+			})
+		} else {
+			seed := make([]byte, 64)
+			_, err := rand.Read(seed)
+			if err != nil {
+				panic(err)
+			}
+			hash := crypto.NewHash(seed)
+			seed = append(hash[:], hash[:]...)
+			tx.AddOutputWithType(out.Type, out.Accounts, out.Script, out.Amount, seed)
 		}
-		tx.AddRandomScriptOutput(out.Accounts, out.Script, out.Amount)
 	}
 
 	extra, err := hex.DecodeString(raw.Extra)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	tx.Extra = extra
 
@@ -440,6 +538,25 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 	return filter
 }
 
+type Node struct {
+	Signer common.Address `json:"signer"`
+	Payee  common.Address `json:"payee"`
+	State  string         `json:"state"`
+}
+
+func testListNodes(node string) []*Node {
+	data, err := callRPC(node, "listallnodes", []interface{}{})
+	if err != nil {
+		panic(err)
+	}
+	var nodes []*Node
+	err = json.Unmarshal(data, &nodes)
+	if err != nil {
+		panic(err)
+	}
+	return nodes
+}
+
 type Info struct {
 	Timestamp time.Time
 	PoolSize  common.Integer
@@ -520,9 +637,11 @@ type signerInput struct {
 	} `json:"inputs"`
 	Outputs []struct {
 		Type     uint8            `json:"type"`
+		Mask     crypto.Key       `json:"mask"`
+		Keys     []crypto.Key     `json:"keys"`
+		Amount   common.Integer   `json:"amount"`
 		Script   common.Script    `json:"script"`
 		Accounts []common.Address `json:"accounts"`
-		Amount   common.Integer   `json:"amount"`
 	}
 	Asset crypto.Hash `json:"asset"`
 	Extra string      `json:"extra"`
