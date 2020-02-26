@@ -47,8 +47,8 @@ func (node *Node) MintLoop() error {
 
 func (node *Node) PoolSize() (common.Integer, error) {
 	dist, err := node.persistStore.ReadLastMintDistribution(common.MintGroupKernelNode)
-	if err != nil {
-		return common.Zero, err
+	if err != nil || dist.Batch == 0 {
+		return MintPool, err
 	}
 	mint, pool := common.Zero, MintPool
 	for i := 0; i < int(dist.Batch)/MintYearBatches; i++ {
