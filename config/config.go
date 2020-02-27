@@ -11,7 +11,7 @@ import (
 
 const (
 	Debug        = true
-	BuildVersion = "v0.6.1-BUILD_VERSION"
+	BuildVersion = "v0.6.2-BUILD_VERSION"
 	LoggerLevel  = logger.INFO
 
 	MainnetId                  = "6430225c42bb015b4da03102fa962e4f4ef3969e03e04345db229f8377ef7997"
