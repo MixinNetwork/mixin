@@ -35,7 +35,7 @@ func (node *Node) ElectionLoop() error {
 
 	for {
 		time.Sleep(time.Duration(config.Custom.ElectionTicker) * time.Second)
-		candi, err := node.checkRemovePossibility(uint64(clock.Now().UnixNano()))
+		candi, err := node.checkRemovePossibility(node.Graph.GraphTimestamp)
 		if err != nil {
 			logger.Printf("checkRemovePossibility %s", err.Error())
 			continue
@@ -86,9 +86,6 @@ func (node *Node) checkRemovePossibility(now uint64) (*common.Node, error) {
 	if candi.State != common.NodeStateAccepted {
 		return nil, fmt.Errorf("invalid node state %s %s", candi.IdForNetwork(node.networkId), candi.State)
 	}
-	if candi.IdForNetwork(node.networkId) == node.IdForNetwork {
-		return nil, fmt.Errorf("never handle the node remove transaction by the node self")
-	}
 
 	days := int((now - node.Epoch) / 3600000000000 / 24)
 	threshold := time.Duration(days/MintYearBatches*MintYearBatches) * 24 * time.Hour
@@ -96,6 +93,9 @@ func (node *Node) checkRemovePossibility(now uint64) (*common.Node, error) {
 		return nil, fmt.Errorf("all old nodes removed %d %d", candi.Timestamp, t)
 	}
 
+	if candi.IdForNetwork(node.networkId) == node.IdForNetwork {
+		return nil, fmt.Errorf("never handle the node remove transaction by the node self")
+	}
 	return candi, nil
 }
 
@@ -330,10 +330,6 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		}
 	}
 
-	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if timestamp > uint64(clock.Now().UnixNano())+threshold {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", clock.Now().UnixNano(), timestamp)
-	}
 	if cn := node.ConsensusPledging; cn != nil {
 		return fmt.Errorf("invalid node state %s %s", cn.Signer, cn.State)
 	}
