@@ -206,7 +206,7 @@ func TestConsensus(t *testing.T) {
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1, tl)
 
-	input = testSendDummyTransaction(assert, nodes[0], accounts[0], input)
+	input = testSendDummyTransaction(assert, nodes[0], accounts[0], input, "3.5")
 	time.Sleep(5 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1+1, tl)
@@ -217,10 +217,20 @@ func TestConsensus(t *testing.T) {
 	assert.Equal("ACCEPTED", all[NODES].State)
 
 	signer, payee := testGetNodeToRemove(instances[0].NetworkId(), accounts, payees)
-	input = testSendDummyTransaction(assert, nodes[0], accounts[0], input)
+	input = testSendDummyTransaction(assert, nodes[0], accounts[0], input, "3.5")
 	time.Sleep(5 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2, tl)
+	all = testListNodes(nodes[0])
+	assert.Len(all, NODES+1)
+	assert.Equal(all[NODES].Signer.String(), signer.String())
+	assert.Equal(all[NODES].Payee.String(), payee.String())
+	assert.Equal("REMOVED", all[NODES].State)
+
+	input = testSendDummyTransaction(assert, nodes[0], payee, all[NODES].Transaction.String(), "10000")
+	time.Sleep(5 * time.Second)
+	tl, sl = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2+1, tl)
 	all = testListNodes(nodes[0])
 	assert.Len(all, NODES+1)
 	assert.Equal(all[NODES].Signer.String(), signer.String())
@@ -256,7 +266,7 @@ func testIntializeConfig(file string) {
 	config.Custom.ElectionTicker = c.ElectionTicker
 }
 
-func testSendDummyTransaction(assert *assert.Assertions, node string, domain common.Address, th string) string {
+func testSendDummyTransaction(assert *assert.Assertions, node string, domain common.Address, th, amount string) string {
 	raw, err := json.Marshal(map[string]interface{}{
 		"version": 1,
 		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
@@ -266,7 +276,7 @@ func testSendDummyTransaction(assert *assert.Assertions, node string, domain com
 		}},
 		"outputs": []map[string]interface{}{{
 			"type":     0,
-			"amount":   "3.5",
+			"amount":   amount,
 			"script":   "fffe01",
 			"accounts": []string{domain.String()},
 		}},
@@ -633,9 +643,10 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 }
 
 type Node struct {
-	Signer common.Address `json:"signer"`
-	Payee  common.Address `json:"payee"`
-	State  string         `json:"state"`
+	Signer      common.Address `json:"signer"`
+	Payee       common.Address `json:"payee"`
+	State       string         `json:"state"`
+	Transaction crypto.Hash    `json:"transaction"`
 }
 
 func testListNodes(node string) []*Node {
