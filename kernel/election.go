@@ -74,7 +74,7 @@ func (node *Node) checkRemovePossibility(now uint64) (*common.Node, error) {
 		}
 		elapse := time.Duration(now - cn.Timestamp)
 		if elapse < config.KernelNodePledgePeriodMinimum {
-			return nil, fmt.Errorf("invalid period %d %d", config.KernelNodePledgePeriodMinimum, elapse)
+			return nil, fmt.Errorf("invalid period %d %d %d %d", config.KernelNodePledgePeriodMinimum, elapse, now, cn.Timestamp)
 		}
 		if cn.State != common.NodeStateAccepted && cn.State != common.NodeStateCancelled && cn.State != common.NodeStateRemoved {
 			return nil, fmt.Errorf("invalid node pending state %s %s", cn.Signer, cn.State)

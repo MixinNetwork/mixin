@@ -10,6 +10,7 @@ import (
 	mathRand "math/rand"
 	"net/http"
 	"os"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -35,7 +36,7 @@ func TestConsensus(t *testing.T) {
 	assert.Nil(err)
 	defer os.RemoveAll(root)
 
-	accounts, gdata, ndata := setupTestNet(root)
+	accounts, payees, gdata, ndata := setupTestNet(root)
 	assert.Len(accounts, NODES)
 
 	epoch := time.Unix(1551312000, 0)
@@ -199,6 +200,32 @@ func TestConsensus(t *testing.T) {
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.After(epoch.Add((config.KernelMintTimeBegin + 24) * time.Hour)))
 	assert.Equal("499876.71232883", gt.PoolSize.String())
+
+	kernel.TestMockDiff(364 * 24 * time.Hour)
+	time.Sleep(3 * time.Second)
+	tl, sl = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1+2+1, tl)
+
+	input = testSendDummyTransaction(assert, nodes[0], accounts[0], input)
+	time.Sleep(5 * time.Second)
+	tl, sl = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1+2+1+1, tl)
+	all = testListNodes(nodes[0])
+	assert.Len(all, NODES+1)
+	assert.Equal(all[NODES].Signer.String(), pn.Signer.String())
+	assert.Equal(all[NODES].Payee.String(), pn.Payee.String())
+	assert.Equal("ACCEPTED", all[NODES].State)
+
+	signer, payee := testGetNodeToRemove(instances[0].NetworkId(), accounts, payees)
+	input = testSendDummyTransaction(assert, nodes[0], accounts[0], input)
+	time.Sleep(5 * time.Second)
+	tl, sl = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2, tl)
+	all = testListNodes(nodes[0])
+	assert.Len(all, NODES+1)
+	assert.Equal(all[NODES].Signer.String(), signer.String())
+	assert.Equal(all[NODES].Payee.String(), payee.String())
+	assert.Equal("REMOVED", all[NODES].State)
 }
 
 func testIntializeConfig(file string) {
@@ -227,6 +254,32 @@ func testIntializeConfig(file string) {
 	config.Custom.CacheTTL = c.CacheTTL
 	config.Custom.MaxCacheSize = c.MaxCacheSize
 	config.Custom.ElectionTicker = c.ElectionTicker
+}
+
+func testSendDummyTransaction(assert *assert.Assertions, node string, domain common.Address, th string) string {
+	raw, err := json.Marshal(map[string]interface{}{
+		"version": 1,
+		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
+		"inputs": []map[string]interface{}{{
+			"hash":  th,
+			"index": 0,
+		}},
+		"outputs": []map[string]interface{}{{
+			"type":     0,
+			"amount":   "3.5",
+			"script":   "fffe01",
+			"accounts": []string{domain.String()},
+		}},
+	})
+	tx, err := testSignTransaction(node, domain, string(raw))
+	assert.Nil(err)
+	ver := common.VersionedTransaction{SignedTransaction: *tx}
+	input, err := testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
+	assert.Nil(err)
+	var hash map[string]string
+	err = json.Unmarshal([]byte(input), &hash)
+	assert.Nil(err)
+	return hash["hash"]
 }
 
 func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Address, genesisData, nodesData []byte, input, root string) Node {
@@ -351,7 +404,20 @@ func testSendTransaction(node, raw string) (string, error) {
 	return string(data), err
 }
 
-func setupTestNet(root string) ([]common.Address, []byte, []byte) {
+func testGetNodeToRemove(networkId crypto.Hash, signers, payees []common.Address) (common.Address, common.Address) {
+	nodes := make([][2]common.Address, len(signers))
+	for i := range signers {
+		nodes[i] = [2]common.Address{signers[i], payees[i]}
+	}
+	sort.Slice(nodes, func(i, j int) bool {
+		a := nodes[i][0].Hash().ForNetwork(networkId)
+		b := nodes[j][0].Hash().ForNetwork(networkId)
+		return a.String() < b.String()
+	})
+	return nodes[0][0], nodes[0][1]
+}
+
+func setupTestNet(root string) ([]common.Address, []common.Address, []byte, []byte) {
 	var signers, payees []common.Address
 
 	randomPubAccount := func() common.Address {
@@ -437,7 +503,7 @@ func setupTestNet(root string) ([]common.Address, []byte, []byte) {
 			panic(err)
 		}
 	}
-	return signers, genesisData, nodesData
+	return signers, payees, genesisData, nodesData
 }
 
 func testSignTransaction(node string, account common.Address, rawStr string) (*common.SignedTransaction, error) {
