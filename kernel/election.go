@@ -90,7 +90,7 @@ func (node *Node) checkRemovePossibility(now uint64) (*common.Node, error) {
 	days := int((now - node.Epoch) / 3600000000000 / 24)
 	threshold := time.Duration(days/MintYearBatches*MintYearBatches) * 24 * time.Hour
 	if t := node.Epoch + uint64(threshold); candi.Timestamp >= t {
-		return nil, fmt.Errorf("all old nodes removed %d %d", candi.Timestamp, t)
+		return nil, fmt.Errorf("all old nodes removed %d %d %d %d", candi.Timestamp, t, now, days)
 	}
 
 	if candi.IdForNetwork(node.networkId) == node.IdForNetwork {

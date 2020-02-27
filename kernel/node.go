@@ -174,7 +174,8 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 		}
 	}
 	if consensusBase < len(node.genesisNodes) {
-		panic(fmt.Errorf("invalid consensus base %d %d %d", timestamp, consensusBase, len(node.genesisNodes)))
+		logger.Printf("invalid consensus base %d %d %d\n", timestamp, consensusBase, len(node.genesisNodes))
+		return 1000
 	}
 	return consensusBase*2/3 + 1
 }
