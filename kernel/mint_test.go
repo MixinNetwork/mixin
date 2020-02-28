@@ -40,3 +40,13 @@ func TestPledgeAmount(t *testing.T) {
 		assert.Equal(common.NewIntegerFromString("16513.215599"), pledgeAmount(since))
 	}
 }
+
+func TestPoolSize(t *testing.T) {
+	assert := assert.New(t)
+
+	assert.Equal(common.NewInteger(500000), poolSize(0))
+	assert.Equal(common.NewIntegerFromString("498767.12328830"), poolSize(10))
+	assert.Equal(common.NewInteger(500000), poolSize(0))
+	assert.Equal(common.NewIntegerFromString("455000"), poolSize(365))
+	assert.Equal(common.NewIntegerFromString("454889.04109592"), poolSize(366))
+}
