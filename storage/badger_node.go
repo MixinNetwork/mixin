@@ -235,6 +235,20 @@ func writeNodePledge(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 	} else if err != badger.ErrKeyNotFound {
 		return err
 	}
+	key = nodeCancelKey(signer)
+	_, err = txn.Get(key)
+	if err == nil {
+		return fmt.Errorf("node already cancelled %s", signer.String())
+	} else if err != badger.ErrKeyNotFound {
+		return err
+	}
+	key = nodeRemoveKey(signer)
+	_, err = txn.Get(key)
+	if err == nil {
+		return fmt.Errorf("node already removed %s", signer.String())
+	} else if err != badger.ErrKeyNotFound {
+		return err
+	}
 
 	pledging := readNodesInState(txn, graphPrefixNodePledge)
 	if len(pledging) > 0 {
