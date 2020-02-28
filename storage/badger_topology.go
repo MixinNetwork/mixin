@@ -9,6 +9,17 @@ import (
 	"github.com/dgraph-io/badger/v2"
 )
 
+func (s *BadgerStore) CheckSnapshot(hash crypto.Hash) (bool, error) {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	_, err := txn.Get(graphSnapTopologyKey(hash))
+	if err == badger.ErrKeyNotFound {
+		return false, nil
+	}
+	return err == nil, err
+}
+
 func (s *BadgerStore) ReadSnapshot(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
@@ -18,6 +29,9 @@ func (s *BadgerStore) ReadSnapshot(hash crypto.Hash) (*common.SnapshotWithTopolo
 
 func readSnapshotWithTopo(txn *badger.Txn, hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error) {
 	item, err := txn.Get(graphSnapTopologyKey(hash))
+	if err == badger.ErrKeyNotFound {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}

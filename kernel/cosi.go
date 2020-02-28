@@ -785,8 +785,15 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 }
 
 func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error {
+	s.Hash = s.PayloadHash()
 	if node.getPeerConsensusNode(peerId) == nil {
 		return nil
+	}
+	if swt, err := node.persistStore.CheckSnapshot(s.Hash); err != nil {
+		return err
+	} else if swt {
+		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
+		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
 	}
 
 	if s.Version == 0 {
@@ -796,7 +803,6 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		return nil
 	}
 
-	s.Hash = s.PayloadHash()
 	publics := node.ConsensusKeys(s.Timestamp)
 	if node.checkInitialAcceptSnapshotWeak(s) {
 		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
