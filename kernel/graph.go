@@ -175,7 +175,20 @@ func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
 	}
 	base := node.ConsensusThreshold(s.Timestamp)
-	return node.CacheVerifyCosi(s.PayloadHash(), s.Signature, publics, base)
+	if node.CacheVerifyCosi(s.PayloadHash(), s.Signature, publics, base) {
+		return true
+	}
+	if rr := node.ConsensusRemovedRecently(s.Timestamp); rr != nil {
+		for i := range publics {
+			pwr := append([]*crypto.Key{}, publics[:i]...)
+			pwr = append(pwr, &rr.Signer.PublicSpendKey)
+			pwr = append(pwr, publics[i:]...)
+			if node.CacheVerifyCosi(s.PayloadHash(), s.Signature, pwr, base) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (node *Node) legacyVerifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {

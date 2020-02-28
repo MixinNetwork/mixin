@@ -40,6 +40,7 @@ type Node struct {
 	SortedConsensusNodes []crypto.Hash
 	ConsensusIndex       int
 	ConsensusPledging    *common.Node
+	ConsensusRemoved     *common.Node
 
 	CosiAggregators *aggregatorMap
 	CosiVerifiers   map[crypto.Hash]*CosiVerifier
@@ -182,10 +183,11 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 
 func (node *Node) LoadConsensusNodes() error {
 	node.ConsensusPledging = nil
+	node.ConsensusRemoved = nil
 	activeNodes := make([]*common.Node, 0)
 	consensusNodes := make(map[crypto.Hash]*common.Node)
 	sortedConsensusNodes := make([]crypto.Hash, 0)
-	for _, cn := range node.persistStore.ReadConsensusNodes() {
+	for _, cn := range node.persistStore.ReadAllNodes() {
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.Epoch
 		}
@@ -200,6 +202,10 @@ func (node *Node) LoadConsensusNodes() error {
 			activeNodes = append(activeNodes, cn)
 		case common.NodeStateResigning:
 			activeNodes = append(activeNodes, cn)
+		case common.NodeStateRemoved:
+			if node.ConsensusRemoved == nil || cn.Timestamp > node.ConsensusRemoved.Timestamp {
+				node.ConsensusRemoved = cn
+			}
 		}
 	}
 	sort.Slice(activeNodes, func(i, j int) bool {
@@ -227,6 +233,17 @@ func (node *Node) LoadConsensusNodes() error {
 		if id == node.IdForNetwork {
 			node.ConsensusIndex = i
 		}
+	}
+	return nil
+}
+
+func (node *Node) ConsensusRemovedRecently(timestamp uint64) *common.Node {
+	if timestamp == 0 || node.ConsensusRemoved == nil {
+		return nil
+	}
+	threshold := uint64(config.KernelNodeAcceptPeriodMinimum) / 2
+	if node.ConsensusRemoved.Timestamp+threshold > timestamp {
+		return node.ConsensusRemoved
 	}
 	return nil
 }
