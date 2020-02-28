@@ -100,9 +100,9 @@ func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (*
 		RoundHistory: make(map[crypto.Hash][]*FinalRound),
 	}
 
-	consensusNodes := store.ReadConsensusNodes()
-	for _, cn := range consensusNodes {
-		if cn.State == common.NodeStatePledging {
+	allNodes := store.ReadAllNodes()
+	for _, cn := range allNodes {
+		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateCancelled {
 			continue
 		}
 
