@@ -11,7 +11,7 @@ import (
 
 func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, bool, error) {
 	tx, finalized, err := node.persistStore.ReadTransaction(s.Transaction)
-	if tx != nil {
+	if tx != nil && len(finalized) == 0 {
 		err = node.validateKernelSnapshot(s, tx)
 	}
 	if err != nil || len(finalized) > 0 || tx != nil {
