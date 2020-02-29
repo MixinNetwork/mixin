@@ -256,11 +256,14 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			return
 		}
 
+		peer = me.neighbors.Get(id) // FIXME deprecate this
 		add, err := me.AddNeighbor(id, addr)
-		if err != nil {
+		if err == nil {
+			peer = add
+		}
+		if peer == nil {
 			auth <- fmt.Errorf("peer authentication add neighbor failed %s", err.Error())
 		} else {
-			peer = add
 			auth <- nil
 		}
 	}()
