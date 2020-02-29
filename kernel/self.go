@@ -81,24 +81,24 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 
 func (node *Node) determinBestRound(roundTime uint64) *FinalRound {
 	var best *FinalRound
-	var start, height uint64
-	for id, rounds := range node.Graph.RoundHistory {
-		if !node.genesisNodesMap[id] && rounds[0].Number < 7+config.SnapshotReferenceThreshold*2 {
+	var start uint64
+	for _, rounds := range node.Graph.RoundHistory {
+		r := rounds[0]
+		if r.NodeId == node.IdForNetwork {
 			continue
 		}
-		rts, rh := rounds[0].Start, uint64(len(rounds))
-		if id == node.IdForNetwork || rh < height {
+		if !node.genesisNodesMap[r.NodeId] && r.Number < 7+config.SnapshotReferenceThreshold*2 {
 			continue
 		}
-		if rts > roundTime {
+		if r.Start > roundTime {
 			continue
 		}
-		if rts+config.SnapshotRoundGap*rh > uint64(clock.Now().UnixNano()) {
+		if r.Start+config.SnapshotRoundGap*uint64(len(rounds)) > uint64(clock.Now().UnixNano()) {
 			continue
 		}
-		if rh > height || rts > start {
-			best = rounds[0]
-			start, height = rts, rh
+		if r.Start > start {
+			start = r.Start
+			best = r
 		}
 	}
 	return best

@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 )
 
 func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRound, error) {
@@ -37,23 +38,25 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 	}
 	if !node.verifyFinalization(s) {
 		if external.Number+config.SnapshotSyncRoundThreshold < node.Graph.FinalRound[external.NodeId].Number {
-			return nil, fmt.Errorf("external reference %s too early %d %d", s.References.External, external.Number, node.Graph.FinalRound[external.NodeId].Number)
+			return nil, fmt.Errorf("external reference %s:%d round too early %d", external.NodeId, external.Number, node.Graph.FinalRound[external.NodeId].Number)
 		}
 		if external.Timestamp > s.Timestamp {
 			return nil, fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-s.Timestamp).Seconds())
 		}
 		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64
-		height := len(node.Graph.RoundHistory[external.NodeId])
 		for _, rounds := range node.Graph.RoundHistory {
 			r := rounds[0]
-			if r.NodeId == s.NodeId || len(rounds) < height {
+			if r.NodeId == s.NodeId {
 				continue
 			}
 			if !node.genesisNodesMap[r.NodeId] && r.Number < 7+config.SnapshotReferenceThreshold*2 {
 				continue
 			}
+			if r.Start+config.SnapshotRoundGap*uint64(len(rounds)) > uint64(clock.Now().UnixNano()) {
+				continue
+			}
 			if threshold < r.Start {
-				return nil, fmt.Errorf("external reference %s too early %s:%d %f", s.References.External, r.NodeId, r.Number, time.Duration(r.Start-threshold).Seconds())
+				return nil, fmt.Errorf("external reference %s:%d timestamp too early %s:%d %f", external.NodeId, external.Number, r.NodeId, r.Number, time.Duration(r.Start-threshold).Seconds())
 			}
 		}
 	}
