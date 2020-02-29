@@ -19,7 +19,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 		return nil, fmt.Errorf("self cache snapshots not collected yet %s %d", s.NodeId, s.RoundNumber)
 	}
 	if s.References.Self != final.Hash {
-		return nil, fmt.Errorf("self cache snapshots not match yet %s", s.References.Self)
+		return nil, fmt.Errorf("self cache snapshots not match yet %s %s", s.NodeId, s.References.Self)
 	}
 
 	external, err := node.persistStore.ReadRound(s.References.External)

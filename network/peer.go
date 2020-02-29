@@ -2,7 +2,6 @@ package network
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -247,7 +246,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			return
 		}
 		if msg.Type != PeerMessageTypeAuthentication {
-			auth <- errors.New("peer authentication invalid message type")
+			auth <- fmt.Errorf("peer authentication invalid message type %d", msg.Type)
 			return
 		}
 
@@ -257,14 +256,11 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			return
 		}
 
-		peer = me.neighbors.Get(id)
 		add, err := me.AddNeighbor(id, addr)
-		if err == nil {
-			peer = add
-		}
-		if peer == nil {
-			auth <- errors.New("peer authentication message signature invalid")
+		if err != nil {
+			auth <- fmt.Errorf("peer authentication add neighbor failed %s", err.Error())
 		} else {
+			peer = add
 			auth <- nil
 		}
 	}()
@@ -277,7 +273,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 		}
 	case <-time.After(3 * time.Second):
 		client.Close()
-		return nil, errors.New("peer authentication timeout")
+		return nil, fmt.Errorf("peer authentication timeout")
 	}
 	return peer, nil
 }
@@ -298,7 +294,7 @@ func (me *Peer) sendHighToPeer(idForNetwork, key crypto.Hash, data []byte) error
 	case peer.high <- &ChanMsg{key, data}:
 		return nil
 	case <-time.After(1 * time.Second):
-		return errors.New("peer send high timeout")
+		return fmt.Errorf("peer send high timeout")
 	}
 }
 
@@ -320,7 +316,7 @@ func (me *Peer) sendSnapshotMessagetoPeer(idForNetwork crypto.Hash, snap crypto.
 	case peer.normal <- &ChanMsg{key, data}:
 		return nil
 	case <-time.After(1 * time.Second):
-		return errors.New("peer send normal timeout")
+		return fmt.Errorf("peer send normal timeout")
 	}
 }
 
