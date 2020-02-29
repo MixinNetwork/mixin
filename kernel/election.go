@@ -35,7 +35,7 @@ func (node *Node) ElectionLoop() error {
 
 	for {
 		time.Sleep(time.Duration(config.Custom.ElectionTicker) * time.Second)
-		candi, err := node.checkRemovePossibility(node.Graph.GraphTimestamp)
+		candi, err := node.checkRemovePossibility(node.IdForNetwork, node.Graph.GraphTimestamp)
 		if err != nil {
 			logger.Printf("checkRemovePossibility %s", err.Error())
 			continue
@@ -50,7 +50,7 @@ func (node *Node) ElectionLoop() error {
 	return nil
 }
 
-func (node *Node) checkRemovePossibility(now uint64) (*common.Node, error) {
+func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*common.Node, error) {
 	if p := node.ConsensusPledging; p != nil {
 		return nil, fmt.Errorf("still pledging now %s", p.Signer.String())
 	}
@@ -93,7 +93,7 @@ func (node *Node) checkRemovePossibility(now uint64) (*common.Node, error) {
 		return nil, fmt.Errorf("all old nodes removed %d %d %d %d", candi.Timestamp, t, now, days)
 	}
 
-	if candi.IdForNetwork(node.networkId) == node.IdForNetwork {
+	if candi.IdForNetwork(node.networkId) == nodeId {
 		return nil, fmt.Errorf("never handle the node remove transaction by the node self")
 	}
 	return candi, nil
@@ -451,7 +451,7 @@ func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.Vers
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
 		timestamp = uint64(clock.Now().UnixNano())
 	}
-	candi, err := node.checkRemovePossibility(timestamp)
+	candi, err := node.checkRemovePossibility(s.NodeId, timestamp)
 	if err != nil {
 		return err
 	}
