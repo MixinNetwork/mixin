@@ -17,10 +17,6 @@ import (
 	"github.com/urfave/cli"
 )
 
-func init() {
-	logger.Init(config.LoggerLevel)
-}
-
 func main() {
 	app := cli.NewApp()
 	app.Name = "mixin"
@@ -42,6 +38,11 @@ func main() {
 					Name:  "port,p",
 					Value: 7239,
 					Usage: "the peer port to listen",
+				},
+				cli.IntFlag{
+					Name:  "log,l",
+					Value: logger.INFO,
+					Usage: "the log level",
 				},
 			},
 		},
@@ -441,6 +442,7 @@ func main() {
 func kernelCmd(c *cli.Context) error {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
+	logger.Init(c.Int("log"))
 	err := config.Initialize(c.String("dir") + "/config.json")
 	if err != nil {
 		return err
