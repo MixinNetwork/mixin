@@ -1,6 +1,6 @@
 module github.com/MixinNetwork/mixin
 
-go 1.13
+go 1.14
 
 require (
 	github.com/MixinNetwork/msgpack v4.0.5+incompatible
@@ -18,7 +18,7 @@ require (
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/nwaples/rardecode v1.1.0 // indirect
 	github.com/pierrec/lz4 v2.4.1+incompatible // indirect
-	github.com/shopspring/decimal v0.0.0-20200226005030-a08b92da27ed
+	github.com/shopspring/decimal v0.0.0-20200227202807-02e2044944cc
 	github.com/stretchr/testify v1.4.0
 	github.com/ulikunitz/xz v0.5.7 // indirect
 	github.com/unrolled/render v1.0.2
