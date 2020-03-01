@@ -799,16 +799,7 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 	if s.Version == 0 {
 		return node.legacyAppendFinalization(peerId, s)
 	}
-	if s.Version != common.SnapshotVersion || s.Signature == nil {
-		return nil
-	}
-
-	publics := node.ConsensusKeys(s.Timestamp)
-	if node.checkInitialAcceptSnapshotWeak(s) {
-		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
-	}
-	base := node.ConsensusThreshold(s.Timestamp)
-	if !node.CacheVerifyCosi(s.Hash, s.Signature, publics, base) {
+	if !node.verifyFinalization(s) {
 		return nil
 	}
 
