@@ -545,11 +545,6 @@ func setupTestNetCmd(c *cli.Context) error {
 		}
 		defer store.Close()
 
-		err = store.StateSet("account", a)
-		if err != nil {
-			return err
-		}
-
 		configData, err := json.MarshalIndent(map[string]interface{}{
 			"signer":         a.PrivateSpendKey.String(),
 			"listener":       nodes[i]["host"],
