@@ -1,13 +1,11 @@
 package kernel
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"sort"
 	"sync"
 	"time"
 
@@ -187,11 +185,11 @@ func (node *Node) LoadConsensusNodes() error {
 	activeNodes := make([]*common.Node, 0)
 	consensusNodes := make(map[crypto.Hash]*common.Node)
 	sortedConsensusNodes := make([]crypto.Hash, 0)
-	for _, cn := range node.persistStore.ReadAllNodes() {
+	for _, cn := range node.SortAllNodesByTimestampAndId() {
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.Epoch
 		}
-		idForNetwork := cn.Signer.Hash().ForNetwork(node.networkId)
+		idForNetwork := cn.IdForNetwork(node.networkId)
 		logger.Println(idForNetwork, cn.Signer.String(), cn.State, cn.Timestamp)
 		switch cn.State {
 		case common.NodeStatePledging:
@@ -208,21 +206,9 @@ func (node *Node) LoadConsensusNodes() error {
 			}
 		}
 	}
-	sort.Slice(activeNodes, func(i, j int) bool {
-		a, b := activeNodes[i], activeNodes[j]
-		if a.Timestamp < b.Timestamp {
-			return true
-		}
-		if a.Timestamp == b.Timestamp {
-			ai := a.Signer.Hash().ForNetwork(node.networkId)
-			bi := b.Signer.Hash().ForNetwork(node.networkId)
-			return bytes.Compare(ai[:], bi[:]) < 0
-		}
-		return false
-	})
 	for _, n := range activeNodes {
 		if n.State == common.NodeStateAccepted {
-			id := n.Signer.Hash().ForNetwork(node.networkId)
+			id := n.IdForNetwork(node.networkId)
 			sortedConsensusNodes = append(sortedConsensusNodes, id)
 		}
 	}
@@ -314,7 +300,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	var peerId crypto.Hash
 	copy(peerId[:], msg[8:40])
 	peer := node.ConsensusNodes[peerId]
-	if node.ConsensusPledging != nil && node.ConsensusPledging.Signer.Hash().ForNetwork(node.networkId) == peerId {
+	if node.ConsensusPledging != nil && node.ConsensusPledging.IdForNetwork(node.networkId) == peerId {
 		peer = node.ConsensusPledging
 	}
 	if peer == nil || peerId == node.IdForNetwork {

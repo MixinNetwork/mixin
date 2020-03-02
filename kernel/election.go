@@ -478,7 +478,7 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	if node.ConsensusPledging == nil {
 		return fmt.Errorf("invalid consensus status")
 	}
-	if id := node.ConsensusPledging.Signer.Hash().ForNetwork(node.networkId); id != s.NodeId {
+	if id := node.ConsensusPledging.IdForNetwork(node.networkId); id != s.NodeId {
 		return fmt.Errorf("invalid pledging node %s %s", id, s.NodeId)
 	}
 	if node.ConsensusPledging.Transaction != tx.Inputs[0].Hash {

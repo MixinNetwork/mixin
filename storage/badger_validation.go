@@ -29,7 +29,7 @@ func (s *BadgerStore) validateSnapshotEntries(networkId crypto.Hash) (int, int, 
 				errchan <- err
 			}
 			stats <- [2]int{total, invalid}
-		}(n.Signer.Hash().ForNetwork(networkId))
+		}(n.IdForNetwork(networkId))
 	}
 	var total, invalid int
 	for i := 0; i < len(nodes); i++ {

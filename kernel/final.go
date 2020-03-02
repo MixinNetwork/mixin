@@ -102,7 +102,7 @@ func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapsho
 			}
 		}
 		if n := node.ConsensusPledging; n != nil {
-			id := n.Signer.Hash().ForNetwork(node.networkId)
+			id := n.IdForNetwork(node.networkId)
 			if id == s.NodeId && s.RoundNumber == 0 && node.CacheVerify(s.Hash, *sig, n.Signer.PublicSpendKey) {
 				sigs = append(sigs, sig)
 				signersMap[id] = true

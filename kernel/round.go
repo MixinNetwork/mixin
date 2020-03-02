@@ -106,7 +106,7 @@ func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (*
 			continue
 		}
 
-		id := cn.Signer.Hash().ForNetwork(networkId)
+		id := cn.IdForNetwork(networkId)
 		graph.Nodes = append(graph.Nodes, &id)
 
 		cache, err := loadHeadRoundForNode(store, id)
