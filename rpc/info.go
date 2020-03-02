@@ -3,6 +3,7 @@ package rpc
 import (
 	"time"
 
+	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
@@ -21,7 +22,14 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	if err != nil {
 		return info, err
 	}
-	info["pool"] = pool
+	md, err := store.ReadLastMintDistribution(common.MintGroupKernelNode)
+	if err != nil {
+		return info, err
+	}
+	info["mint"] = map[string]interface{}{
+		"pool":  pool,
+		"batch": md.Batch,
+	}
 	graph, err := kernel.LoadRoundGraph(store, node.NetworkId(), node.IdForNetwork)
 	if err != nil {
 		return info, err
