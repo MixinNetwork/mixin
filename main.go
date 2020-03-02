@@ -442,7 +442,7 @@ func main() {
 func kernelCmd(c *cli.Context) error {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	logger.Init(c.Int("log"))
+	logger.SetLevel(c.Int("log"))
 	err := config.Initialize(c.String("dir") + "/config.json")
 	if err != nil {
 		return err

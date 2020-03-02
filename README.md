@@ -24,7 +24,7 @@ USAGE:
    mixin [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.6.0-b1d678319311b9a429597c5a8e31deb493c0d86e
+   v0.6.5-e2da1ef568f5f349b504616eb71fa9684dc944b4
 
 COMMANDS:
    kernel, k                    Start the Mixin Kernel daemon
@@ -48,6 +48,7 @@ COMMANDS:
    gettransaction               Get the finalized transaction by hash
    getutxo                      Get the UTXO by hash and index
    listmintdistributions        List mint distributions
+   listallnodes                 List all nodes ever existed
    getinfo                      Get info from the node
    help, h                      Shows a list of commands or help for one command
 

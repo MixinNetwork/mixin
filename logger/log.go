@@ -11,7 +11,7 @@ const (
 
 var level int
 
-func Init(l int) {
+func SetLevel(l int) {
 	level = l
 }
 
