@@ -697,8 +697,10 @@ func testGetGraphInfo(node string) Info {
 		panic(err)
 	}
 	var info struct {
-		Timestamp string         `json:"timestamp"`
-		PoolSize  common.Integer `json:"pool"`
+		Timestamp string `json:"timestamp"`
+		Mint      struct {
+			PoolSize common.Integer `json:"pool"`
+		} `json:"mint"`
 	}
 	err = json.Unmarshal(data, &info)
 	if err != nil {
@@ -710,7 +712,7 @@ func testGetGraphInfo(node string) Info {
 	}
 	return Info{
 		Timestamp: t,
-		PoolSize:  info.PoolSize,
+		PoolSize:  info.Mint.PoolSize,
 	}
 }
 
