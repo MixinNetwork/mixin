@@ -7,7 +7,7 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/btcsuite/btcutil v1.0.1
-	github.com/dgraph-io/badger/v2 v2.0.1
+	github.com/dgraph-io/badger/v2 v2.0.2
 	github.com/dimfeld/httptreemux v5.0.1+incompatible
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/ethereum/go-ethereum v1.9.11
@@ -22,7 +22,7 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/ulikunitz/xz v0.5.7 // indirect
 	github.com/unrolled/render v1.0.2
-	github.com/urfave/cli v1.22.2
+	github.com/urfave/cli/v2 v2.1.1
 	github.com/valyala/gozstd v1.6.4
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect

@@ -14,7 +14,7 @@ import (
 	"github.com/MixinNetwork/mixin/rpc"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/VictoriaMetrics/fastcache"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -22,27 +22,38 @@ func main() {
 	app.Name = "mixin"
 	app.Usage = "A free and lightning fast peer-to-peer transactional network for digital assets."
 	app.Version = config.BuildVersion
+	app.Flags = []cli.Flag{
+		&cli.StringFlag{
+			Name:    "node",
+			Aliases: []string{"n"},
+			Value:   "127.0.0.1:8239",
+			Usage:   "the node RPC endpoint",
+		},
+		&cli.StringFlag{
+			Name:    "dir",
+			Aliases: []string{"d"},
+			Usage:   "the data directory",
+		},
+	}
 	app.EnableBashCompletion = true
-	app.Commands = []cli.Command{
+	app.Commands = []*cli.Command{
 		{
 			Name:    "kernel",
 			Aliases: []string{"k"},
 			Usage:   "Start the Mixin Kernel daemon",
 			Action:  kernelCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "dir,d",
-					Usage: "the data directory",
+				&cli.IntFlag{
+					Name:    "port",
+					Aliases: []string{"p"},
+					Value:   7239,
+					Usage:   "the peer port to listen",
 				},
-				cli.IntFlag{
-					Name:  "port,p",
-					Value: 7239,
-					Usage: "the peer port to listen",
-				},
-				cli.IntFlag{
-					Name:  "log,l",
-					Value: logger.INFO,
-					Usage: "the log level",
+				&cli.IntFlag{
+					Name:    "log",
+					Aliases: []string{"l"},
+					Value:   logger.INFO,
+					Usage:   "the log level",
 				},
 			},
 		},
@@ -56,15 +67,15 @@ func main() {
 			Usage:  "Create a new Mixin address",
 			Action: createAdressCmd,
 			Flags: []cli.Flag{
-				cli.BoolFlag{
+				&cli.BoolFlag{
 					Name:  "public",
 					Usage: "whether mark all my transactions public",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "view",
 					Usage: "the private view key `HEX` instead of a random one",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "spend",
 					Usage: "the private spend key `HEX` instead of a random one",
 				},
@@ -75,9 +86,10 @@ func main() {
 			Usage:  "Decode an address as public view key and public spend key",
 			Action: decodeAddressCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "address,a",
-					Usage: "the Mixin Kernel address",
+				&cli.StringFlag{
+					Name:    "address",
+					Aliases: []string{"a"},
+					Usage:   "the Mixin Kernel address",
 				},
 			},
 		},
@@ -86,21 +98,22 @@ func main() {
 			Usage:  "Decrypt a ghost key with the private view key",
 			Action: decryptGhostCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "view",
 					Usage: "the private view key",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "key",
 					Usage: "the ghost key",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "mask",
 					Usage: "the ghost mask",
 				},
-				cli.Uint64Flag{
-					Name:  "index",
-					Usage: "the output index",
+				&cli.Uint64Flag{
+					Name:    "index",
+					Aliases: []string{"i"},
+					Usage:   "the output index",
 				},
 			},
 		},
@@ -109,19 +122,15 @@ func main() {
 			Usage:  "Update the cache round external reference, never use it unless agree by other nodes",
 			Action: updateHeadReference,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "dir",
-					Usage: "the data directory",
-				},
-				cli.StringFlag{
-					Name:  "node",
+				&cli.StringFlag{
+					Name:  "id",
 					Usage: "self node `ID`",
 				},
-				cli.Uint64Flag{
+				&cli.Uint64Flag{
 					Name:  "round",
 					Usage: "self cache round `NUMBER`",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "external",
 					Usage: "the external reference `HEX`",
 				},
@@ -132,11 +141,7 @@ func main() {
 			Usage:  "Remove data entries by prefix from the graph data storage",
 			Action: removeGraphEntries,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "dir",
-					Usage: "the data directory",
-				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "prefix",
 					Usage: "the entry prefix",
 				},
@@ -146,32 +151,21 @@ func main() {
 			Name:   "validategraphentries",
 			Usage:  "Validate transaction hash integration",
 			Action: validateGraphEntries,
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "dir",
-					Usage: "the data directory",
-				},
-			},
 		},
 		{
 			Name:   "signrawtransaction",
 			Usage:  "Sign a JSON encoded transaction",
 			Action: signTransactionCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "node,n",
-					Value: "127.0.0.1:8239",
-					Usage: "the node RPC endpoint",
-				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "raw",
 					Usage: "the JSON encoded raw transaction",
 				},
-				cli.StringSliceFlag{
+				&cli.StringSliceFlag{
 					Name:  "key",
 					Usage: "the private key to sign the raw transaction",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "seed",
 					Usage: "the mask seed to hide the recipient public key",
 				},
@@ -182,12 +176,7 @@ func main() {
 			Usage:  "Broadcast a hex encoded signed raw transaction",
 			Action: sendTransactionCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "node,n",
-					Value: "127.0.0.1:8239",
-					Usage: "the node RPC endpoint",
-				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "raw",
 					Usage: "the hex encoded signed raw transaction",
 				},
@@ -198,7 +187,7 @@ func main() {
 			Usage:  "Decode a raw transaction as JSON",
 			Action: decodeTransactionCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "raw",
 					Usage: "the JSON encoded raw transaction",
 				},
@@ -209,23 +198,23 @@ func main() {
 			Usage:  "Build the transaction to cancel a pledging node",
 			Action: cancelNodeCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "view",
 					Usage: "the private view key which signs the pledging transaction",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "spend",
 					Usage: "the private spend key which signs the pledging transaction",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "receiver",
 					Usage: "the address to receive the refund",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "pledge",
 					Usage: "the hex of raw pledge transaction",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "source",
 					Usage: "the hex of raw pledging input transaction",
 				},
@@ -236,7 +225,7 @@ func main() {
 			Usage:  "Decode the extra info of a pledge transaction",
 			Action: decodePledgeNodeCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "raw",
 					Usage: "the raw pledge transaction",
 				},
@@ -247,16 +236,11 @@ func main() {
 			Usage:  "Get the latest link between two nodes",
 			Action: getRoundLinkCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "node,n",
-					Value: "127.0.0.1:8239",
-					Usage: "the node RPC endpoint",
-				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "from",
 					Usage: "the reference head",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "to",
 					Usage: "the reference tail",
 				},
@@ -267,16 +251,11 @@ func main() {
 			Usage:  "Get a specific round",
 			Action: getRoundByNumberCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "node,n",
-					Value: "127.0.0.1:8239",
-					Usage: "the node RPC endpoint",
-				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "id",
 					Usage: "the round node id",
 				},
-				cli.Uint64Flag{
+				&cli.Uint64Flag{
 					Name:  "number",
 					Value: 0,
 					Usage: "the round number",
@@ -288,14 +267,10 @@ func main() {
 			Usage:  "Get a specific round",
 			Action: getRoundByHashCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "node,n",
-					Value: "127.0.0.1:8239",
-					Usage: "the node RPC endpoint",
-				},
-				cli.StringFlag{
-					Name:  "hash",
-					Usage: "the round hash",
+				&cli.StringFlag{
+					Name:    "hash",
+					Aliases: []string{"x"},
+					Usage:   "the round hash",
 				},
 			},
 		},
@@ -304,26 +279,23 @@ func main() {
 			Usage:  "List finalized snapshots",
 			Action: listSnapshotsCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "node,n",
-					Value: "127.0.0.1:8239",
-					Usage: "the node RPC endpoint",
+				&cli.Uint64Flag{
+					Name:    "since",
+					Aliases: []string{"s"},
+					Value:   0,
+					Usage:   "the topological order to begin with",
 				},
-				cli.Uint64Flag{
-					Name:  "since,s",
-					Value: 0,
-					Usage: "the topological order to begin with",
+				&cli.Uint64Flag{
+					Name:    "count",
+					Aliases: []string{"c"},
+					Value:   10,
+					Usage:   "the up limit of the returned snapshots",
 				},
-				cli.Uint64Flag{
-					Name:  "count,c",
-					Value: 10,
-					Usage: "the up limit of the returned snapshots",
-				},
-				cli.BoolFlag{
+				&cli.BoolFlag{
 					Name:  "sig",
 					Usage: "whether including the signatures",
 				},
-				cli.BoolFlag{
+				&cli.BoolFlag{
 					Name:  "tx",
 					Usage: "whether including the transactions",
 				},
@@ -334,14 +306,10 @@ func main() {
 			Usage:  "Get the snapshot by hash",
 			Action: getSnapshotCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "node,n",
-					Value: "127.0.0.1:8239",
-					Usage: "the node RPC endpoint",
-				},
-				cli.StringFlag{
-					Name:  "hash,x",
-					Usage: "the snapshot hash",
+				&cli.StringFlag{
+					Name:    "hash",
+					Aliases: []string{"x"},
+					Usage:   "the snapshot hash",
 				},
 			},
 		},
@@ -350,14 +318,10 @@ func main() {
 			Usage:  "Get the finalized transaction by hash",
 			Action: getTransactionCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "node,n",
-					Value: "127.0.0.1:8239",
-					Usage: "the node RPC endpoint",
-				},
-				cli.StringFlag{
-					Name:  "hash,x",
-					Usage: "the transaction hash",
+				&cli.StringFlag{
+					Name:    "hash",
+					Aliases: []string{"x"},
+					Usage:   "the transaction hash",
 				},
 			},
 		},
@@ -366,19 +330,16 @@ func main() {
 			Usage:  "Get the UTXO by hash and index",
 			Action: getUTXOCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "node,n",
-					Value: "127.0.0.1:8239",
-					Usage: "the node RPC endpoint",
+				&cli.StringFlag{
+					Name:    "hash",
+					Aliases: []string{"x"},
+					Usage:   "the transaction hash",
 				},
-				cli.StringFlag{
-					Name:  "hash,x",
-					Usage: "the transaction hash",
-				},
-				cli.Uint64Flag{
-					Name:  "index,i",
-					Value: 0,
-					Usage: "the output index",
+				&cli.Uint64Flag{
+					Name:    "index",
+					Aliases: []string{"i"},
+					Value:   0,
+					Usage:   "the output index",
 				},
 			},
 		},
@@ -387,22 +348,19 @@ func main() {
 			Usage:  "List mint distributions",
 			Action: listMintDistributionsCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "node,n",
-					Value: "127.0.0.1:8239",
-					Usage: "the node RPC endpoint",
+				&cli.Uint64Flag{
+					Name:    "since",
+					Aliases: []string{"s"},
+					Value:   0,
+					Usage:   "the mint batch to begin with",
 				},
-				cli.Uint64Flag{
-					Name:  "since,s",
-					Value: 0,
-					Usage: "the mint batch to begin with",
+				&cli.Uint64Flag{
+					Name:    "count",
+					Aliases: []string{"c"},
+					Value:   10,
+					Usage:   "the up limit of the returned distributions",
 				},
-				cli.Uint64Flag{
-					Name:  "count,c",
-					Value: 10,
-					Usage: "the up limit of the returned distributions",
-				},
-				cli.BoolFlag{
+				&cli.BoolFlag{
 					Name:  "tx",
 					Usage: "whether including the transactions",
 				},
@@ -412,25 +370,11 @@ func main() {
 			Name:   "listallnodes",
 			Usage:  "List all nodes ever existed",
 			Action: listAllNodesCmd,
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "node,n",
-					Value: "127.0.0.1:8239",
-					Usage: "the node RPC endpoint",
-				},
-			},
 		},
 		{
 			Name:   "getinfo",
 			Usage:  "Get info from the node",
 			Action: getInfoCmd,
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "node,n",
-					Value: "127.0.0.1:8239",
-					Usage: "the node RPC endpoint",
-				},
-			},
 		},
 	}
 	err := app.Run(os.Args)

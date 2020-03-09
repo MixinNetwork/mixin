@@ -16,7 +16,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 func createAdressCmd(c *cli.Context) error {
@@ -93,7 +93,7 @@ func updateHeadReference(c *cli.Context) error {
 		return err
 	}
 	defer store.Close()
-	node, err := crypto.HashFromString(c.String("node"))
+	node, err := crypto.HashFromString(c.String("id"))
 	if err != nil {
 		return err
 	}
