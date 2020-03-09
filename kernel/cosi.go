@@ -672,13 +672,13 @@ func (node *Node) handleFinalization(m *CosiAction) error {
 
 	err := node.tryToStartNewRound(s)
 	if err != nil {
-		logger.Verbosef("ERROR tryToStartNewRound %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil)
+		logger.Verbosef("ERROR tryToStartNewRound %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil, err.Error())
 		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	}
 
 	tx, err := node.checkFinalSnapshotTransaction(s)
 	if err != nil {
-		logger.Verbosef("ERROR checkFinalSnapshotTransaction %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil)
+		logger.Verbosef("ERROR checkFinalSnapshotTransaction %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil, err.Error())
 		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	} else if tx == nil {
 		return nil

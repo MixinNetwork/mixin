@@ -3,7 +3,6 @@ package kernel
 import (
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"sync"
@@ -284,35 +283,60 @@ func (node *Node) BuildGraph() []*network.SyncPoint {
 func (node *Node) BuildAuthenticationMessage() []byte {
 	data := make([]byte, 8)
 	binary.BigEndian.PutUint64(data, uint64(clock.Now().Unix()))
-	hash := node.Signer.Hash().ForNetwork(node.networkId)
-	data = append(data, hash[:]...)
+	if config.Custom.ConsensusOnly {
+		hash := node.Signer.Hash().ForNetwork(node.networkId)
+		data = append(data, hash[:]...)
+	} else {
+		data = append(data, node.Signer.PublicSpendKey[:]...)
+	}
 	sig := node.Signer.PrivateSpendKey.Sign(data)
 	data = append(data, sig[:]...)
 	return append(data, []byte(node.Listener)...)
 }
 
 func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
+	if len(msg) < 8+len(crypto.Hash{})+len(crypto.Signature{}) {
+		return crypto.Hash{}, "", fmt.Errorf("peer authentication message malformated %d", len(msg))
+	}
 	ts := binary.BigEndian.Uint64(msg[:8])
 	if clock.Now().Unix()-int64(ts) > 3 {
-		return crypto.Hash{}, "", errors.New("peer authentication message timeout")
+		return crypto.Hash{}, "", fmt.Errorf("peer authentication message timeout %d %d", ts, clock.Now().Unix())
 	}
 
+	var signer common.Address
 	var peerId crypto.Hash
 	copy(peerId[:], msg[8:40])
-	peer := node.ConsensusNodes[peerId]
-	if node.ConsensusPledging != nil && node.ConsensusPledging.IdForNetwork(node.networkId) == peerId {
-		peer = node.ConsensusPledging
+	if peerId == node.IdForNetwork {
+		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
 	}
-	if peer == nil || peerId == node.IdForNetwork {
+	peer := node.getPeerConsensusNode(peerId)
+
+	if peer == nil {
+		copy(signer.PublicSpendKey[:], peerId[:])
+		signer.PublicViewKey = signer.PublicSpendKey.DeterministicHashDerive().Public()
+		peerId = signer.Hash().ForNetwork(node.networkId)
+		if peerId == node.IdForNetwork {
+			return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
+		}
+		peer = node.getPeerConsensusNode(peerId)
+	} else {
+		signer = peer.Signer
+	}
+	if config.Custom.ConsensusOnly && peer == nil {
+		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
+	}
+	if peer != nil && peer.Signer.Hash() != signer.Hash() {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
 	}
 
 	var sig crypto.Signature
 	copy(sig[:], msg[40:40+len(sig)])
-	if peer.Signer.PublicSpendKey.Verify(msg[:40], sig) {
-		return peerId, string(msg[40+len(sig):]), nil
+	if !signer.PublicSpendKey.Verify(msg[:40], sig) {
+		return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
 	}
-	return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
+
+	listener := string(msg[40+len(sig):])
+	return peerId, listener, nil
 }
 
 func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot, final bool) error {
@@ -358,9 +382,6 @@ func (node *Node) ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round
 }
 
 func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoint) {
-	if node.ConsensusNodes[peerId] == nil { // FIXME concurrent map read write
-		return
-	}
 	for _, p := range points {
 		if p.NodeId == node.IdForNetwork {
 			node.SyncPoints.Set(peerId, p)
@@ -384,18 +405,16 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 }
 
 func (node *Node) CheckCatchUpWithPeers() bool {
-	threshold := node.ConsensusThreshold(0)
-	if node.SyncPoints.Len() < threshold {
-		return false
-	}
-
 	final := node.Graph.MyFinalNumber
 	cache := node.Graph.MyCacheRound
+	updated, threshold := 0, node.ConsensusThreshold(0)
+
 	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
 		if remote == nil {
 			continue
 		}
+		updated = updated + 1
 		if remote.Number <= final {
 			continue
 		}
@@ -416,7 +435,8 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 			return false
 		}
 	}
-	return true
+
+	return updated >= threshold
 }
 
 type syncMap struct {
