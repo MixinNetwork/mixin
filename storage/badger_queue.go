@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
@@ -17,9 +18,10 @@ type Queue struct {
 }
 
 type PeerSnapshot struct {
-	key      crypto.Hash
-	PeerId   crypto.Hash
-	Snapshot *common.Snapshot
+	key       crypto.Hash
+	PeerId    crypto.Hash
+	Snapshot  *common.Snapshot
+	timestamp time.Time
 }
 
 func (ps *PeerSnapshot) buildKey() crypto.Hash {
@@ -81,6 +83,7 @@ func (q *Queue) PutCache(ps *PeerSnapshot) error {
 		return nil
 	}
 	q.cacheSet[ps.key] = true
+	ps.timestamp = time.Now()
 
 	for {
 		put, err := q.cacheRing.Offer(ps)
@@ -126,24 +129,26 @@ func (s *BadgerStore) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *com
 		final, cache := 0, 0
 		for i := 0; i < 10; i++ {
 			ps, err := s.queue.PopFinal()
-			if err != nil {
+			if err != nil || ps == nil {
 				break
 			}
-			if ps != nil {
-				hook(ps.PeerId, ps.Snapshot)
-				final++
-			}
+			hook(ps.PeerId, ps.Snapshot)
+			final++
 		}
-		for i := 0; i < 2; i++ {
+		valid, expired := 0, 0
+		for valid < 2 && expired < 100 {
 			ps, err := s.queue.PopCache()
-			if err != nil {
+			if err != nil || ps == nil {
 				break
 			}
-			if ps != nil {
+			if ps.timestamp.Add(time.Duration(config.SnapshotRoundGap * 2)).After(time.Now()) {
+				valid += 1
 				hook(ps.PeerId, ps.Snapshot)
-				cache++
+			} else {
+				expired += 1
 			}
 		}
+		cache = valid + expired
 		if cache < 1 && final < 1 {
 			time.Sleep(100 * time.Millisecond)
 		}
