@@ -44,22 +44,6 @@
     "host": "node-candy.f1ex.io:7239"
   },
   {
-    "signer": "XINRcegmfY6y8CRE1GgYC1jhjHZ3cscXzvqvWhy77jwArGGpAMzxCtpwkUwWDuC1ZyLdikr6qey9MaXP9mLgEfSQsVPRtsVc",
-    "host": "onda.mixin-node.tako.vip:7239"
-  },
-  {
-    "signer": "XIN7W2kHuuKDM7Zjw62UAQK42C9F928EnANPz1dFrwkP9iimtZeFAd1LX6rKLwiugy2SwUJAuRkwScdMTbc6ZpyC3pXQjyQV",
-    "host": "noodle.mixin-node.tako.vip:7239"
-  },
-  {
-    "signer": "XINB4VF9E5VE9zH5JWufsBaGZABAtVSQBd1v8TAuivUvAkmA9Cad8bp4ZLBERcYN7AojZy3BNSgNrWuhhULLFzQUTceQvfhq",
-    "host": "tako.mixin-node.tako.vip:7239"
-  },
-  {
-    "signer": "XINCVB9CGhm9Uia64JeNzmVaY6xMd2nmhrfAyLMyvvz3M8hZjYsR4mkUKHoTirkPuN6zsKBemUX9mu8WtCVR1CNXyNAwECfc",
-    "host": "ss.mixin-node.tako.vip:7239"
-  },
-  {
     "signer": "XIN29AqXsjAjMVqrCar5ZSbn138VuhPzdQScTsK95f1tVVMZHwgG13De6tudHMBdsGpmACHvqFH5fn4ProqtvHxbWhB8Wa2f",
     "host": "mixin-node0.eoslaomao.com:443"
   },
@@ -82,10 +66,6 @@
   {
     "signer": "XINZET776nc2ZbxWcGb3RLW1Z3uR7jt5Nk9jPEm5SWLcbkRGjtXYkrdufHbwtf5KUPDQLjGkFNr2wj5v3uW9NJSbQN9unaUj",
     "host": "35.234.96.182:7239"
-  },
-  {
-    "signer": "XINLgiGUvnV2hDpzWFcf3QjpD6xmvzuhbqp7WqmihudXke3KSZ7JQ1h3Zuse4G5nW1jbm8JkBPRxuEZaPrQ59E3qmDUEgt6X",
-    "host": "ss2.mixin-node.tako.vip:7239"
   },
   {
     "signer": "XINBqc5ianx7d41WQyy9WRt9hbqBapoBg7UF1XjfAg8au3oSBfKADd6b4U5rNpXsnDzK7wWSXuJEx3gsa4JV3zw17bDZep51",
