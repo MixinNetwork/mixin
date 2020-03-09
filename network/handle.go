@@ -91,7 +91,8 @@ func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *com
 	}
 
 	data := buildSnapshotFinalizationMessage(s)
-	return me.sendSnapshotMessagetoPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeSnapshotFinalization, data)
+	key = crypto.NewHash(append(hash[:], 'S', 'N', 'A', 'P', PeerMessageTypeSnapshotFinalization))
+	return me.sendHighToPeer(idForNetwork, key, data)
 }
 
 func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash) error {

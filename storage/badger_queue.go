@@ -22,16 +22,7 @@ type PeerSnapshot struct {
 	Snapshot *common.Snapshot
 }
 
-func (ps *PeerSnapshot) cacheKey() crypto.Hash {
-	hash := ps.Snapshot.PayloadHash()
-	hash = hash.ForNetwork(ps.PeerId)
-	for _, sig := range ps.Snapshot.Signatures {
-		hash = crypto.NewHash(append(hash[:], sig[:]...))
-	}
-	return hash
-}
-
-func (ps *PeerSnapshot) finalKey() crypto.Hash {
+func (ps *PeerSnapshot) buildKey() crypto.Hash {
 	hash := ps.Snapshot.PayloadHash()
 	return hash.ForNetwork(ps.PeerId)
 }
@@ -122,11 +113,10 @@ func (s *BadgerStore) QueueAppendSnapshot(peerId crypto.Hash, snap *common.Snaps
 		PeerId:   peerId,
 		Snapshot: snap,
 	}
+	ps.key = ps.buildKey()
 	if finalized {
-		ps.key = ps.finalKey()
 		return s.queue.PutFinal(ps)
 	}
-	ps.key = ps.cacheKey()
 	return s.queue.PutCache(ps)
 }
 
