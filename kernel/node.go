@@ -283,8 +283,12 @@ func (node *Node) BuildGraph() []*network.SyncPoint {
 func (node *Node) BuildAuthenticationMessage() []byte {
 	data := make([]byte, 8)
 	binary.BigEndian.PutUint64(data, uint64(clock.Now().Unix()))
-	hash := node.Signer.Hash().ForNetwork(node.networkId)
-	data = append(data, hash[:]...)
+	if config.Custom.ConsensusOnly {
+		hash := node.Signer.Hash().ForNetwork(node.networkId)
+		data = append(data, hash[:]...)
+	} else {
+		data = append(data, node.Signer.PublicSpendKey[:]...)
+	}
 	sig := node.Signer.PrivateSpendKey.Sign(data)
 	data = append(data, sig[:]...)
 	return append(data, []byte(node.Listener)...)
@@ -299,27 +303,40 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication message timeout %d %d", ts, clock.Now().Unix())
 	}
 
+	var signer common.Address
 	var peerId crypto.Hash
 	copy(peerId[:], msg[8:40])
-	var sig crypto.Signature
-	copy(sig[:], msg[40:40+len(sig)])
-	listener := string(msg[40+len(sig):])
-
-	if !config.Custom.ConsensusOnly {
-		return peerId, listener, nil
-	}
-
-	peer := node.ConsensusNodes[peerId]
-	if node.ConsensusPledging != nil && node.ConsensusPledging.IdForNetwork(node.networkId) == peerId {
-		peer = node.ConsensusPledging
-	}
-	if peer == nil || peerId == node.IdForNetwork {
+	if peerId == node.IdForNetwork {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
 	}
-	if peer.Signer.PublicSpendKey.Verify(msg[:40], sig) {
-		return peerId, listener, nil
+	peer := node.getPeerConsensusNode(peerId)
+
+	if peer == nil {
+		copy(signer.PublicSpendKey[:], peerId[:])
+		signer.PublicViewKey = signer.PublicSpendKey.DeterministicHashDerive().Public()
+		peerId = signer.Hash().ForNetwork(node.networkId)
+		if peerId == node.IdForNetwork {
+			return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
+		}
+		peer = node.getPeerConsensusNode(peerId)
+	} else {
+		signer = peer.Signer
 	}
-	return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
+	if config.Custom.ConsensusOnly && peer == nil {
+		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
+	}
+	if peer != nil && peer.Signer.Hash() != signer.Hash() {
+		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
+	}
+
+	var sig crypto.Signature
+	copy(sig[:], msg[40:40+len(sig)])
+	if !signer.PublicSpendKey.Verify(msg[:40], sig) {
+		return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
+	}
+
+	listener := string(msg[40+len(sig):])
+	return peerId, listener, nil
 }
 
 func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot, final bool) error {
