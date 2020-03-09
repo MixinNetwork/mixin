@@ -1,6 +1,6 @@
 [
   {
-    "signer": "XINZekNsVBN9GP49ZsMk8jGWVdkzHmjwTGxENKoYjRrSP1E6Xxsqg77n6TWMkCbZVCtL2WYsa4wdXUjUAXSnnNnG8aefBQRm",
+    "signer": "XIN3nveJ3YKcFo2GEPXFBWgVQ8LUKYg3EjFxscfWtDH9k7rUSmFCpDyGaz9suZczgkhDetU9CyudG74nXtechVHB8v9npK1S",
     "host": "mixin-node-01.b1.run:7239"
   },
   {
@@ -16,7 +16,7 @@
     "host": "mixin-node-04.b1.run:7239"
   },
   {
-    "signer": "XINRZtoDKwH2zEFK4vSv3eGGeQuB59gvyXpJ86VEdComApj1LGECaexCQRqdQDtdGvhKwRMWjstYhNcBHPwaSV7bz59htxGq",
+    "signer": "XINDfgnkijCTe9ijVd9yDwQP8VY4rXwFqYczfgeKJViJqjGKmWS8MdZhJn7kPd5Hv6M8W8RobhJUAxkxgZ6YNtdWQwefYE51",
     "host": "mixin-node-05.b1.run:7239"
   },
   {
