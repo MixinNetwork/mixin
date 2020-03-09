@@ -24,7 +24,7 @@ USAGE:
    mixin [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.6.5-e2da1ef568f5f349b504616eb71fa9684dc944b4
+   v0.7.0
 
 COMMANDS:
    kernel, k                    Start the Mixin Kernel daemon
@@ -53,8 +53,10 @@ COMMANDS:
    help, h                      Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --help, -h     show help
-   --version, -v  print the version
+   --node value, -n value  the node RPC endpoint (default: "127.0.0.1:8239")
+   --dir value, -d value   the data directory
+   --help, -h              show help (default: false)
+   --version, -v           print the version (default: false)
 ```
 
 ## Mixin Kernel Address
@@ -118,6 +120,8 @@ $ mixin signrawtransaction -n mixin-node:8239 \
 To start a node, create a directory `mixin` for the config and network data files, then put the genesis.json, nodes.json and config.json files in it.
 
 The main net genesis.json, nodes.json and an example config.example.json files can be obtained from [here](https://github.com/MixinNetwork/mixin/tree/master/config), you only need to put your own signer spend key in the config.json file.
+
+Change the `consensus-only` option to `false` will allow the node to start in archive mode, which syncs all the graph data.
 
 ```
 $ mixin help kernel

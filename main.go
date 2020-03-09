@@ -43,6 +43,11 @@ func main() {
 			Usage:   "Start the Mixin Kernel daemon",
 			Action:  kernelCmd,
 			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "dir",
+					Aliases: []string{"d"},
+					Usage:   "the data directory",
+				},
 				&cli.IntFlag{
 					Name:    "port",
 					Aliases: []string{"p"},
