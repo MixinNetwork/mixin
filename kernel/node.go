@@ -455,9 +455,3 @@ func (s *syncMap) Get(k crypto.Hash) *network.SyncPoint {
 	defer s.mutex.RUnlock()
 	return s.m[k]
 }
-
-func (s *syncMap) Len() int {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return len(s.m)
-}
