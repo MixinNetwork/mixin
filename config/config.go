@@ -35,6 +35,7 @@ type custom struct {
 	Listener       string        `json:"listener"`
 	MaxCacheSize   int           `json:"max-cache-size"`
 	ElectionTicker int           `json:"election-ticker"`
+	ConsensusOnly  bool          `json:"consensus-only"`
 	CacheTTL       time.Duration `json:"cache-ttl"`
 }
 
@@ -45,6 +46,11 @@ func Initialize(file string) error {
 		return nil
 	}
 	f, err := ioutil.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	var cm map[string]interface{}
+	err = json.Unmarshal(f, &cm)
 	if err != nil {
 		return err
 	}
@@ -61,6 +67,9 @@ func Initialize(file string) error {
 	}
 	if config.ElectionTicker == 0 {
 		config.ElectionTicker = 700
+	}
+	if _, found := cm["consensus-only"]; !found {
+		config.ConsensusOnly = true
 	}
 	Custom = &config
 	return nil

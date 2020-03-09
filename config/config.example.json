@@ -4,5 +4,6 @@
   "listener": "mixin-node.example.com:7239",
   "max-cache-size": 16,
   "election-ticker": 700,
+  "consensus-only": true,
   "cache-ttl": 7200
 }
