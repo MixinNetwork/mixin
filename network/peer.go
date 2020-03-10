@@ -96,7 +96,7 @@ func (me *Peer) ListenNeighbors() error {
 		go func(c Client) {
 			err := me.acceptNeighborConnection(c)
 			if err != nil {
-				logger.Println("accept neighbor error", err)
+				logger.Verbosef("accept neighbor error %s", err.Error())
 			}
 		}(c)
 	}
@@ -208,7 +208,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 
 	peer, err := me.authenticateNeighbor(client)
 	if err != nil {
-		logger.Println("peer authentication error", client.RemoteAddr().String(), err)
+		logger.Verbosef("peer authentication error %s %s", client.RemoteAddr().String(), err.Error())
 		return err
 	}
 
