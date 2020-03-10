@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/urfave/cli/v2"
@@ -88,6 +89,10 @@ func decryptGhostCmd(c *cli.Context) error {
 }
 
 func updateHeadReference(c *cli.Context) error {
+	err := config.Initialize(c.String("dir") + "/config.json")
+	if err != nil {
+		return err
+	}
 	store, err := storage.NewBadgerStore(c.String("dir"))
 	if err != nil {
 		return err
@@ -117,6 +122,10 @@ func updateHeadReference(c *cli.Context) error {
 }
 
 func removeGraphEntries(c *cli.Context) error {
+	err := config.Initialize(c.String("dir") + "/config.json")
+	if err != nil {
+		return err
+	}
 	store, err := storage.NewBadgerStore(c.String("dir"))
 	if err != nil {
 		return err
@@ -126,6 +135,10 @@ func removeGraphEntries(c *cli.Context) error {
 }
 
 func validateGraphEntries(c *cli.Context) error {
+	err := config.Initialize(c.String("dir") + "/config.json")
+	if err != nil {
+		return err
+	}
 	store, err := storage.NewBadgerStore(c.String("dir"))
 	if err != nil {
 		return err
