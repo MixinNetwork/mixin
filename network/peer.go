@@ -301,7 +301,7 @@ func (me *Peer) sendHighToPeer(idForNetwork, key crypto.Hash, data []byte) error
 	}
 }
 
-func (me *Peer) sendSnapshotMessagetoPeer(idForNetwork crypto.Hash, snap crypto.Hash, typ byte, data []byte) error {
+func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.Hash, typ byte, data []byte) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}

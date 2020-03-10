@@ -61,22 +61,22 @@ type SyncHandle interface {
 
 func (me *Peer) SendSnapshotAnnouncementMessage(idForNetwork crypto.Hash, s *common.Snapshot, R crypto.Key) error {
 	data := buildSnapshotAnnouncementMessage(s, R)
-	return me.sendSnapshotMessagetoPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeSnapshotAnnoucement, data)
+	return me.sendSnapshotMessageToPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeSnapshotAnnoucement, data)
 }
 
 func (me *Peer) SendSnapshotCommitmentMessage(idForNetwork crypto.Hash, snap crypto.Hash, R crypto.Key, wantTx bool) error {
 	data := buildSnapshotCommitmentMessage(snap, R, wantTx)
-	return me.sendSnapshotMessagetoPeer(idForNetwork, snap, PeerMessageTypeSnapshotCommitment, data)
+	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeSnapshotCommitment, data)
 }
 
 func (me *Peer) SendTransactionChallengeMessage(idForNetwork crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, tx *common.VersionedTransaction) error {
 	data := buildTransactionChallengeMessage(snap, cosi, tx)
-	return me.sendSnapshotMessagetoPeer(idForNetwork, snap, PeerMessageTypeTransactionChallenge, data)
+	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeTransactionChallenge, data)
 }
 
 func (me *Peer) SendSnapshotResponseMessage(idForNetwork crypto.Hash, snap crypto.Hash, si [32]byte) error {
 	data := buildSnapshotResponseMessage(snap, si)
-	return me.sendSnapshotMessagetoPeer(idForNetwork, snap, PeerMessageTypeSnapshotResponse, data)
+	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeSnapshotResponse, data)
 }
 
 func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *common.Snapshot) error {
@@ -91,8 +91,7 @@ func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *com
 	}
 
 	data := buildSnapshotFinalizationMessage(s)
-	key = crypto.NewHash(append(hash[:], 'S', 'N', 'A', 'P', PeerMessageTypeSnapshotFinalization))
-	return me.sendHighToPeer(idForNetwork, key, data)
+	return me.sendSnapshotMessageToPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeSnapshotFinalization, data)
 }
 
 func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash) error {
