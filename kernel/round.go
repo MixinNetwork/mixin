@@ -34,7 +34,8 @@ type RoundGraph struct {
 	CacheRound map[crypto.Hash]*CacheRound
 	FinalRound map[crypto.Hash]*FinalRound
 
-	RoundHistory map[crypto.Hash][]*FinalRound
+	RoundHistory      map[crypto.Hash][]*FinalRound
+	ReverseRoundLinks map[crypto.Hash]uint64
 
 	GraphTimestamp uint64
 	FinalCache     []*network.SyncPoint
@@ -95,9 +96,10 @@ func (g *RoundGraph) Print() string {
 
 func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (*RoundGraph, error) {
 	graph := &RoundGraph{
-		CacheRound:   make(map[crypto.Hash]*CacheRound),
-		FinalRound:   make(map[crypto.Hash]*FinalRound),
-		RoundHistory: make(map[crypto.Hash][]*FinalRound),
+		CacheRound:        make(map[crypto.Hash]*CacheRound),
+		FinalRound:        make(map[crypto.Hash]*FinalRound),
+		RoundHistory:      make(map[crypto.Hash][]*FinalRound),
+		ReverseRoundLinks: make(map[crypto.Hash]uint64),
 	}
 
 	allNodes := store.ReadAllNodes()
@@ -119,6 +121,11 @@ func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (*
 		if err != nil {
 			return nil, err
 		}
+		rlink, err := store.ReadLink(final.NodeId, idForNetwork)
+		if err != nil {
+			return nil, err
+		}
+		graph.ReverseRoundLinks[final.NodeId] = rlink
 		history, err := loadRoundHistoryForNode(store, idForNetwork, final)
 		if err != nil {
 			return nil, err

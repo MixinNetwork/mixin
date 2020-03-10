@@ -62,10 +62,16 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 	}
 
 	link, err := node.persistStore.ReadLink(s.NodeId, external.NodeId)
-	if external.Number >= link {
-		return final, err
+	if external.Number < link {
+		return nil, err
 	}
-	return nil, err
+	if external.NodeId == node.IdForNetwork {
+		if l := node.Graph.ReverseRoundLinks[s.NodeId]; external.Number < l {
+			return nil, fmt.Errorf("external reverse reference %s %d %d", s.NodeId, external.Number, l)
+		}
+		node.Graph.ReverseRoundLinks[s.NodeId] = external.Number
+	}
+	return final, err
 }
 
 func (node *Node) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
