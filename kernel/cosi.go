@@ -128,19 +128,19 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 		return nil
 	}
 
-	if old := node.CosiAggregators.Get(s.Transaction); old != nil {
-		threshold := old.Snapshot.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*10
-		if threshold > uint64(clock.Now().UnixNano()) {
-			return nil
-		}
-	}
-
 	if node.ConsensusIndex < 0 || node.Graph.FinalRound[s.NodeId] == nil {
 		return nil
 	}
 
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
+
+	if old := node.CosiAggregators.Get(s.Transaction); old != nil {
+		threshold := old.Snapshot.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*10
+		if old.Snapshot.RoundNumber <= cache.Number && threshold > uint64(clock.Now().UnixNano()) {
+			return nil
+		}
+	}
 
 	if len(cache.Snapshots) == 0 && !node.CheckBroadcastedToPeers() {
 		return node.clearAndQueueSnapshotOrPanic(s)
@@ -702,14 +702,16 @@ func (node *Node) handleFinalization(m *CosiAction) error {
 	return node.cosiHandleFinalization(m)
 }
 
-func (node *Node) checkTxAnnouncementForNode(txId, nodeId crypto.Hash, duration time.Duration) bool {
+func (node *Node) checkAnnouncementFlood(s *common.Snapshot, duration time.Duration) bool {
 	now := clock.Now()
 	buf := make([]byte, 8)
-	key := txId.ForNetwork(nodeId)
+	binary.BigEndian.PutUint64(buf, s.RoundNumber)
+	txForNode := s.Transaction.ForNetwork(s.NodeId)
+	key := append(txForNode[:], buf...)
 	binary.BigEndian.PutUint64(buf, uint64(now.UnixNano()))
-	defer node.cacheStore.Set(key[:], buf)
+	defer node.cacheStore.Set(key, buf)
 
-	val := node.cacheStore.Get(nil, key[:])
+	val := node.cacheStore.Get(nil, key)
 	if len(val) == 8 {
 		ts := time.Unix(0, int64(binary.BigEndian.Uint64(val)))
 		return ts.Add(duration).After(now)
@@ -721,7 +723,7 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 	if node.getPeerConsensusNode(peerId) == nil {
 		return nil
 	}
-	if node.checkTxAnnouncementForNode(s.Transaction, s.NodeId, time.Minute*5) {
+	if node.checkAnnouncementFlood(s, time.Minute*5) {
 		return nil
 	}
 
