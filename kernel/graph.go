@@ -63,6 +63,9 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound, allowDumm
 			if rts+config.SnapshotRoundGap*rh > uint64(clock.Now().UnixNano()) {
 				continue
 			}
+			if cr := node.Graph.CacheRound[id]; len(cr.Snapshots) == 0 && cr.Number == rounds[0].Number+1 {
+				return nil, false, fmt.Errorf("external reference %s is bare %s:%d", s.References.External, id, rounds[0].Number)
+			}
 			if threshold < rts {
 				return nil, false, fmt.Errorf("external reference %s too early %s:%d %f", s.References.External, id, rounds[0].Number, time.Duration(rts-threshold).Seconds())
 			}

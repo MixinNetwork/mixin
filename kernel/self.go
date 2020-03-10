@@ -96,6 +96,9 @@ func (node *Node) determinBestRound(roundTime uint64) *FinalRound {
 		if rts+config.SnapshotRoundGap*rh > uint64(clock.Now().UnixNano()) {
 			continue
 		}
+		if cr := node.Graph.CacheRound[id]; len(cr.Snapshots) == 0 && cr.Number == rounds[0].Number+1 {
+			continue
+		}
 		if rh > height || rts > start {
 			best = rounds[0]
 			start, height = rts, rh
