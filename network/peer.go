@@ -96,7 +96,7 @@ func (me *Peer) ListenNeighbors() error {
 		go func(c Client) {
 			err := me.acceptNeighborConnection(c)
 			if err != nil {
-				logger.Verbosef("accept neighbor error %s", err.Error())
+				logger.Debugf("accept neighbor error %s\n", err.Error())
 			}
 		}(c)
 	}
@@ -107,7 +107,7 @@ func (me *Peer) openPeerStreamLoop(p *Peer) {
 	for !p.closing {
 		msg, err := me.openPeerStream(p, resend)
 		if err != nil {
-			logger.Println("neighbor open stream error", err)
+			logger.Debugf("neighbor open stream error %s\n", err.Error())
 		}
 		resend = msg
 		time.Sleep(1 * time.Second)
@@ -115,7 +115,7 @@ func (me *Peer) openPeerStreamLoop(p *Peer) {
 }
 
 func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
-	logger.Println("OPEN PEER STREAM", peer.Address)
+	logger.Debugf("OPEN PEER STREAM %s\n", peer.Address)
 	transport, err := NewQuicClient(peer.Address)
 	if err != nil {
 		return nil, err
@@ -125,13 +125,13 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 		return nil, err
 	}
 	defer client.Close()
-	logger.Println("DIAL PEER STREAM", peer.Address)
+	logger.Debugf("DIAL PEER STREAM %s\n", peer.Address)
 
 	err = client.Send(buildAuthenticationMessage(me.handle.BuildAuthenticationMessage()))
 	if err != nil {
 		return nil, err
 	}
-	logger.Println("AUTH PEER STREAM", peer.Address)
+	logger.Debugf("AUTH PEER STREAM %s\n", peer.Address)
 
 	pingTicker := time.NewTicker(1 * time.Second)
 	defer pingTicker.Stop()
@@ -140,7 +140,7 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	defer graphTicker.Stop()
 
 	if resend != nil {
-		logger.Println("RESEND PEER STREAM", resend.key.String())
+		logger.Debugf("RESEND PEER STREAM %s\n", resend.key.String())
 		if !me.snapshotsCaches.contains(resend.key, time.Minute) {
 			err := client.Send(resend.data)
 			if err != nil {
@@ -150,7 +150,7 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 		}
 	}
 
-	logger.Println("LOOP PEER STREAM", peer.Address)
+	logger.Debugf("LOOP PEER STREAM %s\n", peer.Address)
 	for !peer.closing {
 		hd, nd := false, false
 		select {
@@ -208,7 +208,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 
 	peer, err := me.authenticateNeighbor(client)
 	if err != nil {
-		logger.Verbosef("peer authentication error %s %s", client.RemoteAddr().String(), err.Error())
+		logger.Debugf("peer authentication error %s %s\n", client.RemoteAddr().String(), err.Error())
 		return err
 	}
 

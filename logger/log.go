@@ -32,3 +32,9 @@ func Verbosef(format string, v ...interface{}) {
 		log.Printf(format, v...)
 	}
 }
+
+func Debugf(format string, v ...interface{}) {
+	if level >= DEBUG {
+		log.Printf(format, v...)
+	}
+}
