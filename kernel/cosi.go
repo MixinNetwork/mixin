@@ -135,13 +135,6 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
-	if old := node.CosiAggregators.Get(s.Transaction); old != nil {
-		threshold := old.Snapshot.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*10
-		if old.Snapshot.RoundNumber <= cache.Number && threshold > uint64(clock.Now().UnixNano()) {
-			return nil
-		}
-	}
-
 	if len(cache.Snapshots) == 0 && !node.CheckBroadcastedToPeers() {
 		return node.clearAndQueueSnapshotOrPanic(s)
 	}
