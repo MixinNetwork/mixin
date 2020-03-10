@@ -38,25 +38,29 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 	}
 	if !node.verifyFinalization(s) {
 		if external.Number+config.SnapshotSyncRoundThreshold < node.Graph.FinalRound[external.NodeId].Number {
-			return nil, fmt.Errorf("external reference %s:%d round too early %d", external.NodeId, external.Number, node.Graph.FinalRound[external.NodeId].Number)
+			return nil, fmt.Errorf("external reference %s too early %d %d", s.References.External, external.Number, node.Graph.FinalRound[external.NodeId].Number)
 		}
 		if external.Timestamp > s.Timestamp {
 			return nil, fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-s.Timestamp).Seconds())
 		}
 		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64
-		for _, rounds := range node.Graph.RoundHistory {
-			r := rounds[0]
-			if r.NodeId == s.NodeId {
+		height := uint64(len(node.Graph.RoundHistory[external.NodeId]))
+		for id, rounds := range node.Graph.RoundHistory {
+			if !node.genesisNodesMap[id] && rounds[0].Number < 7+config.SnapshotReferenceThreshold*2 {
 				continue
 			}
-			if !node.genesisNodesMap[r.NodeId] && r.Number < 7+config.SnapshotReferenceThreshold*2 {
+			rts, rh := rounds[0].Start, uint64(len(rounds))
+			if id == node.IdForNetwork || rh < height {
 				continue
 			}
-			if r.Start+config.SnapshotRoundGap*uint64(len(rounds)) > uint64(clock.Now().UnixNano()) {
+			if rts > s.Timestamp {
 				continue
 			}
-			if threshold < r.Start {
-				return nil, fmt.Errorf("external reference %s:%d timestamp too early %s:%d %f", external.NodeId, external.Number, r.NodeId, r.Number, time.Duration(r.Start-threshold).Seconds())
+			if rts+config.SnapshotRoundGap*rh > uint64(clock.Now().UnixNano()) {
+				continue
+			}
+			if threshold < rts {
+				return nil, fmt.Errorf("external reference %s too early %s:%d %f", s.References.External, id, rounds[0].Number, time.Duration(rts-threshold).Seconds())
 			}
 		}
 	}

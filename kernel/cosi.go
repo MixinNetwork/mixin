@@ -318,12 +318,12 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 			panic(err)
 		}
 		node.assignNewGraphRound(final, cache)
-		return nil
+		return node.queueSnapshotOrPanic(m.PeerId, s)
 	}
 	if s.RoundNumber == cache.Number+1 {
 		if round, err := node.startNewRound(s, cache); err != nil {
 			logger.Verbosef("ERROR verifyExternalSnapshot %s %d %s %s\n", s.NodeId, s.RoundNumber, s.Transaction, err.Error())
-			return nil
+			return node.queueSnapshotOrPanic(m.PeerId, s)
 		} else if round == nil {
 			return nil
 		} else {
