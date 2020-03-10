@@ -11,37 +11,41 @@ import (
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 )
 
-func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRound, error) {
+func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound, allowDummy bool) (*FinalRound, bool, error) {
 	if s.RoundNumber != cache.Number+1 {
 		panic("should never be here")
 	}
 	final := cache.asFinal()
 	if final == nil {
-		return nil, fmt.Errorf("self cache snapshots not collected yet %s %d", s.NodeId, s.RoundNumber)
+		return nil, false, fmt.Errorf("self cache snapshots not collected yet %s %d", s.NodeId, s.RoundNumber)
 	}
 	if s.References.Self != final.Hash {
-		return nil, fmt.Errorf("self cache snapshots not match yet %s %s", s.NodeId, s.References.Self)
+		return nil, false, fmt.Errorf("self cache snapshots not match yet %s %s", s.NodeId, s.References.Self)
 	}
 
+	finalized := node.verifyFinalization(s)
 	external, err := node.persistStore.ReadRound(s.References.External)
 	if err != nil {
-		return nil, err
+		return nil, false, err
+	}
+	if external == nil && finalized && allowDummy {
+		return final, true, nil
 	}
 	if external == nil {
-		return nil, fmt.Errorf("external round %s not collected yet", s.References.External)
+		return nil, false, fmt.Errorf("external round %s not collected yet", s.References.External)
 	}
 	if final.NodeId == external.NodeId {
-		return nil, nil
+		return nil, false, nil
 	}
 	if !node.genesisNodesMap[external.NodeId] && external.Number < 7+config.SnapshotReferenceThreshold {
-		return nil, nil
+		return nil, false, nil
 	}
-	if !node.verifyFinalization(s) {
+	if !finalized {
 		if external.Number+config.SnapshotSyncRoundThreshold < node.Graph.FinalRound[external.NodeId].Number {
-			return nil, fmt.Errorf("external reference %s too early %d %d", s.References.External, external.Number, node.Graph.FinalRound[external.NodeId].Number)
+			return nil, false, fmt.Errorf("external reference %s too early %d %d", s.References.External, external.Number, node.Graph.FinalRound[external.NodeId].Number)
 		}
 		if external.Timestamp > s.Timestamp {
-			return nil, fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-s.Timestamp).Seconds())
+			return nil, false, fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-s.Timestamp).Seconds())
 		}
 		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64
 		height := uint64(len(node.Graph.RoundHistory[external.NodeId]))
@@ -60,22 +64,22 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 				continue
 			}
 			if threshold < rts {
-				return nil, fmt.Errorf("external reference %s too early %s:%d %f", s.References.External, id, rounds[0].Number, time.Duration(rts-threshold).Seconds())
+				return nil, false, fmt.Errorf("external reference %s too early %s:%d %f", s.References.External, id, rounds[0].Number, time.Duration(rts-threshold).Seconds())
 			}
 		}
 	}
 
 	link, err := node.persistStore.ReadLink(s.NodeId, external.NodeId)
 	if external.Number < link {
-		return nil, err
+		return nil, false, err
 	}
 	if external.NodeId == node.IdForNetwork {
 		if l := node.Graph.ReverseRoundLinks[s.NodeId]; external.Number < l {
-			return nil, fmt.Errorf("external reverse reference %s %d %d", s.NodeId, external.Number, l)
+			return nil, false, fmt.Errorf("external reverse reference %s %d %d", s.NodeId, external.Number, l)
 		}
 		node.Graph.ReverseRoundLinks[s.NodeId] = external.Number
 	}
-	return final, err
+	return final, false, err
 }
 
 func (node *Node) assignNewGraphRound(final *FinalRound, cache *CacheRound) {

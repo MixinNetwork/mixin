@@ -321,7 +321,7 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		return node.queueSnapshotOrPanic(m.PeerId, s)
 	}
 	if s.RoundNumber == cache.Number+1 {
-		if round, err := node.startNewRound(s, cache); err != nil {
+		if round, _, err := node.startNewRound(s, cache, false); err != nil {
 			logger.Verbosef("ERROR verifyExternalSnapshot %s %d %s %s\n", s.NodeId, s.RoundNumber, s.Transaction, err.Error())
 			return node.queueSnapshotOrPanic(m.PeerId, s)
 		} else if round == nil {
@@ -624,7 +624,7 @@ func (node *Node) cosiHandleFinalization(m *CosiAction) error {
 		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	}
 	if s.RoundNumber == cache.Number+1 {
-		if round, err := node.startNewRound(s, cache); err != nil {
+		if round, _, err := node.startNewRound(s, cache, false); err != nil {
 			return node.QueueAppendSnapshot(m.PeerId, s, true)
 		} else if round == nil {
 			return nil
@@ -670,9 +670,12 @@ func (node *Node) handleFinalization(m *CosiAction) error {
 		return nil
 	}
 
-	err := node.tryToStartNewRound(s)
+	dummy, err := node.tryToStartNewRound(s)
 	if err != nil {
 		logger.Verbosef("ERROR tryToStartNewRound %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil, err.Error())
+		return node.QueueAppendSnapshot(m.PeerId, s, true)
+	} else if dummy {
+		logger.Verbosef("ERROR tryToStartNewRound DUMMY %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil)
 		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	}
 

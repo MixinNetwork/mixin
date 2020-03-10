@@ -31,25 +31,27 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.Ver
 	return tx, node.persistStore.WriteTransaction(tx)
 }
 
-func (node *Node) tryToStartNewRound(s *common.Snapshot) error {
+func (node *Node) tryToStartNewRound(s *common.Snapshot) (bool, error) {
 	if node.checkInitialAcceptSnapshotWeak(s) {
-		return nil
+		return false, nil
 	}
 	if node.Graph.CacheRound[s.NodeId] == nil {
-		return fmt.Errorf("node not accepted yet %s %d %s", s.NodeId, s.RoundNumber, time.Unix(0, int64(s.Timestamp)).String())
+		return false, fmt.Errorf("node not accepted yet %s %d %s", s.NodeId, s.RoundNumber, time.Unix(0, int64(s.Timestamp)).String())
 	}
 
 	cache := node.Graph.CacheRound[s.NodeId].Copy()
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
 	if s.RoundNumber != cache.Number+1 {
-		return nil
+		return false, nil
 	}
 
-	if round, err := node.startNewRound(s, cache); err != nil {
-		return err
+	dummyExternal := cache.References.External
+	round, dummy, err := node.startNewRound(s, cache, true)
+	if err != nil {
+		return false, err
 	} else if round == nil {
-		return nil
+		return false, nil
 	} else {
 		final = round
 	}
@@ -59,13 +61,16 @@ func (node *Node) tryToStartNewRound(s *common.Snapshot) error {
 		Timestamp:  s.Timestamp,
 		References: s.References,
 	}
-	err := node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
+	if dummy {
+		cache.References.External = dummyExternal
+	}
+	err = node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 	if err != nil {
 		panic(err)
 	}
 
 	node.assignNewGraphRound(final, cache)
-	return nil
+	return dummy, nil
 }
 
 func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapshot) error {
