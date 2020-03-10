@@ -31,6 +31,9 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound, allowDumm
 	if external == nil && finalized && allowDummy {
 		return final, true, nil
 	}
+	if external == nil && allowDummy && node.Graph.GraphTimestamp < 1583928980997205700 { // FIXME
+		return final, true, nil
+	}
 	if external == nil {
 		return nil, false, fmt.Errorf("external round %s not collected yet", s.References.External)
 	}
