@@ -50,7 +50,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound) (*FinalRo
 				continue
 			}
 			rts, rh := rounds[0].Start, uint64(len(rounds))
-			if id == node.IdForNetwork || rh < height {
+			if id == s.NodeId || rh < height {
 				continue
 			}
 			if rts > s.Timestamp {
