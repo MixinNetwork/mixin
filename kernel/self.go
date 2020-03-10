@@ -86,7 +86,7 @@ func (node *Node) determinBestRound(roundTime uint64) *FinalRound {
 		if !node.genesisNodesMap[id] && rounds[0].Number < 7+config.SnapshotReferenceThreshold*2 {
 			continue
 		}
-		if node.Graph.ReverseRoundLinks[id]+1 >= node.Graph.CacheRound[node.IdForNetwork].Number {
+		if rl := node.Graph.ReverseRoundLinks[id]; rl > 0 && rl+1 >= node.Graph.CacheRound[node.IdForNetwork].Number {
 			continue
 		}
 		rts, rh := rounds[0].Start, uint64(len(rounds))
