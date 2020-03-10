@@ -38,8 +38,6 @@ type node struct {
 	data     interface{}
 }
 
-type nodes []*node
-
 // RingBuffer is a MPMC buffer that achieves threadsafety with CAS operations
 // only.  A put on full or get on empty call will block until an item
 // is put or retrieved.  Calling Dispose on the RingBuffer will unblock
@@ -54,12 +52,12 @@ type RingBuffer struct {
 	_padding2      [8]uint64
 	mask, disposed uint64
 	_padding3      [8]uint64
-	nodes          nodes
+	nodes          []*node
 }
 
 func (rb *RingBuffer) init(size uint64) {
 	size = roundUp(size)
-	rb.nodes = make(nodes, size)
+	rb.nodes = make([]*node, size)
 	for i := uint64(0); i < size; i++ {
 		rb.nodes[i] = &node{position: i}
 	}

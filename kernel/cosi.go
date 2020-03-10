@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"sync"
 	"time"
@@ -125,6 +126,13 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 			}
 		}
 		return nil
+	}
+
+	if old := node.CosiAggregators.Get(s.Transaction); old != nil {
+		threshold := old.Snapshot.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*10
+		if threshold > uint64(clock.Now().UnixNano()) {
+			return nil
+		}
 	}
 
 	if node.ConsensusIndex < 0 || node.Graph.FinalRound[s.NodeId] == nil {
@@ -694,8 +702,26 @@ func (node *Node) handleFinalization(m *CosiAction) error {
 	return node.cosiHandleFinalization(m)
 }
 
+func (node *Node) checkTxAnnouncementForNode(txId, nodeId crypto.Hash, duration time.Duration) bool {
+	now := clock.Now()
+	buf := make([]byte, 8)
+	key := txId.ForNetwork(nodeId)
+	binary.BigEndian.PutUint64(buf, uint64(now.UnixNano()))
+	defer node.cacheStore.Set(key[:], buf)
+
+	val := node.cacheStore.Get(nil, key[:])
+	if len(val) == 8 {
+		ts := time.Unix(0, int64(binary.BigEndian.Uint64(val)))
+		return ts.Add(duration).After(now)
+	}
+	return false
+}
+
 func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot, commitment *crypto.Key) error {
 	if node.getPeerConsensusNode(peerId) == nil {
+		return nil
+	}
+	if node.checkTxAnnouncementForNode(s.Transaction, s.NodeId, time.Minute*5) {
 		return nil
 	}
 
