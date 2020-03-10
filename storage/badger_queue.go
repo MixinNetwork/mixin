@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
@@ -32,8 +33,8 @@ func NewQueue() *Queue {
 		mutex:     new(sync.Mutex),
 		finalSet:  make(map[crypto.Hash]bool),
 		cacheSet:  make(map[crypto.Hash]bool),
-		cacheRing: NewRingBuffer(1024 * 1024),
-		finalRing: NewRingBuffer(1024 * 1024 * 16),
+		cacheRing: NewRingBuffer(config.Custom.RingCacheSize),
+		finalRing: NewRingBuffer(config.Custom.RingFinalSize),
 	}
 }
 

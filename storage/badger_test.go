@@ -5,11 +5,14 @@ import (
 	"os"
 	"testing"
 
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestBadger(t *testing.T) {
 	assert := assert.New(t)
+	err := config.Initialize("../config/config.example.json")
+	assert.Nil(err)
 
 	root, err := ioutil.TempDir("", "mixin-badger-test")
 	assert.Nil(err)

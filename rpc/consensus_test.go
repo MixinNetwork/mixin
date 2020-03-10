@@ -267,6 +267,8 @@ func testIntializeConfig(file string) {
 		Signer         crypto.Key    `json:"signer"`
 		Listener       string        `json:"listener"`
 		MaxCacheSize   int           `json:"max-cache-size"`
+		RingCacheSize  uint64        `json:"ring-cache-size"`
+		RingFinalSize  uint64        `json:"ring-final-size"`
 		ElectionTicker int           `json:"election-ticker"`
 		CacheTTL       time.Duration `json:"cache-ttl"`
 	}
@@ -280,11 +282,19 @@ func testIntializeConfig(file string) {
 	if c.ElectionTicker == 0 {
 		c.ElectionTicker = 2
 	}
+	if c.RingCacheSize == 0 {
+		c.RingCacheSize = 1024 * 4
+	}
+	if c.RingFinalSize == 0 {
+		c.RingFinalSize = 1024 * 16
+	}
 	config.Custom.Environment = c.Environment
 	config.Custom.Signer = c.Signer
 	config.Custom.Listener = c.Listener
 	config.Custom.CacheTTL = c.CacheTTL
 	config.Custom.MaxCacheSize = c.MaxCacheSize
+	config.Custom.RingCacheSize = c.RingCacheSize
+	config.Custom.RingFinalSize = c.RingFinalSize
 	config.Custom.ElectionTicker = c.ElectionTicker
 }
 
@@ -344,6 +354,8 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 		"cache-ttl":       3600,
 		"election-ticker": 2,
 		"max-cache-size":  128,
+		"ring-cache-size": 1024 * 4,
+		"ring-final-size": 1024 * 16,
 	}, "", "  ")
 	if err != nil {
 		panic(err)

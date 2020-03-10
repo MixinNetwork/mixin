@@ -34,6 +34,8 @@ type custom struct {
 	Signer         crypto.Key    `json:"signer"`
 	Listener       string        `json:"listener"`
 	MaxCacheSize   int           `json:"max-cache-size"`
+	RingCacheSize  uint64        `json:"ring-cache-size"`
+	RingFinalSize  uint64        `json:"ring-final-size"`
 	ElectionTicker int           `json:"election-ticker"`
 	ConsensusOnly  bool          `json:"consensus-only"`
 	CacheTTL       time.Duration `json:"cache-ttl"`
@@ -64,6 +66,12 @@ func Initialize(file string) error {
 	}
 	if config.MaxCacheSize == 0 {
 		config.MaxCacheSize = 1024 * 16
+	}
+	if config.RingCacheSize == 0 {
+		config.RingCacheSize = 1024 * 1024
+	}
+	if config.RingFinalSize == 0 {
+		config.RingFinalSize = 1024 * 1024 * 16
 	}
 	if config.ElectionTicker == 0 {
 		config.ElectionTicker = 700
