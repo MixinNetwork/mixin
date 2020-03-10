@@ -296,9 +296,6 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		if err != nil || external == nil {
 			return err
 		}
-		if old.Timestamp+config.SnapshotReferenceThreshold*config.SnapshotRoundGap*32 > external.Timestamp {
-			return nil
-		}
 		link, err := node.persistStore.ReadLink(cache.NodeId, external.NodeId)
 		if err != nil {
 			return err
