@@ -288,10 +288,6 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		if s.References.Self != cache.References.Self {
 			return nil
 		}
-		old, err := node.persistStore.ReadRound(cache.References.External)
-		if err != nil {
-			return err
-		}
 		external, err := node.persistStore.ReadRound(s.References.External)
 		if err != nil || external == nil {
 			return err
@@ -300,7 +296,7 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		if err != nil {
 			return err
 		}
-		if external.Number <= link {
+		if external.Number < link {
 			return nil
 		}
 		cache = &CacheRound{
