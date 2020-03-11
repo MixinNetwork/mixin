@@ -59,7 +59,11 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPo
 			future = true
 			break
 		}
-		if l.Number >= r.Number {
+		if l.Number >= r.Number+config.SnapshotReferenceThreshold/2 {
+			future = true
+			break
+		}
+		if l.Number < config.SnapshotReferenceThreshold && l.Number > r.Number {
 			future = true
 			break
 		}

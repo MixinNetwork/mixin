@@ -202,7 +202,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	}
 	cache.Timestamp = s.Timestamp
 
-	if agg := node.CosiAggregators.Get(s.Transaction); agg != nil && agg.Snapshot.RoundNumber == s.RoundNumber {
+	if old := node.CosiAggregators.Get(s.Transaction); old != nil && old.Snapshot.RoundNumber == s.RoundNumber {
 		return node.clearAndQueueSnapshotOrPanic(s)
 	}
 	if node.CosiAggregators.Full(config.SnapshotRoundGap * config.SnapshotReferenceThreshold) {
