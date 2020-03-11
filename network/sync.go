@@ -44,7 +44,7 @@ func (me *Peer) cacheReadSnapshotsSinceTopology(offset, limit uint64) ([]*common
 	return ss, err
 }
 
-func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPoint) (uint64, error) {
+func (me *Peer) compareRoundGraphAndGetTopologicalOffset(p *Peer, local, remote []*SyncPoint) (uint64, error) {
 	remoteFilter := make(map[crypto.Hash]*SyncPoint)
 	for _, p := range remote {
 		remoteFilter[p.NodeId] = p
@@ -87,7 +87,7 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPo
 			return offset, err
 		}
 		if len(ss) == 0 {
-			logger.Verbosef("network.sync compareRoundGraphAndGetTopologicalOffset local round empty %s:%d:%d", l.NodeId, number, l.Number)
+			logger.Verbosef("network.sync compareRoundGraphAndGetTopologicalOffset %s local round empty %s:%d:%d\n", p.IdForNetwork, l.NodeId, number, l.Number)
 			continue
 		}
 		s := ss[len(ss)-1]
@@ -149,7 +149,7 @@ func (me *Peer) syncHeadRoundToRemote(graph map[crypto.Hash]*SyncPoint, p *Peer,
 func (me *Peer) syncToNeighborLoop(p *Peer) {
 	for !p.closing {
 		graph, offset := me.getSyncPointOffset(p)
-		logger.Verbosef("network.sync syncToNeighborLoop getSyncPointOffset %s %d", p.IdForNetwork, offset)
+		logger.Verbosef("network.sync syncToNeighborLoop getSyncPointOffset %s %d\n", p.IdForNetwork, offset)
 
 		nodes := me.handle.ReadAllNodes()
 		for _, n := range nodes {
@@ -182,14 +182,15 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 			for _, r := range g {
 				graph[r.NodeId] = r
 			}
-			off, err := me.compareRoundGraphAndGetTopologicalOffset(me.handle.BuildGraph(), g)
+			off, err := me.compareRoundGraphAndGetTopologicalOffset(p, me.handle.BuildGraph(), g)
 			if err != nil {
-				logger.Printf("GRAPH COMPARE WITH %s %s\n", p.IdForNetwork.String(), err.Error())
+				logger.Printf("network.sync compareRoundGraphAndGetTopologicalOffset %s error %s\n", p.IdForNetwork, err.Error())
 			}
 			if off > 0 {
 				offset = off
 			}
 		case <-time.After(time.Duration(config.SnapshotRoundGap) / 3):
+			logger.Verbosef("network.sync getSyncPointOffset timeout %s\n", p.IdForNetwork)
 			return graph, offset
 		}
 	}
