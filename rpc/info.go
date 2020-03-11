@@ -1,10 +1,8 @@
 package rpc
 
 import (
-	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -97,21 +95,6 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		"caches": c,
 	}
 	return info, nil
-}
-
-func dumpAndClearCache(node *kernel.Node, params []interface{}) (map[string]interface{}, error) {
-	if len(params) != 1 {
-		return nil, errors.New("invalid params count")
-	}
-	dump, err := strconv.ParseInt(fmt.Sprint(params[0]), 10, 64)
-	if err != nil {
-		return nil, err
-	}
-	actions, nodes, err := node.DumpAndClearCache(dump)
-	return map[string]interface{}{
-		"actions": actions,
-		"nodes":   nodes,
-	}, err
 }
 
 func dumpGraphHead(node *kernel.Node, params []interface{}) ([]map[string]interface{}, error) {

@@ -382,17 +382,6 @@ func main() {
 			Action: getInfoCmd,
 		},
 		{
-			Name:   "dumpandclearcache",
-			Usage:  "Dump and clear the cache queue",
-			Action: dumpAndClearCmd,
-			Flags: []cli.Flag{
-				&cli.Int64Flag{
-					Name:  "count",
-					Usage: "the maximum item count to dump",
-				},
-			},
-		},
-		{
 			Name:   "dumpgraphhead",
 			Usage:  "Dump the graph head",
 			Action: dumpGraphHeadCmd,

@@ -73,13 +73,6 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		} else {
 			renderer.RenderData(info)
 		}
-	case "dumpandclearcache":
-		data, err := dumpAndClearCache(impl.Node, call.Params)
-		if err != nil {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
-		} else {
-			renderer.RenderData(data)
-		}
 	case "dumpgraphhead":
 		data, err := dumpGraphHead(impl.Node, call.Params)
 		if err != nil {

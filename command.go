@@ -489,14 +489,6 @@ func getInfoCmd(c *cli.Context) error {
 	return err
 }
 
-func dumpAndClearCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "dumpandclearcache", []interface{}{c.Int64("count")})
-	if err == nil {
-		fmt.Println(string(data))
-	}
-	return err
-}
-
 func dumpGraphHeadCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "dumpgraphhead", []interface{}{})
 	if err == nil {
