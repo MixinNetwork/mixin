@@ -322,9 +322,6 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		round, dummy, err := node.startNewRound(s, cache, true)
 		if err != nil {
 			logger.Verbosef("ERROR verifyExternalSnapshot %s %d %s %s\n", s.NodeId, s.RoundNumber, s.Transaction, err.Error())
-			if s.Timestamp+threshold < node.Graph.GraphTimestamp {
-				return nil
-			}
 			return node.queueSnapshotOrPanic(m.PeerId, s)
 		} else if round == nil {
 			return nil
