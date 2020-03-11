@@ -23,8 +23,9 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 	return tx.PayloadHash().String(), err
 }
 
-func (node *Node) DumpAndClearCache(dump int64) error {
-	stats := make(map[string]int)
+func (node *Node) DumpAndClearCache(dump int64) (map[string]int, map[crypto.Hash]int, error) {
+	actions := make(map[string]int)
+	nodes := make(map[crypto.Hash]int)
 	node.persistStore.DumpAndClearCache(func(peerId crypto.Hash, snap *common.Snapshot) error {
 		action := "CosiActionUNKNOWN"
 		if snap.Version == 0 {
@@ -39,14 +40,18 @@ func (node *Node) DumpAndClearCache(dump int64) error {
 		if dump > 0 {
 			logger.Printf("DUMP %s %s\n", peerId, action)
 		}
-		stats[action]++
 		dump--
+		actions[action]++
+		nodes[snap.NodeId]++
 		return nil
 	})
-	for k, v := range stats {
-		logger.Printf("DUMP STATISTICS ACTION: %s COUNT: %d\n", k, v)
+	for k, v := range actions {
+		logger.Printf("DUMP ACTION: %s COUNT: %d\n", k, v)
 	}
-	return nil
+	for k, v := range nodes {
+		logger.Printf("DUMP NODE: %s COUNT: %d\n", k, v)
+	}
+	return actions, nodes, nil
 }
 
 func (node *Node) ConsumeQueue() error {

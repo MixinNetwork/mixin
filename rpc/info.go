@@ -99,15 +99,19 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	return info, nil
 }
 
-func dumpAndClearCache(node *kernel.Node, params []interface{}) error {
+func dumpAndClearCache(node *kernel.Node, params []interface{}) (map[string]interface{}, error) {
 	if len(params) != 1 {
-		return errors.New("invalid params count")
+		return nil, errors.New("invalid params count")
 	}
 	dump, err := strconv.ParseInt(fmt.Sprint(params[0]), 10, 64)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return node.DumpAndClearCache(dump)
+	actions, nodes, err := node.DumpAndClearCache(dump)
+	return map[string]interface{}{
+		"actions": actions,
+		"nodes":   nodes,
+	}, err
 }
 
 func dumpGraphHead(node *kernel.Node, params []interface{}) ([]map[string]interface{}, error) {
