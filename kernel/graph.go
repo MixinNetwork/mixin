@@ -31,7 +31,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound, allowDumm
 	if external == nil && finalized && allowDummy {
 		return final, true, nil
 	}
-	if external == nil && allowDummy && node.Graph.GraphTimestamp < 1583928980997205700 { // FIXME
+	if external == nil && allowDummy && node.Graph.GraphTimestamp < 1583990128593354818 { // FIXME
 		return final, true, nil
 	}
 	if external == nil {
@@ -66,7 +66,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound, allowDumm
 			if rts+config.SnapshotRoundGap*rh > uint64(clock.Now().UnixNano()) {
 				continue
 			}
-			if node.Graph.GraphTimestamp > 1583928980997205700 { // FIXME
+			if node.Graph.GraphTimestamp > 1583990128593354818 { // FIXME
 				if cr := node.Graph.CacheRound[id]; len(cr.Snapshots) == 0 && cr.Number == rounds[0].Number+1 {
 					return nil, false, fmt.Errorf("external reference %s is bare %s:%d", s.References.External, id, rounds[0].Number)
 				}
