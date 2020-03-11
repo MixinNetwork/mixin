@@ -48,7 +48,7 @@ func (g *RoundGraph) UpdateFinalCache(idForNetwork crypto.Hash) {
 	for id, f := range g.FinalRound {
 		cache := g.CacheRound[id]
 		final := cache.asFinal()
-		if final == nil || final.End+config.SnapshotRoundGap > g.GraphTimestamp {
+		if final == nil || final.End+config.SnapshotRoundGap*config.SnapshotReferenceThreshold > g.GraphTimestamp {
 			final = f
 		}
 		finals = append(finals, &network.SyncPoint{
