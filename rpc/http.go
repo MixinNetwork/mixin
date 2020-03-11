@@ -43,6 +43,19 @@ func registerHanders(router *httptreemux.TreeMux) {
 	}
 }
 
+type Render struct {
+	w     http.ResponseWriter
+	impl  *render.Render
+	start time.Time
+}
+
+func (r *Render) RenderData(data interface{}) {
+	r.impl.JSON(r.w, http.StatusOK, map[string]interface{}{
+		"runtime": fmt.Sprint(time.Now().Sub(r.start).Seconds()),
+		"data":    data,
+	})
+}
+
 func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]string) {
 	var call Call
 	d := json.NewDecoder(r.Body)
@@ -51,97 +64,98 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		render.New().JSON(w, http.StatusBadRequest, map[string]interface{}{"error": err.Error()})
 		return
 	}
+	renderer := &Render{w: w, impl: render.New(), start: time.Now()}
 	switch call.Method {
 	case "getinfo":
 		info, err := getInfo(impl.Store, impl.Node)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": info})
+			renderer.RenderData(info)
 		}
 	case "dumpandclearcache":
 		data, err := dumpAndClearCache(impl.Node, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": data})
+			renderer.RenderData(data)
 		}
 	case "dumpgraphhead":
 		data, err := dumpGraphHead(impl.Node, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": data})
+			renderer.RenderData(data)
 		}
 	case "sendrawtransaction":
 		id, err := queueTransaction(impl.Node, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": map[string]string{"hash": id}})
+			renderer.RenderData(map[string]string{"hash": id})
 		}
 	case "gettransaction":
 		tx, err := getTransaction(impl.Store, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": tx})
+			renderer.RenderData(tx)
 		}
 	case "getutxo":
 		utxo, err := getUTXO(impl.Store, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": utxo})
+			renderer.RenderData(utxo)
 		}
 	case "getsnapshot":
 		snap, err := getSnapshot(impl.Store, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": snap})
+			renderer.RenderData(snap)
 		}
 	case "listsnapshots":
 		snapshots, err := listSnapshots(impl.Store, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": snapshots})
+			renderer.RenderData(snapshots)
 		}
 	case "listmintdistributions":
 		distributions, err := listMintDistributions(impl.Store, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": distributions})
+			renderer.RenderData(distributions)
 		}
 	case "listallnodes":
 		nodes, err := listAllNodes(impl.Store, impl.Node)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": nodes})
+			renderer.RenderData(nodes)
 		}
 	case "getroundbynumber":
 		round, err := getRoundByNumber(impl.Store, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": round})
+			renderer.RenderData(round)
 		}
 	case "getroundbyhash":
 		round, err := getRoundByHash(impl.Store, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": round})
+			renderer.RenderData(round)
 		}
 	case "getroundlink":
 		link, err := getRoundLink(impl.Store, call.Params)
 		if err != nil {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
 		} else {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": map[string]interface{}{"link": link}})
+			renderer.RenderData(map[string]interface{}{"link": link})
 		}
 	default:
 		render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": "invalid method"})
