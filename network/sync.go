@@ -69,7 +69,7 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPo
 		}
 	}
 	if !future {
-		return offset, nil
+		return 0, nil
 	}
 
 	for _, l := range local {
@@ -79,7 +79,7 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPo
 		}
 		number := uint64(0)
 		if r != nil {
-			number = r.Number
+			number = r.Number + 1
 		}
 
 		ss, err := me.cacheReadSnapshotsForNodeRound(l.NodeId, number)
@@ -87,7 +87,8 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(local, remote []*SyncPo
 			return offset, err
 		}
 		if len(ss) == 0 {
-			panic(fmt.Errorf("final should never have zero snapshots %s:%d:%d", l.NodeId.String(), number, l.Number))
+			logger.Verbosef("local round have zero snapshots %s:%d:%d", l.NodeId.String(), number, l.Number)
+			continue
 		}
 		s := ss[len(ss)-1]
 		topo := s.TopologicalOrder
@@ -148,6 +149,7 @@ func (me *Peer) syncHeadRoundToRemote(graph map[crypto.Hash]*SyncPoint, p *Peer,
 func (me *Peer) syncToNeighborLoop(p *Peer) {
 	for !p.closing {
 		graph, offset := me.getSyncPointOffset(p)
+		logger.Verbosef("syncToNeighborLoop getSyncPointOffset %s %d", p.IdForNetwork, offset)
 		if offset == 0 {
 			continue
 		}
@@ -180,7 +182,7 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 			}
 			off, err := me.compareRoundGraphAndGetTopologicalOffset(me.handle.BuildGraph(), g)
 			if err != nil {
-				logger.Printf("GRAPH COMPARE WITH %s %s", p.IdForNetwork.String(), err.Error())
+				logger.Printf("GRAPH COMPARE WITH %s %s\n", p.IdForNetwork.String(), err.Error())
 			}
 			if off > 0 {
 				offset = off

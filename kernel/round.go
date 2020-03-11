@@ -45,11 +45,16 @@ type RoundGraph struct {
 
 func (g *RoundGraph) UpdateFinalCache(idForNetwork crypto.Hash) {
 	finals := make([]*network.SyncPoint, 0)
-	for _, f := range g.FinalRound {
+	for id, f := range g.FinalRound {
+		cache := g.CacheRound[id]
+		final := cache.asFinal()
+		if final == nil || final.End+config.SnapshotRoundGap > g.GraphTimestamp {
+			final = f
+		}
 		finals = append(finals, &network.SyncPoint{
-			NodeId: f.NodeId,
-			Number: f.Number,
-			Hash:   f.Hash,
+			NodeId: final.NodeId,
+			Number: final.Number,
+			Hash:   final.Hash,
 		})
 		if f.End > g.GraphTimestamp {
 			g.GraphTimestamp = f.End
