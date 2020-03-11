@@ -135,6 +135,7 @@ func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, o
 }
 
 func (me *Peer) syncHeadRoundToRemote(graph map[crypto.Hash]*SyncPoint, p *Peer, nodeId crypto.Hash) {
+	logger.Verbosef("network.sync syncHeadRoundToRemote %s %s\n", p.IdForNetwork, nodeId)
 	var remoteFinal uint64
 	if r := graph[nodeId]; r != nil {
 		remoteFinal = r.Number
