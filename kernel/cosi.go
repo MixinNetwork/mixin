@@ -198,10 +198,14 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 		if err != nil {
 			panic(err)
 		}
+		node.CosiAggregators.Reset()
 	}
 	cache.Timestamp = s.Timestamp
 
 	if agg := node.CosiAggregators.Get(s.Transaction); agg != nil && agg.Snapshot.RoundNumber == s.RoundNumber {
+		return node.clearAndQueueSnapshotOrPanic(s)
+	}
+	if node.CosiAggregators.Full(config.SnapshotRoundGap * config.SnapshotReferenceThreshold) {
 		return node.clearAndQueueSnapshotOrPanic(s)
 	}
 	if len(cache.Snapshots) > 0 && s.Timestamp > cache.Snapshots[0].Timestamp+uint64(config.SnapshotRoundGap*4/5) {
@@ -874,4 +878,23 @@ func (s *aggregatorMap) Delete(k crypto.Hash) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	delete(s.m, k)
+}
+
+func (s *aggregatorMap) Full(threshold uint64) bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	if len(s.m) < config.SnapshotRoundSize {
+		return false
+	}
+	full, now := true, uint64(clock.Now().UnixNano())
+	for _, agg := range s.m {
+		full = full && agg.Snapshot.Timestamp+threshold < now
+	}
+	return full
+}
+
+func (s *aggregatorMap) Reset() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.m = make(map[crypto.Hash]*CosiAggregator, config.SnapshotRoundSize)
 }

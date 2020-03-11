@@ -56,7 +56,7 @@ func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr str
 	var node = &Node{
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
 		ConsensusIndex:  -1,
-		CosiAggregators: &aggregatorMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*CosiAggregator)},
+		CosiAggregators: &aggregatorMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*CosiAggregator, config.SnapshotRoundSize)},
 		CosiVerifiers:   make(map[crypto.Hash]*CosiVerifier),
 		genesisNodesMap: make(map[crypto.Hash]bool),
 		persistStore:    persistStore,
