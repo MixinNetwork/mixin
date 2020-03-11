@@ -151,11 +151,12 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 		graph, offset := me.getSyncPointOffset(p)
 		logger.Verbosef("network.sync syncToNeighborLoop getSyncPointOffset %s %d\n", p.IdForNetwork, offset)
 
-		nodes := me.handle.ReadAllNodes()
-		for _, n := range nodes {
-			me.syncHeadRoundToRemote(graph, p, n)
+		if graph != nil {
+			nodes := me.handle.ReadAllNodes()
+			for _, n := range nodes {
+				me.syncHeadRoundToRemote(graph, p, n)
+			}
 		}
-
 		if offset == 0 {
 			continue
 		}
