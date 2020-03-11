@@ -59,6 +59,13 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		} else {
 			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": info})
 		}
+	case "dumpandclearcache":
+		err := dumpAndClearCache(impl.Node, call.Params)
+		if err != nil {
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
+		} else {
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"data": "SUBMITTED"})
+		}
 	case "sendrawtransaction":
 		id, err := queueTransaction(impl.Node, call.Params)
 		if err != nil {

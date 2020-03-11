@@ -25,8 +25,8 @@ type PeerSnapshot struct {
 }
 
 func (ps *PeerSnapshot) buildKey() crypto.Hash {
-	hash := ps.Snapshot.PayloadHash()
-	return hash.ForNetwork(ps.PeerId)
+	ps.Snapshot.Hash = ps.Snapshot.PayloadHash()
+	return ps.Snapshot.Hash.ForNetwork(ps.PeerId)
 }
 
 func NewQueue() *Queue {
@@ -146,5 +146,15 @@ func (s *BadgerStore) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *com
 			time.Sleep(100 * time.Millisecond)
 		}
 		logger.Verbosef("QueuePollSnapshots final %d cache %d\n", final, cache)
+	}
+}
+
+func (s *BadgerStore) DumpAndClearCache(hook func(peerId crypto.Hash, snap *common.Snapshot) error) {
+	for {
+		ps, err := s.queue.PopCache()
+		if err != nil || ps == nil {
+			break
+		}
+		hook(ps.PeerId, ps.Snapshot)
 	}
 }

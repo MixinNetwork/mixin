@@ -3,6 +3,7 @@ package kernel
 import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 )
 
 func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, error) {
@@ -20,6 +21,27 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 		Transaction: tx.PayloadHash(),
 	}, false)
 	return tx.PayloadHash().String(), err
+}
+
+func (node *Node) DumpAndClearCache(dump int64) error {
+	node.persistStore.DumpAndClearCache(func(peerId crypto.Hash, snap *common.Snapshot) error {
+		if dump > 0 {
+			action := "CosiActionUNKNOWN"
+			if snap.Version == 0 {
+				panic("should never be here")
+			} else if snap.Signature != nil {
+				action = "CosiActionFinalization"
+			} else if snap.NodeId != node.IdForNetwork {
+				action = "CosiActionExternalAnnouncement"
+			} else {
+				action = "CosiActionSelfEmpty"
+			}
+			logger.Printf("DUMP %s %s\n", peerId, action)
+		}
+		dump--
+		return nil
+	})
+	return nil
 }
 
 func (node *Node) ConsumeQueue() error {

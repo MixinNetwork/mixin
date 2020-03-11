@@ -1,6 +1,9 @@
 package rpc
 
 import (
+	"errors"
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -93,4 +96,15 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		"caches": c,
 	}
 	return info, nil
+}
+
+func dumpAndClearCache(node *kernel.Node, params []interface{}) error {
+	if len(params) != 1 {
+		return errors.New("invalid params count")
+	}
+	dump, err := strconv.ParseInt(fmt.Sprint(params[0]), 10, 64)
+	if err != nil {
+		return err
+	}
+	return node.DumpAndClearCache(dump)
 }

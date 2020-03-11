@@ -489,6 +489,14 @@ func getInfoCmd(c *cli.Context) error {
 	return err
 }
 
+func dumpAndClearCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "dumpandclearcache", []interface{}{})
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
+
 func setupTestNetCmd(c *cli.Context) error {
 	var signers, payees []common.Address
 

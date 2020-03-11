@@ -381,6 +381,17 @@ func main() {
 			Usage:  "Get info from the node",
 			Action: getInfoCmd,
 		},
+		{
+			Name:   "dumpandclearcache",
+			Usage:  "Dump and clear the cache queue",
+			Action: dumpAndClearCmd,
+			Flags: []cli.Flag{
+				&cli.Int64Flag{
+					Name:  "count",
+					Usage: "the maximum item count to dump",
+				},
+			},
+		},
 	}
 	err := app.Run(os.Args)
 	if err != nil {
