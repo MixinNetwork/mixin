@@ -7,6 +7,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 )
 
 type Queue struct {
@@ -144,5 +145,6 @@ func (s *BadgerStore) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *com
 		if cache < 1 && final < 1 {
 			time.Sleep(100 * time.Millisecond)
 		}
+		logger.Debugf("QueuePollSnapshots FINAL %d CACHE %d", final, cache)
 	}
 }

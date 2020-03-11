@@ -54,6 +54,7 @@ func (node *Node) CosiLoop() error {
 	for {
 		select {
 		case m := <-node.cosiActionsChan:
+			logger.Debugf("CosiLoop cosiHandleAction %d %v", m.Action, m)
 			err := node.cosiHandleAction(m)
 			if err != nil {
 				return err
@@ -824,12 +825,15 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 
 func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
+	logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s)", peerId, s.Hash)
 	if node.getPeerConsensusNode(peerId) == nil {
+		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) invalid consensus peer", peerId, s.Hash)
 		return nil
 	}
 	if swt, err := node.persistStore.CheckSnapshot(s.Hash); err != nil {
 		return err
 	} else if swt {
+		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) already snapshot", peerId, s.Hash)
 		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
 		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
 	}
@@ -850,6 +854,7 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 
 	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil || inNode {
+		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) already finalized %t %v", peerId, s.Hash, inNode, err)
 		return err
 	}
 	return node.QueueAppendSnapshot(peerId, s, true)
