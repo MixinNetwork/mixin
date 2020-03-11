@@ -203,6 +203,9 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	}
 	cache.Timestamp = s.Timestamp
 
+	if old := node.CosiAggregators.Get(s.Transaction); old != nil && old.Snapshot.RoundNumber == cache.Number {
+		return nil
+	}
 	if node.CosiAggregators.Full(config.SnapshotRoundGap * 5 / 4) {
 		return node.clearAndQueueSnapshotOrPanic(s)
 	}
@@ -279,7 +282,7 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		return nil
 	}
 	if s.RoundNumber > cache.Number+1 {
-		return nil
+		return node.queueSnapshotOrPanic(m.PeerId, s)
 	}
 	if s.Timestamp <= final.Start+config.SnapshotRoundGap {
 		return nil
