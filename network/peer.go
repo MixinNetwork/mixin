@@ -152,7 +152,17 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 
 	logger.Debugf("LOOP PEER STREAM %s\n", peer.Address)
 	for !peer.closing {
-		hd, nd := false, false
+		gd, hd, nd := false, false, false
+		select {
+		case <-graphTicker.C:
+			err := client.Send(buildGraphMessage(me.handle.BuildGraph()))
+			if err != nil {
+				return nil, err
+			}
+		default:
+			gd = true
+		}
+
 		select {
 		case msg := <-peer.high:
 			if !me.snapshotsCaches.contains(msg.key, time.Minute) {
@@ -175,11 +185,6 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 				}
 				me.snapshotsCaches.store(msg.key, time.Now())
 			}
-		case <-graphTicker.C:
-			err := client.Send(buildGraphMessage(me.handle.BuildGraph()))
-			if err != nil {
-				return nil, err
-			}
 		case <-pingTicker.C:
 			err := client.Send(buildPingMessage())
 			if err != nil {
@@ -189,7 +194,7 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 			nd = true
 		}
 
-		if hd && nd {
+		if gd && hd && nd {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
@@ -223,10 +228,14 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		if err != nil {
 			return fmt.Errorf("parseNetworkMessage %s %s", peer.IdForNetwork, err.Error())
 		}
+		timer := time.NewTimer(1 * time.Second)
 		select {
 		case receive <- msg:
-		case <-time.After(1 * time.Second):
+		case <-timer.C:
 			return fmt.Errorf("peer receive timeout %s", peer.IdForNetwork)
+		}
+		if !timer.Stop() {
+			<-timer.C
 		}
 	}
 }
@@ -293,10 +302,12 @@ func (me *Peer) sendHighToPeer(idForNetwork, key crypto.Hash, data []byte) error
 		return nil
 	}
 
+	timer := time.NewTimer(1 * time.Second)
+	defer timer.Stop()
 	select {
 	case peer.high <- &ChanMsg{key, data}:
 		return nil
-	case <-time.After(1 * time.Second):
+	case <-timer.C:
 		return fmt.Errorf("peer send high timeout")
 	}
 }
@@ -315,10 +326,12 @@ func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.
 		return nil
 	}
 
+	timer := time.NewTimer(1 * time.Second)
+	defer timer.Stop()
 	select {
 	case peer.normal <- &ChanMsg{key, data}:
 		return nil
-	case <-time.After(1 * time.Second):
+	case <-timer.C:
 		return fmt.Errorf("peer send normal timeout")
 	}
 }

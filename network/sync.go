@@ -103,6 +103,7 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(p *Peer, local, remote 
 }
 
 func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, offset uint64) (uint64, error) {
+	logger.Verbosef("network.sync syncToNeighborSince %s %d\n", p.IdForNetwork, offset)
 	limit := 200
 	snapshots, err := me.cacheReadSnapshotsSinceTopology(offset, uint64(limit))
 	if err != nil {
