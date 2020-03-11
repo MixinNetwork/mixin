@@ -531,6 +531,8 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 	if len(agg.Responses) != len(agg.Commitments) {
 		return nil
 	}
+	node.CosiAggregators.Delete(agg.Snapshot.Hash)
+	node.CosiAggregators.Delete(agg.Snapshot.Transaction)
 
 	publics := node.ConsensusKeys(s.Timestamp)
 	if node.checkInitialAcceptSnapshot(s, tx) {
