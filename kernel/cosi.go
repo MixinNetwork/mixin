@@ -203,10 +203,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	}
 	cache.Timestamp = s.Timestamp
 
-	if old := node.CosiAggregators.Get(s.Transaction); old != nil && old.Snapshot.RoundNumber == s.RoundNumber {
-		return node.clearAndQueueSnapshotOrPanic(s)
-	}
-	if node.CosiAggregators.Full(config.SnapshotRoundGap * 5 / 4) {
+	if node.CosiAggregators.Full(config.SnapshotRoundGap * config.SnapshotReferenceThreshold) {
 		return node.clearAndQueueSnapshotOrPanic(s)
 	}
 	if len(cache.Snapshots) > 0 && s.Timestamp > cache.Snapshots[0].Timestamp+uint64(config.SnapshotRoundGap*4/5) {
@@ -908,7 +905,7 @@ func (s *aggregatorMap) Full(threshold uint64) bool {
 		}
 		total++
 	}
-	return total >= config.SnapshotRoundSize && total > expired*3
+	return total >= config.SnapshotRoundSize && expired < total*4/5
 }
 
 func (s *aggregatorMap) Reset() {

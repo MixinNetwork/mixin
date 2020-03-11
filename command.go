@@ -633,8 +633,9 @@ func callRPC(node, method string, params []interface{}) ([]byte, error) {
 	defer resp.Body.Close()
 
 	var result struct {
-		Data  interface{} `json:"data"`
-		Error interface{} `json:"error"`
+		Runtime string      `json:"runtime"`
+		Data    interface{} `json:"data"`
+		Error   interface{} `json:"error"`
 	}
 	dec := json.NewDecoder(resp.Body)
 	dec.UseNumber()
@@ -646,6 +647,9 @@ func callRPC(node, method string, params []interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("ERROR %s", result.Error)
 	}
 
+	if len(result.Runtime) > 0 {
+		fmt.Printf("RUNTIME: %s\n\n", result.Runtime)
+	}
 	return json.Marshal(result.Data)
 }
 
