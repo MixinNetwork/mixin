@@ -706,14 +706,18 @@ func (node *Node) checkAnnouncementFlood(s *common.Snapshot, duration time.Durat
 	binary.BigEndian.PutUint64(buf, s.RoundNumber)
 	txForNode := s.Transaction.ForNetwork(s.NodeId)
 	key := append(txForNode[:], buf...)
-	binary.BigEndian.PutUint64(buf, uint64(now.UnixNano()))
-	defer node.cacheStore.Set(key, buf)
 
 	val := node.cacheStore.Get(nil, key)
-	if len(val) == 8 {
-		ts := time.Unix(0, int64(binary.BigEndian.Uint64(val)))
-		return ts.Add(duration).After(now)
+	if len(val) != 8 {
+		return false
 	}
+	ts := time.Unix(0, int64(binary.BigEndian.Uint64(val)))
+	if ts.Add(duration).After(now) {
+		return true
+	}
+
+	binary.BigEndian.PutUint64(buf, uint64(now.UnixNano()))
+	node.cacheStore.Set(key, buf)
 	return false
 }
 
@@ -721,7 +725,7 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 	if node.getPeerConsensusNode(peerId) == nil {
 		return nil
 	}
-	if node.checkAnnouncementFlood(s, time.Minute*5) {
+	if node.checkAnnouncementFlood(s, time.Duration(config.SnapshotRoundGap)) {
 		return nil
 	}
 
