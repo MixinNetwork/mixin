@@ -203,7 +203,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	}
 	cache.Timestamp = s.Timestamp
 
-	if node.CosiAggregators.Full(config.SnapshotRoundGap * config.SnapshotReferenceThreshold) {
+	if node.CosiAggregators.Full(config.SnapshotRoundGap * 5 / 4) {
 		return node.clearAndQueueSnapshotOrPanic(s)
 	}
 	if len(cache.Snapshots) > 0 && s.Timestamp > cache.Snapshots[0].Timestamp+uint64(config.SnapshotRoundGap*4/5) {
