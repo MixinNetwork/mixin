@@ -22,6 +22,16 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 	return tx.PayloadHash().String(), err
 }
 
+func (node *Node) LoadCacheToQueue() error {
+	return node.persistStore.CacheListTransactions(func(tx *common.VersionedTransaction) error {
+		return node.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+			Version:     common.SnapshotVersion,
+			NodeId:      node.IdForNetwork,
+			Transaction: tx.PayloadHash(),
+		}, false)
+	})
+}
+
 func (node *Node) ConsumeQueue() error {
 	node.persistStore.QueuePollSnapshots(func(peerId crypto.Hash, snap *common.Snapshot) error {
 		m := &CosiAction{PeerId: peerId, Snapshot: snap}
