@@ -318,8 +318,7 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		return node.queueSnapshotOrPanic(m.PeerId, s)
 	}
 	if s.RoundNumber == cache.Number+1 {
-		dummyExternal := cache.References.External // FIXME
-		round, dummy, err := node.startNewRound(s, cache, true)
+		round, _, err := node.startNewRound(s, cache, false)
 		if err != nil {
 			logger.Verbosef("ERROR verifyExternalSnapshot %s %d %s %s\n", s.NodeId, s.RoundNumber, s.Transaction, err.Error())
 			return node.queueSnapshotOrPanic(m.PeerId, s)
@@ -334,16 +333,9 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 			Timestamp:  s.Timestamp,
 			References: s.References,
 		}
-		if dummy {
-			cache.References.External = dummyExternal
-		}
 		err = node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 		if err != nil {
 			panic(err)
-		}
-		if dummy {
-			node.assignNewGraphRound(final, cache)
-			return node.queueSnapshotOrPanic(m.PeerId, s)
 		}
 	}
 	node.assignNewGraphRound(final, cache)
