@@ -54,7 +54,6 @@ func (node *Node) CosiLoop() error {
 	for {
 		select {
 		case m := <-node.cosiActionsChan:
-			logger.Debugf("CosiLoop cosiHandleAction %d %v", m.Action, m)
 			err := node.cosiHandleAction(m)
 			if err != nil {
 				return err
@@ -85,6 +84,7 @@ func (node *Node) cosiHandleAction(m *CosiAction) error {
 }
 
 func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
+	logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement %v\n", m.Snapshot)
 	s := m.Snapshot
 	if s.NodeId != node.IdForNetwork || s.NodeId != m.PeerId {
 		panic("should never be here")
@@ -233,6 +233,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 }
 
 func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
+	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v\n", m.PeerId, m.Snapshot)
 	if node.ConsensusIndex < 0 || !node.CheckCatchUpWithPeers() {
 		return nil
 	}
@@ -362,6 +363,7 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 }
 
 func (node *Node) cosiHandleCommitment(m *CosiAction) error {
+	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment %v\n", m)
 	cn := node.ConsensusNodes[m.PeerId]
 	if cn == nil {
 		return nil
@@ -439,6 +441,7 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 }
 
 func (node *Node) cosiHandleChallenge(m *CosiAction) error {
+	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge %v\n", m)
 	if node.ConsensusIndex < 0 || !node.CheckCatchUpWithPeers() {
 		return nil
 	}
@@ -497,6 +500,7 @@ func (node *Node) cosiHandleChallenge(m *CosiAction) error {
 }
 
 func (node *Node) cosiHandleResponse(m *CosiAction) error {
+	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v\n", m)
 	if node.ConsensusNodes[m.PeerId] == nil {
 		return nil
 	}
@@ -598,6 +602,7 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 }
 
 func (node *Node) cosiHandleFinalization(m *CosiAction) error {
+	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFinalization %s %v\n", m.PeerId, m.Snapshot)
 	s, tx := m.Snapshot, m.Transaction
 
 	if node.checkInitialAcceptSnapshot(s, tx) {
@@ -676,27 +681,29 @@ func (node *Node) cosiHandleFinalization(m *CosiAction) error {
 }
 
 func (node *Node) handleFinalization(m *CosiAction) error {
+	logger.Verbosef("CosiLoop cosiHandleAction handleFinalization %s %v\n", m.PeerId, m.Snapshot)
 	s := m.Snapshot
 	s.Hash = s.PayloadHash()
 	if !node.verifyFinalization(s) {
-		logger.Verbosef("ERROR handleFinalization %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil)
+		logger.Verbosef("ERROR handleFinalization verifyFinalization %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil)
 		return nil
 	}
 
 	dummy, err := node.tryToStartNewRound(s)
 	if err != nil {
-		logger.Verbosef("ERROR tryToStartNewRound %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil, err.Error())
+		logger.Verbosef("ERROR handleFinalization tryToStartNewRound %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil, err.Error())
 		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	} else if dummy {
-		logger.Verbosef("ERROR tryToStartNewRound DUMMY %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil)
+		logger.Verbosef("ERROR handleFinalization tryToStartNewRound DUMMY %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil)
 		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	}
 
 	tx, err := node.checkFinalSnapshotTransaction(s)
 	if err != nil {
-		logger.Verbosef("ERROR checkFinalSnapshotTransaction %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil, err.Error())
+		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil, err.Error())
 		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	} else if tx == nil {
+		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil, "tx empty")
 		return nil
 	}
 	if s.RoundNumber == 0 && tx.TransactionType() != common.TransactionTypeNodeAccept {
@@ -825,15 +832,15 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 
 func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
-	logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s)", peerId, s.Hash)
+	logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s)\n", peerId, s.Hash)
 	if node.getPeerConsensusNode(peerId) == nil {
-		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) invalid consensus peer", peerId, s.Hash)
+		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) invalid consensus peer\n", peerId, s.Hash)
 		return nil
 	}
 	if swt, err := node.persistStore.CheckSnapshot(s.Hash); err != nil {
 		return err
 	} else if swt {
-		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) already snapshot", peerId, s.Hash)
+		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) already snapshot\n", peerId, s.Hash)
 		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
 		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
 	}
@@ -854,7 +861,7 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 
 	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil || inNode {
-		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) already finalized %t %v", peerId, s.Hash, inNode, err)
+		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) already finalized %t %v\n", peerId, s.Hash, inNode, err)
 		return err
 	}
 	return node.QueueAppendSnapshot(peerId, s, true)

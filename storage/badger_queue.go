@@ -145,6 +145,6 @@ func (s *BadgerStore) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *com
 		if cache < 1 && final < 1 {
 			time.Sleep(100 * time.Millisecond)
 		}
-		logger.Debugf("QueuePollSnapshots FINAL %d CACHE %d", final, cache)
+		logger.Verbosef("QueuePollSnapshots final %d cache %d\n", final, cache)
 	}
 }
