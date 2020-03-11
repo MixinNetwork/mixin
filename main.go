@@ -392,6 +392,11 @@ func main() {
 				},
 			},
 		},
+		{
+			Name:   "dumpgraphhead",
+			Usage:  "Dump the graph head",
+			Action: dumpGraphHeadCmd,
+		},
 	}
 	err := app.Run(os.Args)
 	if err != nil {

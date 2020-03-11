@@ -3,6 +3,7 @@ package rpc
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"time"
 
@@ -107,4 +108,17 @@ func dumpAndClearCache(node *kernel.Node, params []interface{}) error {
 		return err
 	}
 	return node.DumpAndClearCache(dump)
+}
+
+func dumpGraphHead(node *kernel.Node, params []interface{}) ([]map[string]interface{}, error) {
+	rounds := make([]map[string]interface{}, 0)
+	for _, r := range node.Graph.FinalCache {
+		rounds = append(rounds, map[string]interface{}{
+			"node":  r.NodeId,
+			"round": r.Number,
+			"hash":  r.Hash,
+		})
+	}
+	sort.Slice(rounds, func(i, j int) bool { return fmt.Sprint(rounds[i]["node"]) < fmt.Sprint(rounds[j]["node"]) })
+	return rounds, nil
 }
