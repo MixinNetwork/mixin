@@ -133,9 +133,6 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	}
 	logger.Debugf("AUTH PEER STREAM %s\n", peer.Address)
 
-	pingTicker := time.NewTicker(1 * time.Second)
-	defer pingTicker.Stop()
-
 	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
 	defer graphTicker.Stop()
 
@@ -184,11 +181,6 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 					return msg, err
 				}
 				me.snapshotsCaches.store(msg.key, time.Now())
-			}
-		case <-pingTicker.C:
-			err := client.Send(buildPingMessage())
-			if err != nil {
-				return nil, err
 			}
 		default:
 			nd = true
