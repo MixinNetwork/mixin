@@ -893,7 +893,7 @@ func (s *aggregatorMap) Full(threshold uint64) bool {
 		}
 		total++
 	}
-	return total > config.SnapshotRoundSize && expired*3 < total
+	return total >= config.SnapshotRoundSize && total > expired*3
 }
 
 func (s *aggregatorMap) Reset() {
