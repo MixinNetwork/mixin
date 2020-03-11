@@ -24,23 +24,28 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 }
 
 func (node *Node) DumpAndClearCache(dump int64) error {
+	stats := make(map[string]int)
 	node.persistStore.DumpAndClearCache(func(peerId crypto.Hash, snap *common.Snapshot) error {
+		action := "CosiActionUNKNOWN"
+		if snap.Version == 0 {
+			panic("should never be here")
+		} else if snap.Signature != nil {
+			action = "CosiActionFinalization"
+		} else if snap.NodeId != node.IdForNetwork {
+			action = "CosiActionExternalAnnouncement"
+		} else {
+			action = "CosiActionSelfEmpty"
+		}
 		if dump > 0 {
-			action := "CosiActionUNKNOWN"
-			if snap.Version == 0 {
-				panic("should never be here")
-			} else if snap.Signature != nil {
-				action = "CosiActionFinalization"
-			} else if snap.NodeId != node.IdForNetwork {
-				action = "CosiActionExternalAnnouncement"
-			} else {
-				action = "CosiActionSelfEmpty"
-			}
 			logger.Printf("DUMP %s %s\n", peerId, action)
 		}
+		stats[action]++
 		dump--
 		return nil
 	})
+	for k, v := range stats {
+		logger.Printf("DUMP STATISTICS ACTION: %s COUNT: %d\n", k, v)
+	}
 	return nil
 }
 
