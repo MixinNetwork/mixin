@@ -54,10 +54,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound, allowDumm
 				continue
 			}
 			rts, rh := rounds[0].Start, uint64(len(rounds))
-			if id == s.NodeId || rh < height {
-				continue
-			}
-			if rts > s.Timestamp {
+			if id == s.NodeId || rh < height || rts > s.Timestamp {
 				continue
 			}
 			if rts+config.SnapshotRoundGap*rh > uint64(clock.Now().UnixNano()) {
@@ -71,7 +68,6 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound, allowDumm
 			}
 		}
 	}
-
 	link, err := node.persistStore.ReadLink(s.NodeId, external.NodeId)
 	if external.Number < link {
 		return nil, false, err
