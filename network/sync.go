@@ -180,8 +180,6 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64) {
 	var offset uint64
 	var graph map[crypto.Hash]*SyncPoint
-	timer := time.NewTimer(time.Duration(config.SnapshotRoundGap))
-	defer timer.Stop()
 
 	for {
 		select {
@@ -197,7 +195,7 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 			if off > 0 {
 				offset = off
 			}
-		case <-timer.C:
+		case <-time.After(time.Duration(config.SnapshotRoundGap / 3)):
 			return graph, offset
 		}
 	}

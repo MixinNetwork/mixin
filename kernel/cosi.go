@@ -907,5 +907,5 @@ func (s *aggregatorMap) Full(threshold uint64) bool {
 func (s *aggregatorMap) Reset() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.m = make(map[crypto.Hash]*CosiAggregator, config.SnapshotRoundSize)
+	s.m = make(map[crypto.Hash]*CosiAggregator)
 }
