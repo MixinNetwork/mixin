@@ -257,7 +257,7 @@ func signTransactionCmd(c *cli.Context) error {
 func sendTransactionCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "sendrawtransaction", []interface{}{
 		c.String("raw"),
-	})
+	}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
@@ -389,7 +389,7 @@ func getRoundLinkCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getroundlink", []interface{}{
 		c.String("from"),
 		c.String("to"),
-	})
+	}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
@@ -400,7 +400,7 @@ func getRoundByNumberCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getroundbynumber", []interface{}{
 		c.String("id"),
 		c.Uint64("number"),
-	})
+	}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
@@ -410,7 +410,7 @@ func getRoundByNumberCmd(c *cli.Context) error {
 func getRoundByHashCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getroundbyhash", []interface{}{
 		c.String("hash"),
-	})
+	}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
@@ -423,7 +423,7 @@ func listSnapshotsCmd(c *cli.Context) error {
 		c.Uint64("count"),
 		c.Bool("sig"),
 		c.Bool("tx"),
-	})
+	}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
@@ -433,7 +433,7 @@ func listSnapshotsCmd(c *cli.Context) error {
 func getSnapshotCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getsnapshot", []interface{}{
 		c.String("hash"),
-	})
+	}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
@@ -443,7 +443,7 @@ func getSnapshotCmd(c *cli.Context) error {
 func getTransactionCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "gettransaction", []interface{}{
 		c.String("hash"),
-	})
+	}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
@@ -454,7 +454,7 @@ func getUTXOCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getutxo", []interface{}{
 		c.String("hash"),
 		c.Uint64("index"),
-	})
+	}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
@@ -466,7 +466,7 @@ func listMintDistributionsCmd(c *cli.Context) error {
 		c.Uint64("since"),
 		c.Uint64("count"),
 		c.Bool("tx"),
-	})
+	}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
@@ -474,7 +474,7 @@ func listMintDistributionsCmd(c *cli.Context) error {
 }
 
 func listAllNodesCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "listallnodes", []interface{}{})
+	data, err := callRPC(c.String("node"), "listallnodes", []interface{}{}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
@@ -482,7 +482,7 @@ func listAllNodesCmd(c *cli.Context) error {
 }
 
 func getInfoCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "getinfo", []interface{}{})
+	data, err := callRPC(c.String("node"), "getinfo", []interface{}{}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
@@ -490,7 +490,7 @@ func getInfoCmd(c *cli.Context) error {
 }
 
 func dumpGraphHeadCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "dumpgraphhead", []interface{}{})
+	data, err := callRPC(c.String("node"), "dumpgraphhead", []interface{}{}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
@@ -594,7 +594,7 @@ func setupTestNetCmd(c *cli.Context) error {
 
 var httpClient *http.Client
 
-func callRPC(node, method string, params []interface{}) ([]byte, error) {
+func callRPC(node, method string, params []interface{}, pt bool) ([]byte, error) {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 60 * time.Second}
 	}
@@ -639,7 +639,7 @@ func callRPC(node, method string, params []interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("ERROR %s", result.Error)
 	}
 
-	if len(result.Runtime) > 0 {
+	if len(result.Runtime) > 0 && pt {
 		fmt.Printf("RUNTIME: %s\n\n", result.Runtime)
 	}
 	return json.Marshal(result.Data)
@@ -677,7 +677,7 @@ func (raw signerInput) ReadUTXO(hash crypto.Hash, index int) (*common.UTXOWithLo
 		}
 	}
 
-	data, err := callRPC(raw.Node, "getutxo", []interface{}{hash.String(), index})
+	data, err := callRPC(raw.Node, "getutxo", []interface{}{hash.String(), index}, false)
 	if err != nil {
 		return nil, err
 	}

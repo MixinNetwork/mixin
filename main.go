@@ -34,6 +34,11 @@ func main() {
 			Aliases: []string{"d"},
 			Usage:   "the data directory",
 		},
+		&cli.BoolFlag{
+			Name:  "time",
+			Value: false,
+			Usage: "print the runtime",
+		},
 	}
 	app.EnableBashCompletion = true
 	app.Commands = []*cli.Command{
