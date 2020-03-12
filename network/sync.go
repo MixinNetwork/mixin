@@ -120,7 +120,7 @@ func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, o
 			continue
 		}
 		if s.RoundNumber >= remoteRound+config.SnapshotReferenceThreshold*2 {
-			return offset, fmt.Errorf("FUTURE %d %d", s.RoundNumber, remoteRound)
+			return offset, fmt.Errorf("FUTURE %s %d %d", s.NodeId, s.RoundNumber, remoteRound)
 		}
 		err := me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot)
 		if err != nil {

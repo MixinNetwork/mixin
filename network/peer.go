@@ -115,7 +115,7 @@ func (me *Peer) openPeerStreamLoop(p *Peer) {
 }
 
 func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
-	logger.Debugf("OPEN PEER STREAM %s\n", peer.Address)
+	logger.Verbosef("OPEN PEER STREAM %s\n", peer.Address)
 	transport, err := NewQuicClient(peer.Address)
 	if err != nil {
 		return nil, err
@@ -125,19 +125,19 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 		return nil, err
 	}
 	defer client.Close()
-	logger.Debugf("DIAL PEER STREAM %s\n", peer.Address)
+	logger.Verbosef("DIAL PEER STREAM %s\n", peer.Address)
 
 	err = client.Send(buildAuthenticationMessage(me.handle.BuildAuthenticationMessage()))
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("AUTH PEER STREAM %s\n", peer.Address)
+	logger.Verbosef("AUTH PEER STREAM %s\n", peer.Address)
 
 	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
 	defer graphTicker.Stop()
 
 	if resend != nil {
-		logger.Debugf("RESEND PEER STREAM %s\n", resend.key.String())
+		logger.Verbosef("RESEND PEER STREAM %s\n", resend.key.String())
 		if !me.snapshotsCaches.contains(resend.key, time.Minute) {
 			err := client.Send(resend.data)
 			if err != nil {
@@ -147,7 +147,7 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 		}
 	}
 
-	logger.Debugf("LOOP PEER STREAM %s\n", peer.Address)
+	logger.Verbosef("LOOP PEER STREAM %s\n", peer.Address)
 	for !peer.closing {
 		gd, hd, nd := false, false, false
 		select {

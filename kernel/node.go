@@ -283,12 +283,7 @@ func (node *Node) BuildGraph() []*network.SyncPoint {
 func (node *Node) BuildAuthenticationMessage() []byte {
 	data := make([]byte, 8)
 	binary.BigEndian.PutUint64(data, uint64(clock.Now().Unix()))
-	if config.Custom.ConsensusOnly {
-		hash := node.Signer.Hash().ForNetwork(node.networkId)
-		data = append(data, hash[:]...)
-	} else {
-		data = append(data, node.Signer.PublicSpendKey[:]...)
-	}
+	data = append(data, node.Signer.PublicSpendKey[:]...)
 	sig := node.Signer.PrivateSpendKey.Sign(data)
 	data = append(data, sig[:]...)
 	return append(data, []byte(node.Listener)...)
