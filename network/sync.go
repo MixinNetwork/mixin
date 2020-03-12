@@ -79,7 +79,7 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(p *Peer, local, remote 
 		}
 		number := uint64(0)
 		if r != nil {
-			number = r.Number + 1 // because the node may be stale or removed
+			number = r.Number + 2 // because the node may be stale or removed, and with cache
 		}
 		logger.Verbosef("network.sync compareRoundGraphAndGetTopologicalOffset %s try %s:%d\n", p.IdForNetwork, l.NodeId, number)
 
@@ -141,7 +141,7 @@ func (me *Peer) syncHeadRoundToRemote(graph map[crypto.Hash]*SyncPoint, p *Peer,
 		remoteFinal = r.Number
 	}
 	logger.Verbosef("network.sync syncHeadRoundToRemote %s %s:%d\n", p.IdForNetwork, nodeId, remoteFinal)
-	for i := remoteFinal; i < remoteFinal+3; i++ {
+	for i := remoteFinal; i < remoteFinal+config.SnapshotReferenceThreshold/2; i++ {
 		ss, _ := me.cacheReadSnapshotsForNodeRound(nodeId, i)
 		for _, s := range ss {
 			me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot)
