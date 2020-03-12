@@ -2,7 +2,6 @@ package kernel
 
 import (
 	"crypto/rand"
-	"encoding/binary"
 	"fmt"
 	"sync"
 	"time"
@@ -119,7 +118,6 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 		node.CosiVerifiers[s.Hash] = v
 		agg.Commitments[len(node.SortedConsensusNodes)] = &R
 		node.CosiAggregators.Set(s.Hash, agg)
-		node.CosiAggregators.Set(s.Transaction, agg)
 		for peerId, _ := range node.ConsensusNodes {
 			err := node.Peer.SendSnapshotAnnouncementMessage(peerId, s, R)
 			if err != nil {
@@ -199,16 +197,9 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 		if err != nil {
 			panic(err)
 		}
-		node.CosiAggregators.Reset()
 	}
 	cache.Timestamp = s.Timestamp
 
-	if old := node.CosiAggregators.Get(s.Transaction); old != nil && old.Snapshot.RoundNumber == cache.Number {
-		return node.clearAndQueueSnapshotOrPanic(s)
-	}
-	if node.CosiAggregators.Full(config.SnapshotRoundGap * 5 / 4) {
-		return node.clearAndQueueSnapshotOrPanic(s)
-	}
 	if len(cache.Snapshots) > 0 && s.Timestamp > cache.Snapshots[0].Timestamp+uint64(config.SnapshotRoundGap*4/5) {
 		return node.clearAndQueueSnapshotOrPanic(s)
 	}
@@ -222,7 +213,6 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	agg.Commitments[node.ConsensusIndex] = &R
 	node.assignNewGraphRound(final, cache)
 	node.CosiAggregators.Set(s.Hash, agg)
-	node.CosiAggregators.Set(s.Transaction, agg)
 	for peerId, _ := range node.ConsensusNodes {
 		err := node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R)
 		if err != nil {
@@ -528,8 +518,6 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 	if len(agg.Responses) != len(agg.Commitments) {
 		return nil
 	}
-	node.CosiAggregators.Delete(agg.Snapshot.Hash)
-	node.CosiAggregators.Delete(agg.Snapshot.Transaction)
 
 	publics := node.ConsensusKeys(s.Timestamp)
 	if node.checkInitialAcceptSnapshot(s, tx) {
@@ -703,32 +691,8 @@ func (node *Node) handleFinalization(m *CosiAction) error {
 	return node.cosiHandleFinalization(m)
 }
 
-func (node *Node) checkAnnouncementFlood(s *common.Snapshot, duration time.Duration) bool {
-	now := clock.Now()
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, s.RoundNumber)
-	txForNode := s.Transaction.ForNetwork(s.NodeId)
-	key := append(txForNode[:], buf...)
-
-	val := node.cacheStore.Get(nil, key)
-	if len(val) != 8 {
-		return false
-	}
-	ts := time.Unix(0, int64(binary.BigEndian.Uint64(val)))
-	if ts.Add(duration).After(now) {
-		return true
-	}
-
-	binary.BigEndian.PutUint64(buf, uint64(now.UnixNano()))
-	node.cacheStore.Set(key, buf)
-	return false
-}
-
 func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot, commitment *crypto.Key) error {
 	if node.getPeerConsensusNode(peerId) == nil {
-		return nil
-	}
-	if !node.checkInitialAcceptSnapshotWeak(s) && node.checkAnnouncementFlood(s, time.Duration(config.SnapshotRoundGap)) {
 		return nil
 	}
 
@@ -888,24 +852,4 @@ func (s *aggregatorMap) Delete(k crypto.Hash) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	delete(s.m, k)
-}
-
-func (s *aggregatorMap) Full(threshold uint64) bool {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	expired, total := 0, 0
-	now := uint64(clock.Now().UnixNano())
-	for _, agg := range s.m {
-		if agg.Snapshot.Timestamp+threshold < now {
-			expired++
-		}
-		total++
-	}
-	return total >= config.SnapshotRoundSize && expired < total*4/5
-}
-
-func (s *aggregatorMap) Reset() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.m = make(map[crypto.Hash]*CosiAggregator)
 }
