@@ -204,7 +204,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	cache.Timestamp = s.Timestamp
 
 	if old := node.CosiAggregators.Get(s.Transaction); old != nil && old.Snapshot.RoundNumber == cache.Number {
-		return nil
+		return node.clearAndQueueSnapshotOrPanic(s)
 	}
 	if node.CosiAggregators.Full(config.SnapshotRoundGap * 5 / 4) {
 		return node.clearAndQueueSnapshotOrPanic(s)

@@ -226,9 +226,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		case <-timer.C:
 			return fmt.Errorf("peer receive timeout %s", peer.IdForNetwork)
 		}
-		if !timer.Stop() {
-			<-timer.C
-		}
+		timer.Stop()
 	}
 }
 
