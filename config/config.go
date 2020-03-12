@@ -16,7 +16,7 @@ const (
 	SnapshotRoundGap           = uint64(3 * time.Second)
 	SnapshotReferenceThreshold = 10
 	SnapshotSyncRoundThreshold = 100
-	SnapshotRoundSize          = 50
+	SnapshotRoundSize          = 200
 	TransactionMaximumSize     = 1024 * 1024
 	WithdrawalClaimFee         = "0.0001"
 

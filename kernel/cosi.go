@@ -728,7 +728,7 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 	if node.getPeerConsensusNode(peerId) == nil {
 		return nil
 	}
-	if node.checkAnnouncementFlood(s, time.Duration(config.SnapshotRoundGap)) {
+	if !node.checkInitialAcceptSnapshotWeak(s) && node.checkAnnouncementFlood(s, time.Duration(config.SnapshotRoundGap)) {
 		return nil
 	}
 
