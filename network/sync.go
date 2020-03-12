@@ -119,7 +119,7 @@ func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, o
 			offset = s.TopologicalOrder
 			continue
 		}
-		if s.RoundNumber >= remoteRound+config.SnapshotSyncRoundThreshold*2 {
+		if s.RoundNumber >= remoteRound+config.SnapshotReferenceThreshold*2 {
 			return offset, fmt.Errorf("FUTURE %d %d", s.RoundNumber, remoteRound)
 		}
 		err := me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot)
@@ -170,6 +170,7 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 				offset = off
 			}
 			if err != nil {
+				logger.Verbosef("network.sync syncToNeighborLoop syncToNeighborSince %s %d DONE with %s", p.IdForNetwork, offset, err)
 				break
 			}
 		}
@@ -179,6 +180,9 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64) {
 	var offset uint64
 	var graph map[crypto.Hash]*SyncPoint
+	timer := time.NewTimer(time.Duration(config.SnapshotRoundGap))
+	defer timer.Stop()
+
 	for {
 		select {
 		case g := <-p.sync:
@@ -193,8 +197,7 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 			if off > 0 {
 				offset = off
 			}
-		case <-time.After(time.Duration(config.SnapshotRoundGap) / 3):
-			logger.Verbosef("network.sync getSyncPointOffset timeout %s\n", p.IdForNetwork)
+		case <-timer.C:
 			return graph, offset
 		}
 	}
