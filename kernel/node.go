@@ -310,7 +310,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	if config.Custom.ConsensusOnly && peer == nil {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
 	}
-	if peer.Signer.Hash() != signer.Hash() {
+	if peer != nil && peer.Signer.Hash() != signer.Hash() {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
 	}
 
