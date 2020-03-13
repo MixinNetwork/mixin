@@ -14,7 +14,7 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Ver
 	if tx != nil && len(finalized) == 0 {
 		err = node.validateKernelSnapshot(s, tx)
 	}
-	if err != nil || len(finalized) > 0 || tx != nil {
+	if err != nil || tx != nil {
 		return tx, len(finalized) > 0, err
 	}
 

@@ -48,7 +48,7 @@ func (node *Node) ConsumeQueue() error {
 			m.Action = CosiActionSelfEmpty
 		}
 
-		if m.Action == CosiActionExternalAnnouncement {
+		if m.Action != CosiActionFinalization {
 			node.cosiActionsChan <- m
 			return nil
 		}
@@ -62,8 +62,8 @@ func (node *Node) ConsumeQueue() error {
 			return nil
 		}
 
-		tx, _, err = node.persistStore.ReadTransaction(snap.Transaction)
-		if err != nil {
+		tx, finalized, err := node.persistStore.ReadTransaction(snap.Transaction)
+		if err != nil || len(finalized) > 0 {
 			return err
 		}
 		if tx != nil {
@@ -74,9 +74,8 @@ func (node *Node) ConsumeQueue() error {
 		if peerId == node.IdForNetwork {
 			return nil
 		}
-		finalized := m.Action == CosiActionFinalization
 		node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction)
-		return node.QueueAppendSnapshot(peerId, snap, finalized)
+		return node.QueueAppendSnapshot(peerId, snap, true)
 	})
 	return nil
 }

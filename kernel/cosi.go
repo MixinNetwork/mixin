@@ -92,6 +92,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 		return nil
 	}
 	if !node.CheckCatchUpWithPeers() && !node.checkInitialAcceptSnapshotWeak(m.Snapshot) {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement CheckCatchUpWithPeers\n")
 		return nil
 	}
 
@@ -227,6 +228,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v\n", m.PeerId, m.Snapshot)
 	if node.ConsensusIndex < 0 || !node.CheckCatchUpWithPeers() {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement CheckCatchUpWithPeers\n")
 		return nil
 	}
 	cn := node.getPeerConsensusNode(m.PeerId)
@@ -358,6 +360,7 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 		return nil
 	}
 	if !node.CheckCatchUpWithPeers() && !node.checkInitialAcceptSnapshotWeak(ann.Snapshot) {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment CheckCatchUpWithPeers\n")
 		return nil
 	}
 	if cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) >= ann.Snapshot.Timestamp && !node.genesisNodesMap[cn.IdForNetwork(node.networkId)] {
@@ -424,6 +427,7 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 func (node *Node) cosiHandleChallenge(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge %v\n", m)
 	if node.ConsensusIndex < 0 || !node.CheckCatchUpWithPeers() {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge CheckCatchUpWithPeers\n")
 		return nil
 	}
 	if node.getPeerConsensusNode(m.PeerId) == nil {
@@ -494,6 +498,7 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 		return nil
 	}
 	if !node.CheckCatchUpWithPeers() && !node.checkInitialAcceptSnapshotWeak(agg.Snapshot) {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse CheckCatchUpWithPeers\n")
 		return nil
 	}
 	agg.responsed[m.PeerId] = true
