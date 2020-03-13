@@ -1,6 +1,10 @@
 package logger
 
-import "log"
+import (
+	"fmt"
+	"log"
+	"regexp"
+)
 
 const (
 	ERROR   = 1
@@ -9,10 +13,26 @@ const (
 	DEBUG   = 7
 )
 
-var level int
+var (
+	level  int
+	filter *regexp.Regexp
+)
 
 func SetLevel(l int) {
 	level = l
+}
+
+func SetFilter(pattern string) error {
+	if pattern == "" {
+		return nil
+	}
+	// https://github.com/google/re2/wiki/Syntax
+	reg, err := regexp.Compile(pattern)
+	if err != nil {
+		return err
+	}
+	filter = reg
+	return nil
 }
 
 func Println(v ...interface{}) {
@@ -28,13 +48,26 @@ func Printf(format string, v ...interface{}) {
 }
 
 func Verbosef(format string, v ...interface{}) {
-	if level >= VERBOSE {
-		log.Printf(format, v...)
-	}
+	printfAtLevel(VERBOSE, format, v...)
 }
 
 func Debugf(format string, v ...interface{}) {
-	if level >= DEBUG {
-		log.Printf(format, v...)
+	printfAtLevel(DEBUG, format, v...)
+}
+
+func printfAtLevel(l int, format string, v ...interface{}) {
+	if level < l {
+		return
 	}
+	if out := filterOutput(format, v...); out != "" {
+		log.Print(out)
+	}
+}
+
+func filterOutput(format string, v ...interface{}) string {
+	out := fmt.Sprintf(format, v...)
+	if filter == nil || filter.MatchString(out) {
+		return out
+	}
+	return ""
 }

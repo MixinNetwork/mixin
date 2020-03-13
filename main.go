@@ -65,6 +65,10 @@ func main() {
 					Value:   logger.INFO,
 					Usage:   "the log level",
 				},
+				&cli.StringFlag{
+					Name:  "filter",
+					Usage: "the RE2 regex pattern to filter log",
+				},
 			},
 		},
 		{
@@ -402,7 +406,11 @@ func kernelCmd(c *cli.Context) error {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	logger.SetLevel(c.Int("log"))
-	err := config.Initialize(c.String("dir") + "/config.json")
+	err := logger.SetFilter(c.String("filter"))
+	if err != nil {
+		return err
+	}
+	err = config.Initialize(c.String("dir") + "/config.json")
 	if err != nil {
 		return err
 	}
