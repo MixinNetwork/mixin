@@ -299,28 +299,18 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	}
 
 	var signer common.Address
-	var peerId crypto.Hash
-	copy(peerId[:], msg[8:40])
+	copy(signer.PublicSpendKey[:], msg[8:40])
+	signer.PublicViewKey = signer.PublicSpendKey.DeterministicHashDerive().Public()
+	peerId := signer.Hash().ForNetwork(node.networkId)
 	if peerId == node.IdForNetwork {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
 	}
 	peer := node.getPeerConsensusNode(peerId)
 
-	if peer == nil {
-		copy(signer.PublicSpendKey[:], peerId[:])
-		signer.PublicViewKey = signer.PublicSpendKey.DeterministicHashDerive().Public()
-		peerId = signer.Hash().ForNetwork(node.networkId)
-		if peerId == node.IdForNetwork {
-			return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
-		}
-		peer = node.getPeerConsensusNode(peerId)
-	} else {
-		signer = peer.Signer
-	}
 	if config.Custom.ConsensusOnly && peer == nil {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
 	}
-	if peer != nil && peer.Signer.Hash() != signer.Hash() {
+	if peer.Signer.Hash() != signer.Hash() {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
 	}
 
