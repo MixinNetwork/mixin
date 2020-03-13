@@ -50,10 +50,10 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound, allowDumm
 		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64
 		height := uint64(len(node.Graph.RoundHistory[external.NodeId]))
 		for id, rounds := range node.Graph.RoundHistory {
+			rts, rh := rounds[0].Start, uint64(len(rounds))
 			if !node.genesisNodesMap[id] && rounds[0].Number < 7+config.SnapshotReferenceThreshold*2 {
 				continue
 			}
-			rts, rh := rounds[0].Start, uint64(len(rounds))
 			if id == s.NodeId || rh < height || rts > s.Timestamp {
 				continue
 			}
