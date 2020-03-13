@@ -16,7 +16,7 @@ func (s *BadgerStore) ReadTransaction(hash crypto.Hash) (*common.VersionedTransa
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 	tx, err := readTransaction(txn, hash)
-	if err != nil {
+	if err != nil || tx == nil {
 		return tx, "", err
 	}
 	key := graphFinalizationKey(hash)
