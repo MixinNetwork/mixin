@@ -404,23 +404,31 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 			continue
 		}
 		if remote.Number > final+1 {
+			logger.Verbosef("CheckCatchUpWithPeers local(%d)+1 < remote(%s:%d)\n", final, id, remote.Number)
 			return false
 		}
 		if cache == nil {
+			logger.Verbosef("CheckCatchUpWithPeers local cache nil\n")
 			return false
 		}
 		cf := cache.asFinal()
 		if cf == nil {
+			logger.Verbosef("CheckCatchUpWithPeers local cache empty\n")
 			return false
 		}
 		if cf.Hash != remote.Hash {
+			logger.Verbosef("CheckCatchUpWithPeers local(%s) != remote(%s)\n", cf.Hash, remote.Hash)
 			return false
 		}
-		if cf.Start+config.SnapshotRoundGap*100 > uint64(clock.Now().UnixNano()) {
+		if now := uint64(clock.Now().UnixNano()); cf.Start+config.SnapshotRoundGap*100 > now {
+			logger.Verbosef("CheckCatchUpWithPeers local start(%d)+%d > now(%d)\n", cf.Start, config.SnapshotRoundGap*100, now)
 			return false
 		}
 	}
 
+	if updated < threshold {
+		logger.Verbosef("CheckCatchUpWithPeers updated(%d) < threshold(%d)\n", updated, threshold)
+	}
 	return updated >= threshold
 }
 
