@@ -392,7 +392,7 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 func (node *Node) CheckCatchUpWithPeers() bool {
 	final := node.Graph.MyFinalNumber
 	cache := node.Graph.MyCacheRound
-	updated, threshold := 0, node.ConsensusThreshold(0)
+	updated, threshold := 1, node.ConsensusThreshold(0)
 
 	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
