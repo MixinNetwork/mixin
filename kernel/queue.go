@@ -62,8 +62,8 @@ func (node *Node) ConsumeQueue() error {
 			return nil
 		}
 
-		tx, finalized, err := node.persistStore.ReadTransaction(snap.Transaction)
-		if err != nil || len(finalized) > 0 {
+		tx, _, err = node.persistStore.ReadTransaction(snap.Transaction)
+		if err != nil {
 			return err
 		}
 		if tx != nil {
