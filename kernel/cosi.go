@@ -577,6 +577,12 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 	node.Graph.CacheRound[s.NodeId] = cache
 
 	for id, _ := range node.ConsensusNodes {
+		if !agg.responsed[id] {
+			err := node.SendTransactionToPeer(id, agg.Snapshot.Transaction)
+			if err != nil {
+				return err
+			}
+		}
 		err := node.Peer.SendSnapshotFinalizationMessage(id, agg.Snapshot)
 		if err != nil {
 			return err
