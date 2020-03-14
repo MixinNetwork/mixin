@@ -67,7 +67,8 @@ func main() {
 				},
 				&cli.IntFlag{
 					Name:  "limiter",
-					Usage: "limit the log count for the same content",
+					Value: 0,
+					Usage: "limit the log count for the same content, 0 means no limit",
 				},
 				&cli.StringFlag{
 					Name:  "filter",
