@@ -7,6 +7,7 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/btcsuite/btcutil v1.0.1
+	github.com/cornelk/hashmap v1.0.1
 	github.com/dgraph-io/badger/v2 v2.0.1
 	github.com/dimfeld/httptreemux v5.0.1+incompatible
 	github.com/dsnet/compress v0.0.1 // indirect

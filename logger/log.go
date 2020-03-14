@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"sync/atomic"
+
+	"github.com/cornelk/hashmap"
 )
 
 const (
@@ -14,12 +17,22 @@ const (
 )
 
 var (
-	level  int
-	filter *regexp.Regexp
+	level   int
+	limiter int
+	filter  *regexp.Regexp
+	counter *hashmap.HashMap
 )
+
+func init() {
+	counter = &hashmap.HashMap{}
+}
 
 func SetLevel(l int) {
 	level = l
+}
+
+func SetLimiter(l int) {
+	limiter = l
 }
 
 func SetFilter(pattern string) error {
@@ -59,9 +72,26 @@ func printfAtLevel(l int, format string, v ...interface{}) {
 	if level < l {
 		return
 	}
-	if out := filterOutput(format, v...); out != "" {
-		log.Print(out)
+	out := filterOutput(format, v...)
+	if out == "" {
+		return
 	}
+	if !limiterAvailable(out) {
+		return
+	}
+	log.Print(out)
+}
+
+func limiterAvailable(out string) bool {
+	if limiter == 0 {
+		return true
+	}
+	var i int64
+	val, _ := counter.GetOrInsert(out, &i)
+	actual := (val).(*int64)
+	count := atomic.LoadInt64(actual)
+	atomic.AddInt64(actual, 1)
+	return count < int64(limiter)
 }
 
 func filterOutput(format string, v ...interface{}) string {

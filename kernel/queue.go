@@ -3,6 +3,7 @@ package kernel
 import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 )
 
 func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, error) {
@@ -74,6 +75,7 @@ func (node *Node) ConsumeQueue() error {
 		if peerId == node.IdForNetwork {
 			return nil
 		}
+		logger.Debugf("ConsumeQueue finalized snapshot without transaction %s %s %s\n", peerId, snap.Hash, snap.Transaction)
 		node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction)
 		return node.QueueAppendSnapshot(peerId, snap, true)
 	})

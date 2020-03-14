@@ -45,4 +45,16 @@ func TestLogger(t *testing.T) {
 	assert.Contains(out, "mixin")
 	out = filterOutput("ethereum or bitcoin %d", time.Now().UnixNano())
 	assert.NotContains(out, "mixin")
+
+	la := limiterAvailable("hello from mixin")
+	assert.True(la)
+	SetLimiter(10)
+	for i := 0; i < 10; i++ {
+		la := limiterAvailable("hello from mixin")
+		assert.True(la)
+	}
+	la = limiterAvailable("hello from mixin")
+	assert.False(la)
+	la = limiterAvailable("hello from mixin again")
+	assert.True(la)
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 	"github.com/VictoriaMetrics/fastcache"
 )
 
@@ -264,11 +265,14 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage, done ch
 			switch msg.Type {
 			case PeerMessageTypePing:
 			case PeerMessageTypeGraph:
+				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeGraph %s\n", peer.IdForNetwork)
 				me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.FinalCache)
 				peer.sync <- msg.FinalCache
 			case PeerMessageTypeTransactionRequest:
+				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionRequest %s %s\n", peer.IdForNetwork, msg.TransactionHash)
 				me.handle.SendTransactionToPeer(peer.IdForNetwork, msg.TransactionHash)
 			case PeerMessageTypeTransaction:
+				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransaction %s %s\n", peer.IdForNetwork, msg.TransactionHash)
 				me.handle.CachePutTransaction(peer.IdForNetwork, msg.Transaction)
 			case PeerMessageTypeSnapshotConfirm:
 				me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash)
