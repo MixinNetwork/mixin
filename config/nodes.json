@@ -40,16 +40,20 @@
     "host": "mixin-node0.exinpool.com:7239"
   },
   {
-    "signer": "XIN36djh1wWdNcGhkna2EYLQRVKoJJ25ZeGmDCntro1c7xqBR6xTd8fXPRUceeUDZ8N4m3VsoeQpKiKqpK1o3uqN7W2vyfby",
-    "host": "node-candy.f1ex.io:7239"
-  },
-  {
     "signer": "XIN29AqXsjAjMVqrCar5ZSbn138VuhPzdQScTsK95f1tVVMZHwgG13De6tudHMBdsGpmACHvqFH5fn4ProqtvHxbWhB8Wa2f",
     "host": "mixin-node0.eoslaomao.com:443"
   },
   {
     "signer": "XINZsTSPsDFsYTYJDHnLD63nhhzhtsyokv8jK6fUHQNurGyV4WsMQrVFymsVVaNYe7YcdCPbLjSMDk3GbH1NAindN7TyTbwF",
     "host": "mixin-node1.eoslaomao.com:443"
+  },
+  {
+    "signer": "XINFrsUD3rgvmaopY3GwMe4FVbcNcdGkAALXTT5FSF7Nrkx9NzqqmSmATiGFWpMysym6dPDhitvBofzCUha8yKcvtwq63eXP",
+    "host": "node-box.f1ex.io:7239"
+  },
+  {
+    "signer": "XIN36djh1wWdNcGhkna2EYLQRVKoJJ25ZeGmDCntro1c7xqBR6xTd8fXPRUceeUDZ8N4m3VsoeQpKiKqpK1o3uqN7W2vyfby",
+    "host": "node-candy.f1ex.io:7239"
   },
   {
     "signer": "XINBk4Rt7dtEDoEBUJFk5AeDV94oP24jN1SpLJDTF4xebgUVt8TPjEJzMauNRqzjiQM7Fo4m7Ae7SbZBoDmMNc7MvZmV7gnV",
