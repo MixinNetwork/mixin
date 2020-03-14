@@ -807,13 +807,6 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) invalid consensus peer\n", peerId, s.Hash)
 		return nil
 	}
-	if swt, err := node.persistStore.CheckSnapshot(s.Hash); err != nil {
-		return err
-	} else if swt {
-		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) already snapshot\n", peerId, s.Hash)
-		node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
-		return node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
-	}
 
 	if s.Version == 0 {
 		return node.legacyAppendFinalization(peerId, s)

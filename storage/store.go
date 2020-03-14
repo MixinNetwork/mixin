@@ -28,7 +28,6 @@ type Store interface {
 	CheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error
 	LockDepositInput(deposit *common.DepositData, tx crypto.Hash, fork bool) error
 	CheckGhost(key crypto.Key) (bool, error)
-	CheckSnapshot(hash crypto.Hash) (bool, error)
 	ReadSnapshot(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotWithTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, []*common.VersionedTransaction, error)
