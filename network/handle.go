@@ -25,7 +25,7 @@ const (
 	PeerMessageTypeSnapshotCommitment   = 11 // peer generate ri based, send Ri to leader
 	PeerMessageTypeTransactionChallenge = 12 // leader send bitmask Z and aggragated R to peer
 	PeerMessageTypeSnapshotResponse     = 13 // peer generate A from nodes and Z, send response si = ri + H(R || A || M)ai to leader
-	PeerMessageTypeSnapshotFinalization = 14 // leader generate A, verify si B = ri B + H(R || A || M)ai B = Ri + H(R || A || M)Ai, then finaliz based on threshold
+	PeerMessageTypeSnapshotFinalization = 14 // leader generate A, verify si B = ri B + H(R || A || M)ai B = Ri + H(R || A || M)Ai, then finalize based on threshold
 )
 
 type PeerMessage struct {
@@ -220,6 +220,9 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 		if err != nil {
 			return nil, err
 		}
+		if msg.Snapshot == nil {
+			return nil, fmt.Errorf("invalid snapshot announcement message data")
+		}
 	case PeerMessageTypeSnapshotCommitment:
 		if len(data[1:]) != 65 {
 			return nil, fmt.Errorf("invalid commitment message size %d", len(data[1:]))
@@ -252,6 +255,9 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 		if err != nil {
 			return nil, err
 		}
+		if msg.Snapshot == nil {
+			return nil, fmt.Errorf("invalid snapshot finalization message data")
+		}
 	}
 	return msg, nil
 }
@@ -272,19 +278,25 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage, done ch
 				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionRequest %s %s\n", peer.IdForNetwork, msg.TransactionHash)
 				me.handle.SendTransactionToPeer(peer.IdForNetwork, msg.TransactionHash)
 			case PeerMessageTypeTransaction:
-				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransaction %s %s\n", peer.IdForNetwork, msg.TransactionHash)
+				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransaction %s\n", peer.IdForNetwork)
 				me.handle.CachePutTransaction(peer.IdForNetwork, msg.Transaction)
 			case PeerMessageTypeSnapshotConfirm:
+				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotConfirm %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
 				me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash)
 			case PeerMessageTypeSnapshotAnnoucement:
+				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotAnnoucement %s %s\n", peer.IdForNetwork, msg.Snapshot.Transaction)
 				me.handle.CosiQueueExternalAnnouncement(peer.IdForNetwork, msg.Snapshot, &msg.Commitment)
 			case PeerMessageTypeSnapshotCommitment:
+				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotCommitment %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
 				me.handle.CosiAggregateSelfCommitments(peer.IdForNetwork, msg.SnapshotHash, &msg.Commitment, msg.WantTx)
 			case PeerMessageTypeTransactionChallenge:
+				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionChallenge %s %s %t\n", peer.IdForNetwork, msg.SnapshotHash, msg.Transaction != nil)
 				me.handle.CosiQueueExternalChallenge(peer.IdForNetwork, msg.SnapshotHash, &msg.Cosi, msg.Transaction)
 			case PeerMessageTypeSnapshotResponse:
+				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotResponse %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
 				me.handle.CosiAggregateSelfResponses(peer.IdForNetwork, msg.SnapshotHash, &msg.Response)
 			case PeerMessageTypeSnapshotFinalization:
+				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotFinalization %s %s\n", peer.IdForNetwork, msg.Snapshot.Transaction)
 				me.handle.VerifyAndQueueAppendSnapshotFinalization(peer.IdForNetwork, msg.Snapshot)
 			}
 		}
