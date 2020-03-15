@@ -12,13 +12,13 @@ import (
 
 func (me *Peer) cacheReadSnapshotsForNodeRound(nodeId crypto.Hash, final uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	key := []byte(fmt.Sprintf("SFNR%s:%d", nodeId.String(), final))
-	data := me.storeCache.Get(nil, key)
+	data := me.storeCache.GetBig(nil, key)
 	if len(data) == 0 {
 		ss, err := me.handle.ReadSnapshotsForNodeRound(nodeId, final)
 		if err != nil || len(ss) == 0 {
 			return nil, err
 		}
-		me.storeCache.Set(key, common.MsgpackMarshalPanic(ss))
+		me.storeCache.SetBig(key, common.MsgpackMarshalPanic(ss))
 		return ss, nil
 	}
 	var ss []*common.SnapshotWithTopologicalOrder
@@ -28,14 +28,14 @@ func (me *Peer) cacheReadSnapshotsForNodeRound(nodeId crypto.Hash, final uint64)
 
 func (me *Peer) cacheReadSnapshotsSinceTopology(offset, limit uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	key := []byte(fmt.Sprintf("SSTME%d-%d", offset, limit))
-	data := me.storeCache.Get(nil, key)
+	data := me.storeCache.GetBig(nil, key)
 	if len(data) == 0 {
 		ss, err := me.handle.ReadSnapshotsSinceTopology(offset, limit)
 		if err != nil {
 			return nil, err
 		}
 		if uint64(len(ss)) == limit {
-			me.storeCache.Set(key, common.MsgpackMarshalPanic(ss))
+			me.storeCache.SetBig(key, common.MsgpackMarshalPanic(ss))
 		}
 		return ss, nil
 	}
