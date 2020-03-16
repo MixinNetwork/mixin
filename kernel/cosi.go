@@ -671,12 +671,13 @@ func (node *Node) handleFinalization(m *CosiAction) error {
 		return nil
 	}
 
-	cache := node.Graph.CacheRound[s.NodeId]
-	if s.RoundNumber < cache.Number {
-		return nil
-	}
-	if s.RoundNumber > cache.Number+1 {
-		return node.QueueAppendSnapshot(m.PeerId, s, true)
+	if cache := node.Graph.CacheRound[s.NodeId]; cache != nil {
+		if s.RoundNumber < cache.Number {
+			return nil
+		}
+		if s.RoundNumber > cache.Number+1 {
+			return node.QueueAppendSnapshot(m.PeerId, s, true)
+		}
 	}
 
 	dummy, err := node.tryToStartNewRound(s)
