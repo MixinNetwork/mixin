@@ -162,13 +162,9 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 			if best.Number <= link {
 				return node.clearAndQueueSnapshotOrPanic(s)
 			}
-			cache = &CacheRound{
-				NodeId: cache.NodeId,
-				Number: cache.Number,
-				References: &common.RoundLink{
-					Self:     final.Hash,
-					External: best.Hash,
-				},
+			cache.References = &common.RoundLink{
+				Self:     final.Hash,
+				External: best.Hash,
 			}
 			err = node.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, cache.References)
 			if err != nil {
@@ -299,13 +295,9 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		if external.Number < link {
 			return nil
 		}
-		cache = &CacheRound{
-			NodeId: cache.NodeId,
-			Number: cache.Number,
-			References: &common.RoundLink{
-				Self:     s.References.Self,
-				External: s.References.External,
-			},
+		cache.References = &common.RoundLink{
+			Self:     s.References.Self,
+			External: s.References.External,
 		}
 		err = node.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, cache.References)
 		if err != nil {
@@ -613,10 +605,10 @@ func (node *Node) cosiHandleFinalization(m *CosiAction) error {
 		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	}
 	if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
-		if s.NodeId == node.IdForNetwork {
+		if len(cache.Snapshots) != 0 {
 			return nil
 		}
-		if len(cache.Snapshots) != 0 {
+		if s.References.Self != cache.References.Self {
 			return nil
 		}
 		external, err := node.persistStore.ReadRound(s.References.External)
@@ -671,29 +663,37 @@ func (node *Node) cosiHandleFinalization(m *CosiAction) error {
 }
 
 func (node *Node) handleFinalization(m *CosiAction) error {
-	logger.Verbosef("CosiLoop cosiHandleAction handleFinalization %s %v\n", m.PeerId, m.Snapshot)
+	logger.Debugf("CosiLoop cosiHandleAction handleFinalization %s %v\n", m.PeerId, m.Snapshot)
 	s := m.Snapshot
 	s.Hash = s.PayloadHash()
 	if !node.verifyFinalization(s) {
-		logger.Verbosef("ERROR handleFinalization verifyFinalization %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil)
+		logger.Verbosef("ERROR handleFinalization verifyFinalization %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
 		return nil
+	}
+
+	cache := node.Graph.CacheRound[s.NodeId]
+	if s.RoundNumber < cache.Number {
+		return nil
+	}
+	if s.RoundNumber > cache.Number+1 {
+		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	}
 
 	dummy, err := node.tryToStartNewRound(s)
 	if err != nil {
-		logger.Verbosef("ERROR handleFinalization tryToStartNewRound %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil, err.Error())
+		logger.Verbosef("ERROR handleFinalization tryToStartNewRound %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil, err.Error())
 		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	} else if dummy {
-		logger.Verbosef("ERROR handleFinalization tryToStartNewRound DUMMY %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil)
+		logger.Verbosef("ERROR handleFinalization tryToStartNewRound DUMMY %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
 		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	}
 
 	tx, err := node.checkFinalSnapshotTransaction(s)
 	if err != nil {
-		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil, err.Error())
+		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil, err.Error())
 		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	} else if tx == nil {
-		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil, "tx empty")
+		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil, "tx empty")
 		return nil
 	}
 	if s.RoundNumber == 0 && tx.TransactionType() != common.TransactionTypeNodeAccept {
@@ -802,7 +802,7 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 
 func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
-	logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s)\n", peerId, s.Hash)
+	logger.Debugf("VerifyAndQueueAppendSnapshotFinalization(%s, %s)\n", peerId, s.Hash)
 	if node.getPeerConsensusNode(peerId) == nil {
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) invalid consensus peer\n", peerId, s.Hash)
 		return nil
@@ -812,7 +812,7 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		return node.legacyAppendFinalization(peerId, s)
 	}
 	if !node.verifyFinalization(s) {
-		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil)
+		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
 		return nil
 	}
 
