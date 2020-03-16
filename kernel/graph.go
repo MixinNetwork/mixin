@@ -160,7 +160,6 @@ func (node *Node) checkInitialAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 }
 
 func (node *Node) queueSnapshotOrPanic(peerId crypto.Hash, s *common.Snapshot) error {
-	time.Sleep(10 * time.Millisecond)
 	err := node.persistStore.QueueAppendSnapshot(peerId, s, false)
 	if err != nil {
 		panic(err)
