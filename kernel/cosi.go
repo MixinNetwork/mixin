@@ -809,25 +809,25 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		return nil
 	}
 
-	if s.Version == 0 {
-		return node.legacyAppendFinalization(peerId, s)
-	}
-	if !node.verifyFinalization(s) {
-		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d %t\n", peerId, s, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
-		return nil
-	}
-
 	node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
 	err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
 	if err != nil {
 		return err
 	}
-
 	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil || inNode {
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) already finalized %t %v\n", peerId, s.Hash, inNode, err)
 		return err
 	}
+
+	if s.Version == 0 {
+		return node.legacyAppendFinalization(peerId, s)
+	}
+	if !node.verifyFinalization(s) {
+		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemoved != nil)
+		return nil
+	}
+
 	return node.QueueAppendSnapshot(peerId, s, true)
 }
 

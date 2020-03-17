@@ -79,16 +79,6 @@ func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapsho
 		return nil
 	}
 
-	node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
-	err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
-	if err != nil {
-		return err
-	}
-	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
-	if err != nil || inNode {
-		return err
-	}
-
 	sigs := make([]*crypto.Signature, 0)
 	signaturesFilter := make(map[string]bool)
 	signersMap := make(map[crypto.Hash]bool)
