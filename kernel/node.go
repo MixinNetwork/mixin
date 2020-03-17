@@ -220,15 +220,20 @@ func (node *Node) LoadConsensusNodes() error {
 }
 
 func (node *Node) ConsensusRemovedRecently(timestamp uint64) *common.Node {
-	if timestamp == 0 {
+	threshold := uint64(config.KernelNodeAcceptPeriodMinimum) / 2
+	if timestamp <= threshold {
 		return nil
 	}
-	threshold := uint64(config.KernelNodeAcceptPeriodMinimum) / 2
+	begin := timestamp - threshold
+	end := timestamp + threshold
 	for _, cn := range node.AllNodesSorted {
+		if cn.Timestamp > end {
+			break
+		}
 		if cn.State != common.NodeStateRemoved {
 			continue
 		}
-		if cn.Timestamp < timestamp+threshold && cn.Timestamp+threshold > timestamp {
+		if cn.Timestamp > begin {
 			return cn
 		}
 	}
