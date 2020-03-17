@@ -667,7 +667,7 @@ func (node *Node) handleFinalization(m *CosiAction) error {
 	s := m.Snapshot
 	s.Hash = s.PayloadHash()
 	if !node.verifyFinalization(s) {
-		logger.Verbosef("ERROR handleFinalization verifyFinalization %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
+		logger.Verbosef("ERROR handleFinalization verifyFinalization %s %s %d %t\n", m.PeerId, s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
 		return nil
 	}
 
@@ -682,19 +682,19 @@ func (node *Node) handleFinalization(m *CosiAction) error {
 
 	dummy, err := node.tryToStartNewRound(s)
 	if err != nil {
-		logger.Verbosef("ERROR handleFinalization tryToStartNewRound %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil, err.Error())
+		logger.Verbosef("ERROR handleFinalization tryToStartNewRound %s %s %d %t %s\n", m.PeerId, s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil, err.Error())
 		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	} else if dummy {
-		logger.Verbosef("ERROR handleFinalization tryToStartNewRound DUMMY %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
+		logger.Verbosef("ERROR handleFinalization tryToStartNewRound DUMMY %s %s %d %t\n", m.PeerId, s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
 		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	}
 
 	tx, err := node.checkFinalSnapshotTransaction(s)
 	if err != nil {
-		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil, err.Error())
+		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %t %s\n", m.PeerId, s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil, err.Error())
 		return node.QueueAppendSnapshot(m.PeerId, s, true)
 	} else if tx == nil {
-		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %d %t %s\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil, "tx empty")
+		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %t %s\n", m.PeerId, s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil, "tx empty")
 		return nil
 	}
 	if s.RoundNumber == 0 && tx.TransactionType() != common.TransactionTypeNodeAccept {
@@ -813,7 +813,7 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		return node.legacyAppendFinalization(peerId, s)
 	}
 	if !node.verifyFinalization(s) {
-		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %d %t\n", s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
+		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %s %d %t\n", peerId, s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
 		return nil
 	}
 
