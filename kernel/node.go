@@ -32,6 +32,7 @@ type Node struct {
 	SyncPoints   *syncMap
 	Listener     string
 
+	AllNodesSorted       []*common.Node
 	ActiveNodes          []*common.Node
 	ConsensusNodes       map[crypto.Hash]*common.Node
 	SortedConsensusNodes []crypto.Hash
@@ -182,7 +183,8 @@ func (node *Node) LoadConsensusNodes() error {
 	activeNodes := make([]*common.Node, 0)
 	consensusNodes := make(map[crypto.Hash]*common.Node)
 	sortedConsensusNodes := make([]crypto.Hash, 0)
-	for _, cn := range node.SortAllNodesByTimestampAndId() {
+	node.AllNodesSorted = node.SortAllNodesByTimestampAndId()
+	for _, cn := range node.AllNodesSorted {
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.Epoch
 		}
@@ -221,9 +223,8 @@ func (node *Node) ConsensusRemovedRecently(timestamp uint64) *common.Node {
 	if timestamp == 0 {
 		return nil
 	}
-	nodes := node.SortAllNodesByTimestampAndId()
 	threshold := uint64(config.KernelNodeAcceptPeriodMinimum) / 2
-	for _, cn := range nodes {
+	for _, cn := range node.AllNodesSorted {
 		if cn.State != common.NodeStateRemoved {
 			continue
 		}
