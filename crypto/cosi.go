@@ -190,15 +190,18 @@ func (c *CosiSignature) ThresholdVerify(threshold int) bool {
 	return len(c.Keys()) >= threshold
 }
 
-func (c *CosiSignature) FullVerify(publics []*Key, threshold int, message []byte) bool {
+func (c *CosiSignature) FullVerify(publics []*Key, threshold int, message []byte) error {
 	if !c.ThresholdVerify(threshold) {
-		return false
+		return fmt.Errorf("cosi.FullVerify publics %d threshold %d keys %d", len(publics), threshold, len(c.Keys()))
 	}
 	A, err := c.AggregatePublicKey(publics)
 	if err != nil {
-		return false
+		return fmt.Errorf("cosi.FullVerify AggregatePublicKey %s", err.Error())
 	}
-	return A.Verify(message, c.Signature)
+	if !A.Verify(message, c.Signature) {
+		return fmt.Errorf("cosi.FullVerify signature verify failed")
+	}
+	return nil
 }
 
 func (c CosiSignature) String() string {

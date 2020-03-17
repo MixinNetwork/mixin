@@ -87,8 +87,8 @@ func TestCosi(t *testing.T) {
 	assert.False(valid)
 	valid = cosi.ThresholdVerify(len(randoms))
 	assert.True(valid)
-	valid = cosi.FullVerify(publics, len(randoms)+1, message)
-	assert.False(valid)
-	valid = cosi.FullVerify(publics, len(randoms), message)
-	assert.True(valid)
+	err = cosi.FullVerify(publics, len(randoms)+1, message)
+	assert.NotNil(err)
+	err = cosi.FullVerify(publics, len(randoms), message)
+	assert.Nil(err)
 }

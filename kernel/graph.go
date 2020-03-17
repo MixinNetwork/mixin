@@ -9,6 +9,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
+	"github.com/MixinNetwork/mixin/logger"
 )
 
 func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound, allowDummy bool) (*FinalRound, bool, error) {
@@ -129,13 +130,14 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, p
 	if len(value) == 1 {
 		return value[0] == byte(1)
 	}
-	valid := sig.FullVerify(publics, threshold, snap[:])
-	if valid {
-		node.cacheStore.Set([]byte(hash), []byte{1})
-	} else {
+	err := sig.FullVerify(publics, threshold, snap[:])
+	if err != nil {
+		logger.Verbosef("CacheVerifyCosi(%s) ERROR %s\n", snap, err.Error())
 		node.cacheStore.Set([]byte(hash), []byte{0})
+	} else {
+		node.cacheStore.Set([]byte(hash), []byte{1})
 	}
-	return valid
+	return err == nil
 }
 
 func (node *Node) checkInitialAcceptSnapshotWeak(s *common.Snapshot) bool {
