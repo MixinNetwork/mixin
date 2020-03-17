@@ -220,7 +220,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		if err != nil {
 			return fmt.Errorf("parseNetworkMessage %s %s", peer.IdForNetwork, err.Error())
 		}
-		timer := time.NewTimer(1 * time.Second)
+		timer := time.NewTimer(config.SnapshotRoundGap)
 		select {
 		case receive <- msg:
 		case <-timer.C:
