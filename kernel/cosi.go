@@ -667,7 +667,7 @@ func (node *Node) handleFinalization(m *CosiAction) error {
 	s := m.Snapshot
 	s.Hash = s.PayloadHash()
 	if !node.verifyFinalization(s) {
-		logger.Verbosef("ERROR handleFinalization verifyFinalization %s %s %d %t\n", m.PeerId, s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
+		logger.Verbosef("ERROR handleFinalization verifyFinalization %s %v %d %t\n", m.PeerId, s, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
 		return nil
 	}
 
@@ -813,7 +813,7 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		return node.legacyAppendFinalization(peerId, s)
 	}
 	if !node.verifyFinalization(s) {
-		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %s %d %t\n", peerId, s.Hash, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
+		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d %t\n", peerId, s, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
 		return nil
 	}
 
