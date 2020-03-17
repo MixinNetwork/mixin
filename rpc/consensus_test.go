@@ -157,6 +157,10 @@ func TestConsensus(t *testing.T) {
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
 
+	all := testListNodes(nodes[0].Host)
+	assert.Len(all, NODES)
+	assert.Equal("ACCEPTED", all[NODES-1].State)
+
 	input, err := testBuildPledgeInput(assert, nodes[0].Host, accounts[0], utxos)
 	assert.Nil(err)
 	time.Sleep(3 * time.Second)
@@ -173,7 +177,7 @@ func TestConsensus(t *testing.T) {
 	assert.True(gt.Timestamp.After(epoch.Add((config.KernelMintTimeBegin + 24) * time.Hour)))
 	assert.Equal("499876.71232883", gt.PoolSize.String())
 
-	all := testListNodes(nodes[0].Host)
+	all = testListNodes(nodes[0].Host)
 	assert.Len(all, NODES+1)
 	assert.Equal(all[NODES].Signer.String(), pn.Signer.String())
 	assert.Equal(all[NODES].Payee.String(), pn.Payee.String())
