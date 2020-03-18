@@ -56,10 +56,13 @@ func (node *Node) tryToStartNewRound(s *common.Snapshot) (bool, error) {
 		final = round
 	}
 	cache = &CacheRound{
-		NodeId:     s.NodeId,
-		Number:     s.RoundNumber,
-		Timestamp:  s.Timestamp,
-		References: s.References,
+		NodeId:    s.NodeId,
+		Number:    s.RoundNumber,
+		Timestamp: s.Timestamp,
+		References: &common.RoundLink{
+			Self:     s.References.Self,
+			External: s.References.External,
+		},
 	}
 	if dummy {
 		cache.References.External = dummyExternal
