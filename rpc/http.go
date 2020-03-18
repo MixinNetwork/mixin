@@ -94,6 +94,13 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		} else {
 			renderer.RenderData(tx)
 		}
+	case "getcachetransaction":
+		tx, err := getCacheTransaction(impl.Store, call.Params)
+		if err != nil {
+			render.New().JSON(w, http.StatusOK, map[string]interface{}{"error": err.Error()})
+		} else {
+			renderer.RenderData(tx)
+		}
 	case "getutxo":
 		utxo, err := getUTXO(impl.Store, call.Params)
 		if err != nil {

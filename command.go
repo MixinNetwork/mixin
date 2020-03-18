@@ -450,6 +450,15 @@ func getTransactionCmd(c *cli.Context) error {
 	return err
 }
 
+func getCacheTransactionCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "getcachetransaction", []interface{}{
+		c.String("hash"),
+	}, c.Bool("time"))
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
 func getUTXOCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getutxo", []interface{}{
 		c.String("hash"),

@@ -12,6 +12,23 @@ import (
 	"github.com/MixinNetwork/mixin/storage"
 )
 
+func getCacheTransaction(store storage.Store, params []interface{}) (map[string]interface{}, error) {
+	if len(params) != 1 {
+		return nil, errors.New("invalid params count")
+	}
+	hash, err := crypto.HashFromString(fmt.Sprint(params[0]))
+	if err != nil {
+		return nil, err
+	}
+	tx, err := store.CacheGetTransaction(hash)
+	if err != nil || tx == nil {
+		return nil, err
+	}
+	data := transactionToMap(tx)
+	data["hex"] = hex.EncodeToString(tx.Marshal())
+	return data, nil
+}
+
 func queueTransaction(node *kernel.Node, params []interface{}) (string, error) {
 	if len(params) != 1 {
 		return "", errors.New("invalid params count")

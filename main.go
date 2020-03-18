@@ -345,6 +345,18 @@ func main() {
 			},
 		},
 		{
+			Name:   "getcachetransaction",
+			Usage:  "Get the transaction in cache by hash",
+			Action: getTransactionCmd,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "hash",
+					Aliases: []string{"x"},
+					Usage:   "the transaction hash",
+				},
+			},
+		},
+		{
 			Name:   "getutxo",
 			Usage:  "Get the UTXO by hash and index",
 			Action: getUTXOCmd,
