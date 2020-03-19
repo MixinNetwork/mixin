@@ -253,27 +253,27 @@ func (c *CacheRound) Gap() (uint64, uint64) {
 	return start, end
 }
 
-func (c *CacheRound) ValidateSnapshot(s *common.Snapshot, add bool) bool {
+func (c *CacheRound) ValidateSnapshot(s *common.Snapshot, add bool) error {
 	if !s.Hash.HasValue() {
 		panic(s)
 	}
 	for _, cs := range c.Snapshots {
 		if cs.Hash == s.Hash || cs.Timestamp == s.Timestamp {
-			return false
+			return fmt.Errorf("ValidateSnapshot error duplication %s %d", s.Hash, s.Timestamp)
 		}
 	}
 	if start, end := c.Gap(); start <= end {
 		if s.Timestamp < start && s.Timestamp+config.SnapshotRoundGap <= end {
-			return false
+			return fmt.Errorf("ValidateSnapshot error gap start %s %d %d %d", s.Hash, s.Timestamp, start, end)
 		}
 		if s.Timestamp > end && start+config.SnapshotRoundGap <= s.Timestamp {
-			return false
+			return fmt.Errorf("ValidateSnapshot error gap end %s %d %d %d", s.Hash, s.Timestamp, start, end)
 		}
 	}
 	if add {
 		c.Snapshots = append(c.Snapshots, s)
 	}
-	return true
+	return nil
 }
 
 func ComputeRoundHash(nodeId crypto.Hash, number uint64, snapshots []*common.Snapshot) (uint64, uint64, crypto.Hash) {

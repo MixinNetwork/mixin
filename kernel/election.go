@@ -227,7 +227,7 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 		Number:    s.RoundNumber,
 		Timestamp: s.Timestamp,
 	}
-	if !cache.ValidateSnapshot(s, true) {
+	if err := cache.ValidateSnapshot(s, true); err != nil {
 		panic("should never be here")
 	}
 	err := node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, cache.Timestamp)

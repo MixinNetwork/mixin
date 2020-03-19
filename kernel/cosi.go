@@ -329,7 +329,7 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 	}
 	node.assignNewGraphRound(final, cache)
 
-	if !cache.ValidateSnapshot(s, false) {
+	if err := cache.ValidateSnapshot(s, false); err != nil {
 		return nil
 	}
 
@@ -551,7 +551,7 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 	if !s.References.Equal(cache.References) {
 		return node.clearAndQueueSnapshotOrPanic(s)
 	}
-	if !cache.ValidateSnapshot(s, false) {
+	if err := cache.ValidateSnapshot(s, false); err != nil {
 		return node.clearAndQueueSnapshotOrPanic(s)
 	}
 
@@ -563,7 +563,7 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 	if err != nil {
 		panic(err)
 	}
-	if !cache.ValidateSnapshot(s, true) {
+	if err := cache.ValidateSnapshot(s, true); err != nil {
 		panic("should never be here")
 	}
 	node.Graph.CacheRound[s.NodeId] = cache
@@ -644,7 +644,8 @@ func (node *Node) cosiHandleFinalization(m *CosiAction) error {
 	}
 	node.assignNewGraphRound(final, cache)
 
-	if !cache.ValidateSnapshot(s, false) {
+	if err := cache.ValidateSnapshot(s, false); err != nil {
+		logger.Verbosef("ERROR handleFinalization ValidateSnapshot %s %v %s\n", m.PeerId, s, err.Error())
 		return nil
 	}
 	topo := &common.SnapshotWithTopologicalOrder{
@@ -655,7 +656,7 @@ func (node *Node) cosiHandleFinalization(m *CosiAction) error {
 	if err != nil {
 		panic(err)
 	}
-	if !cache.ValidateSnapshot(s, true) {
+	if err := cache.ValidateSnapshot(s, true); err != nil {
 		panic("should never be here")
 	}
 	node.assignNewGraphRound(final, cache)
