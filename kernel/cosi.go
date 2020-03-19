@@ -599,6 +599,7 @@ func (node *Node) cosiHandleFinalization(m *CosiAction) error {
 	final := node.Graph.FinalRound[s.NodeId].Copy()
 
 	if s.RoundNumber < cache.Number {
+		logger.Verbosef("ERROR cosiHandleFinalization expired round %s %s %d %d\n", m.PeerId, s.Hash, s.RoundNumber, cache.Number)
 		return nil
 	}
 	if s.RoundNumber > cache.Number+1 {
@@ -606,14 +607,20 @@ func (node *Node) cosiHandleFinalization(m *CosiAction) error {
 	}
 	if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
 		if len(cache.Snapshots) != 0 {
+			logger.Verbosef("ERROR cosiHandleFinalization malformated head round references not empty %s %v %d\n", m.PeerId, s, len(cache.Snapshots))
 			return nil
 		}
 		if s.References.Self != cache.References.Self {
+			logger.Verbosef("ERROR cosiHandleFinalization malformated head round references self diff %s %v %v\n", m.PeerId, s, cache.References)
 			return nil
 		}
 		external, err := node.persistStore.ReadRound(s.References.External)
-		if err != nil || external == nil {
+		if err != nil {
 			return err
+		}
+		if external == nil {
+			logger.Verbosef("ERROR cosiHandleFinalization head round references external not ready yet %s %v %v\n", m.PeerId, s, cache.References)
+			return node.QueueAppendSnapshot(m.PeerId, s, true)
 		}
 		err = node.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, s.References)
 		if err != nil {
@@ -627,6 +634,7 @@ func (node *Node) cosiHandleFinalization(m *CosiAction) error {
 		if round, _, err := node.startNewRound(s, cache, false); err != nil {
 			return node.QueueAppendSnapshot(m.PeerId, s, true)
 		} else if round == nil {
+			logger.Verbosef("ERROR cosiHandleFinalization startNewRound empty %s %v\n", m.PeerId, s)
 			return nil
 		} else {
 			final = round
@@ -645,7 +653,7 @@ func (node *Node) cosiHandleFinalization(m *CosiAction) error {
 	node.assignNewGraphRound(final, cache)
 
 	if err := cache.ValidateSnapshot(s, false); err != nil {
-		logger.Verbosef("ERROR handleFinalization ValidateSnapshot %s %v %s\n", m.PeerId, s, err.Error())
+		logger.Verbosef("ERROR cosiHandleFinalization ValidateSnapshot %s %v %s\n", m.PeerId, s, err.Error())
 		return nil
 	}
 	topo := &common.SnapshotWithTopologicalOrder{
@@ -674,6 +682,7 @@ func (node *Node) handleFinalization(m *CosiAction) error {
 
 	if cache := node.Graph.CacheRound[s.NodeId]; cache != nil {
 		if s.RoundNumber < cache.Number {
+			logger.Verbosef("ERROR handleFinalization expired round %s %s %d %d\n", m.PeerId, s.Hash, s.RoundNumber, cache.Number)
 			return nil
 		}
 		if s.RoundNumber > cache.Number+1 {
