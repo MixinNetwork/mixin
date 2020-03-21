@@ -91,11 +91,7 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(p *Peer, local, remote 
 			logger.Verbosef("network.sync compareRoundGraphAndGetTopologicalOffset %s local round empty %s:%d:%d\n", p.IdForNetwork, l.NodeId, number, l.Number)
 			continue
 		}
-		s := ss[len(ss)-1]
-		topo := s.TopologicalOrder
-		if topo == 0 {
-			topo = 1
-		}
+		topo := ss[0].TopologicalOrder
 		if offset == 0 || topo < offset {
 			offset = topo
 		}
