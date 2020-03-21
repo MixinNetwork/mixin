@@ -102,7 +102,7 @@ func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr str
 	node.Graph = graph
 
 	node.Peer = network.NewPeer(node, node.IdForNetwork, addr)
-	err = node.AddNeighborsFromConfig()
+	err = node.PingNeighborsFromConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -240,28 +240,23 @@ func (node *Node) ConsensusRemovedRecently(timestamp uint64) *common.Node {
 	return nil
 }
 
-func (node *Node) AddNeighborsFromConfig() error {
+func (node *Node) PingNeighborsFromConfig() error {
 	f, err := ioutil.ReadFile(node.configDir + "/nodes.json")
 	if err != nil {
 		return err
 	}
 	var inputs []struct {
-		Signer common.Address `json:"signer"`
-		Host   string         `json:"host"`
+		Host string `json:"host"`
 	}
 	err = json.Unmarshal(f, &inputs)
 	if err != nil {
 		return err
 	}
 	for _, in := range inputs {
-		if in.Signer.String() == node.Signer.String() {
+		if in.Host == node.Listener {
 			continue
 		}
-		id := in.Signer.Hash().ForNetwork(node.networkId)
-		if node.ConsensusNodes[id] == nil {
-			continue
-		}
-		node.Peer.AddNeighbor(id, in.Host)
+		node.Peer.PingNeighbor(in.Host)
 	}
 
 	return nil

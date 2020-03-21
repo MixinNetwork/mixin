@@ -39,6 +39,37 @@ type ChanMsg struct {
 	data []byte
 }
 
+func (me *Peer) PingNeighbor(addr string) error {
+	if a, err := net.ResolveUDPAddr("udp", addr); err != nil {
+		return fmt.Errorf("invalid address %s %s", addr, err)
+	} else if a.Port < 80 || a.IP == nil {
+		return fmt.Errorf("invalid address %s %d %s", addr, a.Port, a.IP)
+	}
+
+	go func() error {
+		logger.Verbosef("PING OPEN PEER STREAM %s\n", addr)
+		transport, err := NewQuicClient(addr)
+		if err != nil {
+			return err
+		}
+		client, err := transport.Dial()
+		if err != nil {
+			return err
+		}
+		defer client.Close()
+		logger.Verbosef("PING DIAL PEER STREAM %s\n", addr)
+
+		err = client.Send(buildAuthenticationMessage(me.handle.BuildAuthenticationMessage()))
+		if err != nil {
+			return err
+		}
+		logger.Verbosef("PING AUTH PEER STREAM %s\n", addr)
+		time.Sleep(time.Duration(config.SnapshotRoundGap))
+		return nil
+	}()
+	return nil
+}
+
 func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) (*Peer, error) {
 	if a, err := net.ResolveUDPAddr("udp", addr); err != nil {
 		return nil, fmt.Errorf("invalid address %s %s", addr, err)

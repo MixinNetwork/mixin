@@ -1,114 +1,86 @@
 [
   {
-    "signer": "XIN3nveJ3YKcFo2GEPXFBWgVQ8LUKYg3EjFxscfWtDH9k7rUSmFCpDyGaz9suZczgkhDetU9CyudG74nXtechVHB8v9npK1S",
     "host": "mixin-node-01.b1.run:7239"
   },
   {
-    "signer": "XINJbx6ja3cWtkJLQ2FPFCkRT98VuvAFWt4oKESr2eC3xBsQD9K7ypBcAr9upAEMn98LXiBGAfZoxUne745wi9mAooqPkRKN",
     "host": "mixin-node-02.b1.run:7239"
   },
   {
-    "signer": "XINPqENN3NbvB4fYArAt39s286WfYGA9qb4N6jyvsixK4KuMicVkUev8ZMMsA3AEKmxYsT3Mn7nYsurimABT7npdQcNLX2yG",
     "host": "mixin-node-03.b1.run:7239"
   },
   {
-    "signer": "XIN3E1zgtAVY2PYnJi91W3U3CeXvpnruEroBVWJRQn6x4VrFSN9rQfsqCZbEDc77ALGEqyiMFuSSq5ooSA3L2e4YG13RXfsm",
     "host": "mixin-node-04.b1.run:7239"
   },
   {
-    "signer": "XINDfgnkijCTe9ijVd9yDwQP8VY4rXwFqYczfgeKJViJqjGKmWS8MdZhJn7kPd5Hv6M8W8RobhJUAxkxgZ6YNtdWQwefYE51",
     "host": "mixin-node-05.b1.run:7239"
   },
   {
-    "signer": "XINJ7LcWaCqPt9zrQFjPz2kQEy4BywpUBrBFQvTLD22siC6VH1MWEk72ftR1HbeSYrTn1VvX1HkR4EyG262JewpHbyDj83kS",
     "host": "mixin-node-06.b1.run:7239"
   },
   {
-    "signer": "XINQXLM4QPjWsmPrf3XMmVLCcvdtMYHNKqCmyPPtv319WCMvGH6bhX4sxz2GaUaQN2o8GwD1JGGmcoZKCxWgg3pLxWtQFf2L",
     "host": "mixin-node-07.b1.run:7239"
   },
   {
-    "signer": "XINREUBAUMqjbti5sNkCwGmjve8mLaM63xV3ZN4cWZ2ii4auuszhBv2B4MAnJuawguHcURGik4Fj5p1X9FTJbyDd4BhgDmFL",
     "host": "mixin-node.matpool.io:7239"
   },
   {
-    "signer": "XINq9ctH1qYjxE8AsxJoH53qgNpS6hpL5mv5sFGML4Bf7tdpBD5LorhGBGpSF4tEKh9LD81XrXcaLA3CmTnCZU2NoKExsDh",
     "host": "35.188.235.212:7239"
   },
   {
-    "signer": "XIN77L2uiTL9XpNF9f3wruMwZxfSeoa4ZZUK3oLUnrXy1kRdThgGr23CYNvEAmY7rJ4L5nN924Jk8VSfXkWTH85aqgR5k6aj",
     "host": "mixin-node0.exinpool.com:7239"
   },
   {
-    "signer": "XIN29AqXsjAjMVqrCar5ZSbn138VuhPzdQScTsK95f1tVVMZHwgG13De6tudHMBdsGpmACHvqFH5fn4ProqtvHxbWhB8Wa2f",
     "host": "mixin-node0.eoslaomao.com:443"
   },
   {
-    "signer": "XINZsTSPsDFsYTYJDHnLD63nhhzhtsyokv8jK6fUHQNurGyV4WsMQrVFymsVVaNYe7YcdCPbLjSMDk3GbH1NAindN7TyTbwF",
     "host": "mixin-node1.eoslaomao.com:443"
   },
   {
-    "signer": "XINFrsUD3rgvmaopY3GwMe4FVbcNcdGkAALXTT5FSF7Nrkx9NzqqmSmATiGFWpMysym6dPDhitvBofzCUha8yKcvtwq63eXP",
     "host": "node-box.f1ex.io:7239"
   },
   {
-    "signer": "XIN36djh1wWdNcGhkna2EYLQRVKoJJ25ZeGmDCntro1c7xqBR6xTd8fXPRUceeUDZ8N4m3VsoeQpKiKqpK1o3uqN7W2vyfby",
     "host": "node-candy.f1ex.io:7239"
   },
   {
-    "signer": "XINBk4Rt7dtEDoEBUJFk5AeDV94oP24jN1SpLJDTF4xebgUVt8TPjEJzMauNRqzjiQM7Fo4m7Ae7SbZBoDmMNc7MvZmV7gnV",
     "host": "node-42.f1ex.io:7239"
   },
   {
-    "signer": "XINU7ZYUHgei7nhgrWtmJozjkhEZ67WgXua12Xw5vy8mNkBPfTfsuRMMtPiSzodNhdcx4yb5GDzZoNqWDwf5zovs6pBKRkQR",
     "host": "node-fes.f1ex.io:7239"
   },
   {
-    "signer": "XINLqLa2rC91M7wjzr1YC8oDQTL3DSeY3SLZAVHek6es9G6fJckjwdinrLMENfhnAwZLuDxCELedMAyWDdnPTnCZBVRxwy2P",
     "host": "35.234.74.25:7239"
   },
   {
-    "signer": "XINZET776nc2ZbxWcGb3RLW1Z3uR7jt5Nk9jPEm5SWLcbkRGjtXYkrdufHbwtf5KUPDQLjGkFNr2wj5v3uW9NJSbQN9unaUj",
     "host": "35.234.96.182:7239"
   },
   {
-    "signer": "XINBqc5ianx7d41WQyy9WRt9hbqBapoBg7UF1XjfAg8au3oSBfKADd6b4U5rNpXsnDzK7wWSXuJEx3gsa4JV3zw17bDZep51",
     "host": "35.188.242.130:7239"
   },
   {
-    "signer": "XINTL5VNYxbx2nYNVCDkqT9EDDGDrXWCZjVyMSdda71JRE7vCMquB8hN96CZA445KnDFPGWVaCBPkdtyQHdH7sKnVDNhUV7F",
     "host": "35.245.207.174:7239"
   },
   {
-    "signer": "XIN8zEm9fT85ZjWFoQ1hvSqBUF11N3X3pkZ2hiX8SrTC1PRVSaanoYPR9uCSwg2auj73hL6c1q5Nwtb4B6zV5eiyFpYRDkyW",
     "host": "35.185.16.229:7239"
   },
   {
-    "signer": "XINDc93Cvfd5WaKhjNEykgFWDUU9kxDMuaSBZqZSkrLnWyMWocQbK46JxSoXkNEoZ9sHkcdGuurvQq5sWkHHc2B9rvfo2rLT",
     "host": "mixin-node-01.poolin.com:7239"
   },
   {
-    "signer": "XINNVmi4xZazh3akL9nSfoJvsqY2dfeRKYfKgbK7P6EE4GXSpNT3WsXK4PsJGuizgiDrcXRstmFUd7HVA5H2ZwydWbnkpsmy",
     "host": "35.227.72.6:7239"
   },
   {
-    "signer": "XINY16134uAm16ae2WWNGPbZoFP8LuZncyUuuaP8Mq1PFznshsqrRxznUcnvzP6TcxhHdodoqW58swjaC1AyeL54N9V2iwUb",
     "host": "35.237.226.29:7239"
   },
   {
-    "signer": "XINAXRLxyH3aw73NRp9W3CuoiQrK4mfhN2wVLY9ZJn7Zq9J46zGxYqnqzACdgJcvVirGVbn3ZDPC6DMafXbCMydN7PjMTMHg",
     "host": "34.83.129.200:7239"
   },
   {
-    "signer": "XINERSAxyqdUfe4kcUK6UqDi4mMqi6qQo1CovEaJ8G16qiJKvK3CfbC2UeNhjReDPBN4PXHBMb4ZvMDedrPXYDDPvs74UmZP",
     "host": "35.233.138.56:7239"
   },
   {
-    "signer": "XIN8ABRhW3uiGiDX6MDPNc3hy8Tm2rW8sGEeBoKcigMubbZznhGJLquuyRuAt8Kww3tu6mDn1h8131zghXbwqjvZTSmmh7Ma",
     "host": "34.66.213.188:7239"
   },
   {
-    "signer": "XIN3ntCzd1FqjSxrYM1f9abN3wY5DcydkDviEVgZL3paV7oYEeKnwzbMLwoRVANwyiu7w9mRrPf2eTpPaLRgQow9rSr3hzWH",
     "host": "mixin-node1.exinpool.com:7239"
   }
 ]
