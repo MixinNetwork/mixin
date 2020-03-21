@@ -137,7 +137,7 @@ func (me *Peer) syncHeadRoundToRemote(graph map[crypto.Hash]*SyncPoint, p *Peer,
 		remoteFinal = r.Number
 	}
 	logger.Verbosef("network.sync syncHeadRoundToRemote %s %s:%d\n", p.IdForNetwork, nodeId, remoteFinal)
-	for i := remoteFinal; i <= remoteFinal+2; i++ {
+	for i := remoteFinal; i <= remoteFinal+config.SnapshotReferenceThreshold+2; i++ {
 		ss, _ := me.cacheReadSnapshotsForNodeRound(nodeId, i)
 		for _, s := range ss {
 			me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot)
@@ -150,24 +150,19 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 		graph, offset := me.getSyncPointOffset(p)
 		logger.Verbosef("network.sync syncToNeighborLoop getSyncPointOffset %s %d\n", p.IdForNetwork, offset)
 
+		for offset > 0 {
+			off, err := me.syncToNeighborSince(graph, p, offset)
+			if err != nil {
+				logger.Verbosef("network.sync syncToNeighborLoop syncToNeighborSince %s %d DONE with %s", p.IdForNetwork, offset, err)
+				break
+			}
+			offset = off
+		}
+
 		if graph != nil {
 			nodes := me.handle.ReadAllNodes()
 			for _, n := range nodes {
 				me.syncHeadRoundToRemote(graph, p, n)
-			}
-		}
-		if offset == 0 {
-			continue
-		}
-
-		for {
-			off, err := me.syncToNeighborSince(graph, p, offset)
-			if off > 0 {
-				offset = off
-			}
-			if err != nil {
-				logger.Verbosef("network.sync syncToNeighborLoop syncToNeighborSince %s %d DONE with %s", p.IdForNetwork, offset, err)
-				break
 			}
 		}
 	}
