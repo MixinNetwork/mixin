@@ -46,27 +46,36 @@ func (me *Peer) PingNeighbor(addr string) error {
 		return fmt.Errorf("invalid address %s %d %s", addr, a.Port, a.IP)
 	}
 
-	go func() error {
-		logger.Verbosef("PING OPEN PEER STREAM %s\n", addr)
-		transport, err := NewQuicClient(addr)
-		if err != nil {
-			return err
+	go func() {
+		for {
+			err := me.pingPeerStream(addr)
+			if err != nil {
+				logger.Verbosef("PingNeighbor error %s\n", err.Error())
+			}
 		}
-		client, err := transport.Dial()
-		if err != nil {
-			return err
-		}
-		defer client.Close()
-		logger.Verbosef("PING DIAL PEER STREAM %s\n", addr)
-
-		err = client.Send(buildAuthenticationMessage(me.handle.BuildAuthenticationMessage()))
-		if err != nil {
-			return err
-		}
-		logger.Verbosef("PING AUTH PEER STREAM %s\n", addr)
-		time.Sleep(time.Duration(config.SnapshotRoundGap))
-		return nil
 	}()
+	return nil
+}
+
+func (me *Peer) pingPeerStream(addr string) error {
+	logger.Verbosef("PING OPEN PEER STREAM %s\n", addr)
+	transport, err := NewQuicClient(addr)
+	if err != nil {
+		return err
+	}
+	client, err := transport.Dial()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	logger.Verbosef("PING DIAL PEER STREAM %s\n", addr)
+
+	err = client.Send(buildAuthenticationMessage(me.handle.BuildAuthenticationMessage()))
+	if err != nil {
+		return err
+	}
+	logger.Verbosef("PING AUTH PEER STREAM %s\n", addr)
+	time.Sleep(time.Duration(config.SnapshotRoundGap))
 	return nil
 }
 
@@ -78,7 +87,7 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) (*Peer, error
 	}
 	old := me.neighbors.Get(idForNetwork)
 	if old != nil && old.Address == addr {
-		return old, nil
+		return nil, nil
 	} else if old != nil {
 		old.closing = true
 	}
@@ -238,6 +247,8 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 	if err != nil {
 		logger.Debugf("peer authentication error %s %s\n", client.RemoteAddr().String(), err.Error())
 		return err
+	} else if peer == nil {
+		return nil
 	}
 
 	go me.handlePeerMessage(peer, receive, done)
@@ -286,12 +297,8 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			return
 		}
 
-		peer = me.neighbors.Get(id) // FIXME deprecate this
-		add, err := me.AddNeighbor(id, addr)
-		if err == nil {
-			peer = add
-		}
-		if peer == nil {
+		peer, err = me.AddNeighbor(id, addr)
+		if err != nil {
 			auth <- fmt.Errorf("peer authentication add neighbor failed %s", err.Error())
 		} else {
 			auth <- nil
