@@ -87,7 +87,7 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) (*Peer, error
 	}
 	old := me.neighbors.Get(idForNetwork)
 	if old != nil && old.Address == addr {
-		return nil, nil
+		return old, nil
 	} else if old != nil {
 		old.closing = true
 	}
@@ -247,8 +247,6 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 	if err != nil {
 		logger.Debugf("peer authentication error %s %s\n", client.RemoteAddr().String(), err.Error())
 		return err
-	} else if peer == nil {
-		return nil
 	}
 
 	go me.handlePeerMessage(peer, receive, done)
@@ -297,8 +295,12 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			return
 		}
 
-		peer, err = me.AddNeighbor(id, addr)
-		if err != nil {
+		peer = me.neighbors.Get(id) // FIXME deprecate this
+		add, err := me.AddNeighbor(id, addr)
+		if err == nil {
+			peer = add
+		}
+		if peer == nil {
 			auth <- fmt.Errorf("peer authentication add neighbor failed %s", err.Error())
 		} else {
 			auth <- nil
