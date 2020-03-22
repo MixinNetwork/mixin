@@ -11,7 +11,7 @@ import (
 )
 
 func (me *Peer) cacheReadSnapshotsForNodeRound(nodeId crypto.Hash, number uint64, final bool) ([]*common.SnapshotWithTopologicalOrder, error) {
-	key := []byte(fmt.Sprintf("SFNR%s:%d", nodeId.String(), final))
+	key := []byte(fmt.Sprintf("SFNR%s:%d", nodeId.String(), number))
 	data := me.storeCache.GetBig(nil, key)
 	if len(data) == 0 {
 		ss, err := me.handle.ReadSnapshotsForNodeRound(nodeId, number)
