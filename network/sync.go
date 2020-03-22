@@ -10,15 +10,17 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
-func (me *Peer) cacheReadSnapshotsForNodeRound(nodeId crypto.Hash, final uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
+func (me *Peer) cacheReadSnapshotsForNodeRound(nodeId crypto.Hash, number uint64, final bool) ([]*common.SnapshotWithTopologicalOrder, error) {
 	key := []byte(fmt.Sprintf("SFNR%s:%d", nodeId.String(), final))
 	data := me.storeCache.GetBig(nil, key)
 	if len(data) == 0 {
-		ss, err := me.handle.ReadSnapshotsForNodeRound(nodeId, final)
+		ss, err := me.handle.ReadSnapshotsForNodeRound(nodeId, number)
 		if err != nil || len(ss) == 0 {
 			return nil, err
 		}
-		me.storeCache.SetBig(key, common.MsgpackMarshalPanic(ss))
+		if final {
+			me.storeCache.SetBig(key, common.MsgpackMarshalPanic(ss))
+		}
 		return ss, nil
 	}
 	var ss []*common.SnapshotWithTopologicalOrder
@@ -83,7 +85,7 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(p *Peer, local, remote 
 		}
 		logger.Verbosef("network.sync compareRoundGraphAndGetTopologicalOffset %s try %s:%d\n", p.IdForNetwork, l.NodeId, number)
 
-		ss, err := me.cacheReadSnapshotsForNodeRound(l.NodeId, number)
+		ss, err := me.cacheReadSnapshotsForNodeRound(l.NodeId, number, number < l.Number)
 		if err != nil {
 			return offset, err
 		}
@@ -131,14 +133,17 @@ func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, o
 	return offset, nil
 }
 
-func (me *Peer) syncHeadRoundToRemote(graph map[crypto.Hash]*SyncPoint, p *Peer, nodeId crypto.Hash) {
-	var remoteFinal uint64
-	if r := graph[nodeId]; r != nil {
+func (me *Peer) syncHeadRoundToRemote(local, remote map[crypto.Hash]*SyncPoint, p *Peer, nodeId crypto.Hash) {
+	var localFinal, remoteFinal uint64
+	if r := remote[nodeId]; r != nil {
 		remoteFinal = r.Number
+	}
+	if l := local[nodeId]; l != nil {
+		localFinal = l.Number
 	}
 	logger.Verbosef("network.sync syncHeadRoundToRemote %s %s:%d\n", p.IdForNetwork, nodeId, remoteFinal)
 	for i := remoteFinal; i <= remoteFinal+config.SnapshotReferenceThreshold+2; i++ {
-		ss, _ := me.cacheReadSnapshotsForNodeRound(nodeId, i)
+		ss, _ := me.cacheReadSnapshotsForNodeRound(nodeId, i, i < localFinal)
 		for _, s := range ss {
 			me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot)
 		}
@@ -160,9 +165,14 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 		}
 
 		if graph != nil {
+			points := me.handle.BuildGraph()
 			nodes := me.handle.ReadAllNodes()
+			local := make(map[crypto.Hash]*SyncPoint)
+			for _, n := range points {
+				local[n.NodeId] = n
+			}
 			for _, n := range nodes {
-				me.syncHeadRoundToRemote(graph, p, n)
+				me.syncHeadRoundToRemote(local, graph, p, n)
 			}
 		}
 	}
