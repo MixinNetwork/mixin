@@ -131,7 +131,8 @@ func (me *Peer) ListenNeighbors() error {
 	for {
 		c, err := me.transport.Accept()
 		if err != nil {
-			return err
+			logger.Verbosef("accept error %s\n", err.Error())
+			continue
 		}
 		go func(c Client) {
 			err := me.acceptNeighborConnection(c)
