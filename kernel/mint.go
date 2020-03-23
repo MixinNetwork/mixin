@@ -28,7 +28,7 @@ func init() {
 	MintNodeMaximum = 50
 }
 
-func (node *Node) MintLoop() error {
+func (node *Node) MintLoop() {
 	for {
 		time.Sleep(time.Duration(config.Custom.ElectionTicker) * time.Second)
 
@@ -42,7 +42,6 @@ func (node *Node) MintLoop() error {
 			logger.Println(node.IdForNetwork, "tryToMintKernelNode", err)
 		}
 	}
-	return nil
 }
 
 func (node *Node) PoolSize() (common.Integer, error) {

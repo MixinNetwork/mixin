@@ -14,7 +14,7 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
-func (node *Node) ElectionLoop() error {
+func (node *Node) ElectionLoop() {
 	for node.Graph.MyCacheRound == nil {
 		time.Sleep(time.Duration(config.Custom.ElectionTicker) * time.Second)
 		now := uint64(clock.Now().UnixNano())
@@ -46,8 +46,6 @@ func (node *Node) ElectionLoop() error {
 			logger.Println("tryToSendRemoveTransaction", err)
 		}
 	}
-
-	return nil
 }
 
 func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*common.Node, error) {
