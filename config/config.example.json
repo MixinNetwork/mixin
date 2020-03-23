@@ -7,5 +7,6 @@
   "ring-final-size": 16384,
   "election-ticker": 700,
   "consensus-only": true,
+  "rpc-runtime": false,
   "cache-ttl": 7200
 }

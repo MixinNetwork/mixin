@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/dimfeld/httptreemux"
@@ -52,19 +53,25 @@ type Render struct {
 }
 
 func (r *Render) RenderData(data interface{}) {
-	r.impl.JSON(r.w, http.StatusOK, map[string]interface{}{
-		"id":      r.id,
-		"runtime": fmt.Sprint(time.Now().Sub(r.start).Seconds()),
-		"data":    data,
-	})
+	body := map[string]interface{}{"data": data}
+	if r.id != "" {
+		body["id"] = r.id
+	}
+	if !r.start.IsZero() {
+		body["runtime"] = fmt.Sprint(time.Now().Sub(r.start).Seconds())
+	}
+	r.impl.JSON(r.w, http.StatusOK, body)
 }
 
 func (r *Render) RenderError(err error) {
-	r.impl.JSON(r.w, http.StatusOK, map[string]interface{}{
-		"id":      r.id,
-		"runtime": fmt.Sprint(time.Now().Sub(r.start).Seconds()),
-		"error":   err.Error(),
-	})
+	body := map[string]interface{}{"error": err}
+	if r.id != "" {
+		body["id"] = r.id
+	}
+	if !r.start.IsZero() {
+		body["runtime"] = fmt.Sprint(time.Now().Sub(r.start).Seconds())
+	}
+	r.impl.JSON(r.w, http.StatusOK, body)
 }
 
 func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]string) {
@@ -75,7 +82,10 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		render.New().JSON(w, http.StatusBadRequest, map[string]interface{}{"error": err.Error()})
 		return
 	}
-	renderer := &Render{w: w, impl: render.New(), start: time.Now(), id: call.Id}
+	renderer := &Render{w: w, impl: render.New(), id: call.Id}
+	if config.Custom.RPCRuntime {
+		renderer.start = time.Now()
+	}
 	switch call.Method {
 	case "getinfo":
 		info, err := getInfo(impl.Store, impl.Node)

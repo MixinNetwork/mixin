@@ -40,6 +40,7 @@ type custom struct {
 	ElectionTicker int           `json:"election-ticker"`
 	ConsensusOnly  bool          `json:"consensus-only"`
 	CacheTTL       time.Duration `json:"cache-ttl"`
+	RPCRuntime     bool          `json:"rpc-runtime"`
 }
 
 var Custom *custom
