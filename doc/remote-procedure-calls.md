@@ -6,14 +6,6 @@ Mixin Kernel RPCs accept multiple subcommand and interactive with the network.
 
 ### Quick Reference
 
-* [kernel, k](#kernel): Start the Mixin Kernel daemon.
-* [setuptestnet](#setuptestnet): Setup the test nodes and genesis.
-* [createaddress](#createaddress): Create a new Mixin address
-* [decodeaddress](#decodeaddress): Decode an address as public view key and public spend key.
-* [decryptghostkey](#decryptghostkey):  Decrypt a ghost key with the private view key.
-* [updateheadreference](#updateheadreference): Update the cache round external reference, never use it unless agree by other nodes.
-* [removegraphentries](#removegraphentries): Remove data entries by prefix from the graph data storage.
-* [validategraphentries](#validategraphentries): Validate transaction hash integration.
 * [signrawtransaction](#signrawtransaction): Sign a JSON encoded transaction.
 * [sendrawtransaction](#sendrawtransaction): Broadcast a hex encoded signed raw transaction.
 * [decoderawtransaction](#decoderawtransaction): Decode a raw transaction as JSON.
@@ -31,13 +23,12 @@ Mixin Kernel RPCs accept multiple subcommand and interactive with the network.
 * [listallnodes](#listallnodes): List all nodes ever existed.
 * [getinfo](#getinfo): Get info from the node.
 * [dumpgraphhead](#dumpgraphhead): Dump the graph head.
-* [help, h](#help): Shows a list of commands or help for one command.
 
 ### Command
 
 #### Global Options
 
-> mixin kernel glbal options.
+mixin kernel glbal options.
 
 *Parameter*
 
@@ -49,221 +40,9 @@ Mixin Kernel RPCs accept multiple subcommand and interactive with the network.
 | help    | boolean | Optional, Default=false |  show help                |
 | version | boolean | Optional, Default=false |  print the version        |
 
-#### kernel
-
-> Start the Mixin Kernel daemon.
-
-*Parameter*
-
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| dir     | string  | Required  | the data directory                      |
-| port    | integer | Required, Default=7239  | the peer port to listen   |
-| log     | integer | Required, Default=2  | the log level                |
-| limiter | integer | Required, Default=0  | limit the log count for the same content, 0 means no limit |
-| filter  | string  | Optional  | the RE2 regex pattern to filter log     |
-| help    | boolean | Optional, Default=false  | show help                |
-
-*Result---`null` on success*
-
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | null    | Required  | mixin kernel running log |
-
-*Example*
-
-``` bash
-mixin kernel -dir /data/mixin -port 7239
-```
-
-*See also*
-
-* [Mixin Kernel Node Operations](https://github.com/MixinNetwork/mixin/blob/master/doc/mixin-kernel-node-operations.md)
-
-#### setuptestnet
-
-> Setup the test nodes and genesis.
-
-*Parameter*
-
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| help    | boolean    | Optional, Default=false  | show help             |
-
-*Result---`null` on success*
-
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | null    | Required  | testnet details                         |
-
-*Example*
-
-``` bash
-mixin setuptestnet
-```
-
-*See also*
-
-* [Mixin Kernel Node Operations](https://github.com/MixinNetwork/mixin/blob/master/doc/mixin-kernel-node-operations.md)
-
-#### createaddress
-
-> Create a new Mixin address.
-
-*Parameter*
-
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| public  | boolean | Optional, Default=false | whether mark all my transactions public |
-| view    | string  | Optional  | the private view key HEX instead of a random one |
-| spend   | string  | Optional  | the private spend key HEX instead of a random one |
-| help    | boolean    | Optional, Default=false  | show help              |
-
-*Result---`string` on success*
-
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | string    | Required  | mixin address with private view key and private spend key |
-
-*Example*
-
-``` bash
-mixin createaddress
-address:        XINAjW8w3f3FPz2BKFcJgRGG5Ut4A8njaMRxmGVroWojSYwHsAf5gYFzTB92FarMUz7TN6XjyHnJuGDYf6JttsVR9V9uHBNZ
-view key:       8b61a5d273132292e56c9b58f98f6d7516e8bdc436ec40ca1699e2f76b2dd200
-spend key:      c8c256b6e5722dca41839cf6714dd1ea724b31b390ac54ab5ff790e70401000c
-```
-
-#### decodeaddress
-
-> Decode an address as public view key and public spend key.
-
-*Parameter*
-
-| Name    | Type    | Presence  | Description                            |
-| :-----: |:-------:| :-----    | :------------------------------------  |
-| address | string  | Required  | the Mixin Kernel address               |
-| help    | boolean | Optional, Default=false  | show help               |
-
-*Result---`string` on success*
-
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | string    | Required  | mixin address with public view key, public spend key, spend derive private and spend derive public |
-
-*Example*
-
-``` bash
-mixin decodeaddress \
---address XINAjW8w3f3FPz2BKFcJgRGG5Ut4A8njaMRxmGVroWojSYwHsAf5gYFzTB92FarMUz7TN6XjyHnJuGDYf6JttsVR9V9uHBNZ
-public view key:        83823fc961dff3fa66db1468ded2d0d8724aef8533df188439e55cc9500360c3
-public spend key:       4a64c21bd6f912ea87949dfee65d4a075d5875eb0e83f82edd7d1fb517f88625
-spend derive private:   73b14767b05931a683d3a69624670558629d358bd6958a3f6f643ced95e35a00
-spend derive public:    462d454a3601655c249c0cbfeb32fa2e899455d9805a1873c84bb532650a872d
-```
-
-#### decryptghostkey
-
-> Decrypt a ghost key with the private view key.
-
-*Parameter*
-
-| Name    | Type    | Presence  | Description                            |
-| :-----: |:-------:| :-----    | :------------------------------------  |
-| view    | string  | Required  | the private view key                   |
-| key     | string  | Required  | the ghost key                          |
-| mask    | string  | Required  | the ghost mask                         |
-| index   | integer | Required, Default=0 | the output index             |
-| help    | boolean | Optional, Default=false  | show help               |
-
-*Result---`string` on success*
-
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | string    | Required  | decrypted ghost key |
-
-*Example*
-
-``` bash
-mixin decryptghostkey --view VIEW --key KEY --mask MASK
-```
-
-#### updateheadreference
-
-> Update the cache round external reference, never use it unless agree by other nodes.
-
-*Parameter*
-
-| Name     | Type    | Presence  | Description                          |
-| :------: |:-------:| :-----    | :---------------------------------   |
-| id       | string  | Required  | self node ID                         |
-| round    | integer | Required, Default=0 | self cache round NUMBER    |
-| external | string  | Required  | the external reference HEX           |
-| help     | boolean | Optional, Default=false  | show help             |
-
-*Result---`null` on success*
-
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | null    | Required  | `null` when the command was successfull or with an error |
-
-*Example*
-
-``` bash
-mixin --dir /data/mixin updateheadreference \
---id cbba7a5e7bae3b0cef3d6dcba7948fa03facda3be401d67aa1a38aecb1f443a0 \
---round 21163 \
---external 65d45bf2cbf005977dfd7c666a6bbc35b56e28f473560a0d6ee83578142e25cb
-```
-
-#### removegraphentries
-
-> Remove data entries by prefix from the graph data storage.
-
-*Parameter*
-
-| Name    | Type    | Presence  | Description                            |
-| :-----: |:-------:| :-----    | :------------------------------------  |
-| prefix  | string  | Required  | the entry prefix                       |
-| help    | boolean | Optional, Default=false  | show help               |
-
-*Result---`null` on success*
-
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | null    | Required  | `null` when the command was successfull or with an error |
-
-*Example*
-
-``` bash
-mixin --dir /data/mixin removegraphentries --prefix PREFIX
-```
-
-#### validategraphentries
-
-> Validate transaction hash integration.
-
-*Parameter*
-
-| Name    | Type    | Presence  | Description                           |
-| :-----: |:-------:| :-----    | :------------------------------------ |
-| help    | boolean | Optional, Default=false  | show help              |
-
-*Result---`null` on success*
-
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | null    | Required  | `null` when the command was successfull or with an error |
-
-*Example*
-
-``` bash
-mixin --dir /data/mixin validategraphentries
-```
-
 #### signrawtransaction
 
-> Sign a JSON encoded transaction.
+Sign a JSON encoded transaction.
 
 *Parameter*
 
@@ -274,11 +53,13 @@ mixin --dir /data/mixin validategraphentries
 | seed    | string  | Required  | the mask seed to hide the recipient public key |
 | help    | boolean | Optional, Default=false  | show help                    |
 
-*Result---`string` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | string  | Required  | signed transaction |
+``` bash
+{
+    "result": "signed transaction",
+}
+```
 
 *Example*
 
@@ -315,7 +96,7 @@ mixin -n 127.0.0.1:8239 signrawtransaction \
 
 #### sendrawtransaction
 
-> Broadcast a hex encoded signed raw transaction.
+Broadcast a hex encoded signed raw transaction.
 
 *Parameter*
 
@@ -324,11 +105,13 @@ mixin -n 127.0.0.1:8239 signrawtransaction \
 | raw     | string  | Required  | the hex encoded signed raw transaction  |
 | help    | boolean | Optional, Default=false  | show help                |
 
-*Result---`json` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | json    | Required  | transaction hash |
+``` bash
+{
+    "hash": "broadcasted transaction",
+}
+```
 
 *Example*
 
@@ -346,7 +129,7 @@ mixin -n 127.0.0.1:8239 sendrawtransaction \
 
 #### decoderawtransaction
 
-> Decode a raw transaction as JSON.
+Decode a raw transaction as JSON.
 
 *Parameter*
 
@@ -355,11 +138,36 @@ mixin -n 127.0.0.1:8239 sendrawtransaction \
 | raw     | string  | Required  | the JSON encoded raw transaction        |
 | help    | boolean | Optional, Default=false  | show help                |
 
-*Result---`json` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | json    | Required  | transaction details with json           |
+``` bash
+{
+  "asset": "assets", (string) HEX representation of a 32 bytes hash, which is a unique asset identifier, e.g. BTC or XIN.
+  "extra": "extra", (string) HEX representation of at most 256 bytes data.
+  "hash": "hash", (string) HEX representation of a 32 bytes hash, which is the unique transaction identifier.
+  "inputs": [
+    {
+      "hash": "input hash", (string) input transction hash
+      "index": index (integer) input transaction index
+    }
+  ], (array) an array of input objects, which may be the outputs of previous transactions, Kernel mint reward, Domain deposit or Genesis.
+  "outputs": [
+    {
+      "amount": "amount", (string) a string decimal, always rounded to 8 decimal places.
+      "keys": ["keys"], (array) array of HEX representation of 32 bytes key, which are the owner of this output and called ghost keys.
+      "mask": "mask", (string) HEX representation of 32 bytes key, which is used to parse the ghost keys.
+      "script": "script", (string) HEX representation of {0xff, 0xfe, T}, while 0 <= T <= 0x40, where T is the required number of signatures from keys to spend this output.
+      "type": type (integer) a uint8 number to constraint when and how this output can be spent as an input, usually 0 which means it can be spent once the script fulfilled.
+    }
+  ], (array) an array of output objects, which can be used as the inputs of future transactions.
+  "signatures": [
+    [
+      "signatures" (string) hash signatures
+    ]
+  ],
+  "version": version [integer] a uint8 number to hint the current transaction format.
+}
+```
 
 *Example*
 
@@ -402,7 +210,7 @@ mixin -n 127.0.0.1:8239 decoderawtransaction \
 
 #### buildnodecanceltransaction
 
-> Build the transaction to cancel a pledging node.
+Build the transaction to cancel a pledging node.
 
 *Parameter*
 
@@ -415,11 +223,9 @@ mixin -n 127.0.0.1:8239 decoderawtransaction \
 | source   | string  | Required  | the hex of raw pledging input transaction |
 | help     | boolean | Optional, Default=false  | show help                  |
 
-*Result---`null` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | null    | Required  | `null` when the command was successfull or with an error |
+See also [signrawtransaction](#signrawtransaction).
 
 *Example*
 
@@ -432,9 +238,13 @@ mixin -n 127.0.0.1:8239 \
 --source SOURCEHASH
 ```
 
+*See also*
+
+* [Mixin Kernel Transactions](https://github.com/MixinNetwork/mixin/blob/master/doc/mixin-kernel-transactions.md)
+
 #### decodenodepledgetransaction
 
-> Decode the extra info of a pledge transaction.
+Decode the extra info of a pledge transaction.
 
 *Parameter*
 
@@ -443,11 +253,9 @@ mixin -n 127.0.0.1:8239 \
 | raw     | string  | Required  | the raw pledge transaction              |
 | help    | boolean | Optional, Default=false  | show help                |
 
-*Result---`null` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | null    | Required  | `null` when the command was successfull or with an error |
+See also [signrawtransaction](#signrawtransaction).
 
 *Example*
 
@@ -455,9 +263,13 @@ mixin -n 127.0.0.1:8239 \
 mixin -n 127.0.0.1:8239 --raw RAW
 ```
 
+*See also*
+
+* [Mixin Kernel Transactions](https://github.com/MixinNetwork/mixin/blob/master/doc/mixin-kernel-transactions.md)
+
 #### getroundlink
 
-> Get the latest link between two nodes.
+Get the latest link between two nodes.
 
 *Parameter*
 
@@ -467,11 +279,9 @@ mixin -n 127.0.0.1:8239 --raw RAW
 | to      | string  | Required  | the reference tail                      |
 | help    | boolean | Optional, Default=false  | show help                |
 
-*Result---`json` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | json    | Required  | Latest link details between two nodes   |
+See also [getroundbynumber](#getroundbynumber).
 
 *Example*
 
@@ -481,7 +291,7 @@ mixin -n 127.0.0.1:8239 --from HEAD --to TAIL
 
 #### getroundbynumber
 
-> Get a specific round.
+Get a specific round.
 
 *Parameter*
 
@@ -491,11 +301,36 @@ mixin -n 127.0.0.1:8239 --from HEAD --to TAIL
 | number  | integer | Required, Default=0 | the round number              |
 | help    | boolean | Optional, Default=false  | show help                |
 
-*Result---`json` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | json    | Required  | round details with json                 |
+``` bash
+{
+  "end": end,
+  "hash": "hash", (string) HEX representation of a 32 bytes hash, which is the unique snapshot identifier.
+  "node": "node", (string) HEX representation of a 32 bytes hash, which is the node id which leads this snapshot.
+  "number": number,
+  "references": {
+    "external": "external",
+    "self": "self"
+  }, (array) the previous round hashes of the leading node and another node conforms to the consensus.
+  "snapshots": [
+    {
+      "hash": "hash",
+      "node": "node",
+      "references": {
+        "external": "external",
+        "self": "self"
+      },
+      "round": round, (integer) a uint64 round number of this snapshot, round is similar to the block of Bitcoin.
+      "timestamp": timestamp, (timestamp) a uint64 nanosecond since Unix epoch, which is provided by the leading node and agreed upon consensus.
+      "topology": topology, (integer) a uint64 number as the snapshot order in all snapshots, this value is the only node provided value, NOT included in the hash and not agreed by consensus.
+      "transaction": "transaction", (string) HEX representation of a 32 bytes hash, which is the transaction hash included by this snapshot.
+      "version": version (integer) HEX representation of a 32 bytes hash, which is the transaction hash included by this snapshot.
+    }
+  ],
+  "start": start
+}
+```
 
 *Example*
 
@@ -533,7 +368,7 @@ mixin -n 127.0.0.1:8239 getroundbynumber \
 
 #### getroundbyhash
 
-> Get a specific round.
+Get a specific round.
 
 *Parameter*
 
@@ -542,11 +377,9 @@ mixin -n 127.0.0.1:8239 getroundbynumber \
 | hash    | string  | Required  | the round hash                          |
 | help    | boolean | Optional, Default=false  | show help                |
 
-*Result---`json` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | json    | Required  | round details with json                 |
+See also [getroundbynumber](#getroundbynumber).
 
 *Example*
 
@@ -556,7 +389,7 @@ mixin -n 127.0.0.1:8239 --hash HASH
 
 #### listsnapshots
 
-> List finalized snapshots.
+List finalized snapshots.
 
 *Parameter*
 
@@ -568,11 +401,44 @@ mixin -n 127.0.0.1:8239 --hash HASH
 | tx      | boolean | Optional, Default=false | whether including the transactions |
 | help    | boolean | Optional, Default=false | show help                |
 
-*Result---`json` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | json    | Required  | finalized snapshots details with json   |
+``` bash
+[
+  {
+    "hash": "hash",
+    "node": "node",
+    "references": references,
+    "round": round,
+    "signatures": signatures,
+    "timestamp": timestamp,
+    "topology": topology,
+    "transaction": {
+      "asset": "asset",
+      "extra": "extra",
+      "hash": "hash",
+      "inputs": [
+        {
+          "genesis": "genesis"
+        }
+      ],
+      "outputs": [
+        {
+          "amount": "amount",
+          "keys": [
+            "keys"
+          ],
+          "mask": "mask",
+          "script": "script",
+          "type": type
+        }
+      ],
+      "version": version
+    },
+    "version": version
+  }
+]
+```
 
 *Example*
 
@@ -643,11 +509,9 @@ mixin -n 127.0.0.1:8239 listsnapshots --since 0 --count 1 --sig --tx
 | hash    | string  | Required  | the snapshot hash                      |
 | help    | boolean | Optional, Default=false  | show help               |
 
-*Result---`json` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | json    | Required  | finalized snapshots details with json   |
+See also [getroundbynumber](#getroundbynumber).
 
 *Example*
 
@@ -708,7 +572,7 @@ mixin -n 127.0.0.1:8239 getsnapshot \
 
 #### gettransaction
 
-> Get the finalized transaction by hash.
+Get the finalized transaction by hash.
 
 *Parameter*
 
@@ -717,11 +581,35 @@ mixin -n 127.0.0.1:8239 getsnapshot \
 | hash    | string  | Required  | the transaction hash                    |
 | help    | boolean | Optional, Default=false  | show help                |
 
-*Result---`json` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | json    | Required  | finalized transaction hash details with json |
+``` bash
+{
+  "asset": "asset",
+  "extra": "extra",
+  "hash": "hash",
+  "hex": "hex",
+  "inputs": [
+    {
+      "hash": "hash",
+      "index": index
+    }
+  ],
+  "outputs": [
+    {
+      "amount": "amount",
+      "keys": [
+        "keys"
+      ],
+      "mask": "mask",
+      "script": "script",
+      "type": type
+    }
+  ],
+  "snapshot": "snapshot",
+  "version": version
+}
+```
 
 *Example*
 
@@ -761,7 +649,7 @@ mixin -n 127.0.0.1:8239 gettransaction \
 
 #### getcachetransaction
 
-> Get the transaction in cache by hash.
+Get the transaction in cache by hash.
 
 *Parameter*
 
@@ -770,11 +658,9 @@ mixin -n 127.0.0.1:8239 gettransaction \
 | hash    | string  | Required  | the transaction hash                    |
 | help    | boolean | Optional, Default=false  | show help                |
 
-*Result---`json` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | json    | Required  | transaction in cache hash details with json |
+See also [signrawtransaction](#signrawtransaction).
 
 *Example*
 
@@ -788,7 +674,7 @@ mixin -n 127.0.0.1:8239 getcachetransaction --hash HASH
 
 #### getutxo
 
-> Get the UTXO by hash and index.
+Get the UTXO by hash and index.
 
 *Parameter*
 
@@ -798,11 +684,21 @@ mixin -n 127.0.0.1:8239 getcachetransaction --hash HASH
 | index   | integer | Required, Default=0 | the output index              |
 | help    | boolean | Optional, Default=false  | show help                |
 
-*Result---`json` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | json    | Required  | UTXO hash details with json             |
+``` bash
+{
+  "amount": "amount",
+  "hash": "hash",
+  "index": index,
+  "keys": [
+    "keys"
+  ],
+  "mask": "mask",
+  "script": "script",
+  "type": type
+}
+```
 
 *Example*
 
@@ -825,7 +721,7 @@ mixin -n 127.0.0.1:8239 getutxo \
 
 #### listmintdistributions
 
-> List mint distributions.
+List mint distributions.
 
 *Parameter*
 
@@ -836,11 +732,43 @@ mixin -n 127.0.0.1:8239 getutxo \
 | tx      | boolean | Optional, Default=false | whether including the transactions |
 | help    | boolean | Optional, Default=false  | show help                |
 
-*Result---`json` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | json    | Required  | mint distributions details with json    |
+``` bash
+[
+  {
+    "amount": "amount",
+    "batch": batch,
+    "group": "group",
+    "transaction": {
+      "asset": "asset",
+      "extra": "extra",
+      "hash": "hash",
+      "inputs": [
+        {
+          "mint": {
+            "amount": "amount",
+            "batch": batch,
+            "group": "group"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "amount": "amount",
+          "keys": [
+            "keys"
+          ],
+          "mask": "mask",
+          "script": "script",
+          "type": type
+        }
+      ],
+      "version": version
+    }
+  }
+]
+```
 
 *Example*
 
@@ -1021,7 +949,7 @@ mixin -n 127.0.0.1:8239 listmintdistributions \
 
 #### listallnodes
 
-> List all nodes ever existed.
+List all nodes ever existed.
 
 *Parameter*
 
@@ -1029,21 +957,40 @@ mixin -n 127.0.0.1:8239 listmintdistributions \
 | :-----: |:-------:| :-----    | :------------------------------------   |
 | help    | boolean | Optional, Default=false  | show help                |
 
-*Result---`json` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | json    | Required  | all existed nodes with json             |
+``` bash
+[
+  {
+    "id": "id", (string) node id
+    "payee": "payee", (string) payee address of node
+    "signer": "signer", (string) signer address of node
+    "state": "state", (string) node state
+    "timestamp": timestamp, (timestamp) node timestamp
+    "transaction": "transaction" (string) transaction hash
+  }
+]
+```
 
 *Example*
 
 ``` bash
 mixin -n 127.0.0.1:8239 listallnodes
+[
+  {
+    "id": "f3fcf842446bcf00f3787fd809a02fb4528c57121481904c41d8c025c861a477",
+    "payee": "XINYDpVHXHxkFRPbP9LZak5p7FZs3mWTeKvrAzo4g9uziTW99t7LrU7me66Xhm6oXGTbYczQLvznk3hxgNSfNBaZveAmEeRM",
+    "signer": "XINJ7LcWaCqPt9zrQFjPz2kQEy4BywpUBrBFQvTLD22siC6VH1MWEk72ftR1HbeSYrTn1VvX1HkR4EyG262JewpHbyDj83kS",
+    "state": "ACCEPTED",
+    "timestamp": 1558283107344677000,
+    "transaction": "2e1f3558ebf4f5d4de110edeae316bcff40f7cf487a3deaefa35c125109b182e"
+  }
+]
 ```
 
 #### getinfo
 
-> Get info from the node.
+Get info from the node.
 
 *Parameter*
 
@@ -1051,21 +998,148 @@ mixin -n 127.0.0.1:8239 listallnodes
 | :-----: |:-------:| :-----    | :------------------------------------   |
 | help    | boolean | Optional, Default=false  | show help                |
 
-*Result---`json` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | json    | Required  | node information with json              |
+``` bash
+{
+  "epoch": "epoch",
+  "graph": {
+    "cache": {
+      "id": {
+        "node": "node",
+        "references": {
+          "external": "external",
+          "self": "self"
+        },
+        "round": round,
+        "snapshots": [
+          {
+            "hash": "hash",
+            "node": "node",
+            "references": {
+              "external": "external",
+              "self": "self"
+            },
+            "round": round,
+            "signature": "signature",
+            "timestamp": timestamp,
+            "transaction": "transaction",
+            "version": version
+          }
+        ],
+        "timestamp": timestamp
+      }
+    },
+    "consensus": [
+      {
+        "node": "node",
+        "payee": "payee",
+        "signer": "signer",
+        "state": "state",
+        "timestamp": timestamp,
+        "transaction": "transaction"
+      }
+    ],
+    "final": {
+      "id": {
+        "end": end,
+        "hash": "hash",
+        "node": "node",
+        "round": round,
+        "start": start
+      }
+    },
+    "topology": topology
+  },
+  "mint": {
+    "batch": batch,
+    "pool": "pool"
+  },
+  "network": "network",
+  "node": "node",
+  "queue": {
+    "caches": cache,
+    "finals": finals
+  },
+  "timestamp": "timestamp",
+  "uptime": "uptime",
+  "version": "version"
+}
+```
 
 *Example*
 
 ``` bash
 mixin -n 127.0.0.1:8239 getinfo
+{
+  "epoch": "2019-02-28T00:00:00Z",
+  "graph": {
+    "cache": {
+      "017ebfb57ed9aace3d2ed9d559b7a6bf16a8745113872f80cf74ed618a40d3d3": {
+        "node": "017ebfb57ed9aace3d2ed9d559b7a6bf16a8745113872f80cf74ed618a40d3d3",
+        "references": {
+          "external": "9a2692555cfb310c589c8c92a99caddad3e14bc19736cf1d08ee12c960b9ecc4",
+          "self": "0ffe0a13d8297176af2aef7e8f227d0583162e1e4b92680cfdcd012e9358169e"
+        },
+        "round": 13472,
+        "snapshots": [
+          {
+            "hash": "a9c757b6b7125e8ae5280d9e26be6a3908e8fcd51f4b7ec3c1f36f717a0d514a",
+            "node": "017ebfb57ed9aace3d2ed9d559b7a6bf16a8745113872f80cf74ed618a40d3d3",
+            "references": {
+              "external": "9a2692555cfb310c589c8c92a99caddad3e14bc19736cf1d08ee12c960b9ecc4",
+              "self": "0ffe0a13d8297176af2aef7e8f227d0583162e1e4b92680cfdcd012e9358169e"
+            },
+            "round": 13472,
+            "signature": "f1168ee14873710e6f57b6eb7b3d7f415816f2d9c2bab135c201c51b132708372138204ec97c3a42fab5568015c56ca8345f3d7b7cdf12d526457e55b049ca000000000001b977c7",
+            "timestamp": 1585062893115572000,
+            "transaction": "4471d5c14d0d2a354f0fdce45114f5b2401aea428a7ad6da3c4fdf8bfbf7c6e7",
+            "version": 1
+          }
+        ],
+        "timestamp": 1585062886145882000
+      }
+    },
+    "consensus": [
+      {
+        "node": "cbba7a5e7bae3b0cef3d6dcba7948fa03facda3be401d67aa1a38aecb1f443a0",
+        "payee": "XINCcpcWJbJRiqEoUV7pWrmAdN1AZq3wyYTxa62JojvM4UqpuQnoVX7DZ6BgJEb61pSUS4ZyZNuEbAGL5azNyZNCbwdgqcVY",
+        "signer": "XIN3ntCzd1FqjSxrYM1f9abN3wY5DcydkDviEVgZL3paV7oYEeKnwzbMLwoRVANwyiu7w9mRrPf2eTpPaLRgQow9rSr3hzWH",
+        "state": "ACCEPTED",
+        "timestamp": 1579450099118731000,
+        "transaction": "ebbbf69e9e74e4070ef0685f8d9b4d7bc443922ac93445bc9bda1567984bdda8"
+      }
+    ],
+    "final": {
+      "017ebfb57ed9aace3d2ed9d559b7a6bf16a8745113872f80cf74ed618a40d3d3": {
+        "end": 1585062883145882000,
+        "hash": "0ffe0a13d8297176af2aef7e8f227d0583162e1e4b92680cfdcd012e9358169e",
+        "node": "017ebfb57ed9aace3d2ed9d559b7a6bf16a8745113872f80cf74ed618a40d3d3",
+        "round": 13471,
+        "start": 1585062883145882000
+      }
+    },
+    "topology": 15395311
+  },
+  "mint": {
+    "batch": 390,
+    "pool": "452226.02739800"
+  },
+  "network": "6430225c42bb015b4da03102fa962e4f4ef3969e03e04345db229f8377ef7997",
+  "node": "9986a9bc3f44d45647d5db245eb562793c83930866b0757bdbb73f17e692d9c7",
+  "queue": {
+    "caches": 0,
+    "finals": 0
+  },
+  "timestamp": "2020-03-24T15:15:21.092871504Z",
+  "uptime": "30h9m43.831051032s",
+  "version": "v0.7.27-a68e4d2049d2ea9f95353b56bfcb60e307fdaebd"
+}
 ```
 
 #### dumpgraphhead
 
-> Dump the graph head.
+Dump the graph head.
 
 *Parameter*
 
@@ -1073,36 +1147,27 @@ mixin -n 127.0.0.1:8239 getinfo
 | :-----: |:-------:| :-----    | :------------------------------------   |
 | help    | boolean | Optional, Default=false  | show help                |
 
-*Result---`json` on success*
+*Result*
 
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | json    | Required  | graph head details with json            |
+``` bash
+[
+  {
+    "hash": "hash", (string) transaction hash
+    "node": "node", (string) node id
+    "round": round (integer) round number
+  }
+]
+```
 
 *Example*
 
 ``` bash
 mixin -n 127.0.0.1:8239 dumpgraphhead
-```
-
-#### help
-
-> Shows a list of commands or help for one command.
-
-*Parameter*
-
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| help    | boolean | Optional, Default=false  | show help                |
-
-*Result---`null` on success*
-
-| Name    | Type    | Presence  | Description                             |
-| :-----: |:-------:| :-----    | :------------------------------------   |
-| result  | null    | Required  | print all command which mixin kernel support |
-
-*Example*
-
-``` bash
-mixin --help
+[
+  {
+    "hash": "ead887df0ae2e2221dd5841efb16ac1d0b5bbdf797abd29894619b410c111dd5",
+    "node": "017ebfb57ed9aace3d2ed9d559b7a6bf16a8745113872f80cf74ed618a40d3d3",
+    "round": 13479
+  }
+]
 ```
