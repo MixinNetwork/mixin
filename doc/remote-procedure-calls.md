@@ -109,7 +109,7 @@ Broadcast a hex encoded signed raw transaction.
 
 ``` bash
 {
-    "hash": "broadcasted transaction",
+    "hash": "hash", (string) broadcasted transaction.
 }
 ```
 
