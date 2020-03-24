@@ -57,7 +57,7 @@ Sign a JSON encoded transaction.
 
 ``` bash
 {
-    "result": "signed transaction",
+   "raw", (string) signed transaction raw
 }
 ```
 
