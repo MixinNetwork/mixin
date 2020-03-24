@@ -64,7 +64,7 @@ func (r *Render) RenderData(data interface{}) {
 }
 
 func (r *Render) RenderError(err error) {
-	body := map[string]interface{}{"error": err}
+	body := map[string]interface{}{"error": err.Error()}
 	if r.id != "" {
 		body["id"] = r.id
 	}
