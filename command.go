@@ -264,6 +264,62 @@ func sendTransactionCmd(c *cli.Context) error {
 	return err
 }
 
+func pledgeNodeCmd(c *cli.Context) error {
+	seed := make([]byte, 64)
+	_, err := rand.Read(seed)
+	if err != nil {
+		return err
+	}
+	viewKey, err := crypto.KeyFromString(c.String("view"))
+	if err != nil {
+		return err
+	}
+	spendKey, err := crypto.KeyFromString(c.String("spend"))
+	if err != nil {
+		return err
+	}
+	account := common.Address{
+		PrivateViewKey:  viewKey,
+		PrivateSpendKey: spendKey,
+		PublicViewKey:   viewKey.Public(),
+		PublicSpendKey:  spendKey.Public(),
+	}
+
+	signer, err := common.NewAddressFromString(c.String("signer"))
+	if err != nil {
+		return err
+	}
+	payee, err := common.NewAddressFromString(c.String("payee"))
+	if err != nil {
+		return err
+	}
+
+	var raw signerInput
+	input, err := crypto.HashFromString(c.String("input"))
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal([]byte(fmt.Sprintf(`{"inputs":[{"hash":"%s","index":0}]}`, input.String())), &raw)
+	if err != nil {
+		return err
+	}
+
+	amount := common.NewIntegerFromString(c.String("amount"))
+
+	tx := common.NewTransaction(common.XINAssetId)
+	tx.AddInput(input, 0)
+	tx.AddOutputWithType(common.OutputTypeNodePledge, nil, common.Script{}, amount, seed)
+	tx.Extra = append(signer.PublicSpendKey[:], payee.PublicSpendKey[:]...)
+
+	signed := tx.AsLatestVersion()
+	err = signed.SignInput(raw, 0, []common.Address{account})
+	if err != nil {
+		return err
+	}
+	fmt.Println(hex.EncodeToString(signed.Marshal()))
+	return nil
+}
+
 func cancelNodeCmd(c *cli.Context) error {
 	seed := make([]byte, 64)
 	_, err := rand.Read(seed)

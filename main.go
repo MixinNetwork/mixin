@@ -213,6 +213,37 @@ func main() {
 			},
 		},
 		{
+			Name:   "buildnodepledgetransaction",
+			Usage:  "Build the transaction to pledge a node",
+			Action: pledgeNodeCmd,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "view",
+					Usage: "the private view key to sign the transaction",
+				},
+				&cli.StringFlag{
+					Name:  "spend",
+					Usage: "the private spend key to sign the transaction",
+				},
+				&cli.StringFlag{
+					Name:  "signer",
+					Usage: "the signer address",
+				},
+				&cli.StringFlag{
+					Name:  "payee",
+					Usage: "the payee address",
+				},
+				&cli.StringFlag{
+					Name:  "input",
+					Usage: "the input transaction hash",
+				},
+				&cli.StringFlag{
+					Name:  "amount",
+					Usage: "the input amount",
+				},
+			},
+		},
+		{
 			Name:   "buildnodecanceltransaction",
 			Usage:  "Build the transaction to cancel a pledging node",
 			Action: cancelNodeCmd,
