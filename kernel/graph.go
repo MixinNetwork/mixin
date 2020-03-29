@@ -132,7 +132,7 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, p
 	}
 	err := sig.FullVerify(publics, threshold, snap[:])
 	if err != nil {
-		logger.Verbosef("CacheVerifyCosi(%s) ERROR %s\n", snap, err.Error())
+		logger.Verbosef("CacheVerifyCosi(%s, %d, %d) ERROR %s\n", snap, len(publics), threshold, err.Error())
 		node.cacheStore.Set([]byte(hash), []byte{0})
 	} else {
 		node.cacheStore.Set([]byte(hash), []byte{1})
