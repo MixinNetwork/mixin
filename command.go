@@ -303,6 +303,7 @@ func pledgeNodeCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	raw.Node = c.String("node")
 
 	amount := common.NewIntegerFromString(c.String("amount"))
 
