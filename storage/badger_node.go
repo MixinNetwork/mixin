@@ -147,13 +147,13 @@ func writeNodeCancel(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 	pledging := readNodesInState(txn, graphPrefixNodePledge)
 	if len(pledging) > 0 {
 		node := pledging[0]
-		return fmt.Errorf("node %s is pledging", node.Signer.PublicSpendKey.String())
+		return fmt.Errorf("node %s is pledging while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
 	}
 
 	resigning := readNodesInState(txn, graphPrefixNodeResign)
 	if len(resigning) > 0 {
 		node := resigning[0]
-		return fmt.Errorf("node %s is resigning", node.Signer.PublicSpendKey.String())
+		return fmt.Errorf("node %s is resigning while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
 	}
 
 	err = txn.Delete(key)
@@ -178,13 +178,13 @@ func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 	pledging := readNodesInState(txn, graphPrefixNodePledge)
 	if len(pledging) > 0 {
 		node := pledging[0]
-		return fmt.Errorf("node %s is pledging", node.Signer.PublicSpendKey.String())
+		return fmt.Errorf("node %s is pledging while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
 	}
 
 	resigning := readNodesInState(txn, graphPrefixNodeResign)
 	if len(resigning) > 0 {
 		node := resigning[0]
-		return fmt.Errorf("node %s is resigning", node.Signer.PublicSpendKey.String())
+		return fmt.Errorf("node %s is resigning while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
 	}
 
 	err = txn.Delete(key)
@@ -253,13 +253,13 @@ func writeNodePledge(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 	pledging := readNodesInState(txn, graphPrefixNodePledge)
 	if len(pledging) > 0 {
 		node := pledging[0]
-		return fmt.Errorf("node %s is pledging", node.Signer.PublicSpendKey.String())
+		return fmt.Errorf("node %s is pledging while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
 	}
 
 	resigning := readNodesInState(txn, graphPrefixNodeResign)
 	if len(resigning) > 0 {
 		node := resigning[0]
-		return fmt.Errorf("node %s is resigning", node.Signer.PublicSpendKey.String())
+		return fmt.Errorf("node %s is resigning while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
 	}
 
 	key = nodePledgeKey(signer)
