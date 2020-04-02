@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -45,31 +46,31 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 	case common.TransactionTypeMint:
 		err := node.validateMintSnapshot(s, tx)
 		if err != nil {
-			logger.Println("validateMintSnapshot", s, tx, err)
+			logger.Verbosef("validateMintSnapshot ERROR %v %s %s\n", s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
 			return err
 		}
 	case common.TransactionTypeNodePledge:
 		err := node.validateNodePledgeSnapshot(s, tx)
 		if err != nil {
-			logger.Println("validateNodePledgeSnapshot", s, tx, err)
+			logger.Verbosef("validateNodePledgeSnapshot ERROR %v %s %s\n", s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
 			return err
 		}
 	case common.TransactionTypeNodeCancel:
 		err := node.validateNodeCancelSnapshot(s, tx)
 		if err != nil {
-			logger.Println("validateNodeCancelSnapshot", s, tx, err)
+			logger.Verbosef("validateNodeCancelSnapshot ERROR %v %s %s\n", s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
 			return err
 		}
 	case common.TransactionTypeNodeAccept:
 		err := node.validateNodeAcceptSnapshot(s, tx)
 		if err != nil {
-			logger.Println("validateNodeAcceptSnapshot", s, tx, err)
+			logger.Verbosef("validateNodeAcceptSnapshot ERROR %v %s %s\n", s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
 			return err
 		}
 	case common.TransactionTypeNodeRemove:
 		err := node.validateNodeRemoveSnapshot(s, tx)
 		if err != nil {
-			logger.Println("validateNodeRemoveSnapshot", s, tx, err)
+			logger.Verbosef("validateNodeRemoveSnapshot ERROR %v %s %s\n", s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
 			return err
 		}
 	}
