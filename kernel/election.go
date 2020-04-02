@@ -348,7 +348,7 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2)
 }
 
-func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
+func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
 	if tx.Asset != common.XINAssetId {
 		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
 	}
@@ -425,7 +425,7 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if timestamp+threshold*2 < node.Graph.GraphTimestamp {
+	if !finalized && timestamp+threshold*2 < node.Graph.GraphTimestamp {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Graph.GraphTimestamp, timestamp)
 	}
 
@@ -463,7 +463,7 @@ func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.Vers
 	return nil
 }
 
-func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
+func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
 	if tx.Asset != common.XINAssetId {
 		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
 	}
@@ -521,7 +521,7 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if timestamp+threshold*2 < node.Graph.GraphTimestamp {
+	if !finalized && timestamp+threshold*2 < node.Graph.GraphTimestamp {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Graph.GraphTimestamp, timestamp)
 	}
 

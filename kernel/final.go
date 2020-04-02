@@ -16,7 +16,7 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.Ver
 
 	tx, _, err := node.persistStore.ReadTransaction(s.Transaction)
 	if err == nil && tx != nil {
-		err = node.validateKernelSnapshot(s, tx)
+		err = node.validateKernelSnapshot(s, tx, true)
 	}
 	if err != nil || tx != nil {
 		return tx, err
@@ -26,7 +26,7 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.Ver
 	if err != nil || tx == nil {
 		return nil, err
 	}
-	err = node.validateKernelSnapshot(s, tx)
+	err = node.validateKernelSnapshot(s, tx, true)
 	if err != nil {
 		return nil, err
 	}

@@ -13,7 +13,7 @@ import (
 func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, bool, error) {
 	tx, finalized, err := node.persistStore.ReadTransaction(s.Transaction)
 	if err == nil && tx != nil {
-		err = node.validateKernelSnapshot(s, tx)
+		err = node.validateKernelSnapshot(s, tx, false)
 	}
 	if err != nil || tx != nil {
 		return tx, len(finalized) > 0, err
@@ -28,7 +28,7 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Ver
 	if err != nil {
 		return nil, false, err
 	}
-	err = node.validateKernelSnapshot(s, tx)
+	err = node.validateKernelSnapshot(s, tx, false)
 	if err != nil {
 		return nil, false, err
 	}
@@ -41,7 +41,7 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Ver
 	return tx, false, node.persistStore.WriteTransaction(tx)
 }
 
-func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
+func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
 	switch tx.TransactionType() {
 	case common.TransactionTypeMint:
 		err := node.validateMintSnapshot(s, tx)
@@ -56,13 +56,13 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 			return err
 		}
 	case common.TransactionTypeNodeCancel:
-		err := node.validateNodeCancelSnapshot(s, tx)
+		err := node.validateNodeCancelSnapshot(s, tx, finalized)
 		if err != nil {
 			logger.Verbosef("validateNodeCancelSnapshot ERROR %v %s %s\n", s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
 			return err
 		}
 	case common.TransactionTypeNodeAccept:
-		err := node.validateNodeAcceptSnapshot(s, tx)
+		err := node.validateNodeAcceptSnapshot(s, tx, finalized)
 		if err != nil {
 			logger.Verbosef("validateNodeAcceptSnapshot ERROR %v %s %s\n", s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
 			return err
