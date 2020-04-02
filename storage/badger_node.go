@@ -147,7 +147,9 @@ func writeNodeCancel(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 	pledging := readNodesInState(txn, graphPrefixNodePledge)
 	if len(pledging) > 0 {
 		node := pledging[0]
-		return fmt.Errorf("node %s is pledging while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
+		if node.Signer.PublicSpendKey.String() != signer.String() {
+			return fmt.Errorf("node %s is pledging while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
+		}
 	}
 
 	resigning := readNodesInState(txn, graphPrefixNodeResign)
