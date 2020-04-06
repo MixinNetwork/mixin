@@ -18,6 +18,7 @@ require (
 	github.com/lucas-clemente/quic-go v0.11.2
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/nwaples/rardecode v1.1.0 // indirect
+	github.com/pelletier/go-toml v1.2.0
 	github.com/pierrec/lz4 v2.4.1+incompatible // indirect
 	github.com/shopspring/decimal v0.0.0-20200227202807-02e2044944cc
 	github.com/stretchr/testify v1.4.0

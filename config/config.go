@@ -1,11 +1,10 @@
 package config
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/pelletier/go-toml"
 )
 
 const (
@@ -31,16 +30,16 @@ const (
 )
 
 type custom struct {
-	Environment    string        `json:"environment"`
-	Signer         crypto.Key    `json:"signer"`
-	Listener       string        `json:"listener"`
-	MaxCacheSize   int           `json:"max-cache-size"`
-	RingCacheSize  uint64        `json:"ring-cache-size"`
-	RingFinalSize  uint64        `json:"ring-final-size"`
-	ElectionTicker int           `json:"election-ticker"`
-	ConsensusOnly  bool          `json:"consensus-only"`
-	CacheTTL       time.Duration `json:"cache-ttl"`
-	RPCRuntime     bool          `json:"rpc-runtime"`
+	Environment    string        `toml:"environment"`
+	Signer         crypto.Key    `toml:"signer"`
+	Listener       string        `toml:"listener"`
+	MaxCacheSize   int           `toml:"max-cache-size"`
+	RingCacheSize  uint64        `toml:"ring-cache-size"`
+	RingFinalSize  uint64        `toml:"ring-final-size"`
+	ElectionTicker int           `toml:"election-ticker"`
+	ConsensusOnly  bool          `toml:"consensus-only"`
+	CacheTTL       time.Duration `toml:"cache-ttl"`
+	RPCRuntime     bool          `toml:"rpc-runtime"`
 }
 
 var Custom *custom
@@ -49,17 +48,16 @@ func Initialize(file string) error {
 	if Custom != nil {
 		return nil
 	}
-	f, err := ioutil.ReadFile(file)
+	f, err := toml.LoadFile(file)
 	if err != nil {
 		return err
 	}
-	var cm map[string]interface{}
-	err = json.Unmarshal(f, &cm)
+	document, err := toml.Marshal(f.ToMap())
 	if err != nil {
 		return err
 	}
 	var config custom
-	err = json.Unmarshal(f, &config)
+	err = toml.Unmarshal(document, &config)
 	if err != nil {
 		return err
 	}
@@ -78,7 +76,7 @@ func Initialize(file string) error {
 	if config.ElectionTicker == 0 {
 		config.ElectionTicker = 700
 	}
-	if _, found := cm["consensus-only"]; !found {
+	if _, found := f.Get("consensus-only").(bool); !found {
 		config.ConsensusOnly = true
 	}
 	Custom = &config
