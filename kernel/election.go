@@ -16,7 +16,7 @@ import (
 
 func (node *Node) ElectionLoop() {
 	for node.Graph.MyCacheRound == nil {
-		time.Sleep(time.Duration(config.Custom.ElectionTicker) * time.Second)
+		time.Sleep(time.Duration(config.Custom.Node.KernelOprationPeriod) * time.Second)
 		now := uint64(clock.Now().UnixNano())
 		if now < node.Epoch {
 			logger.Printf("LOCAL TIME INVALID %d %d\n", now, node.Epoch)
@@ -34,7 +34,7 @@ func (node *Node) ElectionLoop() {
 	}
 
 	for {
-		time.Sleep(time.Duration(config.Custom.ElectionTicker) * time.Second)
+		time.Sleep(time.Duration(config.Custom.Node.KernelOprationPeriod) * time.Second)
 		candi, err := node.checkRemovePossibility(node.IdForNetwork, node.Graph.GraphTimestamp)
 		if err != nil {
 			logger.Printf("checkRemovePossibility %s", err.Error())

@@ -87,7 +87,7 @@ func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *com
 
 	hash := s.PayloadHash().ForNetwork(idForNetwork)
 	key := crypto.NewHash(append(hash[:], 'S', 'C', 'O'))
-	if me.snapshotsCaches.contains(key, config.Custom.CacheTTL*time.Second/2) {
+	if me.snapshotsCaches.contains(key, time.Duration(config.Custom.Node.CacheTTL)*time.Second/2) {
 		return nil
 	}
 

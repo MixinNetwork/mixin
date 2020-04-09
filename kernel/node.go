@@ -117,12 +117,12 @@ func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr str
 
 func (node *Node) LoadNodeConfig() {
 	var addr common.Address
-	addr.PrivateSpendKey = config.Custom.Signer
+	addr.PrivateSpendKey = config.Custom.Node.Signer
 	addr.PublicSpendKey = addr.PrivateSpendKey.Public()
 	addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
 	addr.PublicViewKey = addr.PrivateViewKey.Public()
 	node.Signer = addr
-	node.Listener = config.Custom.Listener
+	node.Listener = config.Custom.Network.Listener
 }
 
 func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
@@ -309,7 +309,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	}
 	peer := node.getPeerConsensusNode(peerId)
 
-	if config.Custom.ConsensusOnly && peer == nil {
+	if config.Custom.Node.ConsensusOnly && peer == nil {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
 	}
 	if peer != nil && peer.Signer.Hash() != signer.Hash() {

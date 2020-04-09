@@ -60,7 +60,7 @@ func (s *BadgerStore) CachePutTransaction(tx *common.VersionedTransaction) error
 
 	key := cacheTransactionCacheKey(tx.PayloadHash())
 	val := tx.CompressMarshal()
-	etr := badger.NewEntry(key, val).WithTTL(config.Custom.CacheTTL * time.Second * 8)
+	etr := badger.NewEntry(key, val).WithTTL(time.Duration(config.Custom.Node.CacheTTL) * time.Second * 8)
 	err := txn.SetEntry(etr)
 	if err != nil {
 		return err

@@ -34,8 +34,8 @@ func NewQueue() *Queue {
 		mutex:     new(sync.Mutex),
 		finalSet:  make(map[crypto.Hash]bool),
 		cacheSet:  make(map[crypto.Hash]bool),
-		cacheRing: NewRingBuffer(config.Custom.RingCacheSize),
-		finalRing: NewRingBuffer(config.Custom.RingFinalSize),
+		cacheRing: NewRingBuffer(config.Custom.Node.RingCacheSize),
+		finalRing: NewRingBuffer(config.Custom.Node.RingFinalSize),
 	}
 }
 

@@ -83,7 +83,7 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		return
 	}
 	renderer := &Render{w: w, impl: render.New(), id: call.Id}
-	if config.Custom.RPCRuntime {
+	if config.Custom.RPC.Runtime {
 		renderer.start = time.Now()
 	}
 	switch call.Method {

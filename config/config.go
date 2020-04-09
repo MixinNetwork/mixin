@@ -1,6 +1,7 @@
 package config
 
 import (
+	"io/ioutil"
 	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
@@ -30,16 +31,21 @@ const (
 )
 
 type custom struct {
-	Environment    string        `toml:"environment"`
-	Signer         crypto.Key    `toml:"signer"`
-	Listener       string        `toml:"listener"`
-	MaxCacheSize   int           `toml:"max-cache-size"`
-	RingCacheSize  uint64        `toml:"ring-cache-size"`
-	RingFinalSize  uint64        `toml:"ring-final-size"`
-	ElectionTicker int           `toml:"election-ticker"`
-	ConsensusOnly  bool          `toml:"consensus-only"`
-	CacheTTL       time.Duration `toml:"cache-ttl"`
-	RPCRuntime     bool          `toml:"rpc-runtime"`
+	Node struct {
+		Signer               crypto.Key `tom:"signer-key"`
+		ConsensusOnly        bool       `toml:"consensus-only"`
+		KernelOprationPeriod int        `toml:"kernel-operation-period"`
+		MemoryCacheSize      int        `toml:"memory-cache-size"`
+		CacheTTL             int        `toml:"cache-ttl"`
+		RingCacheSize        uint64     `toml:"ring-cache-size"`
+		RingFinalSize        uint64     `toml:"ring-final-size"`
+	} `toml:"node"`
+	Network struct {
+		Listener string `toml:"listener"`
+	} `toml:"network"`
+	RPC struct {
+		Runtime bool `toml:"runtime"`
+	} `toml:"rpc"`
 }
 
 var Custom *custom
@@ -48,36 +54,29 @@ func Initialize(file string) error {
 	if Custom != nil {
 		return nil
 	}
-	f, err := toml.LoadFile(file)
-	if err != nil {
-		return err
-	}
-	document, err := toml.Marshal(f.ToMap())
+	f, err := ioutil.ReadFile(file)
 	if err != nil {
 		return err
 	}
 	var config custom
-	err = toml.Unmarshal(document, &config)
+	err = toml.Unmarshal(f, &config)
 	if err != nil {
 		return err
 	}
-	if config.CacheTTL == 0 {
-		config.CacheTTL = 3600 * 2
+	if config.Node.KernelOprationPeriod == 0 {
+		config.Node.KernelOprationPeriod = 700
 	}
-	if config.MaxCacheSize == 0 {
-		config.MaxCacheSize = 1024 * 16
+	if config.Node.MemoryCacheSize == 0 {
+		config.Node.MemoryCacheSize = 1024 * 16
 	}
-	if config.RingCacheSize == 0 {
-		config.RingCacheSize = 1024 * 1024
+	if config.Node.CacheTTL == 0 {
+		config.Node.CacheTTL = 3600 * 2
 	}
-	if config.RingFinalSize == 0 {
-		config.RingFinalSize = 1024 * 1024 * 16
+	if config.Node.RingCacheSize == 0 {
+		config.Node.RingCacheSize = 1024 * 1024
 	}
-	if config.ElectionTicker == 0 {
-		config.ElectionTicker = 700
-	}
-	if _, found := f.Get("consensus-only").(bool); !found {
-		config.ConsensusOnly = true
+	if config.Node.RingFinalSize == 0 {
+		config.Node.RingFinalSize = 1024 * 1024 * 16
 	}
 	Custom = &config
 	return nil

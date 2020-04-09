@@ -21,7 +21,7 @@ func init() {
 
 func MockDiff(at time.Duration) {
 	if !inTest() {
-		panic(fmt.Errorf("clock mock not allowed in environment %s or build version %s", config.Custom.Environment, config.BuildVersion))
+		panic(fmt.Errorf("clock mock not allowed in build version %s", config.BuildVersion))
 	}
 
 	mutex.Lock()
@@ -40,5 +40,5 @@ func Now() time.Time {
 }
 
 func inTest() bool {
-	return config.Custom.Environment == "test" && strings.Contains(config.BuildVersion, "BUILD_VERSION")
+	return strings.Contains(config.BuildVersion, "BUILD_VERSION")
 }

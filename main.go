@@ -464,7 +464,7 @@ func kernelCmd(c *cli.Context) error {
 		return err
 	}
 
-	cache := fastcache.New(config.Custom.MaxCacheSize * 1024 * 1024)
+	cache := fastcache.New(config.Custom.Node.MemoryCacheSize * 1024 * 1024)
 	go func() {
 		var s fastcache.Stats
 		for {
