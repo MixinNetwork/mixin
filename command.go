@@ -626,12 +626,6 @@ func setupTestNetCmd(c *cli.Context) error {
 			return err
 		}
 
-		store, err := storage.NewBadgerStore(dir)
-		if err != nil {
-			return err
-		}
-		defer store.Close()
-
 		var configData = []byte(fmt.Sprintf(`[node]
 signer-key = "%s"
 consensus-only = true
