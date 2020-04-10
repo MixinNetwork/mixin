@@ -459,7 +459,7 @@ func kernelCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	err = config.Initialize(c.String("dir") + "/config.json")
+	err = config.Initialize(c.String("dir") + "/config.toml")
 	if err != nil {
 		return err
 	}

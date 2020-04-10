@@ -6,14 +6,14 @@ consensus-only = true
 # the period in seconds to check some mint and election kernel opportunities
 kernel-operation-period = 700
 # the maximum cache size in MB
-memory-cache-size = 16
+memory-cache-size = 16384
 # how many seconds to keep unconfirmed transactions in the cache storage
 # this also limits the confirmed snapshots finalization cache to peer
 cache-ttl = 7200
 # how many cache peer snapshots to keep in the memory queue
-ring-cache-size = 4096
+ring-cache-size = 1048576
 # how many final peer snapshots to keep in the memory queue
-ring-final-size = 16384
+ring-final-size = 16777216
 
 [network]
 # the public endpoint to receive peer packets, may be a proxy or load balancer

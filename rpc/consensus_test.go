@@ -21,6 +21,7 @@ import (
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/VictoriaMetrics/fastcache"
+	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,13 +46,13 @@ func TestConsensus(t *testing.T) {
 	stores := make([]storage.Store, 0)
 	for i, _ := range accounts {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
-		config.Initialize(dir + "/config.json")
-		cache := fastcache.New(config.Custom.MaxCacheSize * 1024 * 1024)
+		config.Initialize(dir + "/config.toml")
+		cache := fastcache.New(config.Custom.Node.MemoryCacheSize * 1024 * 1024)
 		store, err := storage.NewBadgerStore(dir)
 		assert.Nil(err)
 		assert.NotNil(store)
 		stores = append(stores, store)
-		testIntializeConfig(dir + "/config.json")
+		testIntializeConfig(dir + "/config.toml")
 		if i == 0 {
 			kernel.TestMockDiff(epoch.Sub(time.Now()))
 		}
@@ -267,39 +268,16 @@ func testRemoveNode(nodes []*Node, r common.Address) []*Node {
 func testIntializeConfig(file string) {
 	f, _ := ioutil.ReadFile(file)
 	var c struct {
-		Environment    string        `json:"environment"`
-		Signer         crypto.Key    `json:"signer"`
-		Listener       string        `json:"listener"`
-		MaxCacheSize   int           `json:"max-cache-size"`
-		RingCacheSize  uint64        `json:"ring-cache-size"`
-		RingFinalSize  uint64        `json:"ring-final-size"`
-		ElectionTicker int           `json:"election-ticker"`
-		CacheTTL       time.Duration `json:"cache-ttl"`
+		Node struct {
+			Signer crypto.Key `tom:"signer-key"`
+		} `toml:"node"`
+		Network struct {
+			Listener string `toml:"listener"`
+		} `toml:"network"`
 	}
-	json.Unmarshal(f, &c)
-	if c.CacheTTL == 0 {
-		c.CacheTTL = 3600
-	}
-	if c.MaxCacheSize == 0 {
-		c.MaxCacheSize = 32
-	}
-	if c.ElectionTicker == 0 {
-		c.ElectionTicker = 2
-	}
-	if c.RingCacheSize == 0 {
-		c.RingCacheSize = 1024 * 4
-	}
-	if c.RingFinalSize == 0 {
-		c.RingFinalSize = 1024 * 16
-	}
-	config.Custom.Environment = c.Environment
-	config.Custom.Signer = c.Signer
-	config.Custom.Listener = c.Listener
-	config.Custom.CacheTTL = c.CacheTTL
-	config.Custom.MaxCacheSize = c.MaxCacheSize
-	config.Custom.RingCacheSize = c.RingCacheSize
-	config.Custom.RingFinalSize = c.RingFinalSize
-	config.Custom.ElectionTicker = c.ElectionTicker
+	toml.Unmarshal(f, &c)
+	config.Custom.Node.Signer = c.Node.Signer
+	config.Custom.Network.Listener = c.Network.Listener
 }
 
 func testSendDummyTransaction(assert *assert.Assertions, node string, domain common.Address, th, amount string) string {
@@ -351,21 +329,17 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 		panic(err)
 	}
 
-	configData, err := json.MarshalIndent(map[string]interface{}{
-		"environment":     "test",
-		"signer":          signer.PrivateSpendKey.String(),
-		"listener":        "127.0.0.1:17099",
-		"cache-ttl":       3600,
-		"election-ticker": 2,
-		"max-cache-size":  128,
-		"ring-cache-size": 1024 * 4,
-		"ring-final-size": 1024 * 16,
-	}, "", "  ")
-	if err != nil {
-		panic(err)
-	}
-
-	err = ioutil.WriteFile(dir+"/config.json", configData, 0644)
+	var configData = []byte(fmt.Sprintf(`[node]
+signer-key = "%s"
+consensus-only = true
+memory-cache-size = 32
+kernel-operation-period = 2
+cache-ttl = 3600
+ring-cache-size = 4096
+ring-final-size = 16384
+[network]
+listener = "%s"`, signer.PrivateSpendKey.String(), "127.0.0.1:17099"))
+	err = ioutil.WriteFile(dir+"/config.toml", configData, 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -397,12 +371,12 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 	_, err = testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
 	assert.Nil(err)
 
-	config.Initialize(dir + "/config.json")
-	cache := fastcache.New(config.Custom.MaxCacheSize * 1024 * 1024)
+	config.Initialize(dir + "/config.toml")
+	cache := fastcache.New(config.Custom.Node.MemoryCacheSize * 1024 * 1024)
 	store, err := storage.NewBadgerStore(dir)
 	assert.Nil(err)
 	assert.NotNil(store)
-	testIntializeConfig(dir + "/config.json")
+	testIntializeConfig(dir + "/config.toml")
 	pnode, err := kernel.SetupNode(store, cache, fmt.Sprintf(":170%02d", 99), dir)
 	assert.Nil(err)
 	assert.NotNil(pnode)
@@ -527,19 +501,17 @@ func setupTestNet(root string) ([]common.Address, []common.Address, []byte, []by
 			panic(err)
 		}
 
-		configData, err := json.MarshalIndent(map[string]interface{}{
-			"environment":     "test",
-			"signer":          a.PrivateSpendKey.String(),
-			"listener":        nodes[i]["host"],
-			"cache-ttl":       3600,
-			"election-ticker": 2,
-			"max-cache-size":  128,
-		}, "", "  ")
-		if err != nil {
-			panic(err)
-		}
-
-		err = ioutil.WriteFile(dir+"/config.json", configData, 0644)
+		var configData = []byte(fmt.Sprintf(`[node]
+signer-key = "%s"
+consensus-only = true
+memory-cache-size = 32
+kernel-operation-period = 2
+cache-ttl = 3600
+ring-cache-size = 4096
+ring-final-size = 16384
+[network]
+listener = "%s"`, a.PrivateSpendKey.String(), nodes[i]["host"]))
+		err = ioutil.WriteFile(dir+"/config.toml", configData, 0644)
 		if err != nil {
 			panic(err)
 		}

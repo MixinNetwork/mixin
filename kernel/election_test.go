@@ -78,13 +78,21 @@ func TestNodeRemovePossibility(t *testing.T) {
 	assert.Equal(payee.PublicSpendKey.String(), crypto.ViewGhostOutputKey(&ghost, &view, &mask, 0).String())
 }
 
+var configData = []byte(`[node]
+signer-key = "56a7904a2dfd71c397bb48584033d8cb6ddcde9b46b7d91f07d2ede061723a0b"
+consensus-only = true
+memory-cache-size = 16
+cache-ttl = 7200
+ring-cache-size = 4096
+ring-final-size = 16384
+[network]
+listener = "mixin-node.example.com:7239"`)
+
 func setupTestNode(assert *assert.Assertions, dir string) *Node {
-	data, err := ioutil.ReadFile("../config/config.example.json")
-	assert.Nil(err)
-	err = ioutil.WriteFile(dir+"/config.json", data, 0644)
+	err := ioutil.WriteFile(dir+"/config.toml", configData, 0644)
 	assert.Nil(err)
 
-	data, err = ioutil.ReadFile("../config/genesis.json")
+	data, err := ioutil.ReadFile("../config/genesis.json")
 	assert.Nil(err)
 	err = ioutil.WriteFile(dir+"/genesis.json", data, 0644)
 	assert.Nil(err)
@@ -94,7 +102,8 @@ func setupTestNode(assert *assert.Assertions, dir string) *Node {
 	err = ioutil.WriteFile(dir+"/nodes.json", data, 0644)
 	assert.Nil(err)
 
-	config.Initialize(dir + "/config.json")
+	err = config.Initialize(dir + "/config.toml")
+	assert.Nil(err)
 	cache := fastcache.New(16 * 1024 * 1024)
 	store, err := storage.NewBadgerStore(dir)
 	assert.Nil(err)

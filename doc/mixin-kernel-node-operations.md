@@ -8,7 +8,7 @@ To read this article, you need to have a good understanding of the transaction d
 
 To boot a fresh Mixin Kernel Full Node, you need to generate your keys, send the pledge transaction and run the kernel daemon.
 
-1. Get the latest release from https://github.com/MixinNetwork/mixin/releases and extract files `mixin`,`genesis.json`,`nodes.json` and `config.example.json`.
+1. Get the latest release from https://github.com/MixinNetwork/mixin/releases and extract files `mixin`, `genesis.json`, `nodes.json` and `config.example.toml`.
 
 2. Add `mixin` to your `$PATH`, then create a directory `~/mixin` with `genesis.json` and `nodes.json` in it.
 
@@ -16,7 +16,7 @@ To boot a fresh Mixin Kernel Full Node, you need to generate your keys, send the
 
 4. Store your signer and payee spend key securely and they can't be recovered if you lost them.
 
-5. Rename `config.example.json` to `config.json` and put it in`~/mixin`. Edit `~/mixin/config.json` with your own `signer` private spend key and `listener`.
+5. Rename `config.example.toml` to `config.toml` and put it in `~/mixin`. Edit `~/mixin/config.toml` with your own `signer-key` and `listener`.
 
 6. Send the pledge transaction to any other running Kernel Node, if it fails due to pending node operations, wait and try again.
 
