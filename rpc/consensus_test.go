@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	mathRand "math/rand"
 	"net/http"
 	"os"
@@ -266,18 +267,25 @@ func testRemoveNode(nodes []*Node, r common.Address) []*Node {
 }
 
 func testIntializeConfig(file string) {
-	f, _ := ioutil.ReadFile(file)
 	var c struct {
 		Node struct {
-			Signer crypto.Key `tom:"signer-key"`
+			Signer crypto.Key `toml:"signer-key"`
 		} `toml:"node"`
 		Network struct {
 			Listener string `toml:"listener"`
 		} `toml:"network"`
 	}
-	toml.Unmarshal(f, &c)
+	f, err := ioutil.ReadFile(file)
+	if err != nil {
+		panic(err)
+	}
+	err = toml.Unmarshal(f, &c)
+	if err != nil {
+		panic(err)
+	}
 	config.Custom.Node.Signer = c.Node.Signer
 	config.Custom.Network.Listener = c.Network.Listener
+	log.Println(config.Custom.Node, config.Custom.Network)
 }
 
 func testSendDummyTransaction(assert *assert.Assertions, node string, domain common.Address, th, amount string) string {
