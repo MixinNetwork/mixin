@@ -32,7 +32,8 @@ const (
 
 type custom struct {
 	Node struct {
-		Signer               crypto.Key `tom:"signer-key"`
+		Signer               crypto.Key `toml:"-"`
+		SignerStr            string     `toml:"signer-key"`
 		ConsensusOnly        bool       `toml:"consensus-only"`
 		KernelOprationPeriod int        `toml:"kernel-operation-period"`
 		MemoryCacheSize      int        `toml:"memory-cache-size"`
@@ -63,6 +64,11 @@ func Initialize(file string) error {
 	if err != nil {
 		return err
 	}
+	key, err := crypto.KeyFromString(config.Node.SignerStr)
+	if err != nil {
+		return err
+	}
+	config.Node.Signer = key
 	if config.Node.KernelOprationPeriod == 0 {
 		config.Node.KernelOprationPeriod = 700
 	}
