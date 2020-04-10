@@ -316,6 +316,17 @@ func testSendDummyTransaction(assert *assert.Assertions, node string, domain com
 	return hash["hash"]
 }
 
+var configDataTmpl = `[node]
+signer-key = "%s"
+consensus-only = true
+memory-cache-size = 128
+kernel-operation-period = 2
+cache-ttl = 3600
+ring-cache-size = 4096
+ring-final-size = 16384
+[network]
+listener = "%s"`
+
 func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Address, genesisData, nodesData []byte, input, root string) Node {
 	var signer, payee common.Address
 
@@ -339,16 +350,7 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 		panic(err)
 	}
 
-	var configData = []byte(fmt.Sprintf(`[node]
-signer-key = "%s"
-consensus-only = true
-memory-cache-size = 32
-kernel-operation-period = 2
-cache-ttl = 3600
-ring-cache-size = 4096
-ring-final-size = 16384
-[network]
-listener = "%s"`, signer.PrivateSpendKey.String(), "127.0.0.1:17099"))
+	configData := []byte(fmt.Sprintf(configDataTmpl, signer.PrivateSpendKey.String(), "127.0.0.1:17099"))
 	err = ioutil.WriteFile(dir+"/config.toml", configData, 0644)
 	if err != nil {
 		panic(err)
@@ -511,16 +513,7 @@ func setupTestNet(root string) ([]common.Address, []common.Address, []byte, []by
 			panic(err)
 		}
 
-		var configData = []byte(fmt.Sprintf(`[node]
-signer-key = "%s"
-consensus-only = true
-memory-cache-size = 32
-kernel-operation-period = 2
-cache-ttl = 3600
-ring-cache-size = 4096
-ring-final-size = 16384
-[network]
-listener = "%s"`, a.PrivateSpendKey.String(), nodes[i]["host"]))
+		configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey.String(), nodes[i]["host"]))
 		err = ioutil.WriteFile(dir+"/config.toml", configData, 0644)
 		if err != nil {
 			panic(err)
