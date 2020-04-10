@@ -11,7 +11,7 @@ import (
 
 func TestBadger(t *testing.T) {
 	assert := assert.New(t)
-	err := config.Initialize("../config/config.example.json")
+	err := config.Initialize("../config/config.example.toml")
 	assert.Nil(err)
 
 	root, err := ioutil.TempDir("", "mixin-badger-test")

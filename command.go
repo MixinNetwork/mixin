@@ -89,7 +89,7 @@ func decryptGhostCmd(c *cli.Context) error {
 }
 
 func updateHeadReference(c *cli.Context) error {
-	err := config.Initialize(c.String("dir") + "/config.json")
+	err := config.Initialize(c.String("dir") + "/config.toml")
 	if err != nil {
 		return err
 	}
@@ -122,7 +122,7 @@ func updateHeadReference(c *cli.Context) error {
 }
 
 func removeGraphEntries(c *cli.Context) error {
-	err := config.Initialize(c.String("dir") + "/config.json")
+	err := config.Initialize(c.String("dir") + "/config.toml")
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func removeGraphEntries(c *cli.Context) error {
 }
 
 func validateGraphEntries(c *cli.Context) error {
-	err := config.Initialize(c.String("dir") + "/config.json")
+	err := config.Initialize(c.String("dir") + "/config.toml")
 	if err != nil {
 		return err
 	}
@@ -632,17 +632,17 @@ func setupTestNetCmd(c *cli.Context) error {
 		}
 		defer store.Close()
 
-		configData, err := json.MarshalIndent(map[string]interface{}{
-			"signer":         a.PrivateSpendKey.String(),
-			"listener":       nodes[i]["host"],
-			"cache-ttl":      3600,
-			"max-cache-size": 128,
-		}, "", "  ")
-		if err != nil {
-			return err
-		}
+		var configData = []byte(fmt.Sprintf(`[node]
+signer-key = "%s"
+consensus-only = true
+memory-cache-size = 128
+cache-ttl = 3600
+ring-cache-size = 4096
+ring-final-size = 16384
+[network]
+listener = "%s"`, a.PrivateSpendKey.String(), nodes[i]["host"]))
 
-		err = ioutil.WriteFile(dir+"/config.json", configData, 0644)
+		err = ioutil.WriteFile(dir+"/config.toml", configData, 0644)
 		if err != nil {
 			return err
 		}
