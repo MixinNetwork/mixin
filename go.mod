@@ -8,10 +8,10 @@ require (
 	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/btcsuite/btcutil v1.0.1
 	github.com/cornelk/hashmap v1.0.1
-	github.com/dgraph-io/badger/v2 v2.0.1
+	github.com/dgraph-io/badger/v2 v2.0.3
 	github.com/dimfeld/httptreemux v5.0.1+incompatible
 	github.com/dsnet/compress v0.0.1 // indirect
-	github.com/ethereum/go-ethereum v1.9.11
+	github.com/ethereum/go-ethereum v1.9.12
 	github.com/gobuffalo/packr v1.30.1
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/gorilla/handlers v1.4.2
@@ -19,7 +19,7 @@ require (
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/nwaples/rardecode v1.1.0 // indirect
 	github.com/pelletier/go-toml v1.2.0
-	github.com/pierrec/lz4 v2.4.1+incompatible // indirect
+	github.com/pierrec/lz4 v2.5.1+incompatible // indirect
 	github.com/shopspring/decimal v0.0.0-20200227202807-02e2044944cc
 	github.com/stretchr/testify v1.4.0
 	github.com/ulikunitz/xz v0.5.7 // indirect
@@ -29,5 +29,5 @@ require (
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	go.dedis.ch/kyber/v3 v3.0.12
-	golang.org/x/crypto v0.0.0-20200115085410-6d4e4cb37c7d
+	golang.org/x/crypto v0.0.0-20200311171314-f7b00557c8c4
 )
