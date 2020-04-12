@@ -81,7 +81,7 @@ func pledgeAmount(sinceEpoch time.Duration) common.Integer {
 }
 
 func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error {
-	nodes := node.sortMintNodes()
+	nodes := node.sortMintNodes(uint64(time.Now().UnixNano()))
 	per := amount.Div(len(nodes))
 	diff := amount.Sub(per.Mul(len(nodes)))
 
@@ -138,13 +138,13 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 		return fmt.Errorf("invalid mint data %d %s", batch, amount.String())
 	}
 
-	nodes := node.sortMintNodes()
+	nodes := node.sortMintNodes(timestamp)
 	per := amount.Div(len(nodes))
 	diff := amount.Sub(per.Mul(len(nodes)))
 
 	if diff.Sign() > 0 {
 		if len(nodes)+1 != len(tx.Outputs) {
-			return fmt.Errorf("invalid mint outputs count with diff %d %d", len(nodes), len(tx.Outputs))
+			return fmt.Errorf("invalid mint outputs count with diff %d %d %s %s", len(nodes), len(tx.Outputs))
 		}
 		out := tx.Outputs[len(nodes)]
 		if diff.Cmp(out.Amount) != 0 {
@@ -253,10 +253,12 @@ func (node *Node) checkMintPossibility(timestamp uint64, validateOnly bool) (int
 	return batch, amount
 }
 
-func (node *Node) sortMintNodes() []*common.Node {
+func (node *Node) sortMintNodes(timestamp uint64) []*common.Node {
 	var nodes []*common.Node
 	for _, n := range node.ConsensusNodes {
-		nodes = append(nodes, n)
+		if n.Timestamp < timestamp {
+			nodes = append(nodes, n)
+		}
 	}
 	sort.Slice(nodes, func(i, j int) bool {
 		a := nodes[i].IdForNetwork(node.networkId)
