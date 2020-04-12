@@ -144,7 +144,7 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 
 	if diff.Sign() > 0 {
 		if len(nodes)+1 != len(tx.Outputs) {
-			return fmt.Errorf("invalid mint outputs count with diff %d %d %s %s", len(nodes), len(tx.Outputs))
+			return fmt.Errorf("invalid mint outputs count with diff %d %d %s %s", len(nodes), len(tx.Outputs), per, diff)
 		}
 		out := tx.Outputs[len(nodes)]
 		if diff.Cmp(out.Amount) != 0 {
