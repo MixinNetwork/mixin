@@ -29,11 +29,11 @@ func NewRouter(store storage.Store, node *kernel.Node) *httptreemux.TreeMux {
 	router := httptreemux.New()
 	impl := &R{Store: store, Node: node}
 	router.POST("/", impl.handle)
-	registerHanders(router)
+	registerHandlers(router)
 	return router
 }
 
-func registerHanders(router *httptreemux.TreeMux) {
+func registerHandlers(router *httptreemux.TreeMux) {
 	router.MethodNotAllowedHandler = func(w http.ResponseWriter, r *http.Request, _ map[string]httptreemux.HandlerFunc) {
 		render.New().JSON(w, http.StatusNotFound, map[string]interface{}{"error": "not found"})
 	}
