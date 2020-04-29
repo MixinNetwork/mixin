@@ -12,6 +12,11 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
+const (
+	MainnetMintPeriodForkBatch     = 72
+	MainnetMintPeriodForkTimeBegin = 6
+)
+
 var (
 	MintPool        common.Integer
 	MintLiquidity   common.Integer
@@ -218,7 +223,11 @@ func (node *Node) checkMintPossibility(timestamp uint64, validateOnly bool) (int
 	if batch < 1 {
 		return 0, common.Zero
 	}
-	if hours%24 < config.KernelMintTimeBegin || hours%24 > config.KernelMintTimeEnd {
+	kmb, kme := config.KernelMintTimeBegin, config.KernelMintTimeEnd
+	if batch < MainnetMintPeriodForkBatch {
+		kmb = MainnetMintPeriodForkTimeBegin
+	}
+	if hours%24 < kmb || hours%24 > kme {
 		return 0, common.Zero
 	}
 
