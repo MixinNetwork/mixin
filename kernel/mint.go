@@ -15,6 +15,7 @@ import (
 const (
 	MainnetMintPeriodForkBatch     = 72
 	MainnetMintPeriodForkTimeBegin = 6
+	MainnetMintPeriodForkTimeEnd   = 18
 )
 
 var (
@@ -226,6 +227,7 @@ func (node *Node) checkMintPossibility(timestamp uint64, validateOnly bool) (int
 	kmb, kme := config.KernelMintTimeBegin, config.KernelMintTimeEnd
 	if batch < MainnetMintPeriodForkBatch {
 		kmb = MainnetMintPeriodForkTimeBegin
+		kme = MainnetMintPeriodForkTimeEnd
 	}
 	if hours%24 < kmb || hours%24 > kme {
 		return 0, common.Zero
