@@ -225,7 +225,7 @@ func (node *Node) checkMintPossibility(timestamp uint64, validateOnly bool) (int
 		return 0, common.Zero
 	}
 	kmb, kme := config.KernelMintTimeBegin, config.KernelMintTimeEnd
-	if batch < MainnetMintPeriodForkBatch {
+	if node.networkId.String() == config.MainnetId && batch < MainnetMintPeriodForkBatch {
 		kmb = MainnetMintPeriodForkTimeBegin
 		kme = MainnetMintPeriodForkTimeEnd
 	}
