@@ -14,6 +14,10 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
+const (
+	MainnetAcceptPeriodForkSnapshotHash = "b8855c19a38999f283d9be6daa45147aef47cc6d35007673f62390c2e137e4e1"
+)
+
 func (node *Node) ElectionLoop() {
 	for node.Graph.MyCacheRound == nil {
 		time.Sleep(time.Duration(config.Custom.Node.KernelOprationPeriod) * time.Second)
@@ -530,7 +534,11 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 	elapse := time.Duration(timestamp - node.ConsensusPledging.Timestamp)
 	if elapse < config.KernelNodeAcceptPeriodMinimum {
-		return fmt.Errorf("invalid accept period %d %d", config.KernelNodeAcceptPeriodMinimum, elapse)
+		if s.PayloadHash().String() == MainnetAcceptPeriodForkSnapshotHash {
+			logger.Printf("FORK invalid accept period %d %d", config.KernelNodeAcceptPeriodMinimum, elapse)
+		} else {
+			return fmt.Errorf("invalid accept period %d %d", config.KernelNodeAcceptPeriodMinimum, elapse)
+		}
 	}
 	if elapse > config.KernelNodeAcceptPeriodMaximum {
 		return fmt.Errorf("invalid accept period %d %d", config.KernelNodeAcceptPeriodMaximum, elapse)
