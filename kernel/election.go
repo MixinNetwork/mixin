@@ -535,7 +535,7 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	elapse := time.Duration(timestamp - node.ConsensusPledging.Timestamp)
 	if elapse < config.KernelNodeAcceptPeriodMinimum {
 		if s.PayloadHash().String() == MainnetAcceptPeriodForkSnapshotHash {
-			logger.Printf("FORK invalid accept period %d %d", config.KernelNodeAcceptPeriodMinimum, elapse)
+			logger.Printf("FORK invalid accept period %d %d\n", config.KernelNodeAcceptPeriodMinimum, elapse)
 		} else {
 			return fmt.Errorf("invalid accept period %d %d", config.KernelNodeAcceptPeriodMinimum, elapse)
 		}

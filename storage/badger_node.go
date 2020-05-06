@@ -8,6 +8,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/badger/v2"
 )
 
@@ -60,7 +61,11 @@ func (s *BadgerStore) AddNodeOperation(tx *common.VersionedTransaction, timestam
 		if lastOp == op && lastTx == hash {
 			return nil
 		}
-		return fmt.Errorf("invalid operation lock %s %s %d", lastTx, lastOp, lastTs)
+		if hash.String() == "12e3d4dbc8fe04888d080c6223f17e64886a7d8eb458704c74efb13cc6ce340f" {
+			logger.Printf("FORK invalid operation lock %s %s %d\n", lastTx, lastOp, lastTs)
+		} else {
+			return fmt.Errorf("invalid operation lock %s %s %d", lastTx, lastOp, lastTs)
+		}
 	}
 
 	val := append(hash[:], []byte(op)...)
