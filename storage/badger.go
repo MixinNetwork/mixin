@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
+	"github.com/dgraph-io/badger/v2/options"
 )
 
 type BadgerStore struct {
@@ -52,7 +53,9 @@ func (store *BadgerStore) Close() error {
 
 func openDB(dir string, sync bool) (*badger.DB, error) {
 	opts := badger.DefaultOptions(dir)
-	opts.SyncWrites = sync
+	opts = opts.WithSyncWrites(sync)
+	opts = opts.WithCompression(options.None)
+	opts = opts.WithMaxCacheSize(0)
 	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
