@@ -2,7 +2,7 @@
 # the private spend key of the signer
 signer-key = "56a7904a2dfd71c397bb48584033d8cb6ddcde9b46b7d91f07d2ede061723a0b"
 # limit the peers that can establish a connection and exchange snapshots
-consensus-only = true
+consensus-only = false
 # the period in seconds to check some mint and election kernel opportunities
 kernel-operation-period = 700
 # the maximum cache size in MB
