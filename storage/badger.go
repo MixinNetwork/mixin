@@ -3,6 +3,7 @@ package storage
 import (
 	"time"
 
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/options"
 )
@@ -60,17 +61,19 @@ func openDB(dir string, sync bool) (*badger.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	db.RunValueLogGC(0.1)
 
-	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
-		defer ticker.Stop()
-		for range ticker.C {
-			lsm, vlog := db.Size()
-			if lsm > 1024*1024*8 || vlog > 1024*1024*32 {
-				db.RunValueLogGC(0.5)
+	if config.Custom.Storage.ValueLogGC {
+		go func() {
+			ticker := time.NewTicker(5 * time.Minute)
+			defer ticker.Stop()
+			for range ticker.C {
+				lsm, vlog := db.Size()
+				if lsm > 1024*1024*8 || vlog > 1024*1024*32 {
+					db.RunValueLogGC(0.5)
+				}
 			}
-		}
-	}()
+		}()
+	}
+
 	return db, nil
 }

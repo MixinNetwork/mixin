@@ -41,6 +41,9 @@ type custom struct {
 		RingCacheSize        uint64     `toml:"ring-cache-size"`
 		RingFinalSize        uint64     `toml:"ring-final-size"`
 	} `toml:"node"`
+	Storage struct {
+		ValueLogGC bool `toml:"value-log-gc"`
+	} `toml:"storage"`
 	Network struct {
 		Listener string `toml:"listener"`
 	} `toml:"network"`

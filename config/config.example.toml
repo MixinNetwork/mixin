@@ -15,6 +15,10 @@ ring-cache-size = 1048576
 # how many final peer snapshots to keep in the memory queue
 ring-final-size = 16777216
 
+[storage]
+# enable value log gc will reduce disk storage usage
+value-log-gc = true
+
 [network]
 # the public endpoint to receive peer packets, may be a proxy or load balancer
 # must be a public reachable domain or IP, and the port allowed by firewall
