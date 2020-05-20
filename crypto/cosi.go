@@ -7,7 +7,7 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/MixinNetwork/mixin/crypto/edwards25519"
+	"github.com/MixinNetwork/mixin/crypto/ed25519/edwards25519"
 )
 
 type CosiSignature struct {
