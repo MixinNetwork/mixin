@@ -22,6 +22,14 @@ func CosiCommit(randReader io.Reader) (PrivateKey, error) {
 	return keyFactory.NewPrivateKeyFromSeed(messageDigest[:])
 }
 
+func CosiCommitPanic(randReader io.Reader) PrivateKey {
+	key, err := CosiCommit(randReader)
+	if err != nil {
+		panic(err)
+	}
+	return key
+}
+
 func CosiAggregateCommitment(commitents map[int]PublicKey) (*CosiSignature, error) {
 	cosi := CosiSignature{Signatures: make(map[int]Signature, len(commitents))}
 	for i := range commitents {
@@ -34,6 +42,14 @@ func CosiAggregateCommitment(commitents map[int]PublicKey) (*CosiSignature, erro
 		return nil, err
 	}
 	return &cosi, nil
+}
+
+func (c *CosiSignature) Dumps() ([]byte, error) {
+	return keyFactory.CosiDumps(c)
+}
+
+func (c *CosiSignature) Loads(data []byte) (rest []byte, err error) {
+	return keyFactory.CosiLoads(c, data)
 }
 
 func (c *CosiSignature) Mark(i int) error {

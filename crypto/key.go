@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"encoding/hex"
 	"fmt"
@@ -24,6 +25,11 @@ func KeyFromString(s string) (Key, error) {
 	}
 	copy(key[:], b)
 	return key, nil
+}
+
+func (k Key) HasValue() bool {
+	empty := Key{}
+	return bytes.Compare(k[:], empty[:]) != 0
 }
 
 func (k Key) String() string {

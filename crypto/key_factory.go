@@ -1,5 +1,7 @@
 package crypto
 
+import "golang.org/x/crypto/sha3"
+
 type (
 	HashFunc func(data []byte) (digest [32]byte)
 
@@ -31,6 +33,8 @@ type (
 
 		// cosi
 		CosiInitLoad(cosi *CosiSignature, commitents map[int]PublicKey) error
+		CosiDumps(cosi *CosiSignature) (data []byte, err error)
+		CosiLoads(cosi *CosiSignature, data []byte) (rest []byte, err error)
 		CosiChallenge(cosi *CosiSignature, publics map[int]PublicKey, message []byte) ([32]byte, error)
 		CosiAggregateSignatures(cosi *CosiSignature, sigs map[int]Signature) error
 		CosiFullVerify(publics map[int]PublicKey, message []byte, sig CosiSignature) bool
@@ -39,7 +43,7 @@ type (
 
 var (
 	keyFactory KeyFactory
-	hashFunc   HashFunc
+	hashFunc   HashFunc = sha3.Sum256
 )
 
 func SetKeyFactory(f KeyFactory) {

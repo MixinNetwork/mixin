@@ -1,6 +1,7 @@
 package ed25519
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/crypto"
@@ -29,6 +30,35 @@ func (f keyFactory) CosiInitLoad(cosi *crypto.CosiSignature, commitents map[int]
 	copy(s[:32], RK[:])
 	cosi.Signatures[0] = s
 	return nil
+}
+
+func (f keyFactory) CosiDumps(cosi *crypto.CosiSignature) (data []byte, err error) {
+	sig, ok := cosi.Signatures[0]
+	if !ok {
+		err = fmt.Errorf("invalid signature size")
+		return
+	}
+
+	mask := make([]byte, 8)
+	binary.BigEndian.PutUint64(mask, cosi.Mask)
+	data = append(sig[:], mask...)
+	return
+}
+
+func (f keyFactory) CosiLoads(cosi *crypto.CosiSignature, data []byte) (rest []byte, err error) {
+	if len(data) < 72 {
+		err = fmt.Errorf("invalid challenge message size %d", len(data))
+		return
+	}
+
+	var sig crypto.Signature
+	copy(sig[:], data[:64])
+	cosi.Mask = binary.BigEndian.Uint64(data[64:72])
+	cosi.Signatures = map[int]crypto.Signature{
+		0: sig,
+	}
+	rest = data[72:]
+	return
 }
 
 func (f keyFactory) CosiChallenge(cosi *crypto.CosiSignature, publics map[int]crypto.PublicKey, message []byte) ([32]byte, error) {
