@@ -13,7 +13,7 @@ func TestConfig(t *testing.T) {
 	assert.Nil(err)
 
 	assert.Equal("56a7904a2dfd71c397bb48584033d8cb6ddcde9b46b7d91f07d2ede061723a0b", Custom.Node.Signer.String())
-	assert.Equal(true, Custom.Node.ConsensusOnly)
+	assert.Equal(false, Custom.Node.ConsensusOnly)
 	assert.Equal(700, Custom.Node.KernelOprationPeriod)
 	assert.Equal(16384, Custom.Node.MemoryCacheSize)
 	assert.Equal(7200, Custom.Node.CacheTTL)
