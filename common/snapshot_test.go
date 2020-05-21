@@ -5,8 +5,13 @@ import (
 	"testing"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	ed25519.Load()
+}
 
 func TestSnapshot(t *testing.T) {
 	assert := assert.New(t)
@@ -35,19 +40,21 @@ func TestSnapshot(t *testing.T) {
 	seed := make([]byte, 64)
 	rand.Read(seed)
 	key := crypto.NewKeyFromSeed(seed)
+	rand.Read(seed)
+	pub1 := crypto.NewKeyFromSeed(seed).Public()
 	sign(s, key)
 	assert.Len(s.Signatures, 1)
 	assert.Len(s.VersionedPayload(), 136)
-	assert.False(checkSignature(s, key))
+	assert.False(checkSignature(s, pub1))
 	assert.True(checkSignature(s, key.Public()))
 	sign(s, key)
 	assert.Len(s.Signatures, 1)
 	assert.Len(s.VersionedPayload(), 136)
-	assert.False(checkSignature(s, key))
+	assert.False(checkSignature(s, pub1))
 	assert.True(checkSignature(s, key.Public()))
 }
 
-func checkSignature(s *Snapshot, pub crypto.Key) bool {
+func checkSignature(s *Snapshot, pub crypto.PublicKey) bool {
 	msg := s.PayloadHash()
 	for _, sig := range s.Signatures {
 		if pub.Verify(msg[:], *sig) {
@@ -57,7 +64,7 @@ func checkSignature(s *Snapshot, pub crypto.Key) bool {
 	return false
 }
 
-func sign(s *Snapshot, key crypto.Key) {
+func sign(s *Snapshot, key crypto.PrivateKey) {
 	msg := s.PayloadHash()
 	sig := key.Sign(msg[:])
 	for _, o := range s.Signatures {

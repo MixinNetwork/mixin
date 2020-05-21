@@ -145,7 +145,7 @@ func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
 				return outputAmount, fmt.Errorf("invalid output key %s", k.String())
 			}
 			outputsFilter[k] = true
-			if !k.CheckKey() {
+			if _, err := k.AsPublicKey(); err != nil {
 				return outputAmount, fmt.Errorf("invalid output key format %s", k.String())
 			}
 			exist, err := store.CheckGhost(k)
@@ -198,7 +198,7 @@ func validateUTXO(index int, utxo *UTXO, sigs [][]crypto.Signature, msg []byte, 
 				if i < offset {
 					continue
 				}
-				if k.Verify(msg, sig) {
+				if k.AsPublicKeyPanic().Verify(msg, sig) {
 					valid = valid + 1
 					offset = i + 1
 				}

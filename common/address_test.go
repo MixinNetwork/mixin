@@ -33,8 +33,8 @@ func TestAddress(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal("af8f69545b784e71de5e0a0261cb107aea99e9d7fe0df35537899cd9f05ea644", a.PublicViewKey.String())
 	assert.Equal("36bb0e309e7e9a82f1527df2c6b0e48181589097fe90c1282c558207ea27ce66", a.PublicSpendKey.String())
-	assert.Equal("0000000000000000000000000000000000000000000000000000000000000000", a.PrivateViewKey.String())
-	assert.Equal("0000000000000000000000000000000000000000000000000000000000000000", a.PrivateSpendKey.String())
+	assert.Nil(a.PrivateViewKey)
+	assert.Nil(a.PrivateSpendKey)
 	assert.Equal("013ada6acca01c3ba1fce30afa922a029bb224d4ab158127428b9e85c7175c32", a.Hash().String())
 
 	b, err := NewAddressFromString(addr)
@@ -42,8 +42,8 @@ func TestAddress(t *testing.T) {
 	assert.Equal(addr, b.String())
 	assert.Equal("af8f69545b784e71de5e0a0261cb107aea99e9d7fe0df35537899cd9f05ea644", b.PublicViewKey.String())
 	assert.Equal("36bb0e309e7e9a82f1527df2c6b0e48181589097fe90c1282c558207ea27ce66", b.PublicSpendKey.String())
-	assert.Equal("0000000000000000000000000000000000000000000000000000000000000000", b.PrivateViewKey.String())
-	assert.Equal("0000000000000000000000000000000000000000000000000000000000000000", b.PrivateSpendKey.String())
+	assert.Nil(b.PrivateViewKey)
+	assert.Nil(b.PrivateSpendKey)
 	assert.Equal("013ada6acca01c3ba1fce30afa922a029bb224d4ab158127428b9e85c7175c32", b.Hash().String())
 
 	z := NewAddressFromSeed(make([]byte, 64))

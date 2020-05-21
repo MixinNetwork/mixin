@@ -13,10 +13,10 @@ import (
 const MainNetworkId = "XIN"
 
 type Address struct {
-	PrivateSpendKey crypto.Key
-	PrivateViewKey  crypto.Key
-	PublicSpendKey  crypto.Key
-	PublicViewKey   crypto.Key
+	PrivateSpendKey crypto.PrivateKey
+	PrivateViewKey  crypto.PrivateKey
+	PublicSpendKey  crypto.PublicKey
+	PublicViewKey   crypto.PublicKey
 }
 
 func NewAddressFromSeed(seed []byte) Address {
@@ -47,22 +47,40 @@ func NewAddressFromString(s string) (Address, error) {
 	if !bytes.Equal(checksum[:4], data[64:]) {
 		return a, errors.New("invalid address checksum")
 	}
-	copy(a.PublicSpendKey[:], data[:32])
-	copy(a.PublicViewKey[:], data[32:])
+	var (
+		pubSpend crypto.Key
+		pubView  crypto.Key
+		err      error
+	)
+	copy(pubSpend[:], data[:32])
+	copy(pubView[:], data[32:])
+	if a.PublicSpendKey, err = pubSpend.AsPublicKey(); err != nil {
+		return a, err
+	}
+	if a.PublicViewKey, err = pubView.AsPublicKey(); err != nil {
+		return a, err
+	}
 	return a, nil
 }
 
 func (a Address) String() string {
-	data := append([]byte(MainNetworkId), a.PublicSpendKey[:]...)
-	data = append(data, a.PublicViewKey[:]...)
+	keyBts := a.PublicKeyBytes()
+	data := append([]byte(MainNetworkId), keyBts...)
 	checksum := crypto.NewHash(data)
-	data = append(a.PublicSpendKey[:], a.PublicViewKey[:]...)
-	data = append(data, checksum[:4]...)
+	data = append(keyBts, checksum[:4]...)
 	return MainNetworkId + base58.Encode(data)
 }
 
+func (a Address) PublicKeyBytes() []byte {
+	var (
+		pubSpend = a.PublicSpendKey.Key()
+		pubView  = a.PublicViewKey.Key()
+	)
+	return append(pubSpend[:], pubView[:]...)
+}
+
 func (a Address) Hash() crypto.Hash {
-	return crypto.NewHash(append(a.PublicSpendKey[:], a.PublicViewKey[:]...))
+	return crypto.NewHash(a.PublicKeyBytes())
 }
 
 func (a Address) MarshalJSON() ([]byte, error) {
