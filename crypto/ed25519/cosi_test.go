@@ -17,7 +17,6 @@ func TestCosi(t *testing.T) {
 		randoms    = make(map[int]crypto.PrivateKey, 20)
 		commitents = make(map[int]crypto.PublicKey, 20)
 		publics    = make(map[int]crypto.PublicKey, 20)
-		signatures = make(map[int]crypto.Signature, 20)
 
 		aggPrivate crypto.PrivateKey
 		aggPublic  crypto.PublicKey
@@ -26,20 +25,16 @@ func TestCosi(t *testing.T) {
 
 	for i := 0; i < 20; i++ {
 		var (
-			p   = randomKey()
-			r   = randomKey()
-			P   = p.Public()
-			R   = r.Public()
-			sig crypto.Signature
+			p = randomKey()
+			r = randomKey()
+			P = p.Public()
+			R = r.Public()
 		)
 		privates[i] = p
 		publics[i] = P
 
-		RK := R.Key()
-		copy(sig[:32], RK[:])
 		randoms[i] = r
 		commitents[i] = R
-		signatures[i] = sig
 
 		if i == 0 {
 			aggPrivate = p
@@ -72,15 +67,11 @@ func TestCosi(t *testing.T) {
 		for i, p := range privates {
 			sig := p.SignWithChallenge(randoms[i], raw, hReduced)
 			assert.True(publics[i].VerifyWithChallenge(raw, sig, hReduced))
-
-			signature := signatures[i]
-			copy(signature[32:], sig[32:])
-			signatures[i] = signature
+			assert.Nil(cosi.AggregateSignature(i, sig))
 		}
 
-		assert.Nil(cosi.CosiAggregateSignatures(signatures))
-		signature, ok := cosi.Signatures[0]
-		assert.True(ok)
-		assert.True(aggPublic.Verify(raw, signature))
+		assert.Equal(1, len(cosi.Signatures))
+		assert.True(aggPublic.Verify(raw, cosi.Signatures[0]))
+		assert.True(cosi.FullVerify(pubs, len(pubs), raw))
 	}
 }

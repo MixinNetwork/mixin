@@ -32,11 +32,13 @@ type (
 		PublicKeyFromKey(k Key) (PublicKey, error)
 
 		// cosi
-		CosiInitLoad(cosi *CosiSignature, commitents map[int]PublicKey) error
 		CosiDumps(cosi *CosiSignature) (data []byte, err error)
 		CosiLoads(cosi *CosiSignature, data []byte) (rest []byte, err error)
+		CosiLoadCommitents(cosi *CosiSignature, commitents map[int]PublicKey) error
 		CosiChallenge(cosi *CosiSignature, publics map[int]PublicKey, message []byte) ([32]byte, error)
-		CosiAggregateSignatures(cosi *CosiSignature, sigs map[int]Signature) error
+		CosiAggregateSignature(cosi *CosiSignature, node int, sig Signature) error
+		DumpSignatureResponse(sig Signature) []byte
+		LoadSignatureResponse(cosi *CosiSignature, data []byte) (Signature, error)
 		CosiFullVerify(publics map[int]PublicKey, message []byte, sig CosiSignature) bool
 	}
 )
