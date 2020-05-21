@@ -140,7 +140,7 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 		return fmt.Errorf("no mint available %d %s", batch, amount.String())
 	}
 	mint := tx.Inputs[0].Mint
-	if mint.Batch != uint64(batch) && mint.Amount.Cmp(amount) != 0 {
+	if mint.Batch != uint64(batch) || mint.Amount.Cmp(amount) != 0 {
 		return fmt.Errorf("invalid mint data %d %s", batch, amount.String())
 	}
 
