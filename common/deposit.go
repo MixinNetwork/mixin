@@ -81,7 +81,7 @@ func (tx *SignedTransaction) validateDeposit(store DataStore, msg []byte, payloa
 
 	sig, valid := tx.Signatures[0][0], false
 	for _, d := range store.ReadDomains() {
-		if d.Account.PublicSpendKey.Verify(msg, sig) {
+		if d.Account.PublicSpendKey.Verify(msg, &sig) {
 			valid = true
 		}
 	}

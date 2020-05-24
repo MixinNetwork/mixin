@@ -13,7 +13,7 @@ func TestSignature(t *testing.T) {
 	for i := 0; i < len(seed); i++ {
 		seed[i] = byte(i + 1)
 	}
-	key1 := NewPrivateKeyFromSeedPanic(seed)
+	key1 := NewPrivateKeyFromSeedOrPanic(seed)
 	pub1 := key1.Public()
 
 	sig1 := key1.Sign(seed[:32])
@@ -31,7 +31,7 @@ func TestSignature(t *testing.T) {
 
 	seed2 := make([]byte, 64)
 	copy(seed2, sig1[:])
-	key2 := NewPrivateKeyFromSeedPanic(seed2)
+	key2 := NewPrivateKeyFromSeedOrPanic(seed2)
 
 	sig3 := key2.Sign(seed[:32])
 	assert.Equal("6876535147490eca84e7c6402de90bb33bc8908431e7d7397bee13c740397c3726b7e8ae4169ef3459f3ee07e94d2b5324ae27585ff6e64e133cbecf56864c0d", sig3.String())

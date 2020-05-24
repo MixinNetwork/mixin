@@ -24,7 +24,7 @@ func TestKey(t *testing.T) {
 	for i := 0; i < len(seed); i++ {
 		seed[i] = byte(i + 1)
 	}
-	key := NewPrivateKeyFromSeedPanic(seed)
+	key := NewPrivateKeyFromSeedOrPanic(seed)
 	assert.Equal("c91e0907d114fd83c1edc396490bb2dafa43c19815b0354e70dc80c317c3cb0a", key.Key().String())
 	assert.Equal("36bb0e309e7e9a82f1527df2c6b0e48181589097fe90c1282c558207ea27ce66", key.Public().Key().String())
 
@@ -36,7 +36,7 @@ func TestKey(t *testing.T) {
 	err = k.UnmarshalJSON(j)
 	assert.Nil(err)
 	assert.Equal("c91e0907d114fd83c1edc396490bb2dafa43c19815b0354e70dc80c317c3cb0a", k.String())
-	assert.Equal("36bb0e309e7e9a82f1527df2c6b0e48181589097fe90c1282c558207ea27ce66", k.AsPrivateKeyPanic().Public().Key().String())
+	assert.Equal("36bb0e309e7e9a82f1527df2c6b0e48181589097fe90c1282c558207ea27ce66", k.AsPrivateKeyOrPanic().Public().Key().String())
 
 	sig := key.Sign(seed)
 	assert.True(key.Public().Verify(seed, sig))
@@ -45,5 +45,5 @@ func TestKey(t *testing.T) {
 func randomKey() *Key {
 	seed := make([]byte, 64)
 	rand.Read(seed)
-	return NewPrivateKeyFromSeedPanic(seed)
+	return NewPrivateKeyFromSeedOrPanic(seed)
 }

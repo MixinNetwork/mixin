@@ -146,13 +146,13 @@ func (node *Node) buildRemoveTransaction(candi *common.Node) (*common.VersionedT
 	if accept.PayloadHash() != candi.Transaction {
 		return nil, fmt.Errorf("accept transaction malformed %s %s", candi.Transaction, accept.PayloadHash())
 	}
-	signer := candi.Signer.PublicSpendKey
-	payee := candi.Payee.PublicSpendKey[:]
+	signer := candi.Signer.PublicSpendKey.Key()
+	payee := candi.Payee.PublicSpendKey.Key()
 	if len(accept.Extra) != len(signer)*2 {
 		return nil, fmt.Errorf("invalid accept transaction extra %s", hex.EncodeToString(accept.Extra))
 	}
-	if bytes.Compare(append(signer[:], payee...), accept.Extra) != 0 {
-		return nil, fmt.Errorf("invalid accept transaction extra %s %s %s", hex.EncodeToString(accept.Extra), signer, hex.EncodeToString(payee))
+	if bytes.Compare(append(signer[:], payee[:]...), accept.Extra) != 0 {
+		return nil, fmt.Errorf("invalid accept transaction extra %s %s %s", hex.EncodeToString(accept.Extra), signer, hex.EncodeToString(payee[:]))
 	}
 
 	tx := common.NewTransaction(common.XINAssetId)
@@ -185,7 +185,7 @@ func (node *Node) tryToSendAcceptTransaction() error {
 	if pledge.PayloadHash() != pledging.Transaction {
 		return fmt.Errorf("pledge transaction malformed %s %s", pledging.Transaction, pledge.PayloadHash())
 	}
-	signer := node.Signer.PublicSpendKey
+	signer := node.Signer.PublicSpendKey.Key()
 	if len(pledge.Extra) != len(signer)*2 {
 		return fmt.Errorf("invalid pledge transaction extra %s", hex.EncodeToString(pledge.Extra))
 	}
@@ -418,12 +418,14 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 	var a crypto.Key
 	copy(a[:], tx.Extra[len(crypto.Key{})*2:])
-	pledgeSpend := crypto.ViewGhostOutputKey(&pi.Keys[0], &a, &pi.Mask, uint64(pledge.Inputs[0].Index))
-	targetSpend := crypto.ViewGhostOutputKey(&script.Keys[0], &a, &script.Mask, 1)
+	pledgeSpend := crypto.ViewGhostOutputKey(pi.Mask.AsPublicKeyOrPanic(), pi.Keys[0].AsPublicKeyOrPanic(), a.AsPrivateKeyOrPanic(), uint64(pledge.Inputs[0].Index))
+	targetSpend := crypto.ViewGhostOutputKey(script.Mask.AsPublicKeyOrPanic(), script.Keys[0].AsPublicKeyOrPanic(), a.AsPrivateKeyOrPanic(), 1)
 	if bytes.Compare(pledge.Extra, tx.Extra[:len(crypto.Key{})*2]) != 0 {
 		return fmt.Errorf("invalid pledge and accpet key %s %s", hex.EncodeToString(pledge.Extra), hex.EncodeToString(tx.Extra))
 	}
-	if bytes.Compare(pledgeSpend[:], targetSpend[:]) != 0 {
+	pledgeSpendKey := pledgeSpend.Key()
+	targetSpendKey := targetSpend.Key()
+	if bytes.Compare(pledgeSpendKey[:], targetSpendKey[:]) != 0 {
 		return fmt.Errorf("invalid pledge and cancel target %s %s", pledgeSpend, targetSpend)
 	}
 

@@ -9,10 +9,15 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/crypto/ed25519"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	ed25519.Load()
+}
 
 func TestNodeRemovePossibility(t *testing.T) {
 	assert := assert.New(t)
@@ -75,7 +80,7 @@ func TestNodeRemovePossibility(t *testing.T) {
 	mask := tx.Outputs[0].Mask
 	ghost := tx.Outputs[0].Keys[0]
 	view := payee.PublicSpendKey.DeterministicHashDerive()
-	assert.Equal(payee.PublicSpendKey.String(), crypto.ViewGhostOutputKey(&ghost, &view, &mask, 0).String())
+	assert.Equal(payee.PublicSpendKey.String(), crypto.ViewGhostOutputKey(mask.AsPublicKeyOrPanic(), ghost.AsPublicKeyOrPanic(), view, 0).String())
 }
 
 var configData = []byte(`[node]

@@ -121,7 +121,11 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 
 func (node *Node) LoadNodeConfig() {
 	var addr common.Address
+<<<<<<< HEAD
 	addr.PrivateSpendKey = node.custom.Node.Signer
+=======
+	addr.PrivateSpendKey = config.Custom.Node.Signer.AsPrivateKeyOrPanic()
+>>>>>>> 6b61853... MOD: kernel refractor; etc.
 	addr.PublicSpendKey = addr.PrivateSpendKey.Public()
 	addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
 	addr.PublicViewKey = addr.PrivateViewKey.Public()
@@ -129,18 +133,18 @@ func (node *Node) LoadNodeConfig() {
 	node.Listener = node.custom.Network.Listener
 }
 
-func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
+func (node *Node) ConsensusKeys(timestamp uint64) []crypto.PublicKey {
 	if timestamp == 0 {
 		timestamp = uint64(clock.Now().UnixNano())
 	}
 
-	var keys []*crypto.Key
+	var keys []crypto.PublicKey
 	for _, cn := range node.ActiveNodes {
 		if cn.State != common.NodeStateAccepted {
 			continue
 		}
 		if node.genesisNodesMap[cn.IdForNetwork(node.networkId)] || cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) < timestamp {
-			keys = append(keys, &cn.Signer.PublicSpendKey)
+			keys = append(keys, cn.Signer.PublicSpendKey)
 		}
 	}
 	return keys
@@ -299,7 +303,8 @@ func (node *Node) BuildGraph() []*network.SyncPoint {
 func (node *Node) BuildAuthenticationMessage() []byte {
 	data := make([]byte, 8)
 	binary.BigEndian.PutUint64(data, uint64(clock.Now().Unix()))
-	data = append(data, node.Signer.PublicSpendKey[:]...)
+	pubSpendKey := node.Signer.PublicSpendKey.Key()
+	data = append(data, pubSpendKey[:]...)
 	sig := node.Signer.PrivateSpendKey.Sign(data)
 	data = append(data, sig[:]...)
 	return append(data, []byte(node.Listener)...)
@@ -314,8 +319,11 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication message timeout %d %d", ts, clock.Now().Unix())
 	}
 
-	var signer common.Address
-	copy(signer.PublicSpendKey[:], msg[8:40])
+	var signerKey crypto.Key
+	copy(signerKey[:], msg[8:40])
+	var signer = common.Address{
+		PublicSpendKey: signerKey.AsPublicKeyOrPanic(),
+	}
 	signer.PublicViewKey = signer.PublicSpendKey.DeterministicHashDerive().Public()
 	peerId := signer.Hash().ForNetwork(node.networkId)
 	if peerId == node.IdForNetwork {
@@ -332,7 +340,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 
 	var sig crypto.Signature
 	copy(sig[:], msg[40:40+len(sig)])
-	if !signer.PublicSpendKey.Verify(msg[:40], sig) {
+	if !signer.PublicSpendKey.Verify(msg[:40], &sig) {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
 	}
 
@@ -393,7 +401,7 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 func (node *Node) CheckBroadcastedToPeers() bool {
 	count, threshold := 1, node.ConsensusThreshold(0)
 	final := node.Graph.MyFinalNumber
-	for id, _ := range node.ConsensusNodes {
+	for id := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
 		if remote == nil {
 			continue
@@ -410,7 +418,7 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 	cache := node.Graph.MyCacheRound
 	updated, threshold := 1, node.ConsensusThreshold(0)
 
-	for id, _ := range node.ConsensusNodes {
+	for id := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
 		if remote == nil {
 			continue

@@ -51,9 +51,9 @@ func TestMsgpack(t *testing.T) {
 	mask := parseKeyFromHex(utxoMask)
 	view := sender.Address().PrivateViewKey
 	spend := sender.Address().PrivateSpendKey
-	priv := crypto.DeriveGhostPrivateKey(mask.AsPublicKeyPanic(), view, spend, uint64(utxoIndex))
+	priv := crypto.DeriveGhostPrivateKey(mask.AsPublicKeyOrPanic(), view, spend, uint64(utxoIndex))
 	sig := priv.Sign(msg)
-	signed.Signatures = append(signed.Signatures, []crypto.Signature{sig})
+	signed.Signatures = append(signed.Signatures, []crypto.Signature{*sig})
 	raw := MsgpackMarshalPanic(signed)
 
 	assert.Len(hex.EncodeToString(raw), 930)
@@ -71,8 +71,8 @@ type MixinKey struct {
 
 func (mk *MixinKey) Address() Address {
 	a := Address{
-		PrivateViewKey:  parseKeyFromHex(mk.ViewKey).AsPrivateKeyPanic(),
-		PrivateSpendKey: parseKeyFromHex(mk.SpendKey).AsPrivateKeyPanic(),
+		PrivateViewKey:  parseKeyFromHex(mk.ViewKey).AsPrivateKeyOrPanic(),
+		PrivateSpendKey: parseKeyFromHex(mk.SpendKey).AsPrivateKeyOrPanic(),
 	}
 	a.PublicViewKey = a.PrivateViewKey.Public()
 	a.PublicSpendKey = a.PrivateSpendKey.Public()

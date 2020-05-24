@@ -5,42 +5,52 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"strconv"
 )
 
 type Key [32]byte
+type Response [32]byte
+type Commitment Key
 
-func NewKeyFromSeed(seed []byte) PrivateKey {
-	return keyFactory.NewPrivateKeyFromSeedPanic(seed)
+var (
+	emptyKey = Key{}
+)
+
+func NewPrivateKeyFromReader(randReader io.Reader) PrivateKey {
+	var seed = make([]byte, 64)
+	n, err := randReader.Read(seed[:])
+	if err != nil {
+		return nil
+	}
+	if n != len(seed) {
+		panic(fmt.Errorf("rand read %d %d", len(seed), n))
+	}
+	return keyFactory.NewPrivateKeyFromSeedOrPanic(seed)
 }
 
-func KeyFromString(s string) (Key, error) {
+func NewPrivateKeyFromSeed(seed []byte) PrivateKey {
+	return keyFactory.NewPrivateKeyFromSeedOrPanic(seed)
+}
+
+func KeyFromString(s string) (*Key, error) {
 	var key Key
 	b, err := hex.DecodeString(s)
 	if err != nil {
-		return key, err
+		return nil, err
 	}
 	if len(b) != len(key) {
-		return key, fmt.Errorf("invalid key size %d", len(b))
+		return nil, fmt.Errorf("invalid key size %d", len(b))
 	}
 	copy(key[:], b)
-	return key, nil
-}
-
-func (k Key) HasValue() bool {
-	empty := Key{}
-	return bytes.Compare(k[:], empty[:]) != 0
-}
-
-func (k Key) String() string {
-	return hex.EncodeToString(k[:])
+	return &key, nil
 }
 
 func (k Key) AsPrivateKey() (PrivateKey, error) {
 	return keyFactory.PrivateKeyFromKey(k)
 }
 
-func (k Key) AsPrivateKeyPanic() PrivateKey {
+func (k Key) AsPrivateKeyOrPanic() PrivateKey {
 	key, err := keyFactory.PrivateKeyFromKey(k)
 	if err != nil {
 		panic(err)
@@ -52,12 +62,20 @@ func (k Key) AsPublicKey() (PublicKey, error) {
 	return keyFactory.PublicKeyFromKey(k)
 }
 
-func (k Key) AsPublicKeyPanic() PublicKey {
+func (k Key) AsPublicKeyOrPanic() PublicKey {
 	key, err := keyFactory.PublicKeyFromKey(k)
 	if err != nil {
 		panic(err)
 	}
 	return key
+}
+
+func (k Key) HasValue() bool {
+	return bytes.Compare(k[:], emptyKey[:]) != 0
+}
+
+func (k Key) String() string {
+	return hex.EncodeToString(k[:])
 }
 
 func (k Key) MarshalJSON() ([]byte, error) {
@@ -81,7 +99,7 @@ func (k *Key) UnmarshalJSON(b []byte) error {
 }
 
 // Scan implements the sql.Scanner interface for database deserialization.
-func (k *Key) Scan(value interface{}) (err error) {
+func (k *Key) Scan(value interface{}) error {
 	var s string
 	switch v := value.(type) {
 	case string:
@@ -89,8 +107,12 @@ func (k *Key) Scan(value interface{}) (err error) {
 	case []byte:
 		s = string(v)
 	}
-	*k, err = KeyFromString(s)
-	return
+	key, err := KeyFromString(s)
+	if err != nil {
+		return err
+	}
+	copy(k[:], key[:])
+	return nil
 }
 
 // Value implements the driver.Valuer interface for database serialization.

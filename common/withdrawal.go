@@ -159,9 +159,9 @@ func (tx *SignedTransaction) validateWithdrawalClaim(store DataStore, inputs map
 		domainValid = true
 		view := d.Account.PublicSpendKey.DeterministicHashDerive()
 		for _, utxo := range inputs {
-			mask := utxo.Mask.AsPublicKeyPanic()
+			mask := utxo.Mask.AsPublicKeyOrPanic()
 			for _, key := range utxo.Keys {
-				ghost := crypto.ViewGhostOutputKey(mask, key.AsPublicKeyPanic(), view, uint64(utxo.Index))
+				ghost := crypto.ViewGhostOutputKey(mask, key.AsPublicKeyOrPanic(), view, uint64(utxo.Index))
 				valid := ghost == d.Account.PublicSpendKey
 				domainValid = domainValid && valid
 			}

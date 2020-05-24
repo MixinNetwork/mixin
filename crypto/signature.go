@@ -8,6 +8,10 @@ import (
 
 type Signature [64]byte
 
+func (s *Signature) WithCommitment(commitment *Commitment) {
+	keyFactory.UpdateSignatureCommitment(s, commitment)
+}
+
 func (s Signature) String() string {
 	return hex.EncodeToString(s[:])
 }

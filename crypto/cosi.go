@@ -1,57 +1,29 @@
 package crypto
 
 import (
+	"encoding/hex"
 	"fmt"
-	"io"
 )
 
 type CosiSignature struct {
 	Signatures []Signature `json:"signatures"`
 	Mask       uint64      `json:"mask"`
-	sigMask    uint64      `json:"-" msgpack:"-"`
+	sigMask    uint64      `msgpack:"-"`
 }
 
-func CosiCommit(randReader io.Reader) (PrivateKey, error) {
-	var messageDigest [64]byte
-	n, err := randReader.Read(messageDigest[:])
-	if err != nil {
-		return nil, err
-	}
-	if n != len(messageDigest) {
-		return nil, fmt.Errorf("rand read %d %d", len(messageDigest), n)
-	}
-	return keyFactory.NewPrivateKeyFromSeed(messageDigest[:])
-}
-
-func CosiCommitPanic(randReader io.Reader) PrivateKey {
-	key, err := CosiCommit(randReader)
-	if err != nil {
-		panic(err)
-	}
-	return key
-}
-
-func CosiAggregateCommitment(commitents map[int]PublicKey) (*CosiSignature, error) {
+func CosiAggregateCommitments(commitments map[int]*Commitment) (*CosiSignature, error) {
 	cosi := CosiSignature{}
-	for i := range commitents {
+	for i := range commitments {
 		err := cosi.Mark(i)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if err := keyFactory.CosiLoadCommitents(&cosi, commitents); err != nil {
+	if err := keyFactory.CosiAggregateCommitments(&cosi, commitments); err != nil {
 		return nil, err
 	}
 	cosi.sigMask = cosi.Mask
 	return &cosi, nil
-}
-
-func (c *CosiSignature) Dumps() ([]byte, error) {
-	return keyFactory.CosiDumps(c)
-}
-
-func (c *CosiSignature) Loads(data []byte) (rest []byte, err error) {
-	return keyFactory.CosiLoads(c, data)
 }
 
 func (c *CosiSignature) Mark(i int) error {
@@ -82,6 +54,17 @@ func (c *CosiSignature) Keys() []int {
 	return keys
 }
 
+func (c *CosiSignature) SignatureMasks() uint64 {
+	return c.sigMask
+}
+
+func (c *CosiSignature) SignatureAggregated(i int) bool {
+	if i >= 64 || i < 0 {
+		return false
+	}
+	return c.sigMask^(1<<uint64(i)) == c.sigMask
+}
+
 func (c *CosiSignature) MarkSignature(i int) error {
 	if i >= 64 || i < 0 {
 		return fmt.Errorf("invalid cosi signature mask index %d", i)
@@ -90,18 +73,7 @@ func (c *CosiSignature) MarkSignature(i int) error {
 	return nil
 }
 
-func (c *CosiSignature) SignatureAggregated(i int) bool {
-	if i >= 64 || i < 0 {
-		return false
-	}
-	return c.sigMask^(1<<uint64(i)) != c.sigMask
-}
-
-func (c *CosiSignature) SignatureMasks() uint64 {
-	return c.sigMask
-}
-
-func (c *CosiSignature) publicKeys(allPublics []PublicKey) (map[int]PublicKey, error) {
+func (c *CosiSignature) filterPublicKeys(allPublics []PublicKey) (map[int]PublicKey, error) {
 	var keys = make(map[int]PublicKey)
 	for _, i := range c.Keys() {
 		if i >= len(allPublics) {
@@ -113,24 +85,27 @@ func (c *CosiSignature) publicKeys(allPublics []PublicKey) (map[int]PublicKey, e
 }
 
 func (c *CosiSignature) Challenge(allPublics []PublicKey, message []byte) ([32]byte, error) {
-	pubs, err := c.publicKeys(allPublics)
+	pubs, err := c.filterPublicKeys(allPublics)
 	if err != nil {
 		return [32]byte{}, err
 	}
 	return keyFactory.CosiChallenge(c, pubs, message)
 }
 
-func (c *CosiSignature) AggregateSignature(node int, sig Signature) error {
+func (c *CosiSignature) AggregateSignature(node int, sig *Signature) error {
 	index := c.KeyIndex(node)
 	if index < 0 {
 		return fmt.Errorf("invalid node %d", node)
 	}
 
 	// already added
-	if c.sigMask^(1<<uint64(index)) == c.sigMask {
+	if c.SignatureAggregated(node) {
 		return nil
 	}
-	return keyFactory.CosiAggregateSignature(c, index, sig)
+	if err := keyFactory.CosiAggregateSignature(c, index, sig); err != nil {
+		return err
+	}
+	return c.MarkSignature(node)
 }
 
 func (c *CosiSignature) ThresholdVerify(threshold int) bool {
@@ -144,13 +119,29 @@ func (c *CosiSignature) FullVerify(publics []PublicKey, threshold int, message [
 	if !c.ThresholdVerify(threshold) {
 		return false
 	}
-	pubs, err := c.publicKeys(publics)
+	pubs, err := c.filterPublicKeys(publics)
 	if err != nil {
 		return false
 	}
-	return keyFactory.CosiFullVerify(pubs, message, *c)
+	return keyFactory.CosiFullVerify(pubs, message, c)
 }
 
-func (c *CosiSignature) DumpSignatureResponse(sig Signature) []byte {
+func (c CosiSignature) String() string {
+	return hex.EncodeToString(c.Dumps())
+}
+
+func (c CosiSignature) Dumps() []byte {
+	return keyFactory.CosiDumps(&c)
+}
+
+func (c *CosiSignature) Loads(data []byte) (rest []byte, err error) {
+	return keyFactory.CosiLoads(c, data)
+}
+
+func (c *CosiSignature) DumpSignatureResponse(sig *Signature) *Response {
 	return keyFactory.DumpSignatureResponse(sig)
+}
+
+func (c *CosiSignature) LoadResponseSignature(commitment *Commitment, response *Response) (*Signature, error) {
+	return keyFactory.LoadResponseSignature(c, commitment, response)
 }

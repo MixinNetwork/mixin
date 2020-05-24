@@ -140,7 +140,7 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs [][]
 	}
 	var publicSpendKey crypto.Key
 	copy(publicSpendKey[:], lastPledge.Extra)
-	publicSpend := publicSpendKey.AsPublicKeyPanic()
+	publicSpend := publicSpendKey.AsPublicKeyOrPanic()
 	privateView := publicSpend.DeterministicHashDerive()
 	acc := Address{
 		PublicViewKey:  privateView.Public(),
@@ -163,15 +163,15 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs [][]
 	}
 	var a crypto.Key
 	copy(a[:], tx.Extra[len(crypto.Key{})*2:])
-	pledgeSpend := crypto.ViewGhostOutputKey(pi.Mask.AsPublicKeyPanic(), pi.Keys[0].AsPublicKeyPanic(), a.AsPrivateKeyPanic(), uint64(lastPledge.Inputs[0].Index)).Key()
-	targetSpend := crypto.ViewGhostOutputKey(script.Mask.AsPublicKeyPanic(), script.Keys[0].AsPublicKeyPanic(), a.AsPrivateKeyPanic(), 1).Key()
+	pledgeSpend := crypto.ViewGhostOutputKey(pi.Mask.AsPublicKeyOrPanic(), pi.Keys[0].AsPublicKeyOrPanic(), a.AsPrivateKeyOrPanic(), uint64(lastPledge.Inputs[0].Index)).Key()
+	targetSpend := crypto.ViewGhostOutputKey(script.Mask.AsPublicKeyOrPanic(), script.Keys[0].AsPublicKeyOrPanic(), a.AsPrivateKeyOrPanic(), 1).Key()
 	if bytes.Compare(lastPledge.Extra, tx.Extra[:len(crypto.Key{})*2]) != 0 {
 		return fmt.Errorf("invalid pledge and cancel key %s %s", hex.EncodeToString(lastPledge.Extra), hex.EncodeToString(tx.Extra))
 	}
 	if bytes.Compare(pledgeSpend[:], targetSpend[:]) != 0 {
 		return fmt.Errorf("invalid pledge and cancel target %s %s", pledgeSpend, targetSpend)
 	}
-	if !pi.Keys[0].AsPublicKeyPanic().Verify(msg, sigs[0][0]) {
+	if !pi.Keys[0].AsPublicKeyOrPanic().Verify(msg, &sigs[0][0]) {
 		return fmt.Errorf("invalid cancel signature %s", sigs[0][0])
 	}
 	return nil
@@ -224,7 +224,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 	}
 	var publicSpendKey crypto.Key
 	copy(publicSpendKey[:], lastPledge.Extra)
-	publicSpend := publicSpendKey.AsPublicKeyPanic()
+	publicSpend := publicSpendKey.AsPublicKeyOrPanic()
 	acc := Address{
 		PublicViewKey:  publicSpend.DeterministicHashDerive().Public(),
 		PublicSpendKey: publicSpend,

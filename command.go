@@ -29,19 +29,19 @@ func createAdressCmd(c *cli.Context) error {
 	}
 	addr := common.NewAddressFromSeed(seed)
 	if view := c.String("view"); len(view) > 0 {
-		key, err := hex.DecodeString(view)
+		key, err := crypto.KeyFromString(view)
 		if err != nil {
 			return err
 		}
-		copy(addr.PrivateViewKey[:], key)
+		addr.PrivateViewKey = key.AsPrivateKeyOrPanic()
 		addr.PublicViewKey = addr.PrivateViewKey.Public()
 	}
 	if spend := c.String("spend"); len(spend) > 0 {
-		key, err := hex.DecodeString(spend)
+		key, err := crypto.KeyFromString(spend)
 		if err != nil {
 			return err
 		}
-		copy(addr.PrivateSpendKey[:], key)
+		addr.PrivateSpendKey = key.AsPrivateKeyOrPanic()
 		addr.PublicSpendKey = addr.PrivateSpendKey.Public()
 	}
 	if c.Bool("public") {
@@ -80,10 +80,11 @@ func decryptGhostCmd(c *cli.Context) error {
 		return err
 	}
 
-	spend := crypto.ViewGhostOutputKey(&key, &view, &mask, c.Uint64("index"))
+	privView := view.AsPrivateKeyOrPanic()
+	spend := crypto.ViewGhostOutputKey(mask.AsPublicKeyOrPanic(), key.AsPublicKeyOrPanic(), privView, c.Uint64("index"))
 	addr := common.Address{
-		PublicViewKey:  view.Public(),
-		PublicSpendKey: *spend,
+		PublicViewKey:  privView.Public(),
+		PublicSpendKey: spend,
 	}
 	fmt.Printf(addr.String())
 	return nil
@@ -243,21 +244,28 @@ func signTransactionCmd(c *cli.Context) error {
 	keys := c.StringSlice("key")
 	var accounts []common.Address
 	for _, s := range keys {
-		key, err := hex.DecodeString(s)
+		if len(s) != 128 {
+			return fmt.Errorf("invalid key length %d", len(s))
+		}
+
+		viewKey, err := crypto.KeyFromString(s[:64])
 		if err != nil {
 			return err
 		}
-		if len(key) != 64 {
-			return fmt.Errorf("invalid key length %d", len(key))
+
+		spendKey, err := crypto.KeyFromString(s[64:])
+		if err != nil {
+			return err
 		}
+
 		var account common.Address
-		copy(account.PrivateViewKey[:], key[:32])
-		copy(account.PrivateSpendKey[:], key[32:])
+		account.PrivateViewKey = viewKey.AsPrivateKeyOrPanic()
+		account.PrivateSpendKey = spendKey.AsPrivateKeyOrPanic()
 		accounts = append(accounts, account)
 	}
 
 	signed := tx.AsLatestVersion()
-	for i, _ := range signed.Inputs {
+	for i := range signed.Inputs {
 		err := signed.SignInput(raw, i, accounts)
 		if err != nil {
 			return err
@@ -291,11 +299,19 @@ func pledgeNodeCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	view, err := viewKey.AsPrivateKey()
+	if err != nil {
+		return err
+	}
+	spend, err := spendKey.AsPrivateKey()
+	if err != nil {
+		return err
+	}
 	account := common.Address{
-		PrivateViewKey:  viewKey,
-		PrivateSpendKey: spendKey,
-		PublicViewKey:   viewKey.Public(),
-		PublicSpendKey:  spendKey.Public(),
+		PrivateViewKey:  view,
+		PrivateSpendKey: spend,
+		PublicViewKey:   view.Public(),
+		PublicSpendKey:  spend.Public(),
 	}
 
 	signer, err := common.NewAddressFromString(c.String("signer"))
@@ -323,7 +339,9 @@ func pledgeNodeCmd(c *cli.Context) error {
 	tx := common.NewTransaction(common.XINAssetId)
 	tx.AddInput(input, 0)
 	tx.AddOutputWithType(common.OutputTypeNodePledge, nil, common.Script{}, amount, seed)
-	tx.Extra = append(signer.PublicSpendKey[:], payee.PublicSpendKey[:]...)
+	signerPublicSpendKey := signer.PublicSpendKey.Key()
+	payeePublicSpendKey := payee.PublicSpendKey.Key()
+	tx.Extra = append(signerPublicSpendKey[:], payeePublicSpendKey[:]...)
 
 	signed := tx.AsLatestVersion()
 	err = signed.SignInput(raw, 0, []common.Address{account})
@@ -348,15 +366,23 @@ func cancelNodeCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	view, err := viewKey.AsPrivateKey()
+	if err != nil {
+		return err
+	}
+	spend, err := spendKey.AsPrivateKey()
+	if err != nil {
+		return err
+	}
 	receiver, err := common.NewAddressFromString(c.String("receiver"))
 	if err != nil {
 		return err
 	}
 	account := common.Address{
-		PrivateViewKey:  viewKey,
-		PrivateSpendKey: spendKey,
-		PublicViewKey:   viewKey.Public(),
-		PublicSpendKey:  spendKey.Public(),
+		PrivateViewKey:  view,
+		PrivateSpendKey: spend,
+		PublicViewKey:   view.Public(),
+		PublicSpendKey:  spend.Public(),
 	}
 	if account.String() != receiver.String() {
 		return fmt.Errorf("invalid key and receiver %s %s", account, receiver)
@@ -392,7 +418,7 @@ func cancelNodeCmd(c *cli.Context) error {
 	if len(source.Outputs) != 1 || len(source.Outputs[0].Keys) != 1 {
 		return fmt.Errorf("invalid source transaction outputs %d %d", len(source.Outputs), len(source.Outputs[0].Keys))
 	}
-	pig := crypto.ViewGhostOutputKey(&source.Outputs[0].Keys[0], &viewKey, &source.Outputs[0].Mask, 0)
+	pig := crypto.ViewGhostOutputKey(source.Outputs[0].Mask.AsPublicKeyOrPanic(), source.Outputs[0].Keys[0].AsPublicKeyOrPanic(), view, 0)
 	if pig.String() != receiver.PublicSpendKey.String() {
 		return fmt.Errorf("invalid source and receiver %s %s", pig.String(), receiver.PublicSpendKey)
 	}
@@ -434,11 +460,19 @@ func decodePledgeNodeCmd(c *cli.Context) error {
 	if len(pledge.Extra) != len(crypto.Key{})*2 {
 		return fmt.Errorf("invalid extra %s", hex.EncodeToString(pledge.Extra))
 	}
-	signerPublicSpend, err := crypto.KeyFromString(hex.EncodeToString(pledge.Extra[:32]))
+	signerPublicSpendKey, err := crypto.KeyFromString(hex.EncodeToString(pledge.Extra[:32]))
 	if err != nil {
 		return err
 	}
-	payeePublicSpend, err := crypto.KeyFromString(hex.EncodeToString(pledge.Extra[32:]))
+	payeePublicSpendKey, err := crypto.KeyFromString(hex.EncodeToString(pledge.Extra[32:]))
+	if err != nil {
+		return err
+	}
+	signerPublicSpend, err := signerPublicSpendKey.AsPublicKey()
+	if err != nil {
+		return err
+	}
+	payeePublicSpend, err := payeePublicSpendKey.AsPublicKey()
 	if err != nil {
 		return err
 	}
@@ -596,7 +630,7 @@ func setupTestNetCmd(c *cli.Context) error {
 	}
 
 	inputs := make([]map[string]string, 0)
-	for i, _ := range signers {
+	for i := range signers {
 		inputs = append(inputs, map[string]string{
 			"signer":  signers[i].String(),
 			"payee":   payees[i].String(),

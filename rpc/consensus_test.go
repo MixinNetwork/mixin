@@ -161,7 +161,7 @@ func TestConsensus(t *testing.T) {
 	nodes := make([]*Node, 0)
 	instances := make([]*kernel.Node, 0)
 	stores := make([]storage.Store, 0)
-	for i, _ := range accounts {
+	for i := range accounts {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
 		custom, err := config.Initialize(dir + "/config.toml")
 		assert.Nil(err)
@@ -587,7 +587,7 @@ func setupTestNet(root string) ([]common.Address, []common.Address, []byte, []by
 	}
 
 	inputs := make([]map[string]string, 0)
-	for i, _ := range signers {
+	for i := range signers {
 		inputs = append(inputs, map[string]string{
 			"signer":  signers[i].String(),
 			"payee":   payees[i].String(),
@@ -690,7 +690,7 @@ func testSignTransaction(node string, account common.Address, rawStr string) (*c
 	tx.Extra = extra
 
 	signed := &common.SignedTransaction{Transaction: *tx}
-	for i, _ := range signed.Inputs {
+	for i := range signed.Inputs {
 		err := signed.SignInput(raw, i, []common.Address{account})
 		if err != nil {
 			return nil, err
@@ -718,12 +718,12 @@ func testVerifySnapshots(assert *assert.Assertions, nodes []*Node) (int, int) {
 	for i := 0; i < len(filters)-1; i++ {
 		a, b := filters[i], filters[i+1]
 		m, n := make(map[string]bool), make(map[string]bool)
-		for k, _ := range a {
+		for k := range a {
 			s[k] = true
 			t[a[k].Transaction.String()] = true
 			m[a[k].Transaction.String()] = true
 		}
-		for k, _ := range b {
+		for k := range b {
 			s[k] = true
 			t[b[k].Transaction.String()] = true
 			n[b[k].Transaction.String()] = true

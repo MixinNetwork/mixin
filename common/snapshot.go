@@ -39,10 +39,10 @@ type Snapshot struct {
 	References  *RoundLink            `json:"references"`
 	RoundNumber uint64                `json:"round"`
 	Timestamp   uint64                `json:"timestamp"`
-	Signatures  []*crypto.Signature   `json:"signatures,omitempty"msgpack:",omitempty"`
-	Signature   *crypto.CosiSignature `json:"signature,omitempty"msgpack:",omitempty"`
-	Hash        crypto.Hash           `msgpack:"-"json:"hash"`
-	Commitment  *crypto.Key           `msgpack:"-"json:"-"`
+	Signatures  []*crypto.Signature   `json:"signatures,omitempty" msgpack:",omitempty"`
+	Signature   *crypto.CosiSignature `json:"signature,omitempty" msgpack:",omitempty"`
+	Hash        crypto.Hash           `msgpack:"-" json:"hash"`
+	Commitment  *crypto.Commitment    `msgpack:"-" json:"-"`
 }
 
 type SnapshotWithTopologicalOrder struct {

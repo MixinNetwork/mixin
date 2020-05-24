@@ -39,9 +39,9 @@ func TestSnapshot(t *testing.T) {
 
 	seed := make([]byte, 64)
 	rand.Read(seed)
-	key := crypto.NewKeyFromSeed(seed)
+	key := crypto.NewPrivateKeyFromSeed(seed)
 	rand.Read(seed)
-	pub1 := crypto.NewKeyFromSeed(seed).Public()
+	pub1 := crypto.NewPrivateKeyFromSeed(seed).Public()
 	sign(s, key)
 	assert.Len(s.Signatures, 1)
 	assert.Len(s.VersionedPayload(), 136)
@@ -57,7 +57,7 @@ func TestSnapshot(t *testing.T) {
 func checkSignature(s *Snapshot, pub crypto.PublicKey) bool {
 	msg := s.PayloadHash()
 	for _, sig := range s.Signatures {
-		if pub.Verify(msg[:], *sig) {
+		if pub.Verify(msg[:], sig) {
 			return true
 		}
 	}
@@ -72,5 +72,5 @@ func sign(s *Snapshot, key crypto.PrivateKey) {
 			return
 		}
 	}
-	s.Signatures = append(s.Signatures, &sig)
+	s.Signatures = append(s.Signatures, sig)
 }

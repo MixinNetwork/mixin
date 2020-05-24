@@ -198,7 +198,7 @@ func validateUTXO(index int, utxo *UTXO, sigs [][]crypto.Signature, msg []byte, 
 				if i < offset {
 					continue
 				}
-				if k.AsPublicKeyPanic().Verify(msg, sig) {
+				if k.AsPublicKeyOrPanic().Verify(msg, &sig) {
 					valid = valid + 1
 					offset = i + 1
 				}

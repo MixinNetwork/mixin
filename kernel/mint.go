@@ -176,12 +176,12 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 		addr := common.NewAddressFromSeed(make([]byte, 64))
 		in := fmt.Sprintf("MINTKERNELNODE%dDIFF", mint.Batch)
 		seed := crypto.NewHash([]byte(addr.String() + in))
-		r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
-		if r.Public() != out.Mask {
+		r := crypto.NewPrivateKeyFromSeed(append(seed[:], seed[:]...))
+		if r.Public().Key() != out.Mask {
 			return fmt.Errorf("invalid mint diff mask %s %s", r.Public().String(), out.Mask.String())
 		}
-		ghost := crypto.ViewGhostOutputKey(&out.Keys[0], &addr.PrivateViewKey, &out.Mask, uint64(len(nodes)))
-		if *ghost != addr.PublicSpendKey {
+		ghost := crypto.ViewGhostOutputKey(out.Mask.AsPublicKeyOrPanic(), out.Keys[0].AsPublicKeyOrPanic(), addr.PrivateViewKey, uint64(len(nodes)))
+		if ghost.Key() != addr.PublicSpendKey.Key() {
 			return fmt.Errorf("invalid mint diff signature %s %s", addr.PublicSpendKey.String(), ghost.String())
 		}
 		return nil
@@ -208,12 +208,12 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 		n := nodes[i]
 		in := fmt.Sprintf("MINTKERNELNODE%d", mint.Batch)
 		seed := crypto.NewHash([]byte(n.Signer.String() + in))
-		r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
-		if r.Public() != out.Mask {
+		r := crypto.NewPrivateKeyFromSeed(append(seed[:], seed[:]...))
+		if r.Public().Key() != out.Mask {
 			return fmt.Errorf("invalid mint output mask %s %s", r.Public().String(), out.Mask.String())
 		}
-		ghost := crypto.ViewGhostOutputKey(&out.Keys[0], &n.Payee.PrivateViewKey, &out.Mask, uint64(i))
-		if *ghost != n.Payee.PublicSpendKey {
+		ghost := crypto.ViewGhostOutputKey(out.Mask.AsPublicKeyOrPanic(), out.Keys[0].AsPublicKeyOrPanic(), n.Payee.PrivateViewKey, uint64(i))
+		if ghost.Key() != n.Payee.PublicSpendKey.Key() {
 			return fmt.Errorf("invalid mint output signature %s %s", n.Payee.PublicSpendKey.String(), ghost.String())
 		}
 	}

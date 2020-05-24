@@ -79,7 +79,7 @@ func (k Key) ScalarHash(outputIndex uint64) crypto.PrivateKey {
 		copy(src[:32], hash[:])
 		hash = crypto.NewHash(hash[:])
 		copy(src[32:], hash[:])
-		key = *NewPrivateKeyFromSeedPanic(src[:])
+		key = *NewPrivateKeyFromSeedOrPanic(src[:])
 	}
 
 	{
@@ -96,7 +96,7 @@ func (k Key) ScalarHash(outputIndex uint64) crypto.PrivateKey {
 
 func (k Key) DeterministicHashDerive() crypto.PrivateKey {
 	seed := crypto.NewHash(k[:])
-	return NewPrivateKeyFromSeedPanic(append(seed[:], seed[:]...))
+	return NewPrivateKeyFromSeedOrPanic(append(seed[:], seed[:]...))
 }
 
 func (k Key) Challenge(R crypto.PublicKey, message []byte) [32]byte {

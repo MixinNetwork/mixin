@@ -27,7 +27,7 @@ func NewPrivateKeyFromSeed(seed []byte) (*Key, error) {
 	return &key, nil
 }
 
-func NewPrivateKeyFromSeedPanic(seed []byte) *Key {
+func NewPrivateKeyFromSeedOrPanic(seed []byte) *Key {
 	key, err := NewPrivateKeyFromSeed(seed)
 	if err != nil {
 		panic(err)
@@ -39,8 +39,8 @@ func (f keyFactory) NewPrivateKeyFromSeed(seed []byte) (crypto.PrivateKey, error
 	return NewPrivateKeyFromSeed(seed)
 }
 
-func (f keyFactory) NewPrivateKeyFromSeedPanic(seed []byte) crypto.PrivateKey {
-	return NewPrivateKeyFromSeedPanic(seed)
+func (f keyFactory) NewPrivateKeyFromSeedOrPanic(seed []byte) crypto.PrivateKey {
+	return NewPrivateKeyFromSeedOrPanic(seed)
 }
 
 func (f keyFactory) PrivateKeyFromKey(k crypto.Key) (crypto.PrivateKey, error) {

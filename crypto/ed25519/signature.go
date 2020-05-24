@@ -8,7 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto/ed25519/edwards25519"
 )
 
-func (k Key) SignWithChallenge(random crypto.PrivateKey, message []byte, hReduced [32]byte) crypto.Signature {
+func (k Key) SignWithChallenge(random crypto.PrivateKey, message []byte, hReduced [32]byte) *crypto.Signature {
 	var (
 		messageReduced [32]byte
 		s              [32]byte
@@ -23,11 +23,10 @@ func (k Key) SignWithChallenge(random crypto.PrivateKey, message []byte, hReduce
 	var signature crypto.Signature
 	copy(signature[:], R[:])
 	copy(signature[32:], s[:])
-
-	return signature
+	return &signature
 }
 
-func (k Key) Sign(message []byte) crypto.Signature {
+func (k Key) Sign(message []byte) *crypto.Signature {
 	var digest1, messageDigest, hramDigest [64]byte
 	var expandedSecretKey [32]byte
 	copy(expandedSecretKey[:], k[:])
@@ -63,11 +62,10 @@ func (k Key) Sign(message []byte) crypto.Signature {
 	var signature crypto.Signature
 	copy(signature[:], encodedR[:])
 	copy(signature[32:], s[:])
-
-	return signature
+	return &signature
 }
 
-func (k Key) VerifyWithChallenge(message []byte, sig crypto.Signature, hReduced [32]byte) bool {
+func (k Key) VerifyWithChallenge(message []byte, sig *crypto.Signature, hReduced [32]byte) bool {
 	var (
 		pubBts = [32]byte(k)
 		A      edwards25519.ExtendedGroupElement
@@ -94,7 +92,7 @@ func (k Key) VerifyWithChallenge(message []byte, sig crypto.Signature, hReduced 
 	return bytes.Equal(sig[:32], checkR[:])
 }
 
-func (k Key) Verify(message []byte, sig crypto.Signature) bool {
+func (k Key) Verify(message []byte, sig *crypto.Signature) bool {
 	var R Key
 	copy(R[:], sig[:32])
 	return k.VerifyWithChallenge(message, sig, k.Challenge(R, message))

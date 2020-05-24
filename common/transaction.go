@@ -51,7 +51,7 @@ type Output struct {
 	Type       uint8           `json:"type"`
 	Amount     Integer         `json:"amount"`
 	Keys       []crypto.Key    `json:"keys,omitempty"`
-	Withdrawal *WithdrawalData `msgpack:",omitempty"json:"withdrawal,omitempty"`
+	Withdrawal *WithdrawalData `msgpack:",omitempty" json:"withdrawal,omitempty"`
 
 	// OutputTypeScript fields
 	Script Script     `json:"script,omitempty"`
@@ -86,7 +86,7 @@ func (tx *Transaction) ViewGhostKey(a crypto.PrivateKey) []*Output {
 			Mask:   o.Mask,
 		}
 		for _, k := range o.Keys {
-			key := crypto.ViewGhostOutputKey(o.Mask.AsPublicKeyPanic(), k.AsPublicKeyPanic(), a, uint64(i)).Key()
+			key := crypto.ViewGhostOutputKey(o.Mask.AsPublicKeyOrPanic(), k.AsPublicKeyOrPanic(), a, uint64(i)).Key()
 			out.Keys = append(out.Keys, key)
 		}
 		outputs = append(outputs, out)
@@ -155,9 +155,9 @@ func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []Address) error 
 
 	sigs := make([]crypto.Signature, 0)
 	for _, acc := range accounts {
-		priv := crypto.DeriveGhostPrivateKey(utxo.Mask.AsPublicKeyPanic(), acc.PrivateViewKey, acc.PrivateSpendKey, uint64(utxo.Index))
+		priv := crypto.DeriveGhostPrivateKey(utxo.Mask.AsPublicKeyOrPanic(), acc.PrivateViewKey, acc.PrivateSpendKey, uint64(utxo.Index))
 		if keysFilter[priv.Public().String()] {
-			sigs = append(sigs, priv.Sign(msg))
+			sigs = append(sigs, *priv.Sign(msg))
 		}
 	}
 	signed.Signatures = append(signed.Signatures, sigs)
@@ -193,11 +193,11 @@ func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, account
 
 	sigs := make([]crypto.Signature, 0)
 	for _, acc := range accounts {
-		priv := crypto.DeriveGhostPrivateKey(utxo.Mask.AsPublicKeyPanic(), acc.PrivateViewKey, acc.PrivateSpendKey, uint64(in.Index))
+		priv := crypto.DeriveGhostPrivateKey(utxo.Mask.AsPublicKeyOrPanic(), acc.PrivateViewKey, acc.PrivateSpendKey, uint64(in.Index))
 		if !keysFilter[priv.Public().String()] {
 			return fmt.Errorf("invalid key for the input %s", acc.String())
 		}
-		sigs = append(sigs, priv.Sign(msg))
+		sigs = append(sigs, *priv.Sign(msg))
 	}
 	signed.Signatures = append(signed.Signatures, sigs)
 	return nil
@@ -219,7 +219,7 @@ func (signed *SignedTransaction) SignRaw(key crypto.PrivateKey) error {
 			return err
 		}
 	}
-	signed.Signatures = append(signed.Signatures, []crypto.Signature{key.Sign(msg)})
+	signed.Signatures = append(signed.Signatures, []crypto.Signature{*key.Sign(msg)})
 	return nil
 }
 
@@ -247,7 +247,7 @@ func (tx *Transaction) AddOutputWithType(ot uint8, accounts []Address, s Script,
 	}
 
 	if len(accounts) > 0 {
-		r := crypto.NewKeyFromSeed(seed)
+		r := crypto.NewPrivateKeyFromSeed(seed)
 		out.Mask = r.Public().Key()
 		for _, a := range accounts {
 			k := crypto.DeriveGhostPublicKey(r, a.PublicViewKey, a.PublicSpendKey, uint64(len(tx.Outputs)))
