@@ -5,13 +5,8 @@ import (
 	"testing"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
 )
-
-func init() {
-	ed25519.Load()
-}
 
 func TestSnapshot(t *testing.T) {
 	assert := assert.New(t)
