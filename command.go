@@ -29,27 +29,19 @@ func createAdressCmd(c *cli.Context) error {
 	}
 	addr := common.NewAddressFromSeed(seed)
 	if view := c.String("view"); len(view) > 0 {
-		key, err := crypto.KeyFromString(view)
+		key, err := crypto.PrivateKeyFromString(view)
 		if err != nil {
 			return err
 		}
-		privView, err := key.AsPrivateKey()
-		if err != nil {
-			return err
-		}
-		addr.PrivateViewKey = privView
-		addr.PublicViewKey = addr.PrivateViewKey.Public()
+		addr.PrivateViewKey = key
+		addr.PublicViewKey = key.Public()
 	}
 	if spend := c.String("spend"); len(spend) > 0 {
-		key, err := crypto.KeyFromString(spend)
+		key, err := crypto.PrivateKeyFromString(spend)
 		if err != nil {
 			return err
 		}
-		privSpend, err := key.AsPrivateKey()
-		if err != nil {
-			return err
-		}
-		addr.PrivateSpendKey = privSpend
+		addr.PrivateSpendKey = key
 		addr.PublicSpendKey = addr.PrivateSpendKey.Public()
 	}
 	if c.Bool("public") {
@@ -75,26 +67,22 @@ func decodeAddressCmd(c *cli.Context) error {
 }
 
 func decryptGhostCmd(c *cli.Context) error {
-	view, err := crypto.KeyFromString(c.String("view"))
+	view, err := crypto.PrivateKeyFromString(c.String("view"))
 	if err != nil {
 		return err
 	}
-	key, err := crypto.KeyFromString(c.String("key"))
+	key, err := crypto.PublicKeyFromString(c.String("key"))
 	if err != nil {
 		return err
 	}
-	mask, err := crypto.KeyFromString(c.String("mask"))
+	mask, err := crypto.PublicKeyFromString(c.String("mask"))
 	if err != nil {
 		return err
 	}
 
-	privView, err := view.AsPrivateKey()
-	if err != nil {
-		return err
-	}
-	spend := crypto.ViewGhostOutputKey(mask.AsPublicKeyOrPanic(), key.AsPublicKeyOrPanic(), privView, c.Uint64("index"))
+	spend := crypto.ViewGhostOutputKey(mask, key, view, c.Uint64("index"))
 	addr := common.Address{
-		PublicViewKey:  privView.Public(),
+		PublicViewKey:  view.Public(),
 		PublicSpendKey: spend,
 	}
 	fmt.Printf(addr.String())
@@ -260,22 +248,12 @@ func signTransactionCmd(c *cli.Context) error {
 			return fmt.Errorf("invalid key length %d", len(s))
 		}
 
-		viewKey, err := crypto.KeyFromString(s[:keyLen*2])
+		view, err := crypto.PrivateKeyFromString(s[:keyLen*2])
 		if err != nil {
 			return err
 		}
 
-		spendKey, err := crypto.KeyFromString(s[keyLen*2:])
-		if err != nil {
-			return err
-		}
-
-		view, err := viewKey.AsPrivateKey()
-		if err != nil {
-			return err
-		}
-
-		spend, err := spendKey.AsPrivateKey()
+		spend, err := crypto.PrivateKeyFromString(s[keyLen*2:])
 		if err != nil {
 			return err
 		}
@@ -313,19 +291,11 @@ func pledgeNodeCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	viewKey, err := crypto.KeyFromString(c.String("view"))
+	view, err := crypto.PrivateKeyFromString(c.String("view"))
 	if err != nil {
 		return err
 	}
-	spendKey, err := crypto.KeyFromString(c.String("spend"))
-	if err != nil {
-		return err
-	}
-	view, err := viewKey.AsPrivateKey()
-	if err != nil {
-		return err
-	}
-	spend, err := spendKey.AsPrivateKey()
+	spend, err := crypto.PrivateKeyFromString(c.String("spend"))
 	if err != nil {
 		return err
 	}
@@ -380,19 +350,11 @@ func cancelNodeCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	viewKey, err := crypto.KeyFromString(c.String("view"))
+	view, err := crypto.PrivateKeyFromString(c.String("view"))
 	if err != nil {
 		return err
 	}
-	spendKey, err := crypto.KeyFromString(c.String("spend"))
-	if err != nil {
-		return err
-	}
-	view, err := viewKey.AsPrivateKey()
-	if err != nil {
-		return err
-	}
-	spend, err := spendKey.AsPrivateKey()
+	spend, err := crypto.PrivateKeyFromString(c.String("spend"))
 	if err != nil {
 		return err
 	}
@@ -482,19 +444,12 @@ func decodePledgeNodeCmd(c *cli.Context) error {
 	if len(pledge.Extra) != len(crypto.Key{})*2 {
 		return fmt.Errorf("invalid extra %s", hex.EncodeToString(pledge.Extra))
 	}
-	signerPublicSpendKey, err := crypto.KeyFromString(hex.EncodeToString(pledge.Extra[:32]))
+	var keyLen = len(crypto.Key{})
+	signerPublicSpend, err := crypto.PublicKeyFromString(hex.EncodeToString(pledge.Extra[:keyLen]))
 	if err != nil {
 		return err
 	}
-	payeePublicSpendKey, err := crypto.KeyFromString(hex.EncodeToString(pledge.Extra[32:]))
-	if err != nil {
-		return err
-	}
-	signerPublicSpend, err := signerPublicSpendKey.AsPublicKey()
-	if err != nil {
-		return err
-	}
-	payeePublicSpend, err := payeePublicSpendKey.AsPublicKey()
+	payeePublicSpend, err := crypto.PublicKeyFromString(hex.EncodeToString(pledge.Extra[keyLen:]))
 	if err != nil {
 		return err
 	}

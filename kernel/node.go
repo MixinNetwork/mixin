@@ -121,11 +121,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 
 func (node *Node) LoadNodeConfig() {
 	var addr common.Address
-<<<<<<< HEAD
-	addr.PrivateSpendKey = node.custom.Node.Signer
-=======
-	addr.PrivateSpendKey = config.Custom.Node.Signer.AsPrivateKeyOrPanic()
->>>>>>> 6b61853... MOD: kernel refractor; etc.
+	addr.PrivateSpendKey = node.custom.Node.Signer.AsPrivateKeyOrPanic()
 	addr.PublicSpendKey = addr.PrivateSpendKey.Public()
 	addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
 	addr.PublicViewKey = addr.PrivateViewKey.Public()

@@ -18,19 +18,39 @@ var (
 )
 
 func NewPrivateKeyFromReader(randReader io.Reader) PrivateKey {
-	var seed = make([]byte, 64)
-	n, err := randReader.Read(seed[:])
-	if err != nil {
-		return nil
-	}
-	if n != len(seed) {
-		panic(fmt.Errorf("rand read %d %d", len(seed), n))
+	var (
+		seed = make([]byte, 64)
+		s    = 0
+	)
+
+	for s < len(seed) {
+		n, err := randReader.Read(seed[s:])
+		if err != nil {
+			return nil
+		}
+		s += n
 	}
 	return keyFactory.NewPrivateKeyFromSeedOrPanic(seed)
 }
 
 func NewPrivateKeyFromSeed(seed []byte) PrivateKey {
 	return keyFactory.NewPrivateKeyFromSeedOrPanic(seed)
+}
+
+func PrivateKeyFromString(s string) (PrivateKey, error) {
+	key, err := KeyFromString(s)
+	if err != nil {
+		return nil, err
+	}
+	return key.AsPrivateKey()
+}
+
+func PublicKeyFromString(s string) (PublicKey, error) {
+	key, err := KeyFromString(s)
+	if err != nil {
+		return nil, err
+	}
+	return key.AsPublicKey()
 }
 
 func KeyFromString(s string) (*Key, error) {

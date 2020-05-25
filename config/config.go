@@ -33,14 +33,14 @@ const (
 
 type Custom struct {
 	Node struct {
-		Signer               crypto.Key `toml:"-"`
-		SignerStr            string     `toml:"signer-key"`
-		ConsensusOnly        bool       `toml:"consensus-only"`
-		KernelOprationPeriod int        `toml:"kernel-operation-period"`
-		MemoryCacheSize      int        `toml:"memory-cache-size"`
-		CacheTTL             int        `toml:"cache-ttl"`
-		RingCacheSize        uint64     `toml:"ring-cache-size"`
-		RingFinalSize        uint64     `toml:"ring-final-size"`
+		Signer               crypto.PrivateKey `toml:"-"`
+		SignerStr            string            `toml:"signer-key"`
+		ConsensusOnly        bool              `toml:"consensus-only"`
+		KernelOprationPeriod int               `toml:"kernel-operation-period"`
+		MemoryCacheSize      int               `toml:"memory-cache-size"`
+		CacheTTL             int               `toml:"cache-ttl"`
+		RingCacheSize        uint64            `toml:"ring-cache-size"`
+		RingFinalSize        uint64            `toml:"ring-final-size"`
 	} `toml:"node"`
 	Storage struct {
 		ValueLogGC bool `toml:"value-log-gc"`
@@ -64,11 +64,11 @@ func Initialize(file string) (*Custom, error) {
 	if err != nil {
 		return nil, err
 	}
-	key, err := crypto.KeyFromString(config.Node.SignerStr)
+	key, err := crypto.PrivateKeyFromString(config.Node.SignerStr)
 	if err != nil {
 		return nil, err
 	}
-	config.Node.Signer = *key
+	config.Node.Signer = key
 	if config.Node.KernelOprationPeriod == 0 {
 		config.Node.KernelOprationPeriod = 700
 	}
