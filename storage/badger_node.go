@@ -284,7 +284,7 @@ func nodeEntryValue(payee crypto.Key, tx crypto.Hash, timestamp uint64) []byte {
 func nodeSignerForState(key []byte, nodeState string) common.Address {
 	var publicSpendKey crypto.Key
 	copy(publicSpendKey[:], key[len(nodeState):])
-	publicSpend := publicSpendKey.AsPublicKeyOrPanic()
+	publicSpend, _ := publicSpendKey.AsPublicKey()
 	privateView := publicSpend.DeterministicHashDerive()
 	return common.Address{
 		PrivateViewKey: privateView,
@@ -296,7 +296,7 @@ func nodeSignerForState(key []byte, nodeState string) common.Address {
 func nodePayee(ival []byte) common.Address {
 	var publicSpendKey crypto.Key
 	copy(publicSpendKey[:], ival[:len(publicSpendKey)])
-	publicSpend := publicSpendKey.AsPublicKeyOrPanic()
+	publicSpend, _ := publicSpendKey.AsPublicKey()
 	privateView := publicSpend.DeterministicHashDerive()
 	return common.Address{
 		PrivateViewKey: privateView,

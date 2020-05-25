@@ -241,19 +241,18 @@ func signTransactionCmd(c *cli.Context) error {
 	tx.Extra = extra
 
 	keys := c.StringSlice("key")
-	keyLen := len(crypto.Key{})
 	var accounts []common.Address
 	for _, s := range keys {
-		if len(s) != keyLen*4 {
+		if len(s) != crypto.KeySize*4 {
 			return fmt.Errorf("invalid key length %d", len(s))
 		}
 
-		view, err := crypto.PrivateKeyFromString(s[:keyLen*2])
+		view, err := crypto.PrivateKeyFromString(s[:crypto.KeySize*2])
 		if err != nil {
 			return err
 		}
 
-		spend, err := crypto.PrivateKeyFromString(s[keyLen*2:])
+		spend, err := crypto.PrivateKeyFromString(s[crypto.KeySize*2:])
 		if err != nil {
 			return err
 		}
@@ -402,7 +401,15 @@ func cancelNodeCmd(c *cli.Context) error {
 	if len(source.Outputs) != 1 || len(source.Outputs[0].Keys) != 1 {
 		return fmt.Errorf("invalid source transaction outputs %d %d", len(source.Outputs), len(source.Outputs[0].Keys))
 	}
-	pig := crypto.ViewGhostOutputKey(source.Outputs[0].Mask.AsPublicKeyOrPanic(), source.Outputs[0].Keys[0].AsPublicKeyOrPanic(), view, 0)
+	mask, err := source.Outputs[0].Mask.AsPublicKey()
+	if err != nil {
+		return err
+	}
+	key, err := source.Outputs[0].Keys[0].AsPublicKey()
+	if err != nil {
+		return err
+	}
+	pig := crypto.ViewGhostOutputKey(mask, key, view, 0)
 	if pig.String() != receiver.PublicSpendKey.String() {
 		return fmt.Errorf("invalid source and receiver %s %s", pig.String(), receiver.PublicSpendKey)
 	}
@@ -444,12 +451,11 @@ func decodePledgeNodeCmd(c *cli.Context) error {
 	if len(pledge.Extra) != len(crypto.Key{})*2 {
 		return fmt.Errorf("invalid extra %s", hex.EncodeToString(pledge.Extra))
 	}
-	var keyLen = len(crypto.Key{})
-	signerPublicSpend, err := crypto.PublicKeyFromString(hex.EncodeToString(pledge.Extra[:keyLen]))
+	signerPublicSpend, err := crypto.PublicKeyFromString(hex.EncodeToString(pledge.Extra[:crypto.KeySize]))
 	if err != nil {
 		return err
 	}
-	payeePublicSpend, err := crypto.PublicKeyFromString(hex.EncodeToString(pledge.Extra[keyLen:]))
+	payeePublicSpend, err := crypto.PublicKeyFromString(hex.EncodeToString(pledge.Extra[crypto.KeySize:]))
 	if err != nil {
 		return err
 	}

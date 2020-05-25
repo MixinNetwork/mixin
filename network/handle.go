@@ -200,8 +200,6 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 		return nil, errors.New("invalid message data")
 	}
 
-	var keyLen = len(crypto.Key{})
-
 	msg := &PeerMessage{Type: data[0]}
 	switch msg.Type {
 	case PeerMessageTypeGraph:
@@ -228,11 +226,11 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 	case PeerMessageTypeTransactionRequest:
 		copy(msg.TransactionHash[:], data[1:])
 	case PeerMessageTypeSnapshotAnnoucement:
-		if len(data[1:]) <= keyLen {
+		if len(data[1:]) <= crypto.KeySize {
 			return nil, fmt.Errorf("invalid announcement message size %d", len(data[1:]))
 		}
 		copy(msg.Commitment[:], data[1:])
-		err := common.MsgpackUnmarshal(data[keyLen+1:], &msg.Snapshot)
+		err := common.MsgpackUnmarshal(data[crypto.KeySize+1:], &msg.Snapshot)
 		if err != nil {
 			return nil, err
 		}
@@ -240,12 +238,12 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 			return nil, fmt.Errorf("invalid snapshot announcement message data")
 		}
 	case PeerMessageTypeSnapshotCommitment:
-		if len(data[1:]) != 32+keyLen+1 {
+		if len(data[1:]) != 32+crypto.KeySize+1 {
 			return nil, fmt.Errorf("invalid commitment message size %d", len(data[1:]))
 		}
 		copy(msg.SnapshotHash[:], data[1:])
 		copy(msg.Commitment[:], data[33:])
-		msg.WantTx = data[1+32+keyLen] == 1
+		msg.WantTx = data[1+32+crypto.KeySize] == 1
 	case PeerMessageTypeTransactionChallenge:
 		if len(data[1:]) < 33 {
 			return nil, fmt.Errorf("invalid challenge message size %d", len(data[1:]))
@@ -263,7 +261,7 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 			msg.Transaction = ver
 		}
 	case PeerMessageTypeSnapshotResponse:
-		if len(data[1:]) != 32+keyLen {
+		if len(data[1:]) != 32+crypto.KeySize {
 			return nil, fmt.Errorf("invalid response message size %d", len(data[1:]))
 		}
 		copy(msg.SnapshotHash[:], data[1:])

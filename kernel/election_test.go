@@ -77,10 +77,12 @@ func TestNodeRemovePossibility(t *testing.T) {
 
 	payee, err := common.NewAddressFromString("XINYDpVHXHxkFRPbP9LZak5p7FZs3mWTeKvrAzo4g9uziTW99t7LrU7me66Xhm6oXGTbYczQLvznk3hxgNSfNBaZveAmEeRM")
 	assert.Nil(err)
-	mask := tx.Outputs[0].Mask
-	ghost := tx.Outputs[0].Keys[0]
+	mask, err := tx.Outputs[0].Mask.AsPublicKey()
+	assert.Nil(err)
+	ghost, err := tx.Outputs[0].Keys[0].AsPublicKey()
+	assert.Nil(err)
 	view := payee.PublicSpendKey.DeterministicHashDerive()
-	assert.Equal(payee.PublicSpendKey.String(), crypto.ViewGhostOutputKey(mask.AsPublicKeyOrPanic(), ghost.AsPublicKeyOrPanic(), view, 0).String())
+	assert.Equal(payee.PublicSpendKey.String(), crypto.ViewGhostOutputKey(mask, ghost, view, 0).String())
 }
 
 var configData = []byte(`[node]

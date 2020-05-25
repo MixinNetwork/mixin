@@ -85,9 +85,13 @@ func (tx *Transaction) ViewGhostKey(a crypto.PrivateKey) []*Output {
 			Script: o.Script,
 			Mask:   o.Mask,
 		}
-		for _, k := range o.Keys {
-			key := crypto.ViewGhostOutputKey(o.Mask.AsPublicKeyOrPanic(), k.AsPublicKeyOrPanic(), a, uint64(i)).Key()
-			out.Keys = append(out.Keys, key)
+
+		if oMask, err := o.Mask.AsPublicKey(); err == nil {
+			for _, k := range o.Keys {
+				if key, err := k.AsPublicKey(); err == nil {
+					out.Keys = append(out.Keys, crypto.ViewGhostOutputKey(oMask, key, a, uint64(i)).Key())
+				}
+			}
 		}
 		outputs = append(outputs, out)
 	}
@@ -154,8 +158,12 @@ func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []Address) error 
 	}
 
 	sigs := make([]crypto.Signature, 0)
+	uMask, err := utxo.Mask.AsPublicKey()
+	if err != nil {
+		return err
+	}
 	for _, acc := range accounts {
-		priv := crypto.DeriveGhostPrivateKey(utxo.Mask.AsPublicKeyOrPanic(), acc.PrivateViewKey, acc.PrivateSpendKey, uint64(utxo.Index))
+		priv := crypto.DeriveGhostPrivateKey(uMask, acc.PrivateViewKey, acc.PrivateSpendKey, uint64(utxo.Index))
 		if keysFilter[priv.Public().String()] {
 			sigs = append(sigs, *priv.Sign(msg))
 		}
@@ -192,8 +200,12 @@ func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, account
 	}
 
 	sigs := make([]crypto.Signature, 0)
+	uMask, err := utxo.Mask.AsPublicKey()
+	if err != nil {
+		return err
+	}
 	for _, acc := range accounts {
-		priv := crypto.DeriveGhostPrivateKey(utxo.Mask.AsPublicKeyOrPanic(), acc.PrivateViewKey, acc.PrivateSpendKey, uint64(in.Index))
+		priv := crypto.DeriveGhostPrivateKey(uMask, acc.PrivateViewKey, acc.PrivateSpendKey, uint64(in.Index))
 		if !keysFilter[priv.Public().String()] {
 			return fmt.Errorf("invalid key for the input %s", acc.String())
 		}

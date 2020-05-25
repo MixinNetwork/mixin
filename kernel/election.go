@@ -422,8 +422,24 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 	if err != nil {
 		return err
 	}
-	pledgeSpend := crypto.ViewGhostOutputKey(pi.Mask.AsPublicKeyOrPanic(), pi.Keys[0].AsPublicKeyOrPanic(), view, uint64(pledge.Inputs[0].Index))
-	targetSpend := crypto.ViewGhostOutputKey(script.Mask.AsPublicKeyOrPanic(), script.Keys[0].AsPublicKeyOrPanic(), view, 1)
+	piMask, err := pi.Mask.AsPublicKey()
+	if err != nil {
+		return err
+	}
+	piKey, err := pi.Keys[0].AsPublicKey()
+	if err != nil {
+		return err
+	}
+	sMask, err := script.Mask.AsPublicKey()
+	if err != nil {
+		return err
+	}
+	sKey, err := script.Keys[0].AsPublicKey()
+	if err != nil {
+		return err
+	}
+	pledgeSpend := crypto.ViewGhostOutputKey(piMask, piKey, view, uint64(pledge.Inputs[0].Index))
+	targetSpend := crypto.ViewGhostOutputKey(sMask, sKey, view, 1)
 	if bytes.Compare(pledge.Extra, tx.Extra[:len(crypto.Key{})*2]) != 0 {
 		return fmt.Errorf("invalid pledge and accpet key %s %s", hex.EncodeToString(pledge.Extra), hex.EncodeToString(tx.Extra))
 	}

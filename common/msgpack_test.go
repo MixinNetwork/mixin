@@ -48,10 +48,11 @@ func TestMsgpack(t *testing.T) {
 	tx.Extra = traceId.Bytes()
 	msg := MsgpackMarshalPanic(tx)
 	signed := &SignedTransaction{Transaction: *tx}
-	mask := parseKeyFromHex(utxoMask)
+	mask, err := crypto.PublicKeyFromString(utxoMask)
+	assert.Nil(err)
 	view := sender.Address().PrivateViewKey
 	spend := sender.Address().PrivateSpendKey
-	priv := crypto.DeriveGhostPrivateKey(mask.AsPublicKeyOrPanic(), view, spend, uint64(utxoIndex))
+	priv := crypto.DeriveGhostPrivateKey(mask, view, spend, uint64(utxoIndex))
 	sig := priv.Sign(msg)
 	signed.Signatures = append(signed.Signatures, []crypto.Signature{*sig})
 	raw := MsgpackMarshalPanic(signed)
@@ -70,18 +71,10 @@ type MixinKey struct {
 }
 
 func (mk *MixinKey) Address() Address {
-	a := Address{
-		PrivateViewKey:  parseKeyFromHex(mk.ViewKey).AsPrivateKeyOrPanic(),
-		PrivateSpendKey: parseKeyFromHex(mk.SpendKey).AsPrivateKeyOrPanic(),
-	}
+	a := Address{}
+	a.PrivateViewKey, _ = crypto.PrivateKeyFromString(mk.ViewKey)
+	a.PrivateSpendKey, _ = crypto.PrivateKeyFromString(mk.SpendKey)
 	a.PublicViewKey = a.PrivateViewKey.Public()
 	a.PublicSpendKey = a.PrivateSpendKey.Public()
 	return a
-}
-
-func parseKeyFromHex(src string) crypto.Key {
-	var key crypto.Key
-	data, _ := hex.DecodeString(src)
-	copy(key[:], data)
-	return key
 }

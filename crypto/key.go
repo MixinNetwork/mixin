@@ -9,7 +9,9 @@ import (
 	"strconv"
 )
 
-type Key [32]byte
+const KeySize = 32
+
+type Key [KeySize]byte
 type Response [32]byte
 type Commitment Key
 
@@ -70,24 +72,8 @@ func (k Key) AsPrivateKey() (PrivateKey, error) {
 	return keyFactory.PrivateKeyFromKey(k)
 }
 
-func (k Key) AsPrivateKeyOrPanic() PrivateKey {
-	key, err := keyFactory.PrivateKeyFromKey(k)
-	if err != nil {
-		panic(err)
-	}
-	return key
-}
-
 func (k Key) AsPublicKey() (PublicKey, error) {
 	return keyFactory.PublicKeyFromKey(k)
-}
-
-func (k Key) AsPublicKeyOrPanic() PublicKey {
-	key, err := keyFactory.PublicKeyFromKey(k)
-	if err != nil {
-		panic(err)
-	}
-	return key
 }
 
 func (k Key) HasValue() bool {

@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -315,10 +316,12 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication message timeout %d %d", ts, clock.Now().Unix())
 	}
 
-	var signerKey crypto.Key
-	copy(signerKey[:], msg[8:40])
+	signerPubSpend, err := crypto.PublicKeyFromString(hex.EncodeToString(msg[8 : 8+crypto.KeySize]))
+	if err != nil {
+		return crypto.Hash{}, "", err
+	}
 	var signer = common.Address{
-		PublicSpendKey: signerKey.AsPublicKeyOrPanic(),
+		PublicSpendKey: signerPubSpend,
 	}
 	signer.PublicViewKey = signer.PublicSpendKey.DeterministicHashDerive().Public()
 	peerId := signer.Hash().ForNetwork(node.networkId)
@@ -335,12 +338,12 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	}
 
 	var sig crypto.Signature
-	copy(sig[:], msg[40:40+len(sig)])
-	if !signer.PublicSpendKey.Verify(msg[:40], &sig) {
+	copy(sig[:], msg[8+crypto.KeySize:8+crypto.KeySize+len(sig)])
+	if !signer.PublicSpendKey.Verify(msg[:8+crypto.KeySize], &sig) {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
 	}
 
-	listener := string(msg[40+len(sig):])
+	listener := string(msg[8+crypto.KeySize+len(sig):])
 	return peerId, listener, nil
 }
 

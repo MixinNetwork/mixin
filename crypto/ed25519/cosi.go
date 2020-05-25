@@ -16,10 +16,15 @@ func (f keyFactory) CosiAggregateCommitments(cosi *crypto.CosiSignature, commitm
 			return fmt.Errorf("commitment %d not found", i)
 		}
 
+		pub, err := crypto.Key(*R).AsPublicKey()
+		if err != nil {
+			return err
+		}
+
 		if i == 0 {
-			aggRandom = crypto.Key(*R).AsPublicKeyOrPanic()
+			aggRandom = pub
 		} else {
-			aggRandom = aggRandom.AddPublic(crypto.Key(*R).AsPublicKeyOrPanic())
+			aggRandom = aggRandom.AddPublic(pub)
 		}
 	}
 

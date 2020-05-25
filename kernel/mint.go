@@ -180,7 +180,15 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 		if r.Public().Key() != out.Mask {
 			return fmt.Errorf("invalid mint diff mask %s %s", r.Public().String(), out.Mask.String())
 		}
-		ghost := crypto.ViewGhostOutputKey(out.Mask.AsPublicKeyOrPanic(), out.Keys[0].AsPublicKeyOrPanic(), addr.PrivateViewKey, uint64(len(nodes)))
+		oMask, err := out.Mask.AsPublicKey()
+		if err != nil {
+			return err
+		}
+		oKey, err := out.Keys[0].AsPublicKey()
+		if err != nil {
+			return err
+		}
+		ghost := crypto.ViewGhostOutputKey(oMask, oKey, addr.PrivateViewKey, uint64(len(nodes)))
 		if ghost.Key() != addr.PublicSpendKey.Key() {
 			return fmt.Errorf("invalid mint diff signature %s %s", addr.PublicSpendKey.String(), ghost.String())
 		}
@@ -212,7 +220,15 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 		if r.Public().Key() != out.Mask {
 			return fmt.Errorf("invalid mint output mask %s %s", r.Public().String(), out.Mask.String())
 		}
-		ghost := crypto.ViewGhostOutputKey(out.Mask.AsPublicKeyOrPanic(), out.Keys[0].AsPublicKeyOrPanic(), n.Payee.PrivateViewKey, uint64(i))
+		oMask, err := out.Mask.AsPublicKey()
+		if err != nil {
+			return err
+		}
+		oKey, err := out.Keys[0].AsPublicKey()
+		if err != nil {
+			return err
+		}
+		ghost := crypto.ViewGhostOutputKey(oMask, oKey, n.Payee.PrivateViewKey, uint64(i))
 		if ghost.Key() != n.Payee.PublicSpendKey.Key() {
 			return fmt.Errorf("invalid mint output signature %s %s", n.Payee.PublicSpendKey.String(), ghost.String())
 		}

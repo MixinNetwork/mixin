@@ -40,7 +40,7 @@ func writeDomainAccept(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash, 
 func domainAccountForState(key []byte, domainState string) common.Address {
 	var publicSpendKey crypto.Key
 	copy(publicSpendKey[:], key[len(domainState):])
-	publicSpend := publicSpendKey.AsPublicKeyOrPanic()
+	publicSpend, _ := publicSpendKey.AsPublicKey()
 	privateView := publicSpend.DeterministicHashDerive()
 	return common.Address{
 		PrivateViewKey: privateView,

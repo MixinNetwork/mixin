@@ -138,12 +138,12 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs [][]
 	if cancel.Amount.Cmp(po.Amount.Div(100)) != 0 {
 		return fmt.Errorf("invalid script output amount %s for cancel transaction", cancel.Amount)
 	}
-	var publicSpendKey crypto.Key
-	copy(publicSpendKey[:], lastPledge.Extra)
-	publicSpend := publicSpendKey.AsPublicKeyOrPanic()
-	privateView := publicSpend.DeterministicHashDerive()
+	publicSpend, err := crypto.PublicKeyFromString(hex.EncodeToString(lastPledge.Extra))
+	if err != nil {
+		return err
+	}
 	acc := Address{
-		PublicViewKey:  privateView.Public(),
+		PublicViewKey:  publicSpend.DeterministicHashDerive().Public(),
 		PublicSpendKey: publicSpend,
 	}
 	if filter[acc.String()] != NodeStatePledging {
@@ -161,21 +161,35 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs [][]
 	if len(pi.Keys) != 1 {
 		return fmt.Errorf("invalid pledge input source keys %d", len(pi.Keys))
 	}
-	var a crypto.Key
-	copy(a[:], tx.Extra[len(crypto.Key{})*2:])
-	view, err := a.AsPrivateKey()
+	view, err := crypto.PrivateKeyFromString(hex.EncodeToString(tx.Extra[len(crypto.Key{})*2:]))
 	if err != nil {
 		return err
 	}
-	pledgeSpend := crypto.ViewGhostOutputKey(pi.Mask.AsPublicKeyOrPanic(), pi.Keys[0].AsPublicKeyOrPanic(), view, uint64(lastPledge.Inputs[0].Index)).Key()
-	targetSpend := crypto.ViewGhostOutputKey(script.Mask.AsPublicKeyOrPanic(), script.Keys[0].AsPublicKeyOrPanic(), view, 1).Key()
+	piMask, err := pi.Mask.AsPublicKey()
+	if err != nil {
+		return err
+	}
+	piKey, err := pi.Keys[0].AsPublicKey()
+	if err != nil {
+		return err
+	}
+	tMask, err := script.Mask.AsPublicKey()
+	if err != nil {
+		return err
+	}
+	tKey, err := script.Keys[0].AsPublicKey()
+	if err != nil {
+		return err
+	}
+	pledgeSpend := crypto.ViewGhostOutputKey(piMask, piKey, view, uint64(lastPledge.Inputs[0].Index)).Key()
+	targetSpend := crypto.ViewGhostOutputKey(tMask, tKey, view, 1).Key()
 	if bytes.Compare(lastPledge.Extra, tx.Extra[:len(crypto.Key{})*2]) != 0 {
 		return fmt.Errorf("invalid pledge and cancel key %s %s", hex.EncodeToString(lastPledge.Extra), hex.EncodeToString(tx.Extra))
 	}
 	if bytes.Compare(pledgeSpend[:], targetSpend[:]) != 0 {
 		return fmt.Errorf("invalid pledge and cancel target %s %s", pledgeSpend, targetSpend)
 	}
-	if !pi.Keys[0].AsPublicKeyOrPanic().Verify(msg, &sigs[0][0]) {
+	if !piKey.Verify(msg, &sigs[0][0]) {
 		return fmt.Errorf("invalid cancel signature %s", sigs[0][0])
 	}
 	return nil
@@ -226,9 +240,10 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 	if po.Type != OutputTypeNodePledge {
 		return fmt.Errorf("invalid pledge utxo type %d", po.Type)
 	}
-	var publicSpendKey crypto.Key
-	copy(publicSpendKey[:], lastPledge.Extra)
-	publicSpend := publicSpendKey.AsPublicKeyOrPanic()
+	publicSpend, err := crypto.PublicKeyFromString(hex.EncodeToString(lastPledge.Extra))
+	if err != nil {
+		return err
+	}
 	acc := Address{
 		PublicViewKey:  publicSpend.DeterministicHashDerive().Public(),
 		PublicSpendKey: publicSpend,
