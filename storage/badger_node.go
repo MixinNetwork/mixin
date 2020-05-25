@@ -307,12 +307,12 @@ func nodePayee(ival []byte) common.Address {
 
 func nodeTransaction(ival []byte) crypto.Hash {
 	var tx crypto.Hash
-	copy(tx[:], ival[len(crypto.Key{}):])
+	copy(tx[:], ival[crypto.KeySize:])
 	return tx
 }
 
 func nodeTimestamp(ival []byte) uint64 {
-	l := len(crypto.Key{}) + len(crypto.Hash{})
+	l := crypto.KeySize + len(crypto.Hash{})
 	if len(ival) == l+8 {
 		return binary.BigEndian.Uint64(ival[l:])
 	}

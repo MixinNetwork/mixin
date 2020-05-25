@@ -44,7 +44,7 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 	if len(tx.Outputs) != 1 {
 		return fmt.Errorf("invalid outputs count %d for pledge transaction", len(tx.Outputs))
 	}
-	if len(tx.Extra) != 2*len(crypto.Key{}) {
+	if len(tx.Extra) != 2*crypto.KeySize {
 		return fmt.Errorf("invalid extra length %d for pledge transaction", len(tx.Extra))
 	}
 	for _, in := range inputs {
@@ -86,7 +86,7 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs [][]
 	if len(sigs[0]) != 1 {
 		return fmt.Errorf("invalid signatures count %d for cancel transaction", len(sigs[0]))
 	}
-	if len(tx.Extra) != len(crypto.Key{})*3 {
+	if len(tx.Extra) != crypto.KeySize*3 {
 		return fmt.Errorf("invalid extra %s for cancel transaction", hex.EncodeToString(tx.Extra))
 	}
 	cancel, script := tx.Outputs[0], tx.Outputs[1]
@@ -161,7 +161,7 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs [][]
 	if len(pi.Keys) != 1 {
 		return fmt.Errorf("invalid pledge input source keys %d", len(pi.Keys))
 	}
-	view, err := crypto.PrivateKeyFromString(hex.EncodeToString(tx.Extra[len(crypto.Key{})*2:]))
+	view, err := crypto.PrivateKeyFromString(hex.EncodeToString(tx.Extra[crypto.KeySize*2:]))
 	if err != nil {
 		return err
 	}
@@ -183,7 +183,7 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs [][]
 	}
 	pledgeSpend := crypto.ViewGhostOutputKey(piMask, piKey, view, uint64(lastPledge.Inputs[0].Index)).Key()
 	targetSpend := crypto.ViewGhostOutputKey(tMask, tKey, view, 1).Key()
-	if bytes.Compare(lastPledge.Extra, tx.Extra[:len(crypto.Key{})*2]) != 0 {
+	if bytes.Compare(lastPledge.Extra, tx.Extra[:crypto.KeySize*2]) != 0 {
 		return fmt.Errorf("invalid pledge and cancel key %s %s", hex.EncodeToString(lastPledge.Extra), hex.EncodeToString(tx.Extra))
 	}
 	if bytes.Compare(pledgeSpend[:], targetSpend[:]) != 0 {

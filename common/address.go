@@ -40,18 +40,18 @@ func NewAddressFromString(s string) (Address, error) {
 		return a, errors.New("invalid address network")
 	}
 	data := base58.Decode(s[len(MainNetworkId):])
+	if len(data) != crypto.KeySize*2+4 {
+		return a, errors.New("invalid address format")
+	}
+	checksum := crypto.NewHash(append([]byte(MainNetworkId), data[:crypto.KeySize*2]...))
+	if !bytes.Equal(checksum[:4], data[crypto.KeySize*2:]) {
+		return a, errors.New("invalid address checksum")
+	}
 	var (
 		pubSpend crypto.Key
 		pubView  crypto.Key
 		err      error
 	)
-	if len(data) != len(pubSpend)*2+4 {
-		return a, errors.New("invalid address format")
-	}
-	checksum := crypto.NewHash(append([]byte(MainNetworkId), data[:len(pubSpend)*2]...))
-	if !bytes.Equal(checksum[:4], data[len(pubSpend)*2:]) {
-		return a, errors.New("invalid address checksum")
-	}
 	copy(pubSpend[:], data[:len(pubSpend)])
 	copy(pubView[:], data[len(pubSpend):])
 	if a.PublicSpendKey, err = pubSpend.AsPublicKey(); err != nil {

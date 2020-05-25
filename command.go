@@ -448,7 +448,7 @@ func decodePledgeNodeCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if len(pledge.Extra) != len(crypto.Key{})*2 {
+	if len(pledge.Extra) != crypto.KeySize*2 {
 		return fmt.Errorf("invalid extra %s", hex.EncodeToString(pledge.Extra))
 	}
 	signerPublicSpend, err := crypto.PublicKeyFromString(hex.EncodeToString(pledge.Extra[:crypto.KeySize]))
