@@ -418,8 +418,12 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 	var a crypto.Key
 	copy(a[:], tx.Extra[len(crypto.Key{})*2:])
-	pledgeSpend := crypto.ViewGhostOutputKey(pi.Mask.AsPublicKeyOrPanic(), pi.Keys[0].AsPublicKeyOrPanic(), a.AsPrivateKeyOrPanic(), uint64(pledge.Inputs[0].Index))
-	targetSpend := crypto.ViewGhostOutputKey(script.Mask.AsPublicKeyOrPanic(), script.Keys[0].AsPublicKeyOrPanic(), a.AsPrivateKeyOrPanic(), 1)
+	view, err := a.AsPrivateKey()
+	if err != nil {
+		return err
+	}
+	pledgeSpend := crypto.ViewGhostOutputKey(pi.Mask.AsPublicKeyOrPanic(), pi.Keys[0].AsPublicKeyOrPanic(), view, uint64(pledge.Inputs[0].Index))
+	targetSpend := crypto.ViewGhostOutputKey(script.Mask.AsPublicKeyOrPanic(), script.Keys[0].AsPublicKeyOrPanic(), view, 1)
 	if bytes.Compare(pledge.Extra, tx.Extra[:len(crypto.Key{})*2]) != 0 {
 		return fmt.Errorf("invalid pledge and accpet key %s %s", hex.EncodeToString(pledge.Extra), hex.EncodeToString(tx.Extra))
 	}

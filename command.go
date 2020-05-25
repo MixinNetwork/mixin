@@ -33,7 +33,11 @@ func createAdressCmd(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		addr.PrivateViewKey = key.AsPrivateKeyOrPanic()
+		privView, err := key.AsPrivateKey()
+		if err != nil {
+			return err
+		}
+		addr.PrivateViewKey = privView
 		addr.PublicViewKey = addr.PrivateViewKey.Public()
 	}
 	if spend := c.String("spend"); len(spend) > 0 {
@@ -41,7 +45,11 @@ func createAdressCmd(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		addr.PrivateSpendKey = key.AsPrivateKeyOrPanic()
+		privSpend, err := key.AsPrivateKey()
+		if err != nil {
+			return err
+		}
+		addr.PrivateSpendKey = privSpend
 		addr.PublicSpendKey = addr.PrivateSpendKey.Public()
 	}
 	if c.Bool("public") {
@@ -80,7 +88,10 @@ func decryptGhostCmd(c *cli.Context) error {
 		return err
 	}
 
-	privView := view.AsPrivateKeyOrPanic()
+	privView, err := view.AsPrivateKey()
+	if err != nil {
+		return err
+	}
 	spend := crypto.ViewGhostOutputKey(mask.AsPublicKeyOrPanic(), key.AsPublicKeyOrPanic(), privView, c.Uint64("index"))
 	addr := common.Address{
 		PublicViewKey:  privView.Public(),
@@ -258,9 +269,19 @@ func signTransactionCmd(c *cli.Context) error {
 			return err
 		}
 
+		view, err := viewKey.AsPrivateKey()
+		if err != nil {
+			return err
+		}
+
+		spend, err := spendKey.AsPrivateKey()
+		if err != nil {
+			return err
+		}
+
 		var account common.Address
-		account.PrivateViewKey = viewKey.AsPrivateKeyOrPanic()
-		account.PrivateSpendKey = spendKey.AsPrivateKeyOrPanic()
+		account.PrivateViewKey = view
+		account.PrivateSpendKey = spend
 		accounts = append(accounts, account)
 	}
 
