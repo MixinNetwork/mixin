@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/config"
-	"github.com/MixinNetwork/mixin/crypto/ed25519"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/rpc"
@@ -19,8 +18,6 @@ import (
 )
 
 func main() {
-	ed25519.Load()
-
 	app := cli.NewApp()
 	app.Name = "mixin"
 	app.Usage = "A free and lightning fast peer-to-peer transactional network for digital assets."

@@ -9,12 +9,6 @@ import (
 	"strconv"
 )
 
-const KeySize = 32
-
-type Key [KeySize]byte
-type Response [32]byte
-type Commitment Key
-
 var (
 	emptyKey = Key{}
 )

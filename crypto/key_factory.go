@@ -1,7 +1,5 @@
 package crypto
 
-import "golang.org/x/crypto/sha3"
-
 type (
 	HashFunc func(data []byte) (digest [32]byte)
 
@@ -47,7 +45,7 @@ type (
 
 var (
 	keyFactory KeyFactory
-	hashFunc   HashFunc = sha3.Sum256
+	hashFunc   HashFunc
 )
 
 func SetKeyFactory(f KeyFactory) {
