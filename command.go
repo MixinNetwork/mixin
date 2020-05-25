@@ -253,18 +253,19 @@ func signTransactionCmd(c *cli.Context) error {
 	tx.Extra = extra
 
 	keys := c.StringSlice("key")
+	keyLen := len(crypto.Key{})
 	var accounts []common.Address
 	for _, s := range keys {
-		if len(s) != 128 {
+		if len(s) != keyLen*4 {
 			return fmt.Errorf("invalid key length %d", len(s))
 		}
 
-		viewKey, err := crypto.KeyFromString(s[:64])
+		viewKey, err := crypto.KeyFromString(s[:keyLen*2])
 		if err != nil {
 			return err
 		}
 
-		spendKey, err := crypto.KeyFromString(s[64:])
+		spendKey, err := crypto.KeyFromString(s[keyLen*2:])
 		if err != nil {
 			return err
 		}
