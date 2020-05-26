@@ -4,13 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MixinNetwork/mixin/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
 )
-
-func init() {
-	ed25519.Load()
-}
 
 func TestQuic(t *testing.T) {
 	assert := assert.New(t)

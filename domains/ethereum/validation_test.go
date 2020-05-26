@@ -1,5 +1,3 @@
-// +build ed25519 !custom_alg
-
 package ethereum
 
 import (
@@ -7,13 +5,8 @@ import (
 	"testing"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
 )
-
-func init() {
-	ed25519.Load()
-}
 
 func TestValidation(t *testing.T) {
 	assert := assert.New(t)

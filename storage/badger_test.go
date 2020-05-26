@@ -6,17 +6,12 @@ import (
 	"testing"
 
 	"github.com/MixinNetwork/mixin/config"
-	"github.com/MixinNetwork/mixin/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
 )
 
-func init() {
-	ed25519.Load()
-}
-
 func TestBadger(t *testing.T) {
 	assert := assert.New(t)
-	custom, err := config.Initialize("../config/config.example.toml")
+	custom, err := config.Initialize(configFilePath)
 	assert.Nil(err)
 
 	root, err := ioutil.TempDir("", "mixin-badger-test")
