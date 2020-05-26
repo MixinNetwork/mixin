@@ -418,6 +418,7 @@ func cancelNodeCmd(c *cli.Context) error {
 	tx.AddInput(pledge.PayloadHash(), 0)
 	tx.AddOutputWithType(common.OutputTypeNodeCancel, nil, common.Script{}, pledge.Outputs[0].Amount.Div(100), seed)
 	tx.AddScriptOutput([]common.Address{receiver}, common.NewThresholdScript(1), pledge.Outputs[0].Amount.Sub(tx.Outputs[0].Amount), seed)
+	viewKey := view.Key()
 	tx.Extra = append(pledge.Extra, viewKey[:]...)
 	utxo := &common.UTXO{
 		Input: common.Input{

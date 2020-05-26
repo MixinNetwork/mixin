@@ -72,9 +72,11 @@ func TestGhostKey(t *testing.T) {
 	O := crypto.ViewGhostOutputKey(R, P, a, 0)
 	assert.Equal(O.Key().String(), B.Key().String())
 
-	sig := p.Sign(a[:])
+	sig, err := p.Sign(a[:])
+	assert.Nil(err)
 	assert.True(P.Verify(a[:], sig))
 
-	sig = a.Sign(a[:])
+	sig, err = a.Sign(a[:])
+	assert.Nil(err)
 	assert.True(A.Verify(a[:], sig))
 }

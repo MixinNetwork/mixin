@@ -20,8 +20,8 @@ type (
 		Public() PublicKey
 		AddPrivate(p PrivateKey) PrivateKey
 		ScalarMult(pub PublicKey) PublicKey
-		Sign(message []byte) *Signature
-		SignWithChallenge(random PrivateKey, message []byte, hReduced [32]byte) *Signature
+		Sign(message []byte) (*Signature, error)
+		SignWithChallenge(random PrivateKey, message []byte, hReduced [32]byte) (*Signature, error)
 	}
 	KeyFactory interface {
 		NewPrivateKeyFromSeed(seed []byte) (PrivateKey, error)
@@ -34,12 +34,12 @@ type (
 		CosiLoads(cosi *CosiSignature, data []byte) (rest []byte, err error)
 		CosiAggregateCommitments(cosi *CosiSignature, commitments map[int]*Commitment) error
 		CosiChallenge(cosi *CosiSignature, publics map[int]PublicKey, message []byte) ([32]byte, error)
-		CosiAggregateSignature(cosi *CosiSignature, node int, sig *Signature) error
+		CosiAggregateSignature(cosi *CosiSignature, keyIndex int, sig *Signature) error
 		CosiFullVerify(publics map[int]PublicKey, message []byte, sig *CosiSignature) bool
 
 		UpdateSignatureCommitment(sig *Signature, commitment *Commitment)
 		DumpSignatureResponse(sig *Signature) *Response
-		LoadResponseSignature(cosi *CosiSignature, commitment *Commitment, response *Response) (*Signature, error)
+		LoadResponseSignature(cosi *CosiSignature, commitment *Commitment, response *Response) *Signature
 	}
 )
 

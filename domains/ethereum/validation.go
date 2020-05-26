@@ -17,6 +17,11 @@ var (
 	EthereumChainId   crypto.Hash
 )
 
+func init() {
+	EthereumChainBase = "43d61dcd-e413-450d-80b8-101d5e903357"
+	EthereumChainId = crypto.NewHash([]byte(EthereumChainBase))
+}
+
 func VerifyAssetKey(assetKey string) error {
 	if len(assetKey) != 42 {
 		return fmt.Errorf("invalid ethereum asset key %s", assetKey)

@@ -44,7 +44,7 @@ func (f keyFactory) NewPrivateKeyFromSeedOrPanic(seed []byte) crypto.PrivateKey 
 }
 
 func (f keyFactory) PrivateKeyFromKey(k crypto.Key) (crypto.PrivateKey, error) {
-	key := KeyFromCryptoKey(k)
+	var key = Key(k)
 	if !key.CheckScalar() {
 		return nil, errors.New("invalid key: check scalar failed")
 	}
@@ -52,18 +52,11 @@ func (f keyFactory) PrivateKeyFromKey(k crypto.Key) (crypto.PrivateKey, error) {
 }
 
 func (f keyFactory) PublicKeyFromKey(k crypto.Key) (crypto.PublicKey, error) {
-	key := KeyFromCryptoKey(k)
+	var key = Key(k)
 	if !key.CheckKey() {
 		return nil, errors.New("invalid key: check key failed")
 	}
 	return key, nil
-}
-
-func (f keyFactory) PrivateKeyFromBytes(b []byte) (crypto.PrivateKey, error) {
-	return KeyFromBytes(b)
-}
-func (f keyFactory) PublicKeyFromBytes(b []byte) (crypto.PublicKey, error) {
-	return KeyFromBytes(b)
 }
 
 func Load() {

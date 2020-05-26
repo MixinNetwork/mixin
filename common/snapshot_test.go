@@ -1,3 +1,5 @@
+// +build ed25519 !custom_alg
+
 package common
 
 import (
@@ -61,7 +63,7 @@ func checkSignature(s *Snapshot, pub crypto.PublicKey) bool {
 
 func sign(s *Snapshot, key crypto.PrivateKey) {
 	msg := s.PayloadHash()
-	sig := key.Sign(msg[:])
+	sig, _ := key.Sign(msg[:])
 	for _, o := range s.Signatures {
 		if o.String() == sig.String() {
 			return

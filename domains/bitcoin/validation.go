@@ -20,6 +20,11 @@ var (
 	BitcoinOmniUSDTId crypto.Hash
 )
 
+func init() {
+	BitcoinChainId = crypto.NewHash([]byte(BitcoinChainAssetKey))
+	BitcoinOmniUSDTId = crypto.NewHash([]byte(BitcoinOmniUSDTAssetKey))
+}
+
 func VerifyAssetKey(assetKey string) error {
 	if assetKey == BitcoinChainAssetKey || assetKey == BitcoinOmniUSDTAssetKey {
 		return nil

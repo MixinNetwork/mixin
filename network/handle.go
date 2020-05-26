@@ -261,7 +261,7 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 			msg.Transaction = ver
 		}
 	case PeerMessageTypeSnapshotResponse:
-		if len(data[1:]) != 32+crypto.KeySize {
+		if len(data[1:]) != 32+crypto.ResponseSize {
 			return nil, fmt.Errorf("invalid response message size %d", len(data[1:]))
 		}
 		copy(msg.SnapshotHash[:], data[1:])

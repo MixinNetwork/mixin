@@ -1,6 +1,7 @@
 package common
 
 import (
+	"crypto/rand"
 	"testing"
 
 	"github.com/MixinNetwork/mixin/crypto"
@@ -32,4 +33,10 @@ func TestUTXO(t *testing.T) {
 	assert.Equal("fffe02", utxo.Output.Script.String())
 	assert.Len(utxo.Output.Keys, 3)
 	assert.Equal(XINAssetId, utxo.Asset)
+}
+
+func randomAccount() Address {
+	seed := make([]byte, 64)
+	rand.Read(seed)
+	return NewAddressFromSeed(seed)
 }

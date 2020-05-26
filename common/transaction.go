@@ -165,7 +165,11 @@ func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []Address) error 
 	for _, acc := range accounts {
 		priv := crypto.DeriveGhostPrivateKey(uMask, acc.PrivateViewKey, acc.PrivateSpendKey, uint64(utxo.Index))
 		if keysFilter[priv.Public().String()] {
-			sigs = append(sigs, *priv.Sign(msg))
+			sig, err := priv.Sign(msg)
+			if err != nil {
+				return err
+			}
+			sigs = append(sigs, *sig)
 		}
 	}
 	signed.Signatures = append(signed.Signatures, sigs)
@@ -209,7 +213,11 @@ func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, account
 		if !keysFilter[priv.Public().String()] {
 			return fmt.Errorf("invalid key for the input %s", acc.String())
 		}
-		sigs = append(sigs, *priv.Sign(msg))
+		sig, err := priv.Sign(msg)
+		if err != nil {
+			return err
+		}
+		sigs = append(sigs, *sig)
 	}
 	signed.Signatures = append(signed.Signatures, sigs)
 	return nil
@@ -231,7 +239,11 @@ func (signed *SignedTransaction) SignRaw(key crypto.PrivateKey) error {
 			return err
 		}
 	}
-	signed.Signatures = append(signed.Signatures, []crypto.Signature{*key.Sign(msg)})
+	sig, err := key.Sign(msg)
+	if err != nil {
+		return err
+	}
+	signed.Signatures = append(signed.Signatures, []crypto.Signature{*sig})
 	return nil
 }
 

@@ -40,7 +40,8 @@ func TestKey(t *testing.T) {
 	assert.Equal("c91e0907d114fd83c1edc396490bb2dafa43c19815b0354e70dc80c317c3cb0a", priv.String())
 	assert.Equal("36bb0e309e7e9a82f1527df2c6b0e48181589097fe90c1282c558207ea27ce66", priv.Public().Key().String())
 
-	sig := key.Sign(seed)
+	sig, err := key.Sign(seed)
+	assert.Nil(err)
 	assert.True(key.Public().Verify(seed, sig))
 }
 

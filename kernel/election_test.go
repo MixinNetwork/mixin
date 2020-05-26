@@ -1,3 +1,5 @@
+// +build ed25519 !custom_alg
+
 package kernel
 
 import (
@@ -9,10 +11,15 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/crypto/ed25519"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	ed25519.Load()
+}
 
 func TestNodeRemovePossibility(t *testing.T) {
 	assert := assert.New(t)

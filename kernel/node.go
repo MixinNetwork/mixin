@@ -302,7 +302,10 @@ func (node *Node) BuildAuthenticationMessage() []byte {
 	binary.BigEndian.PutUint64(data, uint64(clock.Now().Unix()))
 	pubSpendKey := node.Signer.PublicSpendKey.Key()
 	data = append(data, pubSpendKey[:]...)
-	sig := node.Signer.PrivateSpendKey.Sign(data)
+	sig, err := node.Signer.PrivateSpendKey.Sign(data)
+	if err != nil {
+		panic(err)
+	}
 	data = append(data, sig[:]...)
 	return append(data, []byte(node.Listener)...)
 }

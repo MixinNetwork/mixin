@@ -1,3 +1,5 @@
+// +build ed25519 !custom_alg
+
 package common
 
 import (
@@ -169,10 +171,4 @@ func (store storeImpl) LockMintInput(mint *MintData, tx crypto.Hash, fork bool) 
 
 func (store storeImpl) LockWithdrawalClaim(hash, tx crypto.Hash, fork bool) error {
 	return nil
-}
-
-func randomAccount() Address {
-	seed := make([]byte, 64)
-	rand.Read(seed)
-	return NewAddressFromSeed(seed)
 }

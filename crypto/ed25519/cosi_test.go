@@ -66,7 +66,8 @@ func TestCosi(t *testing.T) {
 
 	{
 		for i, p := range privates {
-			sig := p.SignWithChallenge(randoms[i], raw, hReduced)
+			sig, err := p.SignWithChallenge(randoms[i], raw, hReduced)
+			assert.Nil(err)
 			assert.True(publics[i].VerifyWithChallenge(raw, sig, hReduced))
 			assert.Nil(cosi.AggregateSignature(i, sig))
 		}

@@ -1,3 +1,5 @@
+// +build ed25519 !custom_alg
+
 package common
 
 import (
@@ -53,7 +55,8 @@ func TestMsgpack(t *testing.T) {
 	view := sender.Address().PrivateViewKey
 	spend := sender.Address().PrivateSpendKey
 	priv := crypto.DeriveGhostPrivateKey(mask, view, spend, uint64(utxoIndex))
-	sig := priv.Sign(msg)
+	sig, err := priv.Sign(msg)
+	assert.Nil(err)
 	signed.Signatures = append(signed.Signatures, []crypto.Signature{*sig})
 	raw := MsgpackMarshalPanic(signed)
 

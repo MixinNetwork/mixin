@@ -402,7 +402,10 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 		return err
 	}
 
-	signature := priv.SignWithChallenge(v.random, m.SnapshotHash[:], challenge)
+	signature, err := priv.SignWithChallenge(v.random, m.SnapshotHash[:], challenge)
+	if err != nil {
+		return err
+	}
 	if node.checkInitialAcceptSnapshot(ann.Snapshot, tx) {
 		cosi.AggregateSignature(len(node.SortedConsensusNodes), signature)
 	} else {
@@ -473,14 +476,20 @@ func (node *Node) cosiHandleChallenge(m *CosiAction) error {
 		return fmt.Errorf("invalid CosiSignature signature size: %d", len(m.Signature.Signatures))
 	}
 
-	var sig crypto.Signature
-	copy(sig[:], m.Signature.Signatures[0][:])
-	sig.WithCommitment(s.Commitment)
-	if !pub.VerifyWithChallenge(m.SnapshotHash[:], &sig, challenge) {
-		return nil
+	{
+		var sig crypto.Signature
+		copy(sig[:], m.Signature.Signatures[0][:])
+		sig.WithCommitment(s.Commitment)
+		if !pub.VerifyWithChallenge(m.SnapshotHash[:], &sig, challenge) {
+			return nil
+		}
 	}
 
-	response := m.Signature.DumpSignatureResponse(node.Signer.PrivateSpendKey.SignWithChallenge(v.random, m.SnapshotHash[:], challenge))
+	sig, err := node.Signer.PrivateSpendKey.SignWithChallenge(v.random, m.SnapshotHash[:], challenge)
+	if err != nil {
+		return err
+	}
+	response := m.Signature.DumpSignatureResponse(sig)
 	return node.Peer.SendSnapshotResponseMessage(m.PeerId, m.SnapshotHash, response[:])
 }
 
@@ -518,10 +527,7 @@ func (node *Node) cosiHandleResponse(m *CosiAction) error {
 	for i, id := range node.SortedConsensusNodes {
 		if id == m.PeerId {
 			commitment := agg.Commitments[i]
-			sig, err := agg.Snapshot.Signature.LoadResponseSignature(commitment, m.Response)
-			if err != nil {
-				return err
-			}
+			sig := agg.Snapshot.Signature.LoadResponseSignature(commitment, m.Response)
 			if err := agg.Snapshot.Signature.AggregateSignature(i, sig); err != nil {
 				return err
 			}
@@ -819,10 +825,7 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 	if !ok {
 		return nil
 	}
-	sig, err := s.Signature.LoadResponseSignature(commitment, response)
-	if err != nil {
-		return nil
-	}
+	sig := s.Signature.LoadResponseSignature(commitment, response)
 	if !publics[index].VerifyWithChallenge(snap[:], sig, challenge) {
 		return nil
 	}

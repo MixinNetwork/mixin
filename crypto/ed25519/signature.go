@@ -8,7 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto/ed25519/edwards25519"
 )
 
-func (k Key) SignWithChallenge(random crypto.PrivateKey, message []byte, hReduced [32]byte) *crypto.Signature {
+func (k Key) SignWithChallenge(random crypto.PrivateKey, message []byte, hReduced [32]byte) (*crypto.Signature, error) {
 	var (
 		messageReduced [32]byte
 		s              [32]byte
@@ -23,10 +23,10 @@ func (k Key) SignWithChallenge(random crypto.PrivateKey, message []byte, hReduce
 	var signature crypto.Signature
 	copy(signature[:], R[:])
 	copy(signature[32:], s[:])
-	return &signature
+	return &signature, nil
 }
 
-func (k Key) Sign(message []byte) *crypto.Signature {
+func (k Key) Sign(message []byte) (*crypto.Signature, error) {
 	var digest1, messageDigest, hramDigest [64]byte
 	var expandedSecretKey [32]byte
 	copy(expandedSecretKey[:], k[:])
@@ -62,7 +62,7 @@ func (k Key) Sign(message []byte) *crypto.Signature {
 	var signature crypto.Signature
 	copy(signature[:], encodedR[:])
 	copy(signature[32:], s[:])
-	return &signature
+	return &signature, nil
 }
 
 func (k Key) VerifyWithChallenge(message []byte, sig *crypto.Signature, hReduced [32]byte) bool {

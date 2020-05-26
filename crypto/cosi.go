@@ -6,9 +6,9 @@ import (
 )
 
 type CosiSignature struct {
-	Signatures []Signature `json:"signatures"`
-	Mask       uint64      `json:"mask"`
-	sigMask    uint64      `msgpack:"-"`
+	Signatures    []Signature `json:"signatures"`
+	Mask          uint64      `json:"mask"`
+	SignatureMask uint64      `json:"-" msgpack:"-"`
 }
 
 func CosiAggregateCommitments(commitments map[int]*Commitment) (*CosiSignature, error) {
@@ -22,7 +22,7 @@ func CosiAggregateCommitments(commitments map[int]*Commitment) (*CosiSignature, 
 	if err := keyFactory.CosiAggregateCommitments(&cosi, commitments); err != nil {
 		return nil, err
 	}
-	cosi.sigMask = cosi.Mask
+	cosi.SignatureMask = cosi.Mask
 	return &cosi, nil
 }
 
@@ -54,22 +54,19 @@ func (c *CosiSignature) Keys() []int {
 	return keys
 }
 
-func (c *CosiSignature) SignatureMasks() uint64 {
-	return c.sigMask
-}
-
 func (c *CosiSignature) SignatureAggregated(i int) bool {
 	if i >= 64 || i < 0 {
 		return false
 	}
-	return c.sigMask^(1<<uint64(i)) == c.sigMask
+	mask := uint64(1 << i)
+	return (c.Mask&mask) == mask && (c.SignatureMask&mask) == 0
 }
 
 func (c *CosiSignature) MarkSignature(i int) error {
 	if i >= 64 || i < 0 {
 		return fmt.Errorf("invalid cosi signature mask index %d", i)
 	}
-	c.sigMask ^= (1 << uint64(i))
+	c.SignatureMask ^= (1 << uint64(i))
 	return nil
 }
 
@@ -113,7 +110,7 @@ func (c *CosiSignature) ThresholdVerify(threshold int) bool {
 }
 
 func (c *CosiSignature) FullVerify(publics []PublicKey, threshold int, message []byte) bool {
-	if c.sigMask != 0 {
+	if c.SignatureMask != 0 {
 		return false
 	}
 	if !c.ThresholdVerify(threshold) {
@@ -142,6 +139,6 @@ func (c *CosiSignature) DumpSignatureResponse(sig *Signature) *Response {
 	return keyFactory.DumpSignatureResponse(sig)
 }
 
-func (c *CosiSignature) LoadResponseSignature(commitment *Commitment, response *Response) (*Signature, error) {
+func (c *CosiSignature) LoadResponseSignature(commitment *Commitment, response *Response) *Signature {
 	return keyFactory.LoadResponseSignature(c, commitment, response)
 }

@@ -47,14 +47,11 @@ func (f keyFactory) DumpSignatureResponse(sig *crypto.Signature) *crypto.Respons
 	return &response
 }
 
-func (f keyFactory) LoadResponseSignature(cosi *crypto.CosiSignature, commitment *crypto.Commitment, response *crypto.Response) (*crypto.Signature, error) {
-	if len(response) != 32 {
-		return nil, fmt.Errorf("invalid signature response size: %d", len(response))
-	}
+func (f keyFactory) LoadResponseSignature(cosi *crypto.CosiSignature, commitment *crypto.Commitment, response *crypto.Response) *crypto.Signature {
 	var sig crypto.Signature
 	copy(sig[:32], commitment[:])
 	copy(sig[32:], response[:])
-	return &sig, nil
+	return &sig
 }
 
 func (f keyFactory) CosiDumps(cosi *crypto.CosiSignature) (data []byte) {
@@ -118,7 +115,7 @@ func (f keyFactory) CosiChallenge(cosi *crypto.CosiSignature, publics map[int]cr
 	return P.Challenge(R, message), nil
 }
 
-func (f keyFactory) CosiAggregateSignature(cosi *crypto.CosiSignature, node int, sig *crypto.Signature) error {
+func (f keyFactory) CosiAggregateSignature(cosi *crypto.CosiSignature, keyIndex int, sig *crypto.Signature) error {
 	if len(cosi.Signatures) != 1 {
 		return fmt.Errorf("invalid cosignature size")
 	}
