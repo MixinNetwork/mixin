@@ -23,6 +23,10 @@ func TestValidation(t *testing.T) {
 	assert.NotNil(err)
 	err = VerifyAssetKey("10020001")
 	assert.NotNil(err)
+	err = VerifyAssetKey("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
+	assert.Nil(err)
+	err = VerifyAssetKey("Tr7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
+	assert.NotNil(err)
 
 	err = VerifyAddress("TBJSVkP9zNDmHwnZtZHqG1GZXtWuJL71Mv")
 	assert.Nil(err)

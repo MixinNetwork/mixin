@@ -27,10 +27,23 @@ func VerifyAssetKey(assetKey string) error {
 	if assetKey == TronChainBase {
 		return nil
 	}
-	if len(assetKey) != 7 {
+	if len(assetKey) == 7 {
+		if _, err := strconv.Atoi(assetKey); err != nil {
+			return fmt.Errorf("invalid tron asset key %s", assetKey)
+		}
+		return nil
+	}
+	if len(assetKey) != 34 {
 		return fmt.Errorf("invalid tron asset key %s", assetKey)
 	}
-	if _, err := strconv.Atoi(assetKey); err != nil {
+	if !strings.HasPrefix(assetKey, "T") {
+		return fmt.Errorf("invalid tron asset key %s", assetKey)
+	}
+	form, err := formatAddress(assetKey)
+	if err != nil {
+		return fmt.Errorf("invalid tron asset key %s", assetKey)
+	}
+	if form != assetKey {
 		return fmt.Errorf("invalid tron asset key %s", assetKey)
 	}
 	return nil
@@ -71,7 +84,12 @@ func VerifyTransactionHash(hash string) error {
 }
 
 func GenerateAssetId(assetKey string) crypto.Hash {
-	if assetKey == "25dabac5-056a-48ff-b9f9-f67395dc407c" {
+	err := VerifyAssetKey(assetKey)
+	if err != nil {
+		panic(assetKey)
+	}
+
+	if assetKey == TronChainBase {
 		return TronChainId
 	}
 
