@@ -122,7 +122,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 		R := crypto.Commitment(v.random.Public().Key())
 		node.CosiVerifiers[s.Hash] = v
 		agg.Commitments[len(node.SortedConsensusNodes)] = &R
-		agg.responsed[node.IdForNetwork] = true
+		agg.committed[node.IdForNetwork] = true
 		node.CosiAggregators.Set(s.Hash, agg)
 		for peerId := range node.ConsensusNodes {
 			err := node.Peer.SendSnapshotAnnouncementMessage(peerId, s, R)
@@ -215,7 +215,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	R := crypto.Commitment(v.random.Public().Key())
 	node.CosiVerifiers[s.Hash] = v
 	agg.Commitments[node.ConsensusIndex] = &R
-	agg.responsed[node.IdForNetwork] = true
+	agg.committed[node.IdForNetwork] = true
 	node.assignNewGraphRound(final, cache)
 	node.CosiAggregators.Set(s.Hash, agg)
 	for peerId := range node.ConsensusNodes {
@@ -406,6 +406,7 @@ func (node *Node) cosiHandleCommitment(m *CosiAction) error {
 	if err != nil {
 		return err
 	}
+	ann.responsed[node.IdForNetwork] = true
 	if node.checkInitialAcceptSnapshot(ann.Snapshot, tx) {
 		cosi.AggregateSignature(len(node.SortedConsensusNodes), signature)
 	} else {

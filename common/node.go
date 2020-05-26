@@ -138,7 +138,7 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs [][]
 	if cancel.Amount.Cmp(po.Amount.Div(100)) != 0 {
 		return fmt.Errorf("invalid script output amount %s for cancel transaction", cancel.Amount)
 	}
-	publicSpend, err := crypto.PublicKeyFromString(hex.EncodeToString(lastPledge.Extra))
+	publicSpend, err := crypto.PublicKeyFromString(hex.EncodeToString(lastPledge.Extra[:crypto.KeySize]))
 	if err != nil {
 		return err
 	}
@@ -240,7 +240,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 	if po.Type != OutputTypeNodePledge {
 		return fmt.Errorf("invalid pledge utxo type %d", po.Type)
 	}
-	publicSpend, err := crypto.PublicKeyFromString(hex.EncodeToString(lastPledge.Extra))
+	publicSpend, err := crypto.PublicKeyFromString(hex.EncodeToString(lastPledge.Extra[:crypto.KeySize]))
 	if err != nil {
 		return err
 	}
