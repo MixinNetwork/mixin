@@ -12,8 +12,13 @@ func BenchmarkSignature(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		p := randomKey()
 		pub := Key(p.Public().Key())
-		sig, _ := p.Sign(raw)
-		pub.Verify(raw, sig)
+		sig, err := p.Sign(raw)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if !pub.Verify(raw, sig) {
+			b.Fatal("verify signature failed")
+		}
 	}
 }
 

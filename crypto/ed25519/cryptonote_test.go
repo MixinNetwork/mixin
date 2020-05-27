@@ -36,15 +36,18 @@ func BenchmarkDeriveGhostPublicKey(b *testing.B) {
 func BenchmarkViewGhostOutputKey(b *testing.B) {
 	b.ResetTimer()
 
-	r := randomKey()
-	a := randomKey()
-	R := r.Public()
-	A := a.Public()
-	B := randomKey().Public()
-	outputIndex := uint64(rand.Int())
-	P := crypto.DeriveGhostPublicKey(r, A, B, outputIndex)
 	for i := 0; i < b.N; i++ {
-		crypto.ViewGhostOutputKey(R, P, a, outputIndex)
+		r := randomKey()
+		a := randomKey()
+		R := r.Public()
+		A := a.Public()
+		B := randomKey().Public()
+		outputIndex := uint64(rand.Int())
+		P := crypto.DeriveGhostPublicKey(r, A, B, outputIndex)
+		s := crypto.ViewGhostOutputKey(R, P, a, outputIndex)
+		if s.Key() != B.Key() {
+			b.Fatal("ghost output key not matched")
+		}
 	}
 }
 

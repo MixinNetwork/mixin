@@ -1,6 +1,7 @@
 package ed25519
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/json"
 	"testing"
@@ -12,9 +13,15 @@ import (
 func BenchmarkMarshalKey(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		R := randomKey().Public().Key()
 		var key crypto.Key
-		s, _ := json.Marshal(randomKey().Public().Key())
-		json.Unmarshal(s, &key)
+		s, _ := json.Marshal(R)
+		if err := json.Unmarshal(s, &key); err != nil {
+			b.Fatal(err)
+		}
+		if bytes.Compare(R[:], key[:]) != 0 {
+			b.Fatal("unmarshal key not matched")
+		}
 	}
 }
 
