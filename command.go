@@ -16,6 +16,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/urfave/cli/v2"
 )
@@ -139,17 +140,29 @@ func validateGraphEntries(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
+	f, err := ioutil.ReadFile(c.String("dir") + "/genesis.json")
+	if err != nil {
+		return err
+	}
+	var gns kernel.Genesis
+	err = json.Unmarshal(f, &gns)
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(gns)
+	if err != nil {
+		return err
+	}
+	networkId := crypto.NewHash(data)
+
 	store, err := storage.NewBadgerStore(c.String("dir"))
 	if err != nil {
 		return err
 	}
 	defer store.Close()
-	var state struct{ Id crypto.Hash }
-	_, err = store.StateGet("network", &state)
-	if err != nil {
-		return err
-	}
-	total, invalid, err := store.ValidateGraphEntries(state.Id)
+
+	total, invalid, err := store.ValidateGraphEntries(networkId)
 	if err != nil {
 		return err
 	}

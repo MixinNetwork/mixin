@@ -29,8 +29,6 @@ type Genesis struct {
 }
 
 func (node *Node) LoadGenesis(configDir string) error {
-	const stateKeyNetwork = "network"
-
 	gns, err := readGenesis(configDir + "/genesis.json")
 	if err != nil {
 		return err
@@ -47,21 +45,6 @@ func (node *Node) LoadGenesis(configDir string) error {
 		id := in.Signer.Hash().ForNetwork(node.networkId)
 		node.genesisNodesMap[id] = true
 		node.genesisNodes = append(node.genesisNodes, id)
-	}
-
-	var state struct {
-		Id crypto.Hash
-	}
-	found, err := node.persistStore.StateGet(stateKeyNetwork, &state)
-	if err != nil {
-		return err
-	}
-	if found && state.Id != node.networkId {
-		return fmt.Errorf("invalid genesis for network %s", state.Id.String())
-	}
-	loaded, err := node.persistStore.CheckGenesisLoad()
-	if err != nil || loaded {
-		return err
 	}
 
 	var snapshots []*common.SnapshotWithTopologicalOrder
@@ -145,13 +128,12 @@ func (node *Node) LoadGenesis(configDir string) error {
 		})
 	}
 
-	err = node.persistStore.LoadGenesis(rounds, snapshots, transactions)
-	if err != nil {
+	loaded, err := node.persistStore.CheckGenesisLoad(snapshots)
+	if err != nil || loaded {
 		return err
 	}
 
-	state.Id = node.networkId
-	return node.persistStore.StateSet(stateKeyNetwork, state)
+	return node.persistStore.LoadGenesis(rounds, snapshots, transactions)
 }
 
 func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) (*common.SnapshotWithTopologicalOrder, *common.VersionedTransaction) {

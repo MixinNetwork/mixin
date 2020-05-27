@@ -69,26 +69,20 @@ func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr str
 
 	node.LoadNodeConfig()
 
+	err := node.LoadGenesis(dir)
+	if err != nil {
+		return nil, err
+	}
+
 	logger.Println("Validating graph entries...")
 	start := clock.Now()
-	var state struct{ Id crypto.Hash }
-	_, err := node.persistStore.StateGet("network", &state)
+	total, invalid, err := node.persistStore.ValidateGraphEntries(node.networkId)
 	if err != nil {
 		return nil, err
-	}
-	total, invalid, err := node.persistStore.ValidateGraphEntries(state.Id)
-	if err != nil {
-		return nil, err
-	}
-	if invalid > 0 {
+	} else if invalid > 0 {
 		return nil, fmt.Errorf("Validate graph with %d/%d invalid entries\n", invalid, total)
 	}
 	logger.Printf("Validate graph with %d total entries in %s\n", total, clock.Now().Sub(start).String())
-
-	err = node.LoadGenesis(dir)
-	if err != nil {
-		return nil, err
-	}
 
 	err = node.LoadConsensusNodes()
 	if err != nil {

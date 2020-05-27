@@ -8,10 +8,7 @@ import (
 type Store interface {
 	Close() error
 
-	StateGet(key string, val interface{}) (bool, error)
-	StateSet(key string, val interface{}) error
-
-	CheckGenesisLoad() (bool, error)
+	CheckGenesisLoad(snapshots []*common.SnapshotWithTopologicalOrder) (bool, error)
 	LoadGenesis(rounds []*common.Round, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.VersionedTransaction) error
 	ReadConsensusNodes() []*common.Node
 	ReadAllNodes() []*common.Node

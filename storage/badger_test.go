@@ -22,17 +22,6 @@ func TestBadger(t *testing.T) {
 	assert.Nil(err)
 	assert.NotNil(store)
 
-	found, err := store.StateGet("state-key", nil)
-	assert.Nil(err)
-	assert.False(found)
-	err = store.StateSet("state-key", 1)
-	assert.Nil(err)
-	var val int
-	found, err = store.StateGet("state-key", &val)
-	assert.Nil(err)
-	assert.True(found)
-	assert.Equal(1, val)
-
 	seq := store.TopologySequence()
 	assert.Equal(uint64(0), seq)
 

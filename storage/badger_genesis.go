@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"fmt"
+
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/dgraph-io/badger/v2"
 )
@@ -9,8 +11,9 @@ func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.Sn
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 
-	if checkGenesisLoad(txn) {
-		return nil
+	loaded, err := checkGenesisLoad(txn, snapshots)
+	if loaded || err != nil {
+		return err
 	}
 
 	for _, r := range rounds {
@@ -33,17 +36,46 @@ func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.Sn
 	return txn.Commit()
 }
 
-func (s *BadgerStore) CheckGenesisLoad() (bool, error) {
+func (s *BadgerStore) CheckGenesisLoad(snapshots []*common.SnapshotWithTopologicalOrder) (bool, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	return checkGenesisLoad(txn), nil
+	return checkGenesisLoad(txn, snapshots)
 }
 
-func checkGenesisLoad(txn *badger.Txn) bool {
+func checkGenesisLoad(txn *badger.Txn, snapshots []*common.SnapshotWithTopologicalOrder) (bool, error) {
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
-	it.Rewind()
-	return it.Valid()
+	loaded, index := false, 0
+	prefix := []byte(graphPrefixTopology)
+	it.Seek(graphTopologyKey(0))
+	for ; it.ValidForPrefix(prefix) && index < len(snapshots); it.Next() {
+		loaded = true
+		item := it.Item()
+		v, err := item.ValueCopy(nil)
+		if err != nil {
+			return loaded, err
+		}
+		item, err = txn.Get(v)
+		if err != nil {
+			return loaded, err
+		}
+		v, err = item.ValueCopy(nil)
+		if err != nil {
+			return loaded, err
+		}
+		var snap common.SnapshotWithTopologicalOrder
+		err = common.DecompressMsgpackUnmarshal(v, &snap)
+		if err != nil {
+			return loaded, err
+		}
+		hash := snap.PayloadHash()
+		if hash != snapshots[index].Hash {
+			return loaded, fmt.Errorf("malformed genesis snapshot %s %s", snapshots[index].Hash, hash)
+		}
+		index = index + 1
+	}
+
+	return loaded, nil
 }
