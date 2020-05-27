@@ -11,14 +11,14 @@ require (
 	github.com/dgraph-io/badger/v2 v2.0.3
 	github.com/dimfeld/httptreemux v5.0.1+incompatible
 	github.com/dsnet/compress v0.0.1 // indirect
-	github.com/ethereum/go-ethereum v1.9.13
+	github.com/ethereum/go-ethereum v1.9.14
 	github.com/gobuffalo/packr v1.30.1
 	github.com/gofrs/uuid v3.3.0+incompatible
 	github.com/gorilla/handlers v1.4.2
 	github.com/lucas-clemente/quic-go v0.11.2
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/nwaples/rardecode v1.1.0 // indirect
-	github.com/pelletier/go-toml v1.7.0
+	github.com/pelletier/go-toml v1.8.0
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/shopspring/decimal v1.2.0
 	github.com/stretchr/testify v1.4.0
