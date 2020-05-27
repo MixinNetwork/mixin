@@ -76,7 +76,7 @@ func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr str
 
 	logger.Println("Validating graph entries...")
 	start := clock.Now()
-	total, invalid, err := node.persistStore.ValidateGraphEntries(node.networkId)
+	total, invalid, err := node.persistStore.ValidateGraphEntries(node.networkId, 10)
 	if err != nil {
 		return nil, err
 	} else if invalid > 0 {

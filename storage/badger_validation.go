@@ -13,17 +13,13 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
-func (s *BadgerStore) ValidateGraphEntries(networkId crypto.Hash) (int, int, error) {
-	return s.validateSnapshotEntries(networkId)
-}
-
-func (s *BadgerStore) validateSnapshotEntries(networkId crypto.Hash) (int, int, error) {
+func (s *BadgerStore) ValidateGraphEntries(networkId crypto.Hash, depth uint64) (int, int, error) {
 	nodes := s.ReadAllNodes()
 	stats := make(chan [2]int, len(nodes))
 	errchan := make(chan error, len(nodes))
 	for _, n := range nodes {
 		go func(nodeId crypto.Hash) {
-			total, invalid, err := s.validateSnapshotEntriesForNode(nodeId)
+			total, invalid, err := s.validateSnapshotEntriesForNode(nodeId, depth)
 			if err != nil {
 				logger.Printf("SNAPSHOT VALIDATION ERROR FOR NODE %s %s\n", nodeId, err.Error())
 				errchan <- err
@@ -44,7 +40,7 @@ func (s *BadgerStore) validateSnapshotEntries(networkId crypto.Hash) (int, int, 
 	return total, invalid, nil
 }
 
-func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash) (int, int, error) {
+func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash, depth uint64) (int, int, error) {
 	logger.Printf("SNAPSHOT VALIDATE NODE %s BEGIN\n", nodeId)
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer func() {
@@ -62,8 +58,8 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash) (int, i
 	}
 
 	logger.Printf("SNAPSHOT VALIDATE NODE %s %d ROUNDS\n", nodeId, head.Number)
-	start := head.Number - 10
-	if head.Number < 10 {
+	start := head.Number - depth
+	if head.Number < depth {
 		start = 0
 	}
 	invalid, total := 0, 0

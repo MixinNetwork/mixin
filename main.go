@@ -170,6 +170,13 @@ func main() {
 			Name:   "validategraphentries",
 			Usage:  "Validate transaction hash integration",
 			Action: validateGraphEntries,
+			Flags: []cli.Flag{
+				&cli.Uint64Flag{
+					Name:  "depth",
+					Value: 1000,
+					Usage: "the maximum round depth to validate for each node",
+				},
+			},
 		},
 		{
 			Name:   "signrawtransaction",

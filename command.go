@@ -162,7 +162,7 @@ func validateGraphEntries(c *cli.Context) error {
 	}
 	defer store.Close()
 
-	total, invalid, err := store.ValidateGraphEntries(networkId)
+	total, invalid, err := store.ValidateGraphEntries(networkId, c.Uint64("depth"))
 	if err != nil {
 		return err
 	}
