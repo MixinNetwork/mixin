@@ -23,7 +23,6 @@ require (
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/shopspring/decimal v1.2.0
 	github.com/stretchr/testify v1.4.0
-	github.com/tjfoc/gmsm v1.3.1
 	github.com/ulikunitz/xz v0.5.7 // indirect
 	github.com/unrolled/render v1.0.3
 	github.com/urfave/cli/v2 v2.2.0
