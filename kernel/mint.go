@@ -176,7 +176,7 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 		addr := common.NewAddressFromSeed(make([]byte, 64))
 		in := fmt.Sprintf("MINTKERNELNODE%dDIFF", mint.Batch)
 		seed := crypto.NewHash([]byte(addr.String() + in))
-		r := crypto.NewPrivateKeyFromSeed(append(seed[:], seed[:]...))
+		r := crypto.PrivateKeyFromSeed(append(seed[:], seed[:]...))
 		if r.Public().Key() != out.Mask {
 			return fmt.Errorf("invalid mint diff mask %s %s", r.Public().String(), out.Mask.String())
 		}
@@ -216,7 +216,7 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 		n := nodes[i]
 		in := fmt.Sprintf("MINTKERNELNODE%d", mint.Batch)
 		seed := crypto.NewHash([]byte(n.Signer.String() + in))
-		r := crypto.NewPrivateKeyFromSeed(append(seed[:], seed[:]...))
+		r := crypto.PrivateKeyFromSeed(append(seed[:], seed[:]...))
 		if r.Public().Key() != out.Mask {
 			return fmt.Errorf("invalid mint output mask %s %s", r.Public().String(), out.Mask.String())
 		}

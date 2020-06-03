@@ -36,9 +36,9 @@ func TestSnapshot(t *testing.T) {
 
 	seed := make([]byte, 64)
 	rand.Read(seed)
-	key := crypto.NewPrivateKeyFromSeed(seed)
+	key := crypto.PrivateKeyFromSeed(seed)
 	rand.Read(seed)
-	pub1 := crypto.NewPrivateKeyFromSeed(seed).Public()
+	pub1 := crypto.PrivateKeyFromSeed(seed).Public()
 	sign(s, key)
 	assert.Len(s.Signatures, 1)
 	assert.Len(s.VersionedPayload(), 136)

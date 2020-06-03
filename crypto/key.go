@@ -13,24 +13,35 @@ var (
 	emptyKey = Key{}
 )
 
-func NewPrivateKeyFromReader(randReader io.Reader) PrivateKey {
-	var (
-		seed = make([]byte, 64)
-		s    = 0
-	)
+func NewPrivateKey(randReader io.Reader) PrivateKey {
+	var seed = make([]byte, 64)
 
-	for s < len(seed) {
-		n, err := randReader.Read(seed[s:])
-		if err != nil {
-			return nil
+	for {
+		s := 0
+		for s < len(seed) {
+			n, err := randReader.Read(seed[s:])
+			if err != nil {
+				return nil
+			}
+			s += n
 		}
-		s += n
+		priv, err := keyFactory.PrivateKeyFromSeed(seed)
+		if err == nil {
+			return priv
+		}
 	}
-	return keyFactory.NewPrivateKeyFromSeedOrPanic(seed)
 }
 
-func NewPrivateKeyFromSeed(seed []byte) PrivateKey {
-	return keyFactory.NewPrivateKeyFromSeedOrPanic(seed)
+func PrivateKeyFromSeed(seed []byte) PrivateKey {
+	for {
+		priv, err := keyFactory.PrivateKeyFromSeed(seed)
+		if err == nil {
+			return priv
+		}
+
+		h := NewHash(seed)
+		seed = append(h[:], h[:]...)
+	}
 }
 
 func PrivateKeyFromString(s string) (PrivateKey, error) {

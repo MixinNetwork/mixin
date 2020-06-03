@@ -23,8 +23,8 @@ func NewAddressFromSeed(seed []byte) Address {
 	hash1 := crypto.NewHash(seed)
 	hash2 := crypto.NewHash(hash1[:])
 	src := append(hash1[:], hash2[:]...)
-	spend := crypto.NewPrivateKeyFromSeed(seed)
-	view := crypto.NewPrivateKeyFromSeed(src)
+	spend := crypto.PrivateKeyFromSeed(seed)
+	view := crypto.PrivateKeyFromSeed(src)
 
 	return Address{
 		PrivateSpendKey: spend,

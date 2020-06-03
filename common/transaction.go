@@ -271,7 +271,7 @@ func (tx *Transaction) AddOutputWithType(ot uint8, accounts []Address, s Script,
 	}
 
 	if len(accounts) > 0 {
-		r := crypto.NewPrivateKeyFromSeed(seed)
+		r := crypto.PrivateKeyFromSeed(seed)
 		out.Mask = r.Public().Key()
 		for _, a := range accounts {
 			k := crypto.DeriveGhostPublicKey(r, a.PublicViewKey, a.PublicSpendKey, uint64(len(tx.Outputs)))

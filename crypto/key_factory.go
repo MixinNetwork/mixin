@@ -24,8 +24,7 @@ type (
 		SignWithChallenge(random PrivateKey, message []byte, hReduced [32]byte) (*Signature, error)
 	}
 	KeyFactory interface {
-		NewPrivateKeyFromSeed(seed []byte) (PrivateKey, error)
-		NewPrivateKeyFromSeedOrPanic(seed []byte) PrivateKey
+		PrivateKeyFromSeed(seed []byte) (PrivateKey, error)
 		PrivateKeyFromKey(k Key) (PrivateKey, error)
 		PublicKeyFromKey(k Key) (PublicKey, error)
 
