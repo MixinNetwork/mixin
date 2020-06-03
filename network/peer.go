@@ -3,6 +3,7 @@ package network
 import (
 	"encoding/binary"
 	"fmt"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ type Peer struct {
 	storeCache      *fastcache.Cache
 	snapshotsCaches *confirmMap
 	neighbors       *neighborMap
+	gossipRound     *neighborMap
 	handle          SyncHandle
 	transport       Transport
 	high            chan *ChanMsg
@@ -104,6 +106,7 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 		IdForNetwork: idForNetwork,
 		Address:      addr,
 		neighbors:    &neighborMap{m: make(map[crypto.Hash]*Peer)},
+		gossipRound:  &neighborMap{m: make(map[crypto.Hash]*Peer)},
 		high:         make(chan *ChanMsg, 1024*1024),
 		normal:       make(chan *ChanMsg, 1024*1024),
 		sync:         make(chan []*SyncPoint, 1024*1024),
@@ -127,6 +130,29 @@ func (me *Peer) ListenNeighbors() error {
 	if err != nil {
 		return err
 	}
+
+	go func() {
+		ticker := time.NewTicker(time.Duration(config.SnapshotRoundGap))
+		defer ticker.Stop()
+
+		for {
+			me.gossipRound.Clear()
+			rand.Seed(time.Now().UnixNano())
+			neighbors := me.neighbors.Slice()
+			for i := range neighbors {
+				j := rand.Intn(i + 1)
+				neighbors[i], neighbors[j] = neighbors[j], neighbors[i]
+			}
+			if len(neighbors) > config.GossipSize {
+				neighbors = neighbors[:config.GossipSize]
+			}
+			for _, p := range neighbors {
+				me.gossipRound.Set(p.IdForNetwork, p)
+			}
+
+			<-ticker.C
+		}
+	}()
 
 	for {
 		c, err := me.transport.Accept()
@@ -193,9 +219,14 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 		gd, hd, nd := false, false, false
 		select {
 		case <-graphTicker.C:
-			err := client.Send(buildGraphMessage(me.handle.BuildGraph()))
-			if err != nil {
-				return nil, err
+			msg := buildGraphMessage(me.handle.BuildGraph())
+			key := crypto.NewHash(append(msg[:], peer.IdForNetwork[:]...))
+			if !me.snapshotsCaches.contains(key, time.Minute) {
+				err := client.Send(msg)
+				if err != nil {
+					return nil, err
+				}
+				me.snapshotsCaches.store(key, time.Now())
 			}
 		default:
 			gd = true
@@ -399,4 +430,24 @@ func (m *neighborMap) Set(key crypto.Hash, v *Peer) {
 	defer m.Unlock()
 
 	m.m[key] = v
+}
+
+func (m *neighborMap) Slice() []*Peer {
+	m.Lock()
+	defer m.Unlock()
+
+	var peers []*Peer
+	for _, p := range m.m {
+		peers = append(peers, p)
+	}
+	return peers
+}
+
+func (m *neighborMap) Clear() {
+	m.Lock()
+	defer m.Unlock()
+
+	for id, _ := range m.m {
+		delete(m.m, id)
+	}
 }

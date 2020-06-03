@@ -155,6 +155,10 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 		graph, offset := me.getSyncPointOffset(p)
 		logger.Verbosef("network.sync syncToNeighborLoop getSyncPointOffset %s %d\n", p.IdForNetwork, offset)
 
+		if me.gossipRound.Get(p.IdForNetwork) == nil {
+			continue
+		}
+
 		for offset > 0 {
 			off, err := me.syncToNeighborSince(graph, p, offset)
 			if err != nil {

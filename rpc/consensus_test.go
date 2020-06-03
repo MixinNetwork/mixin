@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -75,7 +76,7 @@ func TestConsensus(t *testing.T) {
 	assert.Equal(NODES+1, tl)
 	assert.Equal(NODES+1, sl)
 	gt := testVerifyInfo(assert, nodes)
-	assert.True(gt.Timestamp.Before(epoch.Add(1 * time.Second)))
+	assert.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
 
 	genesisAmount := float64(10003.5) / INPUTS
 	domainAddress := accounts[0].String()
@@ -112,7 +113,7 @@ func TestConsensus(t *testing.T) {
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS+NODES+1, tl)
 	gt = testVerifyInfo(assert, nodes)
-	assert.True(gt.Timestamp.Before(epoch.Add(1 * time.Second)))
+	assert.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
 
 	utxos := make([]*common.VersionedTransaction, 0)
 	for _, d := range deposits {
@@ -239,6 +240,7 @@ func TestConsensus(t *testing.T) {
 	}
 
 	input = testSendDummyTransaction(assert, nodes[0].Host, payee, all[NODES].Transaction.String(), "10000")
+	assert.Len(input, 64)
 	time.Sleep(10 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2+1, tl)
@@ -606,32 +608,33 @@ func testVerifySnapshots(assert *assert.Assertions, nodes []*Node) (int, int) {
 		m, n := make(map[string]bool), make(map[string]bool)
 		for k, _ := range a {
 			s[k] = true
-			assert.NotNil(a[k])
-			assert.NotNil(b[k])
-			if a[k] != nil && b[k] != nil {
-				assert.Equal(b[k].Transaction, a[k].Transaction)
-			}
-			if a[k] != nil {
-				m[a[k].Transaction.String()] = true
-				t[a[k].Transaction.String()] = true
-			}
+			t[a[k].Transaction.String()] = true
+			m[a[k].Transaction.String()] = true
 		}
 		for k, _ := range b {
 			s[k] = true
-			assert.NotNil(a[k])
-			assert.NotNil(b[k])
-			if a[k] != nil && b[k] != nil {
-				assert.Equal(b[k].Transaction, a[k].Transaction)
-			}
-			if b[k] != nil {
-				n[b[k].Transaction.String()] = true
-				t[b[k].Transaction.String()] = true
-			}
+			t[b[k].Transaction.String()] = true
+			n[b[k].Transaction.String()] = true
 		}
+		assertKeyEqual(assert, a, b)
+		assert.Equal(len(a), len(b))
 		assert.Equal(len(m), len(n))
 		assert.Equal(len(filters[i]), len(filters[i+1]))
 	}
 	return len(t), len(s)
+}
+
+func assertKeyEqual(assert *assert.Assertions, a, b map[string]*common.Snapshot) {
+	var as, bs []string
+	for k := range a {
+		as = append(as, k)
+	}
+	for k := range b {
+		bs = append(bs, k)
+	}
+	sort.Slice(as, func(i, j int) bool { return as[i] < as[j] })
+	sort.Slice(bs, func(i, j int) bool { return bs[i] < bs[j] })
+	assert.True(strings.Join(as, "") == strings.Join(bs, ""))
 }
 
 func testListSnapshots(node string) map[string]*common.Snapshot {

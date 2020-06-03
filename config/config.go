@@ -19,6 +19,7 @@ const (
 	SnapshotRoundSize          = 200
 	TransactionMaximumSize     = 1024 * 1024
 	WithdrawalClaimFee         = "0.0001"
+	GossipSize                 = 3
 
 	KernelMintTimeBegin = 7
 	KernelMintTimeEnd   = 9
