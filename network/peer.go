@@ -24,7 +24,6 @@ type Peer struct {
 	gossipRound     *neighborMap
 	handle          SyncHandle
 	transport       Transport
-	high            chan *ChanMsg
 	normal          chan *ChanMsg
 	sync            chan []*SyncPoint
 	closing         bool
@@ -107,7 +106,6 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 		Address:      addr,
 		neighbors:    &neighborMap{m: make(map[crypto.Hash]*Peer)},
 		gossipRound:  &neighborMap{m: make(map[crypto.Hash]*Peer)},
-		high:         make(chan *ChanMsg, 1024*1024),
 		normal:       make(chan *ChanMsg, 1024*1024),
 		sync:         make(chan []*SyncPoint, 1024*1024),
 		handle:       handle,
@@ -216,7 +214,7 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 
 	logger.Verbosef("LOOP PEER STREAM %s\n", peer.Address)
 	for !peer.closing {
-		gd, hd, nd := false, false, false
+		gd, nd := false, false
 		select {
 		case <-graphTicker.C:
 			msg := buildGraphMessage(me.handle.BuildGraph())
@@ -233,19 +231,6 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 		}
 
 		select {
-		case msg := <-peer.high:
-			if !me.snapshotsCaches.contains(msg.key, time.Minute) {
-				err := client.Send(msg.data)
-				if err != nil {
-					return msg, err
-				}
-				me.snapshotsCaches.store(msg.key, time.Now())
-			}
-		default:
-			hd = true
-		}
-
-		select {
 		case msg := <-peer.normal:
 			if !me.snapshotsCaches.contains(msg.key, time.Minute) {
 				err := client.Send(msg.data)
@@ -258,7 +243,7 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 			nd = true
 		}
 
-		if gd && hd && nd {
+		if gd && nd {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
@@ -348,7 +333,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 	return peer, nil
 }
 
-func (me *Peer) sendHighToPeer(idForNetwork, key crypto.Hash, data []byte) error {
+func (me *Peer) sendDataToPeer(idForNetwork, key crypto.Hash, data []byte) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
@@ -363,7 +348,7 @@ func (me *Peer) sendHighToPeer(idForNetwork, key crypto.Hash, data []byte) error
 	timer := time.NewTimer(1 * time.Second)
 	defer timer.Stop()
 	select {
-	case peer.high <- &ChanMsg{key, data}:
+	case peer.normal <- &ChanMsg{key, data}:
 		return nil
 	case <-timer.C:
 		return fmt.Errorf("peer send high timeout")

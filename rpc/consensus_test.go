@@ -166,7 +166,7 @@ func TestConsensus(t *testing.T) {
 
 	input, err := testBuildPledgeInput(assert, nodes[0].Host, accounts[0], utxos)
 	assert.Nil(err)
-	time.Sleep(3 * time.Second)
+	time.Sleep(8 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1, tl)
 	gt = testVerifyInfo(assert, nodes)
@@ -228,7 +228,7 @@ func TestConsensus(t *testing.T) {
 	signer, payee := testGetNodeToRemove(instances[0].NetworkId(), accounts, payees)
 	input = testSendDummyTransaction(assert, nodes[0].Host, accounts[0], input, "3.5")
 	nodes = testRemoveNode(nodes, signer)
-	time.Sleep(5 * time.Second)
+	time.Sleep(8 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2, tl)
 	for i := range nodes {
@@ -241,7 +241,7 @@ func TestConsensus(t *testing.T) {
 
 	input = testSendDummyTransaction(assert, nodes[0].Host, payee, all[NODES].Transaction.String(), "10000")
 	assert.Len(input, 64)
-	time.Sleep(10 * time.Second)
+	time.Sleep(8 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2+1, tl)
 	for i := range nodes {
