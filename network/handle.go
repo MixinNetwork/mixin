@@ -98,19 +98,19 @@ func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *com
 func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash) error {
 	key := snap.ForNetwork(idForNetwork)
 	key = crypto.NewHash(append(key[:], 'S', 'N', 'A', 'P', PeerMessageTypeSnapshotConfirm))
-	return me.sendDataToPeer(idForNetwork, key, buildSnapshotConfirmMessage(snap))
+	return me.sendHighToPeer(idForNetwork, key, buildSnapshotConfirmMessage(snap))
 }
 
 func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypto.Hash) error {
 	key := tx.ForNetwork(idForNetwork)
 	key = crypto.NewHash(append(key[:], 'T', 'X', PeerMessageTypeTransactionRequest))
-	return me.sendDataToPeer(idForNetwork, key, buildTransactionRequestMessage(tx))
+	return me.sendHighToPeer(idForNetwork, key, buildTransactionRequestMessage(tx))
 }
 
 func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, ver *common.VersionedTransaction) error {
 	key := ver.PayloadHash().ForNetwork(idForNetwork)
 	key = crypto.NewHash(append(key[:], 'T', 'X', PeerMessageTypeTransaction))
-	return me.sendDataToPeer(idForNetwork, key, buildTransactionMessage(ver))
+	return me.sendHighToPeer(idForNetwork, key, buildTransactionMessage(ver))
 }
 
 func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash) {

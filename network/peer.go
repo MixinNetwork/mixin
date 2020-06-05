@@ -24,6 +24,7 @@ type Peer struct {
 	gossipRound     *neighborMap
 	handle          SyncHandle
 	transport       Transport
+	high            chan *ChanMsg
 	normal          chan *ChanMsg
 	sync            chan []*SyncPoint
 	closing         bool
@@ -106,6 +107,7 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
 		Address:      addr,
 		neighbors:    &neighborMap{m: make(map[crypto.Hash]*Peer)},
 		gossipRound:  &neighborMap{m: make(map[crypto.Hash]*Peer)},
+		high:         make(chan *ChanMsg, 1024*1024),
 		normal:       make(chan *ChanMsg, 1024*1024),
 		sync:         make(chan []*SyncPoint, 1024*1024),
 		handle:       handle,
@@ -198,9 +200,6 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	}
 	logger.Verbosef("AUTH PEER STREAM %s\n", peer.Address)
 
-	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
-	defer graphTicker.Stop()
-
 	if resend != nil {
 		logger.Verbosef("RESEND PEER STREAM %s\n", resend.key.String())
 		if !me.snapshotsCaches.contains(resend.key, time.Minute) {
@@ -211,23 +210,47 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 			me.snapshotsCaches.store(resend.key, time.Now())
 		}
 	}
-
 	logger.Verbosef("LOOP PEER STREAM %s\n", peer.Address)
-	for !peer.closing {
-		gd, nd := false, false
-		select {
-		case <-graphTicker.C:
+
+	go func() error {
+		defer client.Close()
+
+		graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
+		defer graphTicker.Stop()
+
+		for !peer.closing {
+			<-graphTicker.C
 			msg := buildGraphMessage(me.handle.BuildGraph())
 			key := crypto.NewHash(append(msg[:], peer.IdForNetwork[:]...))
 			if !me.snapshotsCaches.contains(key, time.Minute) {
 				err := client.Send(msg)
 				if err != nil {
-					return nil, err
+					return err
 				}
 				me.snapshotsCaches.store(key, time.Now())
 			}
+		}
+		return nil
+	}()
+
+	for !peer.closing {
+		hd, nd := false, false
+
+		select {
+		case msg := <-peer.high:
+			if !me.snapshotsCaches.contains(msg.key, time.Minute) {
+				err := client.Send(msg.data)
+				if err != nil {
+					return msg, err
+				}
+				me.snapshotsCaches.store(msg.key, time.Now())
+			}
+			hd = true
 		default:
-			gd = true
+		}
+
+		if hd {
+			continue
 		}
 
 		select {
@@ -239,11 +262,11 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 				}
 				me.snapshotsCaches.store(msg.key, time.Now())
 			}
-		default:
 			nd = true
+		default:
 		}
 
-		if gd && nd {
+		if !hd && !nd {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
@@ -333,7 +356,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 	return peer, nil
 }
 
-func (me *Peer) sendDataToPeer(idForNetwork, key crypto.Hash, data []byte) error {
+func (me *Peer) sendHighToPeer(idForNetwork, key crypto.Hash, data []byte) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
@@ -348,7 +371,7 @@ func (me *Peer) sendDataToPeer(idForNetwork, key crypto.Hash, data []byte) error
 	timer := time.NewTimer(1 * time.Second)
 	defer timer.Stop()
 	select {
-	case peer.normal <- &ChanMsg{key, data}:
+	case peer.high <- &ChanMsg{key, data}:
 		return nil
 	case <-timer.C:
 		return fmt.Errorf("peer send high timeout")
