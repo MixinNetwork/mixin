@@ -52,37 +52,14 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(p *Peer, local, remote 
 		remoteFilter[p.NodeId] = p
 	}
 
-	var future bool
 	var offset uint64
 
 	for _, l := range local {
 		r := remoteFilter[l.NodeId]
-		if r == nil {
-			future = true
-			break
-		}
-		if l.Number >= r.Number+config.SnapshotReferenceThreshold/2 {
-			future = true
-			break
-		}
-		if l.Number < config.SnapshotReferenceThreshold && l.Number > r.Number {
-			future = true
-			break
-		}
-	}
-	if !future {
-		return 0, nil
-	}
-
-	for _, l := range local {
-		r := remoteFilter[l.NodeId]
-		if r != nil && r.Number > l.Number {
+		if r == nil || r.Number > l.Number {
 			continue
 		}
-		number := uint64(0)
-		if r != nil && r.Number > 0 {
-			number = r.Number + 2 // because the node may be stale or removed, and with cache
-		}
+		number := r.Number + 2 // because the node may be stale or removed, and with cache
 		logger.Verbosef("network.sync compareRoundGraphAndGetTopologicalOffset %s try %s:%d\n", p.IdForNetwork, l.NodeId, number)
 
 		ss, err := me.cacheReadSnapshotsForNodeRound(l.NodeId, number, number <= l.Number)
