@@ -214,7 +214,7 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	defer graphTicker.Stop()
 
 	for !peer.closing {
-		hd, nd := true, true
+		gd, hd, nd := false, false, false
 
 		select {
 		case <-graphTicker.C:
@@ -223,6 +223,11 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 			if err != nil {
 				return nil, err
 			}
+		default:
+			gd = true
+		}
+
+		select {
 		case msg := <-peer.high:
 			if !me.snapshotsCaches.contains(msg.key, time.Minute) {
 				err := client.Send(msg.data)
@@ -232,10 +237,10 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 				me.snapshotsCaches.store(msg.key, time.Now())
 			}
 		default:
-			hd = false
+			hd = true
 		}
 
-		if hd {
+		if !hd {
 			continue
 		}
 
@@ -249,10 +254,10 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 				me.snapshotsCaches.store(msg.key, time.Now())
 			}
 		default:
-			nd = false
+			nd = true
 		}
 
-		if hd && nd {
+		if gd && hd && nd {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
