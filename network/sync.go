@@ -130,7 +130,7 @@ func (me *Peer) syncHeadRoundToRemote(local, remote map[crypto.Hash]*SyncPoint, 
 func (me *Peer) syncToNeighborLoop(p *Peer) {
 	for !p.closing {
 		graph, offset := me.getSyncPointOffset(p)
-		logger.Verbosef("network.sync syncToNeighborLoop getSyncPointOffset %s %d\n", p.IdForNetwork, offset)
+		logger.Verbosef("network.sync syncToNeighborLoop getSyncPointOffset %s %d %v\n", p.IdForNetwork, offset, graph != nil)
 
 		if me.gossipRound.Get(p.IdForNetwork) == nil {
 			continue
