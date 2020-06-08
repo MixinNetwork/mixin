@@ -219,13 +219,9 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 		select {
 		case <-graphTicker.C:
 			msg := buildGraphMessage(me.handle.BuildGraph())
-			key := crypto.NewHash(append(msg[:], peer.IdForNetwork[:]...))
-			if !me.snapshotsCaches.contains(key, time.Minute) {
-				err := client.Send(msg)
-				if err != nil {
-					return nil, err
-				}
-				me.snapshotsCaches.store(key, time.Now())
+			err := client.Send(msg)
+			if err != nil {
+				return nil, err
 			}
 		case msg := <-peer.high:
 			if !me.snapshotsCaches.contains(msg.key, time.Minute) {
