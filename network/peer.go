@@ -202,41 +202,31 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 
 	if resend != nil {
 		logger.Verbosef("RESEND PEER STREAM %s\n", resend.key.String())
-		if !me.snapshotsCaches.contains(resend.key, time.Minute) {
-			err := client.Send(resend.data)
-			if err != nil {
-				return resend, err
-			}
-			me.snapshotsCaches.store(resend.key, time.Now())
+		err := client.Send(resend.data)
+		if err != nil {
+			return resend, err
 		}
+		me.snapshotsCaches.store(resend.key, time.Now())
 	}
 	logger.Verbosef("LOOP PEER STREAM %s\n", peer.Address)
 
-	go func() error {
-		defer client.Close()
+	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
+	defer graphTicker.Stop()
 
-		graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
-		defer graphTicker.Stop()
+	for !peer.closing {
+		hd, nd := true, true
 
-		for !peer.closing {
-			<-graphTicker.C
+		select {
+		case <-graphTicker.C:
 			msg := buildGraphMessage(me.handle.BuildGraph())
 			key := crypto.NewHash(append(msg[:], peer.IdForNetwork[:]...))
 			if !me.snapshotsCaches.contains(key, time.Minute) {
 				err := client.Send(msg)
 				if err != nil {
-					return err
+					return nil, err
 				}
 				me.snapshotsCaches.store(key, time.Now())
 			}
-		}
-		return nil
-	}()
-
-	for !peer.closing {
-		hd, nd := false, false
-
-		select {
 		case msg := <-peer.high:
 			if !me.snapshotsCaches.contains(msg.key, time.Minute) {
 				err := client.Send(msg.data)
@@ -245,8 +235,8 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 				}
 				me.snapshotsCaches.store(msg.key, time.Now())
 			}
-			hd = true
 		default:
+			hd = false
 		}
 
 		if hd {
@@ -262,11 +252,11 @@ func (me *Peer) openPeerStream(peer *Peer, resend *ChanMsg) (*ChanMsg, error) {
 				}
 				me.snapshotsCaches.store(msg.key, time.Now())
 			}
-			nd = true
 		default:
+			nd = false
 		}
 
-		if !hd && !nd {
+		if hd && nd {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
