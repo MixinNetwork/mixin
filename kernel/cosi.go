@@ -261,7 +261,7 @@ func (node *Node) cosiHandleAnnouncement(m *CosiAction) error {
 		return node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil)
 	}
 
-	if node.Graph.FinalRound[s.NodeId] == nil {
+	if s.RoundNumber == 0 || node.Graph.FinalRound[s.NodeId] == nil {
 		return nil
 	}
 
