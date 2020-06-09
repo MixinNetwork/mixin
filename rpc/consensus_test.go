@@ -31,6 +31,104 @@ const (
 	INPUTS = 100
 )
 
+func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
+	assert := assert.New(t)
+
+	root, err := ioutil.TempDir("", "mixin-consensus-test")
+	assert.Nil(err)
+	defer os.RemoveAll(root)
+
+	accounts, _, _, _ := setupTestNet(root)
+	assert.Len(accounts, NODES)
+
+	epoch := time.Unix(1551312000, 0)
+	nodes := make([]*Node, 0)
+	instances := make([]*kernel.Node, 0)
+	stores := make([]storage.Store, 0)
+	for i, _ := range accounts {
+		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
+		config.Initialize(dir + "/config.toml")
+		cache := fastcache.New(config.Custom.Node.MemoryCacheSize * 1024 * 1024)
+		store, err := storage.NewBadgerStore(dir)
+		assert.Nil(err)
+		assert.NotNil(store)
+		stores = append(stores, store)
+		testIntializeConfig(dir + "/config.toml")
+		if i == 0 {
+			kernel.TestMockDiff(epoch.Sub(time.Now()))
+		}
+		node, err := kernel.SetupNode(store, cache, fmt.Sprintf(":170%02d", i+1), dir)
+		assert.Nil(err)
+		assert.NotNil(node)
+		instances = append(instances, node)
+		host := fmt.Sprintf("127.0.0.1:180%02d", i+1)
+		nodes = append(nodes, &Node{Signer: node.Signer, Host: host})
+	}
+	for i, n := range instances {
+		go func(node *kernel.Node, store storage.Store, num int) {
+			go StartHTTP(store, node, 18000+num+1)
+			go node.Loop()
+		}(n, stores[i], i)
+	}
+	time.Sleep(5 * time.Second)
+
+	tl, sl := testVerifySnapshots(assert, nodes)
+	assert.Equal(NODES+1, tl)
+	assert.Equal(NODES+1, sl)
+	gt := testVerifyInfo(assert, nodes)
+	assert.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
+
+	genesisAmount := float64(10003.5) / INPUTS
+	domainAddress := accounts[0].String()
+	deposits := make([]*common.VersionedTransaction, 0)
+	for i := 0; i < INPUTS; i++ {
+		raw := fmt.Sprintf(`{"version":1,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
+		tx, err := testSignTransaction(nodes[0].Host, accounts[0], raw)
+		assert.Nil(err)
+		assert.NotNil(tx)
+		deposits = append(deposits, &common.VersionedTransaction{SignedTransaction: *tx})
+	}
+
+	for _, d := range deposits {
+		n, raw := nodes[0].Host, hex.EncodeToString(d.Marshal())
+		id, err := testSendTransaction(n, raw)
+		assert.Nil(err)
+		assert.Len(id, 75)
+	}
+
+	time.Sleep(10 * time.Second)
+	tl, sl = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS+NODES+1, tl)
+	gt = testVerifyInfo(assert, nodes)
+	assert.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
+
+	utxos := make([]*common.VersionedTransaction, 0)
+	for _, d := range deposits {
+		raw := fmt.Sprintf(`{"version":1,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, d.PayloadHash().String(), genesisAmount, domainAddress)
+		mathRand.Seed(time.Now().UnixNano())
+		tx, err := testSignTransaction(nodes[0].Host, accounts[0], raw)
+		assert.Nil(err)
+		assert.NotNil(tx)
+		if tx != nil {
+			utxos = append(utxos, &common.VersionedTransaction{SignedTransaction: *tx})
+		}
+	}
+	assert.Equal(len(utxos), INPUTS)
+
+	for _, tx := range utxos {
+		n, raw := nodes[0].Host, hex.EncodeToString(tx.Marshal())
+		id, err := testSendTransaction(n, raw)
+		assert.Nil(err)
+		assert.Len(id, 75)
+	}
+
+	time.Sleep(10 * time.Second)
+	tl, sl = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1, tl)
+	gt = testVerifyInfo(assert, nodes)
+	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
+}
+
 func TestConsensus(t *testing.T) {
 	assert := assert.New(t)
 
