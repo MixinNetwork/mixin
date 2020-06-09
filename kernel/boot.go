@@ -28,8 +28,15 @@ func (node *Node) Loop() error {
 
 func (node *Node) Teardown() {
 	close(node.done)
+	<-node.clc
+	<-node.mlc
+	<-node.elc
 	node.Peer.Teardown()
 	node.persistStore.Close()
+}
+
+func TestMockReset() {
+	clock.Reset()
 }
 
 func TestMockDiff(at time.Duration) {

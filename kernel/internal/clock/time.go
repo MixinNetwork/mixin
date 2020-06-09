@@ -9,6 +9,8 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 )
 
+// FIXME GLOBAL VARAIBLES
+
 var (
 	mutex    *sync.RWMutex
 	mockDiff time.Duration
@@ -16,6 +18,16 @@ var (
 
 func init() {
 	mutex = new(sync.RWMutex)
+	mockDiff = 0
+}
+
+func Reset() {
+	if !inTest() {
+		panic(fmt.Errorf("clock reset not allowed in build version %s", config.BuildVersion))
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
 	mockDiff = 0
 }
 

@@ -29,13 +29,13 @@ func (ps *PeerSnapshot) buildKey() crypto.Hash {
 	return ps.Snapshot.Hash.ForNetwork(ps.PeerId)
 }
 
-func NewQueue() *Queue {
+func NewQueue(custom *config.Custom) *Queue {
 	return &Queue{
 		mutex:     new(sync.Mutex),
 		finalSet:  make(map[crypto.Hash]bool),
 		cacheSet:  make(map[crypto.Hash]bool),
-		cacheRing: NewRingBuffer(config.Custom.Node.RingCacheSize),
-		finalRing: NewRingBuffer(config.Custom.Node.RingFinalSize),
+		cacheRing: NewRingBuffer(custom.Node.RingCacheSize),
+		finalRing: NewRingBuffer(custom.Node.RingFinalSize),
 	}
 }
 

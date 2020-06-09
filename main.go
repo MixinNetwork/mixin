@@ -466,12 +466,12 @@ func kernelCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	err = config.Initialize(c.String("dir") + "/config.toml")
+	custom, err := config.Initialize(c.String("dir") + "/config.toml")
 	if err != nil {
 		return err
 	}
 
-	cache := fastcache.New(config.Custom.Node.MemoryCacheSize * 1024 * 1024)
+	cache := fastcache.New(custom.Node.MemoryCacheSize * 1024 * 1024)
 	go func() {
 		var s fastcache.Stats
 		for {
@@ -482,14 +482,14 @@ func kernelCmd(c *cli.Context) error {
 		}
 	}()
 
-	store, err := storage.NewBadgerStore(c.String("dir"))
+	store, err := storage.NewBadgerStore(custom, c.String("dir"))
 	if err != nil {
 		return err
 	}
 	defer store.Close()
 
 	addr := fmt.Sprintf(":%d", c.Int("port"))
-	node, err := kernel.SetupNode(store, cache, addr, c.String("dir"))
+	node, err := kernel.SetupNode(custom, store, cache, addr, c.String("dir"))
 	if err != nil {
 		return err
 	}
@@ -501,7 +501,7 @@ func kernelCmd(c *cli.Context) error {
 		}
 	}()
 	go func() {
-		server := rpc.NewServer(store, node, c.Int("port")+1000)
+		server := rpc.NewServer(custom, store, node, c.Int("port")+1000)
 		err := server.ListenAndServe()
 		if err != nil {
 			panic(err)

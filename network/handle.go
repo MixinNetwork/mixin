@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
-	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/VictoriaMetrics/fastcache"
@@ -87,7 +86,7 @@ func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *com
 
 	hash := s.PayloadHash().ForNetwork(idForNetwork)
 	key := crypto.NewHash(append(hash[:], 'S', 'C', 'O'))
-	if me.snapshotsCaches.contains(key, time.Duration(config.Custom.Node.CacheTTL)*time.Second/2) {
+	if me.snapshotsCaches.contains(key, time.Hour) {
 		return nil
 	}
 

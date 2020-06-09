@@ -22,7 +22,6 @@ import (
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/VictoriaMetrics/fastcache"
-	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,6 +32,8 @@ const (
 
 func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 	assert := assert.New(t)
+
+	kernel.TestMockReset()
 
 	root, err := ioutil.TempDir("", "mixin-attsg-test")
 	assert.Nil(err)
@@ -47,31 +48,30 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 	stores := make([]storage.Store, 0)
 	for i, _ := range accounts {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
-		config.Initialize(dir + "/config.toml")
-		cache := fastcache.New(config.Custom.Node.MemoryCacheSize * 1024 * 1024)
-		store, err := storage.NewBadgerStore(dir)
+		custom, err := config.Initialize(dir + "/config.toml")
+		assert.Nil(err)
+		cache := fastcache.New(custom.Node.MemoryCacheSize * 1024 * 1024)
+		store, err := storage.NewBadgerStore(custom, dir)
 		assert.Nil(err)
 		assert.NotNil(store)
 		stores = append(stores, store)
-		testIntializeConfig(dir + "/config.toml")
 		if i == 0 {
 			kernel.TestMockDiff(epoch.Sub(time.Now()))
 		}
-		node, err := kernel.SetupNode(store, cache, fmt.Sprintf(":170%02d", i+1), dir)
+		node, err := kernel.SetupNode(custom, store, cache, fmt.Sprintf(":170%02d", i+1), dir)
 		assert.Nil(err)
 		assert.NotNil(node)
 		defer node.Teardown()
 		instances = append(instances, node)
 		host := fmt.Sprintf("127.0.0.1:180%02d", i+1)
 		nodes = append(nodes, &Node{Signer: node.Signer, Host: host})
-	}
-	for i, n := range instances {
-		server := NewServer(stores[i], n, 18000+i+1)
+
+		server := NewServer(custom, store, node, 18000+i+1)
 		defer server.Close()
 		go func(node *kernel.Node, store storage.Store, num int, s *http.Server) {
 			go s.ListenAndServe()
 			go node.Loop()
-		}(n, stores[i], i, server)
+		}(node, store, i, server)
 	}
 	time.Sleep(3 * time.Second)
 
@@ -138,6 +138,8 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 func TestConsensus(t *testing.T) {
 	assert := assert.New(t)
 
+	kernel.TestMockReset()
+
 	root, err := ioutil.TempDir("", "mixin-consensus-test")
 	assert.Nil(err)
 	defer os.RemoveAll(root)
@@ -151,31 +153,30 @@ func TestConsensus(t *testing.T) {
 	stores := make([]storage.Store, 0)
 	for i, _ := range accounts {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
-		config.Initialize(dir + "/config.toml")
-		cache := fastcache.New(config.Custom.Node.MemoryCacheSize * 1024 * 1024)
-		store, err := storage.NewBadgerStore(dir)
+		custom, err := config.Initialize(dir + "/config.toml")
+		assert.Nil(err)
+		cache := fastcache.New(custom.Node.MemoryCacheSize * 1024 * 1024)
+		store, err := storage.NewBadgerStore(custom, dir)
 		assert.Nil(err)
 		assert.NotNil(store)
 		stores = append(stores, store)
-		testIntializeConfig(dir + "/config.toml")
 		if i == 0 {
 			kernel.TestMockDiff(epoch.Sub(time.Now()))
 		}
-		node, err := kernel.SetupNode(store, cache, fmt.Sprintf(":170%02d", i+1), dir)
+		node, err := kernel.SetupNode(custom, store, cache, fmt.Sprintf(":170%02d", i+1), dir)
 		assert.Nil(err)
 		assert.NotNil(node)
 		defer node.Teardown()
 		instances = append(instances, node)
 		host := fmt.Sprintf("127.0.0.1:180%02d", i+1)
 		nodes = append(nodes, &Node{Signer: node.Signer, Host: host})
-	}
-	for i, n := range instances {
-		server := NewServer(stores[i], n, 18000+i+1)
+
+		server := NewServer(custom, store, node, 18000+i+1)
 		defer server.Close()
 		go func(node *kernel.Node, store storage.Store, num int, s *http.Server) {
 			go s.ListenAndServe()
 			go node.Loop()
-		}(n, stores[i], i, server)
+		}(node, store, i, server)
 	}
 	time.Sleep(3 * time.Second)
 
@@ -377,31 +378,6 @@ func testRemoveNode(nodes []*Node, r common.Address) []*Node {
 	return tmp
 }
 
-func testIntializeConfig(file string) {
-	var c struct {
-		Node struct {
-			SignerStr string `toml:"signer-key"`
-		} `toml:"node"`
-		Network struct {
-			Listener string `toml:"listener"`
-		} `toml:"network"`
-	}
-	f, err := ioutil.ReadFile(file)
-	if err != nil {
-		panic(err)
-	}
-	err = toml.Unmarshal(f, &c)
-	if err != nil {
-		panic(err)
-	}
-	key, err := crypto.KeyFromString(c.Node.SignerStr)
-	if err != nil {
-		panic(err)
-	}
-	config.Custom.Node.Signer = key
-	config.Custom.Network.Listener = c.Network.Listener
-}
-
 func testSendDummyTransaction(assert *assert.Assertions, node string, domain common.Address, th, amount string) string {
 	raw, err := json.Marshal(map[string]interface{}{
 		"version": 1,
@@ -495,18 +471,18 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 	_, err = testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
 	assert.Nil(err)
 
-	config.Initialize(dir + "/config.toml")
-	cache := fastcache.New(config.Custom.Node.MemoryCacheSize * 1024 * 1024)
-	store, err := storage.NewBadgerStore(dir)
+	custom, err := config.Initialize(dir + "/config.toml")
+	assert.Nil(err)
+	cache := fastcache.New(custom.Node.MemoryCacheSize * 1024 * 1024)
+	store, err := storage.NewBadgerStore(custom, dir)
 	assert.Nil(err)
 	assert.NotNil(store)
-	testIntializeConfig(dir + "/config.toml")
-	pnode, err := kernel.SetupNode(store, cache, fmt.Sprintf(":170%02d", 99), dir)
+	pnode, err := kernel.SetupNode(custom, store, cache, fmt.Sprintf(":170%02d", 99), dir)
 	assert.Nil(err)
 	assert.NotNil(pnode)
 	go pnode.Loop()
 
-	server := NewServer(store, pnode, 18099)
+	server := NewServer(custom, store, pnode, 18099)
 	go server.ListenAndServe()
 
 	return Node{Signer: signer, Payee: payee}, pnode, server

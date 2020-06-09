@@ -90,11 +90,11 @@ func decryptGhostCmd(c *cli.Context) error {
 }
 
 func updateHeadReference(c *cli.Context) error {
-	err := config.Initialize(c.String("dir") + "/config.toml")
+	custom, err := config.Initialize(c.String("dir") + "/config.toml")
 	if err != nil {
 		return err
 	}
-	store, err := storage.NewBadgerStore(c.String("dir"))
+	store, err := storage.NewBadgerStore(custom, c.String("dir"))
 	if err != nil {
 		return err
 	}
@@ -123,11 +123,11 @@ func updateHeadReference(c *cli.Context) error {
 }
 
 func removeGraphEntries(c *cli.Context) error {
-	err := config.Initialize(c.String("dir") + "/config.toml")
+	custom, err := config.Initialize(c.String("dir") + "/config.toml")
 	if err != nil {
 		return err
 	}
-	store, err := storage.NewBadgerStore(c.String("dir"))
+	store, err := storage.NewBadgerStore(custom, c.String("dir"))
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func removeGraphEntries(c *cli.Context) error {
 }
 
 func validateGraphEntries(c *cli.Context) error {
-	err := config.Initialize(c.String("dir") + "/config.toml")
+	custom, err := config.Initialize(c.String("dir") + "/config.toml")
 	if err != nil {
 		return err
 	}
@@ -156,7 +156,7 @@ func validateGraphEntries(c *cli.Context) error {
 	}
 	networkId := crypto.NewHash(data)
 
-	store, err := storage.NewBadgerStore(c.String("dir"))
+	store, err := storage.NewBadgerStore(custom, c.String("dir"))
 	if err != nil {
 		return err
 	}

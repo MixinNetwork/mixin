@@ -19,7 +19,9 @@ const (
 )
 
 func (node *Node) ElectionLoop() {
-	ticker := time.NewTicker(time.Duration(config.Custom.Node.KernelOprationPeriod) * time.Second)
+	defer close(node.elc)
+
+	ticker := time.NewTicker(time.Duration(node.custom.Node.KernelOprationPeriod) * time.Second)
 	defer ticker.Stop()
 
 	for node.Graph.MyCacheRound == nil {

@@ -15,8 +15,9 @@ import (
 )
 
 type R struct {
-	Store storage.Store
-	Node  *kernel.Node
+	Store  storage.Store
+	Node   *kernel.Node
+	custom *config.Custom
 }
 
 type Call struct {
@@ -25,9 +26,9 @@ type Call struct {
 	Params []interface{} `json:"params"`
 }
 
-func NewRouter(store storage.Store, node *kernel.Node) *httptreemux.TreeMux {
+func NewRouter(custom *config.Custom, store storage.Store, node *kernel.Node) *httptreemux.TreeMux {
 	router := httptreemux.New()
-	impl := &R{Store: store, Node: node}
+	impl := &R{Store: store, Node: node, custom: custom}
 	router.POST("/", impl.handle)
 	registerHandlers(router)
 	return router
@@ -83,7 +84,7 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		return
 	}
 	renderer := &Render{w: w, impl: render.New(), id: call.Id}
-	if config.Custom.RPC.Runtime {
+	if impl.custom.RPC.Runtime {
 		renderer.start = time.Now()
 	}
 	switch call.Method {
@@ -202,8 +203,8 @@ func handleCORS(handler http.Handler) http.Handler {
 	})
 }
 
-func NewServer(store storage.Store, node *kernel.Node, port int) *http.Server {
-	router := NewRouter(store, node)
+func NewServer(custom *config.Custom, store storage.Store, node *kernel.Node, port int) *http.Server {
+	router := NewRouter(custom, store, node)
 	handler := handleCORS(router)
 	handler = handlers.ProxyHeaders(handler)
 

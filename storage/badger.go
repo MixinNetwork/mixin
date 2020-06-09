@@ -9,25 +9,27 @@ import (
 )
 
 type BadgerStore struct {
+	custom      *config.Custom
 	snapshotsDB *badger.DB
 	cacheDB     *badger.DB
 	queue       *Queue
 	closing     bool
 }
 
-func NewBadgerStore(dir string) (*BadgerStore, error) {
-	snapshotsDB, err := openDB(dir+"/snapshots", true)
+func NewBadgerStore(custom *config.Custom, dir string) (*BadgerStore, error) {
+	snapshotsDB, err := openDB(dir+"/snapshots", true, custom.Storage.ValueLogGC)
 	if err != nil {
 		return nil, err
 	}
-	cacheDB, err := openDB(dir+"/cache", true)
+	cacheDB, err := openDB(dir+"/cache", true, custom.Storage.ValueLogGC)
 	if err != nil {
 		return nil, err
 	}
 	return &BadgerStore{
+		custom:      custom,
 		snapshotsDB: snapshotsDB,
 		cacheDB:     cacheDB,
-		queue:       NewQueue(),
+		queue:       NewQueue(custom),
 		closing:     false,
 	}, nil
 }
@@ -42,7 +44,7 @@ func (store *BadgerStore) Close() error {
 	return store.cacheDB.Close()
 }
 
-func openDB(dir string, sync bool) (*badger.DB, error) {
+func openDB(dir string, sync, valueLogGC bool) (*badger.DB, error) {
 	opts := badger.DefaultOptions(dir)
 	opts = opts.WithSyncWrites(sync)
 	opts = opts.WithCompression(options.None)
@@ -52,7 +54,7 @@ func openDB(dir string, sync bool) (*badger.DB, error) {
 		return nil, err
 	}
 
-	if config.Custom.Storage.ValueLogGC {
+	if valueLogGC {
 		go func() {
 			ticker := time.NewTicker(5 * time.Minute)
 			defer ticker.Stop()

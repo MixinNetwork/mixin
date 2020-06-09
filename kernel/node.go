@@ -43,6 +43,9 @@ type Node struct {
 	CosiVerifiers   map[crypto.Hash]*CosiVerifier
 
 	done            chan struct{}
+	elc             chan struct{}
+	mlc             chan struct{}
+	clc             chan struct{}
 	genesisNodesMap map[crypto.Hash]bool
 	genesisNodes    []crypto.Hash
 	Epoch           uint64
@@ -50,10 +53,11 @@ type Node struct {
 	networkId       crypto.Hash
 	persistStore    storage.Store
 	cosiActionsChan chan *CosiAction
+	custom          *config.Custom
 	configDir       string
 }
 
-func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr string, dir string) (*Node, error) {
+func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fastcache.Cache, addr string, dir string) (*Node, error) {
 	var node = &Node{
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
 		ConsensusIndex:  -1,
@@ -63,10 +67,14 @@ func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr str
 		persistStore:    persistStore,
 		cacheStore:      cacheStore,
 		cosiActionsChan: make(chan *CosiAction, MempoolSize),
+		custom:          custom,
 		configDir:       dir,
 		TopoCounter:     getTopologyCounter(persistStore),
 		startAt:         clock.Now(),
 		done:            make(chan struct{}),
+		elc:             make(chan struct{}),
+		mlc:             make(chan struct{}),
+		clc:             make(chan struct{}),
 	}
 
 	node.LoadNodeConfig()
@@ -113,12 +121,12 @@ func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr str
 
 func (node *Node) LoadNodeConfig() {
 	var addr common.Address
-	addr.PrivateSpendKey = config.Custom.Node.Signer
+	addr.PrivateSpendKey = node.custom.Node.Signer
 	addr.PublicSpendKey = addr.PrivateSpendKey.Public()
 	addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
 	addr.PublicViewKey = addr.PrivateViewKey.Public()
 	node.Signer = addr
-	node.Listener = config.Custom.Network.Listener
+	node.Listener = node.custom.Network.Listener
 }
 
 func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
@@ -305,7 +313,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	}
 	peer := node.getPeerConsensusNode(peerId)
 
-	if config.Custom.Node.ConsensusOnly && peer == nil {
+	if node.custom.Node.ConsensusOnly && peer == nil {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
 	}
 	if peer != nil && peer.Signer.Hash() != signer.Hash() {

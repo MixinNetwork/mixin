@@ -31,7 +31,7 @@ const (
 	KernelNodeAcceptPeriodMaximum = 7 * 24 * time.Hour
 )
 
-type custom struct {
+type Custom struct {
 	Node struct {
 		Signer               crypto.Key `toml:"-"`
 		SignerStr            string     `toml:"signer-key"`
@@ -53,24 +53,19 @@ type custom struct {
 	} `toml:"rpc"`
 }
 
-var Custom *custom
-
-func Initialize(file string) error {
-	if Custom != nil {
-		return nil
-	}
+func Initialize(file string) (*Custom, error) {
 	f, err := ioutil.ReadFile(file)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	var config custom
+	var config Custom
 	err = toml.Unmarshal(f, &config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	key, err := crypto.KeyFromString(config.Node.SignerStr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	config.Node.Signer = key
 	if config.Node.KernelOprationPeriod == 0 {
@@ -88,6 +83,5 @@ func Initialize(file string) error {
 	if config.Node.RingFinalSize == 0 {
 		config.Node.RingFinalSize = 1024 * 1024 * 16
 	}
-	Custom = &config
-	return nil
+	return &config, nil
 }

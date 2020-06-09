@@ -35,7 +35,9 @@ func init() {
 }
 
 func (node *Node) MintLoop() {
-	ticker := time.NewTicker(time.Duration(config.Custom.Node.KernelOprationPeriod) * time.Second)
+	defer close(node.mlc)
+
+	ticker := time.NewTicker(time.Duration(node.custom.Node.KernelOprationPeriod) * time.Second)
 	defer ticker.Stop()
 
 	for {

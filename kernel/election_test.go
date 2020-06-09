@@ -102,13 +102,13 @@ func setupTestNode(assert *assert.Assertions, dir string) *Node {
 	err = ioutil.WriteFile(dir+"/nodes.json", data, 0644)
 	assert.Nil(err)
 
-	err = config.Initialize(dir + "/config.toml")
+	custom, err := config.Initialize(dir + "/config.toml")
 	assert.Nil(err)
 	cache := fastcache.New(16 * 1024 * 1024)
-	store, err := storage.NewBadgerStore(dir)
+	store, err := storage.NewBadgerStore(custom, dir)
 	assert.Nil(err)
 	assert.NotNil(store)
-	node, err := SetupNode(store, cache, ":7239", dir)
+	node, err := SetupNode(custom, store, cache, ":7239", dir)
 	assert.Nil(err)
 	return node
 }

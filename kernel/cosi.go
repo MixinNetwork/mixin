@@ -50,6 +50,8 @@ type CosiVerifier struct {
 }
 
 func (node *Node) CosiLoop() error {
+	defer close(node.clc)
+
 	for {
 		select {
 		case <-node.done:
@@ -816,7 +818,7 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
 	logger.Debugf("VerifyAndQueueAppendSnapshotFinalization(%s, %s)\n", peerId, s.Hash)
-	if config.Custom.Node.ConsensusOnly && node.getPeerConsensusNode(peerId) == nil {
+	if node.custom.Node.ConsensusOnly && node.getPeerConsensusNode(peerId) == nil {
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) invalid consensus peer\n", peerId, s.Hash)
 		return nil
 	}
