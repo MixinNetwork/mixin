@@ -501,7 +501,8 @@ func kernelCmd(c *cli.Context) error {
 		}
 	}()
 	go func() {
-		err := rpc.StartHTTP(store, node, c.Int("port")+1000)
+		server := rpc.NewServer(store, node, c.Int("port")+1000)
+		err := server.ListenAndServe()
 		if err != nil {
 			panic(err)
 		}

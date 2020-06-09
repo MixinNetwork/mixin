@@ -202,7 +202,7 @@ func handleCORS(handler http.Handler) http.Handler {
 	})
 }
 
-func StartHTTP(store storage.Store, node *kernel.Node, port int) error {
+func NewServer(store storage.Store, node *kernel.Node, port int) *http.Server {
 	router := NewRouter(store, node)
 	handler := handleCORS(router)
 	handler = handlers.ProxyHeaders(handler)
@@ -214,5 +214,5 @@ func StartHTTP(store storage.Store, node *kernel.Node, port int) error {
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
-	return server.ListenAndServe()
+	return server
 }

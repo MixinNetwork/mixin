@@ -30,4 +30,5 @@ type Transport interface {
 	Listen() error
 	Dial() (Client, error)
 	Accept() (Client, error)
+	Close() error
 }

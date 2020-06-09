@@ -34,7 +34,7 @@ const (
 func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 	assert := assert.New(t)
 
-	root, err := ioutil.TempDir("", "mixin-consensus-test")
+	root, err := ioutil.TempDir("", "mixin-attsg-test")
 	assert.Nil(err)
 	defer os.RemoveAll(root)
 
@@ -60,15 +60,18 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 		node, err := kernel.SetupNode(store, cache, fmt.Sprintf(":170%02d", i+1), dir)
 		assert.Nil(err)
 		assert.NotNil(node)
+		defer node.Teardown()
 		instances = append(instances, node)
 		host := fmt.Sprintf("127.0.0.1:180%02d", i+1)
 		nodes = append(nodes, &Node{Signer: node.Signer, Host: host})
 	}
 	for i, n := range instances {
-		go func(node *kernel.Node, store storage.Store, num int) {
-			go StartHTTP(store, node, 18000+num+1)
+		server := NewServer(stores[i], n, 18000+i+1)
+		defer server.Close()
+		go func(node *kernel.Node, store storage.Store, num int, s *http.Server) {
+			go s.ListenAndServe()
 			go node.Loop()
-		}(n, stores[i], i)
+		}(n, stores[i], i, server)
 	}
 	time.Sleep(3 * time.Second)
 
@@ -116,7 +119,7 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 			utxos = append(utxos, &common.VersionedTransaction{SignedTransaction: *tx})
 		}
 	}
-	assert.Equal(len(utxos), INPUTS)
+	assert.Equal(INPUTS, len(utxos))
 
 	for _, tx := range utxos {
 		n, raw := nodes[0].Host, hex.EncodeToString(tx.Marshal())
@@ -161,17 +164,20 @@ func TestConsensus(t *testing.T) {
 		node, err := kernel.SetupNode(store, cache, fmt.Sprintf(":170%02d", i+1), dir)
 		assert.Nil(err)
 		assert.NotNil(node)
+		defer node.Teardown()
 		instances = append(instances, node)
 		host := fmt.Sprintf("127.0.0.1:180%02d", i+1)
 		nodes = append(nodes, &Node{Signer: node.Signer, Host: host})
 	}
 	for i, n := range instances {
-		go func(node *kernel.Node, store storage.Store, num int) {
-			go StartHTTP(store, node, 18000+num+1)
+		server := NewServer(stores[i], n, 18000+i+1)
+		defer server.Close()
+		go func(node *kernel.Node, store storage.Store, num int, s *http.Server) {
+			go s.ListenAndServe()
 			go node.Loop()
-		}(n, stores[i], i)
+		}(n, stores[i], i, server)
 	}
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	tl, sl := testVerifySnapshots(assert, nodes)
 	assert.Equal(NODES+1, tl)
@@ -210,7 +216,7 @@ func TestConsensus(t *testing.T) {
 		wg.Wait()
 	}
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS+NODES+1, tl)
 	gt = testVerifyInfo(assert, nodes)
@@ -227,7 +233,7 @@ func TestConsensus(t *testing.T) {
 			utxos = append(utxos, &common.VersionedTransaction{SignedTransaction: *tx})
 		}
 	}
-	assert.Equal(len(utxos), INPUTS)
+	assert.Equal(INPUTS, len(utxos))
 
 	for _, tx := range utxos {
 		mathRand.Seed(time.Now().UnixNano())
@@ -248,7 +254,7 @@ func TestConsensus(t *testing.T) {
 		wg.Wait()
 	}
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1, tl)
 	gt = testVerifyInfo(assert, nodes)
@@ -273,7 +279,9 @@ func TestConsensus(t *testing.T) {
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.Before(epoch.Add(61 * time.Second)))
 
-	pn := testPledgeNewNode(assert, nodes[0].Host, accounts[0], gdata, ndata, input, root)
+	pn, pi, sv := testPledgeNewNode(assert, nodes[0].Host, accounts[0], gdata, ndata, input, root)
+	defer pi.Teardown()
+	defer sv.Close()
 	time.Sleep(3 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2, tl)
@@ -431,7 +439,7 @@ ring-final-size = 16384
 [network]
 listener = "%s"`
 
-func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Address, genesisData, nodesData []byte, input, root string) Node {
+func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Address, genesisData, nodesData []byte, input, root string) (Node, *kernel.Node, *http.Server) {
 	var signer, payee common.Address
 
 	randomPubAccount := func() common.Address {
@@ -497,9 +505,11 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 	assert.Nil(err)
 	assert.NotNil(pnode)
 	go pnode.Loop()
-	go StartHTTP(store, pnode, 18099)
 
-	return Node{Signer: signer, Payee: payee}
+	server := NewServer(store, pnode, 18099)
+	go server.ListenAndServe()
+
+	return Node{Signer: signer, Payee: payee}, pnode, server
 }
 
 func testBuildPledgeInput(assert *assert.Assertions, node string, domain common.Address, utxos []*common.VersionedTransaction) (string, error) {

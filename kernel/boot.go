@@ -26,6 +26,12 @@ func (node *Node) Loop() error {
 	return node.ConsumeQueue()
 }
 
+func (node *Node) Teardown() {
+	node.Peer.Teardown()
+	node.persistStore.Close()
+	close(node.done)
+}
+
 func TestMockDiff(at time.Duration) {
 	clock.MockDiff(at)
 }

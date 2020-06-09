@@ -111,6 +111,10 @@ func (t *QuicTransport) Listen() error {
 	return nil
 }
 
+func (t *QuicTransport) Close() error {
+	return t.listener.Close()
+}
+
 func (t *QuicTransport) Accept() (Client, error) {
 	sess, err := t.listener.Accept()
 	if err != nil {

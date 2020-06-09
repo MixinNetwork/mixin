@@ -52,6 +52,8 @@ type CosiVerifier struct {
 func (node *Node) CosiLoop() error {
 	for {
 		select {
+		case <-node.done:
+			return nil
 		case m := <-node.cosiActionsChan:
 			err := node.cosiHandleAction(m)
 			if err != nil {

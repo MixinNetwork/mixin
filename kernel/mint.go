@@ -35,17 +35,23 @@ func init() {
 }
 
 func (node *Node) MintLoop() {
+	ticker := time.NewTicker(time.Duration(config.Custom.Node.KernelOprationPeriod) * time.Second)
+	defer ticker.Stop()
+
 	for {
-		time.Sleep(time.Duration(config.Custom.Node.KernelOprationPeriod) * time.Second)
+		select {
+		case <-node.done:
+			return
+		case <-ticker.C:
+			batch, amount := node.checkMintPossibility(node.Graph.GraphTimestamp, false)
+			if amount.Sign() <= 0 || batch <= 0 {
+				continue
+			}
 
-		batch, amount := node.checkMintPossibility(node.Graph.GraphTimestamp, false)
-		if amount.Sign() <= 0 || batch <= 0 {
-			continue
-		}
-
-		err := node.tryToMintKernelNode(uint64(batch), amount)
-		if err != nil {
-			logger.Println(node.IdForNetwork, "tryToMintKernelNode", err)
+			err := node.tryToMintKernelNode(uint64(batch), amount)
+			if err != nil {
+				logger.Println(node.IdForNetwork, "tryToMintKernelNode", err)
+			}
 		}
 	}
 }

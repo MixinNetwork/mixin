@@ -19,35 +19,46 @@ const (
 )
 
 func (node *Node) ElectionLoop() {
-	for node.Graph.MyCacheRound == nil {
-		time.Sleep(time.Duration(config.Custom.Node.KernelOprationPeriod) * time.Second)
-		now := uint64(clock.Now().UnixNano())
-		if now < node.Epoch {
-			logger.Printf("LOCAL TIME INVALID %d %d\n", now, node.Epoch)
-			continue
-		}
-		hours := int((now-node.Epoch)/3600000000000) % 24
-		if hours < config.KernelNodeAcceptTimeBegin || hours > config.KernelNodeAcceptTimeEnd {
-			continue
-		}
+	ticker := time.NewTicker(time.Duration(config.Custom.Node.KernelOprationPeriod) * time.Second)
+	defer ticker.Stop()
 
-		err := node.tryToSendAcceptTransaction()
-		if err != nil {
-			logger.Println("tryToSendAcceptTransaction", err)
+	for node.Graph.MyCacheRound == nil {
+		select {
+		case <-node.done:
+			return
+		case <-ticker.C:
+			now := uint64(clock.Now().UnixNano())
+			if now < node.Epoch {
+				logger.Printf("LOCAL TIME INVALID %d %d\n", now, node.Epoch)
+				continue
+			}
+			hours := int((now-node.Epoch)/3600000000000) % 24
+			if hours < config.KernelNodeAcceptTimeBegin || hours > config.KernelNodeAcceptTimeEnd {
+				continue
+			}
+
+			err := node.tryToSendAcceptTransaction()
+			if err != nil {
+				logger.Println("tryToSendAcceptTransaction", err)
+			}
 		}
 	}
 
 	for {
-		time.Sleep(time.Duration(config.Custom.Node.KernelOprationPeriod) * time.Second)
-		candi, err := node.checkRemovePossibility(node.IdForNetwork, node.Graph.GraphTimestamp)
-		if err != nil {
-			logger.Printf("checkRemovePossibility %s", err.Error())
-			continue
-		}
+		select {
+		case <-node.done:
+			return
+		case <-ticker.C:
+			candi, err := node.checkRemovePossibility(node.IdForNetwork, node.Graph.GraphTimestamp)
+			if err != nil {
+				logger.Printf("checkRemovePossibility %s", err.Error())
+				continue
+			}
 
-		err = node.tryToSendRemoveTransaction(candi)
-		if err != nil {
-			logger.Println("tryToSendRemoveTransaction", err)
+			err = node.tryToSendRemoveTransaction(candi)
+			if err != nil {
+				logger.Println("tryToSendRemoveTransaction", err)
+			}
 		}
 	}
 }

@@ -42,6 +42,7 @@ type Node struct {
 	CosiAggregators *aggregatorMap
 	CosiVerifiers   map[crypto.Hash]*CosiVerifier
 
+	done            chan struct{}
 	genesisNodesMap map[crypto.Hash]bool
 	genesisNodes    []crypto.Hash
 	Epoch           uint64
@@ -65,6 +66,7 @@ func SetupNode(persistStore storage.Store, cacheStore *fastcache.Cache, addr str
 		configDir:       dir,
 		TopoCounter:     getTopologyCounter(persistStore),
 		startAt:         clock.Now(),
+		done:            make(chan struct{}),
 	}
 
 	node.LoadNodeConfig()
