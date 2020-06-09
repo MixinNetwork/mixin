@@ -48,7 +48,7 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound, allowDumm
 			return nil, false, fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-s.Timestamp).Seconds())
 		}
 		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64
-		best := node.determinBestRound(s.Timestamp)
+		best := node.determinBestRound(s.NodeId, s.Timestamp)
 		if best != nil && threshold < best.Start {
 			return nil, false, fmt.Errorf("external reference %s too early %s:%d %f", s.References.External, best.NodeId, best.Number, time.Duration(best.Start-threshold).Seconds())
 		}

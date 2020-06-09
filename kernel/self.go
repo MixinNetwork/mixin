@@ -6,6 +6,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 )
@@ -80,18 +81,18 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 	return nil
 }
 
-func (node *Node) determinBestRound(roundTime uint64) *FinalRound {
+func (node *Node) determinBestRound(nodeId crypto.Hash, roundTime uint64) *FinalRound {
 	var best *FinalRound
 	var start, height uint64
 	for id, rounds := range node.Graph.RoundHistory {
 		if !node.genesisNodesMap[id] && rounds[0].Number < 7+config.SnapshotReferenceThreshold*2 {
 			continue
 		}
-		if rl := node.Graph.ReverseRoundLinks[id]; rl > 0 && rl+1 >= node.Graph.FinalRound[node.IdForNetwork].Number {
+		if rl := node.Graph.ReverseRoundLinks[id]; rl > 0 && rl+1 >= node.Graph.FinalRound[nodeId].Number {
 			continue
 		}
 		rts, rh := rounds[0].Start, uint64(len(rounds))
-		if id == node.IdForNetwork || rh < height || rts > roundTime {
+		if id == nodeId || rh < height || rts > roundTime {
 			continue
 		}
 		if rts+config.SnapshotRoundGap*rh > uint64(clock.Now().UnixNano()) {
