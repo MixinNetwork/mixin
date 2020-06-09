@@ -27,9 +27,9 @@ func (node *Node) Loop() error {
 }
 
 func (node *Node) Teardown() {
+	close(node.done)
 	node.Peer.Teardown()
 	node.persistStore.Close()
-	close(node.done)
 }
 
 func TestMockDiff(at time.Duration) {

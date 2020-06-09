@@ -428,7 +428,7 @@ func testSendDummyTransaction(assert *assert.Assertions, node string, domain com
 	return hash["hash"]
 }
 
-var configDataTmpl = `[node]
+const configDataTmpl = `[node]
 signer-key = "%s"
 consensus-only = true
 memory-cache-size = 128
