@@ -70,7 +70,10 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 			go node.Loop()
 		}(n, stores[i], i)
 	}
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
+
+	mathRand.Seed(time.Now().UnixNano())
+	target := nodes[mathRand.Intn(len(nodes))]
 
 	tl, sl := testVerifySnapshots(assert, nodes)
 	assert.Equal(NODES+1, tl)
@@ -83,20 +86,20 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 	deposits := make([]*common.VersionedTransaction, 0)
 	for i := 0; i < INPUTS; i++ {
 		raw := fmt.Sprintf(`{"version":1,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
-		tx, err := testSignTransaction(nodes[0].Host, accounts[0], raw)
+		tx, err := testSignTransaction(target.Host, accounts[0], raw)
 		assert.Nil(err)
 		assert.NotNil(tx)
 		deposits = append(deposits, &common.VersionedTransaction{SignedTransaction: *tx})
 	}
 
 	for _, d := range deposits {
-		n, raw := nodes[0].Host, hex.EncodeToString(d.Marshal())
+		n, raw := target.Host, hex.EncodeToString(d.Marshal())
 		id, err := testSendTransaction(n, raw)
 		assert.Nil(err)
 		assert.Len(id, 75)
 	}
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS+NODES+1, tl)
 	gt = testVerifyInfo(assert, nodes)
@@ -122,7 +125,7 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 		assert.Len(id, 75)
 	}
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1, tl)
 	gt = testVerifyInfo(assert, nodes)
