@@ -85,25 +85,24 @@ func (node *Node) determinBestRound(nodeId crypto.Hash, roundTime uint64) *Final
 	var best *FinalRound
 	var start, height uint64
 	for id, rounds := range node.Graph.RoundHistory {
-		if !node.genesisNodesMap[id] && rounds[0].Number < 7+config.SnapshotReferenceThreshold*2 {
+		r, rts, rh := rounds[0], rounds[0].Start, uint64(len(rounds))
+		if id == nodeId || rh < height || rts > roundTime {
+			continue
+		}
+		if !node.genesisNodesMap[id] && r.Number < 7+config.SnapshotReferenceThreshold*2 {
 			continue
 		}
 		if rl := node.Graph.ReverseRoundLinks[id]; rl > 0 && rl+1 >= node.Graph.FinalRound[nodeId].Number {
 			continue
 		}
-		rts, rh := rounds[0].Start, uint64(len(rounds))
-		if id == nodeId || rh < height || rts > roundTime {
-			continue
-		}
 		if rts+config.SnapshotRoundGap*rh > uint64(clock.Now().UnixNano()) {
 			continue
 		}
-		if cr := node.Graph.CacheRound[id]; len(cr.Snapshots) == 0 && cr.Number == rounds[0].Number+1 {
+		if cr := node.Graph.CacheRound[id]; len(cr.Snapshots) == 0 && cr.Number == r.Number+1 && r.Number > 0 {
 			continue
 		}
 		if rh > height || rts > start {
-			best = rounds[0]
-			start, height = rts, rh
+			best, start, height = r, rts, rh
 		}
 	}
 	return best
