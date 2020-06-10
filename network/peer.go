@@ -133,9 +133,15 @@ func (me *Peer) Teardown() {
 	me.closing = true
 	me.transport.Close()
 	neighbors := me.neighbors.Slice()
+	var wg sync.WaitGroup
 	for _, p := range neighbors {
-		p.disconnect()
+		wg.Add(1)
+		go func(p *Peer) {
+			wg.Done()
+			p.disconnect()
+		}(p)
 	}
+	wg.Wait()
 	logger.Printf("Teardown(%s, %s)\n", me.IdForNetwork, me.Address)
 }
 
