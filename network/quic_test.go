@@ -14,6 +14,7 @@ func TestQuic(t *testing.T) {
 	serverTrans, err := NewQuicServer(addr)
 	assert.Nil(err)
 	assert.NotNil(serverTrans)
+	defer serverTrans.Close()
 	err = serverTrans.Listen()
 	assert.Nil(err)
 	go func() {

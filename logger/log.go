@@ -16,6 +16,8 @@ const (
 	DEBUG   = 7
 )
 
+// FIXME GLOBAL VARAIBLES
+
 var (
 	level   int
 	limiter int
