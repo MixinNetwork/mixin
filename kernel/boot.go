@@ -33,6 +33,7 @@ func (node *Node) Teardown() {
 	<-node.elc
 	node.Peer.Teardown()
 	node.persistStore.Close()
+	node.cacheStore.Reset()
 }
 
 func TestMockReset() {

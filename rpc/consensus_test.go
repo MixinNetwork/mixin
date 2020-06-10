@@ -102,7 +102,7 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 		assert.Len(id, 75)
 	}
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS+NODES+1, tl)
 	gt = testVerifyInfo(assert, nodes)
@@ -128,7 +128,7 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 		assert.Len(id, 75)
 	}
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1, tl)
 	gt = testVerifyInfo(assert, nodes)
@@ -217,11 +217,12 @@ func TestConsensus(t *testing.T) {
 		wg.Wait()
 	}
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS+NODES+1, tl)
 	gt = testVerifyInfo(assert, nodes)
 	assert.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
+	t.Log("DEPOSIT TEST DONE", time.Now())
 
 	utxos := make([]*common.VersionedTransaction, 0)
 	for _, d := range deposits {
@@ -255,11 +256,12 @@ func TestConsensus(t *testing.T) {
 		wg.Wait()
 	}
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1, tl)
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
+	t.Log("INPUT TEST DONE", time.Now())
 
 	kernel.TestMockDiff((config.KernelMintTimeBegin + 24) * time.Hour)
 	time.Sleep(3 * time.Second)
@@ -295,6 +297,7 @@ func TestConsensus(t *testing.T) {
 	assert.Equal(all[NODES].Signer.String(), pn.Signer.String())
 	assert.Equal(all[NODES].Payee.String(), pn.Payee.String())
 	assert.Equal("PLEDGING", all[NODES].State)
+	t.Log("PLEDGE TEST DONE", time.Now())
 
 	kernel.TestMockDiff(11 * time.Hour)
 	time.Sleep(3 * time.Second)
@@ -334,6 +337,7 @@ func TestConsensus(t *testing.T) {
 		assert.Equal(all[NODES].Payee.String(), pn.Payee.String())
 		assert.Equal("ACCEPTED", all[NODES].State)
 	}
+	t.Log("ACCEPT TEST DONE", time.Now())
 
 	signer, payee := testGetNodeToRemove(instances[0].NetworkId(), accounts, payees)
 	input = testSendDummyTransaction(assert, nodes[0].Host, accounts[0], input, "3.5")
@@ -361,6 +365,7 @@ func TestConsensus(t *testing.T) {
 		assert.Equal(all[NODES].Payee.String(), payee.String())
 		assert.Equal("REMOVED", all[NODES].State)
 	}
+	t.Log("REMOVE TEST DONE", time.Now())
 }
 
 func testRemoveNode(nodes []*Node, r common.Address) []*Node {
