@@ -61,7 +61,6 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 		node, err := kernel.SetupNode(custom, store, cache, fmt.Sprintf(":170%02d", i+1), dir)
 		assert.Nil(err)
 		assert.NotNil(node)
-		defer node.Teardown()
 		instances = append(instances, node)
 		host := fmt.Sprintf("127.0.0.1:180%02d", i+1)
 		nodes = append(nodes, &Node{Signer: node.Signer, Host: host})
@@ -73,6 +72,17 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 			go node.Loop()
 		}(node, store, i, server)
 	}
+	defer func() {
+		var wg sync.WaitGroup
+		for _, n := range instances {
+			wg.Add(1)
+			go func(node *kernel.Node) {
+				node.Teardown()
+				wg.Done()
+			}(n)
+		}
+		wg.Wait()
+	}()
 	time.Sleep(3 * time.Second)
 
 	mathRand.Seed(time.Now().UnixNano())
@@ -166,7 +176,6 @@ func TestConsensus(t *testing.T) {
 		node, err := kernel.SetupNode(custom, store, cache, fmt.Sprintf(":170%02d", i+1), dir)
 		assert.Nil(err)
 		assert.NotNil(node)
-		defer node.Teardown()
 		instances = append(instances, node)
 		host := fmt.Sprintf("127.0.0.1:180%02d", i+1)
 		nodes = append(nodes, &Node{Signer: node.Signer, Host: host})
@@ -178,6 +187,17 @@ func TestConsensus(t *testing.T) {
 			go node.Loop()
 		}(node, store, i, server)
 	}
+	defer func() {
+		var wg sync.WaitGroup
+		for _, n := range instances {
+			wg.Add(1)
+			go func(node *kernel.Node) {
+				node.Teardown()
+				wg.Done()
+			}(n)
+		}
+		wg.Wait()
+	}()
 	time.Sleep(3 * time.Second)
 
 	tl, sl := testVerifySnapshots(assert, nodes)
