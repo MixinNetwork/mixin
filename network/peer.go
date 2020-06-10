@@ -137,8 +137,8 @@ func (me *Peer) Teardown() {
 	for _, p := range neighbors {
 		wg.Add(1)
 		go func(p *Peer) {
-			wg.Done()
 			p.disconnect()
+			wg.Done()
 		}(p)
 	}
 	wg.Wait()
