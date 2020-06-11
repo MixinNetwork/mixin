@@ -62,7 +62,7 @@ type SyncHandle interface {
 	VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error
 }
 
-func (me *Peer) SendSnapshotAnnouncementMessage(idForNetwork crypto.Hash, s *common.Snapshot, R crypto.Key) error {
+func (me *Peer) SendSnapshotAnnouncementMessage(idForNetwork crypto.Hash, s *common.Snapshot, R crypto.Commitment) error {
 	data := buildSnapshotAnnouncementMessage(s, R)
 	return me.sendSnapshotMessageToPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeSnapshotAnnoucement, data)
 }
@@ -139,7 +139,7 @@ func buildGossipNeighborsMessage(neighbors []*Peer) []byte {
 	return append([]byte{PeerMessageTypeGossipNeighbors}, data...)
 }
 
-func buildSnapshotAnnouncementMessage(s *common.Snapshot, R crypto.Key) []byte {
+func buildSnapshotAnnouncementMessage(s *common.Snapshot, R crypto.Commitment) []byte {
 	data := common.MsgpackMarshalPanic(s)
 	data = append(R[:], data...)
 	return append([]byte{PeerMessageTypeSnapshotAnnoucement}, data...)

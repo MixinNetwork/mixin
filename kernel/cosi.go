@@ -125,7 +125,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 		agg.responsed[node.IdForNetwork] = true
 		node.CosiAggregators.Set(s.Hash, agg)
 		for peerId := range node.ConsensusNodes {
-			err := node.Peer.SendSnapshotAnnouncementMessage(peerId, s, crypto.Key(R))
+			err := node.Peer.SendSnapshotAnnouncementMessage(peerId, s, R)
 			if err != nil {
 				return err
 			}
@@ -219,7 +219,7 @@ func (node *Node) cosiSendAnnouncement(m *CosiAction) error {
 	node.assignNewGraphRound(final, cache)
 	node.CosiAggregators.Set(s.Hash, agg)
 	for peerId := range node.ConsensusNodes {
-		err := node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, crypto.Key(R))
+		err := node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R)
 		if err != nil {
 			return err
 		}
