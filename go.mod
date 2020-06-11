@@ -11,7 +11,7 @@ require (
 	github.com/dgraph-io/badger/v2 v2.0.3
 	github.com/dimfeld/httptreemux v5.0.1+incompatible
 	github.com/dsnet/compress v0.0.1 // indirect
-	github.com/ethereum/go-ethereum v1.9.14
+	github.com/ethereum/go-ethereum v1.9.15
 	github.com/gobuffalo/packr v1.30.1
 	github.com/gofrs/uuid v3.3.0+incompatible
 	github.com/gorilla/handlers v1.4.2
