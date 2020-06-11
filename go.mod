@@ -12,6 +12,7 @@ require (
 	github.com/dimfeld/httptreemux v5.0.1+incompatible
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/ethereum/go-ethereum v1.9.15
+	github.com/frankban/quicktest v1.10.0 // indirect
 	github.com/gobuffalo/packr v1.30.1
 	github.com/gofrs/uuid v3.3.0+incompatible
 	github.com/gorilla/handlers v1.4.2
@@ -28,6 +29,6 @@ require (
 	github.com/valyala/gozstd v1.7.0
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
-	go.dedis.ch/kyber/v3 v3.0.12
 	golang.org/x/crypto v0.0.0-20200311171314-f7b00557c8c4
+	google.golang.org/appengine v1.6.6 // indirect
 )

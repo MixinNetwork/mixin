@@ -2,17 +2,16 @@ package crypto
 
 import (
 	"bytes"
+	"database/sql/driver"
 	"encoding/hex"
 	"fmt"
 	"strconv"
-
-	"golang.org/x/crypto/sha3"
 )
 
 type Hash [32]byte
 
 func NewHash(data []byte) Hash {
-	return Hash(sha3.Sum256(data))
+	return Hash(hashFunc(data))
 }
 
 func HashFromString(src string) (Hash, error) {
@@ -59,4 +58,22 @@ func (h *Hash) UnmarshalJSON(b []byte) error {
 	}
 	copy(h[:], data)
 	return nil
+}
+
+// Scan implements the sql.Scanner interface for database deserialization.
+func (h *Hash) Scan(value interface{}) (err error) {
+	var s string
+	switch v := value.(type) {
+	case string:
+		s = v
+	case []byte:
+		s = string(v)
+	}
+	*h, err = HashFromString(s)
+	return
+}
+
+// Value implements the driver.Valuer interface for database serialization.
+func (h Hash) Value() (driver.Value, error) {
+	return h.String(), nil
 }
