@@ -22,8 +22,10 @@ type Peer struct {
 	snapshotsCaches *confirmMap
 	neighbors       *neighborMap
 	gossipRound     *neighborMap
+	pingFilter      *neighborMap
 	handle          SyncHandle
 	transport       Transport
+	gossipNeighbors bool
 	high            chan *ChanMsg
 	normal          chan *ChanMsg
 	sync            chan []*SyncPoint
@@ -49,6 +51,11 @@ func (me *Peer) PingNeighbor(addr string) error {
 	} else if a.Port < 80 || a.IP == nil {
 		return fmt.Errorf("invalid address %s %d %s", addr, a.Port, a.IP)
 	}
+	key := crypto.NewHash([]byte(addr))
+	if me.pingFilter.Get(key) != nil {
+		return nil
+	}
+	me.pingFilter.Set(key, &Peer{})
 
 	go func() {
 		for !me.closing {
@@ -96,7 +103,7 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) (*Peer, error
 		old.disconnect()
 	}
 
-	peer := NewPeer(nil, idForNetwork, addr)
+	peer := NewPeer(nil, idForNetwork, addr, false)
 	me.neighbors.Set(idForNetwork, peer)
 	go me.openPeerStreamLoop(peer)
 	go me.syncToNeighborLoop(peer)
@@ -109,18 +116,20 @@ func (p *Peer) disconnect() {
 	<-p.stn
 }
 
-func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string) *Peer {
+func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNeighbors bool) *Peer {
 	peer := &Peer{
-		IdForNetwork: idForNetwork,
-		Address:      addr,
-		neighbors:    &neighborMap{m: make(map[crypto.Hash]*Peer)},
-		gossipRound:  &neighborMap{m: make(map[crypto.Hash]*Peer)},
-		high:         make(chan *ChanMsg, 1024*1024),
-		normal:       make(chan *ChanMsg, 1024*1024),
-		sync:         make(chan []*SyncPoint, 1024*1024),
-		handle:       handle,
-		ops:          make(chan struct{}),
-		stn:          make(chan struct{}),
+		IdForNetwork:    idForNetwork,
+		Address:         addr,
+		neighbors:       &neighborMap{m: make(map[crypto.Hash]*Peer)},
+		gossipRound:     &neighborMap{m: make(map[crypto.Hash]*Peer)},
+		pingFilter:      &neighborMap{m: make(map[crypto.Hash]*Peer)},
+		gossipNeighbors: gossipNeighbors,
+		high:            make(chan *ChanMsg, 1024*1024),
+		normal:          make(chan *ChanMsg, 1024*1024),
+		sync:            make(chan []*SyncPoint, 1024*1024),
+		handle:          handle,
+		ops:             make(chan struct{}),
+		stn:             make(chan struct{}),
 	}
 	if handle != nil {
 		peer.storeCache = handle.GetCacheStore()
@@ -244,6 +253,9 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
 	defer graphTicker.Stop()
 
+	gossipNeighborsTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap * 100))
+	defer gossipNeighborsTicker.Stop()
+
 	for !me.closing && !p.closing {
 		gd, hd, nd := false, false, false
 
@@ -253,6 +265,14 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 			err := client.Send(msg)
 			if err != nil {
 				return nil, err
+			}
+		case <-gossipNeighborsTicker.C:
+			if me.gossipNeighbors {
+				msg := buildGossipNeighborsMessage(me.neighbors.Slice())
+				err := client.Send(msg)
+				if err != nil {
+					return nil, err
+				}
 			}
 		default:
 			gd = true

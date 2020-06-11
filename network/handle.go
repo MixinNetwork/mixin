@@ -25,6 +25,8 @@ const (
 	PeerMessageTypeTransactionChallenge = 12 // leader send bitmask Z and aggragated R to peer
 	PeerMessageTypeSnapshotResponse     = 13 // peer generate A from nodes and Z, send response si = ri + H(R || A || M)ai to leader
 	PeerMessageTypeSnapshotFinalization = 14 // leader generate A, verify si B = ri B + H(R || A || M)ai B = Ri + H(R || A || M)Ai, then finalize based on threshold
+
+	PeerMessageTypeGossipNeighbors = 101
 )
 
 type PeerMessage struct {
@@ -39,12 +41,14 @@ type PeerMessage struct {
 	WantTx          bool
 	FinalCache      []*SyncPoint
 	Auth            []byte
+	Neighbors       []string
 }
 
 type SyncHandle interface {
 	GetCacheStore() *fastcache.Cache
 	BuildAuthenticationMessage() []byte
 	Authenticate(msg []byte) (crypto.Hash, string, error)
+	UpdateNeighbors(neighbors []string) error
 	BuildGraph() []*SyncPoint
 	UpdateSyncPoint(peerId crypto.Hash, points []*SyncPoint)
 	ReadAllNodes() []crypto.Hash
@@ -127,6 +131,15 @@ func buildPingMessage() []byte {
 	return []byte{PeerMessageTypePing}
 }
 
+func buildGossipNeighborsMessage(neighbors []*Peer) []byte {
+	rns := make([]string, len(neighbors))
+	for i, p := range neighbors {
+		rns[i] = p.Address
+	}
+	data := common.MsgpackMarshalPanic(rns)
+	return append([]byte{PeerMessageTypeGossipNeighbors}, data...)
+}
+
 func buildSnapshotAnnouncementMessage(s *common.Snapshot, R crypto.Key) []byte {
 	data := common.MsgpackMarshalPanic(s)
 	data = append(R[:], data...)
@@ -198,6 +211,11 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 			return nil, err
 		}
 	case PeerMessageTypePing:
+	case PeerMessageTypeGossipNeighbors:
+		err := common.MsgpackUnmarshal(data[1:], &msg.Neighbors)
+		if err != nil {
+			return nil, err
+		}
 	case PeerMessageTypeAuthentication:
 		msg.Auth = data[1:]
 	case PeerMessageTypeSnapshotConfirm:
@@ -269,6 +287,10 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage, done ch
 		case msg := <-receive:
 			switch msg.Type {
 			case PeerMessageTypePing:
+			case PeerMessageTypeGossipNeighbors:
+				if me.gossipNeighbors {
+					me.handle.UpdateNeighbors(msg.Neighbors)
+				}
 			case PeerMessageTypeGraph:
 				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeGraph %s\n", peer.IdForNetwork)
 				me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.FinalCache)

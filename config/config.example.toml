@@ -23,6 +23,9 @@ value-log-gc = true
 # the public endpoint to receive peer packets, may be a proxy or load balancer
 # must be a public reachable domain or IP, and the port allowed by firewall
 listener = "mixin-node.example.com:7239"
+# whether to gossip known neighbors to neighbors, and to connect neighbors gossiped
+# by neighbors
+gossip-neighbors = true
 
 [rpc]
 # whether respond the runtime of each RPC call

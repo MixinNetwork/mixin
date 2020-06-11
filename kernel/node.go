@@ -105,7 +105,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 	}
 	node.Graph = graph
 
-	node.Peer = network.NewPeer(node, node.IdForNetwork, addr)
+	node.Peer = network.NewPeer(node, node.IdForNetwork, addr, custom.Network.GossipNeighbors)
 	err = node.PingNeighborsFromConfig()
 	if err != nil {
 		return nil, err
@@ -263,6 +263,16 @@ func (node *Node) PingNeighborsFromConfig() error {
 		node.Peer.PingNeighbor(in.Host)
 	}
 
+	return nil
+}
+
+func (node *Node) UpdateNeighbors(neighbors []string) error {
+	for _, in := range neighbors {
+		if in == node.Listener {
+			continue
+		}
+		node.Peer.PingNeighbor(in)
+	}
 	return nil
 }
 
