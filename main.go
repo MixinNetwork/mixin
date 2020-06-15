@@ -20,7 +20,7 @@ import (
 func main() {
 	app := cli.NewApp()
 	app.Name = "mixin"
-	app.Usage = "A free and lightning fast peer-to-peer transactional network for digital assets."
+	app.Usage = "A free, lightning fast and decentralized network for transferring digital assets."
 	app.Version = config.BuildVersion
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
