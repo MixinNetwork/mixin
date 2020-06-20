@@ -43,13 +43,8 @@ func (tx *SignedTransaction) verifyDepositFormat() error {
 	if id := deposit.Asset().AssetId(); id != tx.Asset {
 		return fmt.Errorf("invalid asset %s %s", tx.Asset, id)
 	}
-
 	if deposit.Amount.Sign() <= 0 {
 		return fmt.Errorf("invalid amount %s", deposit.Amount.String())
-	}
-
-	if deposit.OutputIndex > 1024 {
-		return fmt.Errorf("invalid output index %d", deposit.OutputIndex)
 	}
 
 	switch deposit.Asset().ChainId {
