@@ -165,8 +165,16 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 	var offset uint64
 	var graph map[crypto.Hash]*SyncPoint
 
+	period := time.Duration(config.SnapshotRoundGap / 3)
+	timer := time.NewTimer(period)
+	defer timer.Stop()
+
 	for !me.closing && !p.closing {
-		timer := time.NewTimer(time.Duration(config.SnapshotRoundGap / 3))
+		if !timer.Stop() {
+			<-timer.C
+		}
+		timer.Reset(period)
+
 		select {
 		case g := <-p.sync:
 			graph = make(map[crypto.Hash]*SyncPoint)
@@ -183,7 +191,6 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 		case <-timer.C:
 			return graph, offset
 		}
-		timer.Stop()
 	}
 
 	return nil, 0

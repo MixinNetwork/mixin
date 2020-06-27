@@ -32,6 +32,8 @@ type Peer struct {
 	closing         bool
 	ops             chan struct{}
 	stn             chan struct{}
+	highTimer       *time.Timer
+	snapshotTimer   *time.Timer
 }
 
 type SyncPoint struct {
@@ -114,6 +116,9 @@ func (p *Peer) disconnect() {
 	p.closing = true
 	<-p.ops
 	<-p.stn
+
+	p.highTimer.Stop()
+	p.snapshotTimer.Stop()
 }
 
 func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNeighbors bool) *Peer {
@@ -134,6 +139,9 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNei
 	if handle != nil {
 		peer.storeCache = handle.GetCacheStore()
 		peer.snapshotsCaches = &confirmMap{cache: peer.storeCache}
+	} else {
+		peer.highTimer = time.NewTimer(1 * time.Second)
+		peer.snapshotTimer = time.NewTimer(1 * time.Second)
 	}
 	return peer
 }
@@ -332,6 +340,10 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 
 	go me.handlePeerMessage(peer, receive, done)
 
+	period := time.Duration(config.SnapshotRoundGap)
+	timer := time.NewTimer(period)
+	defer timer.Stop()
+
 	for {
 		data, err := client.Receive()
 		if err != nil {
@@ -341,13 +353,16 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		if err != nil {
 			return fmt.Errorf("parseNetworkMessage %s %s", peer.IdForNetwork, err.Error())
 		}
-		timer := time.NewTimer(time.Duration(config.SnapshotRoundGap))
+
+		if !timer.Stop() {
+			<-timer.C
+		}
+		timer.Reset(period)
 		select {
 		case receive <- msg:
 		case <-timer.C:
 			return fmt.Errorf("peer receive timeout %s", peer.IdForNetwork)
 		}
-		timer.Stop()
 	}
 }
 
@@ -409,12 +424,15 @@ func (me *Peer) sendHighToPeer(idForNetwork, key crypto.Hash, data []byte) error
 		return nil
 	}
 
-	timer := time.NewTimer(1 * time.Second)
-	defer timer.Stop()
+	if !peer.highTimer.Stop() {
+		<-peer.highTimer.C
+	}
+	peer.highTimer.Reset(1 * time.Second)
+
 	select {
 	case peer.high <- &ChanMsg{key, data}:
 		return nil
-	case <-timer.C:
+	case <-peer.highTimer.C:
 		return fmt.Errorf("peer send high timeout")
 	}
 }
@@ -433,12 +451,15 @@ func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.
 		return nil
 	}
 
-	timer := time.NewTimer(1 * time.Second)
-	defer timer.Stop()
+	if !peer.snapshotTimer.Stop() {
+		<-peer.snapshotTimer.C
+	}
+	peer.snapshotTimer.Reset(1 * time.Second)
+
 	select {
 	case peer.normal <- &ChanMsg{key, data}:
 		return nil
-	case <-timer.C:
+	case <-peer.snapshotTimer.C:
 		return fmt.Errorf("peer send normal timeout")
 	}
 }
