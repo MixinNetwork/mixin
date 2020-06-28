@@ -1,9 +1,12 @@
 package kernel
 
 import (
+	"time"
+
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
+	"github.com/MixinNetwork/mixin/util"
 )
 
 func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, error) {
@@ -34,6 +37,10 @@ func (node *Node) LoadCacheToQueue() error {
 }
 
 func (node *Node) ConsumeQueue() error {
+	period := time.Second
+	timer := util.NewTimer(period)
+	defer timer.Stop()
+
 	node.persistStore.QueuePollSnapshots(func(peerId crypto.Hash, snap *common.Snapshot) error {
 		m := &CosiAction{PeerId: peerId, Snapshot: snap}
 		if snap.Version == 0 {
@@ -76,7 +83,8 @@ func (node *Node) ConsumeQueue() error {
 			return nil
 		}
 		logger.Debugf("ConsumeQueue finalized snapshot without transaction %s %s %s\n", peerId, snap.Hash, snap.Transaction)
-		node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction)
+		timer.Reset(period)
+		node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction, timer)
 		return node.QueueAppendSnapshot(peerId, snap, true)
 	})
 	return nil

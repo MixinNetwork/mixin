@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
+	"github.com/MixinNetwork/mixin/util"
 )
 
 func (me *Peer) cacheReadSnapshotsForNodeRound(nodeId crypto.Hash, number uint64, final bool) ([]*common.SnapshotWithTopologicalOrder, error) {
@@ -78,7 +79,7 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(p *Peer, local, remote 
 	return offset, nil
 }
 
-func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, offset uint64) (uint64, error) {
+func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, offset uint64, timer *util.Timer) (uint64, error) {
 	logger.Verbosef("network.sync syncToNeighborSince %s %d\n", p.IdForNetwork, offset)
 	limit := 200
 	snapshots, err := me.cacheReadSnapshotsSinceTopology(offset, uint64(limit))
@@ -97,7 +98,8 @@ func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, o
 		if s.RoundNumber >= remoteRound+config.SnapshotReferenceThreshold*2 {
 			return offset, fmt.Errorf("FUTURE %s %d %d", s.NodeId, s.RoundNumber, remoteRound)
 		}
-		err := me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot)
+		timer.Reset(time.Second)
+		err := me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot, timer)
 		if err != nil {
 			return offset, err
 		}
@@ -110,7 +112,7 @@ func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, o
 	return offset, nil
 }
 
-func (me *Peer) syncHeadRoundToRemote(local, remote map[crypto.Hash]*SyncPoint, p *Peer, nodeId crypto.Hash) {
+func (me *Peer) syncHeadRoundToRemote(local, remote map[crypto.Hash]*SyncPoint, p *Peer, nodeId crypto.Hash, timer *util.Timer) {
 	var localFinal, remoteFinal uint64
 	if r := remote[nodeId]; r != nil {
 		remoteFinal = r.Number
@@ -122,7 +124,8 @@ func (me *Peer) syncHeadRoundToRemote(local, remote map[crypto.Hash]*SyncPoint, 
 	for i := remoteFinal; i <= remoteFinal+config.SnapshotReferenceThreshold+2; i++ {
 		ss, _ := me.cacheReadSnapshotsForNodeRound(nodeId, i, i <= localFinal)
 		for _, s := range ss {
-			me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot)
+			timer.Reset(time.Second)
+			me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot, timer)
 		}
 	}
 }
@@ -130,8 +133,11 @@ func (me *Peer) syncHeadRoundToRemote(local, remote map[crypto.Hash]*SyncPoint, 
 func (me *Peer) syncToNeighborLoop(p *Peer) {
 	defer close(p.stn)
 
+	timer := util.NewTimer(time.Second)
+	defer timer.Stop()
+
 	for !me.closing && !p.closing {
-		graph, offset := me.getSyncPointOffset(p)
+		graph, offset := me.getSyncPointOffset(p, timer)
 		logger.Verbosef("network.sync syncToNeighborLoop getSyncPointOffset %s %d %v\n", p.IdForNetwork, offset, graph != nil)
 
 		if me.gossipRound.Get(p.IdForNetwork) == nil {
@@ -139,7 +145,7 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 		}
 
 		for !me.closing && !p.closing && offset > 0 {
-			off, err := me.syncToNeighborSince(graph, p, offset)
+			off, err := me.syncToNeighborSince(graph, p, offset, timer)
 			if err != nil {
 				logger.Verbosef("network.sync syncToNeighborLoop syncToNeighborSince %s %d DONE with %s", p.IdForNetwork, offset, err)
 				break
@@ -155,24 +161,19 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 				local[n.NodeId] = n
 			}
 			for _, n := range nodes {
-				me.syncHeadRoundToRemote(local, graph, p, n)
+				me.syncHeadRoundToRemote(local, graph, p, n, timer)
 			}
 		}
 	}
 }
 
-func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64) {
+func (me *Peer) getSyncPointOffset(p *Peer, timer *util.Timer) (map[crypto.Hash]*SyncPoint, uint64) {
 	var offset uint64
 	var graph map[crypto.Hash]*SyncPoint
 
 	period := time.Duration(config.SnapshotRoundGap / 3)
-	timer := time.NewTimer(period)
-	defer timer.Stop()
 
 	for !me.closing && !p.closing {
-		if !timer.Stop() {
-			<-timer.C
-		}
 		timer.Reset(period)
 
 		select {
@@ -188,7 +189,7 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 			if off > 0 {
 				offset = off
 			}
-		case <-timer.C:
+		case <-timer.C():
 			return graph, offset
 		}
 	}
