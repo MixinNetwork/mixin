@@ -351,6 +351,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		select {
 		case receive <- msg:
 		case <-timer.C():
+			timer.Drain()
 			return fmt.Errorf("peer receive timeout %s", peer.IdForNetwork)
 		}
 	}
@@ -418,6 +419,7 @@ func (me *Peer) sendHighToPeer(idForNetwork, key crypto.Hash, data []byte, timer
 	case peer.high <- &ChanMsg{key, data}:
 		return nil
 	case <-timer.C():
+		timer.Drain()
 		return fmt.Errorf("peer send high timeout")
 	}
 }
@@ -440,6 +442,7 @@ func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.
 	case peer.normal <- &ChanMsg{key, data}:
 		return nil
 	case <-timer.C():
+		timer.Drain()
 		return fmt.Errorf("peer send normal timeout")
 	}
 }

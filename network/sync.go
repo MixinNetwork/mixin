@@ -171,10 +171,8 @@ func (me *Peer) getSyncPointOffset(p *Peer, timer *util.Timer) (map[crypto.Hash]
 	var offset uint64
 	var graph map[crypto.Hash]*SyncPoint
 
-	period := time.Duration(config.SnapshotRoundGap / 3)
-
 	for !me.closing && !p.closing {
-		timer.Reset(period)
+		timer.Reset(time.Duration(config.SnapshotRoundGap / 3))
 
 		select {
 		case g := <-p.sync:
@@ -190,6 +188,7 @@ func (me *Peer) getSyncPointOffset(p *Peer, timer *util.Timer) (map[crypto.Hash]
 				offset = off
 			}
 		case <-timer.C():
+			timer.Drain()
 			return graph, offset
 		}
 	}
