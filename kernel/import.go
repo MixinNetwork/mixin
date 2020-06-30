@@ -41,11 +41,19 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 
 		for i, s := range snapshots {
 			tx := transactions[i]
-			err := store.WriteTransaction(tx)
+			if s.Transaction != tx.PayloadHash() {
+				panic(fmt.Errorf("malformed transaction hash %s %s", s.Transaction, tx.PayloadHash()))
+			}
+
+			old, _, err := store.ReadTransaction(s.Transaction)
 			if err != nil {
 				panic(err)
 			}
-			if s.Transaction != tx.PayloadHash() {
+			if old == nil {
+				err := store.WriteTransaction(tx)
+				if err != nil {
+					panic(err)
+				}
 			}
 
 			err = node.QueueAppendSnapshot(node.IdForNetwork, &s.Snapshot, true)
