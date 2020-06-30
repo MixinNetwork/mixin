@@ -42,23 +42,32 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 		for i, s := range snapshots {
 			tx := transactions[i]
 			if s.Transaction != tx.PayloadHash() {
-				panic(fmt.Errorf("malformed transaction hash %s %s", s.Transaction, tx.PayloadHash()))
+				return fmt.Errorf("malformed transaction hash %s %s", s.Transaction, tx.PayloadHash())
 			}
-
 			old, _, err := store.ReadTransaction(s.Transaction)
 			if err != nil {
-				panic(err)
+				return fmt.Errorf("ReadTransaction %s %s", s.Transaction, err)
 			}
+
 			if old == nil {
+				err = node.validateKernelSnapshot(&s.Snapshot, tx, true)
+				if err != nil {
+					return fmt.Errorf("validateKernelSnapshot %s %s", s.Transaction, err)
+				}
+
+				err = tx.LockInputs(node.persistStore, true)
+				if err != nil {
+					return fmt.Errorf("LockInputs %s %s", s.Transaction, err)
+				}
 				err := store.WriteTransaction(tx)
 				if err != nil {
-					panic(err)
+					return fmt.Errorf("WriteTransaction %s %s", s.Transaction, err)
 				}
 			}
 
 			err = node.QueueAppendSnapshot(node.IdForNetwork, &s.Snapshot, true)
 			if err != nil {
-				panic(err)
+				return fmt.Errorf("QueueAppendSnapshot %s %s", s.Transaction, err)
 			}
 		}
 
