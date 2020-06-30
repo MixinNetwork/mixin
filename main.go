@@ -77,6 +77,38 @@ func main() {
 			},
 		},
 		{
+			Name:   "clone",
+			Usage:  "Clone a graph to intialize the kernel",
+			Action: cloneCmd,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "dir",
+					Aliases: []string{"d"},
+					Usage:   "the kernel data directory",
+				},
+				&cli.StringFlag{
+					Name:    "src",
+					Aliases: []string{"s"},
+					Usage:   "the source graph directory to clone",
+				},
+				&cli.IntFlag{
+					Name:    "log",
+					Aliases: []string{"l"},
+					Value:   logger.INFO,
+					Usage:   "the log level",
+				},
+				&cli.IntFlag{
+					Name:  "limiter",
+					Value: 0,
+					Usage: "limit the log count for the same content, 0 means no limit",
+				},
+				&cli.StringFlag{
+					Name:  "filter",
+					Usage: "the RE2 regex pattern to filter log",
+				},
+			},
+		},
+		{
 			Name:   "setuptestnet",
 			Usage:  "Setup the test nodes and genesis",
 			Action: setupTestNetCmd,
@@ -455,6 +487,46 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
+}
+
+func cloneCmd(c *cli.Context) error {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	logger.SetLevel(c.Int("log"))
+	logger.SetLimiter(c.Int("limiter"))
+	err := logger.SetFilter(c.String("filter"))
+	if err != nil {
+		return err
+	}
+	custom, err := config.Initialize(c.String("dir") + "/config.toml")
+	if err != nil {
+		return err
+	}
+
+	cache := fastcache.New(custom.Node.MemoryCacheSize * 1024 * 1024)
+	go func() {
+		var s fastcache.Stats
+		for {
+			time.Sleep(1 * time.Minute)
+			cache.UpdateStats(&s)
+			logger.Printf("CACHE STATS GET: %d SET: %d COLLISION: %d SIZE: %dMB\n", s.GetCalls, s.SetCalls, s.Collisions, s.BytesSize/1024/1024)
+			s.Reset()
+		}
+	}()
+
+	store, err := storage.NewBadgerStore(custom, c.String("dir"))
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	source, err := storage.NewBadgerStore(custom, c.String("src"))
+	node, err := kernel.SetupNode(custom, store, cache, ":12345", c.String("dir"))
+	if err != nil {
+		return err
+	}
+
+	return node.Import(c.String("dir"), store, source)
 }
 
 func kernelCmd(c *cli.Context) error {

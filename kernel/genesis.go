@@ -29,14 +29,28 @@ type Genesis struct {
 }
 
 func (node *Node) LoadGenesis(configDir string) error {
-	gns, err := readGenesis(configDir + "/genesis.json")
+	rounds, snapshots, transactions, err := node.buildGenesisSnapshots(configDir)
 	if err != nil {
 		return err
 	}
 
+	loaded, err := node.persistStore.CheckGenesisLoad(snapshots)
+	if err != nil || loaded {
+		return err
+	}
+
+	return node.persistStore.LoadGenesis(rounds, snapshots, transactions)
+}
+
+func (node *Node) buildGenesisSnapshots(configDir string) ([]*common.Round, []*common.SnapshotWithTopologicalOrder, []*common.VersionedTransaction, error) {
+	gns, err := readGenesis(configDir + "/genesis.json")
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	data, err := json.Marshal(gns)
 	if err != nil {
-		return err
+		return nil, nil, nil, err
 	}
 	node.Epoch = uint64(time.Unix(gns.Epoch, 0).UnixNano())
 	node.networkId = crypto.NewHash(data)
@@ -93,7 +107,8 @@ func (node *Node) LoadGenesis(configDir string) error {
 
 	domain := gns.Domains[0]
 	if in := gns.Nodes[0]; domain.Signer.String() != in.Signer.String() {
-		return fmt.Errorf("invalid genesis domain input account %s %s", domain.Signer.String(), in.Signer.String())
+		err = fmt.Errorf("invalid genesis domain input account %s %s", domain.Signer.String(), in.Signer.String())
+		return nil, nil, nil, err
 	}
 	topo, signed := node.buildDomainSnapshot(domain.Signer, gns)
 	snapshots = append(snapshots, topo)
@@ -128,12 +143,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 		})
 	}
 
-	loaded, err := node.persistStore.CheckGenesisLoad(snapshots)
-	if err != nil || loaded {
-		return err
-	}
-
-	return node.persistStore.LoadGenesis(rounds, snapshots, transactions)
+	return rounds, snapshots, transactions, nil
 }
 
 func (node *Node) buildDomainSnapshot(domain common.Address, gns *Genesis) (*common.SnapshotWithTopologicalOrder, *common.VersionedTransaction) {
