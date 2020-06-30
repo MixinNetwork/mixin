@@ -32,7 +32,7 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 	go node.CosiLoop()
 
 	var latestSnapshots []*common.SnapshotWithTopologicalOrder
-	offset, limit := uint64(0), uint64(1000)
+	offset, limit := uint64(0), uint64(200)
 	for {
 		snapshots, transactions, err := source.ReadSnapshotWithTransactionsSinceTopology(offset, limit)
 		if err != nil {
