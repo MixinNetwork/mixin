@@ -41,7 +41,7 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 	for {
 		snapshots, transactions, err := source.ReadSnapshotWithTransactionsSinceTopology(offset, limit)
 		if err != nil {
-			logger.Printf("source.ReadSnapshotWithTransactionsSinceTopology(%d, %d) %s\n", offset, limit, err)
+			logger.Printf("source.ReadSnapshotWithTransactionsSinceTopology(%d, %d) %v\n", offset, limit, err)
 		}
 
 		for i, s := range snapshots {
@@ -51,19 +51,19 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 			}
 			old, _, err := store.ReadTransaction(s.Transaction)
 			if err != nil {
-				return fmt.Errorf("ReadTransaction %s %s", s.Transaction, err)
+				return fmt.Errorf("ReadTransaction %s %v", s.Transaction, err)
 			}
 
 			if old == nil {
 				err := node.persistStore.CachePutTransaction(tx)
 				if err != nil {
-					return fmt.Errorf("CachePutTransaction %s %s", s.Transaction, err)
+					return fmt.Errorf("CachePutTransaction %s %v", s.Transaction, err)
 				}
 			}
 
 			err = node.QueueAppendSnapshot(node.IdForNetwork, &s.Snapshot, true)
 			if err != nil {
-				return fmt.Errorf("QueueAppendSnapshot %s %s", s.Transaction, err)
+				return fmt.Errorf("QueueAppendSnapshot %s %v", s.Transaction, err)
 			}
 
 			for {
@@ -71,7 +71,7 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 				if fc < 1000 {
 					break
 				}
-				logger.Printf("store.QueueInfo() %d, %s\n", fc, err)
+				logger.Printf("store.QueueInfo() %d %v\n", fc, err)
 				time.Sleep(1 * time.Minute)
 			}
 		}
@@ -91,14 +91,14 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 		time.Sleep(1 * time.Minute)
 		fc, _, err := store.QueueInfo()
 		if err != nil || fc > 0 {
-			logger.Printf("store.QueueInfo() %d, %s\n", fc, err)
+			logger.Printf("store.QueueInfo() %d %v\n", fc, err)
 			continue
 		}
 		var pending bool
 		for _, s := range latestSnapshots {
 			ss, err := store.ReadSnapshot(s.Hash)
 			if err != nil || ss == nil {
-				logger.Printf("store.ReadSnapshot(%s) %v, %s\n", s.Hash, ss, err)
+				logger.Printf("store.ReadSnapshot(%s) %v %v\n", s.Hash, ss, err)
 				pending = true
 				break
 			}
