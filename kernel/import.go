@@ -69,6 +69,15 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 			if err != nil {
 				return fmt.Errorf("QueueAppendSnapshot %s %s", s.Transaction, err)
 			}
+
+			for {
+				fc, _, err := store.QueueInfo()
+				if fc < 1000 {
+					break
+				}
+				logger.Printf("store.QueueInfo() %d, %s\n", fc, err)
+				time.Sleep(1 * time.Minute)
+			}
 		}
 
 		if len(snapshots) > 0 {
