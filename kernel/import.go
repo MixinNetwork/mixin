@@ -38,6 +38,7 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 
 	var latestSnapshots []*common.SnapshotWithTopologicalOrder
 	offset, limit := uint64(0), uint64(500)
+	startAt := time.Now().Unix()
 	for {
 		snapshots, transactions, err := source.ReadSnapshotWithTransactionsSinceTopology(offset, limit)
 		if err != nil {
@@ -80,7 +81,9 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 			offset += limit
 			latestSnapshots = snapshots
 			s := snapshots[0]
-			logger.Printf("PROGRESS %d\t%s\n", s.TopologicalOrder, time.Unix(0, int64(s.Timestamp)))
+			ts := time.Unix(0, int64(s.Timestamp)).Format(time.RFC3339)
+			sps := float64(offset) / float64(time.Now().Unix()-startAt)
+			logger.Printf("PROGRESS %d\t%s\t%f\n", s.TopologicalOrder, ts, sps)
 		}
 
 		if uint64(len(snapshots)) != limit {
