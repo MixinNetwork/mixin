@@ -70,7 +70,6 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 		cosiActionsChan: make(chan *CosiAction, MempoolSize),
 		custom:          custom,
 		configDir:       dir,
-		TopoCounter:     getTopologyCounter(persistStore),
 		startAt:         clock.Now(),
 		done:            make(chan struct{}),
 		elc:             make(chan struct{}),
@@ -84,6 +83,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 	if err != nil {
 		return nil, err
 	}
+	node.TopoCounter = getTopologyCounter(persistStore)
 
 	logger.Println("Validating graph entries...")
 	start := clock.Now()

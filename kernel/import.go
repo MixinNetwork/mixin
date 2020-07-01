@@ -10,7 +10,11 @@ import (
 )
 
 func (node *Node) Import(configDir string, store, source storage.Store) error {
-	_, gss, _, err := node.buildGenesisSnapshots(configDir)
+	gns, err := readGenesis(configDir + "/genesis.json")
+	if err != nil {
+		return err
+	}
+	_, gss, _, err := buildGenesisSnapshots(node.networkId, node.Epoch, gns)
 	if err != nil {
 		return err
 	}
@@ -30,6 +34,7 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 	}
 
 	go node.CosiLoop()
+	go node.ConsumeQueue()
 
 	var latestSnapshots []*common.SnapshotWithTopologicalOrder
 	offset, limit := uint64(0), uint64(200)
@@ -50,18 +55,9 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 			}
 
 			if old == nil {
-				err = node.validateKernelSnapshot(&s.Snapshot, tx, true)
+				err := node.persistStore.CachePutTransaction(tx)
 				if err != nil {
-					return fmt.Errorf("validateKernelSnapshot %s %s", s.Transaction, err)
-				}
-
-				err = tx.LockInputs(node.persistStore, true)
-				if err != nil {
-					return fmt.Errorf("LockInputs %s %s", s.Transaction, err)
-				}
-				err := store.WriteTransaction(tx)
-				if err != nil {
-					return fmt.Errorf("WriteTransaction %s %s", s.Transaction, err)
+					return fmt.Errorf("CachePutTransaction %s %s", s.Transaction, err)
 				}
 			}
 
