@@ -72,7 +72,7 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 					break
 				}
 				logger.Printf("store.QueueInfo() %d %v\n", fc, err)
-				time.Sleep(1 * time.Minute)
+				time.Sleep(3 * time.Second)
 			}
 		}
 
