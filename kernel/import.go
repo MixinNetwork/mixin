@@ -5,7 +5,10 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
+	"github.com/MixinNetwork/mixin/network"
 	"github.com/MixinNetwork/mixin/storage"
 )
 
@@ -33,8 +36,12 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 		}
 	}
 
+	done := make(chan struct{})
+	defer close(done)
+
 	go node.CosiLoop()
 	go node.ConsumeQueue()
+	go node.importAllNodeHeads(store, done)
 
 	var latestSnapshots []*common.SnapshotWithTopologicalOrder
 	offset, limit := uint64(0), uint64(500)
@@ -46,35 +53,19 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 		}
 
 		for i, s := range snapshots {
-			tx := transactions[i]
-			if s.Transaction != tx.PayloadHash() {
-				return fmt.Errorf("malformed transaction hash %s %s", s.Transaction, tx.PayloadHash())
-			}
-			old, _, err := store.ReadTransaction(s.Transaction)
+			err := node.importSnapshot(store, s, transactions[i])
 			if err != nil {
-				return fmt.Errorf("ReadTransaction %s %v", s.Transaction, err)
+				return err
 			}
+		}
 
-			if old == nil {
-				err := node.persistStore.CachePutTransaction(tx)
-				if err != nil {
-					return fmt.Errorf("CachePutTransaction %s %v", s.Transaction, err)
-				}
+		for {
+			fc, _, err := store.QueueInfo()
+			if fc < 1000 {
+				break
 			}
-
-			err = node.QueueAppendSnapshot(node.IdForNetwork, &s.Snapshot, true)
-			if err != nil {
-				return fmt.Errorf("QueueAppendSnapshot %s %v", s.Transaction, err)
-			}
-
-			for {
-				fc, _, err := store.QueueInfo()
-				if fc < 1000 {
-					break
-				}
-				logger.Printf("store.QueueInfo() %d %v\n", fc, err)
-				time.Sleep(3 * time.Second)
-			}
+			logger.Printf("store.QueueInfo() %d %v\n", fc, err)
+			time.Sleep(1 * time.Second)
 		}
 
 		if len(snapshots) > 0 {
@@ -114,4 +105,63 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 	}
 
 	return nil
+}
+
+func (node *Node) importSnapshot(store storage.Store, s *common.SnapshotWithTopologicalOrder, tx *common.VersionedTransaction) error {
+	if s.Transaction != tx.PayloadHash() {
+		return fmt.Errorf("malformed transaction hash %s %s", s.Transaction, tx.PayloadHash())
+	}
+	old, _, err := store.ReadTransaction(s.Transaction)
+	if err != nil {
+		return fmt.Errorf("ReadTransaction %s %v", s.Transaction, err)
+	}
+
+	if old == nil {
+		err := node.persistStore.CachePutTransaction(tx)
+		if err != nil {
+			return fmt.Errorf("CachePutTransaction %s %v", s.Transaction, err)
+		}
+	}
+
+	err = node.QueueAppendSnapshot(node.IdForNetwork, &s.Snapshot, true)
+	if err != nil {
+		return fmt.Errorf("QueueAppendSnapshot %s %v", s.Transaction, err)
+	}
+	return nil
+}
+
+func (node *Node) importAllNodeHeads(store storage.Store, done chan struct{}) error {
+	ticker := time.NewTicker(3 * time.Minute)
+	defer ticker.Stop()
+
+	nodes := store.ReadAllNodes()
+
+	for {
+		select {
+		case <-done:
+			return nil
+		case <-ticker.C:
+			graph := node.BuildGraph()
+			for _, n := range nodes {
+				id := n.IdForNetwork(node.networkId)
+				node.importNodeHead(store, graph, id)
+			}
+		}
+	}
+}
+
+func (node *Node) importNodeHead(store storage.Store, graph []*network.SyncPoint, id crypto.Hash) {
+	var remoteFinal uint64
+	for _, sp := range graph {
+		if sp.NodeId == id {
+			remoteFinal = sp.Number
+		}
+	}
+	for i := remoteFinal; i <= remoteFinal+config.SnapshotReferenceThreshold+2; i++ {
+		ss, _ := store.ReadSnapshotsForNodeRound(id, i)
+		for _, s := range ss {
+			tx, _, _ := store.ReadTransaction(s.Transaction)
+			node.importSnapshot(store, s, tx)
+		}
+	}
 }
