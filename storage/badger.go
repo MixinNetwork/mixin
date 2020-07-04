@@ -17,11 +17,11 @@ type BadgerStore struct {
 }
 
 func NewBadgerStore(custom *config.Custom, dir string) (*BadgerStore, error) {
-	snapshotsDB, err := openDB(dir+"/snapshots", true, custom.Storage.ValueLogGC)
+	snapshotsDB, err := openDB(dir+"/snapshots", true, custom.Storage.ValueLogGC, custom.Storage.Truncate)
 	if err != nil {
 		return nil, err
 	}
-	cacheDB, err := openDB(dir+"/cache", true, custom.Storage.ValueLogGC)
+	cacheDB, err := openDB(dir+"/cache", true, custom.Storage.ValueLogGC, true)
 	if err != nil {
 		return nil, err
 	}
@@ -44,11 +44,12 @@ func (store *BadgerStore) Close() error {
 	return store.cacheDB.Close()
 }
 
-func openDB(dir string, sync, valueLogGC bool) (*badger.DB, error) {
+func openDB(dir string, sync, valueLogGC, truncate bool) (*badger.DB, error) {
 	opts := badger.DefaultOptions(dir)
 	opts = opts.WithSyncWrites(sync)
 	opts = opts.WithCompression(options.None)
 	opts = opts.WithMaxCacheSize(0)
+	opts = opts.WithTruncate(truncate)
 	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err

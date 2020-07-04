@@ -43,6 +43,7 @@ type Custom struct {
 		RingFinalSize        uint64     `toml:"ring-final-size"`
 	} `toml:"node"`
 	Storage struct {
+		Truncate   bool `toml:"truncate"`
 		ValueLogGC bool `toml:"value-log-gc"`
 	} `toml:"storage"`
 	Network struct {

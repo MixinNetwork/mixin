@@ -18,6 +18,8 @@ ring-final-size = 16777216
 [storage]
 # enable value log gc will reduce disk storage usage
 value-log-gc = true
+# whether value log files should be truncated to delete corrupt data, if any.
+truncate = false
 
 [network]
 # the public endpoint to receive peer packets, may be a proxy or load balancer
