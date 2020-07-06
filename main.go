@@ -526,7 +526,8 @@ func cloneCmd(c *cli.Context) error {
 		return err
 	}
 
-	return node.Import(c.String("dir"), store, source)
+	go node.Import(c.String("dir"), store, source)
+	return http.ListenAndServe(":9239", http.DefaultServeMux)
 }
 
 func kernelCmd(c *cli.Context) error {
