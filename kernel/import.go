@@ -111,12 +111,12 @@ func (node *Node) importSnapshot(store storage.Store, s *common.SnapshotWithTopo
 	if s.Transaction != tx.PayloadHash() {
 		return fmt.Errorf("malformed transaction hash %s %s", s.Transaction, tx.PayloadHash())
 	}
-	old, _, err := store.ReadTransaction(s.Transaction)
+	old, finalized, err := store.ReadTransaction(s.Transaction)
 	if err != nil {
 		return fmt.Errorf("ReadTransaction %s %v", s.Transaction, err)
-	}
-
-	if old == nil {
+	} else if finalized != "" {
+		return nil
+	} else if old == nil {
 		err := node.persistStore.CachePutTransaction(tx)
 		if err != nil {
 			return fmt.Errorf("CachePutTransaction %s %v", s.Transaction, err)
@@ -157,7 +157,7 @@ func (node *Node) importNodeHead(store storage.Store, graph []*network.SyncPoint
 			remoteFinal = sp.Number
 		}
 	}
-	for i := remoteFinal; i <= remoteFinal+config.SnapshotReferenceThreshold+2; i++ {
+	for i := remoteFinal; i <= remoteFinal+config.SnapshotSyncRoundThreshold*2; i++ {
 		ss, _ := store.ReadSnapshotsForNodeRound(id, i)
 		for _, s := range ss {
 			tx, _, _ := store.ReadTransaction(s.Transaction)
