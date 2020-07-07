@@ -12,7 +12,6 @@ type BadgerStore struct {
 	custom      *config.Custom
 	snapshotsDB *badger.DB
 	cacheDB     *badger.DB
-	queue       *Queue
 	closing     bool
 }
 
@@ -29,14 +28,12 @@ func NewBadgerStore(custom *config.Custom, dir string) (*BadgerStore, error) {
 		custom:      custom,
 		snapshotsDB: snapshotsDB,
 		cacheDB:     cacheDB,
-		queue:       NewQueue(custom),
 		closing:     false,
 	}, nil
 }
 
 func (store *BadgerStore) Close() error {
 	store.closing = true
-	store.queue.Dispose()
 	err := store.snapshotsDB.Close()
 	if err != nil {
 		return err

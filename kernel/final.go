@@ -83,9 +83,9 @@ func (node *Node) tryToStartNewRound(s *common.Snapshot) (bool, error) {
 	return dummy, nil
 }
 
-func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapshot) error {
+func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
-	if !node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
+	if !chain.node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
 		return nil
 	}
 
@@ -96,19 +96,19 @@ func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapsho
 		if signaturesFilter[sig.String()] {
 			continue
 		}
-		for idForNetwork, cn := range node.ConsensusNodes {
+		for idForNetwork, cn := range chain.node.ConsensusNodes {
 			if signersMap[idForNetwork] {
 				continue
 			}
-			if node.CacheVerify(s.Hash, *sig, cn.Signer.PublicSpendKey) {
+			if chain.node.CacheVerify(s.Hash, *sig, cn.Signer.PublicSpendKey) {
 				sigs = append(sigs, sig)
 				signersMap[idForNetwork] = true
 				break
 			}
 		}
-		if n := node.ConsensusPledging; n != nil {
-			id := n.IdForNetwork(node.networkId)
-			if id == s.NodeId && s.RoundNumber == 0 && node.CacheVerify(s.Hash, *sig, n.Signer.PublicSpendKey) {
+		if n := chain.node.ConsensusPledging; n != nil {
+			id := n.IdForNetwork(chain.node.networkId)
+			if id == s.NodeId && s.RoundNumber == 0 && chain.node.CacheVerify(s.Hash, *sig, n.Signer.PublicSpendKey) {
 				sigs = append(sigs, sig)
 				signersMap[id] = true
 			}
@@ -117,9 +117,9 @@ func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapsho
 	}
 	s.Signatures = sigs
 
-	if !node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
+	if !chain.node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
 		return nil
 	}
 
-	return node.QueueAppendSnapshot(peerId, s, true)
+	return chain.QueueAppendSnapshot(peerId, s, true)
 }

@@ -128,7 +128,7 @@ func (node *Node) tryToSendRemoveTransaction(candi *common.Node) error {
 	if err != nil {
 		return err
 	}
-	return node.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+	return node.Chains[node.IdForNetwork].QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: tx.PayloadHash(),
@@ -207,7 +207,7 @@ func (node *Node) tryToSendAcceptTransaction() error {
 	if err != nil {
 		return err
 	}
-	err = node.persistStore.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+	err = node.Chains[node.IdForNetwork].QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: ver.PayloadHash(),

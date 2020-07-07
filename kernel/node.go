@@ -40,20 +40,17 @@ type Node struct {
 	ConsensusIndex       int
 	ConsensusPledging    *common.Node
 
-	CosiAggregators *aggregatorMap
-	CosiVerifiers   map[crypto.Hash]*CosiVerifier
+	Chains map[crypto.Hash]*Chain
 
 	done            chan struct{}
 	elc             chan struct{}
 	mlc             chan struct{}
-	clc             chan struct{}
 	genesisNodesMap map[crypto.Hash]bool
 	genesisNodes    []crypto.Hash
 	Epoch           uint64
 	startAt         time.Time
 	networkId       crypto.Hash
 	persistStore    storage.Store
-	cosiActionsChan chan *CosiAction
 	custom          *config.Custom
 	configDir       string
 }
@@ -62,19 +59,15 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 	var node = &Node{
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
 		ConsensusIndex:  -1,
-		CosiAggregators: &aggregatorMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*CosiAggregator)},
-		CosiVerifiers:   make(map[crypto.Hash]*CosiVerifier),
 		genesisNodesMap: make(map[crypto.Hash]bool),
 		persistStore:    persistStore,
 		cacheStore:      cacheStore,
-		cosiActionsChan: make(chan *CosiAction, MempoolSize),
 		custom:          custom,
 		configDir:       dir,
 		startAt:         clock.Now(),
 		done:            make(chan struct{}),
 		elc:             make(chan struct{}),
 		mlc:             make(chan struct{}),
-		clc:             make(chan struct{}),
 	}
 
 	node.LoadNodeConfig()
@@ -341,11 +334,14 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	return peerId, listener, nil
 }
 
-func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot, final bool) error {
-	if !final && node.Graph.MyCacheRound == nil {
+func (chain *Chain) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot, final bool) error {
+	if !final && chain.node.Graph.MyCacheRound == nil {
 		return nil
 	}
-	return node.persistStore.QueueAppendSnapshot(peerId, s, final)
+	if final {
+		return chain.AppendFinalSnapshot(peerId, s)
+	}
+	return chain.AppendCacheSnapshot(peerId, s)
 }
 
 func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash, timer *util.Timer) error {

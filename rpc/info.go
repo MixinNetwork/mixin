@@ -86,14 +86,6 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		"final":     finalGraph,
 		"topology":  node.TopologicalOrder(),
 	}
-	f, c, err := store.QueueInfo()
-	if err != nil {
-		return info, err
-	}
-	info["queue"] = map[string]interface{}{
-		"finals": f,
-		"caches": c,
-	}
 	return info, nil
 }
 
