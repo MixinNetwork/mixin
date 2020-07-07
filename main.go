@@ -521,12 +521,17 @@ func cloneCmd(c *cli.Context) error {
 	defer store.Close()
 
 	source, err := storage.NewBadgerStore(custom, c.String("src"))
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+
 	node, err := kernel.SetupNode(custom, store, cache, ":12345", c.String("dir"))
 	if err != nil {
 		return err
 	}
 
-	go node.Import(c.String("dir"), store, source)
+	go node.Import(c.String("dir"), source)
 	return http.ListenAndServe(":9239", http.DefaultServeMux)
 }
 

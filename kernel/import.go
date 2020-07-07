@@ -12,7 +12,7 @@ import (
 	"github.com/MixinNetwork/mixin/storage"
 )
 
-func (node *Node) Import(configDir string, store, source storage.Store) error {
+func (node *Node) Import(configDir string, source storage.Store) error {
 	gns, err := readGenesis(configDir + "/genesis.json")
 	if err != nil {
 		return err
@@ -21,7 +21,7 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 	if err != nil {
 		return err
 	}
-	kss, err := store.ReadSnapshotsSinceTopology(0, 100)
+	kss, err := node.persistStore.ReadSnapshotsSinceTopology(0, 100)
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 
 	go node.CosiLoop()
 	go node.ConsumeQueue()
-	go node.importAllNodeHeads(store, done)
+	go node.importAllNodeHeads(source, done)
 
 	var latestSnapshots []*common.SnapshotWithTopologicalOrder
 	offset, limit := uint64(0), uint64(500)
@@ -53,14 +53,14 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 		}
 
 		for i, s := range snapshots {
-			err := node.importSnapshot(store, s, transactions[i])
+			err := node.importSnapshot(s, transactions[i])
 			if err != nil {
 				return err
 			}
 		}
 
 		for {
-			fc, _, err := store.QueueInfo()
+			fc, _, err := node.persistStore.QueueInfo()
 			if fc < 1000 {
 				break
 			}
@@ -85,14 +85,14 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 
 	for {
 		time.Sleep(1 * time.Minute)
-		fc, _, err := store.QueueInfo()
+		fc, _, err := node.persistStore.QueueInfo()
 		if err != nil || fc > 0 {
 			logger.Printf("store.QueueInfo() %d %v\n", fc, err)
 			continue
 		}
 		var pending bool
 		for _, s := range latestSnapshots {
-			ss, err := store.ReadSnapshot(s.Hash)
+			ss, err := node.persistStore.ReadSnapshot(s.Hash)
 			if err != nil || ss == nil {
 				logger.Printf("store.ReadSnapshot(%s) %v %v\n", s.Hash, ss, err)
 				pending = true
@@ -107,11 +107,11 @@ func (node *Node) Import(configDir string, store, source storage.Store) error {
 	return nil
 }
 
-func (node *Node) importSnapshot(store storage.Store, s *common.SnapshotWithTopologicalOrder, tx *common.VersionedTransaction) error {
+func (node *Node) importSnapshot(s *common.SnapshotWithTopologicalOrder, tx *common.VersionedTransaction) error {
 	if s.Transaction != tx.PayloadHash() {
 		return fmt.Errorf("malformed transaction hash %s %s", s.Transaction, tx.PayloadHash())
 	}
-	old, finalized, err := store.ReadTransaction(s.Transaction)
+	old, finalized, err := node.persistStore.ReadTransaction(s.Transaction)
 	if err != nil {
 		return fmt.Errorf("ReadTransaction %s %v", s.Transaction, err)
 	} else if finalized != "" {
@@ -130,11 +130,11 @@ func (node *Node) importSnapshot(store storage.Store, s *common.SnapshotWithTopo
 	return nil
 }
 
-func (node *Node) importAllNodeHeads(store storage.Store, done chan struct{}) error {
+func (node *Node) importAllNodeHeads(source storage.Store, done chan struct{}) error {
 	ticker := time.NewTicker(3 * time.Minute)
 	defer ticker.Stop()
 
-	nodes := store.ReadAllNodes()
+	nodes := source.ReadAllNodes()
 
 	for {
 		select {
@@ -144,13 +144,13 @@ func (node *Node) importAllNodeHeads(store storage.Store, done chan struct{}) er
 			graph := node.BuildGraph()
 			for _, n := range nodes {
 				id := n.IdForNetwork(node.networkId)
-				node.importNodeHead(store, graph, id)
+				node.importNodeHead(source, graph, id)
 			}
 		}
 	}
 }
 
-func (node *Node) importNodeHead(store storage.Store, graph []*network.SyncPoint, id crypto.Hash) {
+func (node *Node) importNodeHead(source storage.Store, graph []*network.SyncPoint, id crypto.Hash) {
 	var remoteFinal uint64
 	for _, sp := range graph {
 		if sp.NodeId == id {
@@ -158,10 +158,10 @@ func (node *Node) importNodeHead(store storage.Store, graph []*network.SyncPoint
 		}
 	}
 	for i := remoteFinal; i <= remoteFinal+config.SnapshotSyncRoundThreshold*2; i++ {
-		ss, _ := store.ReadSnapshotsForNodeRound(id, i)
+		ss, _ := source.ReadSnapshotsForNodeRound(id, i)
 		for _, s := range ss {
-			tx, _, _ := store.ReadTransaction(s.Transaction)
-			node.importSnapshot(store, s, tx)
+			tx, _, _ := source.ReadTransaction(s.Transaction)
+			node.importSnapshot(s, tx)
 		}
 	}
 }
