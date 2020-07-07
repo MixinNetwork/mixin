@@ -531,8 +531,9 @@ func cloneCmd(c *cli.Context) error {
 		return err
 	}
 
-	go node.Import(c.String("dir"), source)
-	return http.ListenAndServe(":9239", http.DefaultServeMux)
+	go http.ListenAndServe(":9239", http.DefaultServeMux)
+
+	return node.Import(c.String("dir"), source)
 }
 
 func kernelCmd(c *cli.Context) error {
@@ -573,17 +574,13 @@ func kernelCmd(c *cli.Context) error {
 	}
 
 	go func() {
-		err := node.Loop()
-		if err != nil {
-			panic(err)
-		}
-	}()
-	go func() {
 		server := rpc.NewServer(custom, store, node, c.Int("port")+1000)
 		err := server.ListenAndServe()
 		if err != nil {
 			panic(err)
 		}
 	}()
-	return http.ListenAndServe(fmt.Sprintf(":%d", c.Int("port")+2000), http.DefaultServeMux)
+	go http.ListenAndServe(fmt.Sprintf(":%d", c.Int("port")+2000), http.DefaultServeMux)
+
+	return node.Loop()
 }
