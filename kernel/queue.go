@@ -18,7 +18,8 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 	if err != nil {
 		return "", err
 	}
-	err = node.Chains[node.IdForNetwork].QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+	chain := node.GetOrCreateChain(node.IdForNetwork)
+	err = chain.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: tx.PayloadHash(),
@@ -27,8 +28,9 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 }
 
 func (node *Node) LoadCacheToQueue() error {
+	chain := node.GetOrCreateChain(node.IdForNetwork)
 	return node.persistStore.CacheListTransactions(func(tx *common.VersionedTransaction) error {
-		return node.Chains[node.IdForNetwork].QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+		return chain.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
 			Version:     common.SnapshotVersion,
 			NodeId:      node.IdForNetwork,
 			Transaction: tx.PayloadHash(),
@@ -49,7 +51,7 @@ func (chain *Chain) ConsumeQueue() error {
 		} else if snap.Signature != nil {
 			m.Action = CosiActionFinalization
 			m.Snapshot.Hash = snap.PayloadHash()
-		} else if snap.NodeId != chain.ChainId {
+		} else if snap.NodeId != chain.node.IdForNetwork {
 			m.Action = CosiActionExternalAnnouncement
 			m.Snapshot.Hash = snap.PayloadHash()
 		} else {

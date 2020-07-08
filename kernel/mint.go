@@ -131,7 +131,8 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 	if err != nil {
 		return err
 	}
-	return node.Chains[node.IdForNetwork].QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+	chain := node.GetOrCreateChain(node.IdForNetwork)
+	return chain.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: signed.PayloadHash(),

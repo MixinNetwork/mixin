@@ -40,7 +40,7 @@ type Node struct {
 	ConsensusIndex       int
 	ConsensusPledging    *common.Node
 
-	Chains map[crypto.Hash]*Chain
+	chains *chainsMap
 
 	done            chan struct{}
 	elc             chan struct{}
@@ -59,6 +59,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 	var node = &Node{
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
 		ConsensusIndex:  -1,
+		chains:          &chainsMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*Chain)},
 		genesisNodesMap: make(map[crypto.Hash]bool),
 		persistStore:    persistStore,
 		cacheStore:      cacheStore,

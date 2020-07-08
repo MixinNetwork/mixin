@@ -35,7 +35,7 @@ type Chain struct {
 	FinalRounds [ChainRoundSlotsSize]*ChainRound
 	FinalIndex  int
 
-	CosiAggregators *aggregatorMap
+	CosiAggregators map[crypto.Hash]*CosiAggregator
 	CosiVerifiers   map[crypto.Hash]*CosiVerifier
 
 	persistStore    storage.Store
@@ -49,12 +49,24 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		node:            node,
 		ChainId:         chainId,
 		CacheRound:      &CacheRound{NodeId: chainId},
-		CosiAggregators: &aggregatorMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*CosiAggregator)},
+		CosiAggregators: make(map[crypto.Hash]*CosiAggregator),
 		CosiVerifiers:   make(map[crypto.Hash]*CosiVerifier),
 		persistStore:    node.persistStore,
 		cosiActionsChan: make(chan *CosiAction, ChainRoundSlotsSize),
 		clc:             make(chan struct{}),
 	}
+	go func() {
+		err := chain.ConsumeQueue()
+		if err != nil {
+			panic(err)
+		}
+	}()
+	go func() {
+		err := chain.CosiLoop()
+		if err != nil {
+			panic(err)
+		}
+	}()
 	return chain
 }
 
@@ -151,4 +163,33 @@ func (chain *Chain) AppendCacheSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	}
 	chain.CacheRound.Snapshots = append(chain.CacheRound.Snapshots, s)
 	return nil
+}
+
+func (node *Node) GetOrCreateChain(id crypto.Hash) *Chain {
+	chain := node.getChain(id)
+	if chain != nil {
+		return chain
+	}
+
+	node.chains.mutex.Lock()
+	defer node.chains.mutex.Unlock()
+
+	chain = node.chains.m[id]
+	if chain != nil {
+		return chain
+	}
+
+	node.chains.m[id] = node.BuildChain(id)
+	return node.chains.m[id]
+}
+
+func (node *Node) getChain(id crypto.Hash) *Chain {
+	node.chains.mutex.RLock()
+	defer node.chains.mutex.RUnlock()
+	return node.chains.m[id]
+}
+
+type chainsMap struct {
+	mutex *sync.RWMutex
+	m     map[crypto.Hash]*Chain
 }

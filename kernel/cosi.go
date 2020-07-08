@@ -3,7 +3,6 @@ package kernel
 import (
 	"crypto/rand"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -94,7 +93,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction, timer *util.Timer) error
 	logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement %v\n", m.Snapshot)
 	s := m.Snapshot
 	if chain.ChainId != chain.node.IdForNetwork || s.NodeId != chain.ChainId || s.NodeId != m.PeerId {
-		panic("should never be here")
+		panic(fmt.Errorf("should never be here %s %s %s %s", chain.node.IdForNetwork, chain.ChainId, s.NodeId, m.PeerId))
 	}
 	if s.Version != common.SnapshotVersion || s.Signature != nil || s.Timestamp != 0 {
 		return nil
@@ -126,7 +125,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction, timer *util.Timer) error
 		R := v.random.Public()
 		chain.CosiVerifiers[s.Hash] = v
 		agg.Commitments[len(chain.node.SortedConsensusNodes)] = &R
-		chain.CosiAggregators.Set(s.Hash, agg)
+		chain.CosiAggregators[s.Hash] = agg
 		for peerId, _ := range chain.node.ConsensusNodes {
 			timer.Reset(time.Second)
 			err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, s, R, timer)
@@ -220,7 +219,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction, timer *util.Timer) error
 	chain.CosiVerifiers[s.Hash] = v
 	agg.Commitments[chain.node.ConsensusIndex] = &R
 	chain.node.assignNewGraphRound(final, cache)
-	chain.CosiAggregators.Set(s.Hash, agg)
+	chain.CosiAggregators[s.Hash] = agg
 	for peerId, _ := range chain.node.ConsensusNodes {
 		timer.Reset(time.Second)
 		err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R, timer)
@@ -356,7 +355,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction, timer *util.Timer) error
 		return nil
 	}
 
-	ann := chain.CosiAggregators.Get(m.SnapshotHash)
+	ann := chain.CosiAggregators[m.SnapshotHash]
 	if ann == nil || ann.Snapshot.Hash != m.SnapshotHash {
 		return nil
 	}
@@ -497,7 +496,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction, timer *util.Timer) error {
 		return nil
 	}
 
-	agg := chain.CosiAggregators.Get(m.SnapshotHash)
+	agg := chain.CosiAggregators[m.SnapshotHash]
 	if agg == nil || agg.Snapshot.Hash != m.SnapshotHash {
 		return nil
 	}
@@ -754,6 +753,7 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 	if node.getPeerConsensusNode(peerId) == nil {
 		return nil
 	}
+	chain := node.GetOrCreateChain(s.NodeId)
 
 	if s.Version != common.SnapshotVersion {
 		return nil
@@ -766,13 +766,14 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 	}
 	s.Hash = s.PayloadHash()
 	s.Commitment = commitment
-	return node.Chains[s.NodeId].QueueAppendSnapshot(peerId, s, false)
+	return chain.QueueAppendSnapshot(peerId, s, false)
 }
 
 func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool) error {
 	if node.ConsensusNodes[peerId] == nil {
 		return nil
 	}
+	chain := node.GetOrCreateChain(node.IdForNetwork)
 
 	m := &CosiAction{
 		PeerId:       peerId,
@@ -781,7 +782,7 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 		Commitment:   commitment,
 		WantTx:       wantTx,
 	}
-	node.Chains[node.IdForNetwork].cosiActionsChan <- m
+	chain.cosiActionsChan <- m
 	return nil
 }
 
@@ -789,6 +790,7 @@ func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Has
 	if node.getPeerConsensusNode(peerId) == nil {
 		return nil
 	}
+	chain := node.GetOrCreateChain(peerId)
 
 	m := &CosiAction{
 		PeerId:       peerId,
@@ -797,7 +799,7 @@ func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Has
 		Signature:    cosi,
 		Transaction:  ver,
 	}
-	node.Chains[peerId].cosiActionsChan <- m
+	chain.cosiActionsChan <- m
 	return nil
 }
 
@@ -805,6 +807,7 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 	if node.ConsensusNodes[peerId] == nil {
 		return nil
 	}
+	chain := node.GetOrCreateChain(node.IdForNetwork)
 
 	m := &CosiAction{
 		PeerId:       peerId,
@@ -812,7 +815,7 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 		SnapshotHash: snap,
 		Response:     response,
 	}
-	node.Chains[node.IdForNetwork].cosiActionsChan <- m
+	chain.cosiActionsChan <- m
 	return nil
 }
 
@@ -835,15 +838,16 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		return err
 	}
 
+	chain := node.GetOrCreateChain(s.NodeId)
 	if s.Version == 0 {
-		return node.Chains[s.NodeId].legacyAppendFinalization(peerId, s)
+		return chain.legacyAppendFinalization(peerId, s)
 	}
 	if !node.verifyFinalization(s) {
 		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d %t\n", peerId, s, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
 		return nil
 	}
 
-	return node.Chains[s.NodeId].QueueAppendSnapshot(peerId, s, true)
+	return chain.QueueAppendSnapshot(peerId, s, true)
 }
 
 func (node *Node) getPeerConsensusNode(peerId crypto.Hash) *common.Node {
@@ -851,27 +855,4 @@ func (node *Node) getPeerConsensusNode(peerId crypto.Hash) *common.Node {
 		return n
 	}
 	return node.ConsensusNodes[peerId]
-}
-
-type aggregatorMap struct {
-	mutex *sync.RWMutex
-	m     map[crypto.Hash]*CosiAggregator
-}
-
-func (s *aggregatorMap) Set(k crypto.Hash, p *CosiAggregator) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.m[k] = p
-}
-
-func (s *aggregatorMap) Get(k crypto.Hash) *CosiAggregator {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.m[k]
-}
-
-func (s *aggregatorMap) Delete(k crypto.Hash) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	delete(s.m, k)
 }
