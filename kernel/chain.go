@@ -10,28 +10,31 @@ import (
 	"github.com/MixinNetwork/mixin/storage"
 )
 
-const ChainRoundSlotsSize = config.SnapshotSyncRoundThreshold * 8
-
-type PeerSnapshot struct {
-	key      crypto.Hash
-	PeerId   crypto.Hash
-	Snapshot *common.Snapshot
-}
+const (
+	ChainRoundSlotsSize      = config.SnapshotSyncRoundThreshold * 8
+	ChainCacheSnapshotsCount = 1024
+)
 
 type ChainRound struct {
 	NodeId     crypto.Hash
 	Number     uint64
 	Timestamp  uint64
 	References *common.RoundLink
-	Snapshots  []*PeerSnapshot
+	Snapshots  []*CosiAction
 	finalSet   map[crypto.Hash]bool
+}
+
+type ChainCache struct {
+	NodeId    crypto.Hash
+	Number    uint64
+	Snapshots *RingBuffer
 }
 
 type Chain struct {
 	node    *Node
 	ChainId crypto.Hash
 
-	CacheRound  *CacheRound
+	CacheRound  *ChainCache
 	FinalRounds [ChainRoundSlotsSize]*ChainRound
 	FinalIndex  int
 
@@ -48,7 +51,7 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 	chain := &Chain{
 		node:            node,
 		ChainId:         chainId,
-		CacheRound:      &CacheRound{NodeId: chainId},
+		CacheRound:      &ChainCache{NodeId: chainId, Snapshots: NewRingBuffer(ChainCacheSnapshotsCount)},
 		CosiAggregators: make(map[crypto.Hash]*CosiAggregator),
 		CosiVerifiers:   make(map[crypto.Hash]*CosiVerifier),
 		persistStore:    node.persistStore,
@@ -83,11 +86,13 @@ func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *commo
 				final++
 			}
 		}
-		for _, s := range chain.CacheRound.Snapshots {
-			hook(s.NodeId, s)
-			if cache > 2 {
+		for i := 0; i < 2; i++ {
+			item, err := chain.CacheRound.Snapshots.Poll(false)
+			if err != nil || item == nil {
 				break
 			}
+			s := item.(*common.Snapshot)
+			hook(s.NodeId, s)
 			cache++
 		}
 		if cache < 1 && final < 1 {
@@ -104,7 +109,7 @@ func (chain *Chain) TryToStepForward(roundHash crypto.Hash) {
 	}
 }
 
-func (ps *PeerSnapshot) buildKey() crypto.Hash {
+func (ps *CosiAction) buildKey() crypto.Hash {
 	ps.Snapshot.Hash = ps.Snapshot.PayloadHash()
 	return ps.Snapshot.Hash.ForNetwork(ps.PeerId)
 }
@@ -127,7 +132,7 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 			finalSet:   make(map[crypto.Hash]bool),
 		}
 	}
-	ps := &PeerSnapshot{
+	ps := &CosiAction{
 		PeerId:   peerId,
 		Snapshot: s,
 	}
@@ -159,9 +164,10 @@ func (chain *Chain) AppendCacheSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	}
 	if s.RoundNumber > chain.CacheRound.Number {
 		chain.CacheRound.Number = s.RoundNumber
-		chain.CacheRound.Snapshots = nil
+		chain.CacheRound.Snapshots.Dispose()
+		chain.CacheRound.Snapshots = NewRingBuffer(ChainCacheSnapshotsCount)
 	}
-	chain.CacheRound.Snapshots = append(chain.CacheRound.Snapshots, s)
+	chain.CacheRound.Snapshots.Offer(s)
 	return nil
 }
 

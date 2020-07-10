@@ -32,6 +32,8 @@ type CosiAction struct {
 	Response     *[32]byte
 	Transaction  *common.VersionedTransaction
 	WantTx       bool
+
+	key crypto.Hash
 }
 
 type CosiAggregator struct {
