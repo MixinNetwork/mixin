@@ -17,8 +17,6 @@ func TestConfig(t *testing.T) {
 	assert.Equal(700, custom.Node.KernelOprationPeriod)
 	assert.Equal(16384, custom.Node.MemoryCacheSize)
 	assert.Equal(7200, custom.Node.CacheTTL)
-	assert.Equal(uint64(1048576), custom.Node.RingCacheSize)
-	assert.Equal(uint64(16777216), custom.Node.RingFinalSize)
 	assert.Equal("mixin-node.example.com:7239", custom.Network.Listener)
 	assert.Equal(false, custom.RPC.Runtime)
 }
