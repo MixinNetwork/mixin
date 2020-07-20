@@ -129,13 +129,16 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	if s.NodeId != chain.ChainId {
 		panic("final queue malformed")
 	}
-	start := chain.State.CacheRound
-	if s.RoundNumber < start.Number { // FIXME initial accept
+	start, offset := uint64(0), 0
+	if chain.State.CacheRound != nil {
+		start = chain.State.CacheRound.Number
+	}
+	if s.RoundNumber < start {
 		return nil
 	}
-	offset := int(s.RoundNumber - start.Number)
+	offset = int(s.RoundNumber - start)
 	if offset >= FinalPoolSlotsLimit {
-		return fmt.Errorf("chain final pool slots full %d %d %d", start.Number, s.RoundNumber, chain.FinalIndex)
+		return fmt.Errorf("chain final pool slots full %d %d %d", start, s.RoundNumber, chain.FinalIndex)
 	}
 	offset = (offset + chain.FinalIndex) % FinalPoolSlotsLimit
 	round := chain.FinalPool[offset]
