@@ -830,6 +830,7 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 	node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
 	err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, timer)
 	if err != nil {
+		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) SendSnapshotConfirmMessage error %s\n", peerId, s.Hash, err)
 		return err
 	}
 	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
@@ -840,8 +841,9 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 
 	hasTx, err := node.checkTxInStorage(s.Transaction)
 	if err != nil {
-		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) check tx error %v\n", peerId, s.Hash, err)
+		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) check tx error %s\n", peerId, s.Hash, err)
 	} else if !hasTx {
+		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) SendTransactionRequestMessage %s\n", peerId, s.Hash, s.Transaction)
 		node.Peer.SendTransactionRequestMessage(peerId, s.Transaction, timer)
 	}
 

@@ -340,7 +340,11 @@ func (chain *Chain) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot, 
 		return nil
 	}
 	if final {
-		return chain.AppendFinalSnapshot(peerId, s)
+		err := chain.AppendFinalSnapshot(peerId, s)
+		if err != nil {
+			logger.Debugf("QueueAppendSnapshot(%s, %s) ERROR %s\n", peerId, s.Hash, err)
+		}
+		return err
 	}
 	return chain.AppendCacheSnapshot(peerId, s)
 }
