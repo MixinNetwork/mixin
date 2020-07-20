@@ -24,7 +24,8 @@ func (node *Node) ElectionLoop() {
 	ticker := time.NewTicker(time.Duration(node.custom.Node.KernelOprationPeriod) * time.Second)
 	defer ticker.Stop()
 
-	for node.Graph.MyCacheRound == nil {
+	chain := node.GetOrCreateChain(node.IdForNetwork)
+	for chain.State.CacheRound == nil {
 		select {
 		case <-node.done:
 			return
@@ -51,7 +52,7 @@ func (node *Node) ElectionLoop() {
 		case <-node.done:
 			return
 		case <-ticker.C:
-			candi, err := node.checkRemovePossibility(node.IdForNetwork, node.Graph.GraphTimestamp)
+			candi, err := node.checkRemovePossibility(node.IdForNetwork, node.GraphTimestamp)
 			if err != nil {
 				logger.Printf("checkRemovePossibility %s", err.Error())
 				continue
@@ -444,8 +445,8 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if !finalized && timestamp+threshold*2 < node.Graph.GraphTimestamp {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Graph.GraphTimestamp, timestamp)
+	if !finalized && timestamp+threshold*2 < node.GraphTimestamp {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.GraphTimestamp, timestamp)
 	}
 
 	if timestamp < node.ConsensusPledging.Timestamp {
@@ -541,8 +542,8 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if !finalized && timestamp+threshold*2 < node.Graph.GraphTimestamp {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Graph.GraphTimestamp, timestamp)
+	if !finalized && timestamp+threshold*2 < node.GraphTimestamp {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.GraphTimestamp, timestamp)
 	}
 
 	if timestamp < node.ConsensusPledging.Timestamp {

@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sort"
-	"sync"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -30,38 +29,27 @@ type FinalRound struct {
 	Hash   crypto.Hash
 }
 
-type RoundGraph struct {
-	sync.RWMutex
-
-	GraphTimestamp uint64
-	FinalCache     []*network.SyncPoint
-	MyCacheRound   *CacheRound
-	MyFinalNumber  uint64
-}
-
 func (node *Node) UpdateFinalCache() {
 	node.chains.RLock()
 	defer node.chains.RUnlock()
 
 	finals := make([]*network.SyncPoint, 0)
-	for _, f := range node.chains.m {
-		f.State.RLock()
-		finals = append(finals, &network.SyncPoint{
-			NodeId: f.ChainId,
-			Number: f.State.FinalRound.Number,
-			Hash:   f.State.FinalRound.Hash,
-		})
-		if f.State.FinalRound.End > node.Graph.GraphTimestamp {
-			node.Graph.GraphTimestamp = f.State.FinalRound.End
+	for _, chain := range node.chains.m {
+		f := chain.State.FinalRound
+		if f == nil {
+			continue
 		}
-		f.State.RUnlock()
+		finals = append(finals, &network.SyncPoint{
+			NodeId: f.NodeId,
+			Number: f.Number,
+			Hash:   f.Hash,
+		})
+		if f.End > node.GraphTimestamp {
+			node.GraphTimestamp = f.End
+		}
 	}
 
-	node.Graph.FinalCache = finals
-	if c := node.chains.m[node.IdForNetwork]; c != nil {
-		node.Graph.MyCacheRound = c.State.CacheRound
-		node.Graph.MyFinalNumber = c.State.FinalRound.Number
-	}
+	node.FinalCache = finals
 }
 
 func (node *Node) LoadGraphAndChains(store storage.Store, networkId crypto.Hash) error {
@@ -109,7 +97,6 @@ func (node *Node) LoadGraphAndChains(store storage.Store, networkId crypto.Hash)
 		chain.UpdateState(state.CacheRound, state.FinalRound, state.RoundHistory, state.ReverseRoundLinks)
 	}
 
-	node.Graph = &RoundGraph{}
 	node.UpdateFinalCache()
 	return nil
 }

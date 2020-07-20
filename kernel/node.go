@@ -24,14 +24,15 @@ const (
 )
 
 type Node struct {
-	IdForNetwork crypto.Hash
-	Signer       common.Address
-	Graph        *RoundGraph
-	TopoCounter  *TopologicalSequence
-	cacheStore   *fastcache.Cache
-	Peer         *network.Peer
-	SyncPoints   *syncMap
-	Listener     string
+	IdForNetwork   crypto.Hash
+	Signer         common.Address
+	TopoCounter    *TopologicalSequence
+	GraphTimestamp uint64
+	FinalCache     []*network.SyncPoint
+	cacheStore     *fastcache.Cache
+	Peer           *network.Peer
+	SyncPoints     *syncMap
+	Listener       string
 
 	AllNodesSorted       []*common.Node
 	ActiveNodes          []*common.Node
@@ -287,7 +288,7 @@ func (node *Node) GetCacheStore() *fastcache.Cache {
 }
 
 func (node *Node) BuildGraph() []*network.SyncPoint {
-	return node.Graph.FinalCache
+	return node.FinalCache
 }
 
 func (node *Node) BuildAuthenticationMessage() []byte {
@@ -335,7 +336,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 }
 
 func (chain *Chain) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot, final bool) error {
-	if !final && chain.node.Graph.MyCacheRound == nil {
+	if !final && chain.State.CacheRound == nil {
 		return nil
 	}
 	if final {
@@ -388,8 +389,12 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 }
 
 func (node *Node) CheckBroadcastedToPeers() bool {
-	count, threshold := 1, node.ConsensusThreshold(0)
-	final := node.Graph.MyFinalNumber
+	chain := node.GetOrCreateChain(node.IdForNetwork)
+	final, count := uint64(0), 1
+	threshold := node.ConsensusThreshold(0)
+	if r := chain.State.FinalRound; r != nil {
+		final = r.Number
+	}
 	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
 		if remote == nil {
@@ -403,9 +408,13 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 }
 
 func (node *Node) CheckCatchUpWithPeers() bool {
-	final := node.Graph.MyFinalNumber
-	cache := node.Graph.MyCacheRound
-	updated, threshold := 1, node.ConsensusThreshold(0)
+	chain := node.GetOrCreateChain(node.IdForNetwork)
+	final, updated := uint64(0), 1
+	threshold := node.ConsensusThreshold(0)
+	cache := chain.State.CacheRound
+	if r := chain.State.FinalRound; r != nil {
+		final = r.Number
+	}
 
 	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)

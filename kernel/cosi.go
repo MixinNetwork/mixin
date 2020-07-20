@@ -255,7 +255,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction, timer *util.Timer) err
 	if s.Timestamp > uint64(clock.Now().UnixNano())+threshold {
 		return nil
 	}
-	if s.Timestamp+threshold*2 < chain.node.Graph.GraphTimestamp {
+	if s.Timestamp+threshold*2 < chain.node.GraphTimestamp {
 		return nil
 	}
 
@@ -456,7 +456,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction, timer *util.Timer) error 
 	if s.Timestamp > uint64(clock.Now().UnixNano())+threshold {
 		return nil
 	}
-	if s.Timestamp+threshold*2 < chain.node.Graph.GraphTimestamp {
+	if s.Timestamp+threshold*2 < chain.node.GraphTimestamp {
 		return nil
 	}
 

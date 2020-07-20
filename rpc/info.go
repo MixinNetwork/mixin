@@ -18,7 +18,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		"version":   config.BuildVersion,
 		"uptime":    node.Uptime().String(),
 		"epoch":     time.Unix(0, int64(node.Epoch)),
-		"timestamp": time.Unix(0, int64(node.Graph.GraphTimestamp)),
+		"timestamp": time.Unix(0, int64(node.GraphTimestamp)),
 	}
 	pool, err := node.PoolSize()
 	if err != nil {
@@ -91,7 +91,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 
 func dumpGraphHead(node *kernel.Node, params []interface{}) ([]map[string]interface{}, error) {
 	rounds := make([]map[string]interface{}, 0)
-	for _, r := range node.Graph.FinalCache {
+	for _, r := range node.FinalCache {
 		rounds = append(rounds, map[string]interface{}{
 			"node":  r.NodeId,
 			"round": r.Number,

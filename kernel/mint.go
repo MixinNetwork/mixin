@@ -45,7 +45,7 @@ func (node *Node) MintLoop() {
 		case <-node.done:
 			return
 		case <-ticker.C:
-			batch, amount := node.checkMintPossibility(node.Graph.GraphTimestamp, false)
+			batch, amount := node.checkMintPossibility(node.GraphTimestamp, false)
 			if amount.Sign() <= 0 || batch <= 0 {
 				continue
 			}
