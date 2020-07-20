@@ -96,7 +96,12 @@ func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *commo
 	for {
 		time.Sleep(1 * time.Millisecond)
 		final, cache := 0, 0
-		if round := chain.FinalPool[chain.FinalIndex]; round != nil {
+		for i := 0; i < 2; i++ {
+			index := (chain.FinalIndex + i) % FinalPoolSlotsLimit
+			round := chain.FinalPool[index]
+			if round == nil {
+				continue
+			}
 			for _, ps := range round.Snapshots {
 				hook(ps.PeerId, ps.Snapshot)
 				final++
@@ -127,6 +132,7 @@ func (ps *CosiAction) buildKey() crypto.Hash {
 }
 
 func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
+	logger.Debugf("AppendFinalSnapshot(%s, %s)\n", peerId, s.Hash)
 	if s.NodeId != chain.ChainId {
 		panic("final queue malformed")
 	}
