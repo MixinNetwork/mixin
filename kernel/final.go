@@ -8,6 +8,16 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
+func (node *Node) checkTxInStorage(id crypto.Hash) (bool, error) {
+	tx, _, err := node.persistStore.ReadTransaction(id)
+	if err != nil || tx != nil {
+		return tx != nil, err
+	}
+
+	tx, err = node.persistStore.CacheGetTransaction(id)
+	return tx != nil, err
+}
+
 func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, error) {
 	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil || inNode {

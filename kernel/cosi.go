@@ -846,6 +846,13 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		return err
 	}
 
+	hasTx, err := node.checkTxInStorage(s.Transaction)
+	if err != nil {
+		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) check tx error %v\n", peerId, s.Hash, err)
+	} else if !hasTx {
+		node.Peer.SendTransactionRequestMessage(peerId, s.Transaction, timer)
+	}
+
 	chain := node.GetOrCreateChain(s.NodeId)
 	if s.Version == 0 {
 		return chain.legacyAppendFinalization(peerId, s)
