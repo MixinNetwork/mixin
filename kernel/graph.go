@@ -84,7 +84,13 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 		panic(fmt.Errorf("should never be here %d %d", n, final.Number))
 	} else if n+1 == final.Number {
 		chain.State.RoundHistory = append(chain.State.RoundHistory, final.Copy())
+		chain.FinalCache.Number = final.Number
+		chain.FinalCache.Hash = final.Hash
 		chain.StepForward()
+	}
+
+	if final.End > chain.node.GraphTimestamp {
+		chain.node.GraphTimestamp = final.End
 	}
 
 	rounds := chain.State.RoundHistory

@@ -9,6 +9,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
+	"github.com/MixinNetwork/mixin/network"
 	"github.com/MixinNetwork/mixin/storage"
 )
 
@@ -44,6 +45,7 @@ type Chain struct {
 	CacheIndex      uint64
 	FinalPool       [FinalPoolSlotsLimit]*ChainRound
 	FinalIndex      int
+	FinalCache      *network.SyncPoint
 
 	persistStore    storage.Store
 	cosiActionsChan chan *CosiAction

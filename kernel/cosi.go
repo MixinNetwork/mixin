@@ -69,8 +69,6 @@ func (chain *Chain) CosiLoop() error {
 }
 
 func (chain *Chain) cosiHandleAction(m *CosiAction, timer *util.Timer) error {
-	defer chain.node.UpdateFinalCache()
-
 	switch m.Action {
 	case CosiActionSelfEmpty:
 		return chain.cosiSendAnnouncement(m, timer)
