@@ -125,9 +125,9 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNei
 		gossipRound:     &neighborMap{m: make(map[crypto.Hash]*Peer)},
 		pingFilter:      &neighborMap{m: make(map[crypto.Hash]*Peer)},
 		gossipNeighbors: gossipNeighbors,
-		high:            make(chan *ChanMsg, 1024*1024),
-		normal:          make(chan *ChanMsg, 1024*1024),
-		sync:            make(chan []*SyncPoint, 1024*1024),
+		high:            make(chan *ChanMsg, 1024),
+		normal:          make(chan *ChanMsg, 1024),
+		sync:            make(chan []*SyncPoint, 1024),
 		handle:          handle,
 		ops:             make(chan struct{}),
 		stn:             make(chan struct{}),
@@ -319,7 +319,7 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 
 func (me *Peer) acceptNeighborConnection(client Client) error {
 	done := make(chan bool, 1)
-	receive := make(chan *PeerMessage, 1024*16)
+	receive := make(chan *PeerMessage, 1024)
 
 	defer func() {
 		client.Close()
