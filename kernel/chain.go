@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -134,7 +135,7 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	}
 	offset := int(s.RoundNumber - start.Number)
 	if offset >= FinalPoolSlotsLimit {
-		return nil
+		return fmt.Errorf("chain final pool slots full %d %d %d", start.Number, s.RoundNumber, chain.FinalIndex)
 	}
 	offset = (offset + chain.FinalIndex) % FinalPoolSlotsLimit
 	round := chain.FinalPool[offset]
