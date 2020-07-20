@@ -32,6 +32,7 @@ type ChainState struct {
 }
 
 type Chain struct {
+	sync.RWMutex
 	node    *Node
 	ChainId crypto.Hash
 
@@ -160,6 +161,8 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 		PeerId:   peerId,
 		Snapshot: s,
 	}
+	chain.Lock()
+	defer chain.Unlock()
 	ps.key = ps.buildKey()
 	if round.finalSet[ps.key] {
 		return nil
