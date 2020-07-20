@@ -95,7 +95,7 @@ func (chain *Chain) UpdateState(cache *CacheRound, final *FinalRound, history []
 
 func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error) {
 	for {
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 		final, cache := 0, 0
 		for i := 0; i < 2; i++ {
 			index := (chain.FinalIndex + i) % FinalPoolSlotsLimit
@@ -128,7 +128,9 @@ func (chain *Chain) StepForward() {
 }
 
 func (ps *CosiAction) buildKey() crypto.Hash {
-	ps.Snapshot.Hash = ps.Snapshot.PayloadHash()
+	if !ps.Snapshot.Hash.HasValue() {
+		panic("should never be here")
+	}
 	return ps.Snapshot.Hash.ForNetwork(ps.PeerId)
 }
 

@@ -47,15 +47,16 @@ func (chain *Chain) ConsumeQueue() error {
 		m := &CosiAction{PeerId: peerId, Snapshot: snap}
 		if snap.Version == 0 {
 			m.Action = CosiActionFinalization
-			m.Snapshot.Hash = snap.PayloadHash()
 		} else if snap.Signature != nil {
 			m.Action = CosiActionFinalization
-			m.Snapshot.Hash = snap.PayloadHash()
 		} else if snap.NodeId != chain.node.IdForNetwork {
 			m.Action = CosiActionExternalAnnouncement
-			m.Snapshot.Hash = snap.PayloadHash()
 		} else {
 			m.Action = CosiActionSelfEmpty
+		}
+
+		if m.Action != CosiActionSelfEmpty && !m.Snapshot.Hash.HasValue() {
+			panic("should never be here")
 		}
 
 		if m.Action != CosiActionFinalization {

@@ -206,7 +206,7 @@ func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
 	}
 	base := node.ConsensusThreshold(s.Timestamp)
-	if node.CacheVerifyCosi(s.PayloadHash(), s.Signature, publics, base) {
+	if node.CacheVerifyCosi(s.Hash, s.Signature, publics, base) {
 		return true
 	}
 	if rr := node.ConsensusRemovedRecently(s.Timestamp); rr != nil {
@@ -214,7 +214,7 @@ func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 			pwr := append([]*crypto.Key{}, publics[:i]...)
 			pwr = append(pwr, &rr.Signer.PublicSpendKey)
 			pwr = append(pwr, publics[i:]...)
-			if node.CacheVerifyCosi(s.PayloadHash(), s.Signature, pwr, base) {
+			if node.CacheVerifyCosi(s.Hash, s.Signature, pwr, base) {
 				return true
 			}
 		}

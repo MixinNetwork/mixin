@@ -708,7 +708,6 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 func (chain *Chain) handleFinalization(m *CosiAction) error {
 	logger.Debugf("CosiLoop cosiHandleAction handleFinalization %s %v\n", m.PeerId, m.Snapshot)
 	s := m.Snapshot
-	s.Hash = s.PayloadHash()
 	if !chain.node.verifyFinalization(s) {
 		logger.Verbosef("ERROR handleFinalization verifyFinalization %s %v %d %t\n", m.PeerId, s, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil)
 		return nil
