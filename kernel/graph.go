@@ -58,10 +58,12 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDu
 	if external.Number < link {
 		return nil, false, err
 	}
-	if l := chain.State.ReverseRoundLinks[s.NodeId]; external.Number < l {
-		return nil, false, fmt.Errorf("external reverse reference %s %d %d", s.NodeId, external.Number, l)
+	if external.NodeId == chain.ChainId {
+		if l := chain.State.ReverseRoundLinks[s.NodeId]; external.Number < l {
+			return nil, false, fmt.Errorf("external reverse reference %s %d %d", s.NodeId, external.Number, l)
+		}
+		chain.State.ReverseRoundLinks[s.NodeId] = external.Number
 	}
-	chain.State.ReverseRoundLinks[s.NodeId] = external.Number
 	return final, false, err
 }
 
