@@ -11,7 +11,7 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
-func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound, allowDummy bool) (*FinalRound, bool, error) {
+func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDummy bool) (*FinalRound, bool, error) {
 	if s.RoundNumber != cache.Number+1 {
 		panic("should never be here")
 	}
@@ -23,8 +23,8 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound, allowDumm
 		return nil, false, fmt.Errorf("self cache snapshots not match yet %s %s", s.NodeId, s.References.Self)
 	}
 
-	finalized := node.verifyFinalization(s)
-	external, err := node.persistStore.ReadRound(s.References.External)
+	finalized := chain.node.verifyFinalization(s)
+	external, err := chain.persistStore.ReadRound(s.References.External)
 	if err != nil {
 		return nil, false, err
 	}
@@ -37,49 +37,51 @@ func (node *Node) startNewRound(s *common.Snapshot, cache *CacheRound, allowDumm
 	if final.NodeId == external.NodeId {
 		return nil, false, nil
 	}
-	if !node.genesisNodesMap[external.NodeId] && external.Number < 7+config.SnapshotReferenceThreshold {
+	if !chain.node.genesisNodesMap[external.NodeId] && external.Number < 7+config.SnapshotReferenceThreshold {
 		return nil, false, nil
 	}
 	if !finalized {
-		if external.Number+config.SnapshotSyncRoundThreshold < node.Graph.FinalRound[external.NodeId].Number {
-			return nil, false, fmt.Errorf("external reference %s too early %d %d", s.References.External, external.Number, node.Graph.FinalRound[external.NodeId].Number)
+		externalChain := chain.node.GetOrCreateChain(external.NodeId)
+		if external.Number+config.SnapshotSyncRoundThreshold < externalChain.State.FinalRound.Number {
+			return nil, false, fmt.Errorf("external reference %s too early %d %d", s.References.External, external.Number, externalChain.State.FinalRound.Number)
 		}
 		if external.Timestamp > s.Timestamp {
 			return nil, false, fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-s.Timestamp).Seconds())
 		}
 		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64
-		best := node.determinBestRound(s.NodeId, s.Timestamp)
+		best := chain.node.determinBestRound(s.NodeId, s.Timestamp)
 		if best != nil && threshold < best.Start {
 			return nil, false, fmt.Errorf("external reference %s too early %s:%d %f", s.References.External, best.NodeId, best.Number, time.Duration(best.Start-threshold).Seconds())
 		}
 	}
-	link, err := node.persistStore.ReadLink(s.NodeId, external.NodeId)
+	link, err := chain.persistStore.ReadLink(s.NodeId, external.NodeId)
 	if external.Number < link {
 		return nil, false, err
 	}
-	if external.NodeId == node.IdForNetwork {
-		if l := node.Graph.ReverseRoundLinks[s.NodeId]; external.Number < l {
-			return nil, false, fmt.Errorf("external reverse reference %s %d %d", s.NodeId, external.Number, l)
-		}
-		node.Graph.ReverseRoundLinks[s.NodeId] = external.Number
+	if l := chain.State.ReverseRoundLinks[s.NodeId]; external.Number < l {
+		return nil, false, fmt.Errorf("external reverse reference %s %d %d", s.NodeId, external.Number, l)
 	}
+	chain.State.ReverseRoundLinks[s.NodeId] = external.Number
 	return final, false, err
 }
 
-func (node *Node) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
+func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
+	chain.State.Lock()
+	defer chain.State.Unlock()
+
 	if final.NodeId != cache.NodeId {
 		panic(fmt.Errorf("should never be here %s %s", final.NodeId, cache.NodeId))
 	}
-	node.Graph.CacheRound[final.NodeId] = cache
-	node.Graph.FinalRound[final.NodeId] = final
-	if history := node.Graph.RoundHistory[final.NodeId]; len(history) == 0 && final.Number == 0 {
-		node.Graph.RoundHistory[final.NodeId] = append(node.Graph.RoundHistory[final.NodeId], final.Copy())
+	chain.State.CacheRound = cache
+	chain.State.FinalRound = final
+	if history := chain.State.RoundHistory; len(history) == 0 && final.Number == 0 {
+		chain.State.RoundHistory = append(chain.State.RoundHistory, final.Copy())
 	} else if n := history[len(history)-1].Number; n > final.Number {
 		panic(fmt.Errorf("should never be here %d %d", n, final.Number))
 	} else if n+1 < final.Number {
 		panic(fmt.Errorf("should never be here %d %d", n, final.Number))
 	} else if n+1 == final.Number {
-		node.Graph.RoundHistory[final.NodeId] = append(node.Graph.RoundHistory[final.NodeId], final.Copy())
+		chain.State.RoundHistory = append(chain.State.RoundHistory, final.Copy())
 	}
 }
 
@@ -145,7 +147,8 @@ func (node *Node) checkInitialAcceptSnapshotWeak(s *common.Snapshot) bool {
 }
 
 func (node *Node) checkInitialAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) bool {
-	if node.Graph.FinalRound[s.NodeId] != nil {
+	chain := node.GetOrCreateChain(s.NodeId)
+	if chain.State.FinalRound != nil {
 		return false
 	}
 	return node.checkInitialAcceptSnapshotWeak(s) && tx.TransactionType() == common.TransactionTypeNodeAccept

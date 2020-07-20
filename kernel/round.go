@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -30,12 +31,7 @@ type FinalRound struct {
 }
 
 type RoundGraph struct {
-	Nodes      []*crypto.Hash
-	CacheRound map[crypto.Hash]*CacheRound
-	FinalRound map[crypto.Hash]*FinalRound
-
-	RoundHistory      map[crypto.Hash][]*FinalRound
-	ReverseRoundLinks map[crypto.Hash]uint64
+	sync.RWMutex
 
 	GraphTimestamp uint64
 	FinalCache     []*network.SyncPoint
@@ -43,24 +39,22 @@ type RoundGraph struct {
 	MyFinalNumber  uint64
 }
 
-func (g *RoundGraph) UpdateFinalCache(idForNetwork crypto.Hash) {
+func (node *Node) UpdateFinalCache() {
+	node.chains.RLock()
+	defer node.chains.RUnlock()
+
 	finals := make([]*network.SyncPoint, 0)
-	for _, f := range g.FinalRound {
+	for _, f := range node.chains.m {
 		finals = append(finals, &network.SyncPoint{
-			NodeId: f.NodeId,
-			Number: f.Number,
-			Hash:   f.Hash,
+			NodeId: f.ChainId,
+			Number: f.State.FinalRound.Number,
+			Hash:   f.State.FinalRound.Hash,
 		})
-		if f.End > g.GraphTimestamp {
-			g.GraphTimestamp = f.End
+		if f.State.FinalRound.End > node.Graph.GraphTimestamp {
+			node.Graph.GraphTimestamp = f.State.FinalRound.End
 		}
-	}
-	g.FinalCache = finals
-	if g.FinalRound[idForNetwork] != nil {
-		g.MyCacheRound = g.CacheRound[idForNetwork]
-		g.MyFinalNumber = g.FinalRound[idForNetwork].Number
-	}
-	for id, rounds := range g.RoundHistory {
+
+		rounds := f.State.RoundHistory
 		best := rounds[len(rounds)-1].Start
 		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap * 64
 		if rounds[0].Start+threshold > best && len(rounds) <= config.SnapshotReferenceThreshold {
@@ -76,31 +70,65 @@ func (g *RoundGraph) UpdateFinalCache(idForNetwork crypto.Hash) {
 		if rc := len(newRounds) - config.SnapshotReferenceThreshold; rc > 0 {
 			newRounds = append([]*FinalRound{}, newRounds[rc:]...)
 		}
-		g.RoundHistory[id] = newRounds
+		f.State.RoundHistory = newRounds
+	}
+	node.Graph.FinalCache = finals
+	if c := node.chains.m[node.IdForNetwork]; c != nil {
+		node.Graph.MyCacheRound = c.State.CacheRound
+		node.Graph.MyFinalNumber = c.State.FinalRound.Number
 	}
 }
 
-func (g *RoundGraph) Print() string {
-	desc := "ROUND GRAPH BEGIN\n"
-	for _, id := range g.Nodes {
-		desc = desc + fmt.Sprintf("NODE# %s\n", id)
-		final := g.FinalRound[*id]
-		desc = desc + fmt.Sprintf("FINAL %d %d %s\n", final.Number, final.Start, final.Hash)
-		cache := g.CacheRound[*id]
-		start, end := cache.Gap()
-		desc = desc + fmt.Sprintf("CACHE %d %d %d %d\n", cache.Number, cache.Timestamp, start, end)
+func (node *Node) LoadGraphAndChains(store storage.Store, networkId crypto.Hash) error {
+	allNodes := store.ReadAllNodes()
+	for _, cn := range allNodes {
+		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateCancelled {
+			continue
+		}
+
+		id := cn.IdForNetwork(networkId)
+		chain := node.GetOrCreateChain(id)
+
+		cache, err := loadHeadRoundForNode(store, id)
+		if err != nil {
+			return err
+		}
+		chain.State.CacheRound = cache
+
+		final, err := loadFinalRoundForNode(store, id, cache.Number-1)
+		if err != nil {
+			return err
+		}
+		history, err := loadRoundHistoryForNode(store, node.IdForNetwork, final)
+		if err != nil {
+			return err
+		}
+		chain.State.FinalRound = final
+		chain.State.RoundHistory = history
+		cache.Timestamp = final.Start + config.SnapshotRoundGap
 	}
-	desc = desc + "ROUND GRAPH END"
-	return desc
+
+	for id, chain := range node.chains.m {
+		for rid, _ := range node.chains.m {
+			if rid == id {
+				continue
+			}
+			rlink, err := store.ReadLink(rid, id)
+			if err != nil {
+				return err
+			}
+			chain.State.ReverseRoundLinks[rid] = rlink
+		}
+	}
+
+	node.Graph = &RoundGraph{}
+	node.UpdateFinalCache()
+	return nil
 }
 
-func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (*RoundGraph, error) {
-	graph := &RoundGraph{
-		CacheRound:        make(map[crypto.Hash]*CacheRound),
-		FinalRound:        make(map[crypto.Hash]*FinalRound),
-		RoundHistory:      make(map[crypto.Hash][]*FinalRound),
-		ReverseRoundLinks: make(map[crypto.Hash]uint64),
-	}
+func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (map[crypto.Hash]*CacheRound, map[crypto.Hash]*FinalRound, error) {
+	cacheRound := make(map[crypto.Hash]*CacheRound)
+	finalRound := make(map[crypto.Hash]*FinalRound)
 
 	allNodes := store.ReadAllNodes()
 	for _, cn := range allNodes {
@@ -109,34 +137,22 @@ func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (*
 		}
 
 		id := cn.IdForNetwork(networkId)
-		graph.Nodes = append(graph.Nodes, &id)
 
 		cache, err := loadHeadRoundForNode(store, id)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		graph.CacheRound[cache.NodeId] = cache
+		cacheRound[cache.NodeId] = cache
 
 		final, err := loadFinalRoundForNode(store, id, cache.Number-1)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		rlink, err := store.ReadLink(final.NodeId, idForNetwork)
-		if err != nil {
-			return nil, err
-		}
-		graph.ReverseRoundLinks[final.NodeId] = rlink
-		history, err := loadRoundHistoryForNode(store, idForNetwork, final)
-		if err != nil {
-			return nil, err
-		}
-		graph.FinalRound[final.NodeId] = final
-		graph.RoundHistory[final.NodeId] = history
+		finalRound[final.NodeId] = final
 		cache.Timestamp = final.Start + config.SnapshotRoundGap
 	}
 
-	graph.UpdateFinalCache(idForNetwork)
-	return graph, nil
+	return cacheRound, finalRound, nil
 }
 
 func loadRoundHistoryForNode(store storage.Store, from crypto.Hash, to *FinalRound) ([]*FinalRound, error) {

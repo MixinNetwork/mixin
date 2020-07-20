@@ -38,23 +38,23 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.Ver
 	return tx, node.persistStore.WriteTransaction(tx)
 }
 
-func (node *Node) tryToStartNewRound(s *common.Snapshot) (bool, error) {
-	if node.checkInitialAcceptSnapshotWeak(s) {
+func (chain *Chain) tryToStartNewRound(s *common.Snapshot) (bool, error) {
+	if chain.node.checkInitialAcceptSnapshotWeak(s) {
 		return false, nil
 	}
-	if node.Graph.CacheRound[s.NodeId] == nil {
+	if chain.State.CacheRound == nil {
 		return false, fmt.Errorf("node not accepted yet %s %d %s", s.NodeId, s.RoundNumber, time.Unix(0, int64(s.Timestamp)).String())
 	}
 
-	cache := node.Graph.CacheRound[s.NodeId].Copy()
-	final := node.Graph.FinalRound[s.NodeId].Copy()
+	cache := chain.State.CacheRound.Copy()
+	final := chain.State.FinalRound.Copy()
 
 	if s.RoundNumber != cache.Number+1 {
 		return false, nil
 	}
 
 	dummyExternal := cache.References.External
-	round, dummy, err := node.startNewRound(s, cache, true)
+	round, dummy, err := chain.startNewRound(s, cache, true)
 	if err != nil {
 		return false, err
 	} else if round == nil {
@@ -74,12 +74,12 @@ func (node *Node) tryToStartNewRound(s *common.Snapshot) (bool, error) {
 	if dummy {
 		cache.References.External = dummyExternal
 	}
-	err = node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
+	err = chain.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 	if err != nil {
 		panic(err)
 	}
 
-	node.assignNewGraphRound(final, cache)
+	chain.assignNewGraphRound(final, cache)
 	return dummy, nil
 }
 

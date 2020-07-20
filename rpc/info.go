@@ -32,12 +32,12 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		"pool":  pool,
 		"batch": md.Batch,
 	}
-	graph, err := kernel.LoadRoundGraph(store, node.NetworkId(), node.IdForNetwork)
+	cacheMap, finalMap, err := kernel.LoadRoundGraph(store, node.NetworkId(), node.IdForNetwork)
 	if err != nil {
 		return info, err
 	}
 	cacheGraph := make(map[string]interface{})
-	for n, r := range graph.CacheRound {
+	for n, r := range cacheMap {
 		for i, _ := range r.Snapshots {
 			r.Snapshots[i].Signatures = nil
 		}
@@ -50,7 +50,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		}
 	}
 	finalGraph := make(map[string]interface{})
-	for n, r := range graph.FinalRound {
+	for n, r := range finalMap {
 		finalGraph[n.String()] = map[string]interface{}{
 			"node":  r.NodeId.String(),
 			"round": r.Number,

@@ -84,21 +84,24 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 func (node *Node) determinBestRound(nodeId crypto.Hash, roundTime uint64) *FinalRound {
 	var best *FinalRound
 	var start, height uint64
-	for id, rounds := range node.Graph.RoundHistory {
-		r, rts, rh := rounds[0], rounds[0].Start, uint64(len(rounds))
+	chain := node.GetOrCreateChain(nodeId)
+	for id, _ := range node.ConsensusNodes {
+		ec := node.GetOrCreateChain(id)
+		r := ec.State.RoundHistory[0]
+		rts, rh := r.Start, uint64(len(ec.State.RoundHistory))
 		if id == nodeId || rh < height || rts > roundTime {
 			continue
 		}
 		if !node.genesisNodesMap[id] && r.Number < 7+config.SnapshotReferenceThreshold*2 {
 			continue
 		}
-		if rl := node.Graph.ReverseRoundLinks[id]; rl > 0 && rl+1 >= node.Graph.FinalRound[nodeId].Number {
+		if rl := chain.State.ReverseRoundLinks[id]; rl > 0 && rl+1 >= chain.State.FinalRound.Number {
 			continue
 		}
 		if rts+config.SnapshotRoundGap*rh > uint64(clock.Now().UnixNano()) {
 			continue
 		}
-		if cr := node.Graph.CacheRound[id]; len(cr.Snapshots) == 0 && cr.Number == r.Number+1 && r.Number > 0 {
+		if cr := ec.State.CacheRound; len(cr.Snapshots) == 0 && cr.Number == r.Number+1 && r.Number > 0 {
 			continue
 		}
 		if rh > height || rts > start {

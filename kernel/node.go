@@ -59,7 +59,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 	var node = &Node{
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
 		ConsensusIndex:  -1,
-		chains:          &chainsMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*Chain)},
+		chains:          &chainsMap{m: make(map[crypto.Hash]*Chain)},
 		genesisNodesMap: make(map[crypto.Hash]bool),
 		persistStore:    persistStore,
 		cacheStore:      cacheStore,
@@ -94,11 +94,10 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 		return nil, err
 	}
 
-	graph, err := LoadRoundGraph(node.persistStore, node.networkId, node.IdForNetwork)
+	err = node.LoadGraphAndChains(node.persistStore, node.networkId)
 	if err != nil {
 		return nil, err
 	}
-	node.Graph = graph
 
 	node.Peer = network.NewPeer(node, node.IdForNetwork, addr, custom.Network.GossipNeighbors)
 	err = node.PingNeighborsFromConfig()

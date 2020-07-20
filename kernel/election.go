@@ -229,11 +229,10 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 		if err != nil {
 			return err
 		}
-		graph, err := LoadRoundGraph(node.persistStore, node.networkId, node.IdForNetwork)
+		err = node.LoadGraphAndChains(node.persistStore, node.networkId)
 		if err != nil {
 			return err
 		}
-		node.Graph = graph
 	}
 	return nil
 }
@@ -279,7 +278,8 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 		panic(err)
 	}
 
-	node.assignNewGraphRound(final, cache)
+	chain := node.GetOrCreateChain(s.NodeId)
+	chain.assignNewGraphRound(final, cache)
 	return nil
 }
 
@@ -526,10 +526,11 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	if timestamp < node.Epoch {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
 	}
-	if r := node.Graph.CacheRound[s.NodeId]; r != nil {
+	chain := node.GetOrCreateChain(s.NodeId)
+	if r := chain.State.CacheRound; r != nil {
 		return fmt.Errorf("invalid graph round %s %d", s.NodeId, r.Number)
 	}
-	if r := node.Graph.FinalRound[s.NodeId]; r != nil {
+	if r := chain.State.FinalRound; r != nil {
 		return fmt.Errorf("invalid graph round %s %d", s.NodeId, r.Number)
 	}
 
