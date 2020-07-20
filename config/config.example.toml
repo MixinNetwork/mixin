@@ -10,10 +10,6 @@ memory-cache-size = 16384
 # how many seconds to keep unconfirmed transactions in the cache storage
 # this also limits the confirmed snapshots finalization cache to peer
 cache-ttl = 7200
-# how many cache peer snapshots to keep in the memory queue
-ring-cache-size = 1048576
-# how many final peer snapshots to keep in the memory queue
-ring-final-size = 16777216
 
 [storage]
 # enable value log gc will reduce disk storage usage

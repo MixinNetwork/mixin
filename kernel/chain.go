@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	FinalPoolSlotsLimit      = config.SnapshotSyncRoundThreshold * 8
-	ChainCacheSnapshotsCount = 1024
+	FinalPoolSlotsLimit     = config.SnapshotSyncRoundThreshold * 8
+	CachePoolSnapshotsLimit = 1024
 )
 
 type ChainRound struct {
@@ -63,7 +63,7 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		State:           &ChainState{ReverseRoundLinks: make(map[crypto.Hash]uint64)},
 		CosiAggregators: make(map[crypto.Hash]*CosiAggregator),
 		CosiVerifiers:   make(map[crypto.Hash]*CosiVerifier),
-		CachePool:       &ChainCache{NodeId: chainId, Snapshots: NewRingBuffer(ChainCacheSnapshotsCount)},
+		CachePool:       &ChainCache{NodeId: chainId, Snapshots: NewRingBuffer(CachePoolSnapshotsLimit)},
 		persistStore:    node.persistStore,
 		cosiActionsChan: make(chan *CosiAction, FinalPoolSlotsLimit),
 		clc:             make(chan struct{}),
@@ -175,7 +175,7 @@ func (chain *Chain) AppendCacheSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	if s.RoundNumber > chain.CachePool.Number {
 		chain.CachePool.Number = s.RoundNumber
 		chain.CachePool.Snapshots.Dispose() // FIXME should reset the ring without init a new one
-		chain.CachePool.Snapshots = NewRingBuffer(ChainCacheSnapshotsCount)
+		chain.CachePool.Snapshots = NewRingBuffer(CachePoolSnapshotsLimit)
 	}
 	chain.CachePool.Snapshots.Offer(s)
 	return nil

@@ -435,8 +435,6 @@ consensus-only = true
 memory-cache-size = 128
 kernel-operation-period = 2
 cache-ttl = 3600
-ring-cache-size = 4096
-ring-final-size = 16384
 [network]
 listener = "%s"`
 
