@@ -127,7 +127,6 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction, timer *util.Timer) error
 		agg.Commitments[len(chain.node.SortedConsensusNodes)] = &R
 		chain.CosiAggregators[s.Hash] = agg
 		for peerId, _ := range chain.node.ConsensusNodes {
-			timer.Reset(time.Second)
 			err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, s, R, timer)
 			if err != nil {
 				return err
@@ -221,7 +220,6 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction, timer *util.Timer) error
 	chain.assignNewGraphRound(final, cache)
 	chain.CosiAggregators[s.Hash] = agg
 	for peerId, _ := range chain.node.ConsensusNodes {
-		timer.Reset(time.Second)
 		err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R, timer)
 		if err != nil {
 			return err
@@ -267,7 +265,6 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction, timer *util.Timer) err
 	v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
 	if chain.node.checkInitialAcceptSnapshotWeak(s) {
 		chain.CosiVerifiers[s.Hash] = v
-		timer.Reset(time.Second)
 		return chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil, timer)
 	}
 
@@ -344,7 +341,6 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction, timer *util.Timer) err
 	}
 
 	chain.CosiVerifiers[s.Hash] = v
-	timer.Reset(time.Second)
 	return chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil, timer)
 }
 
@@ -416,10 +412,8 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction, timer *util.Timer) error
 		if wantTx, found := ann.WantTxs[id]; !found {
 			continue
 		} else if wantTx {
-			timer.Reset(time.Second)
 			err = chain.node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, tx, timer)
 		} else {
-			timer.Reset(time.Second)
 			err = chain.node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, nil, timer)
 		}
 		if err != nil {
@@ -486,7 +480,6 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction, timer *util.Timer) error 
 	if err != nil {
 		return err
 	}
-	timer.Reset(time.Second)
 	return chain.node.Peer.SendSnapshotResponseMessage(m.PeerId, m.SnapshotHash, response, timer)
 }
 
@@ -564,7 +557,6 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction, timer *util.Timer) error {
 			return err
 		}
 		for id, _ := range chain.node.ConsensusNodes {
-			timer.Reset(time.Second)
 			err := chain.node.Peer.SendSnapshotFinalizationMessage(id, s, timer)
 			if err != nil {
 				return err
@@ -607,13 +599,11 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction, timer *util.Timer) error {
 
 	for id, _ := range chain.node.ConsensusNodes {
 		if !agg.responsed[id] {
-			timer.Reset(time.Second)
 			err := chain.node.SendTransactionToPeer(id, agg.Snapshot.Transaction, timer)
 			if err != nil {
 				return err
 			}
 		}
-		timer.Reset(time.Second)
 		err := chain.node.Peer.SendSnapshotFinalizationMessage(id, agg.Snapshot, timer)
 		if err != nil {
 			return err

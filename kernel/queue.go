@@ -85,7 +85,6 @@ func (chain *Chain) ConsumeQueue() error {
 			return nil
 		}
 		logger.Debugf("ConsumeQueue finalized snapshot without transaction %s %s %s\n", peerId, snap.Hash, snap.Transaction)
-		timer.Reset(period)
 		chain.node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction, timer)
 		return chain.QueueAppendSnapshot(peerId, snap, true)
 	})
