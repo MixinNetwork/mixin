@@ -52,8 +52,6 @@ type CosiVerifier struct {
 }
 
 func (chain *Chain) CosiLoop() error {
-	defer close(chain.clc)
-
 	timer := util.NewTimer(time.Second)
 	defer timer.Stop()
 
@@ -202,7 +200,6 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction, timer *util.Timer) error
 				External: best.Hash,
 			},
 		}
-		chain.StepForward()
 		err := chain.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 		if err != nil {
 			panic(err)
@@ -335,7 +332,6 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction, timer *util.Timer) err
 			Timestamp:  s.Timestamp,
 			References: s.References,
 		}
-		chain.StepForward()
 		err = chain.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 		if err != nil {
 			panic(err)
@@ -595,9 +591,13 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction, timer *util.Timer) error {
 		Snapshot:         *s,
 		TopologicalOrder: chain.node.TopoCounter.Next(),
 	}
-	err = chain.persistStore.WriteSnapshot(topo)
-	if err != nil {
-		panic(err)
+	for {
+		err := chain.persistStore.WriteSnapshot(topo)
+		if err != nil {
+			time.Sleep(10 * time.Millisecond)
+		} else {
+			break
+		}
 	}
 	if err := cache.ValidateSnapshot(s, true); err != nil {
 		panic("should never be here")
@@ -683,7 +683,6 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 			Timestamp:  s.Timestamp,
 			References: s.References,
 		}
-		chain.StepForward()
 		err := chain.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 		if err != nil {
 			panic(err)
@@ -699,9 +698,13 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		Snapshot:         *s,
 		TopologicalOrder: chain.node.TopoCounter.Next(),
 	}
-	err := chain.persistStore.WriteSnapshot(topo)
-	if err != nil {
-		panic(err)
+	for {
+		err := chain.persistStore.WriteSnapshot(topo)
+		if err != nil {
+			time.Sleep(10 * time.Millisecond)
+		} else {
+			break
+		}
 	}
 	if err := cache.ValidateSnapshot(s, true); err != nil {
 		panic("should never be here")

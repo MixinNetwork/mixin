@@ -82,7 +82,26 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 		panic(fmt.Errorf("should never be here %d %d", n, final.Number))
 	} else if n+1 == final.Number {
 		chain.State.RoundHistory = append(chain.State.RoundHistory, final.Copy())
+		chain.StepForward()
 	}
+
+	rounds := chain.State.RoundHistory
+	best := rounds[len(rounds)-1].Start
+	threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap * 64
+	if rounds[0].Start+threshold > best && len(rounds) <= config.SnapshotReferenceThreshold {
+		return
+	}
+	newRounds := make([]*FinalRound, 0)
+	for _, r := range rounds {
+		if r.Start+threshold <= best {
+			continue
+		}
+		newRounds = append(newRounds, r)
+	}
+	if rc := len(newRounds) - config.SnapshotReferenceThreshold; rc > 0 {
+		newRounds = append([]*FinalRound{}, newRounds[rc:]...)
+	}
+	chain.State.RoundHistory = newRounds
 }
 
 func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto.Key) bool {

@@ -45,6 +45,7 @@ func (node *Node) UpdateFinalCache() {
 
 	finals := make([]*network.SyncPoint, 0)
 	for _, f := range node.chains.m {
+		f.State.RLock()
 		finals = append(finals, &network.SyncPoint{
 			NodeId: f.ChainId,
 			Number: f.State.FinalRound.Number,
@@ -53,25 +54,9 @@ func (node *Node) UpdateFinalCache() {
 		if f.State.FinalRound.End > node.Graph.GraphTimestamp {
 			node.Graph.GraphTimestamp = f.State.FinalRound.End
 		}
-
-		rounds := f.State.RoundHistory
-		best := rounds[len(rounds)-1].Start
-		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap * 64
-		if rounds[0].Start+threshold > best && len(rounds) <= config.SnapshotReferenceThreshold {
-			continue
-		}
-		newRounds := make([]*FinalRound, 0)
-		for _, r := range rounds {
-			if r.Start+threshold <= best {
-				continue
-			}
-			newRounds = append(newRounds, r)
-		}
-		if rc := len(newRounds) - config.SnapshotReferenceThreshold; rc > 0 {
-			newRounds = append([]*FinalRound{}, newRounds[rc:]...)
-		}
-		f.State.RoundHistory = newRounds
+		f.State.RUnlock()
 	}
+
 	node.Graph.FinalCache = finals
 	if c := node.chains.m[node.IdForNetwork]; c != nil {
 		node.Graph.MyCacheRound = c.State.CacheRound
@@ -80,20 +65,20 @@ func (node *Node) UpdateFinalCache() {
 }
 
 func (node *Node) LoadGraphAndChains(store storage.Store, networkId crypto.Hash) error {
+	states := make(map[crypto.Hash]*ChainState)
 	allNodes := store.ReadAllNodes()
 	for _, cn := range allNodes {
 		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateCancelled {
 			continue
 		}
-
 		id := cn.IdForNetwork(networkId)
-		chain := node.GetOrCreateChain(id)
+		state := &ChainState{ReverseRoundLinks: make(map[crypto.Hash]uint64)}
 
 		cache, err := loadHeadRoundForNode(store, id)
 		if err != nil {
 			return err
 		}
-		chain.State.CacheRound = cache
+		state.CacheRound = cache
 
 		final, err := loadFinalRoundForNode(store, id, cache.Number-1)
 		if err != nil {
@@ -103,13 +88,14 @@ func (node *Node) LoadGraphAndChains(store storage.Store, networkId crypto.Hash)
 		if err != nil {
 			return err
 		}
-		chain.State.FinalRound = final
-		chain.State.RoundHistory = history
+		state.FinalRound = final
+		state.RoundHistory = history
 		cache.Timestamp = final.Start + config.SnapshotRoundGap
+		states[id] = state
 	}
 
-	for id, chain := range node.chains.m {
-		for rid, _ := range node.chains.m {
+	for id, state := range states {
+		for rid, _ := range states {
 			if rid == id {
 				continue
 			}
@@ -117,8 +103,10 @@ func (node *Node) LoadGraphAndChains(store storage.Store, networkId crypto.Hash)
 			if err != nil {
 				return err
 			}
-			chain.State.ReverseRoundLinks[rid] = rlink
+			state.ReverseRoundLinks[rid] = rlink
 		}
+		chain := node.GetOrCreateChain(id)
+		chain.UpdateState(state.CacheRound, state.FinalRound, state.RoundHistory, state.ReverseRoundLinks)
 	}
 
 	node.Graph = &RoundGraph{}

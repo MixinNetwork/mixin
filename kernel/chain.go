@@ -16,18 +16,9 @@ const (
 )
 
 type ChainRound struct {
-	NodeId     crypto.Hash
-	Number     uint64
-	Timestamp  uint64
-	References *common.RoundLink
-	Snapshots  []*CosiAction
-	finalSet   map[crypto.Hash]bool
-}
-
-type ChainCache struct {
-	NodeId    crypto.Hash
 	Number    uint64
-	Snapshots *RingBuffer
+	Snapshots []*CosiAction
+	finalSet  map[crypto.Hash]bool
 }
 
 type ChainState struct {
@@ -46,14 +37,13 @@ type Chain struct {
 
 	CosiAggregators map[crypto.Hash]*CosiAggregator
 	CosiVerifiers   map[crypto.Hash]*CosiVerifier
-	CachePool       *ChainCache
+	CachePool       *RingBuffer
+	CacheIndex      uint64
 	FinalPool       [FinalPoolSlotsLimit]*ChainRound
 	FinalIndex      int
 
 	persistStore    storage.Store
 	cosiActionsChan chan *CosiAction
-
-	clc chan struct{}
 }
 
 func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
@@ -63,10 +53,9 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		State:           &ChainState{ReverseRoundLinks: make(map[crypto.Hash]uint64)},
 		CosiAggregators: make(map[crypto.Hash]*CosiAggregator),
 		CosiVerifiers:   make(map[crypto.Hash]*CosiVerifier),
-		CachePool:       &ChainCache{NodeId: chainId, Snapshots: NewRingBuffer(CachePoolSnapshotsLimit)},
+		CachePool:       NewRingBuffer(CachePoolSnapshotsLimit),
 		persistStore:    node.persistStore,
 		cosiActionsChan: make(chan *CosiAction, FinalPoolSlotsLimit),
-		clc:             make(chan struct{}),
 	}
 	go func() {
 		err := chain.ConsumeQueue()
@@ -83,6 +72,24 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 	return chain
 }
 
+func (chain *Chain) UpdateState(cache *CacheRound, final *FinalRound, history []*FinalRound, reverseLinks map[crypto.Hash]uint64) {
+	chain.State.Lock()
+	defer chain.State.Unlock()
+
+	chain.State.CacheRound = cache
+	chain.State.FinalRound = final
+	chain.State.RoundHistory = history
+	chain.State.ReverseRoundLinks = reverseLinks
+
+	if chain.ChainId == chain.node.IdForNetwork {
+		chain.CacheIndex = 0
+	} else if len(chain.State.CacheRound.Snapshots) == 0 {
+		chain.CacheIndex = chain.State.CacheRound.Number
+	} else {
+		chain.CacheIndex = chain.State.CacheRound.Number + 1
+	}
+}
+
 func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error) {
 	for {
 		time.Sleep(1 * time.Millisecond)
@@ -90,14 +97,11 @@ func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *commo
 		if round := chain.FinalPool[chain.FinalIndex]; round != nil {
 			for _, ps := range round.Snapshots {
 				hook(ps.PeerId, ps.Snapshot)
-				if final > 10 {
-					break
-				}
 				final++
 			}
 		}
-		for i := 0; i < 2; i++ {
-			item, err := chain.CachePool.Snapshots.Poll(false)
+		for i := 0; i < 16; i++ {
+			item, err := chain.CachePool.Poll(false)
 			if err != nil || item == nil {
 				break
 			}
@@ -136,10 +140,8 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	round := chain.FinalPool[offset]
 	if round == nil || round.Number != s.RoundNumber {
 		round = &ChainRound{
-			NodeId:     chain.ChainId,
-			Number:     s.RoundNumber,
-			References: &common.RoundLink{Self: s.References.Self, External: s.References.External},
-			finalSet:   make(map[crypto.Hash]bool),
+			Number:   s.RoundNumber,
+			finalSet: make(map[crypto.Hash]bool),
 		}
 	}
 	ps := &CosiAction{
@@ -152,7 +154,7 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	}
 	round.finalSet[ps.key] = true
 	round.Snapshots = append(round.Snapshots, ps)
-	chain.FinalPool[s.RoundNumber] = round
+	chain.FinalPool[offset] = round
 	return nil
 }
 
@@ -169,15 +171,15 @@ func (chain *Chain) AppendCacheSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	if s.RoundNumber != 0 && s.NodeId == chain.node.IdForNetwork {
 		return nil
 	}
-	if s.RoundNumber < chain.CachePool.Number {
+	if s.RoundNumber < chain.CacheIndex {
 		return nil
 	}
-	if s.RoundNumber > chain.CachePool.Number {
-		chain.CachePool.Number = s.RoundNumber
-		chain.CachePool.Snapshots.Dispose() // FIXME should reset the ring without init a new one
-		chain.CachePool.Snapshots = NewRingBuffer(CachePoolSnapshotsLimit)
+	if s.RoundNumber > chain.CacheIndex {
+		chain.CachePool.Dispose() // FIXME should reset the ring without init a new one
+		chain.CacheIndex = s.RoundNumber
+		chain.CachePool = NewRingBuffer(CachePoolSnapshotsLimit)
 	}
-	chain.CachePool.Snapshots.Offer(s)
+	chain.CachePool.Offer(s)
 	return nil
 }
 
@@ -194,7 +196,6 @@ func (node *Node) GetOrCreateChain(id crypto.Hash) *Chain {
 	if chain != nil {
 		return chain
 	}
-
 	node.chains.m[id] = node.BuildChain(id)
 	return node.chains.m[id]
 }
