@@ -49,6 +49,9 @@ type Chain struct {
 
 	persistStore    storage.Store
 	cosiActionsChan chan *CosiAction
+	clc             chan struct{}
+	plc             chan struct{}
+	running         bool
 }
 
 func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
@@ -61,6 +64,9 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		CachePool:       NewRingBuffer(CachePoolSnapshotsLimit),
 		persistStore:    node.persistStore,
 		cosiActionsChan: make(chan *CosiAction, FinalPoolSlotsLimit),
+		clc:             make(chan struct{}),
+		plc:             make(chan struct{}),
+		running:         true,
 	}
 	go func() {
 		err := chain.ConsumeQueue()
@@ -75,6 +81,12 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		}
 	}()
 	return chain
+}
+
+func (chain *Chain) Teardown() {
+	chain.running = false
+	<-chain.clc
+	<-chain.plc
 }
 
 func (chain *Chain) UpdateState(cache *CacheRound, final *FinalRound, history []*FinalRound, reverseLinks map[crypto.Hash]uint64) {
@@ -96,7 +108,9 @@ func (chain *Chain) UpdateState(cache *CacheRound, final *FinalRound, history []
 }
 
 func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error) {
-	for {
+	defer close(chain.plc)
+
+	for chain.running {
 		time.Sleep(10 * time.Millisecond)
 		final, cache := 0, 0
 		for i := 0; i < 2; i++ {

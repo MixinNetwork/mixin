@@ -44,6 +44,10 @@ func (chain *Chain) ConsumeQueue() error {
 	defer timer.Stop()
 
 	chain.QueuePollSnapshots(func(peerId crypto.Hash, snap *common.Snapshot) error {
+		if !chain.running {
+			return nil
+		}
+
 		m := &CosiAction{PeerId: peerId, Snapshot: snap}
 		if snap.Version == 0 {
 			m.Action = CosiActionFinalization
@@ -60,7 +64,10 @@ func (chain *Chain) ConsumeQueue() error {
 		}
 
 		if m.Action != CosiActionFinalization {
-			chain.cosiActionsChan <- m
+			select {
+			case chain.cosiActionsChan <- m:
+			case <-chain.node.done:
+			}
 			return nil
 		}
 
@@ -69,7 +76,10 @@ func (chain *Chain) ConsumeQueue() error {
 			return err
 		}
 		if tx != nil {
-			chain.cosiActionsChan <- m
+			select {
+			case chain.cosiActionsChan <- m:
+			case <-chain.node.done:
+			}
 			return nil
 		}
 
@@ -78,7 +88,10 @@ func (chain *Chain) ConsumeQueue() error {
 			return err
 		}
 		if tx != nil {
-			chain.cosiActionsChan <- m
+			select {
+			case chain.cosiActionsChan <- m:
+			case <-chain.node.done:
+			}
 			return nil
 		}
 

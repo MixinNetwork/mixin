@@ -52,6 +52,8 @@ type CosiVerifier struct {
 }
 
 func (chain *Chain) CosiLoop() error {
+	defer close(chain.clc)
+
 	timer := util.NewTimer(time.Second)
 	defer timer.Stop()
 

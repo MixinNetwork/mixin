@@ -24,6 +24,11 @@ func (node *Node) Teardown() {
 	close(node.done)
 	<-node.mlc
 	<-node.elc
+	node.chains.Lock()
+	for _, c := range node.chains.m {
+		c.Teardown()
+	}
+	node.chains.Unlock()
 	node.Peer.Teardown()
 	node.persistStore.Close()
 	node.cacheStore.Reset()
