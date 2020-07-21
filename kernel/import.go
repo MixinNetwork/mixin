@@ -109,7 +109,7 @@ func (node *Node) importSnapshot(s *common.SnapshotWithTopologicalOrder, tx *com
 
 	chain := node.GetOrCreateChain(s.NodeId)
 	for {
-		err = chain.QueueAppendSnapshot(node.IdForNetwork, &s.Snapshot, true)
+		err = chain.AppendFinalSnapshot(node.IdForNetwork, &s.Snapshot)
 		if err != nil {
 			logger.Printf("QueueAppendSnapshot %s %v\n", s.Transaction, err)
 			time.Sleep(3 * time.Second)

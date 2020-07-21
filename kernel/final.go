@@ -133,5 +133,5 @@ func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snaps
 		return nil
 	}
 
-	return chain.QueueAppendSnapshot(peerId, s, true)
+	return chain.AppendFinalSnapshot(peerId, s)
 }

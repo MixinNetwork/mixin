@@ -19,22 +19,22 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 		return "", err
 	}
 	chain := node.GetOrCreateChain(node.IdForNetwork)
-	err = chain.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+	err = chain.AppendCacheSnapshot(node.IdForNetwork, &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: tx.PayloadHash(),
-	}, false)
+	})
 	return tx.PayloadHash().String(), err
 }
 
 func (node *Node) LoadCacheToQueue() error {
 	chain := node.GetOrCreateChain(node.IdForNetwork)
 	return node.persistStore.CacheListTransactions(func(tx *common.VersionedTransaction) error {
-		return chain.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+		return chain.AppendCacheSnapshot(node.IdForNetwork, &common.Snapshot{
 			Version:     common.SnapshotVersion,
 			NodeId:      node.IdForNetwork,
 			Transaction: tx.PayloadHash(),
-		}, false)
+		})
 	})
 }
 
@@ -87,7 +87,7 @@ func (chain *Chain) ConsumeQueue() error {
 		}
 		logger.Debugf("ConsumeQueue finalized snapshot without transaction %s %s %s\n", peerId, snap.Hash, snap.Transaction)
 		chain.node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction, timer)
-		return chain.QueueAppendSnapshot(peerId, snap, true)
+		return nil
 	})
 	return nil
 }

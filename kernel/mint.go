@@ -132,11 +132,11 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 		return err
 	}
 	chain := node.GetOrCreateChain(node.IdForNetwork)
-	return chain.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+	return chain.AppendCacheSnapshot(node.IdForNetwork, &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: signed.PayloadHash(),
-	}, false)
+	})
 }
 
 func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.VersionedTransaction) error {

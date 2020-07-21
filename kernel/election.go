@@ -130,11 +130,11 @@ func (node *Node) tryToSendRemoveTransaction(candi *common.Node) error {
 		return err
 	}
 	chain := node.GetOrCreateChain(node.IdForNetwork)
-	return chain.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+	return chain.AppendCacheSnapshot(node.IdForNetwork, &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: tx.PayloadHash(),
-	}, false)
+	})
 }
 
 func (node *Node) buildRemoveTransaction(candi *common.Node) (*common.VersionedTransaction, error) {
@@ -210,11 +210,11 @@ func (node *Node) tryToSendAcceptTransaction() error {
 		return err
 	}
 	chain := node.GetOrCreateChain(node.IdForNetwork)
-	err = chain.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+	err = chain.AppendCacheSnapshot(node.IdForNetwork, &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: ver.PayloadHash(),
-	}, false)
+	})
 	logger.Println("tryToSendAcceptTransaction", ver.PayloadHash(), hex.EncodeToString(ver.Marshal()))
 	return nil
 }

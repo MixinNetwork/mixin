@@ -105,6 +105,9 @@ func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *commo
 			if round == nil {
 				continue
 			}
+			if cr := chain.State.CacheRound; cr != nil && round.Number < cr.Number {
+				continue
+			}
 			for _, ps := range round.Snapshots {
 				hook(ps.PeerId, ps.Snapshot)
 				final++
@@ -183,6 +186,10 @@ func (chain *Chain) AppendCacheSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	}
 	if peerId != s.NodeId {
 		panic("cache queue malformed")
+	}
+	if chain.node.checkInitialAcceptSnapshotWeak(s) {
+		chain.CachePool.Offer(s)
+		return nil
 	}
 	if s.RoundNumber == 0 && s.NodeId != chain.node.IdForNetwork {
 		return nil

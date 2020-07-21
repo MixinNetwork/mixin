@@ -630,7 +630,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		return nil
 	}
 	if s.RoundNumber > cache.Number+1 {
-		return chain.QueueAppendSnapshot(m.PeerId, s, true)
+		return nil
 	}
 	if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
 		if len(cache.Snapshots) != 0 {
@@ -647,7 +647,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		}
 		if external == nil {
 			logger.Verbosef("ERROR cosiHandleFinalization head round references external not ready yet %s %v %v\n", m.PeerId, s, cache.References)
-			return chain.QueueAppendSnapshot(m.PeerId, s, true)
+			return nil
 		}
 		err = chain.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, s.References)
 		if err != nil {
@@ -655,11 +655,11 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		}
 		cache.References = s.References
 		chain.assignNewGraphRound(final, cache)
-		return chain.QueueAppendSnapshot(m.PeerId, s, true)
+		return nil
 	}
 	if s.RoundNumber == cache.Number+1 {
 		if round, _, err := chain.startNewRound(s, cache, false); err != nil {
-			return chain.QueueAppendSnapshot(m.PeerId, s, true)
+			return nil
 		} else if round == nil {
 			logger.Verbosef("ERROR cosiHandleFinalization startNewRound empty %s %v\n", m.PeerId, s)
 			return nil
@@ -717,23 +717,23 @@ func (chain *Chain) handleFinalization(m *CosiAction) error {
 			return nil
 		}
 		if s.RoundNumber > cache.Number+1 {
-			return chain.QueueAppendSnapshot(m.PeerId, s, true)
+			return nil
 		}
 	}
 
 	dummy, err := chain.tryToStartNewRound(s)
 	if err != nil {
 		logger.Verbosef("ERROR handleFinalization tryToStartNewRound %s %s %d %t %s\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil, err.Error())
-		return chain.QueueAppendSnapshot(m.PeerId, s, true)
+		return nil
 	} else if dummy {
 		logger.Verbosef("ERROR handleFinalization tryToStartNewRound DUMMY %s %s %d %t\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil)
-		return chain.QueueAppendSnapshot(m.PeerId, s, true)
+		return nil
 	}
 
 	tx, err := chain.node.checkFinalSnapshotTransaction(s)
 	if err != nil {
 		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %t %s\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil, err.Error())
-		return chain.QueueAppendSnapshot(m.PeerId, s, true)
+		return nil
 	} else if tx == nil {
 		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %t %s\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil, "tx empty")
 		return nil
@@ -763,7 +763,7 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 	}
 	s.Hash = s.PayloadHash()
 	s.Commitment = commitment
-	return chain.QueueAppendSnapshot(peerId, s, false)
+	return chain.AppendCacheSnapshot(peerId, s)
 }
 
 func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool) error {
@@ -853,7 +853,7 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		return nil
 	}
 
-	return chain.QueueAppendSnapshot(peerId, s, true)
+	return chain.AppendFinalSnapshot(peerId, s)
 }
 
 func (node *Node) getPeerConsensusNode(peerId crypto.Hash) *common.Node {

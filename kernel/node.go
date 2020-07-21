@@ -335,20 +335,6 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	return peerId, listener, nil
 }
 
-func (chain *Chain) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot, final bool) error {
-	if !final && chain.State.CacheRound == nil {
-		return nil
-	}
-	if final {
-		err := chain.AppendFinalSnapshot(peerId, s)
-		if err != nil {
-			logger.Debugf("QueueAppendSnapshot(%s, %s) ERROR %s\n", peerId, s.Hash, err)
-		}
-		return err
-	}
-	return chain.AppendCacheSnapshot(peerId, s)
-}
-
 func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash, timer *util.Timer) error {
 	tx, _, err := node.persistStore.ReadTransaction(hash)
 	if err != nil {
