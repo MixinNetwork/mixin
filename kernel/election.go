@@ -79,9 +79,8 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*commo
 		return nil, fmt.Errorf("invalid node remove hour %d", hours%24)
 	}
 
-	nodes := node.SortAllNodesByTimestampAndId()
-	candi := nodes[0]
-	for _, cn := range nodes {
+	candi := node.AllNodesSorted[0]
+	for _, cn := range node.AllNodesSorted {
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.Epoch
 		}

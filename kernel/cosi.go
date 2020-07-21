@@ -587,7 +587,6 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction, timer *util.Timer) error {
 		err := chain.persistStore.WriteSnapshot(topo)
 		if err != nil {
 			logger.Debugf("ERROR cosiHandleResponse WriteSnapshot %s %s %s\n", m.PeerId, m.SnapshotHash, err.Error())
-			time.Sleep(10 * time.Millisecond)
 		} else {
 			break
 		}
@@ -693,7 +692,6 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		err := chain.persistStore.WriteSnapshot(topo)
 		if err != nil {
 			logger.Debugf("ERROR cosiHandleFinalization WriteSnapshot %s %v %s\n", m.PeerId, m.Snapshot, err.Error())
-			time.Sleep(10 * time.Millisecond)
 		} else {
 			break
 		}
