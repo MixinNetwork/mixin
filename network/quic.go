@@ -45,10 +45,6 @@ type QuicTransport struct {
 	listener quic.Listener
 }
 
-func init() {
-	quic.RetireBugBackwardsCompatibilityMode = true // FIXME remove this
-}
-
 func NewQuicServer(addr string) (*QuicTransport, error) {
 	tlsConf := generateTLSConfig()
 	return &QuicTransport{

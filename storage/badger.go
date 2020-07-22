@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/options"
 )
@@ -54,13 +55,14 @@ func openDB(dir string, sync, valueLogGC, truncate bool) (*badger.DB, error) {
 
 	if valueLogGC {
 		go func() {
-			ticker := time.NewTicker(5 * time.Minute)
-			defer ticker.Stop()
-			for range ticker.C {
+			for {
 				lsm, vlog := db.Size()
+				logger.Printf("Badger LSM %d VLOG %d\n", lsm, vlog)
 				if lsm > 1024*1024*8 || vlog > 1024*1024*32 {
-					db.RunValueLogGC(0.5)
+					err := db.RunValueLogGC(0.5)
+					logger.Printf("Badger RunValueLogGC %v\n", err)
 				}
+				time.Sleep(5 * time.Minute)
 			}
 		}()
 	}
