@@ -115,16 +115,15 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto.Key) bool {
 	key := append(snap[:], sig[:]...)
 	key = append(key, pub[:]...)
-	hash := "KERNEL:SIGNATURE:" + crypto.NewHash(key).String()
-	value := node.cacheStore.Get(nil, []byte(hash))
+	value := node.cacheStore.Get(nil, key)
 	if len(value) == 1 {
 		return value[0] == byte(1)
 	}
 	valid := pub.Verify(snap[:], sig)
 	if valid {
-		node.cacheStore.Set([]byte(hash), []byte{1})
+		node.cacheStore.Set(key, []byte{1})
 	} else {
-		node.cacheStore.Set([]byte(hash), []byte{0})
+		node.cacheStore.Set(key, []byte{0})
 	}
 	return valid
 }
@@ -136,7 +135,7 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, p
 		// and a bug in too recent external reference, e.g. bare final round
 		return true
 	}
-	key := common.MsgpackMarshalPanic(sig)
+	key := sig.Signature[:]
 	key = append(snap[:], key...)
 	for _, pub := range publics {
 		key = append(key, pub[:]...)
@@ -144,17 +143,18 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, p
 	tbuf := make([]byte, 8)
 	binary.BigEndian.PutUint64(tbuf, uint64(threshold))
 	key = append(key, tbuf...)
-	hash := "KERNEL:COSISIGNATURE:" + crypto.NewHash(key).String()
-	value := node.cacheStore.Get(nil, []byte(hash))
+	binary.BigEndian.PutUint64(tbuf, sig.Mask)
+	key = append(key, tbuf...)
+	value := node.cacheStore.Get(nil, key)
 	if len(value) == 1 {
 		return value[0] == byte(1)
 	}
 	err := sig.FullVerify(publics, threshold, snap[:])
 	if err != nil {
 		logger.Verbosef("CacheVerifyCosi(%s, %d, %d) ERROR %s\n", snap, len(publics), threshold, err.Error())
-		node.cacheStore.Set([]byte(hash), []byte{0})
+		node.cacheStore.Set(key, []byte{0})
 	} else {
-		node.cacheStore.Set([]byte(hash), []byte{1})
+		node.cacheStore.Set(key, []byte{1})
 	}
 	return err == nil
 }
