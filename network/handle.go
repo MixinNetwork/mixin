@@ -93,40 +93,41 @@ func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *com
 		return nil
 	}
 
-	hash := s.PayloadHash().ForNetwork(idForNetwork)
-	key := crypto.NewHash(append(hash[:], 'S', 'C', 'O'))
+	key := append(idForNetwork[:], s.Hash[:]...)
+	key = append(key, 'S', 'C', 'O')
 	if me.snapshotsCaches.contains(key, time.Hour) {
 		return nil
 	}
 
 	timer.Reset(time.Second)
 	data := buildSnapshotFinalizationMessage(s)
-	return me.sendSnapshotMessageToPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeSnapshotFinalization, data, timer)
+	return me.sendSnapshotMessageToPeer(idForNetwork, s.Hash, PeerMessageTypeSnapshotFinalization, data, timer)
 }
 
 func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash, timer *util.Timer) error {
 	timer.Reset(time.Second)
-	key := snap.ForNetwork(idForNetwork)
-	key = crypto.NewHash(append(key[:], 'S', 'N', 'A', 'P', PeerMessageTypeSnapshotConfirm))
+	key := append(idForNetwork[:], snap[:]...)
+	key = append(key, 'S', 'N', 'A', 'P', PeerMessageTypeSnapshotConfirm)
 	return me.sendHighToPeer(idForNetwork, key, buildSnapshotConfirmMessage(snap), timer)
 }
 
 func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypto.Hash, timer *util.Timer) error {
 	timer.Reset(time.Second)
-	key := tx.ForNetwork(idForNetwork)
-	key = crypto.NewHash(append(key[:], 'T', 'X', PeerMessageTypeTransactionRequest))
+	key := append(idForNetwork[:], tx[:]...)
+	key = append(key, 'T', 'X', PeerMessageTypeTransactionRequest)
 	return me.sendHighToPeer(idForNetwork, key, buildTransactionRequestMessage(tx), timer)
 }
 
 func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, ver *common.VersionedTransaction, timer *util.Timer) error {
-	key := ver.PayloadHash().ForNetwork(idForNetwork)
-	key = crypto.NewHash(append(key[:], 'T', 'X', PeerMessageTypeTransaction))
+	tx := ver.PayloadHash()
+	key := append(idForNetwork[:], tx[:]...)
+	key = append(key, 'T', 'X', PeerMessageTypeTransaction)
 	return me.sendHighToPeer(idForNetwork, key, buildTransactionMessage(ver), timer)
 }
 
 func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash) {
-	hash := snap.ForNetwork(idForNetwork)
-	key := crypto.NewHash(append(hash[:], 'S', 'C', 'O'))
+	key := append(idForNetwork[:], snap[:]...)
+	key = append(key, 'S', 'C', 'O')
 	me.snapshotsCaches.store(key, time.Now())
 }
 
