@@ -133,8 +133,8 @@ func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *commo
 				ps := round.Snapshots[i]
 				for k, _ := range ps.peers {
 					hook(k, ps.Snapshot)
+					final++
 				}
-				final++
 			}
 		}
 		for i := 0; i < 16; i++ {
@@ -161,6 +161,22 @@ func (ps *CosiAction) buildKey() crypto.Hash {
 		panic("should never be here")
 	}
 	return ps.Snapshot.Hash.ForNetwork(ps.PeerId)
+}
+
+func (chain *Chain) ClearFinalSnapshot(id crypto.Hash) error {
+	chain.Lock()
+	defer chain.Unlock()
+
+	round := chain.FinalPool[chain.FinalIndex]
+	if round == nil {
+		return nil
+	}
+	index, found := round.index[id]
+	if !found {
+		return nil
+	}
+	round.Snapshots[index].peers = make(map[crypto.Hash]bool)
+	return nil
 }
 
 func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
