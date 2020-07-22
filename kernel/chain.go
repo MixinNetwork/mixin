@@ -15,13 +15,20 @@ import (
 
 const (
 	FinalPoolSlotsLimit     = config.SnapshotSyncRoundThreshold * 8
+	FinalPoolRoundSizeLimit = 1024
 	CachePoolSnapshotsLimit = 1024
 )
 
+type PeerSnapshot struct {
+	Snapshot *common.Snapshot
+	peers    map[crypto.Hash]bool
+}
+
 type ChainRound struct {
 	Number    uint64
-	Snapshots []*CosiAction
-	finalSet  map[crypto.Hash]bool
+	Size      int
+	Snapshots [FinalPoolRoundSizeLimit]*PeerSnapshot
+	index     map[crypto.Hash]int
 }
 
 type ChainState struct {
@@ -122,8 +129,11 @@ func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *commo
 			if cr := chain.State.CacheRound; cr != nil && round.Number < cr.Number {
 				continue
 			}
-			for _, ps := range round.Snapshots {
-				hook(ps.PeerId, ps.Snapshot)
+			for i := 0; i < round.Size; i++ {
+				ps := round.Snapshots[i]
+				for k, _ := range ps.peers {
+					hook(k, ps.Snapshot)
+				}
 				final++
 			}
 		}
@@ -158,6 +168,9 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	if s.NodeId != chain.ChainId {
 		panic("final queue malformed")
 	}
+	chain.Lock()
+	defer chain.Unlock()
+
 	start, offset := uint64(0), 0
 	if chain.State.CacheRound != nil {
 		start = chain.State.CacheRound.Number
@@ -172,24 +185,30 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	}
 	offset = (offset + chain.FinalIndex) % FinalPoolSlotsLimit
 	round := chain.FinalPool[offset]
-	if round == nil || round.Number != s.RoundNumber {
+	if round == nil {
 		round = &ChainRound{
-			Number:   s.RoundNumber,
-			finalSet: make(map[crypto.Hash]bool),
+			Number: s.RoundNumber,
+			index:  make(map[crypto.Hash]int),
 		}
 	}
-	ps := &CosiAction{
-		PeerId:   peerId,
-		Snapshot: s,
+	if round.Number != s.RoundNumber {
+		round.Number = s.RoundNumber
+		round.index = make(map[crypto.Hash]int)
+		round.Size = 0
 	}
-	chain.Lock()
-	defer chain.Unlock()
-	ps.key = ps.buildKey()
-	if round.finalSet[ps.key] {
-		return nil
+	if round.Size == FinalPoolRoundSizeLimit {
+		return fmt.Errorf("final round pool full %s:%d", s.NodeId, s.RoundNumber)
 	}
-	round.finalSet[ps.key] = true
-	round.Snapshots = append(round.Snapshots, ps)
+	index, found := round.index[s.Hash]
+	if !found {
+		round.Snapshots[round.Size] = &PeerSnapshot{
+			Snapshot: s,
+			peers:    map[crypto.Hash]bool{peerId: true},
+		}
+	} else {
+		round.Snapshots[index].peers[peerId] = true
+	}
+	round.Size = round.Size + 1
 	chain.FinalPool[offset] = round
 	return nil
 }
