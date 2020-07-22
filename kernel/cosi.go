@@ -846,14 +846,22 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 
 	chain := node.GetOrCreateChain(s.NodeId)
 	if s.Version == 0 {
-		return chain.legacyAppendFinalization(peerId, s)
+		err := chain.legacyAppendFinalization(peerId, s)
+		if err != nil {
+			logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) legacyAppendFinalization error %s\n", peerId, s.Hash, err)
+		}
+		return err
 	}
 	if !node.verifyFinalization(s) {
 		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d %t\n", peerId, s, node.ConsensusThreshold(s.Timestamp), node.ConsensusRemovedRecently(s.Timestamp) != nil)
 		return nil
 	}
 
-	return chain.AppendFinalSnapshot(peerId, s)
+	err = chain.AppendFinalSnapshot(peerId, s)
+	if err != nil {
+		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) chain error %s\n", peerId, s.Hash, err)
+	}
+	return err
 }
 
 func (node *Node) getPeerConsensusNode(peerId crypto.Hash) *common.Node {

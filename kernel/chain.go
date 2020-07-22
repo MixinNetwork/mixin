@@ -197,7 +197,7 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	}
 	offset = int(s.RoundNumber - start)
 	if offset >= FinalPoolSlotsLimit {
-		return fmt.Errorf("chain final pool slots full %d %d %d", start, s.RoundNumber, chain.FinalIndex)
+		return fmt.Errorf("AppendFinalSnapshot(%s, %s) pool slots full %d %d %d", peerId, s.Hash, start, s.RoundNumber, chain.FinalIndex)
 	}
 	offset = (offset + chain.FinalIndex) % FinalPoolSlotsLimit
 	round := chain.FinalPool[offset]
@@ -213,7 +213,7 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 		round.Size = 0
 	}
 	if round.Size == FinalPoolRoundSizeLimit {
-		return fmt.Errorf("final round pool full %s:%d", s.NodeId, s.RoundNumber)
+		return fmt.Errorf("AppendFinalSnapshot(%s, %s) round snapshots full %s:%d", peerId, s.Hash, s.NodeId, s.RoundNumber)
 	}
 	index, found := round.index[s.Hash]
 	if !found {
@@ -221,10 +221,10 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 			Snapshot: s,
 			peers:    map[crypto.Hash]bool{peerId: true},
 		}
+		round.Size = round.Size + 1
 	} else {
 		round.Snapshots[index].peers[peerId] = true
 	}
-	round.Size = round.Size + 1
 	chain.FinalPool[offset] = round
 	return nil
 }
