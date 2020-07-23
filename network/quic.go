@@ -3,7 +3,6 @@ package network
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -63,17 +62,17 @@ func NewQuicClient(addr string) (*QuicTransport, error) {
 	}, nil
 }
 
-func (t *QuicTransport) Dial(ctx context.Context) (Client, error) {
+func (t *QuicTransport) Dial() (Client, error) {
 	sess, err := quic.DialAddr(t.addr, t.tls, &quic.Config{
 		MaxIncomingStreams: MaxIncomingStreams,
 		HandshakeTimeout:   HandshakeTimeout,
-		MaxIdleTimeout:     IdleTimeout,
+		IdleTimeout:        IdleTimeout,
 		KeepAlive:          true,
 	})
 	if err != nil {
 		return nil, err
 	}
-	stm, err := sess.OpenUniStreamSync(ctx)
+	stm, err := sess.OpenUniStreamSync()
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +101,7 @@ func (t *QuicTransport) Listen() error {
 	l, err := quic.ListenAddr(t.addr, t.tls, &quic.Config{
 		MaxIncomingStreams: MaxIncomingStreams,
 		HandshakeTimeout:   HandshakeTimeout,
-		MaxIdleTimeout:     IdleTimeout,
+		IdleTimeout:        IdleTimeout,
 		KeepAlive:          true,
 	})
 	if err != nil {
@@ -116,12 +115,12 @@ func (t *QuicTransport) Close() error {
 	return t.listener.Close()
 }
 
-func (t *QuicTransport) Accept(ctx context.Context) (Client, error) {
-	sess, err := t.listener.Accept(ctx)
+func (t *QuicTransport) Accept() (Client, error) {
+	sess, err := t.listener.Accept()
 	if err != nil {
 		return nil, err
 	}
-	stm, err := sess.AcceptUniStream(ctx)
+	stm, err := sess.AcceptUniStream()
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +238,7 @@ func (c *QuicClient) Close() error {
 	if c.send != nil {
 		c.send.Close()
 	}
-	return c.session.CloseWithError(0, "DONE")
+	return c.session.Close()
 }
 
 func generateTLSConfig() *tls.Config {

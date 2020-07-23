@@ -11,11 +11,11 @@ require (
 	github.com/dgraph-io/badger/v2 v2.0.3
 	github.com/dimfeld/httptreemux v5.0.1+incompatible
 	github.com/dsnet/compress v0.0.1 // indirect
-	github.com/ethereum/go-ethereum v1.9.17
+	github.com/ethereum/go-ethereum v1.9.15
 	github.com/gobuffalo/packr v1.30.1
 	github.com/gofrs/uuid v3.3.0+incompatible
 	github.com/gorilla/handlers v1.4.2
-	github.com/lucas-clemente/quic-go v0.17.3
+	github.com/lucas-clemente/quic-go v0.11.2
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/nwaples/rardecode v1.1.0 // indirect
 	github.com/pelletier/go-toml v1.8.0
@@ -29,5 +29,5 @@ require (
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	go.dedis.ch/kyber/v3 v3.0.12
-	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
+	golang.org/x/crypto v0.0.0-20200311171314-f7b00557c8c4
 )

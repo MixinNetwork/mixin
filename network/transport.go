@@ -1,9 +1,6 @@
 package network
 
-import (
-	"context"
-	"net"
-)
+import "net"
 
 const (
 	TransportMessageVersion    = 2
@@ -31,7 +28,7 @@ type Client interface {
 
 type Transport interface {
 	Listen() error
-	Dial(ctx context.Context) (Client, error)
-	Accept(ctx context.Context) (Client, error)
+	Dial() (Client, error)
+	Accept() (Client, error)
 	Close() error
 }

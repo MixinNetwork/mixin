@@ -1,7 +1,6 @@
 package network
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -19,7 +18,7 @@ func TestQuic(t *testing.T) {
 	err = serverTrans.Listen()
 	assert.Nil(err)
 	go func() {
-		server, err := serverTrans.Accept(context.Background())
+		server, err := serverTrans.Accept()
 		assert.Nil(err)
 		assert.NotNil(server)
 		msg, err := server.Receive()
@@ -30,7 +29,7 @@ func TestQuic(t *testing.T) {
 	clientTrans, err := NewQuicClient(addr)
 	assert.Nil(err)
 	assert.NotNil(clientTrans)
-	client, err := clientTrans.Dial(context.Background())
+	client, err := clientTrans.Dial()
 	assert.Nil(err)
 	assert.NotNil(client)
 	err = client.Send([]byte("hello mixin"))
