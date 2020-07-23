@@ -19,7 +19,6 @@ type Peer struct {
 	IdForNetwork crypto.Hash
 	Address      string
 
-	storeCache      *fastcache.Cache
 	snapshotsCaches *confirmMap
 	neighbors       *neighborMap
 	gossipRound     *neighborMap
@@ -133,8 +132,7 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNei
 		stn:             make(chan struct{}),
 	}
 	if handle != nil {
-		peer.storeCache = handle.GetCacheStore()
-		peer.snapshotsCaches = &confirmMap{cache: peer.storeCache}
+		peer.snapshotsCaches = &confirmMap{cache: handle.GetCacheStore()}
 	}
 	return peer
 }

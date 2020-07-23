@@ -12,39 +12,11 @@ import (
 )
 
 func (me *Peer) cacheReadSnapshotsForNodeRound(nodeId crypto.Hash, number uint64, final bool) ([]*common.SnapshotWithTopologicalOrder, error) {
-	key := []byte(fmt.Sprintf("SFNR%s:%d", nodeId.String(), number))
-	data := me.storeCache.GetBig(nil, key)
-	if len(data) == 0 {
-		ss, err := me.handle.ReadSnapshotsForNodeRound(nodeId, number)
-		if err != nil || len(ss) == 0 {
-			return nil, err
-		}
-		if final {
-			me.storeCache.SetBig(key, common.MsgpackMarshalPanic(ss))
-		}
-		return ss, nil
-	}
-	var ss []*common.SnapshotWithTopologicalOrder
-	err := common.MsgpackUnmarshal(data, &ss)
-	return ss, err
+	return me.handle.ReadSnapshotsForNodeRound(nodeId, number)
 }
 
 func (me *Peer) cacheReadSnapshotsSinceTopology(offset, limit uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
-	key := []byte(fmt.Sprintf("SSTME%d-%d", offset, limit))
-	data := me.storeCache.GetBig(nil, key)
-	if len(data) == 0 {
-		ss, err := me.handle.ReadSnapshotsSinceTopology(offset, limit)
-		if err != nil {
-			return nil, err
-		}
-		if uint64(len(ss)) == limit {
-			me.storeCache.SetBig(key, common.MsgpackMarshalPanic(ss))
-		}
-		return ss, nil
-	}
-	var ss []*common.SnapshotWithTopologicalOrder
-	err := common.MsgpackUnmarshal(data, &ss)
-	return ss, err
+	return me.handle.ReadSnapshotsSinceTopology(offset, limit)
 }
 
 func (me *Peer) compareRoundGraphAndGetTopologicalOffset(p *Peer, local, remote []*SyncPoint) (uint64, error) {
