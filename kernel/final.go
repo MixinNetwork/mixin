@@ -19,10 +19,10 @@ func (node *Node) checkTxInStorage(id crypto.Hash) (bool, error) {
 	return tx != nil, err
 }
 
-func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, error) {
+func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, bool, error) {
 	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil || inNode {
-		return nil, err
+		return nil, inNode, err
 	}
 
 	tx, _, err := node.persistStore.ReadTransaction(s.Transaction)
@@ -30,23 +30,23 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.Ver
 		err = node.validateKernelSnapshot(s, tx, true)
 	}
 	if err != nil || tx != nil {
-		return tx, err
+		return tx, false, err
 	}
 
 	tx, err = node.persistStore.CacheGetTransaction(s.Transaction)
 	if err != nil || tx == nil {
-		return nil, err
+		return nil, false, err
 	}
 	err = node.validateKernelSnapshot(s, tx, true)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	err = tx.LockInputs(node.persistStore, true)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return tx, node.persistStore.WriteTransaction(tx)
+	return tx, false, node.persistStore.WriteTransaction(tx)
 }
 
 func (chain *Chain) tryToStartNewRound(s *common.Snapshot) (bool, error) {

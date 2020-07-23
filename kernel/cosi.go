@@ -730,12 +730,12 @@ func (chain *Chain) handleFinalization(m *CosiAction) error {
 		return nil
 	}
 
-	tx, err := chain.node.checkFinalSnapshotTransaction(s)
+	tx, inNode, err := chain.node.checkFinalSnapshotTransaction(s)
 	if err != nil {
 		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %t %s\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil, err.Error())
 		return nil
 	} else if tx == nil {
-		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %t %s\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil, "tx empty")
+		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %t %s %t\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil, "tx empty", inNode)
 		return chain.ClearFinalSnapshot(s.Hash)
 	}
 	if s.RoundNumber == 0 && tx.TransactionType() != common.TransactionTypeNodeAccept {
