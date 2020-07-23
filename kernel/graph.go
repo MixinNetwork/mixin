@@ -79,9 +79,9 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 	if history := chain.State.RoundHistory; len(history) == 0 && final.Number == 0 {
 		chain.State.RoundHistory = append(chain.State.RoundHistory, final.Copy())
 	} else if n := history[len(history)-1].Number; n > final.Number {
-		panic(fmt.Errorf("should never be here %d %d", n, final.Number))
+		panic(fmt.Errorf("should never be here %s %d %d", final.NodeId, final.Number, n))
 	} else if n+1 < final.Number {
-		panic(fmt.Errorf("should never be here %d %d", n, final.Number))
+		panic(fmt.Errorf("should never be here %s %d %d", final.NodeId, final.Number, n))
 	} else if n+1 == final.Number {
 		chain.State.RoundHistory = append(chain.State.RoundHistory, final.Copy())
 		chain.FinalCache.Number = final.Number
@@ -107,7 +107,7 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 		newRounds = append(newRounds, r)
 	}
 	if rc := len(newRounds) - config.SnapshotReferenceThreshold; rc > 0 {
-		newRounds = append([]*FinalRound{}, newRounds[rc:]...)
+		newRounds = newRounds[rc:]
 	}
 	chain.State.RoundHistory = newRounds
 }

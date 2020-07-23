@@ -334,8 +334,8 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction, timer *util.Timer) err
 			panic(err)
 		}
 	}
-	chain.assignNewGraphRound(final, cache)
 
+	chain.assignNewGraphRound(final, cache)
 	if err := cache.ValidateSnapshot(s, false); err != nil {
 		return nil
 	}
@@ -566,6 +566,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction, timer *util.Timer) error {
 	}
 
 	cache := chain.State.CacheRound.Copy()
+	final := chain.State.FinalRound.Copy()
 	if s.RoundNumber > cache.Number {
 		panic(fmt.Sprintf("should never be here %d %d", cache.Number, s.RoundNumber))
 	}
@@ -594,7 +595,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction, timer *util.Timer) error {
 	if err := cache.ValidateSnapshot(s, true); err != nil {
 		panic("should never be here")
 	}
-	chain.State.CacheRound = cache
+	chain.assignNewGraphRound(final, cache)
 
 	for id, _ := range chain.node.ConsensusNodes {
 		if !agg.responsed[id] {
@@ -678,8 +679,8 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 			panic(err)
 		}
 	}
-	chain.assignNewGraphRound(final, cache)
 
+	chain.assignNewGraphRound(final, cache)
 	if err := cache.ValidateSnapshot(s, false); err != nil {
 		logger.Verbosef("ERROR cosiHandleFinalization ValidateSnapshot %s %v %s\n", m.PeerId, s, err.Error())
 		return nil
@@ -699,7 +700,6 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 	if err := cache.ValidateSnapshot(s, true); err != nil {
 		panic("should never be here")
 	}
-	chain.assignNewGraphRound(final, cache)
 	return chain.node.reloadConsensusNodesList(s, tx)
 }
 
