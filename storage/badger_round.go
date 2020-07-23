@@ -83,8 +83,11 @@ func (s *BadgerStore) StartNewRound(node crypto.Hash, number uint64, references 
 		if err != nil {
 			return err
 		}
-		if self == nil || self.Number != number-1 {
+		if self == nil {
 			panic("self final assert error")
+		}
+		if self.Number != number-1 {
+			panic(fmt.Errorf("self round number mismatch %d %d", self.Number, number))
 		}
 		if external == nil {
 			panic("external final not exist")
