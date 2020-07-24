@@ -28,7 +28,6 @@ type Node struct {
 	Signer         common.Address
 	TopoCounter    *TopologicalSequence
 	GraphTimestamp uint64
-	FinalCache     []*network.SyncPoint
 	cacheStore     *fastcache.Cache
 	Peer           *network.Peer
 	SyncPoints     *syncMap
@@ -288,7 +287,22 @@ func (node *Node) GetCacheStore() *fastcache.Cache {
 }
 
 func (node *Node) BuildGraph() []*network.SyncPoint {
-	return node.FinalCache
+	node.chains.RLock()
+	defer node.chains.RUnlock()
+
+	points := make([]*network.SyncPoint, 0)
+	for _, chain := range node.chains.m {
+		f := chain.State.FinalRound
+		if f == nil {
+			continue
+		}
+		points = append(points, &network.SyncPoint{
+			NodeId: chain.ChainId,
+			Hash:   f.Hash,
+			Number: f.Number,
+		})
+	}
+	return points
 }
 
 func (node *Node) BuildAuthenticationMessage() []byte {

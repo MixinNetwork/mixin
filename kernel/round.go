@@ -9,7 +9,6 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/network"
 	"github.com/MixinNetwork/mixin/storage"
 )
 
@@ -59,7 +58,6 @@ func (node *Node) LoadGraphAndChains(store storage.Store, networkId crypto.Hash)
 		states[id] = state
 	}
 
-	node.FinalCache = make([]*network.SyncPoint, 0)
 	for id, state := range states {
 		for rid, _ := range states {
 			if rid == id {
@@ -73,12 +71,6 @@ func (node *Node) LoadGraphAndChains(store storage.Store, networkId crypto.Hash)
 		}
 		chain := node.GetOrCreateChain(id)
 		chain.UpdateState(state.CacheRound, state.FinalRound, state.RoundHistory, state.ReverseRoundLinks)
-		chain.FinalCache = &network.SyncPoint{
-			NodeId: state.FinalRound.NodeId,
-			Number: state.FinalRound.Number,
-			Hash:   state.FinalRound.Hash,
-		}
-		node.FinalCache = append(node.FinalCache, chain.FinalCache)
 	}
 
 	return nil
