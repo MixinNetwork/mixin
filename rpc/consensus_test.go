@@ -334,6 +334,7 @@ func TestConsensus(t *testing.T) {
 	assert.Equal(all[NODES].Signer.String(), pn.Signer.String())
 	assert.Equal(all[NODES].Payee.String(), pn.Payee.String())
 	assert.Equal("ACCEPTED", all[NODES].State)
+	assert.Equal(len(testListSnapshots(nodes[NODES-1].Host)), len(testListSnapshots(pn.Host)))
 
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1, tl)
@@ -508,7 +509,7 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 	server := NewServer(custom, store, pnode, 18099)
 	go server.ListenAndServe()
 
-	return Node{Signer: signer, Payee: payee}, pnode, server
+	return Node{Signer: signer, Payee: payee, Host: "127.0.0.1:18099"}, pnode, server
 }
 
 func testBuildPledgeInput(assert *assert.Assertions, node string, domain common.Address, utxos []*common.VersionedTransaction) (string, error) {
