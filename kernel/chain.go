@@ -142,12 +142,16 @@ func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *commo
 				}
 			}
 		}
-		for i := 0; i < 16; i++ {
+		for i := 0; i < CachePoolSnapshotsLimit; i++ {
 			item, err := chain.CachePool.Poll(false)
 			if err != nil || item == nil {
 				break
 			}
 			s := item.(*common.Snapshot)
+			cr := chain.State.CacheRound
+			if cr != nil && s.RoundNumber < cr.Number && s.NodeId != chain.node.IdForNetwork {
+				continue
+			}
 			hook(s.NodeId, s)
 			cache++
 		}
@@ -255,8 +259,8 @@ func (chain *Chain) AppendCacheSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 		chain.CacheIndex = s.RoundNumber
 		chain.CachePool = NewRingBuffer(CachePoolSnapshotsLimit)
 	}
-	chain.CachePool.Offer(s)
-	return nil
+	_, err := chain.CachePool.Offer(s)
+	return err
 }
 
 func (node *Node) GetOrCreateChain(id crypto.Hash) *Chain {

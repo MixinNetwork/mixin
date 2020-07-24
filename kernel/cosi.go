@@ -617,7 +617,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 	final := chain.State.FinalRound.Copy()
 
 	if s.RoundNumber < cache.Number {
-		logger.Verbosef("ERROR cosiHandleFinalization expired round %s %s %d %d\n", m.PeerId, s.Hash, s.RoundNumber, cache.Number)
+		logger.Debugf("ERROR cosiHandleFinalization expired round %s %s %d %d\n", m.PeerId, s.Hash, s.RoundNumber, cache.Number)
 		return nil
 	}
 	if s.RoundNumber > cache.Number+1 {
@@ -691,7 +691,7 @@ func (chain *Chain) handleFinalization(m *CosiAction) error {
 
 	if cache := chain.State.CacheRound; cache != nil {
 		if s.RoundNumber < cache.Number {
-			logger.Verbosef("ERROR handleFinalization expired round %s %s %d %d\n", m.PeerId, s.Hash, s.RoundNumber, cache.Number)
+			logger.Debugf("ERROR handleFinalization expired round %s %s %d %d\n", m.PeerId, s.Hash, s.RoundNumber, cache.Number)
 			return nil
 		}
 		if s.RoundNumber > cache.Number+1 {
@@ -712,8 +712,10 @@ func (chain *Chain) handleFinalization(m *CosiAction) error {
 	if err != nil {
 		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %t %s\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil, err.Error())
 		return nil
+	} else if inNode {
+		return chain.ClearFinalSnapshot(s.Hash)
 	} else if tx == nil {
-		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %t %s %t\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil, "tx empty", inNode)
+		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %t %s\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil, "tx empty")
 		return chain.ClearFinalSnapshot(s.Hash)
 	}
 	if s.RoundNumber == 0 && tx.TransactionType() != common.TransactionTypeNodeAccept {

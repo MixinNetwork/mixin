@@ -40,7 +40,7 @@ type PeerMessage struct {
 	Commitment      crypto.Key
 	Response        [32]byte
 	WantTx          bool
-	FinalCache      []*SyncPoint
+	Graph           []*SyncPoint
 	Auth            []byte
 	Neighbors       []string
 }
@@ -215,7 +215,7 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 	msg := &PeerMessage{Type: data[0]}
 	switch msg.Type {
 	case PeerMessageTypeGraph:
-		err := common.MsgpackUnmarshal(data[1:], &msg.FinalCache)
+		err := common.MsgpackUnmarshal(data[1:], &msg.Graph)
 		if err != nil {
 			return nil, err
 		}
@@ -305,8 +305,8 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage, done ch
 				}
 			case PeerMessageTypeGraph:
 				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeGraph %s\n", peer.IdForNetwork)
-				me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.FinalCache)
-				peer.sync <- msg.FinalCache
+				me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.Graph)
+				peer.sync <- msg.Graph
 			case PeerMessageTypeTransactionRequest:
 				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionRequest %s %s\n", peer.IdForNetwork, msg.TransactionHash)
 				me.handle.SendTransactionToPeer(peer.IdForNetwork, msg.TransactionHash, timer)
