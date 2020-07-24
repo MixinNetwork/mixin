@@ -21,7 +21,7 @@ func NewBadgerStore(custom *config.Custom, dir string) (*BadgerStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	cacheDB, err := openDB(dir+"/cache", true, custom.Storage.ValueLogGC, true)
+	cacheDB, err := openDB(dir+"/cache", false, custom.Storage.ValueLogGC, true)
 	if err != nil {
 		return nil, err
 	}
