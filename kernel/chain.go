@@ -97,6 +97,13 @@ func (chain *Chain) Teardown() {
 }
 
 func (chain *Chain) UpdateState(cache *CacheRound, final *FinalRound, history []*FinalRound, reverseLinks map[crypto.Hash]uint64) {
+	if chain.ChainId != cache.NodeId {
+		panic("should never be here")
+	}
+	if chain.ChainId != final.NodeId {
+		panic("should never be here")
+	}
+
 	chain.State.Lock()
 	defer chain.State.Unlock()
 
@@ -156,13 +163,6 @@ func (chain *Chain) StepForward() {
 	chain.FinalIndex = (chain.FinalIndex + 1) % FinalPoolSlotsLimit
 }
 
-func (ps *CosiAction) buildKey() crypto.Hash {
-	if !ps.Snapshot.Hash.HasValue() {
-		panic("should never be here")
-	}
-	return ps.Snapshot.Hash.ForNetwork(ps.PeerId)
-}
-
 func (chain *Chain) ClearFinalSnapshot(id crypto.Hash) error {
 	chain.Lock()
 	defer chain.Unlock()
@@ -180,6 +180,9 @@ func (chain *Chain) ClearFinalSnapshot(id crypto.Hash) error {
 }
 
 func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
+	if chain.ChainId != s.NodeId {
+		panic("should never be here")
+	}
 	logger.Debugf("AppendFinalSnapshot(%s, %s)\n", peerId, s.Hash)
 	if s.NodeId != chain.ChainId {
 		panic("final queue malformed")

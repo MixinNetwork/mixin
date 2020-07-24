@@ -50,6 +50,10 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.Ver
 }
 
 func (chain *Chain) tryToStartNewRound(s *common.Snapshot) (bool, error) {
+	if chain.ChainId != s.NodeId {
+		panic("should never be here")
+	}
+
 	if chain.node.checkInitialAcceptSnapshotWeak(s) {
 		return false, nil
 	}
@@ -95,6 +99,10 @@ func (chain *Chain) tryToStartNewRound(s *common.Snapshot) (bool, error) {
 }
 
 func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapshot) error {
+	if chain.ChainId != s.NodeId {
+		panic("should never be here")
+	}
+
 	if !chain.node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
 		logger.Verbosef("ERROR legacyVerifyFinalization %s %v %d %t\n", peerId, s, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil)
 		return nil

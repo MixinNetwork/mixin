@@ -250,14 +250,8 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 	if err != nil {
 		panic(err)
 	}
-	topo := &common.SnapshotWithTopologicalOrder{
-		Snapshot:         *s,
-		TopologicalOrder: node.TopoCounter.Next(),
-	}
-	err = node.persistStore.WriteSnapshot(topo)
-	if err != nil {
-		panic(err)
-	}
+
+	node.TopoWrite(s)
 
 	final := cache.asFinal()
 	external, err := node.getInitialExternalReference(s)

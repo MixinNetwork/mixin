@@ -44,6 +44,9 @@ func (chain *Chain) ConsumeQueue() error {
 	defer timer.Stop()
 
 	chain.QueuePollSnapshots(func(peerId crypto.Hash, snap *common.Snapshot) error {
+		if snap.NodeId != chain.ChainId {
+			panic("should never be here")
+		}
 		if !chain.running {
 			return nil
 		}

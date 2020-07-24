@@ -199,6 +199,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction, timer *util.Timer) error
 				External: best.Hash,
 			},
 		}
+		chain.assignNewGraphRound(final, cache)
 		err := chain.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 		if err != nil {
 			panic(err)
@@ -217,7 +218,6 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction, timer *util.Timer) error
 	R := v.random.Public()
 	chain.CosiVerifiers[s.Hash] = v
 	agg.Commitments[chain.node.ConsensusIndex] = &R
-	chain.assignNewGraphRound(final, cache)
 	chain.CosiAggregators[s.Hash] = agg
 	for peerId, _ := range chain.node.ConsensusNodes {
 		err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R, timer)
@@ -580,18 +580,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction, timer *util.Timer) error {
 		return chain.clearAndQueueSnapshotOrPanic(s)
 	}
 
-	topo := &common.SnapshotWithTopologicalOrder{
-		Snapshot:         *s,
-		TopologicalOrder: chain.node.TopoCounter.Next(),
-	}
-	for {
-		err := chain.persistStore.WriteSnapshot(topo)
-		if err != nil {
-			logger.Debugf("ERROR cosiHandleResponse WriteSnapshot %s %s %s\n", m.PeerId, m.SnapshotHash, err.Error())
-		} else {
-			break
-		}
-	}
+	chain.node.TopoWrite(s)
 	if err := cache.ValidateSnapshot(s, true); err != nil {
 		panic("should never be here")
 	}
@@ -685,18 +674,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		logger.Verbosef("ERROR cosiHandleFinalization ValidateSnapshot %s %v %s\n", m.PeerId, s, err.Error())
 		return nil
 	}
-	topo := &common.SnapshotWithTopologicalOrder{
-		Snapshot:         *s,
-		TopologicalOrder: chain.node.TopoCounter.Next(),
-	}
-	for {
-		err := chain.persistStore.WriteSnapshot(topo)
-		if err != nil {
-			logger.Debugf("ERROR cosiHandleFinalization WriteSnapshot %s %v %s\n", m.PeerId, m.Snapshot, err.Error())
-		} else {
-			break
-		}
-	}
+	chain.node.TopoWrite(s)
 	if err := cache.ValidateSnapshot(s, true); err != nil {
 		panic("should never be here")
 	}

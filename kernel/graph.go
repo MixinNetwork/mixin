@@ -12,6 +12,12 @@ import (
 )
 
 func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDummy bool) (*FinalRound, bool, error) {
+	if chain.ChainId != cache.NodeId {
+		panic("should never be here")
+	}
+	if chain.ChainId != s.NodeId {
+		panic("should never be here")
+	}
 	if s.RoundNumber != cache.Number+1 {
 		panic("should never be here")
 	}
@@ -68,6 +74,13 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDu
 }
 
 func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
+	if chain.ChainId != cache.NodeId {
+		panic("should never be here")
+	}
+	if chain.ChainId != final.NodeId {
+		panic("should never be here")
+	}
+
 	chain.State.Lock()
 	defer chain.State.Unlock()
 
@@ -182,6 +195,9 @@ func (node *Node) checkInitialAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 }
 
 func (chain *Chain) queueSnapshotOrPanic(peerId crypto.Hash, s *common.Snapshot) error {
+	if chain.ChainId != s.NodeId {
+		panic("should never be here")
+	}
 	err := chain.AppendCacheSnapshot(peerId, s)
 	if err != nil {
 		panic(err)
@@ -190,6 +206,9 @@ func (chain *Chain) queueSnapshotOrPanic(peerId crypto.Hash, s *common.Snapshot)
 }
 
 func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
+	if chain.ChainId != s.NodeId {
+		panic("should never be here")
+	}
 	delete(chain.CosiVerifiers, s.Hash)
 	delete(chain.CosiAggregators, s.Hash)
 	delete(chain.CosiAggregators, s.Transaction)
