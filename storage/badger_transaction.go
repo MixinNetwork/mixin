@@ -144,7 +144,7 @@ func writeTransaction(txn *badger.Txn, ver *common.VersionedTransaction) error {
 
 	_, err := txn.Get(key)
 	if err == nil {
-		return fmt.Errorf("transaction duplication %s", hex.EncodeToString(key))
+		return nil
 	} else if err != badger.ErrKeyNotFound {
 		return err
 	}
