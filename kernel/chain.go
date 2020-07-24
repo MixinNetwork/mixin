@@ -101,6 +101,9 @@ func (chain *Chain) UpdateState(cache *CacheRound, final *FinalRound, history []
 	if chain.ChainId != final.NodeId {
 		panic("should never be here")
 	}
+	if final.Number+1 != cache.Number {
+		panic("should never be here")
+	}
 
 	chain.State.Lock()
 	defer chain.State.Unlock()

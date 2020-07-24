@@ -59,6 +59,10 @@ func (node *Node) LoadGraphAndChains(store storage.Store, networkId crypto.Hash)
 	}
 
 	for id, state := range states {
+		chain := node.GetOrCreateChain(id)
+		if chain.State.CacheRound != nil {
+			continue
+		}
 		for rid, _ := range states {
 			if rid == id {
 				continue
@@ -69,7 +73,6 @@ func (node *Node) LoadGraphAndChains(store storage.Store, networkId crypto.Hash)
 			}
 			state.ReverseRoundLinks[rid] = rlink
 		}
-		chain := node.GetOrCreateChain(id)
 		chain.UpdateState(state.CacheRound, state.FinalRound, state.RoundHistory, state.ReverseRoundLinks)
 	}
 

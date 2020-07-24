@@ -80,6 +80,9 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 	if chain.ChainId != final.NodeId {
 		panic("should never be here")
 	}
+	if final.Number+1 != cache.Number {
+		panic("should never be here")
+	}
 
 	chain.State.Lock()
 	defer chain.State.Unlock()

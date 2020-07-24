@@ -241,6 +241,12 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction, timer *util.Timer) err
 	if cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) >= m.Snapshot.Timestamp && !chain.node.genesisNodesMap[cn.IdForNetwork(chain.node.networkId)] {
 		return nil
 	}
+	if m.Snapshot.NodeId != chain.ChainId {
+		panic("should never be here")
+	}
+	if m.Snapshot.NodeId == chain.node.IdForNetwork {
+		panic("should never be here")
+	}
 
 	s := m.Snapshot
 	if chain.ChainId == chain.node.IdForNetwork || s.NodeId == chain.node.IdForNetwork || s.NodeId != m.PeerId {
@@ -355,6 +361,12 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction, timer *util.Timer) error
 	if ann == nil || ann.Snapshot.Hash != m.SnapshotHash {
 		return nil
 	}
+	if ann.Snapshot.NodeId != chain.ChainId {
+		panic("should never be here")
+	}
+	if ann.Snapshot.NodeId != chain.node.IdForNetwork {
+		panic("should never be here")
+	}
 	if ann.committed[m.PeerId] {
 		return nil
 	}
@@ -437,6 +449,12 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction, timer *util.Timer) error 
 	if v == nil || v.Snapshot.Hash != m.SnapshotHash {
 		return nil
 	}
+	if v.Snapshot.NodeId != chain.ChainId {
+		panic("should never be here")
+	}
+	if v.Snapshot.NodeId == chain.node.IdForNetwork {
+		panic("should never be here")
+	}
 
 	if m.Transaction != nil {
 		err := chain.node.CachePutTransaction(m.PeerId, m.Transaction)
@@ -492,6 +510,12 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction, timer *util.Timer) error {
 	agg := chain.CosiAggregators[m.SnapshotHash]
 	if agg == nil || agg.Snapshot.Hash != m.SnapshotHash {
 		return nil
+	}
+	if agg.Snapshot.NodeId != chain.ChainId {
+		panic("should never be here")
+	}
+	if agg.Snapshot.NodeId != chain.node.IdForNetwork {
+		panic("should never be here")
 	}
 	if agg.responsed[m.PeerId] {
 		return nil
