@@ -91,33 +91,33 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 	if final.Number+1 != cache.Number {
 		panic("should never be here")
 	}
-
 	if final.NodeId != cache.NodeId {
 		panic(fmt.Errorf("should never be here %s %s", final.NodeId, cache.NodeId))
 	}
+
 	chain.State.CacheRound = cache
 	chain.State.FinalRound = final
-	if history := chain.State.RoundHistory; len(history) == 0 && final.Number == 0 {
-		chain.State.RoundHistory = append(chain.State.RoundHistory, final.Copy())
-	} else if n := history[len(history)-1].Number; n > final.Number {
-		panic(fmt.Errorf("should never be here %s %d %d", final.NodeId, final.Number, n))
-	} else if n+1 < final.Number {
-		panic(fmt.Errorf("should never be here %s %d %d", final.NodeId, final.Number, n))
-	} else if n+1 == final.Number {
-		chain.State.RoundHistory = append(chain.State.RoundHistory, final.Copy())
-		chain.StepForward()
-	}
-
 	if final.End > chain.node.GraphTimestamp {
 		chain.node.GraphTimestamp = final.End
 	}
+	if chain.State.CacheRound.Number == cache.Number {
+		return
+	}
 
 	rounds := chain.State.RoundHistory
+	if n := rounds[len(rounds)-1].Number; n+1 != final.Number {
+		panic(fmt.Errorf("should never be here %s %d %d", final.NodeId, final.Number, n))
+	}
+	chain.StepForward()
+
+	rounds = append(rounds, final.Copy())
 	best := rounds[len(rounds)-1].Start
 	threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap * 64
 	if rounds[0].Start+threshold > best && len(rounds) <= config.SnapshotReferenceThreshold {
+		chain.State.RoundHistory = rounds
 		return
 	}
+
 	newRounds := make([]*FinalRound, 0)
 	for _, r := range rounds {
 		if r.Start+threshold <= best {
