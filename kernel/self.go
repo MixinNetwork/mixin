@@ -84,6 +84,9 @@ func (chain *Chain) determinBestRound(roundTime uint64) *FinalRound {
 	chain.node.chains.RLock()
 	defer chain.node.chains.RUnlock()
 
+	chain.State.RLock()
+	defer chain.State.RUnlock()
+
 	var best *FinalRound
 	var start, height uint64
 	for id, _ := range chain.node.ConsensusNodes {
@@ -100,7 +103,7 @@ func (chain *Chain) determinBestRound(roundTime uint64) *FinalRound {
 		if !chain.node.genesisNodesMap[id] && r.Number < 7+config.SnapshotReferenceThreshold*2 {
 			continue
 		}
-		if rl := chain.State.ReverseRoundLinks[id]; rl > 0 && rl+1 >= chain.State.FinalRound.Number {
+		if rl := chain.State.ReverseRoundLinks[id]; rl >= chain.State.CacheRound.Number {
 			continue
 		}
 		if rts+config.SnapshotRoundGap*rh > uint64(clock.Now().UnixNano()) {

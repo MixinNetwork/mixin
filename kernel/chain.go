@@ -31,6 +31,7 @@ type ChainRound struct {
 }
 
 type ChainState struct {
+	sync.RWMutex
 	CacheRound        *CacheRound
 	FinalRound        *FinalRound
 	RoundHistory      []*FinalRound

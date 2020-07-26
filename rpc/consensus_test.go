@@ -335,6 +335,7 @@ func TestConsensus(t *testing.T) {
 	assert.Equal(all[NODES].Payee.String(), pn.Payee.String())
 	assert.Equal("ACCEPTED", all[NODES].State)
 	assert.Equal(len(testListSnapshots(nodes[NODES-1].Host)), len(testListSnapshots(pn.Host)))
+	assert.Equal(len(testListSnapshots(nodes[0].Host)), len(testListSnapshots(pn.Host)))
 
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1, tl)
