@@ -19,19 +19,14 @@ import (
 	"github.com/VictoriaMetrics/fastcache"
 )
 
-const (
-	MempoolSize = 8192
-)
-
 type Node struct {
-	IdForNetwork   crypto.Hash
-	Signer         common.Address
-	TopoCounter    *TopologicalSequence
-	GraphTimestamp uint64
-	cacheStore     *fastcache.Cache
-	Peer           *network.Peer
-	SyncPoints     *syncMap
-	Listener       string
+	IdForNetwork crypto.Hash
+	Signer       common.Address
+	Listener     string
+
+	Peer        *network.Peer
+	TopoCounter *TopologicalSequence
+	SyncPoints  *syncMap
 
 	AllNodesSorted       []*common.Node
 	ActiveNodes          []*common.Node
@@ -39,20 +34,23 @@ type Node struct {
 	SortedConsensusNodes []crypto.Hash
 	ConsensusIndex       int
 	ConsensusPledging    *common.Node
+	GraphTimestamp       uint64
 
 	chains *chainsMap
 
-	done            chan struct{}
-	elc             chan struct{}
-	mlc             chan struct{}
 	genesisNodesMap map[crypto.Hash]bool
 	genesisNodes    []crypto.Hash
 	Epoch           uint64
 	startAt         time.Time
 	networkId       crypto.Hash
 	persistStore    storage.Store
+	cacheStore      *fastcache.Cache
 	custom          *config.Custom
 	configDir       string
+
+	done chan struct{}
+	elc  chan struct{}
+	mlc  chan struct{}
 }
 
 func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fastcache.Cache, addr string, dir string) (*Node, error) {

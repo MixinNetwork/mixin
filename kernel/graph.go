@@ -111,16 +111,15 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 	chain.StepForward()
 
 	rounds = append(rounds, final.Copy())
-	best := rounds[len(rounds)-1].Start
 	threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap * 64
-	if rounds[0].Start+threshold > best && len(rounds) <= config.SnapshotReferenceThreshold {
+	if rounds[0].Start+threshold > final.Start && len(rounds) <= config.SnapshotReferenceThreshold {
 		chain.State.RoundHistory = rounds
 		return
 	}
 
 	newRounds := make([]*FinalRound, 0)
 	for _, r := range rounds {
-		if r.Start+threshold <= best {
+		if r.Start+threshold <= final.Start {
 			continue
 		}
 		newRounds = append(newRounds, r)
