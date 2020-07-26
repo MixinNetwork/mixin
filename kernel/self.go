@@ -6,7 +6,6 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
-	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 )
@@ -81,18 +80,24 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 	return nil
 }
 
-func (node *Node) determinBestRound(nodeId crypto.Hash, roundTime uint64) *FinalRound {
+func (chain *Chain) determinBestRound(roundTime uint64) *FinalRound {
+	chain.node.chains.RLock()
+	defer chain.node.chains.RUnlock()
+
 	var best *FinalRound
 	var start, height uint64
-	chain := node.GetOrCreateChain(nodeId)
-	for id, _ := range node.ConsensusNodes {
-		ec := node.GetOrCreateChain(id)
-		r := ec.State.RoundHistory[0]
-		rts, rh := r.Start, uint64(len(ec.State.RoundHistory))
-		if id == nodeId || rh < height || rts > roundTime {
+	for id, _ := range chain.node.ConsensusNodes {
+		ec := chain.node.chains.m[id]
+		history := historySinceRound(ec.State.RoundHistory, chain.State.RoundLinks[id])
+		if len(history) == 0 {
 			continue
 		}
-		if !node.genesisNodesMap[id] && r.Number < 7+config.SnapshotReferenceThreshold*2 {
+		r := history[0]
+		rts, rh := r.Start, uint64(len(history))
+		if id == chain.ChainId || rh < height || rts > roundTime {
+			continue
+		}
+		if !chain.node.genesisNodesMap[id] && r.Number < 7+config.SnapshotReferenceThreshold*2 {
 			continue
 		}
 		if rl := chain.State.ReverseRoundLinks[id]; rl > 0 && rl+1 >= chain.State.FinalRound.Number {
@@ -109,4 +114,13 @@ func (node *Node) determinBestRound(nodeId crypto.Hash, roundTime uint64) *Final
 		}
 	}
 	return best
+}
+
+func historySinceRound(history []*FinalRound, link uint64) []*FinalRound {
+	for i, r := range history {
+		if r.Number >= link {
+			return history[i:]
+		}
+	}
+	return nil
 }

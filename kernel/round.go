@@ -28,54 +28,15 @@ type FinalRound struct {
 	Hash   crypto.Hash
 }
 
-func (node *Node) LoadGraphAndChains(store storage.Store, networkId crypto.Hash) error {
-	states := make(map[crypto.Hash]*ChainState)
-	allNodes := store.ReadAllNodes()
-	for _, cn := range allNodes {
+func (node *Node) LoadAllChains(store storage.Store, networkId crypto.Hash) error {
+	for _, cn := range node.AllNodesSorted {
 		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateCancelled {
 			continue
 		}
+
 		id := cn.IdForNetwork(networkId)
-		state := &ChainState{ReverseRoundLinks: make(map[crypto.Hash]uint64)}
-
-		cache, err := loadHeadRoundForNode(store, id)
-		if err != nil {
-			return err
-		}
-		state.CacheRound = cache
-
-		final, err := loadFinalRoundForNode(store, id, cache.Number-1)
-		if err != nil {
-			return err
-		}
-		history, err := loadRoundHistoryForNode(store, node.IdForNetwork, final)
-		if err != nil {
-			return err
-		}
-		state.FinalRound = final
-		state.RoundHistory = history
-		cache.Timestamp = final.Start + config.SnapshotRoundGap
-		states[id] = state
+		node.GetOrCreateChain(id)
 	}
-
-	for id, state := range states {
-		chain := node.GetOrCreateChain(id)
-		if chain.State.CacheRound != nil {
-			continue
-		}
-		for rid, _ := range states {
-			if rid == id {
-				continue
-			}
-			rlink, err := store.ReadLink(rid, id)
-			if err != nil {
-				return err
-			}
-			state.ReverseRoundLinks[rid] = rlink
-		}
-		chain.UpdateState(state.CacheRound, state.FinalRound, state.RoundHistory, state.ReverseRoundLinks)
-	}
-
 	return nil
 }
 
@@ -108,18 +69,11 @@ func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (m
 	return cacheRound, finalRound, nil
 }
 
-func loadRoundHistoryForNode(store storage.Store, from crypto.Hash, to *FinalRound) ([]*FinalRound, error) {
+func loadRoundHistoryForNode(store storage.Store, to *FinalRound) ([]*FinalRound, error) {
 	var history []*FinalRound
-	link, err := store.ReadLink(from, to.NodeId)
-	if err != nil {
-		return nil, err
-	}
-	if link > to.Number {
-		panic(to)
-	}
 	start := to.Number - config.SnapshotReferenceThreshold
-	if start < link || to.Number < config.SnapshotReferenceThreshold {
-		start = link
+	if to.Number < config.SnapshotReferenceThreshold {
+		start = 0
 	}
 	for ; start <= to.Number; start++ {
 		final, err := loadFinalRoundForNode(store, to.NodeId, start)

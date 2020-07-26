@@ -55,15 +55,19 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDu
 			return nil, false, fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-s.Timestamp).Seconds())
 		}
 		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64
-		best := chain.node.determinBestRound(s.NodeId, s.Timestamp)
+		best := chain.determinBestRound(s.Timestamp)
 		if best != nil && threshold < best.Start {
 			return nil, false, fmt.Errorf("external reference %s too early %s:%d %f", s.References.External, best.NodeId, best.Number, time.Duration(best.Start-threshold).Seconds())
 		}
 	}
 	link, err := chain.persistStore.ReadLink(s.NodeId, external.NodeId)
+	if link != chain.State.RoundLinks[external.NodeId] {
+		panic("should never be here")
+	}
 	if external.Number < link {
 		return nil, false, err
 	}
+	chain.State.RoundLinks[external.NodeId] = external.Number
 	if external.NodeId == chain.ChainId {
 		if l := chain.State.ReverseRoundLinks[s.NodeId]; external.Number < l {
 			return nil, false, fmt.Errorf("external reverse reference %s %d %d", s.NodeId, external.Number, l)
@@ -83,9 +87,6 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 	if final.Number+1 != cache.Number {
 		panic("should never be here")
 	}
-
-	chain.State.Lock()
-	defer chain.State.Unlock()
 
 	if final.NodeId != cache.NodeId {
 		panic(fmt.Errorf("should never be here %s %s", final.NodeId, cache.NodeId))

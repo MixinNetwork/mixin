@@ -31,10 +31,10 @@ type ChainRound struct {
 }
 
 type ChainState struct {
-	sync.RWMutex
 	CacheRound        *CacheRound
 	FinalRound        *FinalRound
 	RoundHistory      []*FinalRound
+	RoundLinks        map[crypto.Hash]uint64
 	ReverseRoundLinks map[crypto.Hash]uint64
 }
 
@@ -63,7 +63,6 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 	chain := &Chain{
 		node:            node,
 		ChainId:         chainId,
-		State:           &ChainState{ReverseRoundLinks: make(map[crypto.Hash]uint64)},
 		CosiAggregators: make(map[crypto.Hash]*CosiAggregator),
 		CosiVerifiers:   make(map[crypto.Hash]*CosiVerifier),
 		CachePool:       NewRingBuffer(CachePoolSnapshotsLimit),
@@ -73,6 +72,78 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		plc:             make(chan struct{}),
 		running:         true,
 	}
+
+	err := chain.loadState(node.networkId, node.AllNodesSorted)
+	if err != nil {
+		panic(err)
+	}
+	return chain
+}
+
+func (chain *Chain) Teardown() {
+	chain.running = false
+	if chain.State != nil {
+		<-chain.clc
+		<-chain.plc
+	}
+}
+
+func (chain *Chain) loadState(networkId crypto.Hash, allNodes []*common.Node) error {
+	if chain.State != nil {
+		return nil
+	}
+	chain.Lock()
+	defer chain.Unlock()
+
+	state := &ChainState{
+		RoundLinks:        make(map[crypto.Hash]uint64),
+		ReverseRoundLinks: make(map[crypto.Hash]uint64),
+	}
+
+	cache, err := loadHeadRoundForNode(chain.persistStore, chain.ChainId)
+	if err != nil || cache == nil {
+		return err
+	}
+	state.CacheRound = cache
+
+	final, err := loadFinalRoundForNode(chain.persistStore, chain.ChainId, cache.Number-1)
+	if err != nil {
+		return err
+	}
+	history, err := loadRoundHistoryForNode(chain.persistStore, final)
+	if err != nil {
+		return err
+	}
+	state.FinalRound = final
+	state.RoundHistory = history
+	cache.Timestamp = final.Start + config.SnapshotRoundGap
+
+	for _, cn := range allNodes {
+		id := cn.IdForNetwork(networkId)
+		if chain.ChainId == id {
+			continue
+		}
+		link, err := chain.persistStore.ReadLink(chain.ChainId, id)
+		if err != nil {
+			return err
+		}
+		state.RoundLinks[id] = link
+		rlink, err := chain.persistStore.ReadLink(id, chain.ChainId)
+		if err != nil {
+			return err
+		}
+		state.ReverseRoundLinks[id] = rlink
+	}
+
+	chain.State = state
+	if chain.ChainId == chain.node.IdForNetwork {
+		chain.CacheIndex = 0
+	} else if len(chain.State.CacheRound.Snapshots) == 0 {
+		chain.CacheIndex = chain.State.CacheRound.Number
+	} else {
+		chain.CacheIndex = chain.State.CacheRound.Number + 1
+	}
+
 	go func() {
 		err := chain.ConsumeQueue()
 		if err != nil {
@@ -85,41 +156,7 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 			panic(err)
 		}
 	}()
-	return chain
-}
-
-func (chain *Chain) Teardown() {
-	chain.running = false
-	<-chain.clc
-	<-chain.plc
-}
-
-func (chain *Chain) UpdateState(cache *CacheRound, final *FinalRound, history []*FinalRound, reverseLinks map[crypto.Hash]uint64) {
-	if chain.ChainId != cache.NodeId {
-		panic("should never be here")
-	}
-	if chain.ChainId != final.NodeId {
-		panic("should never be here")
-	}
-	if final.Number+1 != cache.Number {
-		panic("should never be here")
-	}
-
-	chain.State.Lock()
-	defer chain.State.Unlock()
-
-	chain.State.CacheRound = cache
-	chain.State.FinalRound = final
-	chain.State.RoundHistory = history
-	chain.State.ReverseRoundLinks = reverseLinks
-
-	if chain.ChainId == chain.node.IdForNetwork {
-		chain.CacheIndex = 0
-	} else if len(chain.State.CacheRound.Snapshots) == 0 {
-		chain.CacheIndex = chain.State.CacheRound.Number
-	} else {
-		chain.CacheIndex = chain.State.CacheRound.Number + 1
-	}
+	return nil
 }
 
 func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error) {

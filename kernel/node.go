@@ -94,7 +94,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 		return nil, err
 	}
 
-	err = node.LoadGraphAndChains(node.persistStore, node.networkId)
+	err = node.LoadAllChains(node.persistStore, node.networkId)
 	if err != nil {
 		return nil, err
 	}
@@ -292,10 +292,10 @@ func (node *Node) BuildGraph() []*network.SyncPoint {
 
 	points := make([]*network.SyncPoint, 0)
 	for _, chain := range node.chains.m {
-		f := chain.State.FinalRound
-		if f == nil {
+		if chain.State == nil {
 			continue
 		}
+		f := chain.State.FinalRound
 		points = append(points, &network.SyncPoint{
 			NodeId: chain.ChainId,
 			Hash:   f.Hash,

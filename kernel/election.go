@@ -25,7 +25,7 @@ func (node *Node) ElectionLoop() {
 	defer ticker.Stop()
 
 	chain := node.GetOrCreateChain(node.IdForNetwork)
-	for chain.State.CacheRound == nil {
+	for chain.State == nil {
 		select {
 		case <-node.done:
 			return
@@ -219,7 +219,8 @@ func (node *Node) tryToSendAcceptTransaction() error {
 }
 
 func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.VersionedTransaction) error {
-	switch tx.TransactionType() {
+	txType := tx.TransactionType()
+	switch txType {
 	case common.TransactionTypeNodePledge,
 		common.TransactionTypeNodeCancel,
 		common.TransactionTypeNodeAccept,
@@ -229,12 +230,12 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 		if err != nil {
 			return err
 		}
-		err = node.LoadGraphAndChains(node.persistStore, node.networkId)
-		if err != nil {
-			return err
-		}
 	}
-	return nil
+	if txType != common.TransactionTypeNodeAccept {
+		return nil
+	}
+	chain := node.GetOrCreateChain(s.NodeId)
+	return chain.loadState(node.networkId, node.AllNodesSorted)
 }
 
 func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
