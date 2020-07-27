@@ -11,7 +11,6 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/MixinNetwork/mixin/util"
 	"github.com/VictoriaMetrics/fastcache"
 )
 
@@ -331,10 +330,6 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 
 	go me.handlePeerMessage(peer, receive, done)
 
-	period := time.Duration(config.SnapshotRoundGap)
-	timer := util.NewTimer(period)
-	defer timer.Stop()
-
 	for {
 		data, err := client.Receive()
 		if err != nil {
@@ -345,11 +340,9 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 			return fmt.Errorf("parseNetworkMessage %s %s", peer.IdForNetwork, err.Error())
 		}
 
-		timer.Reset(period)
 		select {
 		case receive <- msg:
-		case <-timer.C():
-			timer.Drain()
+		default:
 			return fmt.Errorf("peer receive timeout %s", peer.IdForNetwork)
 		}
 	}
@@ -401,7 +394,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 	return peer, nil
 }
 
-func (me *Peer) sendHighToPeer(idForNetwork crypto.Hash, key, data []byte, timer *util.Timer) error {
+func (me *Peer) sendHighToPeer(idForNetwork crypto.Hash, key, data []byte) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
@@ -415,14 +408,13 @@ func (me *Peer) sendHighToPeer(idForNetwork crypto.Hash, key, data []byte, timer
 
 	select {
 	case peer.high <- &ChanMsg{key, data}:
-		return nil
-	case <-timer.C():
-		timer.Drain()
+	default:
 		return fmt.Errorf("peer send high timeout")
 	}
+	return nil
 }
 
-func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.Hash, typ byte, data []byte, timer *util.Timer) error {
+func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.Hash, typ byte, data []byte) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
@@ -438,11 +430,10 @@ func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.
 
 	select {
 	case peer.normal <- &ChanMsg{key, data}:
-		return nil
-	case <-timer.C():
-		timer.Drain()
+	default:
 		return fmt.Errorf("peer send normal timeout")
 	}
+	return nil
 }
 
 type confirmMap struct {

@@ -10,7 +10,6 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/MixinNetwork/mixin/util"
 )
 
 const (
@@ -54,15 +53,12 @@ type CosiVerifier struct {
 func (chain *Chain) CosiLoop() error {
 	defer close(chain.clc)
 
-	timer := util.NewTimer(time.Second)
-	defer timer.Stop()
-
 	for {
 		select {
 		case <-chain.node.done:
 			return nil
 		case m := <-chain.cosiActionsChan:
-			err := chain.cosiHandleAction(m, timer)
+			err := chain.cosiHandleAction(m)
 			if err != nil {
 				return err
 			}
@@ -70,18 +66,18 @@ func (chain *Chain) CosiLoop() error {
 	}
 }
 
-func (chain *Chain) cosiHandleAction(m *CosiAction, timer *util.Timer) error {
+func (chain *Chain) cosiHandleAction(m *CosiAction) error {
 	switch m.Action {
 	case CosiActionSelfEmpty:
-		return chain.cosiSendAnnouncement(m, timer)
+		return chain.cosiSendAnnouncement(m)
 	case CosiActionSelfCommitment:
-		return chain.cosiHandleCommitment(m, timer)
+		return chain.cosiHandleCommitment(m)
 	case CosiActionSelfResponse:
-		return chain.cosiHandleResponse(m, timer)
+		return chain.cosiHandleResponse(m)
 	case CosiActionExternalAnnouncement:
-		return chain.cosiHandleAnnouncement(m, timer)
+		return chain.cosiHandleAnnouncement(m)
 	case CosiActionExternalChallenge:
-		return chain.cosiHandleChallenge(m, timer)
+		return chain.cosiHandleChallenge(m)
 	case CosiActionFinalization:
 		return chain.handleFinalization(m)
 	}
@@ -89,7 +85,7 @@ func (chain *Chain) cosiHandleAction(m *CosiAction, timer *util.Timer) error {
 	return nil
 }
 
-func (chain *Chain) cosiSendAnnouncement(m *CosiAction, timer *util.Timer) error {
+func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement %v\n", m.Snapshot)
 	s := m.Snapshot
 	if chain.ChainId != chain.node.IdForNetwork || s.NodeId != chain.ChainId || s.NodeId != m.PeerId {
@@ -127,7 +123,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction, timer *util.Timer) error
 		agg.Commitments[len(chain.node.SortedConsensusNodes)] = &R
 		chain.CosiAggregators[s.Hash] = agg
 		for peerId, _ := range chain.node.ConsensusNodes {
-			err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, s, R, timer)
+			err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, s, R)
 			if err != nil {
 				return err
 			}
@@ -220,7 +216,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction, timer *util.Timer) error
 	agg.Commitments[chain.node.ConsensusIndex] = &R
 	chain.CosiAggregators[s.Hash] = agg
 	for peerId, _ := range chain.node.ConsensusNodes {
-		err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R, timer)
+		err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R)
 		if err != nil {
 			return err
 		}
@@ -228,7 +224,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction, timer *util.Timer) error
 	return nil
 }
 
-func (chain *Chain) cosiHandleAnnouncement(m *CosiAction, timer *util.Timer) error {
+func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v\n", m.PeerId, m.Snapshot)
 	if chain.node.ConsensusIndex < 0 || !chain.node.CheckCatchUpWithPeers() {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement CheckCatchUpWithPeers\n")
@@ -271,7 +267,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction, timer *util.Timer) err
 	v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
 	if chain.node.checkInitialAcceptSnapshotWeak(s) {
 		chain.CosiVerifiers[s.Hash] = v
-		return chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil, timer)
+		return chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil)
 	}
 
 	if s.RoundNumber == 0 || chain.State.FinalRound == nil {
@@ -347,10 +343,10 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction, timer *util.Timer) err
 	}
 
 	chain.CosiVerifiers[s.Hash] = v
-	return chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil, timer)
+	return chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil)
 }
 
-func (chain *Chain) cosiHandleCommitment(m *CosiAction, timer *util.Timer) error {
+func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment %v\n", m)
 	cn := chain.node.ConsensusNodes[m.PeerId]
 	if cn == nil {
@@ -424,9 +420,9 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction, timer *util.Timer) error
 		if wantTx, found := ann.WantTxs[id]; !found {
 			continue
 		} else if wantTx {
-			err = chain.node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, tx, timer)
+			err = chain.node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, tx)
 		} else {
-			err = chain.node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, nil, timer)
+			err = chain.node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, nil)
 		}
 		if err != nil {
 			return err
@@ -435,7 +431,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction, timer *util.Timer) error
 	return nil
 }
 
-func (chain *Chain) cosiHandleChallenge(m *CosiAction, timer *util.Timer) error {
+func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge %v\n", m)
 	if chain.node.ConsensusIndex < 0 || !chain.node.CheckCatchUpWithPeers() {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge CheckCatchUpWithPeers\n")
@@ -498,10 +494,10 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction, timer *util.Timer) error 
 	if err != nil {
 		return err
 	}
-	return chain.node.Peer.SendSnapshotResponseMessage(m.PeerId, m.SnapshotHash, response, timer)
+	return chain.node.Peer.SendSnapshotResponseMessage(m.PeerId, m.SnapshotHash, response)
 }
 
-func (chain *Chain) cosiHandleResponse(m *CosiAction, timer *util.Timer) error {
+func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v\n", m)
 	if chain.node.ConsensusNodes[m.PeerId] == nil {
 		return nil
@@ -581,7 +577,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction, timer *util.Timer) error {
 			return err
 		}
 		for id, _ := range chain.node.ConsensusNodes {
-			err := chain.node.Peer.SendSnapshotFinalizationMessage(id, s, timer)
+			err := chain.node.Peer.SendSnapshotFinalizationMessage(id, s)
 			if err != nil {
 				return err
 			}
@@ -612,12 +608,12 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction, timer *util.Timer) error {
 
 	for id, _ := range chain.node.ConsensusNodes {
 		if !agg.responsed[id] {
-			err := chain.node.SendTransactionToPeer(id, agg.Snapshot.Transaction, timer)
+			err := chain.node.SendTransactionToPeer(id, agg.Snapshot.Transaction)
 			if err != nil {
 				return err
 			}
 		}
-		err := chain.node.Peer.SendSnapshotFinalizationMessage(id, agg.Snapshot, timer)
+		err := chain.node.Peer.SendSnapshotFinalizationMessage(id, agg.Snapshot)
 		if err != nil {
 			return err
 		}
@@ -820,7 +816,7 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 	return nil
 }
 
-func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot, timer *util.Timer) error {
+func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
 	logger.Debugf("VerifyAndQueueAppendSnapshotFinalization(%s, %s)\n", peerId, s.Hash)
 	if node.custom.Node.ConsensusOnly && node.getPeerConsensusNode(peerId) == nil {
@@ -829,7 +825,7 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 	}
 
 	node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
-	err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash, timer)
+	err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
 	if err != nil {
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) SendSnapshotConfirmMessage error %s\n", peerId, s.Hash, err)
 		return err
@@ -845,7 +841,7 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) check tx error %s\n", peerId, s.Hash, err)
 	} else if !hasTx {
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) SendTransactionRequestMessage %s\n", peerId, s.Hash, s.Transaction)
-		node.Peer.SendTransactionRequestMessage(peerId, s.Transaction, timer)
+		node.Peer.SendTransactionRequestMessage(peerId, s.Transaction)
 	}
 
 	chain := node.GetOrCreateChain(s.NodeId)

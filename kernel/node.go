@@ -15,7 +15,6 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/network"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/MixinNetwork/mixin/util"
 	"github.com/VictoriaMetrics/fastcache"
 )
 
@@ -347,7 +346,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	return peerId, listener, nil
 }
 
-func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash, timer *util.Timer) error {
+func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
 	tx, _, err := node.persistStore.ReadTransaction(hash)
 	if err != nil {
 		return err
@@ -358,7 +357,7 @@ func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash, timer *util.Ti
 			return err
 		}
 	}
-	return node.Peer.SendTransactionMessage(peerId, tx, timer)
+	return node.Peer.SendTransactionMessage(peerId, tx)
 }
 
 func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTransaction) error {

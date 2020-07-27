@@ -161,7 +161,6 @@ func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *commo
 	defer close(chain.plc)
 
 	for chain.running {
-		time.Sleep(10 * time.Millisecond)
 		final, cache := 0, 0
 		for i := 0; i < 2; i++ {
 			index := (chain.FinalIndex + i) % FinalPoolSlotsLimit
@@ -193,9 +192,7 @@ func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *commo
 			hook(s.NodeId, s)
 			cache++
 		}
-		if cache < 1 && final < 1 {
-			time.Sleep(100 * time.Millisecond)
-		}
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 

@@ -62,7 +62,7 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDu
 	}
 	link, err := chain.persistStore.ReadLink(s.NodeId, external.NodeId)
 	if link != chain.State.RoundLinks[external.NodeId] {
-		panic("should never be here")
+		panic(fmt.Errorf("should never be here %s=>%s %d %d", chain.ChainId, external.NodeId, link, chain.State.RoundLinks[external.NodeId]))
 	}
 	if external.Number < link {
 		return nil, false, err
@@ -74,7 +74,7 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDu
 	defer ec.State.Unlock()
 	if external.NodeId == chain.ChainId {
 		if l := ec.State.ReverseRoundLinks[chain.ChainId]; external.Number < l {
-			return nil, false, fmt.Errorf("external reverse reference %s %d %d", s.NodeId, external.Number, l)
+			return nil, false, fmt.Errorf("external reverse reference %s=>%s %d %d", external.NodeId, s.NodeId, external.Number, l)
 		}
 		ec.State.ReverseRoundLinks[chain.ChainId] = external.Number
 	}

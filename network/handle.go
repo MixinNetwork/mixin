@@ -9,7 +9,6 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/MixinNetwork/mixin/util"
 	"github.com/VictoriaMetrics/fastcache"
 )
 
@@ -55,40 +54,36 @@ type SyncHandle interface {
 	ReadAllNodes() []crypto.Hash
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
-	SendTransactionToPeer(peerId, tx crypto.Hash, t *util.Timer) error
+	SendTransactionToPeer(peerId, tx crypto.Hash) error
 	CachePutTransaction(peerId crypto.Hash, ver *common.VersionedTransaction) error
 	CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot, R *crypto.Key) error
 	CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool) error
 	CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, ver *common.VersionedTransaction) error
 	CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Hash, response *[32]byte) error
-	VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot, t *util.Timer) error
+	VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error
 }
 
-func (me *Peer) SendSnapshotAnnouncementMessage(idForNetwork crypto.Hash, s *common.Snapshot, R crypto.Key, timer *util.Timer) error {
-	timer.Reset(time.Second)
+func (me *Peer) SendSnapshotAnnouncementMessage(idForNetwork crypto.Hash, s *common.Snapshot, R crypto.Key) error {
 	data := buildSnapshotAnnouncementMessage(s, R)
-	return me.sendSnapshotMessageToPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeSnapshotAnnoucement, data, timer)
+	return me.sendSnapshotMessageToPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeSnapshotAnnoucement, data)
 }
 
-func (me *Peer) SendSnapshotCommitmentMessage(idForNetwork crypto.Hash, snap crypto.Hash, R crypto.Key, wantTx bool, timer *util.Timer) error {
-	timer.Reset(time.Second)
+func (me *Peer) SendSnapshotCommitmentMessage(idForNetwork crypto.Hash, snap crypto.Hash, R crypto.Key, wantTx bool) error {
 	data := buildSnapshotCommitmentMessage(snap, R, wantTx)
-	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeSnapshotCommitment, data, timer)
+	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeSnapshotCommitment, data)
 }
 
-func (me *Peer) SendTransactionChallengeMessage(idForNetwork crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, tx *common.VersionedTransaction, timer *util.Timer) error {
-	timer.Reset(time.Second)
+func (me *Peer) SendTransactionChallengeMessage(idForNetwork crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, tx *common.VersionedTransaction) error {
 	data := buildTransactionChallengeMessage(snap, cosi, tx)
-	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeTransactionChallenge, data, timer)
+	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeTransactionChallenge, data)
 }
 
-func (me *Peer) SendSnapshotResponseMessage(idForNetwork crypto.Hash, snap crypto.Hash, si [32]byte, timer *util.Timer) error {
-	timer.Reset(time.Second)
+func (me *Peer) SendSnapshotResponseMessage(idForNetwork crypto.Hash, snap crypto.Hash, si [32]byte) error {
 	data := buildSnapshotResponseMessage(snap, si)
-	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeSnapshotResponse, data, timer)
+	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeSnapshotResponse, data)
 }
 
-func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *common.Snapshot, timer *util.Timer) error {
+func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *common.Snapshot) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
@@ -99,30 +94,27 @@ func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *com
 		return nil
 	}
 
-	timer.Reset(time.Second)
 	data := buildSnapshotFinalizationMessage(s)
-	return me.sendSnapshotMessageToPeer(idForNetwork, s.Hash, PeerMessageTypeSnapshotFinalization, data, timer)
+	return me.sendSnapshotMessageToPeer(idForNetwork, s.Hash, PeerMessageTypeSnapshotFinalization, data)
 }
 
-func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash, timer *util.Timer) error {
-	timer.Reset(time.Second)
+func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash) error {
 	key := append(idForNetwork[:], snap[:]...)
 	key = append(key, 'S', 'N', 'A', 'P', PeerMessageTypeSnapshotConfirm)
-	return me.sendHighToPeer(idForNetwork, key, buildSnapshotConfirmMessage(snap), timer)
+	return me.sendHighToPeer(idForNetwork, key, buildSnapshotConfirmMessage(snap))
 }
 
-func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypto.Hash, timer *util.Timer) error {
-	timer.Reset(time.Second)
+func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypto.Hash) error {
 	key := append(idForNetwork[:], tx[:]...)
 	key = append(key, 'T', 'X', PeerMessageTypeTransactionRequest)
-	return me.sendHighToPeer(idForNetwork, key, buildTransactionRequestMessage(tx), timer)
+	return me.sendHighToPeer(idForNetwork, key, buildTransactionRequestMessage(tx))
 }
 
-func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, ver *common.VersionedTransaction, timer *util.Timer) error {
+func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, ver *common.VersionedTransaction) error {
 	tx := ver.PayloadHash()
 	key := append(idForNetwork[:], tx[:]...)
 	key = append(key, 'T', 'X', PeerMessageTypeTransaction)
-	return me.sendHighToPeer(idForNetwork, key, buildTransactionMessage(ver), timer)
+	return me.sendHighToPeer(idForNetwork, key, buildTransactionMessage(ver))
 }
 
 func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash) {
@@ -289,9 +281,6 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 }
 
 func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage, done chan bool) {
-	timer := util.NewTimer(time.Second)
-	defer timer.Stop()
-
 	for {
 		select {
 		case <-done:
@@ -309,7 +298,7 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage, done ch
 				peer.sync <- msg.Graph
 			case PeerMessageTypeTransactionRequest:
 				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionRequest %s %s\n", peer.IdForNetwork, msg.TransactionHash)
-				me.handle.SendTransactionToPeer(peer.IdForNetwork, msg.TransactionHash, timer)
+				me.handle.SendTransactionToPeer(peer.IdForNetwork, msg.TransactionHash)
 			case PeerMessageTypeTransaction:
 				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransaction %s\n", peer.IdForNetwork)
 				me.handle.CachePutTransaction(peer.IdForNetwork, msg.Transaction)
@@ -330,7 +319,7 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage, done ch
 				me.handle.CosiAggregateSelfResponses(peer.IdForNetwork, msg.SnapshotHash, &msg.Response)
 			case PeerMessageTypeSnapshotFinalization:
 				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotFinalization %s %s\n", peer.IdForNetwork, msg.Snapshot.Transaction)
-				me.handle.VerifyAndQueueAppendSnapshotFinalization(peer.IdForNetwork, msg.Snapshot, timer)
+				me.handle.VerifyAndQueueAppendSnapshotFinalization(peer.IdForNetwork, msg.Snapshot)
 			}
 		}
 	}

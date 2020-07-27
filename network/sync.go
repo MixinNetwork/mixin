@@ -70,7 +70,7 @@ func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, o
 		if s.RoundNumber >= remoteRound+config.SnapshotReferenceThreshold*2 {
 			return offset, fmt.Errorf("FUTURE %s %d %d", s.NodeId, s.RoundNumber, remoteRound)
 		}
-		err := me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot, timer)
+		err := me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot)
 		if err != nil {
 			return offset, err
 		}
@@ -83,7 +83,7 @@ func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, o
 	return offset, nil
 }
 
-func (me *Peer) syncHeadRoundToRemote(local, remote map[crypto.Hash]*SyncPoint, p *Peer, nodeId crypto.Hash, timer *util.Timer) {
+func (me *Peer) syncHeadRoundToRemote(local, remote map[crypto.Hash]*SyncPoint, p *Peer, nodeId crypto.Hash) {
 	var localFinal, remoteFinal uint64
 	if r := remote[nodeId]; r != nil {
 		remoteFinal = r.Number
@@ -98,7 +98,7 @@ func (me *Peer) syncHeadRoundToRemote(local, remote map[crypto.Hash]*SyncPoint, 
 	for i := remoteFinal; i <= remoteFinal+config.SnapshotReferenceThreshold+2; i++ {
 		ss, _ := me.cacheReadSnapshotsForNodeRound(nodeId, i, i <= localFinal)
 		for _, s := range ss {
-			me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot, timer)
+			me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot)
 		}
 	}
 }
@@ -134,7 +134,7 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 				local[n.NodeId] = n
 			}
 			for _, n := range nodes {
-				me.syncHeadRoundToRemote(local, graph, p, n, timer)
+				me.syncHeadRoundToRemote(local, graph, p, n)
 			}
 		}
 	}
