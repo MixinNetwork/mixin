@@ -142,16 +142,12 @@ func pruneTransaction(txn *badger.Txn, hash crypto.Hash) error {
 func writeTransaction(txn *badger.Txn, ver *common.VersionedTransaction) error {
 	key := graphTransactionKey(ver.PayloadHash())
 
-	// FIXME assert only, remove in future
-	if config.Debug {
-		_, err := txn.Get(key)
-		if err == nil {
-			panic("transaction duplication")
-		} else if err != badger.ErrKeyNotFound {
-			return err
-		}
+	_, err := txn.Get(key)
+	if err == nil {
+		return nil
+	} else if err != badger.ErrKeyNotFound {
+		return err
 	}
-	// end assert
 
 	val := ver.CompressMarshal()
 	return txn.Set(key, val)

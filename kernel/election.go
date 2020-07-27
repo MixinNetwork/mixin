@@ -24,7 +24,8 @@ func (node *Node) ElectionLoop() {
 	ticker := time.NewTicker(time.Duration(node.custom.Node.KernelOprationPeriod) * time.Second)
 	defer ticker.Stop()
 
-	for node.Graph.MyCacheRound == nil {
+	chain := node.GetOrCreateChain(node.IdForNetwork)
+	for chain.State.CacheRound == nil {
 		select {
 		case <-node.done:
 			return
@@ -51,7 +52,7 @@ func (node *Node) ElectionLoop() {
 		case <-node.done:
 			return
 		case <-ticker.C:
-			candi, err := node.checkRemovePossibility(node.IdForNetwork, node.Graph.GraphTimestamp)
+			candi, err := node.checkRemovePossibility(node.IdForNetwork, node.GraphTimestamp)
 			if err != nil {
 				logger.Printf("checkRemovePossibility %s", err.Error())
 				continue
@@ -78,9 +79,8 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*commo
 		return nil, fmt.Errorf("invalid node remove hour %d", hours%24)
 	}
 
-	nodes := node.SortAllNodesByTimestampAndId()
-	candi := nodes[0]
-	for _, cn := range nodes {
+	candi := node.AllNodesSorted[0]
+	for _, cn := range node.AllNodesSorted {
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.Epoch
 		}
@@ -128,11 +128,12 @@ func (node *Node) tryToSendRemoveTransaction(candi *common.Node) error {
 	if err != nil {
 		return err
 	}
-	return node.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+	chain := node.GetOrCreateChain(node.IdForNetwork)
+	return chain.AppendCacheSnapshot(node.IdForNetwork, &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: tx.PayloadHash(),
-	}, false)
+	})
 }
 
 func (node *Node) buildRemoveTransaction(candi *common.Node) (*common.VersionedTransaction, error) {
@@ -207,17 +208,19 @@ func (node *Node) tryToSendAcceptTransaction() error {
 	if err != nil {
 		return err
 	}
-	err = node.persistStore.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+	chain := node.GetOrCreateChain(node.IdForNetwork)
+	err = chain.AppendCacheSnapshot(node.IdForNetwork, &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: ver.PayloadHash(),
-	}, false)
+	})
 	logger.Println("tryToSendAcceptTransaction", ver.PayloadHash(), hex.EncodeToString(ver.Marshal()))
 	return nil
 }
 
 func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.VersionedTransaction) error {
-	switch tx.TransactionType() {
+	txType := tx.TransactionType()
+	switch txType {
 	case common.TransactionTypeNodePledge,
 		common.TransactionTypeNodeCancel,
 		common.TransactionTypeNodeAccept,
@@ -227,13 +230,12 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 		if err != nil {
 			return err
 		}
-		graph, err := LoadRoundGraph(node.persistStore, node.networkId, node.IdForNetwork)
-		if err != nil {
-			return err
-		}
-		node.Graph = graph
 	}
-	return nil
+	if txType != common.TransactionTypeNodeAccept {
+		return nil
+	}
+	chain := node.GetOrCreateChain(s.NodeId)
+	return chain.loadState(node.networkId, node.AllNodesSorted)
 }
 
 func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
@@ -249,14 +251,8 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 	if err != nil {
 		panic(err)
 	}
-	topo := &common.SnapshotWithTopologicalOrder{
-		Snapshot:         *s,
-		TopologicalOrder: node.TopoCounter.Next(),
-	}
-	err = node.persistStore.WriteSnapshot(topo)
-	if err != nil {
-		panic(err)
-	}
+
+	node.TopoWrite(s)
 
 	final := cache.asFinal()
 	external, err := node.getInitialExternalReference(s)
@@ -277,7 +273,8 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 		panic(err)
 	}
 
-	node.assignNewGraphRound(final, cache)
+	chain := node.GetOrCreateChain(s.NodeId)
+	chain.assignNewGraphRound(final, cache)
 	return nil
 }
 
@@ -442,8 +439,8 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if !finalized && timestamp+threshold*2 < node.Graph.GraphTimestamp {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Graph.GraphTimestamp, timestamp)
+	if !finalized && timestamp+threshold*2 < node.GraphTimestamp {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.GraphTimestamp, timestamp)
 	}
 
 	if timestamp < node.ConsensusPledging.Timestamp {
@@ -524,10 +521,11 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	if timestamp < node.Epoch {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
 	}
-	if r := node.Graph.CacheRound[s.NodeId]; r != nil {
+	chain := node.GetOrCreateChain(s.NodeId)
+	if r := chain.State.CacheRound; r != nil {
 		return fmt.Errorf("invalid graph round %s %d", s.NodeId, r.Number)
 	}
-	if r := node.Graph.FinalRound[s.NodeId]; r != nil {
+	if r := chain.State.FinalRound; r != nil {
 		return fmt.Errorf("invalid graph round %s %d", s.NodeId, r.Number)
 	}
 
@@ -538,8 +536,8 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if !finalized && timestamp+threshold*2 < node.Graph.GraphTimestamp {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Graph.GraphTimestamp, timestamp)
+	if !finalized && timestamp+threshold*2 < node.GraphTimestamp {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", node.GraphTimestamp, timestamp)
 	}
 
 	if timestamp < node.ConsensusPledging.Timestamp {

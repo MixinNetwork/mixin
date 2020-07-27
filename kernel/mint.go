@@ -45,7 +45,7 @@ func (node *Node) MintLoop() {
 		case <-node.done:
 			return
 		case <-ticker.C:
-			batch, amount := node.checkMintPossibility(node.Graph.GraphTimestamp, false)
+			batch, amount := node.checkMintPossibility(node.GraphTimestamp, false)
 			if amount.Sign() <= 0 || batch <= 0 {
 				continue
 			}
@@ -131,11 +131,12 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 	if err != nil {
 		return err
 	}
-	return node.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+	chain := node.GetOrCreateChain(node.IdForNetwork)
+	return chain.AppendCacheSnapshot(node.IdForNetwork, &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: signed.PayloadHash(),
-	}, false)
+	})
 }
 
 func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.VersionedTransaction) error {

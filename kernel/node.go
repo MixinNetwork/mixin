@@ -15,66 +15,56 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/network"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/MixinNetwork/mixin/util"
 	"github.com/VictoriaMetrics/fastcache"
-)
-
-const (
-	MempoolSize = 8192
 )
 
 type Node struct {
 	IdForNetwork crypto.Hash
 	Signer       common.Address
-	Graph        *RoundGraph
-	TopoCounter  *TopologicalSequence
-	cacheStore   *fastcache.Cache
-	Peer         *network.Peer
-	SyncPoints   *syncMap
 	Listener     string
 
+	Peer        *network.Peer
+	TopoCounter *TopologicalSequence
+	SyncPoints  *syncMap
+
 	AllNodesSorted       []*common.Node
-	ActiveNodes          []*common.Node
 	ConsensusNodes       map[crypto.Hash]*common.Node
 	SortedConsensusNodes []crypto.Hash
 	ConsensusIndex       int
 	ConsensusPledging    *common.Node
+	GraphTimestamp       uint64
 
-	CosiAggregators *aggregatorMap
-	CosiVerifiers   map[crypto.Hash]*CosiVerifier
+	chains *chainsMap
 
-	done            chan struct{}
-	elc             chan struct{}
-	mlc             chan struct{}
-	clc             chan struct{}
 	genesisNodesMap map[crypto.Hash]bool
 	genesisNodes    []crypto.Hash
 	Epoch           uint64
 	startAt         time.Time
 	networkId       crypto.Hash
 	persistStore    storage.Store
-	cosiActionsChan chan *CosiAction
+	cacheStore      *fastcache.Cache
 	custom          *config.Custom
 	configDir       string
+
+	done chan struct{}
+	elc  chan struct{}
+	mlc  chan struct{}
 }
 
 func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fastcache.Cache, addr string, dir string) (*Node, error) {
 	var node = &Node{
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
 		ConsensusIndex:  -1,
-		CosiAggregators: &aggregatorMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*CosiAggregator)},
-		CosiVerifiers:   make(map[crypto.Hash]*CosiVerifier),
+		chains:          &chainsMap{m: make(map[crypto.Hash]*Chain)},
 		genesisNodesMap: make(map[crypto.Hash]bool),
 		persistStore:    persistStore,
 		cacheStore:      cacheStore,
-		cosiActionsChan: make(chan *CosiAction, MempoolSize),
 		custom:          custom,
 		configDir:       dir,
 		startAt:         clock.Now(),
 		done:            make(chan struct{}),
 		elc:             make(chan struct{}),
 		mlc:             make(chan struct{}),
-		clc:             make(chan struct{}),
 	}
 
 	node.LoadNodeConfig()
@@ -100,11 +90,10 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 		return nil, err
 	}
 
-	graph, err := LoadRoundGraph(node.persistStore, node.networkId, node.IdForNetwork)
+	err = node.LoadAllChains(node.persistStore, node.networkId)
 	if err != nil {
 		return nil, err
 	}
-	node.Graph = graph
 
 	node.Peer = network.NewPeer(node, node.IdForNetwork, addr, custom.Network.GossipNeighbors)
 	err = node.PingNeighborsFromConfig()
@@ -136,7 +125,7 @@ func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
 	}
 
 	var keys []*crypto.Key
-	for _, cn := range node.ActiveNodes {
+	for _, cn := range node.AllNodesSorted {
 		if cn.State != common.NodeStateAccepted {
 			continue
 		}
@@ -152,7 +141,7 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 		timestamp = uint64(clock.Now().UnixNano())
 	}
 	consensusBase := 0
-	for _, cn := range node.ActiveNodes {
+	for _, cn := range node.AllNodesSorted {
 		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap
 		if threshold > uint64(3*time.Minute) {
 			panic("should never be here")
@@ -177,7 +166,7 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 		}
 	}
 	if consensusBase < len(node.genesisNodes) {
-		logger.Printf("invalid consensus base %d %d %d\n", timestamp, consensusBase, len(node.genesisNodes))
+		logger.Debugf("invalid consensus base %d %d %d\n", timestamp, consensusBase, len(node.genesisNodes))
 		return 1000
 	}
 	return consensusBase*2/3 + 1
@@ -185,7 +174,6 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 
 func (node *Node) LoadConsensusNodes() error {
 	node.ConsensusPledging = nil
-	activeNodes := make([]*common.Node, 0)
 	consensusNodes := make(map[crypto.Hash]*common.Node)
 	sortedConsensusNodes := make([]crypto.Hash, 0)
 	node.AllNodesSorted = node.SortAllNodesByTimestampAndId()
@@ -198,22 +186,13 @@ func (node *Node) LoadConsensusNodes() error {
 		switch cn.State {
 		case common.NodeStatePledging:
 			node.ConsensusPledging = cn
-			activeNodes = append(activeNodes, cn)
 		case common.NodeStateAccepted:
 			consensusNodes[idForNetwork] = cn
-			activeNodes = append(activeNodes, cn)
+			sortedConsensusNodes = append(sortedConsensusNodes, idForNetwork)
 		case common.NodeStateResigning:
-			activeNodes = append(activeNodes, cn)
 		case common.NodeStateRemoved:
 		}
 	}
-	for _, n := range activeNodes {
-		if n.State == common.NodeStateAccepted {
-			id := n.IdForNetwork(node.networkId)
-			sortedConsensusNodes = append(sortedConsensusNodes, id)
-		}
-	}
-	node.ActiveNodes = activeNodes
 	node.ConsensusNodes = consensusNodes
 	node.SortedConsensusNodes = sortedConsensusNodes
 	for i, id := range node.SortedConsensusNodes {
@@ -294,7 +273,22 @@ func (node *Node) GetCacheStore() *fastcache.Cache {
 }
 
 func (node *Node) BuildGraph() []*network.SyncPoint {
-	return node.Graph.FinalCache
+	node.chains.RLock()
+	defer node.chains.RUnlock()
+
+	points := make([]*network.SyncPoint, 0)
+	for _, chain := range node.chains.m {
+		if chain.State.CacheRound == nil {
+			continue
+		}
+		f := chain.State.FinalRound
+		points = append(points, &network.SyncPoint{
+			NodeId: chain.ChainId,
+			Hash:   f.Hash,
+			Number: f.Number,
+		})
+	}
+	return points
 }
 
 func (node *Node) BuildAuthenticationMessage() []byte {
@@ -341,14 +335,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	return peerId, listener, nil
 }
 
-func (node *Node) QueueAppendSnapshot(peerId crypto.Hash, s *common.Snapshot, final bool) error {
-	if !final && node.Graph.MyCacheRound == nil {
-		return nil
-	}
-	return node.persistStore.QueueAppendSnapshot(peerId, s, final)
-}
-
-func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash, timer *util.Timer) error {
+func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
 	tx, _, err := node.persistStore.ReadTransaction(hash)
 	if err != nil {
 		return err
@@ -359,7 +346,7 @@ func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash, timer *util.Ti
 			return err
 		}
 	}
-	return node.Peer.SendTransactionMessage(peerId, tx, timer)
+	return node.Peer.SendTransactionMessage(peerId, tx)
 }
 
 func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTransaction) error {
@@ -367,7 +354,7 @@ func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTr
 }
 
 func (node *Node) ReadAllNodes() []crypto.Hash {
-	nodes := node.persistStore.ReadAllNodes()
+	nodes := node.AllNodesSorted
 	hashes := make([]crypto.Hash, len(nodes))
 	for i, n := range nodes {
 		hashes[i] = n.IdForNetwork(node.networkId)
@@ -392,8 +379,12 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 }
 
 func (node *Node) CheckBroadcastedToPeers() bool {
-	count, threshold := 1, node.ConsensusThreshold(0)
-	final := node.Graph.MyFinalNumber
+	chain := node.GetOrCreateChain(node.IdForNetwork)
+	final, count := uint64(0), 1
+	threshold := node.ConsensusThreshold(0)
+	if r := chain.State.FinalRound; r != nil {
+		final = r.Number
+	}
 	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
 		if remote == nil {
@@ -407,9 +398,13 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 }
 
 func (node *Node) CheckCatchUpWithPeers() bool {
-	final := node.Graph.MyFinalNumber
-	cache := node.Graph.MyCacheRound
-	updated, threshold := 1, node.ConsensusThreshold(0)
+	chain := node.GetOrCreateChain(node.IdForNetwork)
+	final, updated := uint64(0), 1
+	threshold := node.ConsensusThreshold(0)
+	cache := chain.State.CacheRound
+	if r := chain.State.FinalRound; r != nil {
+		final = r.Number
+	}
 
 	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)

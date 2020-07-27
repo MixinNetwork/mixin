@@ -1,12 +1,9 @@
 package kernel
 
 import (
-	"time"
-
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/MixinNetwork/mixin/util"
 )
 
 func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, error) {
@@ -18,74 +15,88 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 	if err != nil {
 		return "", err
 	}
-	err = node.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+	chain := node.GetOrCreateChain(node.IdForNetwork)
+	err = chain.AppendCacheSnapshot(node.IdForNetwork, &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: tx.PayloadHash(),
-	}, false)
+	})
 	return tx.PayloadHash().String(), err
 }
 
 func (node *Node) LoadCacheToQueue() error {
+	chain := node.GetOrCreateChain(node.IdForNetwork)
 	return node.persistStore.CacheListTransactions(func(tx *common.VersionedTransaction) error {
-		return node.QueueAppendSnapshot(node.IdForNetwork, &common.Snapshot{
+		return chain.AppendCacheSnapshot(node.IdForNetwork, &common.Snapshot{
 			Version:     common.SnapshotVersion,
 			NodeId:      node.IdForNetwork,
 			Transaction: tx.PayloadHash(),
-		}, false)
+		})
 	})
 }
 
-func (node *Node) ConsumeQueue() error {
-	period := time.Second
-	timer := util.NewTimer(period)
-	defer timer.Stop()
+func (chain *Chain) ConsumeQueue() error {
+	chain.QueuePollSnapshots(func(peerId crypto.Hash, snap *common.Snapshot) error {
+		if snap.NodeId != chain.ChainId {
+			panic("should never be here")
+		}
+		if !chain.running {
+			return nil
+		}
 
-	node.persistStore.QueuePollSnapshots(func(peerId crypto.Hash, snap *common.Snapshot) error {
 		m := &CosiAction{PeerId: peerId, Snapshot: snap}
 		if snap.Version == 0 {
 			m.Action = CosiActionFinalization
-			m.Snapshot.Hash = snap.PayloadHash()
 		} else if snap.Signature != nil {
 			m.Action = CosiActionFinalization
-			m.Snapshot.Hash = snap.PayloadHash()
-		} else if snap.NodeId != node.IdForNetwork {
+		} else if snap.NodeId != chain.node.IdForNetwork {
 			m.Action = CosiActionExternalAnnouncement
-			m.Snapshot.Hash = snap.PayloadHash()
 		} else {
 			m.Action = CosiActionSelfEmpty
 		}
 
+		if m.Action != CosiActionSelfEmpty && !m.Snapshot.Hash.HasValue() {
+			panic("should never be here")
+		}
+
 		if m.Action != CosiActionFinalization {
-			node.cosiActionsChan <- m
+			select {
+			case chain.cosiActionsChan <- m:
+			case <-chain.node.done:
+			}
 			return nil
 		}
 
-		tx, err := node.persistStore.CacheGetTransaction(snap.Transaction)
+		tx, err := chain.persistStore.CacheGetTransaction(snap.Transaction)
 		if err != nil {
 			return err
 		}
 		if tx != nil {
-			node.cosiActionsChan <- m
+			select {
+			case chain.cosiActionsChan <- m:
+			case <-chain.node.done:
+			}
 			return nil
 		}
 
-		tx, _, err = node.persistStore.ReadTransaction(snap.Transaction)
+		tx, _, err = chain.persistStore.ReadTransaction(snap.Transaction)
 		if err != nil {
 			return err
 		}
 		if tx != nil {
-			node.cosiActionsChan <- m
+			select {
+			case chain.cosiActionsChan <- m:
+			case <-chain.node.done:
+			}
 			return nil
 		}
 
-		if peerId == node.IdForNetwork {
+		if peerId == chain.node.IdForNetwork {
 			return nil
 		}
 		logger.Debugf("ConsumeQueue finalized snapshot without transaction %s %s %s\n", peerId, snap.Hash, snap.Transaction)
-		timer.Reset(period)
-		node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction, timer)
-		return node.QueueAppendSnapshot(peerId, snap, true)
+		chain.node.Peer.SendTransactionRequestMessage(peerId, snap.Transaction)
+		return nil
 	})
 	return nil
 }

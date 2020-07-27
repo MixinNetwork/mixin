@@ -14,23 +14,21 @@ func (node *Node) Loop() error {
 			panic(fmt.Errorf("ListenNeighbors %s", err.Error()))
 		}
 	}()
-	go func() {
-		err := node.CosiLoop()
-		if err != nil {
-			panic(fmt.Errorf("CosiLoop %s", err.Error()))
-		}
-	}()
 	go node.LoadCacheToQueue()
 	go node.MintLoop()
-	go node.ElectionLoop()
-	return node.ConsumeQueue()
+	node.ElectionLoop()
+	return nil
 }
 
 func (node *Node) Teardown() {
 	close(node.done)
-	<-node.clc
 	<-node.mlc
 	<-node.elc
+	node.chains.Lock()
+	for _, c := range node.chains.m {
+		c.Teardown()
+	}
+	node.chains.Unlock()
 	node.Peer.Teardown()
 	node.persistStore.Close()
 	node.cacheStore.Reset()

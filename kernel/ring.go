@@ -1,4 +1,4 @@
-package storage
+package kernel
 
 import (
 	"errors"
@@ -62,6 +62,16 @@ func (rb *RingBuffer) init(size uint64) {
 		rb.nodes[i] = &node{position: i}
 	}
 	rb.mask = size - 1 // so we don't have to do this with every put/get operation
+}
+
+func (rb *RingBuffer) Reset() {
+	atomic.StoreUint64(&rb.disposed, 1)
+	atomic.StoreUint64(&rb.queue, 0)
+	atomic.StoreUint64(&rb.dequeue, 0)
+	for i, n := range rb.nodes {
+		n.position = uint64(i)
+	}
+	atomic.StoreUint64(&rb.disposed, 0)
 }
 
 // Put adds the provided item to the queue.  If the queue is full, this

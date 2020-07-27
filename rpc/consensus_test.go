@@ -20,6 +20,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel"
+	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/stretchr/testify/assert"
@@ -145,7 +146,19 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
 }
 
-func TestConsensus(t *testing.T) {
+func TestConsensusSingle(t *testing.T) {
+	testConsensus(t, 1)
+}
+
+func TestConsensusDouble(t *testing.T) {
+	testConsensus(t, 2)
+}
+
+func TestConsensusMany(t *testing.T) {
+	testConsensus(t, -1)
+}
+
+func testConsensus(t *testing.T, dup int) {
 	assert := assert.New(t)
 
 	kernel.TestMockReset()
@@ -218,6 +231,10 @@ func TestConsensus(t *testing.T) {
 		deposits = append(deposits, &common.VersionedTransaction{SignedTransaction: *tx})
 	}
 
+	logger.SetLevel(0)
+	logger.SetLimiter(3)
+	logger.SetFilter("(?i)error")
+
 	for _, d := range deposits {
 		mathRand.Seed(time.Now().UnixNano())
 		for n := len(nodes); n > 0; n-- {
@@ -225,7 +242,8 @@ func TestConsensus(t *testing.T) {
 			nodes[n-1], nodes[randIndex] = nodes[randIndex], nodes[n-1]
 		}
 		wg := &sync.WaitGroup{}
-		for i := mathRand.Intn(len(nodes) - 1); i < len(nodes); i++ {
+		start := mathRand.Intn(len(nodes) - 1)
+		for i := start; i < len(nodes) && i != start+dup; i++ {
 			wg.Add(1)
 			go func(n string, raw string) {
 				defer wg.Done()
@@ -264,7 +282,8 @@ func TestConsensus(t *testing.T) {
 			nodes[n-1], nodes[randIndex] = nodes[randIndex], nodes[n-1]
 		}
 		wg := &sync.WaitGroup{}
-		for i := mathRand.Intn(len(nodes) - 1); i < len(nodes); i++ {
+		start := mathRand.Intn(len(nodes) - 1)
+		for i := start; i < len(nodes) && i != start+dup; i++ {
 			wg.Add(1)
 			go func(n string, raw string) {
 				defer wg.Done()
@@ -334,6 +353,8 @@ func TestConsensus(t *testing.T) {
 	assert.Equal(all[NODES].Signer.String(), pn.Signer.String())
 	assert.Equal(all[NODES].Payee.String(), pn.Payee.String())
 	assert.Equal("ACCEPTED", all[NODES].State)
+	assert.Equal(len(testListSnapshots(nodes[NODES-1].Host)), len(testListSnapshots(pn.Host)))
+	assert.Equal(len(testListSnapshots(nodes[0].Host)), len(testListSnapshots(pn.Host)))
 
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1, tl)
@@ -435,8 +456,6 @@ consensus-only = true
 memory-cache-size = 128
 kernel-operation-period = 2
 cache-ttl = 3600
-ring-cache-size = 4096
-ring-final-size = 16384
 [network]
 listener = "%s"`
 
@@ -510,7 +529,7 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 	server := NewServer(custom, store, pnode, 18099)
 	go server.ListenAndServe()
 
-	return Node{Signer: signer, Payee: payee}, pnode, server
+	return Node{Signer: signer, Payee: payee, Host: "127.0.0.1:18099"}, pnode, server
 }
 
 func testBuildPledgeInput(assert *assert.Assertions, node string, domain common.Address, utxos []*common.VersionedTransaction) (string, error) {

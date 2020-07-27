@@ -39,8 +39,6 @@ type Custom struct {
 		KernelOprationPeriod int        `toml:"kernel-operation-period"`
 		MemoryCacheSize      int        `toml:"memory-cache-size"`
 		CacheTTL             int        `toml:"cache-ttl"`
-		RingCacheSize        uint64     `toml:"ring-cache-size"`
-		RingFinalSize        uint64     `toml:"ring-final-size"`
 	} `toml:"node"`
 	Storage struct {
 		Truncate   bool `toml:"truncate"`
@@ -78,12 +76,6 @@ func Initialize(file string) (*Custom, error) {
 	}
 	if config.Node.CacheTTL == 0 {
 		config.Node.CacheTTL = 3600 * 2
-	}
-	if config.Node.RingCacheSize == 0 {
-		config.Node.RingCacheSize = 1024 * 1024
-	}
-	if config.Node.RingFinalSize == 0 {
-		config.Node.RingFinalSize = 1024 * 1024 * 16
 	}
 	return &config, nil
 }

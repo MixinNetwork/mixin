@@ -39,8 +39,6 @@ func (node *Node) Import(configDir string, source storage.Store) error {
 	done := make(chan struct{})
 	defer close(done)
 
-	go node.CosiLoop()
-	go node.ConsumeQueue()
 	go node.importAllNodeHeads(source, done)
 
 	var latestSnapshots []*common.SnapshotWithTopologicalOrder
@@ -57,15 +55,6 @@ func (node *Node) Import(configDir string, source storage.Store) error {
 			if err != nil {
 				return err
 			}
-		}
-
-		for {
-			fc, _, err := node.persistStore.QueueInfo()
-			if fc < 1000 {
-				break
-			}
-			logger.Printf("store.QueueInfo() %d %v\n", fc, err)
-			time.Sleep(1 * time.Second)
 		}
 
 		if len(snapshots) > 0 {
@@ -85,11 +74,6 @@ func (node *Node) Import(configDir string, source storage.Store) error {
 
 	for {
 		time.Sleep(1 * time.Minute)
-		fc, _, err := node.persistStore.QueueInfo()
-		if err != nil || fc > 0 {
-			logger.Printf("store.QueueInfo() %d %v\n", fc, err)
-			continue
-		}
 		var pending bool
 		for _, s := range latestSnapshots {
 			ss, err := node.persistStore.ReadSnapshot(s.Hash)
@@ -123,9 +107,15 @@ func (node *Node) importSnapshot(s *common.SnapshotWithTopologicalOrder, tx *com
 		}
 	}
 
-	err = node.QueueAppendSnapshot(node.IdForNetwork, &s.Snapshot, true)
-	if err != nil {
-		return fmt.Errorf("QueueAppendSnapshot %s %v", s.Transaction, err)
+	chain := node.GetOrCreateChain(s.NodeId)
+	for {
+		err = chain.AppendFinalSnapshot(node.IdForNetwork, &s.Snapshot)
+		if err != nil {
+			logger.Printf("QueueAppendSnapshot %s %v\n", s.Transaction, err)
+			time.Sleep(3 * time.Second)
+		} else {
+			break
+		}
 	}
 	return nil
 }

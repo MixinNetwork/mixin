@@ -2,6 +2,7 @@ package network
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"net"
@@ -11,7 +12,6 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/MixinNetwork/mixin/util"
 	"github.com/VictoriaMetrics/fastcache"
 )
 
@@ -19,7 +19,6 @@ type Peer struct {
 	IdForNetwork crypto.Hash
 	Address      string
 
-	storeCache      *fastcache.Cache
 	snapshotsCaches *confirmMap
 	neighbors       *neighborMap
 	gossipRound     *neighborMap
@@ -42,7 +41,7 @@ type SyncPoint struct {
 }
 
 type ChanMsg struct {
-	key  crypto.Hash
+	key  []byte
 	data []byte
 }
 
@@ -125,16 +124,15 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNei
 		gossipRound:     &neighborMap{m: make(map[crypto.Hash]*Peer)},
 		pingFilter:      &neighborMap{m: make(map[crypto.Hash]*Peer)},
 		gossipNeighbors: gossipNeighbors,
-		high:            make(chan *ChanMsg, 1024*1024),
-		normal:          make(chan *ChanMsg, 1024*1024),
-		sync:            make(chan []*SyncPoint, 1024*1024),
+		high:            make(chan *ChanMsg, 1024),
+		normal:          make(chan *ChanMsg, 1024),
+		sync:            make(chan []*SyncPoint, 1024),
 		handle:          handle,
 		ops:             make(chan struct{}),
 		stn:             make(chan struct{}),
 	}
 	if handle != nil {
-		peer.storeCache = handle.GetCacheStore()
-		peer.snapshotsCaches = &confirmMap{cache: peer.storeCache}
+		peer.snapshotsCaches = &confirmMap{cache: handle.GetCacheStore()}
 	}
 	return peer
 }
@@ -199,7 +197,7 @@ func (me *Peer) ListenNeighbors() error {
 		go func(c Client) {
 			err := me.acceptNeighborConnection(c)
 			if err != nil {
-				logger.Verbosef("accept neighbor %s error %s\n", c.RemoteAddr().String(), err.Error())
+				logger.Debugf("accept neighbor %s error %s\n", c.RemoteAddr().String(), err.Error())
 			}
 		}(c)
 	}
@@ -242,7 +240,7 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	logger.Verbosef("AUTH PEER STREAM %s\n", p.Address)
 
 	if resend != nil {
-		logger.Verbosef("RESEND PEER STREAM %s\n", resend.key.String())
+		logger.Verbosef("RESEND PEER STREAM %s\n", hex.EncodeToString(resend.key))
 		err := client.Send(resend.data)
 		if err != nil {
 			return resend, err
@@ -319,7 +317,7 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 
 func (me *Peer) acceptNeighborConnection(client Client) error {
 	done := make(chan bool, 1)
-	receive := make(chan *PeerMessage, 1024*16)
+	receive := make(chan *PeerMessage, 1024)
 
 	defer func() {
 		client.Close()
@@ -333,10 +331,6 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 
 	go me.handlePeerMessage(peer, receive, done)
 
-	period := time.Duration(config.SnapshotRoundGap)
-	timer := util.NewTimer(period)
-	defer timer.Stop()
-
 	for {
 		data, err := client.Receive()
 		if err != nil {
@@ -347,11 +341,9 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 			return fmt.Errorf("parseNetworkMessage %s %s", peer.IdForNetwork, err.Error())
 		}
 
-		timer.Reset(period)
 		select {
 		case receive <- msg:
-		case <-timer.C():
-			timer.Drain()
+		default:
 			return fmt.Errorf("peer receive timeout %s", peer.IdForNetwork)
 		}
 	}
@@ -403,7 +395,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 	return peer, nil
 }
 
-func (me *Peer) sendHighToPeer(idForNetwork, key crypto.Hash, data []byte, timer *util.Timer) error {
+func (me *Peer) sendHighToPeer(idForNetwork crypto.Hash, key, data []byte) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
@@ -417,14 +409,13 @@ func (me *Peer) sendHighToPeer(idForNetwork, key crypto.Hash, data []byte, timer
 
 	select {
 	case peer.high <- &ChanMsg{key, data}:
-		return nil
-	case <-timer.C():
-		timer.Drain()
+	default:
 		return fmt.Errorf("peer send high timeout")
 	}
+	return nil
 }
 
-func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.Hash, typ byte, data []byte, timer *util.Timer) error {
+func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.Hash, typ byte, data []byte) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
@@ -432,27 +423,26 @@ func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.
 	if peer == nil {
 		return nil
 	}
-	hash := snap.ForNetwork(idForNetwork)
-	key := crypto.NewHash(append(hash[:], 'S', 'N', 'A', 'P', typ))
+	key := append(idForNetwork[:], snap[:]...)
+	key = append(key, 'S', 'N', 'A', 'P', typ)
 	if me.snapshotsCaches.contains(key, time.Minute) {
 		return nil
 	}
 
 	select {
 	case peer.normal <- &ChanMsg{key, data}:
-		return nil
-	case <-timer.C():
-		timer.Drain()
+	default:
 		return fmt.Errorf("peer send normal timeout")
 	}
+	return nil
 }
 
 type confirmMap struct {
 	cache *fastcache.Cache
 }
 
-func (m *confirmMap) contains(key crypto.Hash, duration time.Duration) bool {
-	val := m.cache.Get(nil, key[:])
+func (m *confirmMap) contains(key []byte, duration time.Duration) bool {
+	val := m.cache.Get(nil, key)
 	if len(val) == 8 {
 		ts := time.Unix(0, int64(binary.BigEndian.Uint64(val)))
 		return ts.Add(duration).After(time.Now())
@@ -460,10 +450,10 @@ func (m *confirmMap) contains(key crypto.Hash, duration time.Duration) bool {
 	return false
 }
 
-func (m *confirmMap) store(key crypto.Hash, ts time.Time) {
+func (m *confirmMap) store(key []byte, ts time.Time) {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, uint64(ts.UnixNano()))
-	m.cache.Set(key[:], buf)
+	m.cache.Set(key, buf)
 }
 
 type neighborMap struct {

@@ -18,7 +18,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		"version":   config.BuildVersion,
 		"uptime":    node.Uptime().String(),
 		"epoch":     time.Unix(0, int64(node.Epoch)),
-		"timestamp": time.Unix(0, int64(node.Graph.GraphTimestamp)),
+		"timestamp": time.Unix(0, int64(node.GraphTimestamp)),
 	}
 	pool, err := node.PoolSize()
 	if err != nil {
@@ -32,12 +32,12 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		"pool":  pool,
 		"batch": md.Batch,
 	}
-	graph, err := kernel.LoadRoundGraph(store, node.NetworkId(), node.IdForNetwork)
+	cacheMap, finalMap, err := kernel.LoadRoundGraph(store, node.NetworkId(), node.IdForNetwork)
 	if err != nil {
 		return info, err
 	}
 	cacheGraph := make(map[string]interface{})
-	for n, r := range graph.CacheRound {
+	for n, r := range cacheMap {
 		for i, _ := range r.Snapshots {
 			r.Snapshots[i].Signatures = nil
 		}
@@ -50,7 +50,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		}
 	}
 	finalGraph := make(map[string]interface{})
-	for n, r := range graph.FinalRound {
+	for n, r := range finalMap {
 		finalGraph[n.String()] = map[string]interface{}{
 			"node":  r.NodeId.String(),
 			"round": r.Number,
@@ -86,20 +86,17 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		"final":     finalGraph,
 		"topology":  node.TopologicalOrder(),
 	}
-	f, c, err := store.QueueInfo()
-	if err != nil {
-		return info, err
-	}
 	info["queue"] = map[string]interface{}{
-		"finals": f,
-		"caches": c,
+		"finals": 0,
+		"caches": 0,
 	}
 	return info, nil
 }
 
 func dumpGraphHead(node *kernel.Node, params []interface{}) ([]map[string]interface{}, error) {
 	rounds := make([]map[string]interface{}, 0)
-	for _, r := range node.Graph.FinalCache {
+	graph := node.BuildGraph()
+	for _, r := range graph {
 		rounds = append(rounds, map[string]interface{}{
 			"node":  r.NodeId,
 			"round": r.Number,

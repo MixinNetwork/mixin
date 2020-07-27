@@ -6,12 +6,23 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 )
 
-func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, error) {
+func (node *Node) checkTxInStorage(id crypto.Hash) (bool, error) {
+	tx, _, err := node.persistStore.ReadTransaction(id)
+	if err != nil || tx != nil {
+		return tx != nil, err
+	}
+
+	tx, err = node.persistStore.CacheGetTransaction(id)
+	return tx != nil, err
+}
+
+func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, bool, error) {
 	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil || inNode {
-		return nil, err
+		return nil, inNode, err
 	}
 
 	tx, _, err := node.persistStore.ReadTransaction(s.Transaction)
@@ -19,42 +30,46 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.Ver
 		err = node.validateKernelSnapshot(s, tx, true)
 	}
 	if err != nil || tx != nil {
-		return tx, err
+		return tx, false, err
 	}
 
 	tx, err = node.persistStore.CacheGetTransaction(s.Transaction)
 	if err != nil || tx == nil {
-		return nil, err
+		return nil, false, err
 	}
 	err = node.validateKernelSnapshot(s, tx, true)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	err = tx.LockInputs(node.persistStore, true)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return tx, node.persistStore.WriteTransaction(tx)
+	return tx, false, node.persistStore.WriteTransaction(tx)
 }
 
-func (node *Node) tryToStartNewRound(s *common.Snapshot) (bool, error) {
-	if node.checkInitialAcceptSnapshotWeak(s) {
+func (chain *Chain) tryToStartNewRound(s *common.Snapshot) (bool, error) {
+	if chain.ChainId != s.NodeId {
+		panic("should never be here")
+	}
+
+	if chain.node.checkInitialAcceptSnapshotWeak(s) {
 		return false, nil
 	}
-	if node.Graph.CacheRound[s.NodeId] == nil {
+	if chain.State.CacheRound == nil {
 		return false, fmt.Errorf("node not accepted yet %s %d %s", s.NodeId, s.RoundNumber, time.Unix(0, int64(s.Timestamp)).String())
 	}
 
-	cache := node.Graph.CacheRound[s.NodeId].Copy()
-	final := node.Graph.FinalRound[s.NodeId].Copy()
+	cache := chain.State.CacheRound.Copy()
+	final := chain.State.FinalRound.Copy()
 
 	if s.RoundNumber != cache.Number+1 {
 		return false, nil
 	}
 
 	dummyExternal := cache.References.External
-	round, dummy, err := node.startNewRound(s, cache, true)
+	round, dummy, err := chain.startNewRound(s, cache, true)
 	if err != nil {
 		return false, err
 	} else if round == nil {
@@ -74,18 +89,22 @@ func (node *Node) tryToStartNewRound(s *common.Snapshot) (bool, error) {
 	if dummy {
 		cache.References.External = dummyExternal
 	}
-	err = node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
+	err = chain.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 	if err != nil {
 		panic(err)
 	}
 
-	node.assignNewGraphRound(final, cache)
+	chain.assignNewGraphRound(final, cache)
 	return dummy, nil
 }
 
-func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapshot) error {
-	s.Hash = s.PayloadHash()
-	if !node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
+func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapshot) error {
+	if chain.ChainId != s.NodeId {
+		panic("should never be here")
+	}
+
+	if !chain.node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
+		logger.Verbosef("ERROR legacyVerifyFinalization %s %v %d %t\n", peerId, s, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil)
 		return nil
 	}
 
@@ -96,19 +115,19 @@ func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapsho
 		if signaturesFilter[sig.String()] {
 			continue
 		}
-		for idForNetwork, cn := range node.ConsensusNodes {
+		for idForNetwork, cn := range chain.node.ConsensusNodes {
 			if signersMap[idForNetwork] {
 				continue
 			}
-			if node.CacheVerify(s.Hash, *sig, cn.Signer.PublicSpendKey) {
+			if chain.node.CacheVerify(s.Hash, *sig, cn.Signer.PublicSpendKey) {
 				sigs = append(sigs, sig)
 				signersMap[idForNetwork] = true
 				break
 			}
 		}
-		if n := node.ConsensusPledging; n != nil {
-			id := n.IdForNetwork(node.networkId)
-			if id == s.NodeId && s.RoundNumber == 0 && node.CacheVerify(s.Hash, *sig, n.Signer.PublicSpendKey) {
+		if n := chain.node.ConsensusPledging; n != nil {
+			id := n.IdForNetwork(chain.node.networkId)
+			if id == s.NodeId && s.RoundNumber == 0 && chain.node.CacheVerify(s.Hash, *sig, n.Signer.PublicSpendKey) {
 				sigs = append(sigs, sig)
 				signersMap[id] = true
 			}
@@ -117,9 +136,10 @@ func (node *Node) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapsho
 	}
 	s.Signatures = sigs
 
-	if !node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
+	if !chain.node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
+		logger.Verbosef("ERROR RE legacyVerifyFinalization %s %v %d %t\n", peerId, s, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil)
 		return nil
 	}
 
-	return node.QueueAppendSnapshot(peerId, s, true)
+	return chain.AppendFinalSnapshot(peerId, s)
 }
