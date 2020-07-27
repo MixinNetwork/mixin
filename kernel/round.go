@@ -30,7 +30,7 @@ type FinalRound struct {
 
 func (node *Node) LoadAllChains(store storage.Store, networkId crypto.Hash) error {
 	for _, cn := range node.AllNodesSorted {
-		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateCancelled {
+		if cn.State != common.NodeStateAccepted {
 			continue
 		}
 
