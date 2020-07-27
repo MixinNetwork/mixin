@@ -287,22 +287,9 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 		return nil
 	}
 	if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
-		if len(cache.Snapshots) > 0 {
-			return nil
-		}
-		if s.References.Self != cache.References.Self {
-			return nil
-		}
-		external, err := chain.persistStore.ReadRound(s.References.External)
-		if err != nil || external == nil {
+		updated, err := chain.updateEmptyHeadRound(m, cache, s)
+		if err != nil || !updated {
 			return err
-		}
-		link, err := chain.persistStore.ReadLink(cache.NodeId, external.NodeId)
-		if err != nil {
-			return err
-		}
-		if external.Number < link {
-			return nil
 		}
 		cache.References = &common.RoundLink{
 			Self:     s.References.Self,
@@ -644,27 +631,18 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		return nil
 	}
 	if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
-		if len(cache.Snapshots) != 0 {
-			logger.Verbosef("ERROR cosiHandleFinalization malformated head round references not empty %s %v %d\n", m.PeerId, s, len(cache.Snapshots))
-			return nil
-		}
-		if s.References.Self != cache.References.Self {
-			logger.Verbosef("ERROR cosiHandleFinalization malformated head round references self diff %s %v %v\n", m.PeerId, s, cache.References)
-			return nil
-		}
-		external, err := chain.persistStore.ReadRound(s.References.External)
-		if err != nil {
+		updated, err := chain.updateEmptyHeadRound(m, cache, s)
+		if err != nil || !updated {
 			return err
 		}
-		if external == nil {
-			logger.Verbosef("ERROR cosiHandleFinalization head round references external not ready yet %s %v %v\n", m.PeerId, s, cache.References)
-			return nil
+		cache.References = &common.RoundLink{
+			Self:     s.References.Self,
+			External: s.References.External,
 		}
-		err = chain.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, s.References)
+		err = chain.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, cache.References)
 		if err != nil {
 			panic(err)
 		}
-		cache.References = s.References
 		chain.assignNewGraphRound(final, cache)
 		return nil
 	}

@@ -60,25 +60,56 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDu
 			return nil, false, fmt.Errorf("external reference %s too early %s:%d %f", s.References.External, best.NodeId, best.Number, time.Duration(best.Start-threshold).Seconds())
 		}
 	}
+	if external.Number < chain.State.RoundLinks[external.NodeId] {
+		return nil, false, err
+	}
 	link, err := chain.persistStore.ReadLink(s.NodeId, external.NodeId)
+	if err != nil {
+		return nil, false, err
+	}
 	if link != chain.State.RoundLinks[external.NodeId] {
 		panic(fmt.Errorf("should never be here %s=>%s %d %d", chain.ChainId, external.NodeId, link, chain.State.RoundLinks[external.NodeId]))
-	}
-	if external.Number < link {
-		return nil, false, err
 	}
 	chain.State.RoundLinks[external.NodeId] = external.Number
 
 	ec := chain.node.GetOrCreateChain(external.NodeId)
 	ec.State.Lock()
 	defer ec.State.Unlock()
-	if external.NodeId == chain.ChainId {
-		if l := ec.State.ReverseRoundLinks[chain.ChainId]; external.Number < l {
-			return nil, false, fmt.Errorf("external reverse reference %s=>%s %d %d", external.NodeId, s.NodeId, external.Number, l)
-		}
-		ec.State.ReverseRoundLinks[chain.ChainId] = external.Number
+	if l := ec.State.ReverseRoundLinks[chain.ChainId]; external.Number < l {
+		return nil, false, fmt.Errorf("external reverse reference %s=>%s %d %d", external.NodeId, s.NodeId, external.Number, l)
 	}
+	ec.State.ReverseRoundLinks[chain.ChainId] = external.Number
 	return final, false, err
+}
+
+func (chain *Chain) updateEmptyHeadRound(m *CosiAction, cache *CacheRound, s *common.Snapshot) (bool, error) {
+	if len(cache.Snapshots) != 0 {
+		logger.Verbosef("ERROR cosiHandleFinalization malformated head round references not empty %s %v %d\n", m.PeerId, s, len(cache.Snapshots))
+		return false, nil
+	}
+	if s.References.Self != cache.References.Self {
+		logger.Verbosef("ERROR cosiHandleFinalization malformated head round references self diff %s %v %v\n", m.PeerId, s, cache.References)
+		return false, nil
+	}
+	external, err := chain.persistStore.ReadRound(s.References.External)
+	if err != nil || external == nil {
+		logger.Verbosef("ERROR cosiHandleFinalization head round references external not ready yet %s %v %v\n", m.PeerId, s, cache.References)
+		return false, err
+	}
+	link, err := chain.persistStore.ReadLink(cache.NodeId, external.NodeId)
+	if err != nil || external.Number < link {
+		return false, err
+	}
+	chain.State.RoundLinks[external.NodeId] = external.Number
+
+	ec := chain.node.GetOrCreateChain(external.NodeId)
+	ec.State.Lock()
+	defer ec.State.Unlock()
+	if l := ec.State.ReverseRoundLinks[chain.ChainId]; external.Number < l {
+		return false, fmt.Errorf("external reverse reference %s=>%s %d %d", external.NodeId, s.NodeId, external.Number, l)
+	}
+	ec.State.ReverseRoundLinks[chain.ChainId] = external.Number
+	return true, nil
 }
 
 func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
