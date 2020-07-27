@@ -20,6 +20,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel"
+	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/stretchr/testify/assert"
@@ -145,7 +146,19 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
 }
 
-func TestConsensus(t *testing.T) {
+func TestConsensusSingle(t *testing.T) {
+	testConsensus(t, 1)
+}
+
+func TestConsensusDouble(t *testing.T) {
+	testConsensus(t, 2)
+}
+
+func TestConsensusMany(t *testing.T) {
+	testConsensus(t, -1)
+}
+
+func testConsensus(t *testing.T, dup int) {
 	assert := assert.New(t)
 
 	kernel.TestMockReset()
@@ -218,6 +231,10 @@ func TestConsensus(t *testing.T) {
 		deposits = append(deposits, &common.VersionedTransaction{SignedTransaction: *tx})
 	}
 
+	logger.SetLevel(0)
+	logger.SetLimiter(3)
+	logger.SetFilter("(?i)error")
+
 	for _, d := range deposits {
 		mathRand.Seed(time.Now().UnixNano())
 		for n := len(nodes); n > 0; n-- {
@@ -225,7 +242,8 @@ func TestConsensus(t *testing.T) {
 			nodes[n-1], nodes[randIndex] = nodes[randIndex], nodes[n-1]
 		}
 		wg := &sync.WaitGroup{}
-		for i := mathRand.Intn(len(nodes) - 1); i < len(nodes); i++ {
+		start := mathRand.Intn(len(nodes) - 1)
+		for i := start; i < len(nodes) && i != start+dup; i++ {
 			wg.Add(1)
 			go func(n string, raw string) {
 				defer wg.Done()
@@ -264,7 +282,8 @@ func TestConsensus(t *testing.T) {
 			nodes[n-1], nodes[randIndex] = nodes[randIndex], nodes[n-1]
 		}
 		wg := &sync.WaitGroup{}
-		for i := mathRand.Intn(len(nodes) - 1); i < len(nodes); i++ {
+		start := mathRand.Intn(len(nodes) - 1)
+		for i := start; i < len(nodes) && i != start+dup; i++ {
 			wg.Add(1)
 			go func(n string, raw string) {
 				defer wg.Done()
