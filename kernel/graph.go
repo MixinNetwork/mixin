@@ -100,23 +100,22 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 	if final.End > chain.node.GraphTimestamp {
 		chain.node.GraphTimestamp = final.End
 	}
-	if chain.State.CacheRound.Number == cache.Number {
-		return
-	}
 
 	rounds := chain.State.RoundHistory
-	if n := rounds[len(rounds)-1].Number; n+1 != final.Number {
+	if n := rounds[len(rounds)-1].Number; n == final.Number {
+		return
+	} else if n+1 != final.Number {
 		panic(fmt.Errorf("should never be here %s %d %d", final.NodeId, final.Number, n))
 	}
-	chain.StepForward()
 
 	rounds = append(rounds, final.Copy())
+	chain.StepForward()
+
 	threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap * 64
 	if rounds[0].Start+threshold > final.Start && len(rounds) <= config.SnapshotReferenceThreshold {
 		chain.State.RoundHistory = rounds
 		return
 	}
-
 	newRounds := make([]*FinalRound, 0)
 	for _, r := range rounds {
 		if r.Start+threshold <= final.Start {
