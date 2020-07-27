@@ -317,9 +317,8 @@ func (chain *Chain) AppendCacheSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 		return nil
 	}
 	if s.RoundNumber > chain.CacheIndex {
-		chain.CachePool.Dispose() // FIXME should reset the ring without init a new one
+		chain.CachePool.Reset()
 		chain.CacheIndex = s.RoundNumber
-		chain.CachePool = NewRingBuffer(CachePoolSnapshotsLimit)
 	}
 	_, err := chain.CachePool.Offer(s)
 	return err
