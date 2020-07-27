@@ -28,7 +28,6 @@ type Node struct {
 	SyncPoints  *syncMap
 
 	AllNodesSorted       []*common.Node
-	ActiveNodes          []*common.Node
 	ConsensusNodes       map[crypto.Hash]*common.Node
 	SortedConsensusNodes []crypto.Hash
 	ConsensusIndex       int
@@ -126,7 +125,7 @@ func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
 	}
 
 	var keys []*crypto.Key
-	for _, cn := range node.ActiveNodes {
+	for _, cn := range node.AllNodesSorted {
 		if cn.State != common.NodeStateAccepted {
 			continue
 		}
@@ -142,7 +141,7 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 		timestamp = uint64(clock.Now().UnixNano())
 	}
 	consensusBase := 0
-	for _, cn := range node.ActiveNodes {
+	for _, cn := range node.AllNodesSorted {
 		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap
 		if threshold > uint64(3*time.Minute) {
 			panic("should never be here")
@@ -175,7 +174,6 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 
 func (node *Node) LoadConsensusNodes() error {
 	node.ConsensusPledging = nil
-	activeNodes := make([]*common.Node, 0)
 	consensusNodes := make(map[crypto.Hash]*common.Node)
 	sortedConsensusNodes := make([]crypto.Hash, 0)
 	node.AllNodesSorted = node.SortAllNodesByTimestampAndId()
@@ -188,22 +186,13 @@ func (node *Node) LoadConsensusNodes() error {
 		switch cn.State {
 		case common.NodeStatePledging:
 			node.ConsensusPledging = cn
-			activeNodes = append(activeNodes, cn)
 		case common.NodeStateAccepted:
 			consensusNodes[idForNetwork] = cn
-			activeNodes = append(activeNodes, cn)
+			sortedConsensusNodes = append(sortedConsensusNodes, idForNetwork)
 		case common.NodeStateResigning:
-			activeNodes = append(activeNodes, cn)
 		case common.NodeStateRemoved:
 		}
 	}
-	for _, n := range activeNodes {
-		if n.State == common.NodeStateAccepted {
-			id := n.IdForNetwork(node.networkId)
-			sortedConsensusNodes = append(sortedConsensusNodes, id)
-		}
-	}
-	node.ActiveNodes = activeNodes
 	node.ConsensusNodes = consensusNodes
 	node.SortedConsensusNodes = sortedConsensusNodes
 	for i, id := range node.SortedConsensusNodes {
