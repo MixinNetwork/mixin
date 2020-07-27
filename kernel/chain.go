@@ -54,6 +54,7 @@ type Chain struct {
 	FinalIndex      int
 
 	persistStore    storage.Store
+	peerActionsChan chan *CosiAction
 	cosiActionsChan chan *CosiAction
 	clc             chan struct{}
 	plc             chan struct{}
@@ -72,6 +73,7 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		CosiVerifiers:   make(map[crypto.Hash]*CosiVerifier),
 		CachePool:       NewRingBuffer(CachePoolSnapshotsLimit),
 		persistStore:    node.persistStore,
+		peerActionsChan: make(chan *CosiAction, FinalPoolSlotsLimit),
 		cosiActionsChan: make(chan *CosiAction, FinalPoolSlotsLimit),
 		clc:             make(chan struct{}),
 		plc:             make(chan struct{}),
@@ -91,6 +93,12 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 	}()
 	go func() {
 		err := chain.CosiLoop()
+		if err != nil {
+			panic(err)
+		}
+	}()
+	go func() {
+		err := chain.consumePeerActions()
 		if err != nil {
 			panic(err)
 		}
@@ -201,9 +209,6 @@ func (chain *Chain) StepForward() {
 }
 
 func (chain *Chain) ClearFinalSnapshot(id crypto.Hash) error {
-	chain.Lock()
-	defer chain.Unlock()
-
 	round := chain.FinalPool[chain.FinalIndex]
 	if round == nil {
 		return nil
@@ -216,17 +221,21 @@ func (chain *Chain) ClearFinalSnapshot(id crypto.Hash) error {
 	return nil
 }
 
-func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
-	if chain.ChainId != s.NodeId {
-		panic("should never be here")
+func (chain *Chain) consumePeerActions() error {
+	for chain.running {
+		select {
+		case <-chain.node.done:
+		case ps := <-chain.peerActionsChan:
+			err := chain.appendFinalSnapshot(ps.PeerId, ps.Snapshot)
+			if err != nil {
+				return err
+			}
+		}
 	}
-	logger.Debugf("AppendFinalSnapshot(%s, %s)\n", peerId, s.Hash)
-	if s.NodeId != chain.ChainId {
-		panic("final queue malformed")
-	}
-	chain.Lock()
-	defer chain.Unlock()
+	return nil
+}
 
+func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
 	start, offset := uint64(0), 0
 	if chain.State.CacheRound != nil {
 		start = chain.State.CacheRound.Number
@@ -237,7 +246,8 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	}
 	offset = int(s.RoundNumber - start)
 	if offset >= FinalPoolSlotsLimit {
-		return fmt.Errorf("AppendFinalSnapshot(%s, %s) pool slots full %d %d %d", peerId, s.Hash, start, s.RoundNumber, chain.FinalIndex)
+		logger.Verbosef("AppendFinalSnapshot(%s, %s) pool slots full %d %d %d\n", peerId, s.Hash, start, s.RoundNumber, chain.FinalIndex)
+		return nil
 	}
 	offset = (offset + chain.FinalIndex) % FinalPoolSlotsLimit
 	round := chain.FinalPool[offset]
@@ -267,6 +277,23 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	}
 	chain.FinalPool[offset] = round
 	return nil
+}
+
+func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
+	if chain.ChainId != s.NodeId {
+		panic("should never be here")
+	}
+	logger.Debugf("AppendFinalSnapshot(%s, %s)\n", peerId, s.Hash)
+	if s.NodeId != chain.ChainId {
+		panic("final queue malformed")
+	}
+	ps := &CosiAction{PeerId: peerId, Snapshot: s}
+	select {
+	case chain.peerActionsChan <- ps:
+		return nil
+	default:
+		return fmt.Errorf("AppendFinalSnapshot(%s, %s) pool slots full %d %d", peerId, s.Hash, s.RoundNumber, chain.FinalIndex)
+	}
 }
 
 func (chain *Chain) AppendCacheSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
