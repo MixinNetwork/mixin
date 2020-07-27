@@ -25,7 +25,7 @@ func (node *Node) ElectionLoop() {
 	defer ticker.Stop()
 
 	chain := node.GetOrCreateChain(node.IdForNetwork)
-	for chain.State == nil {
+	for chain.State.CacheRound == nil {
 		select {
 		case <-node.done:
 			return
