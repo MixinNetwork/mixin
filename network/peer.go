@@ -2,6 +2,7 @@ package network
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"net"
@@ -239,7 +240,7 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	logger.Verbosef("AUTH PEER STREAM %s\n", p.Address)
 
 	if resend != nil {
-		logger.Verbosef("RESEND PEER STREAM %s\n", resend.key)
+		logger.Verbosef("RESEND PEER STREAM %s\n", hex.EncodeToString(resend.key))
 		err := client.Send(resend.data)
 		if err != nil {
 			return resend, err

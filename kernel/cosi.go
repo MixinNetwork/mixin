@@ -31,8 +31,6 @@ type CosiAction struct {
 	Response     *[32]byte
 	Transaction  *common.VersionedTransaction
 	WantTx       bool
-
-	key crypto.Hash
 }
 
 type CosiAggregator struct {
@@ -240,14 +238,14 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	if m.Snapshot.NodeId != chain.ChainId {
 		panic("should never be here")
 	}
+	if m.Snapshot.NodeId != m.PeerId {
+		panic("should never be here")
+	}
 	if m.Snapshot.NodeId == chain.node.IdForNetwork {
 		panic("should never be here")
 	}
 
 	s := m.Snapshot
-	if chain.ChainId == chain.node.IdForNetwork || s.NodeId == chain.node.IdForNetwork || s.NodeId != m.PeerId {
-		panic(fmt.Errorf("should never be here %s %s %s", chain.node.IdForNetwork, s.NodeId, s.Signature))
-	}
 	if s.Version != common.SnapshotVersion || s.Signature != nil || s.Timestamp == 0 {
 		return nil
 	}

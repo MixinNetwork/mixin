@@ -209,15 +209,18 @@ func (chain *Chain) StepForward() {
 }
 
 func (chain *Chain) ClearFinalSnapshot(id crypto.Hash) error {
-	round := chain.FinalPool[chain.FinalIndex]
-	if round == nil {
-		return nil
+	for i := 0; i < 2; i++ {
+		index := (chain.FinalIndex + i) % FinalPoolSlotsLimit
+		round := chain.FinalPool[index]
+		if round == nil {
+			continue
+		}
+		index, found := round.index[id]
+		if !found {
+			continue
+		}
+		round.Snapshots[index].peers = make(map[crypto.Hash]bool)
 	}
-	index, found := round.index[id]
-	if !found {
-		return nil
-	}
-	round.Snapshots[index].peers = make(map[crypto.Hash]bool)
 	return nil
 }
 
