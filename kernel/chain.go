@@ -54,12 +54,12 @@ type Chain struct {
 	FinalPool       [FinalPoolSlotsLimit]*ChainRound
 	FinalIndex      int
 
-	persistStore    storage.Store
-	peerActionsChan chan *CosiAction
-	cosiActionsChan chan *CosiAction
-	clc             chan struct{}
-	plc             chan struct{}
-	running         bool
+	persistStore     storage.Store
+	finalActionsChan chan *CosiAction
+	cosiActionsChan  chan *CosiAction
+	clc              chan struct{}
+	plc              chan struct{}
+	running          bool
 }
 
 func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
@@ -70,15 +70,15 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 			RoundLinks:        make(map[crypto.Hash]uint64),
 			ReverseRoundLinks: make(map[crypto.Hash]uint64),
 		},
-		CosiAggregators: make(map[crypto.Hash]*CosiAggregator),
-		CosiVerifiers:   make(map[crypto.Hash]*CosiVerifier),
-		CachePool:       NewRingBuffer(CachePoolSnapshotsLimit),
-		persistStore:    node.persistStore,
-		peerActionsChan: make(chan *CosiAction, FinalPoolSlotsLimit),
-		cosiActionsChan: make(chan *CosiAction, FinalPoolSlotsLimit),
-		clc:             make(chan struct{}),
-		plc:             make(chan struct{}),
-		running:         true,
+		CosiAggregators:  make(map[crypto.Hash]*CosiAggregator),
+		CosiVerifiers:    make(map[crypto.Hash]*CosiVerifier),
+		CachePool:        NewRingBuffer(CachePoolSnapshotsLimit),
+		persistStore:     node.persistStore,
+		finalActionsChan: make(chan *CosiAction, FinalPoolSlotsLimit),
+		cosiActionsChan:  make(chan *CosiAction, FinalPoolSlotsLimit),
+		clc:              make(chan struct{}),
+		plc:              make(chan struct{}),
+		running:          true,
 	}
 
 	err := chain.loadState(node.networkId, node.AllNodesSorted)
@@ -99,7 +99,7 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		}
 	}()
 	go func() {
-		err := chain.consumePeerActions()
+		err := chain.consumeFinalActions()
 		if err != nil {
 			panic(err)
 		}
@@ -213,11 +213,11 @@ func (chain *Chain) StepForward() {
 	chain.FinalIndex = (chain.FinalIndex + 1) % FinalPoolSlotsLimit
 }
 
-func (chain *Chain) consumePeerActions() error {
+func (chain *Chain) consumeFinalActions() error {
 	for chain.running {
 		select {
 		case <-chain.node.done:
-		case ps := <-chain.peerActionsChan:
+		case ps := <-chain.finalActionsChan:
 			err := chain.appendFinalSnapshot(ps.PeerId, ps.Snapshot)
 			if err != nil {
 				return err
@@ -288,7 +288,7 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	}
 	ps := &CosiAction{PeerId: peerId, Snapshot: s}
 	select {
-	case chain.peerActionsChan <- ps:
+	case chain.finalActionsChan <- ps:
 		return nil
 	default:
 		return fmt.Errorf("AppendFinalSnapshot(%s, %s) pool slots full %d %d", peerId, s.Hash, s.RoundNumber, chain.FinalIndex)
