@@ -242,6 +242,10 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	start, offset := uint64(0), 0
 	if chain.State.CacheRound != nil {
 		start = chain.State.CacheRound.Number
+		pr := chain.FinalPool[chain.FinalIndex]
+		if pr != nil && pr.Number != start {
+			panic(fmt.Errorf("should never be here %s %d %d", s.NodeId, start, pr.Number))
+		}
 	}
 	if s.RoundNumber < start {
 		logger.Debugf("AppendFinalSnapshot(%s, %s) expired %d %d\n", peerId, s.Hash, s.RoundNumber, start)
@@ -258,9 +262,9 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 		round = &ChainRound{
 			Number: s.RoundNumber,
 			index:  make(map[crypto.Hash]int),
+			Size:   0,
 		}
-	}
-	if round.Number != s.RoundNumber {
+	} else if round.Number != s.RoundNumber {
 		round.Number = s.RoundNumber
 		round.index = make(map[crypto.Hash]int)
 		round.Size = 0
@@ -274,6 +278,7 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 			Snapshot: s,
 			peers:    map[crypto.Hash]bool{peerId: true},
 		}
+		round.index[s.Hash] = round.Size
 		round.Size = round.Size + 1
 	} else {
 		round.Snapshots[index].peers[peerId] = true
@@ -283,9 +288,6 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 }
 
 func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
-	if chain.ChainId != s.NodeId {
-		panic("should never be here")
-	}
 	logger.Debugf("AppendFinalSnapshot(%s, %s)\n", peerId, s.Hash)
 	if s.NodeId != chain.ChainId {
 		panic("final queue malformed")
