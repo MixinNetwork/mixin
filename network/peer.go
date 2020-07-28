@@ -1,6 +1,7 @@
 package network
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -19,6 +20,7 @@ type Peer struct {
 	IdForNetwork crypto.Hash
 	Address      string
 
+	ctx             context.Context
 	snapshotsCaches *confirmMap
 	neighbors       *neighborMap
 	gossipRound     *neighborMap
@@ -74,7 +76,7 @@ func (me *Peer) pingPeerStream(addr string) error {
 	if err != nil {
 		return err
 	}
-	client, err := transport.Dial()
+	client, err := transport.Dial(me.ctx)
 	if err != nil {
 		return err
 	}
@@ -131,6 +133,7 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNei
 		ops:             make(chan struct{}),
 		stn:             make(chan struct{}),
 	}
+	peer.ctx = context.Background() // FIXME use real context
 	if handle != nil {
 		peer.snapshotsCaches = &confirmMap{cache: handle.GetCacheStore()}
 	}
@@ -189,7 +192,7 @@ func (me *Peer) ListenNeighbors() error {
 	}()
 
 	for !me.closing {
-		c, err := me.transport.Accept()
+		c, err := me.transport.Accept(me.ctx)
 		if err != nil {
 			logger.Verbosef("accept error %s\n", err.Error())
 			continue
@@ -226,7 +229,7 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	if err != nil {
 		return nil, err
 	}
-	client, err := transport.Dial()
+	client, err := transport.Dial(me.ctx)
 	if err != nil {
 		return nil, err
 	}
