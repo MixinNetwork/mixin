@@ -87,6 +87,10 @@ func (chain *Chain) determinBestRound(roundTime uint64) *FinalRound {
 	chain.State.RLock()
 	defer chain.State.RUnlock()
 
+	if chain.State.FinalRound == nil {
+		return nil
+	}
+
 	var best *FinalRound
 	var start, height uint64
 	for id, _ := range chain.node.ConsensusNodes {
