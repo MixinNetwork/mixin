@@ -20,7 +20,8 @@ const (
 
 type PeerSnapshot struct {
 	Snapshot *common.Snapshot
-	peers    map[crypto.Hash]bool
+	filter   map[crypto.Hash]bool
+	peers    []crypto.Hash
 }
 
 type ChainRound struct {
@@ -181,8 +182,8 @@ func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *commo
 			}
 			for i := 0; i < round.Size; i++ {
 				ps := round.Snapshots[i]
-				for k, _ := range ps.peers {
-					hook(k, ps.Snapshot)
+				for _, pid := range ps.peers {
+					hook(pid, ps.Snapshot)
 					final++
 				}
 			}
@@ -200,28 +201,16 @@ func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *commo
 			hook(s.NodeId, s)
 			cache++
 		}
-		time.Sleep(100 * time.Millisecond)
+		if final == 0 && cache == 0 {
+			time.Sleep(100 * time.Millisecond)
+		} else {
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
 }
 
 func (chain *Chain) StepForward() {
 	chain.FinalIndex = (chain.FinalIndex + 1) % FinalPoolSlotsLimit
-}
-
-func (chain *Chain) ClearFinalSnapshot(id crypto.Hash) error {
-	for i := 0; i < 2; i++ {
-		index := (chain.FinalIndex + i) % FinalPoolSlotsLimit
-		round := chain.FinalPool[index]
-		if round == nil {
-			continue
-		}
-		index, found := round.index[id]
-		if !found {
-			continue
-		}
-		round.Snapshots[index].peers = make(map[crypto.Hash]bool)
-	}
-	return nil
 }
 
 func (chain *Chain) consumePeerActions() error {
@@ -276,12 +265,17 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	if !found {
 		round.Snapshots[round.Size] = &PeerSnapshot{
 			Snapshot: s,
-			peers:    map[crypto.Hash]bool{peerId: true},
+			filter:   map[crypto.Hash]bool{peerId: true},
+			peers:    []crypto.Hash{peerId},
 		}
 		round.index[s.Hash] = round.Size
 		round.Size = round.Size + 1
 	} else {
-		round.Snapshots[index].peers[peerId] = true
+		ps := round.Snapshots[index]
+		if !ps.filter[peerId] {
+			ps.filter[peerId] = true
+			ps.peers = append(ps.peers, peerId)
+		}
 	}
 	chain.FinalPool[offset] = round
 	return nil

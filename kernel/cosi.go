@@ -709,10 +709,10 @@ func (chain *Chain) handleFinalization(m *CosiAction) error {
 		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %t %s\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil, err.Error())
 		return nil
 	} else if inNode {
-		return chain.ClearFinalSnapshot(s.Hash)
+		return nil
 	} else if tx == nil {
 		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %t %s\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil, "tx empty")
-		return chain.ClearFinalSnapshot(s.Hash)
+		return nil
 	}
 	if s.RoundNumber == 0 && tx.TransactionType() != common.TransactionTypeNodeAccept {
 		return fmt.Errorf("invalid initial transaction type %d", tx.TransactionType())
