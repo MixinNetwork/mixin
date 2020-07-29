@@ -231,11 +231,11 @@ func (node *Node) checkInitialAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	return node.checkInitialAcceptSnapshotWeak(s) && tx.TransactionType() == common.TransactionTypeNodeAccept
 }
 
-func (chain *Chain) queueSnapshotOrPanic(peerId crypto.Hash, s *common.Snapshot) error {
-	if chain.ChainId != s.NodeId {
+func (chain *Chain) queueActionOrPanic(m *CosiAction) error {
+	if chain.ChainId != m.PeerId {
 		panic("should never be here")
 	}
-	err := chain.AppendCacheSnapshot(peerId, s)
+	err := chain.AppendCosiAction(m)
 	if err != nil {
 		panic(err)
 	}
@@ -249,7 +249,7 @@ func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 	delete(chain.CosiVerifiers, s.Hash)
 	delete(chain.CosiAggregators, s.Hash)
 	delete(chain.CosiAggregators, s.Transaction)
-	return chain.queueSnapshotOrPanic(chain.ChainId, &common.Snapshot{
+	return chain.AppendSelfEmpty(&common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      s.NodeId,
 		Transaction: s.Transaction,

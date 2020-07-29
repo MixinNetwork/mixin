@@ -19,9 +19,10 @@ const (
 )
 
 type PeerSnapshot struct {
-	Snapshot *common.Snapshot
-	filter   map[crypto.Hash]bool
-	peers    []crypto.Hash
+	Snapshot  *common.Snapshot
+	filter    map[crypto.Hash]bool
+	peers     []crypto.Hash
+	finalized bool
 }
 
 type ChainRound struct {
@@ -56,8 +57,6 @@ type Chain struct {
 
 	persistStore     storage.Store
 	finalActionsChan chan *CosiAction
-	cosiActionsChan  chan *CosiAction
-	clc              chan struct{}
 	plc              chan struct{}
 	running          bool
 }
@@ -75,8 +74,6 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		CachePool:        NewRingBuffer(CachePoolSnapshotsLimit),
 		persistStore:     node.persistStore,
 		finalActionsChan: make(chan *CosiAction, FinalPoolSlotsLimit),
-		cosiActionsChan:  make(chan *CosiAction, FinalPoolSlotsLimit),
-		clc:              make(chan struct{}),
 		plc:              make(chan struct{}),
 		running:          true,
 	}
@@ -93,12 +90,6 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		}
 	}()
 	go func() {
-		err := chain.CosiLoop()
-		if err != nil {
-			panic(err)
-		}
-	}()
-	go func() {
 		err := chain.consumeFinalActions()
 		if err != nil {
 			panic(err)
@@ -109,7 +100,6 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 
 func (chain *Chain) Teardown() {
 	chain.running = false
-	<-chain.clc
 	<-chain.plc
 }
 
@@ -166,7 +156,7 @@ func (chain *Chain) loadState(networkId crypto.Hash, allNodes []*common.Node) er
 	return nil
 }
 
-func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *common.Snapshot) error) {
+func (chain *Chain) QueuePollSnapshots(hook func(*CosiAction) (bool, error)) {
 	defer close(chain.plc)
 
 	for chain.running {
@@ -182,8 +172,22 @@ func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *commo
 			}
 			for i := 0; i < round.Size; i++ {
 				ps := round.Snapshots[i]
+				if ps.finalized {
+					continue
+				}
 				for _, pid := range ps.peers {
-					hook(pid, ps.Snapshot)
+					m := &CosiAction{
+						PeerId:   pid,
+						Action:   CosiActionFinalization,
+						Snapshot: ps.Snapshot,
+					}
+					finalized, err := hook(m)
+					if err != nil {
+						panic(err)
+					} else if finalized {
+						ps.finalized = true
+						break
+					}
 					final++
 				}
 			}
@@ -193,12 +197,11 @@ func (chain *Chain) QueuePollSnapshots(hook func(peerId crypto.Hash, snap *commo
 			if err != nil || item == nil {
 				break
 			}
-			s := item.(*common.Snapshot)
-			cr := chain.State.CacheRound
-			if cr != nil && s.RoundNumber < cr.Number && s.NodeId != chain.node.IdForNetwork {
-				continue
+			m := item.(*CosiAction)
+			_, err = hook(m)
+			if err != nil {
+				panic(err)
 			}
-			hook(s.NodeId, s)
 			cache++
 		}
 		if final == 0 && cache == 0 {
@@ -302,32 +305,70 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	}
 }
 
-func (chain *Chain) AppendCacheSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
-	if s.NodeId != chain.ChainId {
-		panic("cache queue malformed")
+func (chain *Chain) AppendCosiAction(m *CosiAction) error {
+	switch m.Action {
+	case CosiActionSelfEmpty:
+		if m.PeerId != chain.ChainId {
+			panic("should never be here")
+		}
+		if chain.ChainId != chain.node.IdForNetwork {
+			panic("should never be here")
+		}
+	case CosiActionSelfCommitment:
+		if m.PeerId == chain.ChainId {
+			panic("should never be here")
+		}
+		if chain.ChainId != chain.node.IdForNetwork {
+			panic("should never be here")
+		}
+	case CosiActionSelfResponse:
+		if m.PeerId == chain.ChainId {
+			panic("should never be here")
+		}
+		if chain.ChainId != chain.node.IdForNetwork {
+			panic("should never be here")
+		}
+	case CosiActionExternalAnnouncement:
+		if m.PeerId != chain.ChainId {
+			panic("should never be here")
+		}
+		if chain.ChainId == chain.node.IdForNetwork {
+			panic("should never be here")
+		}
+	case CosiActionExternalChallenge:
+		if m.PeerId != chain.ChainId {
+			panic("should never be here")
+		}
+		if chain.ChainId == chain.node.IdForNetwork {
+			panic("should never be here")
+		}
+	default:
+		panic("should never be here")
 	}
-	if peerId != s.NodeId {
-		panic("cache queue malformed")
+
+	if s := m.Snapshot; s != nil {
+		if s.NodeId != chain.ChainId {
+			panic("should never be here")
+		}
+		if s.RoundNumber < chain.CacheIndex {
+			return nil
+		}
+		if s.RoundNumber > chain.CacheIndex {
+			chain.CachePool.Reset()
+			chain.CacheIndex = s.RoundNumber
+		}
 	}
-	if chain.node.checkInitialAcceptSnapshotWeak(s) {
-		chain.CachePool.Offer(s)
-		return nil
-	}
-	if s.RoundNumber == 0 && s.NodeId != chain.node.IdForNetwork {
-		return nil
-	}
-	if s.RoundNumber != 0 && s.NodeId == chain.node.IdForNetwork {
-		return nil
-	}
-	if s.RoundNumber < chain.CacheIndex {
-		return nil
-	}
-	if s.RoundNumber > chain.CacheIndex {
-		chain.CachePool.Reset()
-		chain.CacheIndex = s.RoundNumber
-	}
-	_, err := chain.CachePool.Offer(s)
+
+	_, err := chain.CachePool.Offer(m)
 	return err
+}
+
+func (chain *Chain) AppendSelfEmpty(s *common.Snapshot) error {
+	return chain.AppendCosiAction(&CosiAction{
+		PeerId:   chain.node.IdForNetwork,
+		Action:   CosiActionSelfEmpty,
+		Snapshot: s,
+	})
 }
 
 func (node *Node) GetOrCreateChain(id crypto.Hash) *Chain {

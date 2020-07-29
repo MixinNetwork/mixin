@@ -129,7 +129,7 @@ func (node *Node) tryToSendRemoveTransaction(candi *common.Node) error {
 		return err
 	}
 	chain := node.GetOrCreateChain(node.IdForNetwork)
-	return chain.AppendCacheSnapshot(node.IdForNetwork, &common.Snapshot{
+	return chain.AppendSelfEmpty(&common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: tx.PayloadHash(),
@@ -209,7 +209,7 @@ func (node *Node) tryToSendAcceptTransaction() error {
 		return err
 	}
 	chain := node.GetOrCreateChain(node.IdForNetwork)
-	err = chain.AppendCacheSnapshot(node.IdForNetwork, &common.Snapshot{
+	err = chain.AppendSelfEmpty(&common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: ver.PayloadHash(),
