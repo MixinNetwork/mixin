@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"sync"
+	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/storage"
@@ -9,11 +10,17 @@ import (
 
 type TopologicalSequence struct {
 	sync.Mutex
-	seq uint64
+	seq   uint64
+	point uint64
+	sps   float64
 }
 
 func (node *Node) TopologicalOrder() uint64 {
 	return node.TopoCounter.seq
+}
+
+func (node *Node) SPS() float64 {
+	return node.TopoCounter.sps
 }
 
 func (node *Node) TopoWrite(s *common.Snapshot) *common.SnapshotWithTopologicalOrder {
@@ -34,8 +41,19 @@ func (node *Node) TopoWrite(s *common.Snapshot) *common.SnapshotWithTopologicalO
 	return topo
 }
 
+func (topo *TopologicalSequence) TopoStats() {
+	for {
+		time.Sleep(1 * time.Minute)
+		topo.sps = float64(topo.seq-topo.point) / 300
+		topo.point = topo.seq
+	}
+}
+
 func getTopologyCounter(store storage.Store) *TopologicalSequence {
-	return &TopologicalSequence{
+	topo := &TopologicalSequence{
 		seq: store.TopologySequence(),
 	}
+	topo.point = topo.seq
+	go topo.TopoStats()
+	return topo
 }
