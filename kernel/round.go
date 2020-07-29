@@ -50,8 +50,7 @@ func (node *Node) LoadAllChains(store storage.Store, networkId crypto.Hash) erro
 			continue
 		}
 
-		id := cn.IdForNetwork(networkId)
-		chain := node.GetOrCreateChain(id)
+		chain := node.GetOrCreateChain(cn.IdForNetwork)
 		if chain.State.CacheRound == nil {
 			continue
 		}

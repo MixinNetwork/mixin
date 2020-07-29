@@ -214,7 +214,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	if cn == nil {
 		return nil
 	}
-	if cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) >= m.Snapshot.Timestamp && !chain.node.genesisNodesMap[cn.IdForNetwork(chain.node.networkId)] {
+	if cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) >= m.Snapshot.Timestamp && !chain.node.genesisNodesMap[cn.IdForNetwork] {
 		return nil
 	}
 
@@ -322,7 +322,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment CheckCatchUpWithPeers\n")
 		return nil
 	}
-	if cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) >= ann.Snapshot.Timestamp && !chain.node.genesisNodesMap[cn.IdForNetwork(chain.node.networkId)] {
+	if cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) >= ann.Snapshot.Timestamp && !chain.node.genesisNodesMap[cn.IdForNetwork] {
 		return nil
 	}
 	ann.committed[m.PeerId] = true
@@ -805,8 +805,8 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 	return err
 }
 
-func (node *Node) getPeerConsensusNode(peerId crypto.Hash) *common.Node {
-	if n := node.ConsensusPledging; n != nil && n.IdForNetwork(node.networkId) == peerId {
+func (node *Node) getPeerConsensusNode(peerId crypto.Hash) *CNode {
+	if n := node.ConsensusPledging; n != nil && n.IdForNetwork == peerId {
 		return n
 	}
 	return node.ConsensusNodes[peerId]

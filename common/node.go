@@ -17,24 +17,15 @@ const (
 )
 
 type Node struct {
-	Signer       Address
-	Payee        Address
-	State        string
-	Transaction  crypto.Hash
-	Timestamp    uint64
-	idForNetwork crypto.Hash
-	networkId    crypto.Hash
+	Signer      Address
+	Payee       Address
+	State       string
+	Transaction crypto.Hash
+	Timestamp   uint64
 }
 
 func (n *Node) IdForNetwork(networkId crypto.Hash) crypto.Hash {
-	if !n.idForNetwork.HasValue() {
-		n.idForNetwork = n.Signer.Hash().ForNetwork(networkId)
-		n.networkId = networkId
-	}
-	if n.networkId != networkId {
-		panic(fmt.Errorf("invalid network id %s %s", n.networkId, networkId))
-	}
-	return n.idForNetwork
+	return n.Signer.Hash().ForNetwork(networkId)
 }
 
 func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UTXO) error {

@@ -66,7 +66,7 @@ func (node *Node) ElectionLoop() {
 	}
 }
 
-func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*common.Node, error) {
+func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*CNode, error) {
 	if p := node.ConsensusPledging; p != nil {
 		return nil, fmt.Errorf("still pledging now %s", p.Signer.String())
 	}
@@ -99,7 +99,7 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*commo
 		}
 	}
 	if candi.State != common.NodeStateAccepted {
-		return nil, fmt.Errorf("invalid node state %s %s", candi.IdForNetwork(node.networkId), candi.State)
+		return nil, fmt.Errorf("invalid node state %s %s", candi.IdForNetwork, candi.State)
 	}
 
 	days := int((now - node.Epoch) / 3600000000000 / 24)
@@ -108,13 +108,13 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*commo
 		return nil, fmt.Errorf("all old nodes removed %d %d %d %d", candi.Timestamp, t, now, days)
 	}
 
-	if candi.IdForNetwork(node.networkId) == nodeId {
+	if candi.IdForNetwork == nodeId {
 		return nil, fmt.Errorf("never handle the node remove transaction by the node self")
 	}
 	return candi, nil
 }
 
-func (node *Node) tryToSendRemoveTransaction(candi *common.Node) error {
+func (node *Node) tryToSendRemoveTransaction(candi *CNode) error {
 	tx, err := node.buildRemoveTransaction(candi)
 	if err != nil {
 		return err
@@ -136,7 +136,7 @@ func (node *Node) tryToSendRemoveTransaction(candi *common.Node) error {
 	})
 }
 
-func (node *Node) buildRemoveTransaction(candi *common.Node) (*common.VersionedTransaction, error) {
+func (node *Node) buildRemoveTransaction(candi *CNode) (*common.VersionedTransaction, error) {
 	accept, _, err := node.persistStore.ReadTransaction(candi.Transaction)
 	if err != nil {
 		return nil, err
@@ -490,7 +490,7 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	if node.ConsensusPledging == nil {
 		return fmt.Errorf("invalid consensus status")
 	}
-	if id := node.ConsensusPledging.IdForNetwork(node.networkId); id != s.NodeId {
+	if id := node.ConsensusPledging.IdForNetwork; id != s.NodeId {
 		return fmt.Errorf("invalid pledging node %s %s", id, s.NodeId)
 	}
 	if node.ConsensusPledging.Transaction != tx.Inputs[0].Hash {

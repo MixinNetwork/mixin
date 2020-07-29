@@ -126,10 +126,9 @@ func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snaps
 			}
 		}
 		if n := chain.node.ConsensusPledging; n != nil {
-			id := n.IdForNetwork(chain.node.networkId)
-			if id == s.NodeId && s.RoundNumber == 0 && chain.node.CacheVerify(s.Hash, *sig, n.Signer.PublicSpendKey) {
+			if n.IdForNetwork == s.NodeId && s.RoundNumber == 0 && chain.node.CacheVerify(s.Hash, *sig, n.Signer.PublicSpendKey) {
 				sigs = append(sigs, sig)
-				signersMap[id] = true
+				signersMap[n.IdForNetwork] = true
 			}
 		}
 		signaturesFilter[sig.String()] = true

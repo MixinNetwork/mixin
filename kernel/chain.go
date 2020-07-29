@@ -103,7 +103,7 @@ func (chain *Chain) Teardown() {
 	<-chain.plc
 }
 
-func (chain *Chain) loadState(networkId crypto.Hash, allNodes []*common.Node) error {
+func (chain *Chain) loadState(networkId crypto.Hash, allNodes []*CNode) error {
 	chain.Lock()
 	defer chain.Unlock()
 
@@ -130,20 +130,19 @@ func (chain *Chain) loadState(networkId crypto.Hash, allNodes []*common.Node) er
 	cache.Timestamp = final.Start + config.SnapshotRoundGap
 
 	for _, cn := range allNodes {
-		id := cn.IdForNetwork(networkId)
-		if chain.ChainId == id {
+		if chain.ChainId == cn.IdForNetwork {
 			continue
 		}
-		link, err := chain.persistStore.ReadLink(chain.ChainId, id)
+		link, err := chain.persistStore.ReadLink(chain.ChainId, cn.IdForNetwork)
 		if err != nil {
 			return err
 		}
-		chain.State.RoundLinks[id] = link
-		rlink, err := chain.persistStore.ReadLink(id, chain.ChainId)
+		chain.State.RoundLinks[cn.IdForNetwork] = link
+		rlink, err := chain.persistStore.ReadLink(cn.IdForNetwork, chain.ChainId)
 		if err != nil {
 			return err
 		}
-		chain.State.ReverseRoundLinks[id] = rlink
+		chain.State.ReverseRoundLinks[cn.IdForNetwork] = rlink
 	}
 
 	if chain.ChainId == chain.node.IdForNetwork {

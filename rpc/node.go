@@ -10,7 +10,7 @@ func listAllNodes(store storage.Store, node *kernel.Node) ([]map[string]interfac
 	result := make([]map[string]interface{}, len(nodes))
 	for i, n := range nodes {
 		item := map[string]interface{}{
-			"id":          n.IdForNetwork(node.NetworkId()),
+			"id":          n.IdForNetwork,
 			"signer":      n.Signer,
 			"payee":       n.Payee,
 			"transaction": n.Transaction,

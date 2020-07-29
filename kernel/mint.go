@@ -273,22 +273,22 @@ func (node *Node) checkMintPossibility(timestamp uint64, validateOnly bool) (int
 	return batch, amount
 }
 
-func (node *Node) sortMintNodes(timestamp uint64) []*common.Node {
-	var nodes []*common.Node
+func (node *Node) sortMintNodes(timestamp uint64) []*CNode {
+	var nodes []*CNode
 	for _, n := range node.ConsensusNodes {
 		if n.Timestamp < timestamp {
 			nodes = append(nodes, n)
 		}
 	}
 	sort.Slice(nodes, func(i, j int) bool {
-		a := nodes[i].IdForNetwork(node.networkId)
-		b := nodes[j].IdForNetwork(node.networkId)
+		a := nodes[i].IdForNetwork
+		b := nodes[j].IdForNetwork
 		return a.String() < b.String()
 	})
 	return nodes
 }
 
-func (node *Node) SortAllNodesByTimestampAndId() []*common.Node {
+func (node *Node) SortAllNodesByTimestampAndId() []*CNode {
 	nodes := node.persistStore.ReadAllNodes()
 	sort.Slice(nodes, func(i, j int) bool {
 		if nodes[i].Timestamp < nodes[j].Timestamp {
@@ -301,5 +301,16 @@ func (node *Node) SortAllNodesByTimestampAndId() []*common.Node {
 		b := nodes[j].IdForNetwork(node.networkId)
 		return a.String() < b.String()
 	})
-	return nodes
+	cnodes := make([]*CNode, len(nodes))
+	for i, n := range nodes {
+		cnodes[i] = &CNode{
+			IdForNetwork: n.IdForNetwork(node.networkId),
+			Signer:       n.Signer,
+			Payee:        n.Payee,
+			Transaction:  n.Transaction,
+			Timestamp:    n.Timestamp,
+			State:        n.State,
+		}
+	}
+	return cnodes
 }

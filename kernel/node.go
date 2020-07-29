@@ -27,11 +27,12 @@ type Node struct {
 	TopoCounter *TopologicalSequence
 	SyncPoints  *syncMap
 
-	AllNodesSorted       []*common.Node
-	ConsensusNodes       map[crypto.Hash]*common.Node
+	AllNodesSorted       []*CNode
+	AllNodesId           []crypto.Hash
+	ConsensusNodes       map[crypto.Hash]*CNode
 	SortedConsensusNodes []crypto.Hash
 	ConsensusIndex       int
-	ConsensusPledging    *common.Node
+	ConsensusPledging    *CNode
 	GraphTimestamp       uint64
 
 	chains *chainsMap
@@ -50,6 +51,15 @@ type Node struct {
 	done chan struct{}
 	elc  chan struct{}
 	mlc  chan struct{}
+}
+
+type CNode struct {
+	IdForNetwork crypto.Hash
+	Signer       common.Address
+	Payee        common.Address
+	Transaction  crypto.Hash
+	Timestamp    uint64
+	State        string
 }
 
 func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fastcache.Cache, addr string, dir string) (*Node, error) {
@@ -125,7 +135,7 @@ func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
 		if cn.State != common.NodeStateAccepted {
 			continue
 		}
-		if node.genesisNodesMap[cn.IdForNetwork(node.networkId)] || cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) < timestamp {
+		if node.genesisNodesMap[cn.IdForNetwork] || cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) < timestamp {
 			keys = append(keys, &cn.Signer.PublicSpendKey)
 		}
 	}
@@ -154,7 +164,7 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 				consensusBase++
 			}
 		case common.NodeStateAccepted:
-			if node.genesisNodesMap[cn.IdForNetwork(node.networkId)] || cn.Timestamp+threshold < timestamp {
+			if node.genesisNodesMap[cn.IdForNetwork] || cn.Timestamp+threshold < timestamp {
 				consensusBase++
 			}
 		case common.NodeStateResigning:
@@ -170,21 +180,22 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 
 func (node *Node) LoadConsensusNodes() error {
 	node.ConsensusPledging = nil
-	consensusNodes := make(map[crypto.Hash]*common.Node)
+	consensusNodes := make(map[crypto.Hash]*CNode)
 	sortedConsensusNodes := make([]crypto.Hash, 0)
 	node.AllNodesSorted = node.SortAllNodesByTimestampAndId()
-	for _, cn := range node.AllNodesSorted {
+	node.AllNodesId = make([]crypto.Hash, len(node.AllNodesSorted))
+	for i, cn := range node.AllNodesSorted {
+		node.AllNodesId[i] = cn.IdForNetwork
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.Epoch
 		}
-		idForNetwork := cn.IdForNetwork(node.networkId)
-		logger.Println(idForNetwork, cn.Signer.String(), cn.State, cn.Timestamp)
+		logger.Println(cn.IdForNetwork, cn.Signer, cn.State, cn.Timestamp)
 		switch cn.State {
 		case common.NodeStatePledging:
 			node.ConsensusPledging = cn
 		case common.NodeStateAccepted:
-			consensusNodes[idForNetwork] = cn
-			sortedConsensusNodes = append(sortedConsensusNodes, idForNetwork)
+			consensusNodes[cn.IdForNetwork] = cn
+			sortedConsensusNodes = append(sortedConsensusNodes, cn.IdForNetwork)
 		case common.NodeStateResigning:
 		case common.NodeStateRemoved:
 		}
@@ -199,7 +210,7 @@ func (node *Node) LoadConsensusNodes() error {
 	return nil
 }
 
-func (node *Node) ConsensusRemovedRecently(timestamp uint64) *common.Node {
+func (node *Node) ConsensusRemovedRecently(timestamp uint64) *CNode {
 	threshold := uint64(config.KernelNodeAcceptPeriodMinimum) / 2
 	if timestamp <= threshold {
 		return nil
@@ -352,12 +363,7 @@ func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTr
 }
 
 func (node *Node) ReadAllNodes() []crypto.Hash {
-	nodes := node.AllNodesSorted
-	hashes := make([]crypto.Hash, len(nodes))
-	for i, n := range nodes {
-		hashes[i] = n.IdForNetwork(node.networkId)
-	}
-	return hashes
+	return node.AllNodesId
 }
 
 func (node *Node) ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
