@@ -42,9 +42,10 @@ func (node *Node) TopoWrite(s *common.Snapshot) *common.SnapshotWithTopologicalO
 }
 
 func (topo *TopologicalSequence) TopoStats() {
+	durationSeconds := 60
 	for {
-		time.Sleep(1 * time.Minute)
-		topo.sps = float64(topo.seq-topo.point) / 300
+		time.Sleep(time.Duration(durationSeconds) * time.Second)
+		topo.sps = float64(topo.seq-topo.point) / float64(durationSeconds)
 		topo.point = topo.seq
 	}
 }
