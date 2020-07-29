@@ -45,6 +45,7 @@ type Node struct {
 	cacheStore      *fastcache.Cache
 	custom          *config.Custom
 	configDir       string
+	addr            string
 
 	done chan struct{}
 	elc  chan struct{}
@@ -61,6 +62,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 		cacheStore:      cacheStore,
 		custom:          custom,
 		configDir:       dir,
+		addr:            addr,
 		startAt:         clock.Now(),
 		done:            make(chan struct{}),
 		elc:             make(chan struct{}),
@@ -91,12 +93,6 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 	}
 
 	err = node.LoadAllChains(node.persistStore, node.networkId)
-	if err != nil {
-		return nil, err
-	}
-
-	node.Peer = network.NewPeer(node, node.IdForNetwork, addr, custom.Network.GossipNeighbors)
-	err = node.PingNeighborsFromConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -225,6 +221,8 @@ func (node *Node) ConsensusRemovedRecently(timestamp uint64) *common.Node {
 }
 
 func (node *Node) PingNeighborsFromConfig() error {
+	node.Peer = network.NewPeer(node, node.IdForNetwork, node.addr, node.custom.Network.GossipNeighbors)
+
 	f, err := ioutil.ReadFile(node.configDir + "/nodes.json")
 	if err != nil {
 		return err

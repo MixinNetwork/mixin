@@ -8,6 +8,10 @@ import (
 )
 
 func (node *Node) Loop() error {
+	err := node.PingNeighborsFromConfig()
+	if err != nil {
+		return err
+	}
 	go func() {
 		err := node.ListenNeighbors()
 		if err != nil {
