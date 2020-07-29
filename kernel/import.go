@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -132,10 +133,15 @@ func (node *Node) importAllNodeHeads(source storage.Store, done chan struct{}) e
 			return nil
 		case <-ticker.C:
 			graph := node.BuildGraph()
+			var wg sync.WaitGroup
 			for _, n := range nodes {
-				id := n.IdForNetwork(node.networkId)
-				node.importNodeHead(source, graph, id)
+				wg.Add(1)
+				go func(id crypto.Hash) {
+					node.importNodeHead(source, graph, id)
+					wg.Done()
+				}(n.IdForNetwork(node.networkId))
 			}
+			wg.Wait()
 		}
 	}
 }
