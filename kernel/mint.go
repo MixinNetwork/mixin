@@ -253,10 +253,10 @@ func (node *Node) checkMintPossibility(timestamp uint64, validateOnly bool) (int
 
 	dist, err := node.persistStore.ReadLastMintDistribution(common.MintGroupKernelNode)
 	if err != nil {
-		logger.Println("ReadLastMintDistribution ERROR", err)
+		logger.Verbosef("ReadLastMintDistribution ERROR %s\n", err)
 		return 0, common.Zero
 	}
-	logger.Println("checkMintPossibility OLD", pool, total, light, full, batch, dist.Amount, dist.Batch)
+	logger.Verbosef("checkMintPossibility OLD %s %s %s %s %d %s %d\n", pool, total, light, full, batch, dist.Amount, dist.Batch)
 
 	if batch < int(dist.Batch) {
 		return 0, common.Zero
@@ -269,7 +269,7 @@ func (node *Node) checkMintPossibility(timestamp uint64, validateOnly bool) (int
 	}
 
 	amount := full.Mul(batch - int(dist.Batch))
-	logger.Println("checkMintPossibility NEW", pool, total, light, full, amount, batch, dist.Amount, dist.Batch)
+	logger.Verbosef("checkMintPossibility NEW %s %s %s %s %s %d %s %d\n", pool, total, light, full, amount, batch, dist.Amount, dist.Batch)
 	return batch, amount
 }
 

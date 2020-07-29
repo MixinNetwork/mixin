@@ -52,7 +52,7 @@ func (node *Node) Import(configDir string, source storage.Store) error {
 		}
 
 		for i, s := range snapshots {
-			err := node.importSnapshot(s, transactions[i])
+			err := node.importSnapshot(s, transactions[i], true)
 			if err != nil {
 				return err
 			}
@@ -92,7 +92,7 @@ func (node *Node) Import(configDir string, source storage.Store) error {
 	return nil
 }
 
-func (node *Node) importSnapshot(s *common.SnapshotWithTopologicalOrder, tx *common.VersionedTransaction) error {
+func (node *Node) importSnapshot(s *common.SnapshotWithTopologicalOrder, tx *common.VersionedTransaction, block bool) error {
 	if s.Transaction != tx.PayloadHash() {
 		return fmt.Errorf("malformed transaction hash %s %s", s.Transaction, tx.PayloadHash())
 	}
@@ -111,8 +111,7 @@ func (node *Node) importSnapshot(s *common.SnapshotWithTopologicalOrder, tx *com
 	chain := node.GetOrCreateChain(s.NodeId)
 	for {
 		err = chain.AppendFinalSnapshot(node.IdForNetwork, &s.Snapshot)
-		if err != nil {
-			logger.Printf("QueueAppendSnapshot %s %v\n", s.Transaction, err)
+		if err != nil && block {
 			time.Sleep(3 * time.Second)
 		} else {
 			break
@@ -157,7 +156,7 @@ func (node *Node) importNodeHead(source storage.Store, graph []*network.SyncPoin
 		ss, _ := source.ReadSnapshotsForNodeRound(id, i)
 		for _, s := range ss {
 			tx, _, _ := source.ReadTransaction(s.Transaction)
-			node.importSnapshot(s, tx)
+			node.importSnapshot(s, tx, false)
 		}
 	}
 }
