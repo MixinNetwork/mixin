@@ -219,10 +219,10 @@ func (chain *Chain) consumeFinalActions() error {
 		case <-chain.node.done:
 		case ps := <-chain.finalActionsChan:
 			for chain.running {
-				full, err := chain.appendFinalSnapshot(ps.PeerId, ps.Snapshot)
+				retry, err := chain.appendFinalSnapshot(ps.PeerId, ps.Snapshot)
 				if err != nil {
 					return err
-				} else if full {
+				} else if retry {
 					time.Sleep(1 * time.Second)
 				} else {
 					break
@@ -239,7 +239,8 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 		start = chain.State.CacheRound.Number
 		pr := chain.FinalPool[chain.FinalIndex]
 		if pr != nil && pr.Number != start {
-			panic(fmt.Errorf("should never be here %s %d %d", s.NodeId, start, pr.Number))
+			logger.Verbosef("AppendFinalSnapshot(%s, %s) cache and index malformed %d %d\n", peerId, s.Hash, start, pr.Number)
+			return true, nil
 		}
 	}
 	if s.RoundNumber < start {
