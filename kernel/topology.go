@@ -1,15 +1,15 @@
 package kernel
 
 import (
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
 )
 
 type TopologicalSequence struct {
-	sync.Mutex
 	seq   uint64
 	point uint64
 	sps   float64
@@ -24,19 +24,18 @@ func (node *Node) SPS() float64 {
 }
 
 func (node *Node) TopoWrite(s *common.Snapshot) *common.SnapshotWithTopologicalOrder {
-	node.TopoCounter.Lock()
-	defer node.TopoCounter.Unlock()
-
-	next := node.TopoCounter.seq
-	node.TopoCounter.seq += 1
-
+	next := atomic.AddUint64(&node.TopoCounter.seq, 1)
 	topo := &common.SnapshotWithTopologicalOrder{
 		Snapshot:         *s,
 		TopologicalOrder: next,
 	}
-	err := node.persistStore.WriteSnapshot(topo)
-	if err != nil {
-		panic(err)
+	for {
+		err := node.persistStore.WriteSnapshot(topo)
+		if err != nil {
+			logger.Println("TopoWrite", s.Transaction, err)
+			continue
+		}
+		break
 	}
 	return topo
 }
