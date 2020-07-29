@@ -218,16 +218,22 @@ func (chain *Chain) consumeFinalActions() error {
 		select {
 		case <-chain.node.done:
 		case ps := <-chain.finalActionsChan:
-			err := chain.appendFinalSnapshot(ps.PeerId, ps.Snapshot)
-			if err != nil {
-				return err
+			for chain.running {
+				full, err := chain.appendFinalSnapshot(ps.PeerId, ps.Snapshot)
+				if err != nil {
+					return err
+				} else if full {
+					time.Sleep(1 * time.Second)
+				} else {
+					break
+				}
 			}
 		}
 	}
 	return nil
 }
 
-func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
+func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) (bool, error) {
 	start, offset := uint64(0), 0
 	if chain.State.CacheRound != nil {
 		start = chain.State.CacheRound.Number
@@ -238,12 +244,12 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	}
 	if s.RoundNumber < start {
 		logger.Debugf("AppendFinalSnapshot(%s, %s) expired %d %d\n", peerId, s.Hash, s.RoundNumber, start)
-		return nil
+		return false, nil
 	}
 	offset = int(s.RoundNumber - start)
 	if offset >= FinalPoolSlotsLimit {
 		logger.Verbosef("AppendFinalSnapshot(%s, %s) pool slots full %d %d %d\n", peerId, s.Hash, start, s.RoundNumber, chain.FinalIndex)
-		return nil
+		return true, nil
 	}
 	offset = (offset + chain.FinalIndex) % FinalPoolSlotsLimit
 	round := chain.FinalPool[offset]
@@ -259,7 +265,7 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 		round.Size = 0
 	}
 	if round.Size == FinalPoolRoundSizeLimit {
-		return fmt.Errorf("AppendFinalSnapshot(%s, %s) round snapshots full %s:%d", peerId, s.Hash, s.NodeId, s.RoundNumber)
+		return false, fmt.Errorf("AppendFinalSnapshot(%s, %s) round snapshots full %s:%d", peerId, s.Hash, s.NodeId, s.RoundNumber)
 	}
 	index, found := round.index[s.Hash]
 	if !found {
@@ -278,7 +284,7 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 		}
 	}
 	chain.FinalPool[offset] = round
-	return nil
+	return false, nil
 }
 
 func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
