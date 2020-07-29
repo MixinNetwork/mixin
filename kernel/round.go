@@ -46,12 +46,18 @@ func (node *Node) PoolInfo() (uint64, uint64) {
 
 func (node *Node) LoadAllChains(store storage.Store, networkId crypto.Hash) error {
 	for _, cn := range node.AllNodesSorted {
-		if cn.State != common.NodeStateAccepted {
+		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateCancelled {
 			continue
 		}
 
 		id := cn.IdForNetwork(networkId)
-		node.GetOrCreateChain(id)
+		chain := node.GetOrCreateChain(id)
+		if chain.State.CacheRound == nil {
+			continue
+		}
+		if t := chain.State.FinalRound.End; t > node.GraphTimestamp {
+			node.GraphTimestamp = t
+		}
 	}
 	return nil
 }
