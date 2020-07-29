@@ -260,6 +260,9 @@ func testConsensus(t *testing.T, dup int) {
 	assert.Equal(INPUTS+NODES+1, tl)
 	gt = testVerifyInfo(assert, nodes)
 	assert.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
+	hr := testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
+	assert.NotNil(hr)
+	assert.GreaterOrEqual(hr.Round, uint64(0))
 	t.Log("DEPOSIT TEST DONE", time.Now())
 
 	utxos := make([]*common.VersionedTransaction, 0)
@@ -300,6 +303,9 @@ func testConsensus(t *testing.T, dup int) {
 	assert.Equal(INPUTS*2+NODES+1, tl)
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
+	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
+	assert.NotNil(hr)
+	assert.Greater(hr.Round, uint64(0))
 	t.Log("INPUT TEST DONE", time.Now())
 
 	kernel.TestMockDiff((config.KernelMintTimeBegin + 24) * time.Hour)
@@ -315,7 +321,7 @@ func testConsensus(t *testing.T, dup int) {
 
 	input, err := testBuildPledgeInput(assert, nodes[0].Host, accounts[0], utxos)
 	assert.Nil(err)
-	time.Sleep(8 * time.Second)
+	time.Sleep(5 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1, tl)
 	gt = testVerifyInfo(assert, nodes)
@@ -330,6 +336,11 @@ func testConsensus(t *testing.T, dup int) {
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.After(epoch.Add((config.KernelMintTimeBegin + 24) * time.Hour)))
 	assert.Equal("499876.71232883", gt.PoolSize.String())
+	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
+	assert.NotNil(hr)
+	assert.Greater(hr.Round, uint64(0))
+	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork)
+	assert.Nil(hr)
 
 	all = testListNodes(nodes[0].Host)
 	assert.Len(all, NODES+1)
@@ -345,6 +356,8 @@ func testConsensus(t *testing.T, dup int) {
 	assert.Equal(all[NODES].Signer.String(), pn.Signer.String())
 	assert.Equal(all[NODES].Payee.String(), pn.Payee.String())
 	assert.Equal("PLEDGING", all[NODES].State)
+	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork)
+	assert.Nil(hr)
 
 	kernel.TestMockDiff(1 * time.Hour)
 	time.Sleep(5 * time.Second)
@@ -355,6 +368,18 @@ func testConsensus(t *testing.T, dup int) {
 	assert.Equal("ACCEPTED", all[NODES].State)
 	assert.Equal(len(testListSnapshots(nodes[NODES-1].Host)), len(testListSnapshots(pn.Host)))
 	assert.Equal(len(testListSnapshots(nodes[0].Host)), len(testListSnapshots(pn.Host)))
+	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
+	assert.NotNil(hr)
+	assert.Greater(hr.Round, uint64(0))
+	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, instances[0].IdForNetwork)
+	assert.NotNil(hr)
+	assert.Greater(hr.Round, uint64(0))
+	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork)
+	assert.NotNil(hr)
+	assert.Equal(uint64(0), hr.Round)
+	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, pi.IdForNetwork)
+	assert.NotNil(hr)
+	assert.Equal(uint64(0), hr.Round)
 
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1, tl)
@@ -368,7 +393,7 @@ func testConsensus(t *testing.T, dup int) {
 	assert.Equal(INPUTS*2+NODES+1+1+2+1, tl)
 
 	input = testSendDummyTransaction(assert, nodes[0].Host, accounts[0], input, "3.5")
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1+1, tl)
 	for i := range nodes {
@@ -383,7 +408,7 @@ func testConsensus(t *testing.T, dup int) {
 	signer, payee := testGetNodeToRemove(instances[0].NetworkId(), accounts, payees)
 	input = testSendDummyTransaction(assert, nodes[0].Host, accounts[0], input, "3.5")
 	nodes = testRemoveNode(nodes, signer)
-	time.Sleep(8 * time.Second)
+	time.Sleep(5 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2, tl)
 	for i := range nodes {
@@ -393,10 +418,28 @@ func testConsensus(t *testing.T, dup int) {
 		assert.Equal(all[NODES].Payee.String(), payee.String())
 		assert.Equal("REMOVED", all[NODES].State)
 	}
+	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
+	assert.NotNil(hr)
+	assert.Greater(hr.Round, uint64(0))
+	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, instances[0].IdForNetwork)
+	assert.NotNil(hr)
+	assert.Greater(hr.Round, uint64(0))
+	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork)
+	assert.NotNil(hr)
+	assert.Equal(uint64(0), hr.Round)
+	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, pi.IdForNetwork)
+	assert.NotNil(hr)
+	assert.Equal(uint64(0), hr.Round)
+	hr = testDumpGraphHead(nodes[0].Host, signer.Hash().ForNetwork(instances[0].NetworkId()))
+	assert.NotNil(hr)
+	assert.Greater(hr.Round, uint64(0))
+	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, signer.Hash().ForNetwork(instances[0].NetworkId()))
+	assert.NotNil(hr)
+	assert.Greater(hr.Round, uint64(0))
 
 	input = testSendDummyTransaction(assert, nodes[0].Host, payee, all[NODES].Transaction.String(), "10000")
 	assert.Len(input, 64)
-	time.Sleep(8 * time.Second)
+	time.Sleep(3 * time.Second)
 	tl, sl = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2+1, tl)
 	for i := range nodes {
@@ -810,6 +853,30 @@ func testListNodes(node string) []*Node {
 		panic(err)
 	}
 	return nodes
+}
+
+type HeadRound struct {
+	Node  crypto.Hash `json:"node"`
+	Round uint64      `json:"round"`
+	Hash  crypto.Hash `json:"hash"`
+}
+
+func testDumpGraphHead(node string, id crypto.Hash) *HeadRound {
+	data, err := callRPC(node, "dumpgraphhead", []interface{}{})
+	if err != nil {
+		panic(err)
+	}
+	var head []*HeadRound
+	err = json.Unmarshal(data, &head)
+	if err != nil {
+		panic(err)
+	}
+	for _, r := range head {
+		if r.Node == id {
+			return r
+		}
+	}
+	return nil
 }
 
 type Info struct {
