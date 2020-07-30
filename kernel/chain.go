@@ -34,11 +34,10 @@ type ChainRound struct {
 
 type ChainState struct {
 	sync.RWMutex
-	CacheRound        *CacheRound
-	FinalRound        *FinalRound
-	RoundHistory      []*FinalRound
-	RoundLinks        map[crypto.Hash]uint64
-	ReverseRoundLinks map[crypto.Hash]uint64
+	CacheRound   *CacheRound
+	FinalRound   *FinalRound
+	RoundHistory []*FinalRound
+	RoundLinks   map[crypto.Hash]uint64
 }
 
 type Chain struct {
@@ -66,8 +65,7 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		node:    node,
 		ChainId: chainId,
 		State: &ChainState{
-			RoundLinks:        make(map[crypto.Hash]uint64),
-			ReverseRoundLinks: make(map[crypto.Hash]uint64),
+			RoundLinks: make(map[crypto.Hash]uint64),
 		},
 		CosiAggregators:  make(map[crypto.Hash]*CosiAggregator),
 		CosiVerifiers:    make(map[crypto.Hash]*CosiVerifier),
@@ -138,11 +136,6 @@ func (chain *Chain) loadState(networkId crypto.Hash, allNodes []*CNode) error {
 			return err
 		}
 		chain.State.RoundLinks[cn.IdForNetwork] = link
-		rlink, err := chain.persistStore.ReadLink(cn.IdForNetwork, chain.ChainId)
-		if err != nil {
-			return err
-		}
-		chain.State.ReverseRoundLinks[cn.IdForNetwork] = rlink
 	}
 
 	if chain.ChainId == chain.node.IdForNetwork {
@@ -169,8 +162,8 @@ func (chain *Chain) QueuePollSnapshots(hook func(*CosiAction) (bool, error)) {
 			if cr := chain.State.CacheRound; cr != nil && round.Number < cr.Number {
 				continue
 			}
-			for i := 0; i < round.Size; i++ {
-				ps := round.Snapshots[i]
+			for j := 0; j < round.Size; j++ {
+				ps := round.Snapshots[j]
 				if ps.finalized {
 					continue
 				}
@@ -188,6 +181,9 @@ func (chain *Chain) QueuePollSnapshots(hook func(*CosiAction) (bool, error)) {
 						break
 					}
 					final++
+				}
+				if i != 0 {
+					break
 				}
 			}
 		}
