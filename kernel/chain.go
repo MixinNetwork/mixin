@@ -29,6 +29,7 @@ type PeerSnapshot struct {
 type ChainRound struct {
 	Number    uint64
 	Size      int
+	Timestamp uint64
 	Snapshots [FinalPoolRoundSizeLimit]*PeerSnapshot
 	index     map[crypto.Hash]int
 }
@@ -166,6 +167,9 @@ func (chain *Chain) QueuePollSnapshots(hook func(*CosiAction) (bool, error)) {
 			if cr != nil && (round.Number < cr.Number || round.Number > cr.Number+1) {
 				continue
 			}
+			if round.Timestamp > chain.node.GraphTimestamp+uint64(config.KernelNodeAcceptPeriodMaximum) {
+				continue
+			}
 			for j := 0; j < round.Size; j++ {
 				ps := round.Snapshots[j]
 				if ps.finalized {
@@ -209,7 +213,7 @@ func (chain *Chain) QueuePollSnapshots(hook func(*CosiAction) (bool, error)) {
 			cache++
 		}
 		if final == 0 && cache == 0 {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(300 * time.Millisecond)
 		} else {
 			time.Sleep(1 * time.Millisecond)
 		}
@@ -267,12 +271,14 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	round := chain.FinalPool[offset]
 	if round == nil {
 		round = &ChainRound{
-			Number: s.RoundNumber,
-			index:  make(map[crypto.Hash]int),
-			Size:   0,
+			Number:    s.RoundNumber,
+			Timestamp: s.Timestamp,
+			index:     make(map[crypto.Hash]int),
+			Size:      0,
 		}
 	} else if round.Number != s.RoundNumber {
 		round.Number = s.RoundNumber
+		round.Timestamp = s.Timestamp
 		round.index = make(map[crypto.Hash]int)
 		round.Size = 0
 	}
