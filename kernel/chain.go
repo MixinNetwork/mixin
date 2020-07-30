@@ -10,6 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
+	"github.com/MixinNetwork/mixin/util"
 )
 
 const (
@@ -49,13 +50,13 @@ type Chain struct {
 
 	CosiAggregators map[crypto.Hash]*CosiAggregator
 	CosiVerifiers   map[crypto.Hash]*CosiVerifier
-	CachePool       *RingBuffer
+	CachePool       *util.RingBuffer
 	CacheIndex      uint64
 	FinalPool       [FinalPoolSlotsLimit]*ChainRound
 	FinalIndex      int
 
 	persistStore     storage.Store
-	finalActionsChan chan *CosiAction
+	finalActionsRing *util.RingBuffer
 	plc              chan struct{}
 	running          bool
 }
@@ -69,9 +70,9 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		},
 		CosiAggregators:  make(map[crypto.Hash]*CosiAggregator),
 		CosiVerifiers:    make(map[crypto.Hash]*CosiVerifier),
-		CachePool:        NewRingBuffer(CachePoolSnapshotsLimit),
+		CachePool:        util.NewRingBuffer(CachePoolSnapshotsLimit),
 		persistStore:     node.persistStore,
-		finalActionsChan: make(chan *CosiAction, FinalPoolSlotsLimit),
+		finalActionsRing: util.NewRingBuffer(FinalPoolSlotsLimit),
 		plc:              make(chan struct{}),
 		running:          true,
 	}
@@ -98,6 +99,8 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 
 func (chain *Chain) Teardown() {
 	chain.running = false
+	chain.CachePool.Dispose()
+	chain.finalActionsRing.Dispose()
 	<-chain.plc
 }
 
@@ -159,7 +162,8 @@ func (chain *Chain) QueuePollSnapshots(hook func(*CosiAction) (bool, error)) {
 			if round == nil {
 				continue
 			}
-			if cr := chain.State.CacheRound; cr != nil && round.Number < cr.Number {
+			cr := chain.State.CacheRound
+			if cr != nil && (round.Number < cr.Number || round.Number > cr.Number+1) {
 				continue
 			}
 			for j := 0; j < round.Size; j++ {
@@ -193,6 +197,11 @@ func (chain *Chain) QueuePollSnapshots(hook func(*CosiAction) (bool, error)) {
 				break
 			}
 			m := item.(*CosiAction)
+			s := m.Snapshot
+			cr := chain.State.CacheRound
+			if s != nil && cr != nil && s.RoundNumber > cr.Number+1 {
+				continue
+			}
 			_, err = hook(m)
 			if err != nil {
 				panic(err)
@@ -202,7 +211,7 @@ func (chain *Chain) QueuePollSnapshots(hook func(*CosiAction) (bool, error)) {
 		if final == 0 && cache == 0 {
 			time.Sleep(100 * time.Millisecond)
 		} else {
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(1 * time.Millisecond)
 		}
 	}
 }
@@ -213,18 +222,22 @@ func (chain *Chain) StepForward() {
 
 func (chain *Chain) consumeFinalActions() error {
 	for chain.running {
-		select {
-		case <-chain.node.done:
-		case ps := <-chain.finalActionsChan:
-			for chain.running {
-				retry, err := chain.appendFinalSnapshot(ps.PeerId, ps.Snapshot)
-				if err != nil {
-					return err
-				} else if retry {
-					time.Sleep(1 * time.Second)
-				} else {
-					break
-				}
+		item, err := chain.finalActionsRing.Poll(false)
+		if err != nil {
+			return err
+		} else if item == nil {
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
+		ps := item.(*CosiAction)
+		for chain.running {
+			retry, err := chain.appendFinalSnapshot(ps.PeerId, ps.Snapshot)
+			if err != nil {
+				return err
+			} else if retry {
+				time.Sleep(1 * time.Second)
+			} else {
+				break
 			}
 		}
 	}
@@ -292,12 +305,11 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 		panic("final queue malformed")
 	}
 	ps := &CosiAction{PeerId: peerId, Snapshot: s}
-	select {
-	case chain.finalActionsChan <- ps:
-		return nil
-	default:
+	success, _ := chain.finalActionsRing.Offer(ps)
+	if !success {
 		return fmt.Errorf("AppendFinalSnapshot(%s, %s) pool slots full %d %d", peerId, s.Hash, s.RoundNumber, chain.FinalIndex)
 	}
+	return nil
 }
 
 func (chain *Chain) AppendCosiAction(m *CosiAction) error {

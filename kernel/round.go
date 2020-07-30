@@ -35,7 +35,7 @@ func (node *Node) PoolInfo() (uint64, uint64) {
 	var caches, finals uint64
 	for _, chain := range node.chains.m {
 		caches = caches + chain.CachePool.Len()
-		finals = finals + uint64(len(chain.finalActionsChan))
+		finals = finals + chain.finalActionsRing.Len()
 		round := chain.FinalPool[chain.FinalIndex]
 		if round != nil {
 			finals = finals + uint64(round.Size)

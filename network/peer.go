@@ -13,6 +13,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
+	"github.com/MixinNetwork/mixin/util"
 	"github.com/VictoriaMetrics/fastcache"
 )
 
@@ -28,9 +29,9 @@ type Peer struct {
 	handle          SyncHandle
 	transport       Transport
 	gossipNeighbors bool
-	high            chan *ChanMsg
-	normal          chan *ChanMsg
-	sync            chan []*SyncPoint
+	highRing        *util.RingBuffer
+	normalRing      *util.RingBuffer
+	syncRing        *util.RingBuffer
 	closing         bool
 	ops             chan struct{}
 	stn             chan struct{}
@@ -114,6 +115,9 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) (*Peer, error
 
 func (p *Peer) disconnect() {
 	p.closing = true
+	p.highRing.Dispose()
+	p.normalRing.Dispose()
+	p.syncRing.Dispose()
 	<-p.ops
 	<-p.stn
 }
@@ -126,9 +130,9 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNei
 		gossipRound:     &neighborMap{m: make(map[crypto.Hash]*Peer)},
 		pingFilter:      &neighborMap{m: make(map[crypto.Hash]*Peer)},
 		gossipNeighbors: gossipNeighbors,
-		high:            make(chan *ChanMsg, 1024),
-		normal:          make(chan *ChanMsg, 1024),
-		sync:            make(chan []*SyncPoint, 1024),
+		highRing:        util.NewRingBuffer(1024),
+		normalRing:      util.NewRingBuffer(1024),
+		syncRing:        util.NewRingBuffer(1024),
 		handle:          handle,
 		ops:             make(chan struct{}),
 		stn:             make(chan struct{}),
@@ -143,6 +147,9 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNei
 func (me *Peer) Teardown() {
 	me.closing = true
 	me.transport.Close()
+	me.highRing.Dispose()
+	me.normalRing.Dispose()
+	me.syncRing.Dispose()
 	neighbors := me.neighbors.Slice()
 	var wg sync.WaitGroup
 	for _, p := range neighbors {
@@ -280,8 +287,13 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 			gd = true
 		}
 
-		select {
-		case msg := <-p.high:
+		item, err := p.highRing.Poll(false)
+		if err != nil {
+			return nil, err
+		} else if item == nil {
+			hd = true
+		} else {
+			msg := item.(*ChanMsg)
 			if !me.snapshotsCaches.contains(msg.key, time.Minute) {
 				err := client.Send(msg.data)
 				if err != nil {
@@ -289,16 +301,18 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 				}
 				me.snapshotsCaches.store(msg.key, time.Now())
 			}
-		default:
-			hd = true
 		}
-
 		if !hd {
 			continue
 		}
 
-		select {
-		case msg := <-p.normal:
+		item, err = p.normalRing.Poll(false)
+		if err != nil {
+			return nil, err
+		} else if item == nil {
+			nd = true
+		} else {
+			msg := item.(*ChanMsg)
 			if !me.snapshotsCaches.contains(msg.key, time.Minute) {
 				err := client.Send(msg.data)
 				if err != nil {
@@ -306,8 +320,6 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 				}
 				me.snapshotsCaches.store(msg.key, time.Now())
 			}
-		default:
-			nd = true
 		}
 
 		if gd && hd && nd {
@@ -410,9 +422,8 @@ func (me *Peer) sendHighToPeer(idForNetwork crypto.Hash, key, data []byte) error
 		return nil
 	}
 
-	select {
-	case peer.high <- &ChanMsg{key, data}:
-	default:
+	success, _ := peer.highRing.Offer(&ChanMsg{key, data})
+	if !success {
 		return fmt.Errorf("peer send high timeout")
 	}
 	return nil
@@ -432,9 +443,8 @@ func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.
 		return nil
 	}
 
-	select {
-	case peer.normal <- &ChanMsg{key, data}:
-	default:
+	success, _ := peer.normalRing.Offer(&ChanMsg{key, data})
+	if !success {
 		return fmt.Errorf("peer send normal timeout")
 	}
 	return nil
