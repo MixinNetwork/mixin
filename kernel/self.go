@@ -107,9 +107,6 @@ func (chain *Chain) determinBestRound(roundTime uint64) *FinalRound {
 		if !chain.node.genesisNodesMap[id] && r.Number < 7+config.SnapshotReferenceThreshold*2 {
 			continue
 		}
-		if rl := chain.State.ReverseRoundLinks[id]; rl >= chain.State.CacheRound.Number {
-			continue
-		}
 		if rts+config.SnapshotRoundGap*rh > uint64(clock.Now().UnixNano()) {
 			continue
 		}

@@ -72,13 +72,6 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDu
 	}
 	chain.State.RoundLinks[external.NodeId] = external.Number
 
-	ec := chain.node.GetOrCreateChain(external.NodeId)
-	ec.State.Lock()
-	defer ec.State.Unlock()
-	if l := ec.State.ReverseRoundLinks[chain.ChainId]; external.Number < l {
-		return nil, false, fmt.Errorf("external reverse reference %s=>%s %d %d", external.NodeId, s.NodeId, external.Number, l)
-	}
-	ec.State.ReverseRoundLinks[chain.ChainId] = external.Number
 	return final, false, err
 }
 
@@ -101,14 +94,6 @@ func (chain *Chain) updateEmptyHeadRound(m *CosiAction, cache *CacheRound, s *co
 		return false, err
 	}
 	chain.State.RoundLinks[external.NodeId] = external.Number
-
-	ec := chain.node.GetOrCreateChain(external.NodeId)
-	ec.State.Lock()
-	defer ec.State.Unlock()
-	if l := ec.State.ReverseRoundLinks[chain.ChainId]; external.Number < l {
-		return false, fmt.Errorf("external reverse reference %s=>%s %d %d", external.NodeId, s.NodeId, external.Number, l)
-	}
-	ec.State.ReverseRoundLinks[chain.ChainId] = external.Number
 	return true, nil
 }
 
