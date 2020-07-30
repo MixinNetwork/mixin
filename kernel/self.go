@@ -6,6 +6,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 )
@@ -80,7 +81,7 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 	return nil
 }
 
-func (chain *Chain) determinBestRound(roundTime uint64) *FinalRound {
+func (chain *Chain) determinBestRound(roundTime uint64, hint crypto.Hash) (*FinalRound, error) {
 	chain.node.chains.RLock()
 	defer chain.node.chains.RUnlock()
 
@@ -88,36 +89,56 @@ func (chain *Chain) determinBestRound(roundTime uint64) *FinalRound {
 	defer chain.State.RUnlock()
 
 	if chain.State.FinalRound == nil {
-		return nil
+		return nil, nil
 	}
 
+	var valid bool
 	var best *FinalRound
 	var start, height uint64
 	for id, _ := range chain.node.ConsensusNodes {
-		ec := chain.node.chains.m[id]
-		history := historySinceRound(ec.State.RoundHistory, chain.State.RoundLinks[id])
+		valid = valid || id == hint
+		ec, link := chain.node.chains.m[id], chain.State.RoundLinks[id]
+		history := historySinceRound(ec.State.RoundHistory, link)
 		if len(history) == 0 {
-			continue
+			if id != hint {
+				continue
+			}
+			return nil, fmt.Errorf("external hint history empty since %d", link)
 		}
-		r := history[0]
+
+		r, cr := history[0], ec.State.CacheRound
 		rts, rh := r.Start, uint64(len(history))
 		if id == chain.ChainId || rh < height || rts > roundTime {
 			continue
 		}
+
 		if !chain.node.genesisNodesMap[id] && r.Number < 7+config.SnapshotReferenceThreshold*2 {
-			continue
+			if id != hint {
+				continue
+			}
+			return nil, fmt.Errorf("external hint round too early yet not genesis %d", r.Number)
 		}
-		if rts+config.SnapshotRoundGap*rh > uint64(clock.Now().UnixNano()) {
-			continue
+		if ts := rts + config.SnapshotRoundGap*rh; ts > uint64(clock.Now().UnixNano()) {
+			if id != hint {
+				continue
+			}
+			return nil, fmt.Errorf("external hint round timestamp too future %d %d", ts, clock.Now().UnixNano())
 		}
-		if cr := ec.State.CacheRound; len(cr.Snapshots) == 0 && cr.Number == r.Number+1 && r.Number > 0 {
-			continue
+		if len(cr.Snapshots) == 0 && cr.Number == r.Number+1 && r.Number > 0 {
+			if id != hint {
+				continue
+			}
+			return nil, fmt.Errorf("external hint round without extra final yet %d", r.Number)
 		}
+
 		if rh > height || rts > start {
 			best, start, height = r, rts, rh
 		}
 	}
-	return best
+	if valid {
+		return best, nil
+	}
+	return nil, fmt.Errorf("external hint not found in consensus %s", hint)
 }
 
 func historySinceRound(history []*FinalRound, link uint64) []*FinalRound {

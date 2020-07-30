@@ -55,8 +55,10 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDu
 			return nil, false, fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-s.Timestamp).Seconds())
 		}
 		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64
-		best := chain.determinBestRound(s.Timestamp)
-		if best != nil && threshold < best.Start {
+		best, err := chain.determinBestRound(s.Timestamp, external.NodeId)
+		if err != nil {
+			return nil, false, fmt.Errorf("external reference %s invalid %s", s.References.External, err)
+		} else if best != nil && threshold < best.Start {
 			return nil, false, fmt.Errorf("external reference %s too early %s:%d %f", s.References.External, best.NodeId, best.Number, time.Duration(best.Start-threshold).Seconds())
 		}
 	}
