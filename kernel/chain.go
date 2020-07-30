@@ -156,7 +156,7 @@ func (chain *Chain) QueuePollSnapshots(hook func(*CosiAction) (bool, error)) {
 	defer close(chain.plc)
 
 	for chain.running {
-		final, cache := 0, 0
+		final, cache, stale := 0, 0, false
 		for i := 0; i < 2; i++ {
 			index := (chain.FinalIndex + i) % FinalPoolSlotsLimit
 			round := chain.FinalPool[index]
@@ -168,7 +168,7 @@ func (chain *Chain) QueuePollSnapshots(hook func(*CosiAction) (bool, error)) {
 				continue
 			}
 			if round.Timestamp > chain.node.GraphTimestamp+uint64(config.KernelNodeAcceptPeriodMaximum) {
-				continue
+				stale = true
 			}
 			for j := 0; j < round.Size; j++ {
 				ps := round.Snapshots[j]
@@ -176,19 +176,19 @@ func (chain *Chain) QueuePollSnapshots(hook func(*CosiAction) (bool, error)) {
 					continue
 				}
 				for _, pid := range ps.peers {
-					m := &CosiAction{
+					finalized, err := hook(&CosiAction{
 						PeerId:   pid,
 						Action:   CosiActionFinalization,
 						Snapshot: ps.Snapshot,
-					}
-					finalized, err := hook(m)
+					})
 					if err != nil {
 						panic(err)
-					} else if finalized {
-						ps.finalized = true
-						break
 					}
 					final++
+					ps.finalized = finalized
+					if ps.finalized {
+						break
+					}
 				}
 				if i != 0 {
 					break
@@ -212,8 +212,10 @@ func (chain *Chain) QueuePollSnapshots(hook func(*CosiAction) (bool, error)) {
 			}
 			cache++
 		}
-		if final == 0 && cache == 0 {
-			time.Sleep(300 * time.Millisecond)
+		if stale {
+			time.Sleep(time.Duration(config.SnapshotRoundGap) * 3)
+		} else if final == 0 && cache == 0 {
+			time.Sleep(100 * time.Millisecond)
 		} else {
 			time.Sleep(1 * time.Millisecond)
 		}
