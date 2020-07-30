@@ -59,6 +59,7 @@ type Chain struct {
 	persistStore     storage.Store
 	finalActionsRing *util.RingBuffer
 	plc              chan struct{}
+	clc              chan struct{}
 	running          bool
 }
 
@@ -75,6 +76,7 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		persistStore:     node.persistStore,
 		finalActionsRing: util.NewRingBuffer(FinalPoolSlotsLimit),
 		plc:              make(chan struct{}),
+		clc:              make(chan struct{}),
 		running:          true,
 	}
 
@@ -83,18 +85,8 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		panic(err)
 	}
 
-	go func() {
-		err := chain.ConsumeQueue()
-		if err != nil {
-			panic(err)
-		}
-	}()
-	go func() {
-		err := chain.consumeFinalActions()
-		if err != nil {
-			panic(err)
-		}
-	}()
+	go chain.QueuePollSnapshots()
+	go chain.ConsumeFinalActions()
 	return chain
 }
 
@@ -102,6 +94,7 @@ func (chain *Chain) Teardown() {
 	chain.running = false
 	chain.CachePool.Dispose()
 	chain.finalActionsRing.Dispose()
+	<-chain.clc
 	<-chain.plc
 }
 
@@ -152,7 +145,7 @@ func (chain *Chain) loadState(networkId crypto.Hash, allNodes []*CNode) error {
 	return nil
 }
 
-func (chain *Chain) QueuePollSnapshots(hook func(*CosiAction) (bool, error)) {
+func (chain *Chain) QueuePollSnapshots() {
 	defer close(chain.plc)
 
 	for chain.running {
@@ -176,7 +169,7 @@ func (chain *Chain) QueuePollSnapshots(hook func(*CosiAction) (bool, error)) {
 					continue
 				}
 				for _, pid := range ps.peers {
-					finalized, err := hook(&CosiAction{
+					finalized, err := chain.cosiHook(&CosiAction{
 						PeerId:   pid,
 						Action:   CosiActionFinalization,
 						Snapshot: ps.Snapshot,
@@ -206,15 +199,13 @@ func (chain *Chain) QueuePollSnapshots(hook func(*CosiAction) (bool, error)) {
 			if s != nil && cr != nil && s.RoundNumber > cr.Number+1 {
 				continue
 			}
-			_, err = hook(m)
+			_, err = chain.cosiHook(m)
 			if err != nil {
 				panic(err)
 			}
 			cache++
 		}
-		if stale {
-			time.Sleep(time.Duration(config.SnapshotRoundGap) * 3)
-		} else if final == 0 && cache == 0 {
+		if stale || final == 0 && cache == 0 {
 			time.Sleep(100 * time.Millisecond)
 		} else {
 			time.Sleep(1 * time.Millisecond)
@@ -226,11 +217,13 @@ func (chain *Chain) StepForward() {
 	chain.FinalIndex = (chain.FinalIndex + 1) % FinalPoolSlotsLimit
 }
 
-func (chain *Chain) consumeFinalActions() error {
+func (chain *Chain) ConsumeFinalActions() {
+	defer close(chain.clc)
+
 	for chain.running {
 		item, err := chain.finalActionsRing.Poll(false)
 		if err != nil {
-			return err
+			return
 		} else if item == nil {
 			time.Sleep(10 * time.Millisecond)
 			continue
@@ -239,7 +232,7 @@ func (chain *Chain) consumeFinalActions() error {
 		for chain.running {
 			retry, err := chain.appendFinalSnapshot(ps.PeerId, ps.Snapshot)
 			if err != nil {
-				return err
+				panic(err)
 			} else if retry {
 				time.Sleep(1 * time.Second)
 			} else {
@@ -247,7 +240,6 @@ func (chain *Chain) consumeFinalActions() error {
 			}
 		}
 	}
-	return nil
 }
 
 func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) (bool, error) {

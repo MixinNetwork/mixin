@@ -2,7 +2,6 @@ package kernel
 
 import (
 	"github.com/MixinNetwork/mixin/common"
-	"github.com/MixinNetwork/mixin/logger"
 )
 
 func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, error) {
@@ -34,26 +33,4 @@ func (node *Node) LoadCacheToQueue() error {
 		}
 		return chain.AppendSelfEmpty(s)
 	})
-}
-
-func (chain *Chain) ConsumeQueue() error {
-	chain.QueuePollSnapshots(func(m *CosiAction) (bool, error) {
-		if !chain.running {
-			return false, nil
-		}
-		err := chain.cosiHandleAction(m)
-		if err != nil {
-			return false, err
-		}
-		if m.Action != CosiActionFinalization {
-			return false, nil
-		}
-		if m.finalized || !m.WantTx || m.PeerId == chain.node.IdForNetwork {
-			return m.finalized, nil
-		}
-		logger.Debugf("ConsumeQueue finalized snapshot without transaction %s %s %s\n", m.PeerId, m.SnapshotHash, m.Snapshot.Transaction)
-		chain.node.Peer.SendTransactionRequestMessage(m.PeerId, m.Snapshot.Transaction)
-		return m.finalized, nil
-	})
-	return nil
 }

@@ -49,6 +49,25 @@ type CosiVerifier struct {
 	random   *crypto.Key
 }
 
+func (chain *Chain) cosiHook(m *CosiAction) (bool, error) {
+	if !chain.running {
+		return false, nil
+	}
+	err := chain.cosiHandleAction(m)
+	if err != nil {
+		return false, err
+	}
+	if m.Action != CosiActionFinalization {
+		return false, nil
+	}
+	if m.finalized || !m.WantTx || m.PeerId == chain.node.IdForNetwork {
+		return m.finalized, nil
+	}
+	logger.Debugf("cosiHook finalized snapshot without transaction %s %s %s\n", m.PeerId, m.SnapshotHash, m.Snapshot.Transaction)
+	chain.node.Peer.SendTransactionRequestMessage(m.PeerId, m.Snapshot.Transaction)
+	return m.finalized, nil
+}
+
 func (chain *Chain) cosiHandleAction(m *CosiAction) error {
 	switch m.Action {
 	case CosiActionSelfEmpty:
