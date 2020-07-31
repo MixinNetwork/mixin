@@ -250,7 +250,9 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	if chain.State.CacheRound != nil {
 		start = chain.State.CacheRound.Number
 		pr := chain.FinalPool[chain.FinalIndex]
-		if pr != nil && pr.Number != start {
+		if pr == nil || pr.Number == start || pr.Number+FinalPoolSlotsLimit == start {
+			logger.Debugf("AppendFinalSnapshot(%s, %s) cache and index match %d\n", peerId, s.Hash, start)
+		} else {
 			logger.Verbosef("AppendFinalSnapshot(%s, %s) cache and index malformed %d %d\n", peerId, s.Hash, start, pr.Number)
 			return true, nil
 		}
