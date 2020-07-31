@@ -300,6 +300,29 @@ func (node *Node) BuildGraph() []*network.SyncPoint {
 	return points
 }
 
+func (node *Node) BuildGraphWithPoolInfo() []map[string]interface{} {
+	node.chains.RLock()
+	defer node.chains.RUnlock()
+
+	points := make([]map[string]interface{}, 0)
+	for _, chain := range node.chains.m {
+		if chain.State.CacheRound == nil {
+			continue
+		}
+		f := chain.State.FinalRound
+		points = append(points, map[string]interface{}{
+			"node":  chain.ChainId,
+			"round": f.Number,
+			"hash":  f.Hash,
+			"pool": map[string]int{
+				"index": chain.FinalIndex,
+				"count": chain.FinalCount,
+			},
+		})
+	}
+	return points
+}
+
 func (node *Node) BuildAuthenticationMessage() []byte {
 	data := make([]byte, 8)
 	binary.BigEndian.PutUint64(data, uint64(clock.Now().Unix()))

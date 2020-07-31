@@ -55,6 +55,7 @@ type Chain struct {
 	CacheIndex      uint64
 	FinalPool       [FinalPoolSlotsLimit]*ChainRound
 	FinalIndex      int
+	FinalCount      int
 
 	persistStore     storage.Store
 	finalActionsRing *util.RingBuffer
@@ -215,6 +216,7 @@ func (chain *Chain) QueuePollSnapshots() {
 
 func (chain *Chain) StepForward() {
 	chain.FinalIndex = (chain.FinalIndex + 1) % FinalPoolSlotsLimit
+	chain.FinalCount = chain.FinalCount + 1
 }
 
 func (chain *Chain) ConsumeFinalActions() {
@@ -223,6 +225,7 @@ func (chain *Chain) ConsumeFinalActions() {
 	for chain.running {
 		item, err := chain.finalActionsRing.Poll(false)
 		if err != nil {
+			logger.Verbosef("ConsumeFinalActions(%s) DONE %s\n", chain.ChainId, err)
 			return
 		} else if item == nil {
 			time.Sleep(10 * time.Millisecond)
@@ -307,7 +310,7 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	ps := &CosiAction{PeerId: peerId, Snapshot: s}
 	success, _ := chain.finalActionsRing.Offer(ps)
 	if !success {
-		return fmt.Errorf("AppendFinalSnapshot(%s, %s) pool slots full %d %d", peerId, s.Hash, s.RoundNumber, chain.FinalIndex)
+		return fmt.Errorf("AppendFinalSnapshot(%s, %s) final actions ring full %d %d", peerId, s.Hash, s.RoundNumber, chain.FinalIndex)
 	}
 	return nil
 }
