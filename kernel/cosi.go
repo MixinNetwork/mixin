@@ -723,7 +723,8 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 		Action:   CosiActionExternalAnnouncement,
 		Snapshot: s,
 	}
-	return chain.AppendCosiAction(m)
+	chain.AppendCosiAction(m)
+	return nil
 }
 
 func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool) error {

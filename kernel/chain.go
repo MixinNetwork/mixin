@@ -372,7 +372,11 @@ func (chain *Chain) AppendCosiAction(m *CosiAction) error {
 	}
 
 	_, err := chain.CachePool.Offer(m)
-	return err
+	if err != nil {
+		// it is possible that the ring disposed because this method is called concurrently
+		logger.Verbosef("AppendCosiAction(%s, %s) ERROR %s\n", m.Action, m.SnapshotHash, err)
+	}
+	return nil
 }
 
 func (chain *Chain) AppendSelfEmpty(s *common.Snapshot) error {
