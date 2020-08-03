@@ -236,6 +236,7 @@ func (chain *Chain) ConsumeFinalActions() {
 			continue
 		}
 		ps := item.(*CosiAction)
+		logger.Debugf("ConsumeFinalActions(%s) %s\n", chain.ChainId, ps.Snapshot.Hash)
 		for chain.running {
 			retry, err := chain.appendFinalSnapshot(ps.PeerId, ps.Snapshot)
 			if err != nil {
@@ -250,6 +251,7 @@ func (chain *Chain) ConsumeFinalActions() {
 }
 
 func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) (bool, error) {
+	logger.Debugf("appendFinalSnapshot(%s, %s)\n", peerId, s.Hash)
 	start, offset := uint64(0), 0
 	if chain.State.CacheRound != nil {
 		start = chain.State.CacheRound.Number
@@ -268,7 +270,7 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	offset = int(s.RoundNumber - start)
 	if offset >= FinalPoolSlotsLimit {
 		logger.Verbosef("AppendFinalSnapshot(%s, %s) pool slots full %d %d %d\n", peerId, s.Hash, start, s.RoundNumber, chain.FinalIndex)
-		return true, nil
+		return false, nil
 	}
 	offset = (offset + chain.FinalIndex) % FinalPoolSlotsLimit
 	round := chain.FinalPool[offset]
