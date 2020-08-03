@@ -155,17 +155,21 @@ func (chain *Chain) QueuePollSnapshots() {
 			index := (chain.FinalIndex + i) % FinalPoolSlotsLimit
 			round := chain.FinalPool[index]
 			if round == nil {
+				logger.Debugf("QueuePollSnapshots final round empty %s %d %d\n", chain.ChainId, chain.FinalIndex, index)
 				continue
 			}
 			cr := chain.State.CacheRound
 			if cr != nil && (round.Number < cr.Number || round.Number > cr.Number+1) {
+				logger.Debugf("QueuePollSnapshots final round number bad %s %d %d %d\n", chain.ChainId, chain.FinalIndex, cr.Number, round.Number)
 				continue
 			}
 			if round.Timestamp > chain.node.GraphTimestamp+uint64(config.KernelNodeAcceptPeriodMaximum) {
 				stale = true
 			}
+			logger.Debugf("QueuePollSnapshots final round good %s %d %d %d\n", chain.ChainId, chain.FinalIndex, round.Number, round.Size)
 			for j := 0; j < round.Size; j++ {
 				ps := round.Snapshots[j]
+				logger.Debugf("QueuePollSnapshots final snapshot %s %d %s %t %d\n", chain.ChainId, chain.FinalIndex, ps.Snapshot.Hash, ps.finalized, len(ps.peers))
 				if ps.finalized {
 					continue
 				}
@@ -308,6 +312,9 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	logger.Debugf("AppendFinalSnapshot(%s, %s)\n", peerId, s.Hash)
 	if s.NodeId != chain.ChainId {
 		panic("final queue malformed")
+	}
+	if cr := chain.State.CacheRound; cr != nil && cr.Number > s.RoundNumber {
+		return nil
 	}
 	ps := &CosiAction{PeerId: peerId, Snapshot: s}
 	success, _ := chain.finalActionsRing.Offer(ps)
