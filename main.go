@@ -468,6 +468,18 @@ func main() {
 			},
 		},
 		{
+			Name:   "getconsensuskeys",
+			Usage:  "Get the consensus keys list at the timstamp",
+			Action: getConsensusKeysCmd,
+			Flags: []cli.Flag{
+				&cli.Uint64Flag{
+					Name:  "timestamp",
+					Value: 0,
+					Usage: "the timestamp to determin consensus state",
+				},
+			},
+		},
+		{
 			Name:   "listallnodes",
 			Usage:  "List all nodes ever existed",
 			Action: listAllNodesCmd,

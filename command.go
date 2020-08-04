@@ -560,6 +560,14 @@ func listAllNodesCmd(c *cli.Context) error {
 	return err
 }
 
+func getConsensusKeysCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "getconsensuskeys", []interface{}{c.Uint64("timestamp")}, c.Bool("time"))
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
+
 func getInfoCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getinfo", []interface{}{}, c.Bool("time"))
 	if err == nil {
