@@ -252,10 +252,10 @@ func (chain *Chain) ConsumeFinalActions() {
 
 func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) (bool, error) {
 	logger.Debugf("appendFinalSnapshot(%s, %s)\n", peerId, s.Hash)
-	start, offset := uint64(0), 0
+	start, fi := uint64(0), chain.FinalIndex
 	if chain.State.CacheRound != nil {
 		start = chain.State.CacheRound.Number
-		pr := chain.FinalPool[chain.FinalIndex]
+		pr := chain.FinalPool[fi]
 		if pr == nil || pr.Number == start || pr.Number+FinalPoolSlotsLimit == start {
 			logger.Debugf("AppendFinalSnapshot(%s, %s) cache and index match %d\n", peerId, s.Hash, start)
 		} else {
@@ -267,12 +267,12 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 		logger.Debugf("AppendFinalSnapshot(%s, %s) expired on start %d %d\n", peerId, s.Hash, s.RoundNumber, start)
 		return false, nil
 	}
-	offset = int(s.RoundNumber - start)
+	offset := int(s.RoundNumber - start)
 	if offset >= FinalPoolSlotsLimit {
-		logger.Verbosef("AppendFinalSnapshot(%s, %s) pool slots full %d %d %d\n", peerId, s.Hash, start, s.RoundNumber, chain.FinalIndex)
+		logger.Verbosef("AppendFinalSnapshot(%s, %s) pool slots full %d %d %d %d\n", peerId, s.Hash, start, s.RoundNumber, chain.FinalIndex, fi)
 		return false, nil
 	}
-	offset = (offset + chain.FinalIndex) % FinalPoolSlotsLimit
+	offset = (offset + fi) % FinalPoolSlotsLimit
 	round := chain.FinalPool[offset]
 	if round == nil {
 		round = &ChainRound{
@@ -281,10 +281,7 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 			index:     make(map[crypto.Hash]int),
 			Size:      0,
 		}
-	} else if round.Number > s.RoundNumber {
-		logger.Debugf("AppendFinalSnapshot(%s, %s) expired on slot round %d %d\n", peerId, s.Hash, s.RoundNumber, start)
-		return false, nil
-	} else if round.Number < s.RoundNumber {
+	} else if round.Number != s.RoundNumber {
 		round.Number = s.RoundNumber
 		round.Timestamp = s.Timestamp
 		round.index = make(map[crypto.Hash]int)
