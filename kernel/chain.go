@@ -264,7 +264,7 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 		}
 	}
 	if s.RoundNumber < start {
-		logger.Debugf("AppendFinalSnapshot(%s, %s) expired %d %d\n", peerId, s.Hash, s.RoundNumber, start)
+		logger.Debugf("AppendFinalSnapshot(%s, %s) expired on start %d %d\n", peerId, s.Hash, s.RoundNumber, start)
 		return false, nil
 	}
 	offset = int(s.RoundNumber - start)
@@ -281,7 +281,10 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 			index:     make(map[crypto.Hash]int),
 			Size:      0,
 		}
-	} else if round.Number != s.RoundNumber {
+	} else if round.Number > s.RoundNumber {
+		logger.Debugf("AppendFinalSnapshot(%s, %s) expired on slot round %d %d\n", peerId, s.Hash, s.RoundNumber, start)
+		return false, nil
+	} else if round.Number < s.RoundNumber {
 		round.Number = s.RoundNumber
 		round.Timestamp = s.Timestamp
 		round.index = make(map[crypto.Hash]int)
