@@ -211,7 +211,8 @@ func (node *Node) LoadConsensusNodes() error {
 }
 
 func (node *Node) ConsensusRemovedRecently(timestamp uint64) *CNode {
-	threshold := uint64(config.KernelNodeAcceptPeriodMinimum) / 2
+	// FIXME should use all nodes state list, without this hack
+	threshold := uint64(config.KernelNodeAcceptPeriodMinimum)
 	if timestamp <= threshold {
 		return nil
 	}
