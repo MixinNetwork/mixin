@@ -28,3 +28,7 @@ gossip-neighbors = true
 [rpc]
 # whether respond the runtime of each RPC call
 runtime = false
+
+[dev]
+# whether to enable the pprof web server
+profile = false

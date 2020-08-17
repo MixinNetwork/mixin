@@ -592,7 +592,10 @@ func kernelCmd(c *cli.Context) error {
 			panic(err)
 		}
 	}()
-	go http.ListenAndServe(fmt.Sprintf(":%d", c.Int("port")+2000), http.DefaultServeMux)
+
+	if custom.Dev.Profile {
+		go http.ListenAndServe(fmt.Sprintf(":%d", c.Int("port")+2000), http.DefaultServeMux)
+	}
 
 	return node.Loop()
 }

@@ -51,6 +51,9 @@ type Custom struct {
 	RPC struct {
 		Runtime bool `toml:"runtime"`
 	} `toml:"rpc"`
+	Dev struct {
+		Profile bool `toml:"profile"`
+	} `toml:"dev"`
 }
 
 func Initialize(file string) (*Custom, error) {
