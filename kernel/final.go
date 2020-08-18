@@ -108,6 +108,11 @@ func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snaps
 		return nil
 	}
 
+	if n := chain.node.ConsensusPledging; s.RoundNumber == 0 && (n == nil || n.IdForNetwork != s.NodeId) {
+		logger.Verbosef("ERROR legacyVerifyFinalization initial accept not ready %s %v %d %v\n", peerId, s, chain.node.ConsensusThreshold(s.Timestamp), n)
+		return nil
+	}
+
 	sigs := make([]*crypto.Signature, 0)
 	signaturesFilter := make(map[string]bool)
 	signersMap := make(map[crypto.Hash]bool)
