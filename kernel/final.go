@@ -108,11 +108,6 @@ func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snaps
 		return nil
 	}
 
-	if n := chain.node.ConsensusPledging; s.RoundNumber == 0 && (n == nil || n.IdForNetwork != s.NodeId) {
-		logger.Verbosef("ERROR legacyVerifyFinalization initial accept not ready %s %v %d %v\n", peerId, s, chain.node.ConsensusThreshold(s.Timestamp), n)
-		return nil
-	}
-
 	sigs := make([]*crypto.Signature, 0)
 	signaturesFilter := make(map[string]bool)
 	signersMap := make(map[crypto.Hash]bool)
@@ -137,6 +132,11 @@ func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snaps
 			}
 		}
 		signaturesFilter[sig.String()] = true
+	}
+
+	if len(sigs) != len(s.Signatures) {
+		logger.Verbosef("ERROR legacyVerifyFinalization some node not accepted yet %s %v %d %d %d\n", peerId, s, chain.node.ConsensusThreshold(s.Timestamp), len(s.Signatures), len(sigs))
+		return nil
 	}
 	s.Signatures = sigs
 
