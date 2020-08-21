@@ -31,7 +31,7 @@ func TestGenesis(t *testing.T) {
 	for i, n := range nodes {
 		assert.Equal(node.Epoch, n.Timestamp)
 		assert.Equal(common.NodeStateAccepted, n.State)
-		assert.Equal(genesisNodes[i], n.IdForNetwork(node.networkId).String())
+		assert.Equal(genesisNodes[i], n.IdForNetwork.String())
 	}
 
 	snapshots, err := node.persistStore.ReadSnapshotsSinceTopology(0, 100)

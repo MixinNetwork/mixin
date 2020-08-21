@@ -50,7 +50,7 @@ func TestNodeRemovePossibility(t *testing.T) {
 	candi, err = node.checkRemovePossibility(node.IdForNetwork, uint64(now.UnixNano()))
 	assert.Nil(err)
 	assert.NotNil(candi)
-	assert.Equal("028d97996a0b78f48e43f90e82137dbca60199519453a8fbf6e04b1e4d11efc9", candi.IdForNetwork(node.networkId).String())
+	assert.Equal("028d97996a0b78f48e43f90e82137dbca60199519453a8fbf6e04b1e4d11efc9", candi.IdForNetwork.String())
 	assert.Nil(node.ConsensusRemovedRecently(uint64(now.UnixNano())))
 
 	tx, err := node.buildRemoveTransaction(candi)
