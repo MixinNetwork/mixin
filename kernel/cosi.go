@@ -217,7 +217,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	for peerId, _ := range chain.node.ConsensusNodes {
 		err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R)
 		if err != nil {
-			return err
+			logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement SendSnapshotAnnouncementMessage(%s, %s) ERROR %s\n", peerId, s.Hash, err.Error())
 		}
 	}
 	return nil
@@ -257,7 +257,11 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
 	if chain.node.checkInitialAcceptSnapshotWeak(s) {
 		chain.CosiVerifiers[s.Hash] = v
-		return chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil)
+		err := chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil)
+		if err != nil {
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendSnapshotCommitmentMessage(%s, %s) ERROR %s\n", s.NodeId, s.Hash, err.Error())
+		}
+		return nil
 	}
 
 	if s.RoundNumber == 0 || chain.State.FinalRound == nil {
@@ -320,7 +324,11 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	}
 
 	chain.CosiVerifiers[s.Hash] = v
-	return chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil)
+	err = chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil)
+	if err != nil {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendSnapshotCommitmentMessage(%s, %s) ERROR %s\n", s.NodeId, s.Hash, err.Error())
+	}
+	return nil
 }
 
 func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
@@ -396,7 +404,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 			err = chain.node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, nil)
 		}
 		if err != nil {
-			return err
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment SendTransactionChallengeMessage(%s, %s) ERROR %s\n", id, m.SnapshotHash, err.Error())
 		}
 	}
 	return nil
@@ -459,7 +467,11 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	if err != nil {
 		return err
 	}
-	return chain.node.Peer.SendSnapshotResponseMessage(m.PeerId, m.SnapshotHash, response)
+	err = chain.node.Peer.SendSnapshotResponseMessage(m.PeerId, m.SnapshotHash, response)
+	if err != nil {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge SendSnapshotResponseMessage(%s, %s) ERROR %s\n", m.PeerId, m.SnapshotHash, err.Error())
+	}
+	return nil
 }
 
 func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
@@ -538,7 +550,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		for id, _ := range chain.node.ConsensusNodes {
 			err := chain.node.Peer.SendSnapshotFinalizationMessage(id, s)
 			if err != nil {
-				return err
+				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse SendSnapshotFinalizationMessage(%s, %s) ERROR %s\n", id, m.SnapshotHash, err.Error())
 			}
 		}
 		return chain.node.reloadConsensusNodesList(s, tx)
@@ -569,12 +581,12 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		if !agg.responsed[id] {
 			err := chain.node.SendTransactionToPeer(id, agg.Snapshot.Transaction)
 			if err != nil {
-				return err
+				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse SendTransactionToPeer(%s, %s) ERROR %s\n", id, m.SnapshotHash, err.Error())
 			}
 		}
 		err := chain.node.Peer.SendSnapshotFinalizationMessage(id, agg.Snapshot)
 		if err != nil {
-			return err
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse SendSnapshotFinalizationMessage(%s, %s) ERROR %s\n", id, m.SnapshotHash, err.Error())
 		}
 	}
 	return chain.node.reloadConsensusNodesList(s, tx)
@@ -789,7 +801,7 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 	err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
 	if err != nil {
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) SendSnapshotConfirmMessage error %s\n", peerId, s.Hash, err)
-		return err
+		return nil
 	}
 	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
 	if err != nil || inNode {
