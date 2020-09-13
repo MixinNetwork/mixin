@@ -22,7 +22,7 @@ const (
 	graphPrefixNodeOperation = "NODEOPERATION"
 )
 
-func (s *BadgerStore) ReadConsensusNodes() []*common.Node {
+func (s *BadgerStore) ReadAllNodes() []*common.Node {
 	nodes := make([]*common.Node, 0)
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
@@ -33,7 +33,10 @@ func (s *BadgerStore) ReadConsensusNodes() []*common.Node {
 	nodes = append(nodes, pledging...)
 	resigning := readNodesInState(txn, graphPrefixNodeResign)
 	nodes = append(nodes, resigning...)
-	return nodes
+	removed := readNodesInState(txn, graphPrefixNodeRemove)
+	nodes = append(nodes, removed...)
+	canceled := readNodesInState(txn, graphPrefixNodeCancel)
+	return append(nodes, canceled...)
 }
 
 func (s *BadgerStore) AddNodeOperation(tx *common.VersionedTransaction, timestamp, threshold uint64) error {

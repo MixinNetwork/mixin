@@ -123,17 +123,6 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash, depth u
 	return total, invalid, nil
 }
 
-func (s *BadgerStore) ReadAllNodes() []*common.Node {
-	txn := s.snapshotsDB.NewTransaction(false)
-	defer txn.Discard()
-
-	nodes := s.ReadConsensusNodes()
-	removed := readNodesInState(txn, graphPrefixNodeRemove)
-	nodes = append(nodes, removed...)
-	canceled := readNodesInState(txn, graphPrefixNodeCancel)
-	return append(nodes, canceled...)
-}
-
 func computeRoundHash(nodeId crypto.Hash, number uint64, snapshots []*common.SnapshotWithTopologicalOrder) (uint64, uint64, crypto.Hash) {
 	sort.Slice(snapshots, func(i, j int) bool {
 		if snapshots[i].Timestamp < snapshots[j].Timestamp {

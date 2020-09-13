@@ -10,7 +10,6 @@ type Store interface {
 
 	CheckGenesisLoad(snapshots []*common.SnapshotWithTopologicalOrder) (bool, error)
 	LoadGenesis(rounds []*common.Round, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.VersionedTransaction) error
-	ReadConsensusNodes() []*common.Node
 	ReadAllNodes() []*common.Node
 	AddNodeOperation(tx *common.VersionedTransaction, timestamp, threshold uint64) error
 	CheckTransactionInNode(nodeId, hash crypto.Hash) (bool, error)

@@ -93,7 +93,7 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs [][]
 
 	var pledging *Node
 	filter := make(map[string]string)
-	nodes := store.ReadConsensusNodes()
+	nodes := store.ReadAllNodes()
 	for _, n := range nodes {
 		filter[n.Signer.String()] = n.State
 		if n.State == NodeStateResigning {
@@ -179,7 +179,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 	}
 	var pledging *Node
 	filter := make(map[string]string)
-	nodes := store.ReadConsensusNodes()
+	nodes := store.ReadAllNodes()
 	for _, n := range nodes {
 		filter[n.Signer.String()] = n.State
 		if n.State == NodeStateResigning {
@@ -225,6 +225,102 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 	if bytes.Compare(lastPledge.Extra, tx.Extra) != 0 {
 		return fmt.Errorf("invalid pledge and accpet key %s %s", hex.EncodeToString(lastPledge.Extra), hex.EncodeToString(tx.Extra))
 	}
+	return nil
+}
+
+func (tx *SignedTransaction) validateNodeResign(store DataStore) error {
+	if tx.Asset != XINAssetId {
+		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
+	}
+	if len(tx.Outputs) != 1 {
+		return fmt.Errorf("invalid outputs count %d for resign transaction", len(tx.Outputs))
+	}
+	if len(tx.Inputs) != 1 {
+		return fmt.Errorf("invalid inputs count %d for resign transaction", len(tx.Inputs))
+	}
+	if len(tx.Extra) != len(crypto.Key{})*2 {
+		return fmt.Errorf("invalid extra %s for resign transaction", hex.EncodeToString(tx.Extra))
+	}
+	resign := tx.Outputs[0]
+	if resign.Type != OutputTypeNodeResign {
+		return fmt.Errorf("invalid outputs type %d for resign transaction", resign.Type)
+	}
+	if len(resign.Keys) != 0 {
+		return fmt.Errorf("invalid script output keys %d for resign transaction", len(resign.Keys))
+	}
+	if resign.Mask.HasValue() {
+		return fmt.Errorf("invalid script output mask %s for resign transaction", resign.Mask)
+	}
+	if len(resign.Script) != 0 {
+		return fmt.Errorf("invalid script output script %s for resign transaction", resign.Script.String())
+	}
+
+	var publicSpend crypto.Key
+	copy(publicSpend[:], tx.Extra)
+	privateView := publicSpend.DeterministicHashDerive()
+	signer := Address{
+		PublicViewKey:  privateView.Public(),
+		PublicSpendKey: publicSpend,
+	}
+	var accept *Node
+	nodes := store.ReadAllNodes()
+	for _, n := range nodes {
+		if n.State == NodeStateCancelled || n.State == NodeStateRemoved {
+			continue
+		}
+		if n.State != NodeStateAccepted {
+			return fmt.Errorf("invalid node state %s %s", n.Signer.String(), n.State)
+		}
+		if n.Signer.String() == signer.String() {
+			accept = n
+			break
+		}
+	}
+	if accept == nil {
+		return fmt.Errorf("unable to resign a node not accepted yet")
+	}
+
+	copy(publicSpend[:], tx.Extra[len(publicSpend):])
+	privateView = publicSpend.DeterministicHashDerive()
+	payee := Address{
+		PublicViewKey:  privateView.Public(),
+		PublicSpendKey: publicSpend,
+	}
+	if accept.Payee.String() != payee.String() {
+		return fmt.Errorf("resign with invalid payee %s %s", accept.Payee, payee)
+	}
+
+	atx, _, err := store.ReadTransaction(accept.Transaction)
+	if err != nil {
+		return err
+	}
+	if len(atx.Outputs) != 1 {
+		return fmt.Errorf("invalid accept utxo count %d", len(atx.Outputs))
+	}
+	ao := atx.Outputs[0]
+	if ao.Type != OutputTypeNodeAccept {
+		return fmt.Errorf("invalid accept utxo type %d", ao.Type)
+	}
+	if resign.Amount.Cmp(ao.Amount.Div(100)) != 0 {
+		return fmt.Errorf("invalid output amount %s for resign transaction", resign.Amount)
+	}
+
+	rit, _, err := store.ReadTransaction(tx.Inputs[0].Hash)
+	if err != nil {
+		return err
+	}
+	if rit == nil {
+		return fmt.Errorf("invalid resign input source %s:%d", tx.Inputs[0].Hash, tx.Inputs[0].Index)
+	}
+	ri := rit.Outputs[tx.Inputs[0].Index]
+	if len(ri.Keys) != 1 {
+		return fmt.Errorf("invalid resign input source keys %d", len(ri.Keys))
+	}
+	resignSpend := crypto.ViewGhostOutputKey(&ri.Keys[0], &privateView, &ri.Mask, uint64(tx.Inputs[0].Index))
+	if bytes.Compare(resignSpend[:], publicSpend[:]) != 0 {
+		return fmt.Errorf("invalid resign spend public key %s %s", resignSpend, publicSpend)
+	}
+
 	return nil
 }
 

@@ -33,7 +33,6 @@ type GhostChecker interface {
 
 type NodeReader interface {
 	ReadAllNodes() []*Node
-	ReadConsensusNodes() []*Node
 	ReadTransaction(hash crypto.Hash) (*VersionedTransaction, string, error)
 }
 

@@ -143,10 +143,6 @@ func (store storeImpl) ReadAllNodes() []*Node {
 	return nil
 }
 
-func (store storeImpl) ReadConsensusNodes() []*Node {
-	return nil
-}
-
 func (store storeImpl) ReadTransaction(hash crypto.Hash) (*VersionedTransaction, string, error) {
 	return nil, "", nil
 }
