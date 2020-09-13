@@ -168,7 +168,9 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 				consensusBase++
 			}
 		case common.NodeStateResigning:
-			consensusBase++
+			if cn.Timestamp+threshold > timestamp {
+				consensusBase++
+			}
 		}
 	}
 	if consensusBase < len(node.genesisNodes) {
@@ -222,7 +224,7 @@ func (node *Node) ConsensusRemovedRecently(timestamp uint64) *CNode {
 		if cn.Timestamp > end {
 			break
 		}
-		if cn.State != common.NodeStateRemoved {
+		if cn.State != common.NodeStateRemoved && cn.State != common.NodeStateResigning {
 			continue
 		}
 		if cn.Timestamp > begin {

@@ -175,7 +175,7 @@ func writeNodeCancel(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 	return txn.Set(key, val)
 }
 
-func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
+func writeNodeResign(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
 	// TODO these checks are only assert kind checks, not needed at all
 	key := nodeAcceptKey(signer)
 	_, err := txn.Get(key)
@@ -198,6 +198,47 @@ func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 	}
 
 	err = txn.Delete(key)
+	if err != nil {
+		return err
+	}
+	key = nodeResignKey(signer)
+	val := nodeEntryValue(payee, tx, timestamp)
+	return txn.Set(key, val)
+}
+
+func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
+	pledging := readNodesInState(txn, graphPrefixNodePledge)
+	if len(pledging) > 0 {
+		node := pledging[0]
+		return fmt.Errorf("node %s is pledging while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
+	}
+
+	resigning := readNodesInState(txn, graphPrefixNodeResign)
+	if len(resigning) > 0 {
+		if node := resigning[0]; node.Signer.PublicSpendKey != signer || node.Payee.PublicSpendKey != payee {
+			return fmt.Errorf("node %s is resigning while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
+		}
+	}
+
+	key := nodeResignKey(signer)
+	if len(resigning) > 0 {
+		_, err := txn.Get(key)
+		if err == badger.ErrKeyNotFound {
+			return fmt.Errorf("node resign malformed %s", signer.String())
+		} else if err != nil {
+			return err
+		}
+	} else {
+		key = nodeAcceptKey(signer)
+		_, err := txn.Get(key)
+		if err == badger.ErrKeyNotFound {
+			return fmt.Errorf("node not accepted yet %s", signer.String())
+		} else if err != nil {
+			return err
+		}
+	}
+
+	err := txn.Delete(key)
 	if err != nil {
 		return err
 	}
@@ -334,6 +375,10 @@ func nodeAcceptKey(publicSpend crypto.Key) []byte {
 
 func nodeRemoveKey(publicSpend crypto.Key) []byte {
 	return append([]byte(graphPrefixNodeRemove), publicSpend[:]...)
+}
+
+func nodeResignKey(publicSpend crypto.Key) []byte {
+	return append([]byte(graphPrefixNodeResign), publicSpend[:]...)
 }
 
 func nodeOperationKey(timestamp uint64) []byte {
