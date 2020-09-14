@@ -15,6 +15,11 @@ import (
 func (s *BadgerStore) ReadTransaction(hash crypto.Hash) (*common.VersionedTransaction, string, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
+
+	return readTransactionAndFinalization(txn, hash)
+}
+
+func readTransactionAndFinalization(txn *badger.Txn, hash crypto.Hash) (*common.VersionedTransaction, string, error) {
 	tx, err := readTransaction(txn, hash)
 	if err != nil || tx == nil {
 		return tx, "", err

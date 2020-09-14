@@ -1,9 +1,7 @@
 package storage
 
 import (
-	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -13,30 +11,49 @@ import (
 )
 
 const (
-	graphPrefixNodePledge = "NODESTATEPLEDGE"
-	graphPrefixNodeAccept = "NODESTATEACCEPT"
-	graphPrefixNodeResign = "NODESTATERESIGN"
-	graphPrefixNodeRemove = "NODESTATEREMOVE"
-	graphPrefixNodeCancel = "NODESTATECANCEL"
-
-	graphPrefixNodeOperation = "NODEOPERATION"
+	graphPrefixNodeStateQueue = "NODESTATEQUEUE"
+	graphPrefixNodeOperation  = "NODEOPERATION"
 )
 
-func (s *BadgerStore) ReadAllNodes() []*common.Node {
+func readAllNodesWithState(txn *badger.Txn) []*common.Node {
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
+	prefix := []byte(graphPrefixNodeStateQueue)
 	nodes := make([]*common.Node, 0)
+	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+		item := it.Item()
+		signer, ts := nodeSignerFromStateKey(item.Key())
+		ival, err := item.ValueCopy(nil)
+		if err != nil {
+			panic(err)
+		}
+		n := &common.Node{
+			Signer:      signer,
+			Payee:       nodePayee(ival),
+			Transaction: nodeTransaction(ival),
+			State:       nodeState(ival),
+			Timestamp:   ts,
+		}
+		nodes = append(nodes, n)
+	}
+
+	for i, n := range nodes {
+		if i == 0 {
+			continue
+		}
+		if p := nodes[i-1]; n.Timestamp < p.Timestamp {
+			panic(fmt.Errorf("malformed order %s:%d:%s %s:%d:%s", p.Signer, p.Timestamp, p.State, n.Signer, n.Timestamp, n.State))
+		}
+	}
+	return nodes
+}
+
+func (s *BadgerStore) ReadAllNodes() []*common.Node {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	accepted := readNodesInState(txn, graphPrefixNodeAccept)
-	nodes = append(nodes, accepted...)
-	pledging := readNodesInState(txn, graphPrefixNodePledge)
-	nodes = append(nodes, pledging...)
-	resigning := readNodesInState(txn, graphPrefixNodeResign)
-	nodes = append(nodes, resigning...)
-	removed := readNodesInState(txn, graphPrefixNodeRemove)
-	nodes = append(nodes, removed...)
-	canceled := readNodesInState(txn, graphPrefixNodeCancel)
-	return append(nodes, canceled...)
+	return readAllNodesWithState(txn)
 }
 
 func (s *BadgerStore) AddNodeOperation(tx *common.VersionedTransaction, timestamp, threshold uint64) error {
@@ -106,234 +123,144 @@ func readLastNodeOperation(txn *badger.Txn) (string, crypto.Hash, uint64, error)
 	return "", hash, timestamp, nil
 }
 
-func readNodesInState(txn *badger.Txn, nodeState string) []*common.Node {
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
-	defer it.Close()
-
-	prefix := []byte(nodeState)
-	nodes := make([]*common.Node, 0)
-	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-		item := it.Item()
-		signer := nodeSignerForState(item.Key(), nodeState)
-		ival, err := item.ValueCopy(nil)
-		if err != nil {
-			panic(err)
-		}
-		n := &common.Node{
-			Signer:      signer,
-			Payee:       nodePayee(ival),
-			Transaction: nodeTransaction(ival),
-			Timestamp:   nodeTimestamp(ival),
-		}
-		switch nodeState {
-		case graphPrefixNodePledge:
-			n.State = common.NodeStatePledging
-		case graphPrefixNodeAccept:
-			n.State = common.NodeStateAccepted
-		case graphPrefixNodeResign:
-			n.State = common.NodeStateResigning
-		case graphPrefixNodeRemove:
-			n.State = common.NodeStateRemoved
-		case graphPrefixNodeCancel:
-			n.State = common.NodeStateCancelled
-		}
-		nodes = append(nodes, n)
-	}
-	return nodes
-}
-
 func writeNodeCancel(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
-	// TODO these checks are only assert kind checks, not needed at all
-	key := nodePledgeKey(signer)
-	_, err := txn.Get(key)
-	if err == badger.ErrKeyNotFound {
-		return fmt.Errorf("node not pledging yet %s", signer.String())
-	} else if err != nil {
-		return err
+	nodes := readAllNodesWithState(txn)
+	last := nodes[len(nodes)-1]
+	if last.State != common.NodeStatePledging {
+		return fmt.Errorf("node %s is %s@%d while tx %s", last.Signer, last.State, last.Timestamp, tx.String())
+	}
+	if last.Signer.PublicSpendKey != signer || last.Payee.PublicSpendKey != payee {
+		return fmt.Errorf("node %s %s not match at pledging", last.Signer.PublicSpendKey, signer)
 	}
 
-	pledging := readNodesInState(txn, graphPrefixNodePledge)
-	if len(pledging) > 0 {
-		node := pledging[0]
-		if node.Signer.PublicSpendKey.String() != signer.String() {
-			return fmt.Errorf("node %s is pledging while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
-		}
-	}
-
-	resigning := readNodesInState(txn, graphPrefixNodeResign)
-	if len(resigning) > 0 {
-		node := resigning[0]
-		return fmt.Errorf("node %s is resigning while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
-	}
-
-	err = txn.Delete(key)
-	if err != nil {
-		return err
-	}
-	key = nodeCancelKey(signer)
-	val := nodeEntryValue(payee, tx, timestamp)
+	key := nodeStateQueueKey(signer, timestamp)
+	val := nodeEntryValue(payee, tx, common.NodeStateCancelled)
 	return txn.Set(key, val)
 }
 
 func writeNodeResign(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
-	// TODO these checks are only assert kind checks, not needed at all
-	key := nodeAcceptKey(signer)
-	_, err := txn.Get(key)
-	if err == badger.ErrKeyNotFound {
-		return fmt.Errorf("node not accepted yet %s", signer.String())
-	} else if err != nil {
-		return err
+	nodes := readAllNodesWithState(txn)
+	last := nodes[len(nodes)-1]
+	switch last.State {
+	case common.NodeStateAccepted:
+	case common.NodeStateRemoved:
+	case common.NodeStateCancelled:
+	default:
+		return fmt.Errorf("node %s is %s@%d while tx %s", last.Signer, last.State, last.Timestamp, tx.String())
 	}
 
-	pledging := readNodesInState(txn, graphPrefixNodePledge)
-	if len(pledging) > 0 {
-		node := pledging[0]
-		return fmt.Errorf("node %s is pledging while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
+	var node *common.Node
+	for _, n := range nodes {
+		if n.Signer.PublicSpendKey == signer && n.Transaction == tx {
+			node = n
+		}
+	}
+	if node == nil {
+		return fmt.Errorf("node not available to resign %s", signer)
+	}
+	if node.Payee.PublicSpendKey != payee || node.State != common.NodeStateAccepted {
+		return fmt.Errorf("node state %s %s %s not match at accepted", last.Payee.PublicSpendKey, payee, node.State)
 	}
 
-	resigning := readNodesInState(txn, graphPrefixNodeResign)
-	if len(resigning) > 0 {
-		node := resigning[0]
-		return fmt.Errorf("node %s is resigning while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
-	}
-
-	err = txn.Delete(key)
-	if err != nil {
-		return err
-	}
-	key = nodeResignKey(signer)
-	val := nodeEntryValue(payee, tx, timestamp)
+	key := nodeStateQueueKey(signer, timestamp)
+	val := nodeEntryValue(payee, tx, common.NodeStateResigning)
 	return txn.Set(key, val)
 }
 
 func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
-	pledging := readNodesInState(txn, graphPrefixNodePledge)
-	if len(pledging) > 0 {
-		node := pledging[0]
-		return fmt.Errorf("node %s is pledging while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
-	}
-
-	resigning := readNodesInState(txn, graphPrefixNodeResign)
-	if len(resigning) > 0 {
-		if node := resigning[0]; node.Signer.PublicSpendKey != signer || node.Payee.PublicSpendKey != payee {
-			return fmt.Errorf("node %s is resigning while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
+	nodes := readAllNodesWithState(txn)
+	last := nodes[len(nodes)-1]
+	switch last.State {
+	case common.NodeStatePledging:
+		return fmt.Errorf("node %s is %s@%d while tx %s", last.Signer, last.State, last.Timestamp, tx.String())
+	case common.NodeStateResigning:
+		if last.Signer.PublicSpendKey != signer || last.Payee.PublicSpendKey != payee {
+			return fmt.Errorf("node %s %s not match at resigning", last.Signer.PublicSpendKey, signer)
 		}
 	}
 
-	key := nodeResignKey(signer)
-	if len(resigning) > 0 {
-		_, err := txn.Get(key)
-		if err == badger.ErrKeyNotFound {
-			return fmt.Errorf("node resign malformed %s", signer.String())
-		} else if err != nil {
-			return err
+	var node *common.Node
+	for _, n := range nodes {
+		if n.Signer.PublicSpendKey == signer && n.Transaction == tx {
+			node = n
 		}
-	} else {
-		key = nodeAcceptKey(signer)
-		_, err := txn.Get(key)
-		if err == badger.ErrKeyNotFound {
-			return fmt.Errorf("node not accepted yet %s", signer.String())
-		} else if err != nil {
-			return err
-		}
+	}
+	if node == nil {
+		return fmt.Errorf("node not available to remove %s", signer)
+	}
+	if node.Payee.PublicSpendKey != payee {
+		return fmt.Errorf("node %s %s not match at %s", last.Payee.PublicSpendKey, payee, node.State)
+	}
+	if node.State != common.NodeStateAccepted && node.State != common.NodeStateResigning {
+		return fmt.Errorf("node %s %s not match at %s", last.Payee.PublicSpendKey, payee, node.State)
 	}
 
-	err := txn.Delete(key)
-	if err != nil {
-		return err
-	}
-	key = nodeRemoveKey(signer)
-	val := nodeEntryValue(payee, tx, timestamp)
+	key := nodeStateQueueKey(signer, timestamp)
+	val := nodeEntryValue(payee, tx, common.NodeStateRemoved)
 	return txn.Set(key, val)
 }
 
 func writeNodeAccept(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64, genesis bool) error {
-	// TODO these checks are only assert kind checks, not needed at all
-	key := nodePledgeKey(signer)
-	item, err := txn.Get(key)
-	if err == badger.ErrKeyNotFound {
-		if !genesis {
-			return fmt.Errorf("node not pledging yet %s", signer.String())
-		}
-	} else if err != nil {
-		return err
-	}
 	if !genesis {
-		ival, err := item.ValueCopy(nil)
-		if err != nil {
-			return err
+		nodes := readAllNodesWithState(txn)
+		last := nodes[len(nodes)-1]
+		if last.State != common.NodeStatePledging {
+			return fmt.Errorf("node %s is %s@%d while tx %s", last.Signer, last.State, last.Timestamp, tx.String())
 		}
-		if bytes.Compare(payee[:], ival[:len(payee)]) != 0 {
-			return fmt.Errorf("node not accept to the same payee account %s %s", hex.EncodeToString(ival[:len(payee)]), payee.String())
+		if last.Signer.PublicSpendKey != signer || last.Payee.PublicSpendKey != payee {
+			return fmt.Errorf("node %s %s not match at pledging", last.Signer.PublicSpendKey, signer)
 		}
 	}
 
-	err = txn.Delete(key)
-	if err != nil {
-		return err
-	}
-	key = nodeAcceptKey(signer)
-	val := nodeEntryValue(payee, tx, timestamp)
+	key := nodeStateQueueKey(signer, timestamp)
+	val := nodeEntryValue(payee, tx, common.NodeStateAccepted)
 	return txn.Set(key, val)
 }
 
 func writeNodePledge(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
-	// TODO these checks are only assert kind checks, not needed at all
-	key := nodeAcceptKey(signer)
-	_, err := txn.Get(key)
-	if err == nil {
-		return fmt.Errorf("node already accepted %s", signer.String())
-	} else if err != badger.ErrKeyNotFound {
-		return err
-	}
-	key = nodeCancelKey(signer)
-	_, err = txn.Get(key)
-	if err == nil {
-		return fmt.Errorf("node already cancelled %s", signer.String())
-	} else if err != badger.ErrKeyNotFound {
-		return err
-	}
-	key = nodeRemoveKey(signer)
-	_, err = txn.Get(key)
-	if err == nil {
-		return fmt.Errorf("node already removed %s", signer.String())
-	} else if err != badger.ErrKeyNotFound {
-		return err
+	nodes := readAllNodesWithState(txn)
+	last := nodes[len(nodes)-1]
+	switch last.State {
+	case common.NodeStateAccepted:
+	case common.NodeStateRemoved:
+	case common.NodeStateCancelled:
+	default:
+		return fmt.Errorf("node %s is %s@%d while tx %s", last.Signer, last.State, last.Timestamp, tx.String())
 	}
 
-	pledging := readNodesInState(txn, graphPrefixNodePledge)
-	if len(pledging) > 0 {
-		node := pledging[0]
-		return fmt.Errorf("node %s is pledging while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
+	for _, n := range nodes {
+		if n.Signer.PublicSpendKey == signer || n.Transaction == tx {
+			return fmt.Errorf("node %s is already %s@%d", n.Signer, n.State, n.Timestamp)
+		}
 	}
 
-	resigning := readNodesInState(txn, graphPrefixNodeResign)
-	if len(resigning) > 0 {
-		node := resigning[0]
-		return fmt.Errorf("node %s is resigning while tx %s", node.Signer.PublicSpendKey.String(), tx.String())
-	}
-
-	key = nodePledgeKey(signer)
-	val := nodeEntryValue(payee, tx, timestamp)
+	key := nodeStateQueueKey(signer, timestamp)
+	val := nodeEntryValue(payee, tx, common.NodeStatePledging)
 	return txn.Set(key, val)
 }
 
-func nodeEntryValue(payee crypto.Key, tx crypto.Hash, timestamp uint64) []byte {
+func nodeStateQueueKey(signer crypto.Key, timestamp uint64) []byte {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, timestamp)
-	val := append(payee[:], tx[:]...)
-	return append(val, buf...)
+	key := append([]byte(graphPrefixNodeStateQueue), buf...)
+	return append(key, signer[:]...)
 }
 
-func nodeSignerForState(key []byte, nodeState string) common.Address {
+func nodeEntryValue(payee crypto.Key, tx crypto.Hash, state string) []byte {
+	val := append(payee[:], tx[:]...)
+	return append(val, []byte(state)...)
+}
+
+func nodeSignerFromStateKey(key []byte) (common.Address, uint64) {
 	var publicSpend crypto.Key
-	copy(publicSpend[:], key[len(nodeState):])
+	ts := binary.BigEndian.Uint64(key[:8])
+	copy(publicSpend[:], key[8:])
 	privateView := publicSpend.DeterministicHashDerive()
 	return common.Address{
 		PrivateViewKey: privateView,
 		PublicViewKey:  privateView.Public(),
 		PublicSpendKey: publicSpend,
-	}
+	}, ts
 }
 
 func nodePayee(ival []byte) common.Address {
@@ -353,32 +280,9 @@ func nodeTransaction(ival []byte) crypto.Hash {
 	return tx
 }
 
-func nodeTimestamp(ival []byte) uint64 {
+func nodeState(ival []byte) string {
 	l := len(crypto.Key{}) + len(crypto.Hash{})
-	if len(ival) == l+8 {
-		return binary.BigEndian.Uint64(ival[l:])
-	}
-	return 0
-}
-
-func nodePledgeKey(publicSpend crypto.Key) []byte {
-	return append([]byte(graphPrefixNodePledge), publicSpend[:]...)
-}
-
-func nodeCancelKey(publicSpend crypto.Key) []byte {
-	return append([]byte(graphPrefixNodeCancel), publicSpend[:]...)
-}
-
-func nodeAcceptKey(publicSpend crypto.Key) []byte {
-	return append([]byte(graphPrefixNodeAccept), publicSpend[:]...)
-}
-
-func nodeRemoveKey(publicSpend crypto.Key) []byte {
-	return append([]byte(graphPrefixNodeRemove), publicSpend[:]...)
-}
-
-func nodeResignKey(publicSpend crypto.Key) []byte {
-	return append([]byte(graphPrefixNodeResign), publicSpend[:]...)
+	return string(ival[l:])
 }
 
 func nodeOperationKey(timestamp uint64) []byte {
