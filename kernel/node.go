@@ -184,7 +184,7 @@ func (node *Node) LoadConsensusNodes() error {
 	node.ConsensusPledging = nil
 	consensusNodes := make(map[crypto.Hash]*CNode)
 	sortedConsensusNodes := make([]crypto.Hash, 0)
-	node.AllNodesSorted = node.SortAllNodesByTimestampAndId()
+	node.AllNodesSorted = node.SortAllNodesByTimestampAndId(uint64(time.Now().UnixNano()), true)
 	node.AllNodesId = make([]crypto.Hash, len(node.AllNodesSorted))
 	for i, cn := range node.AllNodesSorted {
 		node.AllNodesId[i] = cn.IdForNetwork

@@ -3,8 +3,10 @@ package storage
 import (
 	"encoding/binary"
 	"fmt"
+	"sort"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/badger/v2"
@@ -15,7 +17,7 @@ const (
 	graphPrefixNodeOperation  = "NODEOPERATION"
 )
 
-func readAllNodesWithState(txn *badger.Txn) []*common.Node {
+func readAllNodes(txn *badger.Txn, offset uint64, withState bool) []*common.Node {
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
@@ -28,6 +30,9 @@ func readAllNodesWithState(txn *badger.Txn) []*common.Node {
 		if err != nil {
 			panic(err)
 		}
+		if ts > offset {
+			continue
+		}
 		n := &common.Node{
 			Signer:      signer,
 			Payee:       nodePayee(ival),
@@ -38,7 +43,9 @@ func readAllNodesWithState(txn *badger.Txn) []*common.Node {
 		nodes = append(nodes, n)
 	}
 
+	filter := make(map[crypto.Hash]*common.Node)
 	for i, n := range nodes {
+		filter[n.Signer.Hash()] = n
 		if i == 0 {
 			continue
 		}
@@ -46,14 +53,25 @@ func readAllNodesWithState(txn *badger.Txn) []*common.Node {
 			panic(fmt.Errorf("malformed order %s:%d:%s %s:%d:%s", p.Signer, p.Timestamp, p.State, n.Signer, n.Timestamp, n.State))
 		}
 	}
+
+	if withState {
+		return nodes
+	}
+	nodes = make([]*common.Node, 0)
+	for _, n := range filter {
+		nodes = append(nodes, n)
+	}
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].Timestamp < nodes[j].Timestamp
+	})
 	return nodes
 }
 
-func (s *BadgerStore) ReadAllNodes() []*common.Node {
+func (s *BadgerStore) ReadAllNodes(offset uint64, withState bool) []*common.Node {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	return readAllNodesWithState(txn)
+	return readAllNodes(txn, offset, withState)
 }
 
 func (s *BadgerStore) AddNodeOperation(tx *common.VersionedTransaction, timestamp, threshold uint64) error {
@@ -124,7 +142,8 @@ func readLastNodeOperation(txn *badger.Txn) (string, crypto.Hash, uint64, error)
 }
 
 func writeNodeCancel(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
-	nodes := readAllNodesWithState(txn)
+	offset := timestamp + uint64(config.KernelNodeAcceptPeriodMinimum)
+	nodes := readAllNodes(txn, offset, true)
 	last := nodes[len(nodes)-1]
 	if last.State != common.NodeStatePledging {
 		return fmt.Errorf("node %s is %s@%d while tx %s", last.Signer, last.State, last.Timestamp, tx.String())
@@ -139,14 +158,16 @@ func writeNodeCancel(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 }
 
 func writeNodeResign(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
-	nodes := readAllNodesWithState(txn)
-	last := nodes[len(nodes)-1]
-	switch last.State {
-	case common.NodeStateAccepted:
-	case common.NodeStateRemoved:
-	case common.NodeStateCancelled:
-	default:
-		return fmt.Errorf("node %s is %s@%d while tx %s", last.Signer, last.State, last.Timestamp, tx.String())
+	offset := timestamp + uint64(config.KernelNodeAcceptPeriodMinimum)
+	nodes := readAllNodes(txn, offset, false)
+	for _, n := range nodes {
+		switch n.State {
+		case common.NodeStateAccepted:
+		case common.NodeStateRemoved:
+		case common.NodeStateCancelled:
+		default:
+			return fmt.Errorf("node %s is %s@%d while tx %s", n.Signer, n.State, n.Timestamp, tx.String())
+		}
 	}
 
 	var node *common.Node
@@ -159,7 +180,7 @@ func writeNodeResign(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 		return fmt.Errorf("node not available to resign %s", signer)
 	}
 	if node.Payee.PublicSpendKey != payee || node.State != common.NodeStateAccepted {
-		return fmt.Errorf("node state %s %s %s not match at accepted", last.Payee.PublicSpendKey, payee, node.State)
+		return fmt.Errorf("node state %s %s %s not match at accepted", node.Payee.PublicSpendKey, payee, node.State)
 	}
 
 	key := nodeStateQueueKey(signer, timestamp)
@@ -168,7 +189,8 @@ func writeNodeResign(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 }
 
 func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
-	nodes := readAllNodesWithState(txn)
+	offset := timestamp + uint64(config.KernelNodeAcceptPeriodMinimum)
+	nodes := readAllNodes(txn, offset, true)
 	last := nodes[len(nodes)-1]
 	switch last.State {
 	case common.NodeStatePledging:
@@ -202,7 +224,8 @@ func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 
 func writeNodeAccept(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64, genesis bool) error {
 	if !genesis {
-		nodes := readAllNodesWithState(txn)
+		offset := timestamp + uint64(config.KernelNodeAcceptPeriodMinimum)
+		nodes := readAllNodes(txn, offset, true)
 		last := nodes[len(nodes)-1]
 		if last.State != common.NodeStatePledging {
 			return fmt.Errorf("node %s is %s@%d while tx %s", last.Signer, last.State, last.Timestamp, tx.String())
@@ -218,14 +241,16 @@ func writeNodeAccept(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 }
 
 func writeNodePledge(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
-	nodes := readAllNodesWithState(txn)
-	last := nodes[len(nodes)-1]
-	switch last.State {
-	case common.NodeStateAccepted:
-	case common.NodeStateRemoved:
-	case common.NodeStateCancelled:
-	default:
-		return fmt.Errorf("node %s is %s@%d while tx %s", last.Signer, last.State, last.Timestamp, tx.String())
+	offset := timestamp + uint64(config.KernelNodePledgePeriodMinimum)
+	nodes := readAllNodes(txn, offset, false)
+	for _, n := range nodes {
+		switch n.State {
+		case common.NodeStateAccepted:
+		case common.NodeStateRemoved:
+		case common.NodeStateCancelled:
+		default:
+			return fmt.Errorf("node %s is %s@%d while tx %s", n.Signer, n.State, n.Timestamp, tx.String())
+		}
 	}
 
 	for _, n := range nodes {

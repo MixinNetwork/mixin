@@ -26,7 +26,7 @@ func TestGenesis(t *testing.T) {
 	assert.Equal(uint64(now.UnixNano()), node.Epoch)
 
 	assert.Equal("6430225c42bb015b4da03102fa962e4f4ef3969e03e04345db229f8377ef7997", node.networkId.String())
-	nodes := node.SortAllNodesByTimestampAndId()
+	nodes := node.SortAllNodesByTimestampAndId(uint64(now.UnixNano()), true)
 	assert.Len(nodes, 15)
 	for i, n := range nodes {
 		assert.Equal(node.Epoch, n.Timestamp)

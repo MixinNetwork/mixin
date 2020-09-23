@@ -32,7 +32,7 @@ type GhostChecker interface {
 }
 
 type NodeReader interface {
-	ReadAllNodes() []*Node
+	ReadAllNodes(offset uint64, withState bool) []*Node
 	ReadTransaction(hash crypto.Hash) (*VersionedTransaction, string, error)
 }
 

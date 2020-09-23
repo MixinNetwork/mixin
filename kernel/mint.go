@@ -288,8 +288,8 @@ func (node *Node) sortMintNodes(timestamp uint64) []*CNode {
 	return nodes
 }
 
-func (node *Node) SortAllNodesByTimestampAndId() []*CNode {
-	nodes := node.persistStore.ReadAllNodes()
+func (node *Node) SortAllNodesByTimestampAndId(offset uint64, withState bool) []*CNode {
+	nodes := node.persistStore.ReadAllNodes(offset, withState)
 	sort.Slice(nodes, func(i, j int) bool {
 		if nodes[i].Timestamp < nodes[j].Timestamp {
 			return true

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -40,7 +41,7 @@ func (s *BadgerStore) TryToMigrateNodeStateQueue() error {
 		return bytes.Compare(a.Signer.PublicSpendKey[:], b.Signer.PublicSpendKey[:]) < 0
 	})
 
-	nodes := readAllNodesWithState(txn)
+	nodes := readAllNodes(txn, uint64(time.Now().UnixNano()), true)
 	if len(nodes) != 0 {
 		return fmt.Errorf("malformed state with both legacy and new nodes %d %d", len(lnodes), len(nodes))
 	}

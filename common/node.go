@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
 )
@@ -46,7 +47,8 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 
 	var signerSpend crypto.Key
 	copy(signerSpend[:], tx.Extra)
-	for _, n := range store.ReadAllNodes() {
+	nodes := store.ReadAllNodes(uint64(time.Now().UnixNano()), false) // FIXME offset incorrect
+	for _, n := range nodes {
 		if n.State != NodeStateAccepted && n.State != NodeStateCancelled && n.State != NodeStateRemoved {
 			return fmt.Errorf("invalid node pending state %s %s", n.Signer.String(), n.State)
 		}
@@ -93,7 +95,7 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs [][]
 
 	var pledging *Node
 	filter := make(map[string]string)
-	nodes := store.ReadAllNodes()
+	nodes := store.ReadAllNodes(uint64(time.Now().UnixNano()), false) // FIXME offset incorrect
 	for _, n := range nodes {
 		filter[n.Signer.String()] = n.State
 		if n.State == NodeStateResigning {
@@ -179,7 +181,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 	}
 	var pledging *Node
 	filter := make(map[string]string)
-	nodes := store.ReadAllNodes()
+	nodes := store.ReadAllNodes(uint64(time.Now().UnixNano()), false) // FIXME offset incorrect
 	for _, n := range nodes {
 		filter[n.Signer.String()] = n.State
 		if n.State == NodeStateResigning {
@@ -263,7 +265,7 @@ func (tx *SignedTransaction) validateNodeResign(store DataStore) error {
 		PublicSpendKey: publicSpend,
 	}
 	var accept *Node
-	nodes := store.ReadAllNodes()
+	nodes := store.ReadAllNodes(uint64(time.Now().UnixNano()), false) // FIXME offset incorrect
 	for _, n := range nodes {
 		if n.State == NodeStateCancelled || n.State == NodeStateRemoved {
 			continue

@@ -33,7 +33,7 @@ func (node *Node) Import(configDir string, source storage.Store) error {
 		}
 	}
 
-	nodes := source.ReadAllNodes()
+	nodes := source.ReadAllNodes(uint64(time.Now().UnixNano()), false)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork(node.networkId)
 		chain := node.GetOrCreateChain(id)

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -14,7 +15,7 @@ import (
 )
 
 func (s *BadgerStore) ValidateGraphEntries(networkId crypto.Hash, depth uint64) (int, int, error) {
-	nodes := s.ReadAllNodes()
+	nodes := s.ReadAllNodes(uint64(time.Now().UnixNano()), false)
 	stats := make(chan [2]int, len(nodes))
 	errchan := make(chan error, len(nodes))
 	for _, n := range nodes {

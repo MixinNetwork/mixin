@@ -139,7 +139,7 @@ func (store storeImpl) ReadDomains() []Domain {
 	return nil
 }
 
-func (store storeImpl) ReadAllNodes() []*Node {
+func (store storeImpl) ReadAllNodes(_ uint64, _ bool) []*Node {
 	return nil
 }
 

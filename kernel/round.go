@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -65,7 +66,7 @@ func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (m
 	cacheRound := make(map[crypto.Hash]*CacheRound)
 	finalRound := make(map[crypto.Hash]*FinalRound)
 
-	allNodes := store.ReadAllNodes()
+	allNodes := store.ReadAllNodes(uint64(time.Now().UnixNano()), false)
 	for _, cn := range allNodes {
 		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateCancelled {
 			continue

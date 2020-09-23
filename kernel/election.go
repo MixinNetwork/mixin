@@ -320,7 +320,8 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 
 	var signerSpend crypto.Key
 	copy(signerSpend[:], tx.Extra)
-	for _, cn := range node.persistStore.ReadAllNodes() {
+	offset := timestamp + uint64(config.KernelNodePledgePeriodMinimum)
+	for _, cn := range node.SortAllNodesByTimestampAndId(offset, false) {
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.Epoch
 		}
@@ -379,10 +380,11 @@ func (node *Node) validateNodeResignSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid resign timestamp %d %d", eta, elp)
 	}
 
-	var accept *common.Node
+	var accept *CNode
 	var signerSpend crypto.Key
 	copy(signerSpend[:], tx.Extra)
-	for _, cn := range node.persistStore.ReadAllNodes() {
+	offset := timestamp + uint64(config.KernelNodePledgePeriodMinimum)
+	for _, cn := range node.SortAllNodesByTimestampAndId(offset, false) {
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.Epoch
 		}
