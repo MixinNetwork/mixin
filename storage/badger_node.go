@@ -253,6 +253,7 @@ func nodeEntryValue(payee crypto.Key, tx crypto.Hash, state string) []byte {
 
 func nodeSignerFromStateKey(key []byte) (common.Address, uint64) {
 	var publicSpend crypto.Key
+	key = key[len(graphPrefixNodeStateQueue):]
 	ts := binary.BigEndian.Uint64(key[:8])
 	copy(publicSpend[:], key[8:])
 	privateView := publicSpend.DeterministicHashDerive()
