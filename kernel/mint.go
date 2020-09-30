@@ -274,12 +274,7 @@ func (node *Node) checkMintPossibility(timestamp uint64, validateOnly bool) (int
 }
 
 func (node *Node) sortMintNodes(timestamp uint64) []*CNode {
-	var nodes []*CNode
-	for _, n := range node.ConsensusNodes {
-		if n.Timestamp < timestamp {
-			nodes = append(nodes, n)
-		}
-	}
+	nodes := node.NodesListWithoutState(timestamp)
 	sort.Slice(nodes, func(i, j int) bool {
 		a := nodes[i].IdForNetwork
 		b := nodes[j].IdForNetwork
@@ -313,4 +308,30 @@ func (node *Node) SortAllNodesByTimestampAndId(offset uint64, withState bool) []
 		}
 	}
 	return cnodes
+}
+
+func (node *Node) NodesListWithoutState(offset uint64) []*CNode {
+	filter := make(map[crypto.Hash]*CNode)
+	for _, n := range node.allNodesSortedWithState {
+		if n.Timestamp > offset {
+			break
+		}
+		filter[n.IdForNetwork] = n
+	}
+	nodes := make([]*CNode, 0)
+	for _, n := range filter {
+		nodes = append(nodes, n)
+	}
+	sort.Slice(nodes, func(i, j int) bool {
+		if nodes[i].Timestamp < nodes[j].Timestamp {
+			return true
+		}
+		if nodes[i].Timestamp > nodes[j].Timestamp {
+			return false
+		}
+		a := nodes[i].IdForNetwork
+		b := nodes[j].IdForNetwork
+		return a.String() < b.String()
+	})
+	return nodes
 }

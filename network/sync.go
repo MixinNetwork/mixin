@@ -124,7 +124,7 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 
 		if graph != nil {
 			points := me.handle.BuildGraph()
-			nodes := me.handle.ReadAllNodes()
+			nodes := me.handle.ReadAllNodesWithoutSate()
 			local := make(map[crypto.Hash]*SyncPoint)
 			for _, n := range points {
 				local[n.NodeId] = n

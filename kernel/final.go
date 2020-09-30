@@ -104,7 +104,7 @@ func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snaps
 	}
 
 	if !chain.node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
-		logger.Verbosef("ERROR legacyVerifyFinalization %s %v %d %t\n", peerId, s, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil)
+		logger.Verbosef("ERROR legacyVerifyFinalization %s %v %d\n", peerId, s, chain.node.ConsensusThreshold(s.Timestamp))
 		return nil
 	}
 
@@ -141,7 +141,7 @@ func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snaps
 	s.Signatures = sigs
 
 	if !chain.node.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
-		logger.Verbosef("ERROR RE legacyVerifyFinalization %s %v %d %t\n", peerId, s, chain.node.ConsensusThreshold(s.Timestamp), chain.node.ConsensusRemovedRecently(s.Timestamp) != nil)
+		logger.Verbosef("ERROR RE legacyVerifyFinalization %s %v %d\n", peerId, s, chain.node.ConsensusThreshold(s.Timestamp))
 		return nil
 	}
 

@@ -27,13 +27,13 @@ type Node struct {
 	TopoCounter *TopologicalSequence
 	SyncPoints  *syncMap
 
-	AllNodesSorted       []*CNode
-	AllNodesId           []crypto.Hash
-	ConsensusNodes       map[crypto.Hash]*CNode
-	SortedConsensusNodes []crypto.Hash
-	ConsensusIndex       int
-	ConsensusPledging    *CNode
-	GraphTimestamp       uint64
+	allNodesSortedWithState []*CNode
+	allNodesId              []crypto.Hash
+	ConsensusNodes          map[crypto.Hash]*CNode
+	SortedConsensusNodes    []crypto.Hash
+	ConsensusIndex          int
+	ConsensusPledging       *CNode
+	GraphTimestamp          uint64
 
 	chains *chainsMap
 
@@ -131,7 +131,8 @@ func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
 	}
 
 	var keys []*crypto.Key
-	for _, cn := range node.AllNodesSorted {
+	nodes := node.NodesListWithoutState(uint64(time.Now().UnixNano()) * 2)
+	for _, cn := range nodes {
 		if cn.State != common.NodeStateAccepted {
 			continue
 		}
@@ -147,7 +148,8 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 		timestamp = uint64(clock.Now().UnixNano())
 	}
 	consensusBase := 0
-	for _, cn := range node.AllNodesSorted {
+	nodes := node.NodesListWithoutState(uint64(time.Now().UnixNano()) * 2)
+	for _, cn := range nodes {
 		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap
 		if threshold > uint64(3*time.Minute) {
 			panic("should never be here")
@@ -183,11 +185,11 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 func (node *Node) LoadConsensusNodes() error {
 	node.ConsensusPledging = nil
 	consensusNodes := make(map[crypto.Hash]*CNode)
+	allNodesId := make([]crypto.Hash, 0)
 	sortedConsensusNodes := make([]crypto.Hash, 0)
-	node.AllNodesSorted = node.SortAllNodesByTimestampAndId(uint64(time.Now().UnixNano()), true)
-	node.AllNodesId = make([]crypto.Hash, len(node.AllNodesSorted))
-	for i, cn := range node.AllNodesSorted {
-		node.AllNodesId[i] = cn.IdForNetwork
+	allNodesWithoutState := node.SortAllNodesByTimestampAndId(uint64(time.Now().UnixNano())*2, false)
+	for _, cn := range allNodesWithoutState {
+		allNodesId = append(allNodesId, cn.IdForNetwork)
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.Epoch
 		}
@@ -202,33 +204,13 @@ func (node *Node) LoadConsensusNodes() error {
 		case common.NodeStateRemoved:
 		}
 	}
+	node.allNodesSortedWithState = node.SortAllNodesByTimestampAndId(uint64(time.Now().UnixNano())*2, true)
+	node.allNodesId = allNodesId
 	node.ConsensusNodes = consensusNodes
 	node.SortedConsensusNodes = sortedConsensusNodes
 	for i, id := range node.SortedConsensusNodes {
 		if id == node.IdForNetwork {
 			node.ConsensusIndex = i
-		}
-	}
-	return nil
-}
-
-func (node *Node) ConsensusRemovedRecently(timestamp uint64) *CNode {
-	// FIXME should use all nodes state list, without this hack
-	threshold := uint64(config.KernelNodeAcceptPeriodMinimum)
-	if timestamp <= threshold {
-		return nil
-	}
-	begin := timestamp - threshold
-	end := timestamp + threshold
-	for _, cn := range node.AllNodesSorted {
-		if cn.Timestamp > end {
-			break
-		}
-		if cn.State != common.NodeStateRemoved && cn.State != common.NodeStateResigning {
-			continue
-		}
-		if cn.Timestamp > begin {
-			return cn
 		}
 	}
 	return nil
@@ -388,8 +370,8 @@ func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTr
 	return node.persistStore.CachePutTransaction(tx)
 }
 
-func (node *Node) ReadAllNodes() []crypto.Hash {
-	return node.AllNodesId
+func (node *Node) ReadAllNodesWithoutSate() []crypto.Hash {
+	return node.allNodesId
 }
 
 func (node *Node) ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
@@ -415,7 +397,7 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 	if r := chain.State.FinalRound; r != nil {
 		final = r.Number
 	}
-	for id, _ := range node.ConsensusNodes {
+	for _, id := range node.SortedConsensusNodes {
 		remote := node.SyncPoints.Get(id)
 		if remote == nil {
 			continue
@@ -436,7 +418,7 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 		final = r.Number
 	}
 
-	for id, _ := range node.ConsensusNodes {
+	for _, id := range node.SortedConsensusNodes {
 		remote := node.SyncPoints.Get(id)
 		if remote == nil {
 			continue

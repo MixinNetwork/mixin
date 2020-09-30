@@ -81,7 +81,8 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		running:          true,
 	}
 
-	err := chain.loadState(node.networkId, node.AllNodesSorted)
+	nodes := node.NodesListWithoutState(uint64(time.Now().UnixNano()) * 2)
+	err := chain.loadState(node.networkId, nodes)
 	if err != nil {
 		panic(err)
 	}

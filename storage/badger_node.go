@@ -172,7 +172,7 @@ func writeNodeResign(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 
 	var node *common.Node
 	for _, n := range nodes {
-		if n.Signer.PublicSpendKey == signer && n.Transaction == tx {
+		if n.Signer.PublicSpendKey == signer {
 			node = n
 		}
 	}
@@ -203,7 +203,7 @@ func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 
 	var node *common.Node
 	for _, n := range nodes {
-		if n.Signer.PublicSpendKey == signer && n.Transaction == tx {
+		if n.Signer.PublicSpendKey == signer {
 			node = n
 		}
 	}

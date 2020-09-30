@@ -243,6 +243,8 @@ func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 	})
 }
 
+// 记录下每个节点的最后一次验证的交易的时间，只要验证了就给他记下来，不管有没有最终确认，只要这个节点签名过来的信息，都给加上，这样这个节点不管 resign remove 的时间都必须大于那个时间才行。
+
 func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 	if s.Version == 0 {
 		return node.legacyVerifyFinalization(s.Timestamp, s.Signatures)
@@ -255,20 +257,7 @@ func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
 	}
 	base := node.ConsensusThreshold(s.Timestamp)
-	if node.CacheVerifyCosi(s.Hash, s.Signature, publics, base) {
-		return true
-	}
-	if rr := node.ConsensusRemovedRecently(s.Timestamp); rr != nil {
-		for i := range publics {
-			pwr := append([]*crypto.Key{}, publics[:i]...)
-			pwr = append(pwr, &rr.Signer.PublicSpendKey)
-			pwr = append(pwr, publics[i:]...)
-			if node.CacheVerifyCosi(s.Hash, s.Signature, pwr, base) {
-				return true
-			}
-		}
-	}
-	return false
+	return node.CacheVerifyCosi(s.Hash, s.Signature, publics, base)
 }
 
 func (node *Node) legacyVerifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {
