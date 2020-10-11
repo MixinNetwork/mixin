@@ -243,8 +243,6 @@ func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 	})
 }
 
-// 记录下每个节点的最后一次验证的交易的时间，只要验证了就给他记下来，不管有没有最终确认，只要这个节点签名过来的信息，都给加上，这样这个节点不管 resign remove 的时间都必须大于那个时间才行。
-
 func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 	if s.Version == 0 {
 		return node.legacyVerifyFinalization(s.Timestamp, s.Signatures)

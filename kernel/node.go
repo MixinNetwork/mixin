@@ -370,7 +370,7 @@ func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTr
 	return node.persistStore.CachePutTransaction(tx)
 }
 
-func (node *Node) ReadAllNodesWithoutSate() []crypto.Hash {
+func (node *Node) ReadAllNodesWithoutState() []crypto.Hash {
 	return node.allNodesId
 }
 

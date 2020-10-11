@@ -51,7 +51,7 @@ type SyncHandle interface {
 	UpdateNeighbors(neighbors []string) error
 	BuildGraph() []*SyncPoint
 	UpdateSyncPoint(peerId crypto.Hash, points []*SyncPoint)
-	ReadAllNodesWithoutSate() []crypto.Hash
+	ReadAllNodesWithoutState() []crypto.Hash
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	SendTransactionToPeer(peerId, tx crypto.Hash) error
