@@ -233,7 +233,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	if cn == nil {
 		return nil
 	}
-	if cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) >= m.Snapshot.Timestamp && !chain.node.genesisNodesMap[cn.IdForNetwork] {
+	if !chain.node.ConsensusReady(cn, m.Snapshot.Timestamp) {
 		return nil
 	}
 
@@ -349,7 +349,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment CheckCatchUpWithPeers\n")
 		return nil
 	}
-	if cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) >= ann.Snapshot.Timestamp && !chain.node.genesisNodesMap[cn.IdForNetwork] {
+	if !chain.node.ConsensusReady(cn, ann.Snapshot.Timestamp) {
 		return nil
 	}
 	ann.committed[m.PeerId] = true

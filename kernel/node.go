@@ -133,14 +133,24 @@ func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
 	var keys []*crypto.Key
 	nodes := node.NodesListWithoutState(uint64(time.Now().UnixNano()) * 2)
 	for _, cn := range nodes {
-		if cn.State != common.NodeStateAccepted {
-			continue
-		}
-		if node.genesisNodesMap[cn.IdForNetwork] || cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) < timestamp {
+		if node.ConsensusReady(cn, timestamp) {
 			keys = append(keys, &cn.Signer.PublicSpendKey)
 		}
 	}
 	return keys
+}
+
+// An accepted node can sign transactions only when it satisfies either:
+// 1. It is a genesis node.
+// 2. It has been accepted more than 12 hours.
+func (node *Node) ConsensusReady(cn *CNode, timestamp uint64) bool {
+	if cn.State != common.NodeStateAccepted {
+		return false
+	}
+	if node.genesisNodesMap[cn.IdForNetwork] || cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) < timestamp {
+		return true
+	}
+	return false
 }
 
 func (node *Node) ConsensusThreshold(timestamp uint64) int {
