@@ -171,8 +171,8 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 			if config.KernelNodeAcceptPeriodMinimum < time.Hour {
 				panic("should never be here")
 			}
-			threshold = uint64(config.KernelNodeAcceptPeriodMinimum) - threshold*3
-			if cn.Timestamp+threshold < timestamp {
+			t := uint64(config.KernelNodeAcceptPeriodMinimum) - threshold*3
+			if cn.Timestamp+t < timestamp {
 				consensusBase++
 			}
 		case common.NodeStateAccepted:
