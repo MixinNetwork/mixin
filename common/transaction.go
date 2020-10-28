@@ -24,6 +24,7 @@ const (
 	OutputTypeNodeCancel         = 0xaa
 	OutputTypeDomainAssetCustody = 0xab
 	OutputTypeDomainAssetRelease = 0xac
+	OutputTypeDomainAssetMigrate = 0xad
 
 	TransactionTypeScript           = 0x00
 	TransactionTypeMint             = 0x01

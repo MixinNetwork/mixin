@@ -11,6 +11,11 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
+const (
+	GraphOperationClassAtomic       = 0x00
+	GraphOperationClassNormalLedger = 0x01
+)
+
 func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDummy bool) (*FinalRound, bool, error) {
 	if chain.ChainId != cache.NodeId {
 		panic("should never be here")
