@@ -17,7 +17,6 @@ import (
 const (
 	legacygraphPrefixNodePledge = "NODESTATEPLEDGE"
 	legacygraphPrefixNodeAccept = "NODESTATEACCEPT"
-	legacygraphPrefixNodeResign = "NODESTATERESIGN"
 	legacygraphPrefixNodeRemove = "NODESTATEREMOVE"
 	legacygraphPrefixNodeCancel = "NODESTATECANCEL"
 )
@@ -63,8 +62,6 @@ func readAllLegacyNodes(txn *badger.Txn) []*common.Node {
 	nodes = append(nodes, accepted...)
 	pledging := readLagacyNodesInState(txn, legacygraphPrefixNodePledge)
 	nodes = append(nodes, pledging...)
-	resigning := readLagacyNodesInState(txn, legacygraphPrefixNodeResign)
-	nodes = append(nodes, resigning...)
 	removed := readLagacyNodesInState(txn, legacygraphPrefixNodeRemove)
 	nodes = append(nodes, removed...)
 	canceled := readLagacyNodesInState(txn, legacygraphPrefixNodeCancel)
@@ -90,8 +87,6 @@ func readLagacyNodesInState(txn *badger.Txn, nodeState string) []*common.Node {
 			nc = readLegacyPledgeNodes(txn, tx)
 		case legacygraphPrefixNodeAccept:
 			nc = readLegacyAcceptNodes(txn, tx)
-		case legacygraphPrefixNodeResign:
-			panic("should not have these yet")
 		case legacygraphPrefixNodeRemove:
 			nc = readLegacyRemoveNodes(txn, tx)
 		case legacygraphPrefixNodeCancel:
@@ -102,6 +97,7 @@ func readLagacyNodesInState(txn *badger.Txn, nodeState string) []*common.Node {
 	return nodes
 }
 
+// TODO hard code this map from a fresh node sync
 var legacyNodeStateSnapshotMap = map[string]string{
 	"txhash": "snaphash",
 }
