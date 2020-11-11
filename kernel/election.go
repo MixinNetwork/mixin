@@ -225,7 +225,6 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 	case common.TransactionTypeNodePledge,
 		common.TransactionTypeNodeCancel,
 		common.TransactionTypeNodeAccept,
-		common.TransactionTypeNodeResign,
 		common.TransactionTypeNodeRemove:
 		err := node.LoadConsensusNodes()
 		if err != nil {
@@ -358,70 +357,6 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 	if tx.Outputs[0].Amount.Cmp(pledgeAmount(time.Duration(since))) != 0 {
 		return fmt.Errorf("invalid pledge amount %s", tx.Outputs[0].Amount.String())
-	}
-
-	// FIXME the node operation lock threshold should be optimized on pledging period
-	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2)
-}
-
-func (node *Node) validateNodeResignSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
-	timestamp := s.Timestamp
-	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
-		timestamp = uint64(clock.Now().UnixNano())
-	}
-
-	if timestamp < node.Epoch {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
-	}
-	since := timestamp - node.Epoch
-	days := int(since / 3600000000000 / 24)
-	elp := time.Duration((days%MintYearBatches)*24) * time.Hour
-	eta := time.Duration((MintYearBatches-days%MintYearBatches)*24) * time.Hour
-	if eta < config.KernelNodeAcceptPeriodMaximum*2 || elp < config.KernelNodeAcceptPeriodMinimum*2 {
-		return fmt.Errorf("invalid resign timestamp %d %d", eta, elp)
-	}
-
-	var accept *CNode
-	var signerSpend crypto.Key
-	copy(signerSpend[:], tx.Extra)
-	offset := timestamp + uint64(config.KernelNodePledgePeriodMinimum)
-	for _, cn := range node.SortAllNodesByTimestampAndId(offset, false) {
-		if cn.Timestamp == 0 {
-			cn.Timestamp = node.Epoch
-		}
-		if timestamp < cn.Timestamp {
-			return fmt.Errorf("invalid snapshot timestamp %d %d", cn.Timestamp, timestamp)
-		}
-		elapse := time.Duration(timestamp - cn.Timestamp)
-		if elapse < config.KernelNodePledgePeriodMinimum {
-			return fmt.Errorf("invalid resign period %d %d", config.KernelNodePledgePeriodMinimum, elapse)
-		}
-		if cn.State == common.NodeStateCancelled || cn.State == common.NodeStateRemoved {
-			continue
-		}
-		if cn.State != common.NodeStateAccepted {
-			return fmt.Errorf("invalid node state %s %s", cn.Signer.String(), cn.State)
-		}
-		if cn.Signer.PublicSpendKey.String() == signerSpend.String() {
-			accept = cn
-			break
-		}
-	}
-	if accept == nil {
-		return fmt.Errorf("unable to resign a node not accepted yet")
-	}
-
-	if tx.Asset != common.XINAssetId {
-		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
-	}
-	if len(tx.Outputs) != 1 {
-		return fmt.Errorf("invalid outputs count %d for resign transaction", len(tx.Outputs))
-	}
-	if len(tx.Extra) != 2*len(crypto.Key{}) {
-		return fmt.Errorf("invalid extra length %d for resign transaction", len(tx.Extra))
-	}
-	if tx.Outputs[0].Amount.Cmp(pledgeAmount(time.Duration(since)).Div(100)) != 0 {
-		return fmt.Errorf("invalid resign amount %s", tx.Outputs[0].Amount.String())
 	}
 
 	// FIXME the node operation lock threshold should be optimized on pledging period

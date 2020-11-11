@@ -157,37 +157,6 @@ func writeNodeCancel(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 	return txn.Set(key, val)
 }
 
-func writeNodeResign(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
-	offset := timestamp + uint64(config.KernelNodeAcceptPeriodMinimum)
-	nodes := readAllNodes(txn, offset, false)
-	for _, n := range nodes {
-		switch n.State {
-		case common.NodeStateAccepted:
-		case common.NodeStateRemoved:
-		case common.NodeStateCancelled:
-		default:
-			return fmt.Errorf("node %s is %s@%d while tx %s", n.Signer, n.State, n.Timestamp, tx.String())
-		}
-	}
-
-	var node *common.Node
-	for _, n := range nodes {
-		if n.Signer.PublicSpendKey == signer {
-			node = n
-		}
-	}
-	if node == nil {
-		return fmt.Errorf("node not available to resign %s", signer)
-	}
-	if node.Payee.PublicSpendKey != payee || node.State != common.NodeStateAccepted {
-		return fmt.Errorf("node state %s %s %s not match at accepted", node.Payee.PublicSpendKey, payee, node.State)
-	}
-
-	key := nodeStateQueueKey(signer, timestamp)
-	val := nodeEntryValue(payee, tx, common.NodeStateResigning)
-	return txn.Set(key, val)
-}
-
 func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
 	offset := timestamp + uint64(config.KernelNodeAcceptPeriodMinimum)
 	nodes := readAllNodes(txn, offset, true)
@@ -195,10 +164,6 @@ func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 	switch last.State {
 	case common.NodeStatePledging:
 		return fmt.Errorf("node %s is %s@%d while tx %s", last.Signer, last.State, last.Timestamp, tx.String())
-	case common.NodeStateResigning:
-		if last.Signer.PublicSpendKey != signer || last.Payee.PublicSpendKey != payee {
-			return fmt.Errorf("node %s %s not match at resigning", last.Signer.PublicSpendKey, signer)
-		}
 	}
 
 	var node *common.Node
@@ -213,7 +178,7 @@ func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 	if node.Payee.PublicSpendKey != payee {
 		return fmt.Errorf("node %s %s not match at %s", last.Payee.PublicSpendKey, payee, node.State)
 	}
-	if node.State != common.NodeStateAccepted && node.State != common.NodeStateResigning {
+	if node.State != common.NodeStateAccepted {
 		return fmt.Errorf("node %s %s not match at %s", last.Payee.PublicSpendKey, payee, node.State)
 	}
 

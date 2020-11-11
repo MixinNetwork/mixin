@@ -179,10 +179,6 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 			if node.genesisNodesMap[cn.IdForNetwork] || cn.Timestamp+threshold < timestamp {
 				consensusBase++
 			}
-		case common.NodeStateResigning:
-			if cn.Timestamp+threshold > timestamp {
-				consensusBase++
-			}
 		}
 	}
 	if consensusBase < len(node.genesisNodes) {
@@ -210,7 +206,6 @@ func (node *Node) LoadConsensusNodes() error {
 		case common.NodeStateAccepted:
 			consensusNodes[cn.IdForNetwork] = cn
 			sortedConsensusNodes = append(sortedConsensusNodes, cn.IdForNetwork)
-		case common.NodeStateResigning:
 		case common.NodeStateRemoved:
 		}
 	}
