@@ -81,8 +81,7 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		running:          true,
 	}
 
-	nodes := node.NodesListWithoutState(uint64(time.Now().UnixNano()) * 2)
-	err := chain.loadState(node.networkId, nodes)
+	err := chain.loadState(node.networkId)
 	if err != nil {
 		panic(err)
 	}
@@ -100,7 +99,7 @@ func (chain *Chain) Teardown() {
 	<-chain.plc
 }
 
-func (chain *Chain) loadState(networkId crypto.Hash, allNodes []*CNode) error {
+func (chain *Chain) loadState(networkId crypto.Hash) error {
 	chain.Lock()
 	defer chain.Unlock()
 
@@ -126,6 +125,7 @@ func (chain *Chain) loadState(networkId crypto.Hash, allNodes []*CNode) error {
 	chain.State.RoundHistory = history
 	cache.Timestamp = final.Start + config.SnapshotRoundGap
 
+	allNodes := chain.node.SortAllNodesByTimestampAndId(uint64(time.Now().UnixNano())*2, false)
 	for _, cn := range allNodes {
 		if chain.ChainId == cn.IdForNetwork {
 			continue

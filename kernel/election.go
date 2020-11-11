@@ -79,7 +79,7 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*CNode
 		return nil, fmt.Errorf("invalid node remove hour %d", hours%24)
 	}
 
-	nodes := node.NodesListWithoutState(now)
+	nodes := node.SortAllNodesByTimestampAndId(now, false)
 	candi := nodes[0]
 	for _, cn := range nodes {
 		if cn.Timestamp == 0 {
@@ -235,7 +235,7 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 		return nil
 	}
 	chain := node.GetOrCreateChain(s.NodeId)
-	return chain.loadState(node.networkId, node.NodesListWithoutState(s.Timestamp))
+	return chain.loadState(node.networkId)
 }
 
 func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {

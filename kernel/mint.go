@@ -313,7 +313,7 @@ func (node *Node) SortAllNodesByTimestampAndId(offset uint64, withState bool) []
 func (node *Node) NodesListWithoutState(offset uint64) []*CNode {
 	filter := make(map[crypto.Hash]*CNode)
 	for _, n := range node.allNodesSortedWithState {
-		if n.Timestamp > offset {
+		if n.Timestamp >= offset {
 			break
 		}
 		filter[n.IdForNetwork] = n

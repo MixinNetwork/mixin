@@ -52,16 +52,6 @@ func readAllNodes(txn *badger.Txn, offset uint64, withState bool) []*common.Node
 		if p := nodes[i-1]; n.Timestamp < p.Timestamp {
 			panic(fmt.Errorf("malformed order %s:%d:%s %s:%d:%s", p.Signer, p.Timestamp, p.State, n.Signer, n.Timestamp, n.State))
 		}
-		if i == len(nodes)-1 {
-			continue
-		}
-		switch n.State {
-		case common.NodeStateRemoved:
-		case common.NodeStateAccepted:
-		case common.NodeStateCancelled:
-		default:
-			panic(fmt.Errorf("malformed node state %s %s %d", n.Signer, n.State, n.Timestamp))
-		}
 	}
 
 	if withState {

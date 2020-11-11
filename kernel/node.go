@@ -131,7 +131,7 @@ func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
 	}
 
 	var keys []*crypto.Key
-	nodes := node.NodesListWithoutState(uint64(time.Now().UnixNano()) * 2)
+	nodes := node.NodesListWithoutState(timestamp)
 	for _, cn := range nodes {
 		if node.ConsensusReady(cn, timestamp) {
 			keys = append(keys, &cn.Signer.PublicSpendKey)
@@ -147,7 +147,10 @@ func (node *Node) ConsensusReady(cn *CNode, timestamp uint64) bool {
 	if cn.State != common.NodeStateAccepted {
 		return false
 	}
-	if node.genesisNodesMap[cn.IdForNetwork] || cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) < timestamp {
+	if node.genesisNodesMap[cn.IdForNetwork] {
+		return true
+	}
+	if cn.Timestamp+uint64(config.KernelNodeAcceptPeriodMinimum) < timestamp {
 		return true
 	}
 	return false
@@ -158,7 +161,7 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 		timestamp = uint64(clock.Now().UnixNano())
 	}
 	consensusBase := 0
-	nodes := node.NodesListWithoutState(uint64(time.Now().UnixNano()) * 2)
+	nodes := node.NodesListWithoutState(timestamp)
 	for _, cn := range nodes {
 		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap
 		if threshold > uint64(3*time.Minute) {
@@ -338,7 +341,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	if peerId == node.IdForNetwork {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
 	}
-	peer := node.getPeerConsensusNode(peerId)
+	peer := node.getCosensusOrPledgingNode(peerId)
 
 	if node.custom.Node.ConsensusOnly && peer == nil {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
@@ -402,7 +405,7 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 	if r := chain.State.FinalRound; r != nil {
 		final = r.Number
 	}
-	for _, id := range node.SortedConsensusNodes {
+	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
 		if remote == nil {
 			continue
@@ -423,7 +426,7 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 		final = r.Number
 	}
 
-	for _, id := range node.SortedConsensusNodes {
+	for id, _ := range node.ConsensusNodes {
 		remote := node.SyncPoints.Get(id)
 		if remote == nil {
 			continue
