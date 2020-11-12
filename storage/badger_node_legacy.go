@@ -274,7 +274,7 @@ func readSnapshotFromTx(txn *badger.Txn, h crypto.Hash) (*common.VersionedTransa
 
 func readLegacyPledgeNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 	tx, snap := readSnapshotFromTx(txn, h)
-	logger.Printf(`"%s":"%s",\n`, tx.PayloadHash(), snap.PayloadHash())
+	logger.Printf(`"%s":"%s",`, tx.PayloadHash(), snap.PayloadHash())
 
 	var signer, payee common.Address
 	copy(signer.PublicSpendKey[:], tx.Extra)
@@ -296,7 +296,7 @@ func readLegacyPledgeNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 
 func readLegacyAcceptNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 	tx, snap := readSnapshotFromTx(txn, h)
-	logger.Printf(`"%s":"%s",\n`, tx.PayloadHash(), snap.PayloadHash())
+	logger.Printf(`"%s":"%s",`, tx.PayloadHash(), snap.PayloadHash())
 
 	var signer, payee common.Address
 	copy(signer.PublicSpendKey[:], tx.Extra)
@@ -325,7 +325,7 @@ func readLegacyAcceptNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 
 func readLegacyCancelNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 	tx, snap := readSnapshotFromTx(txn, h)
-	logger.Printf(`"%s":"%s",\n`, tx.PayloadHash(), snap.PayloadHash())
+	logger.Printf(`"%s":"%s",`, tx.PayloadHash(), snap.PayloadHash())
 
 	var signer, payee common.Address
 	copy(signer.PublicSpendKey[:], tx.Extra)
@@ -338,7 +338,7 @@ func readLegacyCancelNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 	node := &common.Node{
 		Signer:      signer,
 		Payee:       payee,
-		State:       common.NodeStatePledging,
+		State:       common.NodeStateCancelled,
 		Transaction: h,
 		Timestamp:   snap.Timestamp,
 	}
@@ -350,7 +350,7 @@ func readLegacyCancelNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 
 func readLegacyRemoveNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 	tx, snap := readSnapshotFromTx(txn, h)
-	logger.Printf(`"%s":"%s",\n`, tx.PayloadHash(), snap.PayloadHash())
+	logger.Printf(`"%s":"%s",`, tx.PayloadHash(), snap.PayloadHash())
 
 	var signer, payee common.Address
 	copy(signer.PublicSpendKey[:], tx.Extra)
@@ -363,7 +363,7 @@ func readLegacyRemoveNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 	node := &common.Node{
 		Signer:      signer,
 		Payee:       payee,
-		State:       common.NodeStatePledging,
+		State:       common.NodeStateRemoved,
 		Transaction: h,
 		Timestamp:   snap.Timestamp,
 	}
