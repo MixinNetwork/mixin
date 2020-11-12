@@ -40,8 +40,9 @@ func (s *BadgerStore) TryToMigrateNodeStateQueue() error {
 		return bytes.Compare(a.Signer.PublicSpendKey[:], b.Signer.PublicSpendKey[:]) < 0
 	})
 
-	nodes := readAllNodes(txn, uint64(time.Now().UnixNano()), true)
-	if len(nodes) != 0 {
+	if nodes := readAllNodes(txn, uint64(time.Now().UnixNano()), true); len(nodes) == len(lnodes) {
+		return nil
+	} else if len(nodes) != 0 {
 		return fmt.Errorf("malformed state with both legacy and new nodes %d %d", len(lnodes), len(nodes))
 	}
 
