@@ -211,28 +211,6 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, p
 	return err == nil
 }
 
-func (node *Node) checkInitialAcceptSnapshotWeak(s *common.Snapshot) bool {
-	pledge := node.ConsensusPledging
-	if pledge == nil {
-		return false
-	}
-	if node.genesisNodesMap[s.NodeId] {
-		return false
-	}
-	if s.NodeId != pledge.IdForNetwork {
-		return false
-	}
-	return s.RoundNumber == 0
-}
-
-func (node *Node) checkInitialAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) bool {
-	chain := node.GetOrCreateChain(s.NodeId)
-	if chain.State.FinalRound != nil {
-		return false
-	}
-	return node.checkInitialAcceptSnapshotWeak(s) && tx.TransactionType() == common.TransactionTypeNodeAccept
-}
-
 func (chain *Chain) queueActionOrPanic(m *CosiAction) error {
 	if chain.ChainId != m.PeerId {
 		panic("should never be here")
@@ -265,8 +243,9 @@ func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 	if s.Version != common.SnapshotVersion || s.Signature == nil {
 		return false
 	}
+	chain := node.GetOrCreateChain(s.NodeId)
 	publics := node.ConsensusKeys(s.Timestamp)
-	if node.checkInitialAcceptSnapshotWeak(s) {
+	if chain.State.FinalRound == nil && s.RoundNumber == 0 {
 		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
 	}
 	base := node.ConsensusThreshold(s.Timestamp)
@@ -277,7 +256,7 @@ func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 
 	timestamp := s.Timestamp - uint64(config.KernelNodeAcceptPeriodMinimum)
 	publics = node.ConsensusKeys(timestamp)
-	if node.checkInitialAcceptSnapshotWeak(s) {
+	if chain.State.FinalRound == nil && s.RoundNumber == 0 {
 		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
 	}
 	base = node.ConsensusThreshold(timestamp)

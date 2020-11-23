@@ -54,7 +54,7 @@ func (chain *Chain) tryToStartNewRound(s *common.Snapshot) (bool, error) {
 		panic("should never be here")
 	}
 
-	if chain.node.checkInitialAcceptSnapshotWeak(s) {
+	if chain.State.FinalRound == nil && s.RoundNumber == 0 {
 		return false, nil
 	}
 	if chain.State.CacheRound == nil {

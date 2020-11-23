@@ -87,13 +87,25 @@ func (chain *Chain) cosiHandleAction(m *CosiAction) error {
 	return nil
 }
 
+func (chain *Chain) cosiCheckSnapshotTimestamp(ts uint64) bool {
+	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
+	if ts > uint64(clock.Now().UnixNano())+threshold {
+		return false
+	}
+	if ts+threshold*2 < chain.node.GraphTimestamp {
+		return false
+	}
+
+	return true
+}
+
 func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement %v\n", m.Snapshot)
 	s := m.Snapshot
 	if s.Version != common.SnapshotVersion || s.Signature != nil || s.Timestamp != 0 {
 		return nil
 	}
-	if !chain.node.CheckCatchUpWithPeers() && !chain.node.checkInitialAcceptSnapshotWeak(m.Snapshot) {
+	if !chain.node.CheckCatchUpWithPeers() && !(chain.State.FinalRound == nil && s.RoundNumber == 0) {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement CheckCatchUpWithPeers\n")
 		return nil
 	}
@@ -113,7 +125,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		responsed:   make(map[crypto.Hash]bool),
 	}
 
-	if chain.node.checkInitialAcceptSnapshot(s, tx) {
+	if chain.State.FinalRound == nil && s.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
 		s.Timestamp = uint64(clock.Now().UnixNano())
 		s.Hash = s.PayloadHash()
 		v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
@@ -238,11 +250,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	if s.Version != common.SnapshotVersion || s.Signature != nil || s.Timestamp == 0 {
 		return nil
 	}
-	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if s.Timestamp > uint64(clock.Now().UnixNano())+threshold {
-		return nil
-	}
-	if s.Timestamp+threshold*2 < chain.node.GraphTimestamp {
+	if !chain.cosiCheckSnapshotTimestamp(s.Timestamp) {
 		return nil
 	}
 
@@ -252,7 +260,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	}
 
 	v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
-	if chain.node.checkInitialAcceptSnapshotWeak(s) {
+	if chain.State.FinalRound == nil && s.RoundNumber == 0 {
 		chain.CosiVerifiers[s.Hash] = v
 		err := chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil)
 		if err != nil {
@@ -345,7 +353,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	if ann.committed[m.PeerId] {
 		return nil
 	}
-	if !chain.node.CheckCatchUpWithPeers() && !chain.node.checkInitialAcceptSnapshotWeak(ann.Snapshot) {
+	if !chain.node.CheckCatchUpWithPeers() && !(chain.State.FinalRound == nil && ann.Snapshot.RoundNumber == 0) {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment CheckCatchUpWithPeers\n")
 		return nil
 	}
@@ -382,14 +390,14 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	v := chain.CosiVerifiers[m.SnapshotHash]
 	priv := chain.node.Signer.PrivateSpendKey
 	publics := chain.node.ConsensusKeys(ann.Snapshot.Timestamp)
-	if chain.node.checkInitialAcceptSnapshot(ann.Snapshot, tx) {
+	if chain.State.FinalRound == nil && ann.Snapshot.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
 		publics = append(publics, &chain.node.ConsensusPledging.Signer.PublicSpendKey)
 	}
 	response, err := cosi.Response(&priv, v.random, publics, m.SnapshotHash[:])
 	if err != nil {
 		return err
 	}
-	if chain.node.checkInitialAcceptSnapshot(ann.Snapshot, tx) {
+	if chain.State.FinalRound == nil && ann.Snapshot.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
 		ann.Responses[len(chain.node.SortedConsensusNodes)] = &response
 	} else {
 		ann.Responses[chain.node.ConsensusIndex] = &response
@@ -433,11 +441,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	}
 
 	s := v.Snapshot
-	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if s.Timestamp > uint64(clock.Now().UnixNano())+threshold {
-		return nil
-	}
-	if s.Timestamp+threshold*2 < chain.node.GraphTimestamp {
+	if !chain.cosiCheckSnapshotTimestamp(s.Timestamp) {
 		return nil
 	}
 
@@ -451,7 +455,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	copy(sig[32:], m.Signature.Signature[32:])
 	pub := chain.node.getCosensusOrPledgingNode(s.NodeId).Signer.PublicSpendKey
 	publics := chain.node.ConsensusKeys(s.Timestamp)
-	if chain.node.checkInitialAcceptSnapshot(s, tx) {
+	if chain.State.FinalRound == nil && s.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
 		publics = append(publics, &chain.node.ConsensusPledging.Signer.PublicSpendKey)
 	}
 	challenge, err := m.Signature.Challenge(publics, m.SnapshotHash[:])
@@ -487,7 +491,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	if agg.responsed[m.PeerId] {
 		return nil
 	}
-	if !chain.node.CheckCatchUpWithPeers() && !chain.node.checkInitialAcceptSnapshotWeak(agg.Snapshot) {
+	if !chain.node.CheckCatchUpWithPeers() && !(chain.State.FinalRound == nil && agg.Snapshot.RoundNumber == 0) {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse CheckCatchUpWithPeers\n")
 		return nil
 	}
@@ -528,7 +532,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	}
 
 	publics := chain.node.ConsensusKeys(s.Timestamp)
-	if chain.node.checkInitialAcceptSnapshot(s, tx) {
+	if chain.State.FinalRound == nil && s.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
 		publics = append(publics, &chain.node.ConsensusPledging.Signer.PublicSpendKey)
 	}
 
@@ -542,7 +546,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		return nil
 	}
 
-	if chain.node.checkInitialAcceptSnapshot(s, tx) {
+	if chain.State.FinalRound == nil && s.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
 		err := chain.node.finalizeNodeAcceptSnapshot(s)
 		if err != nil {
 			return err
@@ -596,7 +600,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFinalization %s %v\n", m.PeerId, m.Snapshot)
 	s, tx := m.Snapshot, m.Transaction
 
-	if chain.node.checkInitialAcceptSnapshot(s, tx) {
+	if chain.State.FinalRound == nil && s.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
 		err := chain.node.finalizeNodeAcceptSnapshot(s)
 		if err != nil {
 			return err
