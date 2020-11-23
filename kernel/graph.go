@@ -14,6 +14,8 @@ import (
 const (
 	GraphOperationClassAtomic       = 0x00
 	GraphOperationClassNormalLedger = 0x01
+
+	MainnetNodeRemovalConsensusForkTimestamp = 1590000000000000000
 )
 
 func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDummy bool) (*FinalRound, bool, error) {
@@ -170,13 +172,21 @@ func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto
 	return valid
 }
 
+// Nodes list change problem:
+// 1. Node A gets snapshot S signed by enough nodes, including B, at time 10, and finalized but not broadcasted to others yet.
+// Then node B is removed at time 9. Now A broadcasts S, and others will not be able to finalize S.
+// Solution: Because A has the ACK of node B, then A should include B when challenge all others, then others will record the
+// ACK timestamp of node B is time 10. So that if B has a conflict removal time of 9, then won't get ACKed at all.
+// What if A doesn't include B in the challenge, then A may be found evial and slashed.
+// Proof: With the solution, it's impossible to have B removed at 9, and S get finalized get 10. Because 2f+1 nodes know B ACK S
+// at 10, then they won't accept removal of B at 9.
+// 2. Node A initial accept snapshot I signed by enough nodes, at time 9, and finalized but not broadcasted to others yet.
+// Then snapshot S is finalized at time 10. Now A broadcasts I, and others will not be able to finalize S.
+// Solution: Now node A is evil and will be slashed.
+// 3. Node A pledge snapshot finalized but not broadcasted on time.
+// Solution: Evil and slash.
+
 func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, publics []*crypto.Key, threshold int) bool {
-	if snap.String() == "b3ea56de6124ad2f3ad1d48f2aff8338b761e62bcde6f2f0acba63a32dd8eecc" &&
-		sig.String() == "dbb0347be24ecb8de3d66631d347fde724ff92e22e1f45deeb8b5d843fd62da39ca8e39de9f35f1e0f7336d4686917983470c098edc91f456d577fb18069620f000000003fdfe712" {
-		// FIXME this is a hack to fix the large round gap around node remove snapshot
-		// and a bug in too recent external reference, e.g. bare final round
-		return true
-	}
 	key := sig.Signature[:]
 	key = append(snap[:], key...)
 	for _, pub := range publics {
@@ -260,6 +270,17 @@ func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
 	}
 	base := node.ConsensusThreshold(s.Timestamp)
+	finalized := node.CacheVerifyCosi(s.Hash, s.Signature, publics, base)
+	if finalized || s.Timestamp > MainnetNodeRemovalConsensusForkTimestamp {
+		return finalized
+	}
+
+	timestamp := s.Timestamp - uint64(config.KernelNodeAcceptPeriodMinimum)
+	publics = node.ConsensusKeys(timestamp)
+	if node.checkInitialAcceptSnapshotWeak(s) {
+		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
+	}
+	base = node.ConsensusThreshold(timestamp)
 	return node.CacheVerifyCosi(s.Hash, s.Signature, publics, base)
 }
 

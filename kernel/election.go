@@ -79,9 +79,8 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*CNode
 		return nil, fmt.Errorf("invalid node remove hour %d", hours%24)
 	}
 
-	nodes := node.SortAllNodesByTimestampAndId(now, false)
-	candi := nodes[0]
-	for _, cn := range nodes {
+	var candi *CNode
+	for _, cn := range node.SortAllNodesByTimestampAndId(now, false) {
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.Epoch
 		}
@@ -95,11 +94,12 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*CNode
 		if cn.State != common.NodeStateAccepted && cn.State != common.NodeStateCancelled && cn.State != common.NodeStateRemoved {
 			return nil, fmt.Errorf("invalid node pending state %s %s", cn.Signer, cn.State)
 		}
-		if cn.State == common.NodeStateAccepted && candi.State != common.NodeStateAccepted {
+		if candi == nil && cn.State == common.NodeStateAccepted {
 			candi = cn
+			break
 		}
 	}
-	if candi.State != common.NodeStateAccepted {
+	if candi == nil || candi.State != common.NodeStateAccepted {
 		return nil, fmt.Errorf("invalid node state %s %s", candi.IdForNetwork, candi.State)
 	}
 
