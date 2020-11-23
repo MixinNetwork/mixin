@@ -389,10 +389,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	ann.Snapshot.Signature = cosi
 	v := chain.CosiVerifiers[m.SnapshotHash]
 	priv := chain.node.Signer.PrivateSpendKey
-	publics := chain.node.ConsensusKeys(ann.Snapshot.Timestamp)
-	if chain.State.FinalRound == nil && ann.Snapshot.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
-		publics = append(publics, &chain.node.ConsensusPledging.Signer.PublicSpendKey)
-	}
+	publics := chain.ConsensusKeys(ann.Snapshot.RoundNumber, ann.Snapshot.Timestamp)
 	response, err := cosi.Response(&priv, v.random, publics, m.SnapshotHash[:])
 	if err != nil {
 		return err
@@ -454,10 +451,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	copy(sig[:], s.Commitment[:])
 	copy(sig[32:], m.Signature.Signature[32:])
 	pub := chain.node.getCosensusOrPledgingNode(s.NodeId).Signer.PublicSpendKey
-	publics := chain.node.ConsensusKeys(s.Timestamp)
-	if chain.State.FinalRound == nil && s.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
-		publics = append(publics, &chain.node.ConsensusPledging.Signer.PublicSpendKey)
-	}
+	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	challenge, err := m.Signature.Challenge(publics, m.SnapshotHash[:])
 	if err != nil {
 		return nil
@@ -531,11 +525,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		return nil
 	}
 
-	publics := chain.node.ConsensusKeys(s.Timestamp)
-	if chain.State.FinalRound == nil && s.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
-		publics = append(publics, &chain.node.ConsensusPledging.Signer.PublicSpendKey)
-	}
-
+	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	err = s.Signature.VerifyResponse(publics, index, m.Response, m.SnapshotHash[:])
 	if err != nil {
 		return nil

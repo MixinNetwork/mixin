@@ -244,10 +244,7 @@ func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 		return false
 	}
 	chain := node.GetOrCreateChain(s.NodeId)
-	publics := node.ConsensusKeys(s.Timestamp)
-	if chain.State.FinalRound == nil && s.RoundNumber == 0 {
-		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
-	}
+	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	base := node.ConsensusThreshold(s.Timestamp)
 	finalized := node.CacheVerifyCosi(s.Hash, s.Signature, publics, base)
 	if finalized || s.Timestamp > MainnetNodeRemovalConsensusForkTimestamp {
@@ -255,12 +252,17 @@ func (node *Node) verifyFinalization(s *common.Snapshot) bool {
 	}
 
 	timestamp := s.Timestamp - uint64(config.KernelNodeAcceptPeriodMinimum)
-	publics = node.ConsensusKeys(timestamp)
-	if chain.State.FinalRound == nil && s.RoundNumber == 0 {
-		publics = append(publics, &node.ConsensusPledging.Signer.PublicSpendKey)
-	}
+	publics = chain.ConsensusKeys(s.RoundNumber, timestamp)
 	base = node.ConsensusThreshold(timestamp)
 	return node.CacheVerifyCosi(s.Hash, s.Signature, publics, base)
+}
+
+func (chain *Chain) ConsensusKeys(round, timestamp uint64) []*crypto.Key {
+	publics := chain.node.ConsensusKeys(timestamp)
+	if chain.State.FinalRound == nil && round == 0 {
+		publics = append(publics, &chain.node.ConsensusPledging.Signer.PublicSpendKey)
+	}
+	return publics
 }
 
 func (node *Node) legacyVerifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {
