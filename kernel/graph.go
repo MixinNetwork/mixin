@@ -259,7 +259,7 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) bool {
 func (chain *Chain) ConsensusKeys(round, timestamp uint64) []*crypto.Key {
 	publics := chain.node.ConsensusKeys(timestamp)
 	if chain.State.FinalRound == nil && round == 0 {
-		publics = append(publics, &chain.Signer.PublicSpendKey)
+		publics = append(publics, &chain.ConsensusInfo.Signer.PublicSpendKey)
 	}
 	return publics
 }

@@ -44,9 +44,9 @@ type ChainState struct {
 
 type Chain struct {
 	sync.RWMutex
-	node    *Node
-	ChainId crypto.Hash
-	Signer  common.Address
+	node          *Node
+	ChainId       crypto.Hash
+	ConsensusInfo *CNode
 
 	State *ChainState
 
@@ -66,15 +66,9 @@ type Chain struct {
 }
 
 func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
-	signer := node.getSignerForNodeId(chainId)
-	if signer == nil {
-		return nil
-	}
-
 	chain := &Chain{
 		node:    node,
 		ChainId: chainId,
-		Signer:  *signer,
 		State: &ChainState{
 			RoundLinks: make(map[crypto.Hash]uint64),
 		},
@@ -88,7 +82,7 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		running:          true,
 	}
 
-	err := chain.loadState(node.networkId)
+	err := chain.loadState()
 	if err != nil {
 		panic(err)
 	}
@@ -98,13 +92,16 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 	return chain
 }
 
-func (node *Node) getSignerForNodeId(id crypto.Hash) *common.Address {
-	if node.IdForNetwork == id {
-		return &node.Signer
-	}
+func (node *Node) getConsensusInfo(id crypto.Hash) *CNode {
 	for _, n := range node.allNodesSortedWithState {
 		if id == n.IdForNetwork {
-			return &n.Signer
+			return n
+		}
+	}
+	if node.IdForNetwork == id {
+		return &CNode{
+			IdForNetwork: id,
+			Signer:       node.Signer,
 		}
 	}
 	return nil
@@ -118,13 +115,14 @@ func (chain *Chain) Teardown() {
 	<-chain.plc
 }
 
-func (chain *Chain) loadState(networkId crypto.Hash) error {
+func (chain *Chain) loadState() error {
 	chain.Lock()
 	defer chain.Unlock()
 
 	if chain.State.CacheRound != nil {
 		return nil
 	}
+	chain.ConsensusInfo = chain.node.getConsensusInfo(chain.ChainId)
 
 	cache, err := loadHeadRoundForNode(chain.persistStore, chain.ChainId)
 	if err != nil || cache == nil {

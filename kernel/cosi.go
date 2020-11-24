@@ -812,9 +812,6 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 	}
 
 	chain := node.GetOrCreateChain(s.NodeId)
-	if chain == nil {
-		return nil
-	}
 
 	if s.Version == 0 {
 		err := chain.legacyAppendFinalization(peerId, s)

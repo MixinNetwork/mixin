@@ -235,7 +235,7 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 		return nil
 	}
 	chain := node.GetOrCreateChain(s.NodeId)
-	return chain.loadState(node.networkId)
+	return chain.loadState()
 }
 
 func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
