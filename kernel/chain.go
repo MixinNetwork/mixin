@@ -46,6 +46,7 @@ type Chain struct {
 	sync.RWMutex
 	node    *Node
 	ChainId crypto.Hash
+	Signer  common.Address
 
 	State *ChainState
 
@@ -65,9 +66,15 @@ type Chain struct {
 }
 
 func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
+	signer := node.getSignerForNodeId(chainId)
+	if signer == nil {
+		return nil
+	}
+
 	chain := &Chain{
 		node:    node,
 		ChainId: chainId,
+		Signer:  *signer,
 		State: &ChainState{
 			RoundLinks: make(map[crypto.Hash]uint64),
 		},
@@ -89,6 +96,18 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 	go chain.QueuePollSnapshots()
 	go chain.ConsumeFinalActions()
 	return chain
+}
+
+func (node *Node) getSignerForNodeId(id crypto.Hash) *common.Address {
+	if node.IdForNetwork == id {
+		return &node.Signer
+	}
+	for _, n := range node.allNodesSortedWithState {
+		if id == n.IdForNetwork {
+			return &n.Signer
+		}
+	}
+	return nil
 }
 
 func (chain *Chain) Teardown() {
