@@ -40,7 +40,7 @@ func (node *Node) ElectionLoop() {
 				continue
 			}
 
-			err := node.tryToSendAcceptTransaction()
+			err := chain.tryToSendAcceptTransaction()
 			if err != nil {
 				logger.Println("tryToSendAcceptTransaction", err)
 			}
@@ -169,25 +169,26 @@ func (node *Node) buildRemoveTransaction(candi *CNode) (*common.VersionedTransac
 	return tx.AsLatestVersion(), nil
 }
 
-func (node *Node) tryToSendAcceptTransaction() error {
-	pledging := node.ConsensusPledging
-	if pledging == nil {
-		return fmt.Errorf("no consensus pledging node")
+func (chain *Chain) tryToSendAcceptTransaction() error {
+	ci := chain.ConsensusInfo
+	pledging := chain.node.ConsensusPledging
+	if pledging == nil || chain.State.FinalRound != nil {
+		return fmt.Errorf("no consensus pledging node %t %t", pledging == nil, chain.State.FinalRound != nil)
 	}
-	if pledging.Signer.String() != node.Signer.String() {
-		return fmt.Errorf("invalid consensus pledging node %s %s", pledging.Signer, node.Signer)
+	if pledging.Signer.String() != ci.Signer.String() {
+		return fmt.Errorf("invalid consensus pledging node %s %s", pledging.Signer, ci.Signer)
 	}
-	pledge, _, err := node.persistStore.ReadTransaction(pledging.Transaction)
+	pledge, _, err := chain.node.persistStore.ReadTransaction(ci.Transaction)
 	if err != nil {
 		return err
 	}
 	if pledge == nil {
-		return fmt.Errorf("pledge transaction not available yet %s", pledging.Transaction)
+		return fmt.Errorf("pledge transaction not available yet %s", ci.Transaction)
 	}
-	if pledge.PayloadHash() != pledging.Transaction {
-		return fmt.Errorf("pledge transaction malformed %s %s", pledging.Transaction, pledge.PayloadHash())
+	if pledge.PayloadHash() != ci.Transaction {
+		return fmt.Errorf("pledge transaction malformed %s %s", ci.Transaction, pledge.PayloadHash())
 	}
-	signer := node.Signer.PublicSpendKey
+	signer := ci.Signer.PublicSpendKey
 	if len(pledge.Extra) != len(signer)*2 {
 		return fmt.Errorf("invalid pledge transaction extra %s", hex.EncodeToString(pledge.Extra))
 	}
@@ -196,23 +197,22 @@ func (node *Node) tryToSendAcceptTransaction() error {
 	}
 
 	tx := common.NewTransaction(common.XINAssetId)
-	tx.AddInput(pledging.Transaction, 0)
+	tx.AddInput(ci.Transaction, 0)
 	tx.AddOutputWithType(common.OutputTypeNodeAccept, nil, common.Script{}, pledge.Outputs[0].Amount, []byte{})
 	tx.Extra = pledge.Extra
 	ver := tx.AsLatestVersion()
 
-	err = ver.Validate(node.persistStore)
+	err = ver.Validate(chain.node.persistStore)
 	if err != nil {
 		return err
 	}
-	err = node.persistStore.CachePutTransaction(ver)
+	err = chain.node.persistStore.CachePutTransaction(ver)
 	if err != nil {
 		return err
 	}
-	chain := node.GetOrCreateChain(node.IdForNetwork)
 	err = chain.AppendSelfEmpty(&common.Snapshot{
 		Version:     common.SnapshotVersion,
-		NodeId:      node.IdForNetwork,
+		NodeId:      chain.ChainId,
 		Transaction: ver.PayloadHash(),
 	})
 	logger.Println("tryToSendAcceptTransaction", ver.PayloadHash(), hex.EncodeToString(ver.Marshal()))
@@ -220,22 +220,23 @@ func (node *Node) tryToSendAcceptTransaction() error {
 }
 
 func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.VersionedTransaction) error {
-	txType := tx.TransactionType()
-	switch txType {
+	switch tx.TransactionType() {
 	case common.TransactionTypeNodePledge,
 		common.TransactionTypeNodeCancel,
 		common.TransactionTypeNodeAccept,
 		common.TransactionTypeNodeRemove:
-		err := node.LoadConsensusNodes()
-		if err != nil {
-			return err
-		}
-	}
-	if txType != common.TransactionTypeNodeAccept {
+	default:
 		return nil
 	}
-	chain := node.GetOrCreateChain(s.NodeId)
-	return chain.loadState()
+	err := node.LoadConsensusNodes()
+	if err != nil {
+		return err
+	}
+	err = node.GetOrCreateChain(node.IdForNetwork).loadState()
+	if err != nil {
+		return err
+	}
+	return node.GetOrCreateChain(s.NodeId).loadState()
 }
 
 func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
