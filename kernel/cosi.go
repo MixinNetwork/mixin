@@ -662,7 +662,7 @@ func (chain *Chain) handleFinalization(m *CosiAction) error {
 	logger.Debugf("CosiLoop cosiHandleAction handleFinalization %s %v\n", m.PeerId, m.Snapshot)
 	s := m.Snapshot
 	m.WantTx = false
-	if !chain.node.verifyFinalization(s) {
+	if !chain.verifyFinalization(s) {
 		logger.Verbosef("ERROR handleFinalization verifyFinalization %s %v %d\n", m.PeerId, s, chain.node.ConsensusThreshold(s.Timestamp))
 		return nil
 	}
@@ -812,6 +812,10 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 	}
 
 	chain := node.GetOrCreateChain(s.NodeId)
+	if chain == nil {
+		return nil
+	}
+
 	if s.Version == 0 {
 		err := chain.legacyAppendFinalization(peerId, s)
 		if err != nil {
@@ -819,7 +823,7 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		}
 		return err
 	}
-	if !node.verifyFinalization(s) {
+	if !chain.verifyFinalization(s) {
 		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d\n", peerId, s, node.ConsensusThreshold(s.Timestamp))
 		return nil
 	}

@@ -36,7 +36,7 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDu
 		return nil, false, fmt.Errorf("self cache snapshots not match yet %s %s", s.NodeId, s.References.Self)
 	}
 
-	finalized := chain.node.verifyFinalization(s)
+	finalized := chain.verifyFinalization(s)
 	external, err := chain.persistStore.ReadRound(s.References.External)
 	if err != nil {
 		return nil, false, err
@@ -236,25 +236,24 @@ func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 	})
 }
 
-func (node *Node) verifyFinalization(s *common.Snapshot) bool {
+func (chain *Chain) verifyFinalization(s *common.Snapshot) bool {
 	if s.Version == 0 {
-		return node.legacyVerifyFinalization(s.Timestamp, s.Signatures)
+		return chain.legacyVerifyFinalization(s.Timestamp, s.Signatures)
 	}
 	if s.Version != common.SnapshotVersion || s.Signature == nil {
 		return false
 	}
-	chain := node.GetOrCreateChain(s.NodeId)
 	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
-	base := node.ConsensusThreshold(s.Timestamp)
-	finalized := node.CacheVerifyCosi(s.Hash, s.Signature, publics, base)
+	base := chain.node.ConsensusThreshold(s.Timestamp)
+	finalized := chain.node.CacheVerifyCosi(s.Hash, s.Signature, publics, base)
 	if finalized || s.Timestamp > MainnetNodeRemovalConsensusForkTimestamp {
 		return finalized
 	}
 
 	timestamp := s.Timestamp - uint64(config.KernelNodeAcceptPeriodMinimum)
 	publics = chain.ConsensusKeys(s.RoundNumber, timestamp)
-	base = node.ConsensusThreshold(timestamp)
-	return node.CacheVerifyCosi(s.Hash, s.Signature, publics, base)
+	base = chain.node.ConsensusThreshold(timestamp)
+	return chain.node.CacheVerifyCosi(s.Hash, s.Signature, publics, base)
 }
 
 func (chain *Chain) ConsensusKeys(round, timestamp uint64) []*crypto.Key {
@@ -265,6 +264,6 @@ func (chain *Chain) ConsensusKeys(round, timestamp uint64) []*crypto.Key {
 	return publics
 }
 
-func (node *Node) legacyVerifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {
-	return len(sigs) >= node.ConsensusThreshold(timestamp)
+func (chain *Chain) legacyVerifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {
+	return len(sigs) >= chain.node.ConsensusThreshold(timestamp)
 }
