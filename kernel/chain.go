@@ -115,6 +115,10 @@ func (chain *Chain) Teardown() {
 	<-chain.plc
 }
 
+func (chain *Chain) IsPledging() bool {
+	return chain.State.FinalRound == nil && chain.ConsensusInfo != nil
+}
+
 func (chain *Chain) loadState() error {
 	chain.Lock()
 	defer chain.Unlock()

@@ -125,7 +125,8 @@ func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snaps
 				break
 			}
 		}
-		if chain.State.FinalRound == nil && s.RoundNumber == 0 && chain.node.CacheVerify(s.Hash, *sig, chain.ConsensusInfo.Signer.PublicSpendKey) {
+
+		if chain.IsPledging() && s.RoundNumber == 0 && chain.node.CacheVerify(s.Hash, *sig, chain.ConsensusInfo.Signer.PublicSpendKey) {
 			sigs = append(sigs, sig)
 			signersMap[chain.ChainId] = true
 		}
