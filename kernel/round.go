@@ -5,11 +5,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/storage"
 )
 
@@ -46,7 +46,7 @@ func (node *Node) PoolInfo() (uint64, uint64) {
 }
 
 func (node *Node) LoadAllChains(store storage.Store, networkId crypto.Hash) error {
-	nodes := node.SortAllNodesByTimestampAndId(uint64(time.Now().UnixNano())*2, false)
+	nodes := node.SortAllNodesByTimestampAndId(uint64(clock.Now().UnixNano())*2, false)
 	for _, cn := range nodes {
 		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateCancelled {
 			continue
@@ -67,7 +67,7 @@ func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (m
 	cacheRound := make(map[crypto.Hash]*CacheRound)
 	finalRound := make(map[crypto.Hash]*FinalRound)
 
-	allNodes := store.ReadAllNodes(uint64(time.Now().UnixNano()), false)
+	allNodes := store.ReadAllNodes(uint64(clock.Now().UnixNano()), false)
 	for _, cn := range allNodes {
 		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateCancelled {
 			continue

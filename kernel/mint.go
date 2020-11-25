@@ -95,7 +95,7 @@ func pledgeAmount(sinceEpoch time.Duration) common.Integer {
 }
 
 func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error {
-	nodes := node.sortMintNodes(uint64(time.Now().UnixNano()))
+	nodes := node.sortMintNodes(uint64(clock.Now().UnixNano()))
 	per := amount.Div(len(nodes))
 	diff := amount.Sub(per.Mul(len(nodes)))
 

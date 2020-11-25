@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
 )
@@ -33,7 +34,7 @@ func (node *Node) Import(configDir string, source storage.Store) error {
 		}
 	}
 
-	nodes := source.ReadAllNodes(uint64(time.Now().UnixNano()), false)
+	nodes := source.ReadAllNodes(uint64(clock.Now().UnixNano()), false)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork(node.networkId)
 		chain := node.GetOrCreateChain(id)
@@ -43,10 +44,10 @@ func (node *Node) Import(configDir string, source storage.Store) error {
 		}(chain)
 	}
 
-	startAt := time.Now()
+	startAt := clock.Now()
 	for {
 		time.Sleep(10 * time.Second)
-		duration := time.Now().Sub(startAt).Seconds()
+		duration := clock.Now().Sub(startAt).Seconds()
 		sps := float64(node.TopoCounter.seq) / duration
 		logger.Printf("TOPO %d SPS ALL %f LIVE %f\n", node.TopoCounter.seq, sps, node.TopoCounter.sps)
 	}

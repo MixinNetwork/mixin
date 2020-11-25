@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/MixinNetwork/mixin/util"
@@ -146,7 +147,7 @@ func (chain *Chain) loadState() error {
 	chain.State.RoundHistory = history
 	cache.Timestamp = final.Start + config.SnapshotRoundGap
 
-	allNodes := chain.node.SortAllNodesByTimestampAndId(uint64(time.Now().UnixNano())*2, false)
+	allNodes := chain.node.SortAllNodesByTimestampAndId(uint64(clock.Now().UnixNano())*2, false)
 	for _, cn := range allNodes {
 		if chain.ChainId == cn.IdForNetwork {
 			continue

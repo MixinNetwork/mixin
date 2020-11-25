@@ -75,24 +75,18 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	}
 
 	nodes := make([]map[string]interface{}, 0)
-	for id, n := range node.ConsensusNodes {
-		nodes = append(nodes, map[string]interface{}{
-			"node":        id,
-			"signer":      n.Signer.String(),
-			"payee":       n.Payee.String(),
-			"state":       n.State,
-			"timestamp":   n.Timestamp,
-			"transaction": n.Transaction.String(),
-		})
-	}
-	if n := node.ConsensusPledging; n != nil {
-		nodes = append(nodes, map[string]interface{}{
-			"node":      n.IdForNetwork,
-			"signer":    n.Signer.String(),
-			"payee":     n.Payee.String(),
-			"state":     n.State,
-			"timestamp": n.Timestamp,
-		})
+	for _, n := range node.NodesListWithoutState(uint64(time.Now().UnixNano())) {
+		switch n.State {
+		case common.NodeStateAccepted, common.NodeStatePledging:
+			nodes = append(nodes, map[string]interface{}{
+				"node":        n.IdForNetwork,
+				"signer":      n.Signer.String(),
+				"payee":       n.Payee.String(),
+				"state":       n.State,
+				"timestamp":   n.Timestamp,
+				"transaction": n.Transaction.String(),
+			})
+		}
 	}
 	info["graph"] = map[string]interface{}{
 		"consensus": nodes,

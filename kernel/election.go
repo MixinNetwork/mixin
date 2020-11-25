@@ -67,7 +67,7 @@ func (node *Node) ElectionLoop() {
 }
 
 func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*CNode, error) {
-	if p := node.ConsensusPledging; p != nil {
+	if p := node.PledgingNode(now); p != nil {
 		return nil, fmt.Errorf("still pledging now %s", p.Signer.String())
 	}
 
@@ -171,7 +171,7 @@ func (node *Node) buildRemoveTransaction(candi *CNode) (*common.VersionedTransac
 
 func (chain *Chain) tryToSendAcceptTransaction() error {
 	ci := chain.ConsensusInfo
-	pledging := chain.node.ConsensusPledging
+	pledging := chain.node.PledgingNode(uint64(clock.Now().UnixNano()))
 	if pledging == nil || chain.State.FinalRound != nil {
 		return fmt.Errorf("no consensus pledging node %t %t", pledging == nil, chain.State.FinalRound != nil)
 	}
@@ -344,7 +344,7 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		}
 	}
 
-	if cn := node.ConsensusPledging; cn != nil {
+	if cn := node.PledgingNode(timestamp); cn != nil {
 		return fmt.Errorf("invalid node state %s %s", cn.Signer, cn.State)
 	}
 	if tx.Asset != common.XINAssetId {
@@ -364,7 +364,7 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2)
 }
 
-func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
+func (node *Node) validateNodeCancelTransaction(tx *common.VersionedTransaction, pledging *CNode) error {
 	if tx.Asset != common.XINAssetId {
 		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
 	}
@@ -384,11 +384,8 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 	if len(script.Keys) != 1 {
 		return fmt.Errorf("invalid script output keys %d for cancel transaction", len(script.Keys))
 	}
-	if node.ConsensusPledging == nil {
-		return fmt.Errorf("invalid consensus status")
-	}
-	if node.ConsensusPledging.Transaction != tx.Inputs[0].Hash {
-		return fmt.Errorf("invalid plede utxo source %s %s", node.ConsensusPledging.Transaction, tx.Inputs[0].Hash)
+	if pledging.Transaction != tx.Inputs[0].Hash {
+		return fmt.Errorf("invalid plede utxo source %s %s", pledging.Transaction, tx.Inputs[0].Hash)
 	}
 
 	pledge, _, err := node.persistStore.ReadTransaction(tx.Inputs[0].Hash)
@@ -426,12 +423,25 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid pledge and cancel target %s %s", pledgeSpend, targetSpend)
 	}
 
+	return nil
+}
+
+func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
 	timestamp := s.Timestamp
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
 		timestamp = uint64(clock.Now().UnixNano())
 	}
 	if timestamp < node.Epoch {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
+	}
+
+	pledging := node.PledgingNode(timestamp)
+	if pledging == nil {
+		return fmt.Errorf("invalid consensus status")
+	}
+	err := node.validateNodeCancelTransaction(tx, pledging)
+	if err != nil {
+		return err
 	}
 
 	since := timestamp - node.Epoch
@@ -445,10 +455,10 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.GraphTimestamp, timestamp)
 	}
 
-	if timestamp < node.ConsensusPledging.Timestamp {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.ConsensusPledging.Timestamp, timestamp)
+	if timestamp < pledging.Timestamp {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", pledging.Timestamp, timestamp)
 	}
-	elapse := time.Duration(timestamp - node.ConsensusPledging.Timestamp)
+	elapse := time.Duration(timestamp - pledging.Timestamp)
 	if elapse < config.KernelNodeAcceptPeriodMinimum {
 		return fmt.Errorf("invalid cancel period %d %d", config.KernelNodeAcceptPeriodMinimum, elapse)
 	}
@@ -479,7 +489,7 @@ func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.Vers
 	return nil
 }
 
-func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
+func (chain *Chain) validateNodeAcceptTransaction(tx *common.VersionedTransaction, pledging *CNode) error {
 	if tx.Asset != common.XINAssetId {
 		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
 	}
@@ -489,17 +499,14 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	if len(tx.Inputs) != 1 {
 		return fmt.Errorf("invalid inputs count %d for accept transaction", len(tx.Inputs))
 	}
-	if node.ConsensusPledging == nil {
-		return fmt.Errorf("invalid consensus status")
+	if id := pledging.IdForNetwork; id != chain.ChainId {
+		return fmt.Errorf("invalid pledging node %s %s", id, chain.ChainId)
 	}
-	if id := node.ConsensusPledging.IdForNetwork; id != s.NodeId {
-		return fmt.Errorf("invalid pledging node %s %s", id, s.NodeId)
-	}
-	if node.ConsensusPledging.Transaction != tx.Inputs[0].Hash {
-		return fmt.Errorf("invalid plede utxo source %s %s", node.ConsensusPledging.Transaction, tx.Inputs[0].Hash)
+	if pledging.Transaction != tx.Inputs[0].Hash {
+		return fmt.Errorf("invalid plede utxo source %s %s", pledging.Transaction, tx.Inputs[0].Hash)
 	}
 
-	pledge, _, err := node.persistStore.ReadTransaction(tx.Inputs[0].Hash)
+	pledge, _, err := chain.node.persistStore.ReadTransaction(tx.Inputs[0].Hash)
 	if err != nil {
 		return err
 	}
@@ -513,12 +520,26 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid pledge and accpet key %s %s", hex.EncodeToString(pledge.Extra), hex.EncodeToString(tx.Extra))
 	}
 
+	return nil
+}
+
+func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
 	timestamp := s.Timestamp
+	if timestamp == 0 && s.NodeId == node.IdForNetwork {
+		timestamp = uint64(clock.Now().UnixNano())
+	}
+
+	pledging := node.PledgingNode(timestamp)
+	if pledging == nil {
+		return fmt.Errorf("invalid consensus status")
+	}
+	err := node.GetOrCreateChain(s.NodeId).validateNodeAcceptTransaction(tx, pledging)
+	if err != nil {
+		return err
+	}
+
 	if s.RoundNumber != 0 {
 		return fmt.Errorf("invalid snapshot round %d", s.RoundNumber)
-	}
-	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
-		timestamp = uint64(clock.Now().UnixNano())
 	}
 	if timestamp < node.Epoch {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
@@ -542,10 +563,10 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.GraphTimestamp, timestamp)
 	}
 
-	if timestamp < node.ConsensusPledging.Timestamp {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.ConsensusPledging.Timestamp, timestamp)
+	if timestamp < pledging.Timestamp {
+		return fmt.Errorf("invalid snapshot timestamp %d %d", pledging.Timestamp, timestamp)
 	}
-	elapse := time.Duration(timestamp - node.ConsensusPledging.Timestamp)
+	elapse := time.Duration(timestamp - pledging.Timestamp)
 	if elapse < config.KernelNodeAcceptPeriodMinimum {
 		if s.PayloadHash().String() == MainnetAcceptPeriodForkSnapshotHash {
 			logger.Printf("FORK invalid accept period %d %d\n", config.KernelNodeAcceptPeriodMinimum, elapse)

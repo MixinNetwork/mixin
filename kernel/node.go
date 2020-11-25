@@ -32,7 +32,6 @@ type Node struct {
 	ConsensusNodes          map[crypto.Hash]*CNode
 	SortedConsensusNodes    []crypto.Hash
 	ConsensusIndex          int
-	ConsensusPledging       *CNode
 	GraphTimestamp          uint64
 
 	chains *chainsMap
@@ -130,6 +129,32 @@ func (node *Node) LoadNodeConfig() {
 	node.Listener = node.custom.Network.Listener
 }
 
+func (node *Node) PledgingNode(timestamp uint64) *CNode {
+	nodes := node.NodesListWithoutState(timestamp)
+	if len(nodes) == 0 {
+		return nil
+	}
+	cn := nodes[len(nodes)-1]
+	if cn.State == common.NodeStatePledging {
+		return cn
+	}
+	return nil
+}
+
+func (node *Node) GetConsensusOrPledgingNode(id crypto.Hash) *CNode {
+	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()))
+	for _, cn := range nodes {
+		if cn.IdForNetwork != id {
+			continue
+		}
+		switch cn.State {
+		case common.NodeStateAccepted, common.NodeStatePledging:
+			return cn
+		}
+	}
+	return nil
+}
+
 func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
 	if timestamp == 0 {
 		timestamp = uint64(clock.Now().UnixNano())
@@ -197,11 +222,10 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 }
 
 func (node *Node) LoadConsensusNodes() error {
-	node.ConsensusPledging = nil
 	consensusNodes := make(map[crypto.Hash]*CNode)
 	allNodesId := make([]crypto.Hash, 0)
 	sortedConsensusNodes := make([]crypto.Hash, 0)
-	allNodesWithoutState := node.SortAllNodesByTimestampAndId(uint64(time.Now().UnixNano())*2, false)
+	allNodesWithoutState := node.SortAllNodesByTimestampAndId(uint64(clock.Now().UnixNano())*2, false)
 	for _, cn := range allNodesWithoutState {
 		allNodesId = append(allNodesId, cn.IdForNetwork)
 		if cn.Timestamp == 0 {
@@ -210,14 +234,13 @@ func (node *Node) LoadConsensusNodes() error {
 		logger.Println(cn.IdForNetwork, cn.Signer, cn.State, cn.Timestamp)
 		switch cn.State {
 		case common.NodeStatePledging:
-			node.ConsensusPledging = cn
 		case common.NodeStateAccepted:
 			consensusNodes[cn.IdForNetwork] = cn
 			sortedConsensusNodes = append(sortedConsensusNodes, cn.IdForNetwork)
 		case common.NodeStateRemoved:
 		}
 	}
-	node.allNodesSortedWithState = node.SortAllNodesByTimestampAndId(uint64(time.Now().UnixNano())*2, true)
+	node.allNodesSortedWithState = node.SortAllNodesByTimestampAndId(uint64(clock.Now().UnixNano())*2, true)
 	node.allNodesId = allNodesId
 	node.ConsensusNodes = consensusNodes
 	node.SortedConsensusNodes = sortedConsensusNodes
@@ -346,7 +369,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	if peerId == node.IdForNetwork {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
 	}
-	peer := node.getCosensusOrPledgingNode(peerId)
+	peer := node.GetConsensusOrPledgingNode(peerId)
 
 	if node.custom.Node.ConsensusOnly && peer == nil {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)

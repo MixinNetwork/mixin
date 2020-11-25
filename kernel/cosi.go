@@ -241,7 +241,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement CheckCatchUpWithPeers\n")
 		return nil
 	}
-	cn := chain.node.getCosensusOrPledgingNode(m.PeerId)
+	cn := chain.node.GetConsensusOrPledgingNode(m.PeerId)
 	if cn == nil {
 		return nil
 	}
@@ -421,7 +421,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge CheckCatchUpWithPeers\n")
 		return nil
 	}
-	if chain.node.getCosensusOrPledgingNode(m.PeerId) == nil {
+	if chain.node.GetConsensusOrPledgingNode(m.PeerId) == nil {
 		return nil
 	}
 
@@ -450,7 +450,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	var sig crypto.Signature
 	copy(sig[:], s.Commitment[:])
 	copy(sig[32:], m.Signature.Signature[32:])
-	pub := chain.node.getCosensusOrPledgingNode(s.NodeId).Signer.PublicSpendKey
+	pub := chain.node.GetConsensusOrPledgingNode(s.NodeId).Signer.PublicSpendKey
 	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	challenge, err := m.Signature.Challenge(publics, m.SnapshotHash[:])
 	if err != nil {
@@ -707,7 +707,7 @@ func (chain *Chain) handleFinalization(m *CosiAction) error {
 }
 
 func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot, commitment *crypto.Key) error {
-	if node.getCosensusOrPledgingNode(peerId) == nil {
+	if node.GetConsensusOrPledgingNode(peerId) == nil {
 		return nil
 	}
 	chain := node.GetOrCreateChain(s.NodeId)
@@ -751,7 +751,7 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 }
 
 func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, ver *common.VersionedTransaction) error {
-	if node.getCosensusOrPledgingNode(peerId) == nil {
+	if node.GetConsensusOrPledgingNode(peerId) == nil {
 		return nil
 	}
 	chain := node.GetOrCreateChain(peerId)
@@ -786,7 +786,7 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
 	logger.Debugf("VerifyAndQueueAppendSnapshotFinalization(%s, %s)\n", peerId, s.Hash)
-	if node.custom.Node.ConsensusOnly && node.getCosensusOrPledgingNode(peerId) == nil {
+	if node.custom.Node.ConsensusOnly && node.GetConsensusOrPledgingNode(peerId) == nil {
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) invalid consensus peer\n", peerId, s.Hash)
 		return nil
 	}
@@ -830,11 +830,4 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) chain error %s\n", peerId, s.Hash, err)
 	}
 	return err
-}
-
-func (node *Node) getCosensusOrPledgingNode(peerId crypto.Hash) *CNode {
-	if n := node.ConsensusPledging; n != nil && n.IdForNetwork == peerId {
-		return n
-	}
-	return node.ConsensusNodes[peerId]
 }
