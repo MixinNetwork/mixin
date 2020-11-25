@@ -38,9 +38,10 @@ type Peer struct {
 }
 
 type SyncPoint struct {
-	NodeId crypto.Hash
-	Number uint64
-	Hash   crypto.Hash
+	NodeId crypto.Hash `json:"node"`
+	Number uint64      `json:"round"`
+	Hash   crypto.Hash `json:"hash"`
+	Pool   interface{} `json:"pool",msgpack:"-"`
 }
 
 type ChanMsg struct {

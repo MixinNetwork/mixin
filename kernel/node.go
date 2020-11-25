@@ -27,18 +27,14 @@ type Node struct {
 	TopoCounter *TopologicalSequence
 	SyncPoints  *syncMap
 
-	allNodesSortedWithState []*CNode
-	allNodesId              []crypto.Hash
-	ConsensusNodes          map[crypto.Hash]*CNode
-	SortedConsensusNodes    []crypto.Hash
-	ConsensusIndex          int
-	GraphTimestamp          uint64
+	GraphTimestamp uint64
+	Epoch          uint64
 
-	chains *chainsMap
+	chains                  *chainsMap
+	allNodesSortedWithState []*CNode
 
 	genesisNodesMap map[crypto.Hash]bool
 	genesisNodes    []crypto.Hash
-	Epoch           uint64
 	startAt         time.Time
 	networkId       crypto.Hash
 	persistStore    storage.Store
@@ -53,12 +49,13 @@ type Node struct {
 }
 
 type CNode struct {
-	IdForNetwork crypto.Hash
-	Signer       common.Address
-	Payee        common.Address
-	Transaction  crypto.Hash
-	Timestamp    uint64
-	State        string
+	IdForNetwork   crypto.Hash
+	Signer         common.Address
+	Payee          common.Address
+	Transaction    crypto.Hash
+	Timestamp      uint64
+	State          string
+	ConsensusIndex int
 }
 
 func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fastcache.Cache, addr string, dir string) (*Node, error) {
@@ -69,7 +66,6 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 
 	var node = &Node{
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
-		ConsensusIndex:  -1,
 		chains:          &chainsMap{m: make(map[crypto.Hash]*Chain)},
 		genesisNodesMap: make(map[crypto.Hash]bool),
 		persistStore:    persistStore,
@@ -141,14 +137,26 @@ func (node *Node) PledgingNode(timestamp uint64) *CNode {
 	return nil
 }
 
-func (node *Node) GetConsensusOrPledgingNode(id crypto.Hash) *CNode {
+func (node *Node) GetAcceptedOrPledgingNode(id crypto.Hash) *CNode {
 	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()))
-	for _, cn := range nodes {
-		if cn.IdForNetwork != id {
-			continue
-		}
+	for index, i := 0, 0; i < len(nodes); i++ {
+		cn := nodes[i]
+		cn.ConsensusIndex = index
 		switch cn.State {
 		case common.NodeStateAccepted, common.NodeStatePledging:
+			if cn.IdForNetwork == id {
+				return cn
+			}
+			index++
+		}
+	}
+	return nil
+}
+
+func (node *Node) GetAcceptedNode(id crypto.Hash) *CNode {
+	nodes := node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
+	for _, cn := range nodes {
+		if cn.IdForNetwork == id {
 			return cn
 		}
 	}
@@ -222,33 +230,8 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 }
 
 func (node *Node) LoadConsensusNodes() error {
-	consensusNodes := make(map[crypto.Hash]*CNode)
-	allNodesId := make([]crypto.Hash, 0)
-	sortedConsensusNodes := make([]crypto.Hash, 0)
-	allNodesWithoutState := node.SortAllNodesByTimestampAndId(uint64(clock.Now().UnixNano())*2, false)
-	for _, cn := range allNodesWithoutState {
-		allNodesId = append(allNodesId, cn.IdForNetwork)
-		if cn.Timestamp == 0 {
-			cn.Timestamp = node.Epoch
-		}
-		logger.Println(cn.IdForNetwork, cn.Signer, cn.State, cn.Timestamp)
-		switch cn.State {
-		case common.NodeStatePledging:
-		case common.NodeStateAccepted:
-			consensusNodes[cn.IdForNetwork] = cn
-			sortedConsensusNodes = append(sortedConsensusNodes, cn.IdForNetwork)
-		case common.NodeStateRemoved:
-		}
-	}
-	node.allNodesSortedWithState = node.SortAllNodesByTimestampAndId(uint64(clock.Now().UnixNano())*2, true)
-	node.allNodesId = allNodesId
-	node.ConsensusNodes = consensusNodes
-	node.SortedConsensusNodes = sortedConsensusNodes
-	for i, id := range node.SortedConsensusNodes {
-		if id == node.IdForNetwork {
-			node.ConsensusIndex = i
-		}
-	}
+	threshold := uint64(clock.Now().UnixNano()) * 2
+	node.allNodesSortedWithState = node.SortAllNodesByTimestampAndId(threshold, true)
 	return nil
 }
 
@@ -316,26 +299,7 @@ func (node *Node) BuildGraph() []*network.SyncPoint {
 			NodeId: chain.ChainId,
 			Hash:   f.Hash,
 			Number: f.Number,
-		})
-	}
-	return points
-}
-
-func (node *Node) BuildGraphWithPoolInfo() []map[string]interface{} {
-	node.chains.RLock()
-	defer node.chains.RUnlock()
-
-	points := make([]map[string]interface{}, 0)
-	for _, chain := range node.chains.m {
-		if chain.State.CacheRound == nil {
-			continue
-		}
-		f := chain.State.FinalRound
-		points = append(points, map[string]interface{}{
-			"node":  chain.ChainId,
-			"round": f.Number,
-			"hash":  f.Hash,
-			"pool": map[string]int{
+			Pool: map[string]int{
 				"index": chain.FinalIndex,
 				"count": chain.FinalCount,
 			},
@@ -369,7 +333,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	if peerId == node.IdForNetwork {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
 	}
-	peer := node.GetConsensusOrPledgingNode(peerId)
+	peer := node.GetAcceptedOrPledgingNode(peerId)
 
 	if node.custom.Node.ConsensusOnly && peer == nil {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
@@ -407,7 +371,12 @@ func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTr
 }
 
 func (node *Node) ReadAllNodesWithoutState() []crypto.Hash {
-	return node.allNodesId
+	var all []crypto.Hash
+	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()))
+	for _, cn := range nodes {
+		all = append(all, cn.IdForNetwork)
+	}
+	return all
 }
 
 func (node *Node) ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
@@ -433,8 +402,9 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 	if r := chain.State.FinalRound; r != nil {
 		final = r.Number
 	}
-	for id, _ := range node.ConsensusNodes {
-		remote := node.SyncPoints.Get(id)
+	nodes := node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
+	for _, cn := range nodes {
+		remote := node.SyncPoints.Get(cn.IdForNetwork)
 		if remote == nil {
 			continue
 		}
@@ -454,8 +424,9 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 		final = r.Number
 	}
 
-	for id, _ := range node.ConsensusNodes {
-		remote := node.SyncPoints.Get(id)
+	nodes := node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
+	for _, cn := range nodes {
+		remote := node.SyncPoints.Get(cn.IdForNetwork)
 		if remote == nil {
 			continue
 		}
@@ -464,7 +435,7 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 			continue
 		}
 		if remote.Number > final+1 {
-			logger.Verbosef("CheckCatchUpWithPeers local(%d)+1 < remote(%s:%d)\n", final, id, remote.Number)
+			logger.Verbosef("CheckCatchUpWithPeers local(%d)+1 < remote(%s:%d)\n", final, cn.IdForNetwork, remote.Number)
 			return false
 		}
 		if cache == nil {

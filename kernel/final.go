@@ -115,13 +115,14 @@ func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snaps
 		if signaturesFilter[sig.String()] {
 			continue
 		}
-		for idForNetwork, cn := range chain.node.ConsensusNodes {
-			if signersMap[idForNetwork] {
+		nodes := chain.node.AcceptedNodesList(s.Timestamp)
+		for _, cn := range nodes {
+			if signersMap[cn.IdForNetwork] {
 				continue
 			}
 			if chain.node.CacheVerify(s.Hash, *sig, cn.Signer.PublicSpendKey) {
 				sigs = append(sigs, sig)
-				signersMap[idForNetwork] = true
+				signersMap[cn.IdForNetwork] = true
 				break
 			}
 		}

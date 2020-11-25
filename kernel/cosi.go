@@ -125,15 +125,18 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		responsed:   make(map[crypto.Hash]bool),
 	}
 
+	cn := chain.node.GetAcceptedOrPledgingNode(chain.ChainId)
 	if chain.State.FinalRound == nil && s.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
 		s.Timestamp = uint64(clock.Now().UnixNano())
 		s.Hash = s.PayloadHash()
 		v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
 		R := v.random.Public()
 		chain.CosiVerifiers[s.Hash] = v
-		agg.Commitments[len(chain.node.SortedConsensusNodes)] = &R
+		agg.Commitments[cn.ConsensusIndex] = &R
 		chain.CosiAggregators[s.Hash] = agg
-		for peerId, _ := range chain.node.ConsensusNodes {
+		nodes := chain.node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
+		for _, cn := range nodes {
+			peerId := cn.IdForNetwork
 			err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, s, R)
 			if err != nil {
 				return err
@@ -142,7 +145,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		return nil
 	}
 
-	if chain.node.ConsensusIndex < 0 || chain.State.FinalRound == nil {
+	if cn == nil || chain.State.FinalRound == nil {
 		return nil
 	}
 
@@ -224,9 +227,11 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
 	R := v.random.Public()
 	chain.CosiVerifiers[s.Hash] = v
-	agg.Commitments[chain.node.ConsensusIndex] = &R
+	agg.Commitments[cn.ConsensusIndex] = &R
 	chain.CosiAggregators[s.Hash] = agg
-	for peerId, _ := range chain.node.ConsensusNodes {
+	nodes := chain.node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
+	for _, cn := range nodes {
+		peerId := cn.IdForNetwork
 		err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R)
 		if err != nil {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement SendSnapshotAnnouncementMessage(%s, %s) ERROR %s\n", peerId, s.Hash, err.Error())
@@ -237,11 +242,11 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 
 func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v\n", m.PeerId, m.Snapshot)
-	if chain.node.ConsensusIndex < 0 || !chain.node.CheckCatchUpWithPeers() {
+	if chain.node.GetAcceptedOrPledgingNode(chain.node.IdForNetwork) == nil || !chain.node.CheckCatchUpWithPeers() {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement CheckCatchUpWithPeers\n")
 		return nil
 	}
-	cn := chain.node.GetConsensusOrPledgingNode(m.PeerId)
+	cn := chain.node.GetAcceptedOrPledgingNode(m.PeerId)
 	if cn == nil {
 		return nil
 	}
@@ -341,7 +346,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 
 func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment %v\n", m)
-	cn := chain.node.ConsensusNodes[m.PeerId]
+	cn := chain.node.GetAcceptedNode(m.PeerId)
 	if cn == nil {
 		return nil
 	}
@@ -353,10 +358,6 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	if ann.committed[m.PeerId] {
 		return nil
 	}
-	if !chain.node.CheckCatchUpWithPeers() && !(chain.State.FinalRound == nil && ann.Snapshot.RoundNumber == 0) {
-		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment CheckCatchUpWithPeers\n")
-		return nil
-	}
 	if !chain.node.ConsensusReady(cn, ann.Snapshot.Timestamp) {
 		return nil
 	}
@@ -366,12 +367,10 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	if len(ann.Commitments) >= base {
 		return nil
 	}
-	for i, id := range chain.node.SortedConsensusNodes {
-		if id == m.PeerId {
-			ann.Commitments[i] = m.Commitment
-			ann.WantTxs[m.PeerId] = m.WantTx
-			break
-		}
+	cn = chain.node.GetAcceptedOrPledgingNode(m.PeerId)
+	if cn != nil {
+		ann.Commitments[cn.ConsensusIndex] = m.Commitment
+		ann.WantTxs[m.PeerId] = m.WantTx
 	}
 	if len(ann.Commitments) < base {
 		return nil
@@ -394,13 +393,13 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	if err != nil {
 		return err
 	}
-	if chain.State.FinalRound == nil && ann.Snapshot.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
-		ann.Responses[len(chain.node.SortedConsensusNodes)] = &response
-	} else {
-		ann.Responses[chain.node.ConsensusIndex] = &response
-	}
+	cn = chain.node.GetAcceptedOrPledgingNode(chain.ChainId)
+	ann.Responses[cn.ConsensusIndex] = &response
 	copy(cosi.Signature[32:], response[:])
-	for id, _ := range chain.node.ConsensusNodes {
+
+	nodes := chain.node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
+	for _, cn := range nodes {
+		id := cn.IdForNetwork
 		if wantTx, found := ann.WantTxs[id]; !found {
 			continue
 		} else if wantTx {
@@ -417,11 +416,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 
 func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge %v\n", m)
-	if chain.node.ConsensusIndex < 0 || !chain.node.CheckCatchUpWithPeers() {
-		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge CheckCatchUpWithPeers\n")
-		return nil
-	}
-	if chain.node.GetConsensusOrPledgingNode(m.PeerId) == nil {
+	if chain.node.GetAcceptedOrPledgingNode(m.PeerId) == nil {
 		return nil
 	}
 
@@ -450,7 +445,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	var sig crypto.Signature
 	copy(sig[:], s.Commitment[:])
 	copy(sig[32:], m.Signature.Signature[32:])
-	pub := chain.node.GetConsensusOrPledgingNode(s.NodeId).Signer.PublicSpendKey
+	pub := chain.node.GetAcceptedOrPledgingNode(s.NodeId).Signer.PublicSpendKey
 	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	challenge, err := m.Signature.Challenge(publics, m.SnapshotHash[:])
 	if err != nil {
@@ -474,7 +469,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 
 func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v\n", m)
-	if chain.node.ConsensusNodes[m.PeerId] == nil {
+	if chain.node.GetAcceptedNode(m.PeerId) == nil {
 		return nil
 	}
 
@@ -483,10 +478,6 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		return nil
 	}
 	if agg.responsed[m.PeerId] {
-		return nil
-	}
-	if !chain.node.CheckCatchUpWithPeers() && !(chain.State.FinalRound == nil && agg.Snapshot.RoundNumber == 0) {
-		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse CheckCatchUpWithPeers\n")
 		return nil
 	}
 	agg.responsed[m.PeerId] = true
@@ -504,29 +495,16 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		return nil
 	}
 
-	for i, id := range chain.node.SortedConsensusNodes {
-		if id == m.PeerId {
-			agg.Responses[i] = m.Response
-			break
-		}
+	cn := chain.node.GetAcceptedOrPledgingNode(m.PeerId)
+	if cn != nil {
+		agg.Responses[cn.ConsensusIndex] = m.Response
 	}
 	if len(agg.Responses) != len(agg.Commitments) {
 		return nil
 	}
 
-	index := -1
-	for i, id := range chain.node.SortedConsensusNodes {
-		if id == m.PeerId {
-			index = i
-			break
-		}
-	}
-	if index < 0 {
-		return nil
-	}
-
 	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
-	err = s.Signature.VerifyResponse(publics, index, m.Response, m.SnapshotHash[:])
+	err = s.Signature.VerifyResponse(publics, cn.ConsensusIndex, m.Response, m.SnapshotHash[:])
 	if err != nil {
 		return nil
 	}
@@ -541,7 +519,9 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		if err != nil {
 			return err
 		}
-		for id, _ := range chain.node.ConsensusNodes {
+		nodes := chain.node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
+		for _, cn := range nodes {
+			id := cn.IdForNetwork
 			err := chain.node.Peer.SendSnapshotFinalizationMessage(id, s)
 			if err != nil {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse SendSnapshotFinalizationMessage(%s, %s) ERROR %s\n", id, m.SnapshotHash, err.Error())
@@ -571,7 +551,9 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	}
 	chain.assignNewGraphRound(final, cache)
 
-	for id, _ := range chain.node.ConsensusNodes {
+	nodes := chain.node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
+	for _, cn := range nodes {
+		id := cn.IdForNetwork
 		if !agg.responsed[id] {
 			err := chain.node.SendTransactionToPeer(id, agg.Snapshot.Transaction)
 			if err != nil {
@@ -707,7 +689,7 @@ func (chain *Chain) handleFinalization(m *CosiAction) error {
 }
 
 func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot, commitment *crypto.Key) error {
-	if node.GetConsensusOrPledgingNode(peerId) == nil {
+	if node.GetAcceptedOrPledgingNode(peerId) == nil {
 		return nil
 	}
 	chain := node.GetOrCreateChain(s.NodeId)
@@ -734,7 +716,7 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 }
 
 func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool) error {
-	if node.ConsensusNodes[peerId] == nil {
+	if node.GetAcceptedNode(peerId) == nil {
 		return nil
 	}
 	chain := node.GetOrCreateChain(node.IdForNetwork)
@@ -751,7 +733,7 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 }
 
 func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, ver *common.VersionedTransaction) error {
-	if node.GetConsensusOrPledgingNode(peerId) == nil {
+	if node.GetAcceptedOrPledgingNode(peerId) == nil {
 		return nil
 	}
 	chain := node.GetOrCreateChain(peerId)
@@ -768,7 +750,7 @@ func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Has
 }
 
 func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Hash, response *[32]byte) error {
-	if node.ConsensusNodes[peerId] == nil {
+	if node.GetAcceptedNode(peerId) == nil {
 		return nil
 	}
 	chain := node.GetOrCreateChain(node.IdForNetwork)
@@ -786,7 +768,7 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
 	logger.Debugf("VerifyAndQueueAppendSnapshotFinalization(%s, %s)\n", peerId, s.Hash)
-	if node.custom.Node.ConsensusOnly && node.GetConsensusOrPledgingNode(peerId) == nil {
+	if node.custom.Node.ConsensusOnly && node.GetAcceptedOrPledgingNode(peerId) == nil {
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) invalid consensus peer\n", peerId, s.Hash)
 		return nil
 	}

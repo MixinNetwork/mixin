@@ -103,8 +103,8 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	return info, nil
 }
 
-func dumpGraphHead(node *kernel.Node, params []interface{}) ([]map[string]interface{}, error) {
-	rounds := node.BuildGraphWithPoolInfo()
-	sort.Slice(rounds, func(i, j int) bool { return fmt.Sprint(rounds[i]["node"]) < fmt.Sprint(rounds[j]["node"]) })
+func dumpGraphHead(node *kernel.Node, params []interface{}) (interface{}, error) {
+	rounds := node.BuildGraph()
+	sort.Slice(rounds, func(i, j int) bool { return fmt.Sprint(rounds[i].NodeId) < fmt.Sprint(rounds[j].NodeId) })
 	return rounds, nil
 }

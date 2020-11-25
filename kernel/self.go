@@ -95,7 +95,9 @@ func (chain *Chain) determinBestRound(roundTime uint64, hint crypto.Hash) (*Fina
 	var valid bool
 	var best *FinalRound
 	var start, height uint64
-	for id, _ := range chain.node.ConsensusNodes {
+	nodes := chain.node.AcceptedNodesList(roundTime)
+	for _, cn := range nodes {
+		id := cn.IdForNetwork
 		valid = valid || id == hint
 		ec, link := chain.node.chains.m[id], chain.State.RoundLinks[id]
 		history := historySinceRound(ec.State.RoundHistory, link)

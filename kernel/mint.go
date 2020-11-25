@@ -274,13 +274,7 @@ func (node *Node) checkMintPossibility(timestamp uint64, validateOnly bool) (int
 }
 
 func (node *Node) sortMintNodes(timestamp uint64) []*CNode {
-	accepted := make([]*CNode, 0)
-	nodes := node.NodesListWithoutState(timestamp)
-	for _, cn := range nodes {
-		if cn.State == common.NodeStateAccepted {
-			accepted = append(accepted, cn)
-		}
-	}
+	accepted := node.AcceptedNodesList(timestamp)
 	sort.Slice(accepted, func(i, j int) bool {
 		a := accepted[i].IdForNetwork
 		b := accepted[j].IdForNetwork
@@ -289,8 +283,8 @@ func (node *Node) sortMintNodes(timestamp uint64) []*CNode {
 	return accepted
 }
 
-func (node *Node) SortAllNodesByTimestampAndId(offset uint64, withState bool) []*CNode {
-	nodes := node.persistStore.ReadAllNodes(offset, withState)
+func (node *Node) SortAllNodesByTimestampAndId(threshold uint64, withState bool) []*CNode {
+	nodes := node.persistStore.ReadAllNodes(threshold, withState)
 	sort.Slice(nodes, func(i, j int) bool {
 		if nodes[i].Timestamp < nodes[j].Timestamp {
 			return true
@@ -316,10 +310,10 @@ func (node *Node) SortAllNodesByTimestampAndId(offset uint64, withState bool) []
 	return cnodes
 }
 
-func (node *Node) NodesListWithoutState(offset uint64) []*CNode {
+func (node *Node) NodesListWithoutState(threshold uint64) []*CNode {
 	filter := make(map[crypto.Hash]*CNode)
 	for _, n := range node.allNodesSortedWithState {
-		if n.Timestamp >= offset {
+		if n.Timestamp >= threshold {
 			break
 		}
 		filter[n.IdForNetwork] = n
@@ -340,4 +334,15 @@ func (node *Node) NodesListWithoutState(offset uint64) []*CNode {
 		return a.String() < b.String()
 	})
 	return nodes
+}
+
+func (node *Node) AcceptedNodesList(threshold uint64) []*CNode {
+	var accepted []*CNode
+	nodes := node.NodesListWithoutState(threshold)
+	for _, n := range nodes {
+		if n.State == common.NodeStateAccepted {
+			accepted = append(accepted, n)
+		}
+	}
+	return accepted
 }
