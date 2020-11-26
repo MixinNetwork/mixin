@@ -132,7 +132,7 @@ func (s *BadgerStore) TopologySequence() uint64 {
 	it.Seek(graphTopologyKey(^uint64(0)))
 	if it.ValidForPrefix([]byte(graphPrefixTopology)) {
 		item := it.Item()
-		sequence = graphTopologyOrder(item.Key()) + 1
+		sequence = graphTopologyOrder(item.Key())
 	}
 	return sequence
 }
@@ -140,7 +140,11 @@ func (s *BadgerStore) TopologySequence() uint64 {
 func writeTopology(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder) error {
 	key := graphTopologyKey(snap.TopologicalOrder)
 	val := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction)
-	err := txn.Set(key, val[:])
+	_, err := txn.Get(key)
+	if err != badger.ErrKeyNotFound {
+		panic(err)
+	}
+	err = txn.Set(key, val[:])
 	if err != nil {
 		return err
 	}
