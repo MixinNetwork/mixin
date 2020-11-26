@@ -8,7 +8,7 @@ import (
 )
 
 func listAllNodes(store storage.Store, node *kernel.Node) ([]map[string]interface{}, error) {
-	nodes := node.SortAllNodesByTimestampAndId(uint64(time.Now().UnixNano()), false)
+	nodes := node.NodesListWithoutState(uint64(time.Now().UnixNano()))
 	result := make([]map[string]interface{}, len(nodes))
 	for i, n := range nodes {
 		item := map[string]interface{}{

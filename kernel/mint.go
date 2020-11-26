@@ -283,33 +283,6 @@ func (node *Node) sortMintNodes(timestamp uint64) []*CNode {
 	return accepted
 }
 
-func (node *Node) SortAllNodesByTimestampAndId(threshold uint64, withState bool) []*CNode {
-	nodes := node.persistStore.ReadAllNodes(threshold, withState)
-	sort.Slice(nodes, func(i, j int) bool {
-		if nodes[i].Timestamp < nodes[j].Timestamp {
-			return true
-		}
-		if nodes[i].Timestamp > nodes[j].Timestamp {
-			return false
-		}
-		a := nodes[i].IdForNetwork(node.networkId)
-		b := nodes[j].IdForNetwork(node.networkId)
-		return a.String() < b.String()
-	})
-	cnodes := make([]*CNode, len(nodes))
-	for i, n := range nodes {
-		cnodes[i] = &CNode{
-			IdForNetwork: n.IdForNetwork(node.networkId),
-			Signer:       n.Signer,
-			Payee:        n.Payee,
-			Transaction:  n.Transaction,
-			Timestamp:    n.Timestamp,
-			State:        n.State,
-		}
-	}
-	return cnodes
-}
-
 func (node *Node) NodesListWithoutState(threshold uint64) []*CNode {
 	filter := make(map[crypto.Hash]*CNode)
 	for _, n := range node.allNodesSortedWithState {

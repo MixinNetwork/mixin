@@ -46,7 +46,7 @@ func (node *Node) PoolInfo() (uint64, uint64) {
 }
 
 func (node *Node) LoadAllChains(store storage.Store, networkId crypto.Hash) error {
-	nodes := node.SortAllNodesByTimestampAndId(uint64(clock.Now().UnixNano())*2, false)
+	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()) * 2)
 	for _, cn := range nodes {
 		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateCancelled {
 			continue

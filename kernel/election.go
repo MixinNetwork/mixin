@@ -80,7 +80,7 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*CNode
 	}
 
 	var candi *CNode
-	for _, cn := range node.SortAllNodesByTimestampAndId(now, false) {
+	for _, cn := range node.NodesListWithoutState(now) {
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.Epoch
 		}
@@ -322,7 +322,7 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	var signerSpend crypto.Key
 	copy(signerSpend[:], tx.Extra)
 	offset := timestamp + uint64(config.KernelNodePledgePeriodMinimum)
-	for _, cn := range node.SortAllNodesByTimestampAndId(offset, false) {
+	for _, cn := range node.NodesListWithoutState(offset) {
 		if cn.Timestamp == 0 {
 			cn.Timestamp = node.Epoch
 		}

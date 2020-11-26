@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"sort"
 	"sync"
 	"time"
 
@@ -231,7 +232,30 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 
 func (node *Node) LoadConsensusNodes() error {
 	threshold := uint64(clock.Now().UnixNano()) * 2
-	node.allNodesSortedWithState = node.SortAllNodesByTimestampAndId(threshold, true)
+	nodes := node.persistStore.ReadAllNodes(threshold, true)
+	sort.Slice(nodes, func(i, j int) bool {
+		if nodes[i].Timestamp < nodes[j].Timestamp {
+			return true
+		}
+		if nodes[i].Timestamp > nodes[j].Timestamp {
+			return false
+		}
+		a := nodes[i].IdForNetwork(node.networkId)
+		b := nodes[j].IdForNetwork(node.networkId)
+		return a.String() < b.String()
+	})
+	cnodes := make([]*CNode, len(nodes))
+	for i, n := range nodes {
+		cnodes[i] = &CNode{
+			IdForNetwork: n.IdForNetwork(node.networkId),
+			Signer:       n.Signer,
+			Payee:        n.Payee,
+			Transaction:  n.Transaction,
+			Timestamp:    n.Timestamp,
+			State:        n.State,
+		}
+	}
+	node.allNodesSortedWithState = cnodes
 	return nil
 }
 
