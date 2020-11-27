@@ -156,7 +156,8 @@ func (node *Node) GetAcceptedOrPledgingNode(id crypto.Hash) *CNode {
 
 func (node *Node) GetAcceptedNode(id crypto.Hash) *CNode {
 	nodes := node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
-	for _, cn := range nodes {
+	for i, cn := range nodes {
+		cn.ConsensusIndex = i
 		if cn.IdForNetwork == id {
 			return cn
 		}

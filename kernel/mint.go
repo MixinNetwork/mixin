@@ -45,12 +45,7 @@ func (node *Node) MintLoop() {
 		case <-node.done:
 			return
 		case <-ticker.C:
-			batch, amount := node.checkMintPossibility(node.GraphTimestamp, false)
-			if amount.Sign() <= 0 || batch <= 0 {
-				continue
-			}
-
-			err := node.tryToMintKernelNode(uint64(batch), amount)
+			err := node.tryToMintKernelNode()
 			if err != nil {
 				logger.Println(node.IdForNetwork, "tryToMintKernelNode", err)
 			}
@@ -94,13 +89,18 @@ func pledgeAmount(sinceEpoch time.Duration) common.Integer {
 	return liquidity.Div(MintNodeMaximum)
 }
 
-func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error {
-	nodes := node.sortMintNodes(uint64(clock.Now().UnixNano()))
+func (node *Node) buildMintTransaction(timestamp uint64, validateOnly bool) *common.VersionedTransaction {
+	batch, amount := node.checkMintPossibility(timestamp, validateOnly)
+	if amount.Sign() <= 0 || batch <= 0 {
+		return nil
+	}
+
+	nodes := node.sortMintNodes(timestamp)
 	per := amount.Div(len(nodes))
 	diff := amount.Sub(per.Mul(len(nodes)))
 
 	tx := common.NewTransaction(common.XINAssetId)
-	tx.AddKernelNodeMintInput(batch, amount)
+	tx.AddKernelNodeMintInput(uint64(batch), amount)
 	script := common.NewThresholdScript(1)
 	for _, n := range nodes {
 		in := fmt.Sprintf("MINTKERNELNODE%d", batch)
@@ -118,7 +118,15 @@ func (node *Node) tryToMintKernelNode(batch uint64, amount common.Integer) error
 		tx.AddScriptOutput([]common.Address{addr}, script, diff, seed)
 	}
 
-	signed := tx.AsLatestVersion()
+	return tx.AsLatestVersion()
+}
+
+func (node *Node) tryToMintKernelNode() error {
+	signed := node.buildMintTransaction(node.GraphTimestamp, false)
+	if signed == nil {
+		return nil
+	}
+
 	err := signed.SignInput(node.persistStore, 0, []common.Address{node.Signer})
 	if err != nil {
 		return err
@@ -144,81 +152,14 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 	if snap.Timestamp == 0 && snap.NodeId == node.IdForNetwork {
 		timestamp = uint64(clock.Now().UnixNano())
 	}
-	batch, amount := node.checkMintPossibility(timestamp, true)
-	if amount.Sign() <= 0 || batch <= 0 {
-		return fmt.Errorf("no mint available %d %s", batch, amount.String())
-	}
-	mint := tx.Inputs[0].Mint
-	if mint.Batch != uint64(batch) || mint.Amount.Cmp(amount) != 0 {
-		return fmt.Errorf("invalid mint data %d %s", batch, amount.String())
+	signed := node.buildMintTransaction(timestamp, true)
+	if signed == nil {
+		return fmt.Errorf("no mint available at %d", timestamp)
 	}
 
-	nodes := node.sortMintNodes(timestamp)
-	per := amount.Div(len(nodes))
-	diff := amount.Sub(per.Mul(len(nodes)))
-
-	if diff.Sign() > 0 {
-		if len(nodes)+1 != len(tx.Outputs) {
-			return fmt.Errorf("invalid mint outputs count with diff %d %d %s %s", len(nodes), len(tx.Outputs), per, diff)
-		}
-		out := tx.Outputs[len(nodes)]
-		if diff.Cmp(out.Amount) != 0 {
-			return fmt.Errorf("invalid mint diff %s", diff.String())
-		}
-		if out.Type != common.OutputTypeScript {
-			return fmt.Errorf("invalid mint diff type %d", out.Type)
-		}
-		if out.Script.String() != common.NewThresholdScript(common.Operator64).String() {
-			return fmt.Errorf("invalid mint diff script %s", out.Script.String())
-		}
-		if len(out.Keys) != 1 {
-			return fmt.Errorf("invalid mint diff keys %d", len(out.Keys))
-		}
-		addr := common.NewAddressFromSeed(make([]byte, 64))
-		in := fmt.Sprintf("MINTKERNELNODE%dDIFF", mint.Batch)
-		seed := crypto.NewHash([]byte(addr.String() + in))
-		r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
-		if r.Public() != out.Mask {
-			return fmt.Errorf("invalid mint diff mask %s %s", r.Public().String(), out.Mask.String())
-		}
-		ghost := crypto.ViewGhostOutputKey(&out.Keys[0], &addr.PrivateViewKey, &out.Mask, uint64(len(nodes)))
-		if *ghost != addr.PublicSpendKey {
-			return fmt.Errorf("invalid mint diff signature %s %s", addr.PublicSpendKey.String(), ghost.String())
-		}
-		return nil
-	} else if len(nodes) != len(tx.Outputs) {
-		return fmt.Errorf("invalid mint outputs count %d %d", len(nodes), len(tx.Outputs))
+	if tx.PayloadHash() != signed.PayloadHash() {
+		return fmt.Errorf("malformed mint transaction at %d", timestamp)
 	}
-
-	for i, out := range tx.Outputs {
-		if i == len(nodes) {
-			break
-		}
-		if out.Type != common.OutputTypeScript {
-			return fmt.Errorf("invalid mint output type %d", out.Type)
-		}
-		if per.Cmp(out.Amount) != 0 {
-			return fmt.Errorf("invalid mint output amount %s %s", per.String(), out.Amount.String())
-		}
-		if out.Script.String() != common.NewThresholdScript(1).String() {
-			return fmt.Errorf("invalid mint output script %s", out.Script.String())
-		}
-		if len(out.Keys) != 1 {
-			return fmt.Errorf("invalid mint output keys %d", len(out.Keys))
-		}
-		n := nodes[i]
-		in := fmt.Sprintf("MINTKERNELNODE%d", mint.Batch)
-		seed := crypto.NewHash([]byte(n.Signer.String() + in))
-		r := crypto.NewKeyFromSeed(append(seed[:], seed[:]...))
-		if r.Public() != out.Mask {
-			return fmt.Errorf("invalid mint output mask %s %s", r.Public().String(), out.Mask.String())
-		}
-		ghost := crypto.ViewGhostOutputKey(&out.Keys[0], &n.Payee.PrivateViewKey, &out.Mask, uint64(i))
-		if *ghost != n.Payee.PublicSpendKey {
-			return fmt.Errorf("invalid mint output signature %s %s", n.Payee.PublicSpendKey.String(), ghost.String())
-		}
-	}
-
 	return nil
 }
 
