@@ -11,13 +11,13 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
-func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, bool, error) {
-	tx, finalized, err := node.persistStore.ReadTransaction(s.Transaction)
+func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool) (*common.VersionedTransaction, bool, error) {
+	tx, snap, err := node.persistStore.ReadTransaction(s.Transaction)
 	if err == nil && tx != nil {
-		err = node.validateKernelSnapshot(s, tx, false)
+		err = node.validateKernelSnapshot(s, tx, finalized)
 	}
 	if err != nil || tx != nil {
-		return tx, len(finalized) > 0, err
+		return tx, len(snap) > 0, err
 	}
 
 	tx, err = node.persistStore.CacheGetTransaction(s.Transaction)
@@ -29,12 +29,12 @@ func (node *Node) checkCacheSnapshotTransaction(s *common.Snapshot) (*common.Ver
 	if err != nil {
 		return nil, false, err
 	}
-	err = node.validateKernelSnapshot(s, tx, false)
+	err = node.validateKernelSnapshot(s, tx, finalized)
 	if err != nil {
 		return nil, false, err
 	}
 
-	err = tx.LockInputs(node.persistStore, false)
+	err = tx.LockInputs(node.persistStore, finalized)
 	if err != nil {
 		return nil, false, err
 	}

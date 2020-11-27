@@ -120,6 +120,10 @@ func (chain *Chain) IsPledging() bool {
 	return chain.State.FinalRound == nil && chain.ConsensusInfo != nil
 }
 
+func (chain *Chain) StateCopy() (*CacheRound, *FinalRound) {
+	return chain.State.CacheRound.Copy(), chain.State.FinalRound.Copy()
+}
+
 func (chain *Chain) loadState() error {
 	chain.Lock()
 	defer chain.Unlock()

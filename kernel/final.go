@@ -25,28 +25,8 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.Ver
 		return nil, inNode, err
 	}
 
-	tx, _, err := node.persistStore.ReadTransaction(s.Transaction)
-	if err == nil && tx != nil {
-		err = node.validateKernelSnapshot(s, tx, true)
-	}
-	if err != nil || tx != nil {
-		return tx, false, err
-	}
-
-	tx, err = node.persistStore.CacheGetTransaction(s.Transaction)
-	if err != nil || tx == nil {
-		return nil, false, err
-	}
-	err = node.validateKernelSnapshot(s, tx, true)
-	if err != nil {
-		return nil, false, err
-	}
-
-	err = tx.LockInputs(node.persistStore, true)
-	if err != nil {
-		return nil, false, err
-	}
-	return tx, false, node.persistStore.WriteTransaction(tx)
+	tx, _, err := node.validateSnapshotTransaction(s, true)
+	return tx, false, err
 }
 
 func (chain *Chain) tryToStartNewRound(s *common.Snapshot) (bool, error) {
@@ -61,9 +41,7 @@ func (chain *Chain) tryToStartNewRound(s *common.Snapshot) (bool, error) {
 		return false, fmt.Errorf("node not accepted yet %s %d %s", s.NodeId, s.RoundNumber, time.Unix(0, int64(s.Timestamp)).String())
 	}
 
-	cache := chain.State.CacheRound.Copy()
-	final := chain.State.FinalRound.Copy()
-
+	cache, final := chain.StateCopy()
 	if s.RoundNumber != cache.Number+1 {
 		return false, nil
 	}

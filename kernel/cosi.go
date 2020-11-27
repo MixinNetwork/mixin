@@ -110,7 +110,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		return nil
 	}
 
-	tx, finalized, err := chain.node.checkCacheSnapshotTransaction(s)
+	tx, finalized, err := chain.node.validateSnapshotTransaction(s, false)
 	if err != nil || finalized || tx == nil {
 		return nil
 	}
@@ -149,9 +149,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		return nil
 	}
 
-	cache := chain.State.CacheRound.Copy()
-	final := chain.State.FinalRound.Copy()
-
+	cache, final := chain.StateCopy()
 	if len(cache.Snapshots) == 0 && !chain.node.CheckBroadcastedToPeers() {
 		return chain.clearAndQueueSnapshotOrPanic(s)
 	}
@@ -259,7 +257,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 		return nil
 	}
 
-	tx, finalized, err := chain.node.checkCacheSnapshotTransaction(s)
+	tx, finalized, err := chain.node.validateSnapshotTransaction(s, false)
 	if err != nil || finalized {
 		return nil
 	}
@@ -281,9 +279,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 		return nil
 	}
 
-	cache := chain.State.CacheRound.Copy()
-	final := chain.State.FinalRound.Copy()
-
+	cache, final := chain.StateCopy()
 	if s.RoundNumber < cache.Number {
 		return nil
 	}
@@ -376,7 +372,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 		return nil
 	}
 
-	tx, finalized, err := chain.node.checkCacheSnapshotTransaction(ann.Snapshot)
+	tx, finalized, err := chain.node.validateSnapshotTransaction(ann.Snapshot, false)
 	if err != nil || finalized || tx == nil {
 		return nil
 	}
@@ -437,7 +433,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 		return nil
 	}
 
-	tx, finalized, err := chain.node.checkCacheSnapshotTransaction(s)
+	tx, finalized, err := chain.node.validateSnapshotTransaction(s, false)
 	if err != nil || finalized || tx == nil {
 		return nil
 	}
@@ -490,7 +486,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	}
 
 	s := agg.Snapshot
-	tx, finalized, err := chain.node.checkCacheSnapshotTransaction(s)
+	tx, finalized, err := chain.node.validateSnapshotTransaction(s, false)
 	if err != nil || finalized || tx == nil {
 		return nil
 	}
@@ -530,8 +526,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		return chain.node.reloadConsensusNodesList(s, tx)
 	}
 
-	cache := chain.State.CacheRound.Copy()
-	final := chain.State.FinalRound.Copy()
+	cache, final := chain.StateCopy()
 	if s.RoundNumber > cache.Number {
 		panic(fmt.Sprintf("should never be here %d %d", cache.Number, s.RoundNumber))
 	}
@@ -580,9 +575,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		return chain.node.reloadConsensusNodesList(s, tx)
 	}
 
-	cache := chain.State.CacheRound.Copy()
-	final := chain.State.FinalRound.Copy()
-
+	cache, final := chain.StateCopy()
 	if s.RoundNumber < cache.Number {
 		logger.Debugf("ERROR cosiHandleFinalization expired round %s %s %d %d\n", m.PeerId, s.Hash, s.RoundNumber, cache.Number)
 		return nil
