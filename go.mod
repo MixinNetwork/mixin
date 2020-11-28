@@ -15,7 +15,7 @@ require (
 	github.com/gobuffalo/packr v1.30.1
 	github.com/gofrs/uuid v3.3.0+incompatible
 	github.com/gorilla/handlers v1.5.1
-	github.com/lucas-clemente/quic-go v0.18.1
+	github.com/lucas-clemente/quic-go v0.19.2
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/nwaples/rardecode v1.1.0 // indirect
 	github.com/pelletier/go-toml v1.8.1

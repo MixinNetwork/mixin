@@ -21,6 +21,10 @@ import (
 	"github.com/valyala/gozstd"
 )
 
+// /etc/sysctl.conf
+// net.core.rmem_max=8388608
+// net.core.wmem_max=8388608
+
 const (
 	MaxIncomingStreams = 128
 	HandshakeTimeout   = 10 * time.Second
