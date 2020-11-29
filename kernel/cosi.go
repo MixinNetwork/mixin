@@ -32,6 +32,14 @@ type CosiAction struct {
 	Transaction  *common.VersionedTransaction
 	WantTx       bool
 	finalized    bool
+	data         *CosiChainData
+}
+
+type CosiChainData struct {
+	PN *CNode
+	CN *CNode
+	TX *common.VersionedTransaction
+	F  bool
 }
 
 type CosiAggregator struct {
@@ -69,6 +77,14 @@ func (chain *Chain) cosiHook(m *CosiAction) (bool, error) {
 }
 
 func (chain *Chain) cosiHandleAction(m *CosiAction) error {
+	if m.Action == CosiActionFinalization {
+		return chain.handleFinalization(m)
+	}
+	if err := chain.checkActionSanity(m); err != nil {
+		logger.Debugf("checkActionSanity %d ERROR %s\n", m.Action, err)
+		return nil
+	}
+
 	switch m.Action {
 	case CosiActionSelfEmpty:
 		return chain.cosiSendAnnouncement(m)
@@ -80,44 +96,124 @@ func (chain *Chain) cosiHandleAction(m *CosiAction) error {
 		return chain.cosiHandleAnnouncement(m)
 	case CosiActionExternalChallenge:
 		return chain.cosiHandleChallenge(m)
-	case CosiActionFinalization:
-		return chain.handleFinalization(m)
 	}
 
 	return nil
 }
 
-func (chain *Chain) cosiCheckSnapshotTimestamp(ts uint64) bool {
-	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if ts > uint64(clock.Now().UnixNano())+threshold {
-		return false
-	}
-	if ts+threshold*2 < chain.node.GraphTimestamp {
-		return false
+func (chain *Chain) checkActionSanity(m *CosiAction) error {
+	s := m.Snapshot
+	switch m.Action {
+	case CosiActionSelfEmpty:
+		if chain.ChainId != chain.node.IdForNetwork {
+			return fmt.Errorf("self action announcement chain %s %s", chain.ChainId, chain.node.IdForNetwork)
+		}
+		if chain.ChainId != m.PeerId {
+			return fmt.Errorf("self action announcement peer %s %s", chain.ChainId, m.PeerId)
+		}
+		if s.Signature != nil || s.Timestamp != 0 {
+			return fmt.Errorf("only empty snapshot can be announced")
+		}
+	case CosiActionSelfCommitment, CosiActionSelfResponse:
+		if chain.ChainId != chain.node.IdForNetwork {
+			return fmt.Errorf("self action aggregation chain %s %s", chain.ChainId, chain.node.IdForNetwork)
+		}
+		if chain.ChainId == m.PeerId {
+			return fmt.Errorf("self action aggregation peer %s %s", chain.ChainId, m.PeerId)
+		}
+		a := chain.CosiAggregators[m.SnapshotHash]
+		if a != nil {
+			s = a.Snapshot
+		}
+	case CosiActionExternalAnnouncement:
+		if chain.ChainId == chain.node.IdForNetwork {
+			return fmt.Errorf("external action announcement chain %s %s", chain.ChainId, chain.node.IdForNetwork)
+		}
+		if chain.ChainId != m.PeerId {
+			return fmt.Errorf("external action announcement peer %s %s", chain.ChainId, m.PeerId)
+		}
+		if s.Signature != nil || s.Timestamp == 0 {
+			return fmt.Errorf("only empty snapshot with timestamp can be announced")
+		}
+	case CosiActionExternalChallenge:
+		if chain.ChainId == chain.node.IdForNetwork {
+			return fmt.Errorf("external action challenge chain %s %s", chain.ChainId, chain.node.IdForNetwork)
+		}
+		if chain.ChainId != m.PeerId {
+			return fmt.Errorf("external action challenge peer %s %s", chain.ChainId, m.PeerId)
+		}
+		v := chain.CosiVerifiers[m.SnapshotHash]
+		if v != nil {
+			s = v.Snapshot
+		}
 	}
 
-	return true
+	if s == nil {
+		return fmt.Errorf("no snapshot in cosi")
+	}
+	if s.Version != common.SnapshotVersion {
+		return fmt.Errorf("invalid snapshot version %d", s.Version)
+	}
+	if s.NodeId != chain.ChainId {
+		return fmt.Errorf("invalid snapshot node id %s %s", s.NodeId, chain.ChainId)
+	}
+
+	if m.Action != CosiActionSelfEmpty {
+		if m.SnapshotHash != s.PayloadHash() {
+			return fmt.Errorf("invalid snapshot hash %s %s", m.SnapshotHash, s.PayloadHash())
+		}
+		threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
+		if s.Timestamp > uint64(clock.Now().UnixNano())+threshold {
+			return fmt.Errorf("future snapshot timestamp %d", s.Timestamp)
+		}
+		if s.Timestamp+threshold*2 < chain.node.GraphTimestamp {
+			return fmt.Errorf("past snapshot timestamp %d", s.Timestamp)
+		}
+	}
+
+	cn := chain.node.GetAcceptedOrPledgingNode(chain.ChainId)
+	if cn == nil {
+		return fmt.Errorf("chain node %s not found", chain.ChainId)
+	}
+	pn := chain.node.GetAcceptedOrPledgingNode(m.PeerId)
+	if pn == nil {
+		return fmt.Errorf("peer node %s not found", m.PeerId)
+	}
+	if s.RoundNumber != 0 && !chain.node.ConsensusReady(cn, s.Timestamp) {
+		return fmt.Errorf("chain node %s not accepted", cn.IdForNetwork)
+	}
+	if s.RoundNumber != 0 && !chain.node.ConsensusReady(pn, s.Timestamp) {
+		return fmt.Errorf("peer node %s not accepted", pn.IdForNetwork)
+	}
+	if m.Action != CosiActionSelfEmpty && !chain.IsPledging() && !chain.node.CheckCatchUpWithPeers() {
+		return fmt.Errorf("node is slow in catching up")
+	}
+
+	if m.Transaction != nil {
+		err := chain.node.CachePutTransaction(m.PeerId, m.Transaction)
+		if err != nil {
+			return err
+		}
+	}
+	tx, finalized, err := chain.node.validateSnapshotTransaction(s, false)
+	if err != nil || finalized {
+		return fmt.Errorf("cosi snapshot transaction error %v or finalized %v", err, finalized)
+	}
+	if tx == nil && m.Action != CosiActionExternalAnnouncement {
+		return fmt.Errorf("no transaction found")
+	}
+
+	m.data = &CosiChainData{PN: pn, CN: cn, TX: tx, F: finalized}
+	return nil
 }
 
 func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement %v\n", m.Snapshot)
-	s := m.Snapshot
-	if s.Version != common.SnapshotVersion || s.Signature != nil || s.Timestamp != 0 {
-		return nil
-	}
-	if !chain.node.CheckCatchUpWithPeers() && !(chain.State.FinalRound == nil && s.RoundNumber == 0) {
-		logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement CheckCatchUpWithPeers\n")
-		return nil
-	}
-
-	tx, finalized, err := chain.node.validateSnapshotTransaction(s, false)
-	if err != nil || finalized || tx == nil {
-		return nil
-	}
+	s, cd := m.Snapshot, m.data
 
 	agg := &CosiAggregator{
 		Snapshot:    s,
-		Transaction: tx,
+		Transaction: cd.TX,
 		WantTxs:     make(map[crypto.Hash]bool),
 		Commitments: make(map[int]*crypto.Key),
 		Responses:   make(map[int]*[32]byte),
@@ -125,16 +221,15 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		responsed:   make(map[crypto.Hash]bool),
 	}
 
-	cn := chain.node.GetAcceptedOrPledgingNode(chain.ChainId)
-	if chain.State.FinalRound == nil && s.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
+	if chain.IsPledging() && s.RoundNumber == 0 && cd.TX.TransactionType() == common.TransactionTypeNodeAccept {
 		s.Timestamp = uint64(clock.Now().UnixNano())
 		s.Hash = s.PayloadHash()
 		v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
 		R := v.random.Public()
 		chain.CosiVerifiers[s.Hash] = v
-		agg.Commitments[cn.ConsensusIndex] = &R
+		agg.Commitments[cd.CN.ConsensusIndex] = &R
 		chain.CosiAggregators[s.Hash] = agg
-		nodes := chain.node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
+		nodes := chain.node.AcceptedNodesList(s.Timestamp)
 		for _, cn := range nodes {
 			peerId := cn.IdForNetwork
 			err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, s, R)
@@ -145,7 +240,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		return nil
 	}
 
-	if cn == nil || chain.State.FinalRound == nil {
+	if chain.State.FinalRound == nil {
 		return nil
 	}
 
@@ -225,9 +320,9 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
 	R := v.random.Public()
 	chain.CosiVerifiers[s.Hash] = v
-	agg.Commitments[cn.ConsensusIndex] = &R
+	agg.Commitments[cd.CN.ConsensusIndex] = &R
 	chain.CosiAggregators[s.Hash] = agg
-	nodes := chain.node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
+	nodes := chain.node.AcceptedNodesList(s.Timestamp)
 	for _, cn := range nodes {
 		peerId := cn.IdForNetwork
 		err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R)
@@ -240,42 +335,19 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 
 func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v\n", m.PeerId, m.Snapshot)
-	if chain.node.GetAcceptedOrPledgingNode(chain.node.IdForNetwork) == nil || !chain.node.CheckCatchUpWithPeers() {
-		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement CheckCatchUpWithPeers\n")
-		return nil
-	}
-	cn := chain.node.GetAcceptedOrPledgingNode(m.PeerId)
-	if cn == nil {
-		return nil
-	}
 
-	s := m.Snapshot
-	if s.Version != common.SnapshotVersion || s.Signature != nil || s.Timestamp == 0 {
-		return nil
-	}
-	if !chain.cosiCheckSnapshotTimestamp(s.Timestamp) {
-		return nil
-	}
-
-	tx, finalized, err := chain.node.validateSnapshotTransaction(s, false)
-	if err != nil || finalized {
-		return nil
-	}
-
+	s, cd := m.Snapshot, m.data
 	v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
-	if chain.State.FinalRound == nil && s.RoundNumber == 0 {
+	if chain.IsPledging() && s.RoundNumber == 0 {
 		chain.CosiVerifiers[s.Hash] = v
-		err := chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil)
+		err := chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), cd.TX == nil)
 		if err != nil {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendSnapshotCommitmentMessage(%s, %s) ERROR %s\n", s.NodeId, s.Hash, err.Error())
 		}
 		return nil
 	}
 
-	if !chain.node.ConsensusReady(cn, m.Snapshot.Timestamp) {
-		return nil
-	}
-	if s.RoundNumber == 0 || chain.State.FinalRound == nil {
+	if chain.State.FinalRound == nil {
 		return nil
 	}
 
@@ -333,7 +405,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	}
 
 	chain.CosiVerifiers[s.Hash] = v
-	err = chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), tx == nil)
+	err := chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), cd.TX == nil)
 	if err != nil {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendSnapshotCommitmentMessage(%s, %s) ERROR %s\n", s.NodeId, s.Hash, err.Error())
 	}
@@ -342,19 +414,9 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 
 func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment %v\n", m)
-	cn := chain.node.GetAcceptedNode(m.PeerId)
-	if cn == nil {
-		return nil
-	}
 
 	ann := chain.CosiAggregators[m.SnapshotHash]
-	if ann == nil || ann.Snapshot.Hash != m.SnapshotHash {
-		return nil
-	}
 	if ann.committed[m.PeerId] {
-		return nil
-	}
-	if !chain.node.ConsensusReady(cn, ann.Snapshot.Timestamp) {
 		return nil
 	}
 	ann.committed[m.PeerId] = true
@@ -363,17 +425,10 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	if len(ann.Commitments) >= base {
 		return nil
 	}
-	cn = chain.node.GetAcceptedOrPledgingNode(m.PeerId)
-	if cn != nil {
-		ann.Commitments[cn.ConsensusIndex] = m.Commitment
-		ann.WantTxs[m.PeerId] = m.WantTx
-	}
+	cd := m.data
+	ann.Commitments[cd.PN.ConsensusIndex] = m.Commitment
+	ann.WantTxs[m.PeerId] = m.WantTx
 	if len(ann.Commitments) < base {
-		return nil
-	}
-
-	tx, finalized, err := chain.node.validateSnapshotTransaction(ann.Snapshot, false)
-	if err != nil || finalized || tx == nil {
 		return nil
 	}
 
@@ -389,17 +444,16 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	if err != nil {
 		return err
 	}
-	cn = chain.node.GetAcceptedOrPledgingNode(chain.ChainId)
-	ann.Responses[cn.ConsensusIndex] = &response
+	ann.Responses[cd.CN.ConsensusIndex] = &response
 	copy(cosi.Signature[32:], response[:])
 
-	nodes := chain.node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
+	nodes := chain.node.AcceptedNodesList(ann.Snapshot.Timestamp)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
 		if wantTx, found := ann.WantTxs[id]; !found {
 			continue
 		} else if wantTx {
-			err = chain.node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, tx)
+			err = chain.node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, cd.TX)
 		} else {
 			err = chain.node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, nil)
 		}
@@ -412,36 +466,13 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 
 func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge %v\n", m)
-	if chain.node.GetAcceptedOrPledgingNode(m.PeerId) == nil {
-		return nil
-	}
-
 	v := chain.CosiVerifiers[m.SnapshotHash]
-	if v == nil || v.Snapshot.Hash != m.SnapshotHash {
-		return nil
-	}
-
-	if m.Transaction != nil {
-		err := chain.node.CachePutTransaction(m.PeerId, m.Transaction)
-		if err != nil {
-			return err
-		}
-	}
-
-	s := v.Snapshot
-	if !chain.cosiCheckSnapshotTimestamp(s.Timestamp) {
-		return nil
-	}
-
-	tx, finalized, err := chain.node.validateSnapshotTransaction(s, false)
-	if err != nil || finalized || tx == nil {
-		return nil
-	}
+	s, cd := v.Snapshot, m.data
 
 	var sig crypto.Signature
 	copy(sig[:], s.Commitment[:])
 	copy(sig[32:], m.Signature.Signature[32:])
-	pub := chain.node.GetAcceptedOrPledgingNode(s.NodeId).Signer.PublicSpendKey
+	pub := cd.CN.Signer.PublicSpendKey
 	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	challenge, err := m.Signature.Challenge(publics, m.SnapshotHash[:])
 	if err != nil {
@@ -465,14 +496,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 
 func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v\n", m)
-	if chain.node.GetAcceptedNode(m.PeerId) == nil {
-		return nil
-	}
-
 	agg := chain.CosiAggregators[m.SnapshotHash]
-	if agg == nil || agg.Snapshot.Hash != m.SnapshotHash {
-		return nil
-	}
 	if agg.responsed[m.PeerId] {
 		return nil
 	}
@@ -485,22 +509,15 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		return nil
 	}
 
-	s := agg.Snapshot
-	tx, finalized, err := chain.node.validateSnapshotTransaction(s, false)
-	if err != nil || finalized || tx == nil {
-		return nil
-	}
+	s, cd := agg.Snapshot, m.data
 
-	cn := chain.node.GetAcceptedOrPledgingNode(m.PeerId)
-	if cn != nil {
-		agg.Responses[cn.ConsensusIndex] = m.Response
-	}
+	agg.Responses[cd.PN.ConsensusIndex] = m.Response
 	if len(agg.Responses) != len(agg.Commitments) {
 		return nil
 	}
 
 	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
-	err = s.Signature.VerifyResponse(publics, cn.ConsensusIndex, m.Response, m.SnapshotHash[:])
+	err := s.Signature.VerifyResponse(publics, cd.PN.ConsensusIndex, m.Response, m.SnapshotHash[:])
 	if err != nil {
 		return nil
 	}
@@ -510,43 +527,34 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		return nil
 	}
 
-	if chain.State.FinalRound == nil && s.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
+	if chain.IsPledging() && s.RoundNumber == 0 && cd.TX.TransactionType() == common.TransactionTypeNodeAccept {
 		err := chain.node.finalizeNodeAcceptSnapshot(s)
 		if err != nil {
 			return err
 		}
-		nodes := chain.node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
-		for _, cn := range nodes {
-			id := cn.IdForNetwork
-			err := chain.node.Peer.SendSnapshotFinalizationMessage(id, s)
-			if err != nil {
-				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse SendSnapshotFinalizationMessage(%s, %s) ERROR %s\n", id, m.SnapshotHash, err.Error())
-			}
+	} else {
+		cache, final := chain.StateCopy()
+		if s.RoundNumber > cache.Number {
+			panic(fmt.Sprintf("should never be here %d %d", cache.Number, s.RoundNumber))
 		}
-		return chain.node.reloadConsensusNodesList(s, tx)
+		if s.RoundNumber < cache.Number {
+			return chain.clearAndQueueSnapshotOrPanic(s)
+		}
+		if !s.References.Equal(cache.References) {
+			return chain.clearAndQueueSnapshotOrPanic(s)
+		}
+		if err := cache.ValidateSnapshot(s, false); err != nil {
+			return chain.clearAndQueueSnapshotOrPanic(s)
+		}
+
+		chain.node.TopoWrite(s)
+		if err := cache.ValidateSnapshot(s, true); err != nil {
+			panic("should never be here")
+		}
+		chain.assignNewGraphRound(final, cache)
 	}
 
-	cache, final := chain.StateCopy()
-	if s.RoundNumber > cache.Number {
-		panic(fmt.Sprintf("should never be here %d %d", cache.Number, s.RoundNumber))
-	}
-	if s.RoundNumber < cache.Number {
-		return chain.clearAndQueueSnapshotOrPanic(s)
-	}
-	if !s.References.Equal(cache.References) {
-		return chain.clearAndQueueSnapshotOrPanic(s)
-	}
-	if err := cache.ValidateSnapshot(s, false); err != nil {
-		return chain.clearAndQueueSnapshotOrPanic(s)
-	}
-
-	chain.node.TopoWrite(s)
-	if err := cache.ValidateSnapshot(s, true); err != nil {
-		panic("should never be here")
-	}
-	chain.assignNewGraphRound(final, cache)
-
-	nodes := chain.node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
+	nodes := chain.node.AcceptedNodesList(s.Timestamp)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
 		if !agg.responsed[id] {
@@ -560,14 +568,14 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse SendSnapshotFinalizationMessage(%s, %s) ERROR %s\n", id, m.SnapshotHash, err.Error())
 		}
 	}
-	return chain.node.reloadConsensusNodesList(s, tx)
+	return chain.node.reloadConsensusNodesList(s, cd.TX)
 }
 
 func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFinalization %s %v\n", m.PeerId, m.Snapshot)
 	s, tx := m.Snapshot, m.Transaction
 
-	if chain.State.FinalRound == nil && s.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
+	if chain.IsPledging() && s.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
 		err := chain.node.finalizeNodeAcceptSnapshot(s)
 		if err != nil {
 			return err
@@ -687,22 +695,13 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 	}
 	chain := node.GetOrCreateChain(s.NodeId)
 
-	if s.Version != common.SnapshotVersion {
-		return nil
-	}
-	if s.NodeId == node.IdForNetwork || s.NodeId != peerId {
-		return nil
-	}
-	if s.Signature != nil || s.Timestamp == 0 || commitment == nil {
-		return nil
-	}
 	s.Hash = s.PayloadHash()
 	s.Commitment = commitment
-
 	m := &CosiAction{
-		PeerId:   peerId,
-		Action:   CosiActionExternalAnnouncement,
-		Snapshot: s,
+		PeerId:       peerId,
+		Action:       CosiActionExternalAnnouncement,
+		Snapshot:     s,
+		SnapshotHash: s.Hash,
 	}
 	chain.AppendCosiAction(m)
 	return nil
