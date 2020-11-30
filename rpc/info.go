@@ -52,7 +52,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	}
 	cacheGraph := make(map[string]interface{})
 	for n, r := range cacheMap {
-		for i, _ := range r.Snapshots {
+		for i := range r.Snapshots {
 			r.Snapshots[i].Signatures = nil
 		}
 		cacheGraph[n.String()] = map[string]interface{}{

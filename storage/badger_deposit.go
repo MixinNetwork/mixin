@@ -20,7 +20,7 @@ func (s *BadgerStore) CheckDepositInput(deposit *common.DepositData, tx crypto.H
 	} else if err != nil {
 		return err
 	}
-	if bytes.Compare(ival, tx[:]) == 0 {
+	if bytes.Equal(ival, tx[:]) {
 		return nil
 	}
 	return fmt.Errorf("invalid lock %s %s", hex.EncodeToString(ival), hex.EncodeToString(tx[:]))
@@ -36,7 +36,7 @@ func (s *BadgerStore) LockDepositInput(deposit *common.DepositData, tx crypto.Ha
 			return err
 		}
 
-		if bytes.Compare(ival, tx[:]) == 0 {
+		if bytes.Equal(ival, tx[:]) {
 			return nil
 		}
 

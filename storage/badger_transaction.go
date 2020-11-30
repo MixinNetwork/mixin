@@ -60,7 +60,7 @@ func (s *BadgerStore) WriteTransaction(ver *common.VersionedTransaction) error {
 				if err != nil {
 					panic(fmt.Errorf("deposit check error %s", err.Error()))
 				}
-				if bytes.Compare(ival, txHash[:]) != 0 {
+				if !bytes.Equal(ival, txHash[:]) {
 					panic(fmt.Errorf("deposit locked for transaction %s", hex.EncodeToString(ival)))
 				}
 				continue

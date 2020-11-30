@@ -128,10 +128,6 @@ func buildAuthenticationMessage(data []byte) []byte {
 	return append(header, data...)
 }
 
-func buildPingMessage() []byte {
-	return []byte{PeerMessageTypePing}
-}
-
 func buildGossipNeighborsMessage(neighbors []*Peer) []byte {
 	rns := make([]string, len(neighbors))
 	for i, p := range neighbors {

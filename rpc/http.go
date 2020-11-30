@@ -59,7 +59,7 @@ func (r *Render) RenderData(data interface{}) {
 		body["id"] = r.id
 	}
 	if !r.start.IsZero() {
-		body["runtime"] = fmt.Sprint(time.Now().Sub(r.start).Seconds())
+		body["runtime"] = fmt.Sprint(time.Since(r.start).Seconds())
 	}
 	r.impl.JSON(r.w, http.StatusOK, body)
 }
@@ -70,7 +70,7 @@ func (r *Render) RenderError(err error) {
 		body["id"] = r.id
 	}
 	if !r.start.IsZero() {
-		body["runtime"] = fmt.Sprint(time.Now().Sub(r.start).Seconds())
+		body["runtime"] = fmt.Sprint(time.Since(r.start).Seconds())
 	}
 	r.impl.JSON(r.w, http.StatusOK, body)
 }

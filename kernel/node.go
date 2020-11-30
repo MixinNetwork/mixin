@@ -94,7 +94,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 	if err != nil {
 		return nil, err
 	} else if invalid > 0 {
-		return nil, fmt.Errorf("Validate graph with %d/%d invalid entries\n", invalid, total)
+		return nil, fmt.Errorf("validate graph with %d/%d invalid entries", invalid, total)
 	}
 	logger.Printf("Validate graph with %d total entries in %s\n", total, clock.Now().Sub(start).String())
 

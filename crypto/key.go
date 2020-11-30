@@ -57,7 +57,7 @@ func (k Key) Public() Key {
 
 func (k Key) HasValue() bool {
 	zero := Key{}
-	return bytes.Compare(k[:], zero[:]) != 0
+	return !bytes.Equal(k[:], zero[:])
 }
 
 func (k Key) DeterministicHashDerive() Key {
@@ -111,7 +111,7 @@ func KeyAddPub(pub1, pub2 *Key) *Key {
 }
 
 func (k *Key) MultScalar(outputIndex uint64) *Key {
-	tmp := make([]byte, 12, 12)
+	tmp := make([]byte, 12)
 	length := binary.PutUvarint(tmp, outputIndex)
 	tmp = tmp[:length]
 

@@ -153,10 +153,10 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs [][]
 	copy(a[:], tx.Extra[len(crypto.Key{})*2:])
 	pledgeSpend := crypto.ViewGhostOutputKey(&pi.Keys[0], &a, &pi.Mask, uint64(lastPledge.Inputs[0].Index))
 	targetSpend := crypto.ViewGhostOutputKey(&script.Keys[0], &a, &script.Mask, 1)
-	if bytes.Compare(lastPledge.Extra, tx.Extra[:len(crypto.Key{})*2]) != 0 {
+	if !bytes.Equal(lastPledge.Extra, tx.Extra[:len(crypto.Key{})*2]) {
 		return fmt.Errorf("invalid pledge and cancel key %s %s", hex.EncodeToString(lastPledge.Extra), hex.EncodeToString(tx.Extra))
 	}
-	if bytes.Compare(pledgeSpend[:], targetSpend[:]) != 0 {
+	if !bytes.Equal(pledgeSpend[:], targetSpend[:]) {
 		return fmt.Errorf("invalid pledge and cancel target %s %s", pledgeSpend, targetSpend)
 	}
 	if !pi.Keys[0].Verify(msg, sigs[0][0]) {
@@ -217,7 +217,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 	if filter[acc.String()] != NodeStatePledging {
 		return fmt.Errorf("invalid pledge utxo source %s", filter[acc.String()])
 	}
-	if bytes.Compare(lastPledge.Extra, tx.Extra) != 0 {
+	if !bytes.Equal(lastPledge.Extra, tx.Extra) {
 		return fmt.Errorf("invalid pledge and accpet key %s %s", hex.EncodeToString(lastPledge.Extra), hex.EncodeToString(tx.Extra))
 	}
 	return nil
@@ -248,7 +248,7 @@ func (tx *Transaction) validateNodeRemove(store DataStore) error {
 	if ao.Type != OutputTypeNodeAccept {
 		return fmt.Errorf("invalid accept utxo type %d", ao.Type)
 	}
-	if bytes.Compare(accept.Extra, tx.Extra) != 0 {
+	if !bytes.Equal(accept.Extra, tx.Extra) {
 		return fmt.Errorf("invalid accept and remove key %s %s", hex.EncodeToString(accept.Extra), hex.EncodeToString(tx.Extra))
 	}
 	return nil

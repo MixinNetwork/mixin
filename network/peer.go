@@ -504,7 +504,7 @@ func (m *neighborMap) Clear() {
 	m.Lock()
 	defer m.Unlock()
 
-	for id, _ := range m.m {
+	for id := range m.m {
 		delete(m.m, id)
 	}
 }

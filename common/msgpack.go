@@ -50,7 +50,7 @@ func DecompressMsgpackUnmarshal(data []byte, val interface{}) error {
 	}
 
 	version := data[:header]
-	if bytes.Compare(version, CompressionVersionZero) == 0 {
+	if bytes.Equal(version, CompressionVersionZero) {
 		payload, err := gozstd.DecompressDict(nil, data[header:], zstdDDict)
 		if err != nil {
 			return err

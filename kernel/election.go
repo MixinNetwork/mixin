@@ -121,7 +121,7 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 	if len(accept.Extra) != len(signer)*2 {
 		return nil, fmt.Errorf("invalid accept transaction extra %s", hex.EncodeToString(accept.Extra))
 	}
-	if bytes.Compare(append(signer[:], payee...), accept.Extra) != 0 {
+	if !bytes.Equal(append(signer[:], payee...), accept.Extra) {
 		return nil, fmt.Errorf("invalid accept transaction extra %s %s %s", hex.EncodeToString(accept.Extra), signer, hex.EncodeToString(payee))
 	}
 
@@ -245,7 +245,7 @@ func (chain *Chain) buildNodeAcceptTransaction(timestamp uint64, s *common.Snaps
 	if len(pledge.Extra) != len(signer)*2 {
 		return nil, fmt.Errorf("invalid pledge transaction extra %s", hex.EncodeToString(pledge.Extra))
 	}
-	if bytes.Compare(signer[:], pledge.Extra[:len(signer)]) != 0 {
+	if !bytes.Equal(signer[:], pledge.Extra[:len(signer)]) {
 		return nil, fmt.Errorf("invalid pledge transaction extra %s %s", hex.EncodeToString(pledge.Extra[:len(signer)]), signer)
 	}
 
@@ -270,7 +270,7 @@ func (chain *Chain) tryToSendAcceptTransaction() error {
 	if err != nil {
 		return err
 	}
-	err = chain.AppendSelfEmpty(&common.Snapshot{
+	chain.AppendSelfEmpty(&common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      chain.ChainId,
 		Transaction: ver.PayloadHash(),

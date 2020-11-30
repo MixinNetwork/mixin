@@ -417,7 +417,7 @@ func main() {
 		{
 			Name:   "getcachetransaction",
 			Usage:  "Get the transaction in cache by hash",
-			Action: getTransactionCmd,
+			Action: getCacheTransactionCmd,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:    "hash",

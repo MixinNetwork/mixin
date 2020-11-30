@@ -10,13 +10,6 @@ var (
 	// ErrDisposed is returned when an operation is performed on a disposed
 	// queue.
 	ErrDisposed = errors.New(`queue: disposed`)
-
-	// ErrTimeout is returned when an applicable queue operation times out.
-	ErrTimeout = errors.New(`queue: poll timed out`)
-
-	// ErrEmptyQueue is returned when an non-applicable queue operation was called
-	// due to the queue's empty item state
-	ErrEmptyQueue = errors.New(`queue: empty queue`)
 )
 
 // roundUp takes a uint64 greater than 0 and rounds it up to the next
@@ -74,14 +67,6 @@ func (rb *RingBuffer) Reset() {
 	atomic.StoreUint64(&rb.disposed, 0)
 }
 
-// Put adds the provided item to the queue.  If the queue is full, this
-// call will block until an item is added to the queue or Dispose is called
-// on the queue.  An error will be returned if the queue is disposed.
-func (rb *RingBuffer) Put(item interface{}) error {
-	_, err := rb.put(item, false)
-	return err
-}
-
 // Offer adds the provided item to the queue if there is space.  If the queue
 // is full, this call will return false.  An error will be returned if the
 // queue is disposed.
@@ -105,8 +90,6 @@ L:
 			if atomic.CompareAndSwapUint64(&rb.queue, pos, pos+1) {
 				break L
 			}
-		case dif < 0:
-			panic(`Ring buffer in a compromised state during a put operation.`)
 		default:
 			pos = atomic.LoadUint64(&rb.queue)
 		}
@@ -145,8 +128,6 @@ L:
 			if atomic.CompareAndSwapUint64(&rb.dequeue, pos, pos+1) {
 				break L
 			}
-		case dif < 0:
-			panic(`Ring buffer in compromised state during a get operation.`)
 		default:
 			pos = atomic.LoadUint64(&rb.dequeue)
 		}
@@ -167,22 +148,11 @@ func (rb *RingBuffer) Len() uint64 {
 	return atomic.LoadUint64(&rb.queue) - atomic.LoadUint64(&rb.dequeue)
 }
 
-// Cap returns the capacity of this ring buffer.
-func (rb *RingBuffer) Cap() uint64 {
-	return uint64(len(rb.nodes))
-}
-
 // Dispose will dispose of this queue and free any blocked threads
 // in the Put and/or Get methods.  Calling those methods on a disposed
 // queue will return an error.
 func (rb *RingBuffer) Dispose() {
 	atomic.CompareAndSwapUint64(&rb.disposed, 0, 1)
-}
-
-// IsDisposed will return a bool indicating if this queue has been
-// disposed.
-func (rb *RingBuffer) IsDisposed() bool {
-	return atomic.LoadUint64(&rb.disposed) == 1
 }
 
 // NewRingBuffer will allocate, initialize, and return a ring buffer

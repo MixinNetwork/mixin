@@ -85,7 +85,7 @@ func decryptGhostCmd(c *cli.Context) error {
 		PublicViewKey:  view.Public(),
 		PublicSpendKey: *spend,
 	}
-	fmt.Printf(addr.String())
+	fmt.Print(addr.String())
 	return nil
 }
 
@@ -257,7 +257,7 @@ func signTransactionCmd(c *cli.Context) error {
 	}
 
 	signed := tx.AsLatestVersion()
-	for i, _ := range signed.Inputs {
+	for i := range signed.Inputs {
 		err := signed.SignInput(raw, i, accounts)
 		if err != nil {
 			return err
@@ -529,6 +529,7 @@ func getCacheTransactionCmd(c *cli.Context) error {
 	}
 	return err
 }
+
 func getUTXOCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getutxo", []interface{}{
 		c.String("hash"),
@@ -604,7 +605,7 @@ func setupTestNetCmd(c *cli.Context) error {
 	}
 
 	inputs := make([]map[string]string, 0)
-	for i, _ := range signers {
+	for i := range signers {
 		inputs = append(inputs, map[string]string{
 			"signer":  signers[i].String(),
 			"payee":   payees[i].String(),
