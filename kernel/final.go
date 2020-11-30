@@ -1,9 +1,6 @@
 package kernel
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
@@ -27,30 +24,6 @@ func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.Ver
 
 	tx, _, err := node.validateSnapshotTransaction(s, true)
 	return tx, false, err
-}
-
-func (chain *Chain) tryToStartNewRound(s *common.Snapshot) (bool, error) {
-	if chain.ChainId != s.NodeId {
-		panic("should never be here")
-	}
-
-	if chain.State.FinalRound == nil && s.RoundNumber == 0 {
-		return false, nil
-	}
-	if chain.State.CacheRound == nil {
-		return false, fmt.Errorf("node not accepted yet %s %d %s", s.NodeId, s.RoundNumber, time.Unix(0, int64(s.Timestamp)).String())
-	}
-
-	cache, final := chain.StateCopy()
-	if s.RoundNumber != cache.Number+1 {
-		return false, nil
-	}
-	cache, final, dummy, err := chain.startNewRoundAndPersist(s, cache, true)
-	if err != nil || final == nil {
-		return false, err
-	}
-	chain.assignNewGraphRound(final, cache)
-	return dummy, nil
 }
 
 func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapshot) error {
