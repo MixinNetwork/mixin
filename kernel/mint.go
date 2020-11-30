@@ -247,6 +247,14 @@ func (node *Node) NodesListWithoutState(threshold uint64) []*CNode {
 		b := nodes[j].IdForNetwork
 		return a.String() < b.String()
 	})
+	for index, i := 0, 0; i < len(nodes); i++ {
+		cn := nodes[i]
+		cn.ConsensusIndex = index
+		switch cn.State {
+		case common.NodeStateAccepted, common.NodeStatePledging:
+			index++
+		}
+	}
 	return nodes
 }
 

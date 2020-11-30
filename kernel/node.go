@@ -140,15 +140,9 @@ func (node *Node) PledgingNode(timestamp uint64) *CNode {
 
 func (node *Node) GetAcceptedOrPledgingNode(id crypto.Hash) *CNode {
 	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()))
-	for index, i := 0, 0; i < len(nodes); i++ {
-		cn := nodes[i]
-		cn.ConsensusIndex = index
-		switch cn.State {
-		case common.NodeStateAccepted, common.NodeStatePledging:
-			if cn.IdForNetwork == id {
-				return cn
-			}
-			index++
+	for _, cn := range nodes {
+		if cn.IdForNetwork == id {
+			return cn
 		}
 	}
 	return nil
@@ -156,8 +150,7 @@ func (node *Node) GetAcceptedOrPledgingNode(id crypto.Hash) *CNode {
 
 func (node *Node) GetAcceptedNode(id crypto.Hash) *CNode {
 	nodes := node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
-	for i, cn := range nodes {
-		cn.ConsensusIndex = i
+	for _, cn := range nodes {
 		if cn.IdForNetwork == id {
 			return cn
 		}
