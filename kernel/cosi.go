@@ -51,8 +51,9 @@ type CosiAggregator struct {
 }
 
 type CosiVerifier struct {
-	Snapshot *common.Snapshot
-	random   *crypto.Key
+	Snapshot   *common.Snapshot
+	Commitment *crypto.Key
+	random     *crypto.Key
 }
 
 func (chain *Chain) cosiHook(m *CosiAction) (bool, error) {
@@ -119,8 +120,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		if chain.ChainId == m.PeerId {
 			return fmt.Errorf("self action aggregation peer %s %s", chain.ChainId, m.PeerId)
 		}
-		a := chain.CosiAggregators[m.SnapshotHash]
-		if a != nil {
+		if a := chain.CosiAggregators[m.SnapshotHash]; a != nil {
 			s = a.Snapshot
 		}
 	case CosiActionExternalAnnouncement:
@@ -140,8 +140,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		if chain.ChainId != m.PeerId {
 			return fmt.Errorf("external action challenge peer %s %s", chain.ChainId, m.PeerId)
 		}
-		v := chain.CosiVerifiers[m.SnapshotHash]
-		if v != nil {
+		if v := chain.CosiVerifiers[m.SnapshotHash]; v != nil {
 			s = v.Snapshot
 		}
 	}
@@ -156,6 +155,13 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		return fmt.Errorf("invalid snapshot node id %s %s", s.NodeId, chain.ChainId)
 	}
 
+	if m.Transaction != nil {
+		err := chain.node.CachePutTransaction(m.PeerId, m.Transaction)
+		if err != nil {
+			return err
+		}
+	}
+
 	if m.Action != CosiActionSelfEmpty {
 		if m.SnapshotHash != s.Hash {
 			return fmt.Errorf("invalid snapshot hash %s %s", m.SnapshotHash, s.Hash)
@@ -166,6 +172,9 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		}
 		if s.Timestamp+threshold*2 < chain.node.GraphTimestamp {
 			return fmt.Errorf("past snapshot timestamp %d", s.Timestamp)
+		}
+		if !chain.IsPledging() && !chain.node.CheckCatchUpWithPeers() {
+			return fmt.Errorf("node is slow in catching up")
 		}
 	}
 
@@ -183,21 +192,12 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 	if s.RoundNumber != 0 && !chain.node.ConsensusReady(pn, s.Timestamp) {
 		return fmt.Errorf("peer node %s not accepted", pn.IdForNetwork)
 	}
-	if m.Action != CosiActionSelfEmpty && !chain.IsPledging() && !chain.node.CheckCatchUpWithPeers() {
-		return fmt.Errorf("node is slow in catching up")
-	}
 
-	if m.Transaction != nil {
-		err := chain.node.CachePutTransaction(m.PeerId, m.Transaction)
-		if err != nil {
-			return err
-		}
-	}
 	tx, finalized, err := chain.node.validateSnapshotTransaction(s, false)
 	if err != nil || finalized {
 		return fmt.Errorf("cosi snapshot transaction error %v or finalized %v", err, finalized)
 	}
-	if tx == nil && m.Action != CosiActionExternalAnnouncement {
+	if m.Action != CosiActionExternalAnnouncement && tx == nil {
 		return fmt.Errorf("no transaction found")
 	}
 
@@ -345,9 +345,10 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 		}
 	}
 
-	v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
+	r := crypto.CosiCommit(rand.Reader)
+	v := &CosiVerifier{Snapshot: s, Commitment: m.Commitment, random: r}
 	chain.CosiVerifiers[s.Hash] = v
-	err := chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, v.random.Public(), cd.TX == nil)
+	err := chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, r.Public(), cd.TX == nil)
 	if err != nil {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendSnapshotCommitmentMessage(%s, %s) ERROR %s\n", s.NodeId, s.Hash, err.Error())
 	}
@@ -410,7 +411,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	s, cd := v.Snapshot, m.data
 
 	var sig crypto.Signature
-	copy(sig[:], s.Commitment[:])
+	copy(sig[:], v.Commitment[:])
 	copy(sig[32:], m.Signature.Signature[32:])
 	pub := cd.CN.Signer.PublicSpendKey
 	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
@@ -612,11 +613,11 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 	chain := node.GetOrCreateChain(s.NodeId)
 
 	s.Hash = s.PayloadHash()
-	s.Commitment = commitment
 	m := &CosiAction{
 		PeerId:       peerId,
 		Action:       CosiActionExternalAnnouncement,
 		Snapshot:     s,
+		Commitment:   commitment,
 		SnapshotHash: s.Hash,
 	}
 	chain.AppendCosiAction(m)

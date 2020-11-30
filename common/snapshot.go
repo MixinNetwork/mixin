@@ -42,7 +42,6 @@ type Snapshot struct {
 	Signatures  []*crypto.Signature   `json:"signatures,omitempty"msgpack:",omitempty"`
 	Signature   *crypto.CosiSignature `json:"signature,omitempty"msgpack:",omitempty"`
 	Hash        crypto.Hash           `msgpack:"-"json:"hash"`
-	Commitment  *crypto.Key           `msgpack:"-"json:"-"`
 }
 
 type SnapshotWithTopologicalOrder struct {

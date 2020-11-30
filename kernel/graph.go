@@ -312,6 +312,20 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, p
 	return err == nil
 }
 
+func (chain *Chain) ConsensusKeys(round, timestamp uint64) []*crypto.Key {
+	var publics []*crypto.Key
+	nodes := chain.node.NodesListWithoutState(timestamp)
+	for _, cn := range nodes {
+		if chain.node.ConsensusReady(cn, timestamp) {
+			publics = append(publics, &cn.Signer.PublicSpendKey)
+		}
+	}
+	if chain.IsPledging() && round == 0 {
+		publics = append(publics, &chain.ConsensusInfo.Signer.PublicSpendKey)
+	}
+	return publics
+}
+
 func (chain *Chain) verifyFinalization(s *common.Snapshot) bool {
 	if s.Version == 0 {
 		return chain.legacyVerifyFinalization(s.Timestamp, s.Signatures)
@@ -330,14 +344,6 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) bool {
 	publics = chain.ConsensusKeys(s.RoundNumber, timestamp)
 	base = chain.node.ConsensusThreshold(timestamp)
 	return chain.node.CacheVerifyCosi(s.Hash, s.Signature, publics, base)
-}
-
-func (chain *Chain) ConsensusKeys(round, timestamp uint64) []*crypto.Key {
-	publics := chain.node.ConsensusKeys(timestamp)
-	if chain.IsPledging() && round == 0 {
-		publics = append(publics, &chain.ConsensusInfo.Signer.PublicSpendKey)
-	}
-	return publics
 }
 
 func (chain *Chain) legacyVerifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {

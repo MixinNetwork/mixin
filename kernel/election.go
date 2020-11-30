@@ -424,10 +424,6 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 			return fmt.Errorf("invalid node signer key %s %s", hex.EncodeToString(tx.Extra), cn.Payee)
 		}
 	}
-
-	if cn := node.PledgingNode(timestamp); cn != nil {
-		return fmt.Errorf("invalid node state %s %s", cn.Signer, cn.State)
-	}
 	if tx.Outputs[0].Amount.Cmp(pledgeAmount(time.Duration(since))) != 0 {
 		return fmt.Errorf("invalid pledge amount %s", tx.Outputs[0].Amount.String())
 	}

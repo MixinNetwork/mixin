@@ -1,29 +1,15 @@
 package rpc
 
 import (
-	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
-	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 )
-
-func getConsensusKeys(node *kernel.Node, params []interface{}) ([]*crypto.Key, error) {
-	if len(params) != 1 {
-		return nil, errors.New("invalid params count")
-	}
-	timestamp, err := strconv.ParseUint(fmt.Sprint(params[0]), 10, 64)
-	if err != nil {
-		return nil, err
-	}
-	return node.ConsensusKeys(timestamp), nil
-}
 
 func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, error) {
 	info := map[string]interface{}{

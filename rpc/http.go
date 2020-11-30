@@ -102,13 +102,6 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		} else {
 			renderer.RenderData(data)
 		}
-	case "getconsensuskeys":
-		data, err := getConsensusKeys(impl.Node, call.Params)
-		if err != nil {
-			renderer.RenderError(err)
-		} else {
-			renderer.RenderData(data)
-		}
 	case "sendrawtransaction":
 		id, err := queueTransaction(impl.Node, call.Params)
 		if err != nil {

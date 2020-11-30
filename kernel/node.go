@@ -148,21 +148,6 @@ func (node *Node) GetAcceptedOrPledgingNode(id crypto.Hash) *CNode {
 	return nil
 }
 
-func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
-	if timestamp == 0 {
-		timestamp = uint64(clock.Now().UnixNano())
-	}
-
-	var keys []*crypto.Key
-	nodes := node.NodesListWithoutState(timestamp)
-	for _, cn := range nodes {
-		if node.ConsensusReady(cn, timestamp) {
-			keys = append(keys, &cn.Signer.PublicSpendKey)
-		}
-	}
-	return keys
-}
-
 // An accepted node can sign transactions only when it satisfies either:
 // 1. It is a genesis node.
 // 2. It has been accepted more than 12 hours.
@@ -180,9 +165,6 @@ func (node *Node) ConsensusReady(cn *CNode, timestamp uint64) bool {
 }
 
 func (node *Node) ConsensusThreshold(timestamp uint64) int {
-	if timestamp == 0 {
-		timestamp = uint64(clock.Now().UnixNano())
-	}
 	consensusBase := 0
 	nodes := node.NodesListWithoutState(timestamp)
 	for _, cn := range nodes {
@@ -406,7 +388,7 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 func (node *Node) CheckBroadcastedToPeers() bool {
 	chain := node.GetOrCreateChain(node.IdForNetwork)
 	final, count := uint64(0), 1
-	threshold := node.ConsensusThreshold(0)
+	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()))
 	if r := chain.State.FinalRound; r != nil {
 		final = r.Number
 	}
@@ -426,7 +408,7 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 func (node *Node) CheckCatchUpWithPeers() bool {
 	chain := node.GetOrCreateChain(node.IdForNetwork)
 	final, updated := uint64(0), 1
-	threshold := node.ConsensusThreshold(0)
+	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()))
 	cache := chain.State.CacheRound
 	if r := chain.State.FinalRound; r != nil {
 		final = r.Number
