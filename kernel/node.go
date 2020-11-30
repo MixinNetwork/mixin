@@ -148,16 +148,6 @@ func (node *Node) GetAcceptedOrPledgingNode(id crypto.Hash) *CNode {
 	return nil
 }
 
-func (node *Node) GetAcceptedNode(id crypto.Hash) *CNode {
-	nodes := node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
-	for _, cn := range nodes {
-		if cn.IdForNetwork == id {
-			return cn
-		}
-	}
-	return nil
-}
-
 func (node *Node) ConsensusKeys(timestamp uint64) []*crypto.Key {
 	if timestamp == 0 {
 		timestamp = uint64(clock.Now().UnixNano())

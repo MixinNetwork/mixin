@@ -157,8 +157,8 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 	}
 
 	if m.Action != CosiActionSelfEmpty {
-		if m.SnapshotHash != s.PayloadHash() {
-			return fmt.Errorf("invalid snapshot hash %s %s", m.SnapshotHash, s.PayloadHash())
+		if m.SnapshotHash != s.Hash {
+			return fmt.Errorf("invalid snapshot hash %s %s", m.SnapshotHash, s.Hash)
 		}
 		threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
 		if s.Timestamp > uint64(clock.Now().UnixNano())+threshold {
@@ -234,22 +234,15 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 			threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*36
 			if best != nil && best.NodeId != final.NodeId && threshold < best.Start {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement new best external %s:%d:%d => %s:%d:%d\n", external.NodeId, external.Number, external.Timestamp, best.NodeId, best.Number, best.Start)
-				link, err := chain.persistStore.ReadLink(cache.NodeId, best.NodeId)
+				references := &common.RoundLink{Self: final.Hash, External: best.Hash}
+				updated, err := chain.updateEmptyHeadRound(m, cache, references)
 				if err != nil {
 					return err
 				}
-				if best.Number <= link {
-					return chain.clearAndQueueSnapshotOrPanic(s)
+				if updated {
+					cache.References = references
+					chain.assignNewGraphRound(final, cache)
 				}
-				cache.References = &common.RoundLink{
-					Self:     final.Hash,
-					External: best.Hash,
-				}
-				err = chain.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, cache.References)
-				if err != nil {
-					panic(err)
-				}
-				chain.assignNewGraphRound(final, cache)
 				return chain.clearAndQueueSnapshotOrPanic(s)
 			}
 		} else if start, _ := cache.Gap(); s.Timestamp >= start+config.SnapshotRoundGap {
@@ -330,18 +323,11 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 			return nil
 		}
 		if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
-			updated, err := chain.updateEmptyHeadRound(m, cache, s)
+			updated, err := chain.updateEmptyHeadRound(m, cache, s.References)
 			if err != nil || !updated {
 				return err
 			}
-			cache.References = &common.RoundLink{
-				Self:     s.References.Self,
-				External: s.References.External,
-			}
-			err = chain.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, cache.References)
-			if err != nil {
-				panic(err)
-			}
+			cache.References = s.References.Copy()
 			chain.assignNewGraphRound(final, cache)
 			return chain.queueActionOrPanic(m)
 		}
@@ -554,18 +540,11 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		return nil
 	}
 	if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
-		updated, err := chain.updateEmptyHeadRound(m, cache, s)
+		updated, err := chain.updateEmptyHeadRound(m, cache, s.References)
 		if err != nil || !updated {
 			return err
 		}
-		cache.References = &common.RoundLink{
-			Self:     s.References.Self,
-			External: s.References.External,
-		}
-		err = chain.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, cache.References)
-		if err != nil {
-			panic(err)
-		}
+		cache.References = s.References.Copy()
 		chain.assignNewGraphRound(final, cache)
 		return nil
 	}
@@ -670,7 +649,7 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 }
 
 func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool) error {
-	if node.GetAcceptedNode(peerId) == nil {
+	if node.GetAcceptedOrPledgingNode(peerId) == nil {
 		return nil
 	}
 	chain := node.GetOrCreateChain(node.IdForNetwork)
@@ -704,7 +683,7 @@ func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Has
 }
 
 func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Hash, response *[32]byte) error {
-	if node.GetAcceptedNode(peerId) == nil {
+	if node.GetAcceptedOrPledgingNode(peerId) == nil {
 		return nil
 	}
 	chain := node.GetOrCreateChain(node.IdForNetwork)

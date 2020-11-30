@@ -84,18 +84,18 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDu
 	return final, false, err
 }
 
-func (chain *Chain) updateEmptyHeadRound(m *CosiAction, cache *CacheRound, s *common.Snapshot) (bool, error) {
+func (chain *Chain) updateEmptyHeadRound(m *CosiAction, cache *CacheRound, references *common.RoundLink) (bool, error) {
 	if len(cache.Snapshots) != 0 {
-		logger.Verbosef("ERROR cosiHandleFinalization malformated head round references not empty %s %v %d\n", m.PeerId, s, len(cache.Snapshots))
+		logger.Verbosef("ERROR cosiHandleFinalization malformated head round references not empty %v\n", m)
 		return false, nil
 	}
-	if s.References.Self != cache.References.Self {
-		logger.Verbosef("ERROR cosiHandleFinalization malformated head round references self diff %s %v %v\n", m.PeerId, s, cache.References)
+	if references.Self != cache.References.Self {
+		logger.Verbosef("ERROR cosiHandleFinalization malformated head round references self diff %v\n", m)
 		return false, nil
 	}
-	external, err := chain.persistStore.ReadRound(s.References.External)
+	external, err := chain.persistStore.ReadRound(references.External)
 	if err != nil || external == nil {
-		logger.Verbosef("ERROR cosiHandleFinalization head round references external not ready yet %s %v %v\n", m.PeerId, s, cache.References)
+		logger.Verbosef("ERROR cosiHandleFinalization head round references external not ready yet %v\n", m)
 		return false, err
 	}
 	link, err := chain.persistStore.ReadLink(cache.NodeId, external.NodeId)
@@ -103,6 +103,10 @@ func (chain *Chain) updateEmptyHeadRound(m *CosiAction, cache *CacheRound, s *co
 		return false, err
 	}
 	chain.State.RoundLinks[external.NodeId] = external.Number
+	err = chain.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, cache.References)
+	if err != nil {
+		panic(err)
+	}
 	return true, nil
 }
 

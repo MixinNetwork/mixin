@@ -54,6 +54,10 @@ func (m *RoundLink) Equal(n *RoundLink) bool {
 	return m.Self.String() == n.Self.String() && m.External.String() == n.External.String()
 }
 
+func (m *RoundLink) Copy() *RoundLink {
+	return &RoundLink{Self: m.Self, External: m.External}
+}
+
 func (s *Snapshot) VersionedPayload() []byte {
 	switch s.Version {
 	case 0:
