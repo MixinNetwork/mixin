@@ -128,11 +128,11 @@ func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, cache *CacheRo
 		return false, err
 	}
 	chain.State.RoundLinks[external.NodeId] = external.Number
+	cache.References = references.Copy()
 	err = chain.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, cache.References)
 	if err != nil {
 		panic(err)
 	}
-	cache.References = references.Copy()
 	return true, nil
 }
 
