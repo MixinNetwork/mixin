@@ -532,7 +532,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 			return err
 		}
 		chain.assignNewGraphRound(final, cache)
-		return chain.queueActionOrPanic(m)
+		return nil
 	}
 	if s.RoundNumber == cache.Number+1 {
 		nc, nf, _, err := chain.startNewRoundAndPersist(s, cache, false)
