@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 )
 
@@ -17,6 +18,30 @@ const (
 
 	MainnetNodeRemovalConsensusForkTimestamp = 1590000000000000000
 )
+
+func (chain *Chain) startNewRoundAndPersist(s *common.Snapshot, cache *CacheRound, allowDummy bool) (*CacheRound, *FinalRound, bool, error) {
+	dummyExternal := cache.References.External
+	round, dummy, err := chain.startNewRound(s, cache, true)
+	if err != nil {
+		return nil, nil, false, err
+	} else if round == nil {
+		return nil, nil, false, nil
+	}
+	cache = &CacheRound{
+		NodeId:     s.NodeId,
+		Number:     s.RoundNumber,
+		Timestamp:  s.Timestamp,
+		References: s.References.Copy(),
+	}
+	if dummy {
+		cache.References.External = dummyExternal
+	}
+	err = chain.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, round.Start)
+	if err != nil {
+		panic(err)
+	}
+	return cache, round, dummy, nil
+}
 
 func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDummy bool) (*FinalRound, bool, error) {
 	if chain.ChainId != cache.NodeId {
@@ -84,7 +109,7 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDu
 	return final, false, err
 }
 
-func (chain *Chain) updateEmptyHeadRound(m *CosiAction, cache *CacheRound, references *common.RoundLink) (bool, error) {
+func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, cache *CacheRound, references *common.RoundLink) (bool, error) {
 	if len(cache.Snapshots) != 0 {
 		logger.Verbosef("ERROR cosiHandleFinalization malformated head round references not empty %v\n", m)
 		return false, nil
@@ -107,6 +132,7 @@ func (chain *Chain) updateEmptyHeadRound(m *CosiAction, cache *CacheRound, refer
 	if err != nil {
 		panic(err)
 	}
+	cache.References = references.Copy()
 	return true, nil
 }
 
@@ -158,6 +184,77 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 		newRounds = newRounds[rc:]
 	}
 	chain.State.RoundHistory = newRounds
+}
+
+func (chain *Chain) determinBestRound(roundTime uint64, hint crypto.Hash) (*FinalRound, error) {
+	chain.node.chains.RLock()
+	defer chain.node.chains.RUnlock()
+
+	chain.State.RLock()
+	defer chain.State.RUnlock()
+
+	if chain.State.FinalRound == nil {
+		return nil, nil
+	}
+
+	var valid bool
+	var best *FinalRound
+	var start, height uint64
+	nodes := chain.node.AcceptedNodesList(roundTime)
+	for _, cn := range nodes {
+		id := cn.IdForNetwork
+		valid = valid || id == hint
+		ec, link := chain.node.chains.m[id], chain.State.RoundLinks[id]
+		history := historySinceRound(ec.State.RoundHistory, link)
+		if len(history) == 0 {
+			if id != hint {
+				continue
+			}
+			return nil, fmt.Errorf("external hint history empty since %d", link)
+		}
+
+		r, cr := history[0], ec.State.CacheRound
+		rts, rh := r.Start, uint64(len(history))
+		if id == chain.ChainId || rh < height || rts > roundTime {
+			continue
+		}
+
+		if !chain.node.genesisNodesMap[id] && r.Number < 7+config.SnapshotReferenceThreshold*2 {
+			if id != hint {
+				continue
+			}
+			return nil, fmt.Errorf("external hint round too early yet not genesis %d", r.Number)
+		}
+		if ts := rts + config.SnapshotRoundGap*rh; ts > uint64(clock.Now().UnixNano()) {
+			if id != hint {
+				continue
+			}
+			return nil, fmt.Errorf("external hint round timestamp too future %d %d", ts, clock.Now().UnixNano())
+		}
+		if len(cr.Snapshots) == 0 && cr.Number == r.Number+1 && r.Number > 0 {
+			if id != hint {
+				continue
+			}
+			return nil, fmt.Errorf("external hint round without extra final yet %d", r.Number)
+		}
+
+		if rh > height || rts > start {
+			best, start, height = r, rts, rh
+		}
+	}
+	if valid {
+		return best, nil
+	}
+	return nil, fmt.Errorf("external hint not found in consensus %s", hint)
+}
+
+func historySinceRound(history []*FinalRound, link uint64) []*FinalRound {
+	for i, r := range history {
+		if r.Number >= link {
+			return history[i:]
+		}
+	}
+	return nil
 }
 
 func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto.Key) bool {
@@ -213,31 +310,6 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, p
 		node.cacheStore.Set(key, []byte{1})
 	}
 	return err == nil
-}
-
-func (chain *Chain) queueActionOrPanic(m *CosiAction) error {
-	if chain.ChainId != m.PeerId {
-		panic("should never be here")
-	}
-	err := chain.AppendCosiAction(m)
-	if err != nil {
-		panic(err)
-	}
-	return nil
-}
-
-func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
-	if chain.ChainId != s.NodeId {
-		panic("should never be here")
-	}
-	delete(chain.CosiVerifiers, s.Hash)
-	delete(chain.CosiAggregators, s.Hash)
-	delete(chain.CosiAggregators, s.Transaction)
-	return chain.AppendSelfEmpty(&common.Snapshot{
-		Version:     common.SnapshotVersion,
-		NodeId:      s.NodeId,
-		Transaction: s.Transaction,
-	})
 }
 
 func (chain *Chain) verifyFinalization(s *common.Snapshot) bool {

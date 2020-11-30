@@ -45,33 +45,10 @@ func (chain *Chain) tryToStartNewRound(s *common.Snapshot) (bool, error) {
 	if s.RoundNumber != cache.Number+1 {
 		return false, nil
 	}
-
-	dummyExternal := cache.References.External
-	round, dummy, err := chain.startNewRound(s, cache, true)
-	if err != nil {
+	cache, final, dummy, err := chain.startNewRoundAndPersist(s, cache, true)
+	if err != nil || final == nil {
 		return false, err
-	} else if round == nil {
-		return false, nil
-	} else {
-		final = round
 	}
-	cache = &CacheRound{
-		NodeId:    s.NodeId,
-		Number:    s.RoundNumber,
-		Timestamp: s.Timestamp,
-		References: &common.RoundLink{
-			Self:     s.References.Self,
-			External: s.References.External,
-		},
-	}
-	if dummy {
-		cache.References.External = dummyExternal
-	}
-	err = chain.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
-	if err != nil {
-		panic(err)
-	}
-
 	chain.assignNewGraphRound(final, cache)
 	return dummy, nil
 }
