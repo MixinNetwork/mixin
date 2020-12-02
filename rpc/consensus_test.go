@@ -2,12 +2,11 @@ package rpc
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	mathRand "math/rand"
+	"math/rand"
 	"net/http"
 	"os"
 	"sort"
@@ -88,8 +87,8 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 	}()
 	time.Sleep(3 * time.Second)
 
-	mathRand.Seed(time.Now().UnixNano())
-	target := nodes[mathRand.Intn(len(nodes))]
+	rand.Seed(time.Now().UnixNano())
+	target := nodes[rand.Intn(len(nodes))]
 
 	tl, sl := testVerifySnapshots(assert, nodes)
 	assert.Equal(NODES+1, tl)
@@ -124,7 +123,7 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 	utxos := make([]*common.VersionedTransaction, 0)
 	for _, d := range deposits {
 		raw := fmt.Sprintf(`{"version":1,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, d.PayloadHash().String(), genesisAmount, domainAddress)
-		mathRand.Seed(time.Now().UnixNano())
+		rand.Seed(time.Now().UnixNano())
 		tx, err := testSignTransaction(nodes[0].Host, accounts[0], raw)
 		assert.Nil(err)
 		assert.NotNil(tx)
@@ -228,8 +227,8 @@ func testConsensus(t *testing.T, dup int) {
 	deposits := make([]*common.VersionedTransaction, 0)
 	for i := 0; i < INPUTS; i++ {
 		raw := fmt.Sprintf(`{"version":1,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
-		mathRand.Seed(time.Now().UnixNano())
-		tx, err := testSignTransaction(nodes[mathRand.Intn(len(nodes))].Host, accounts[0], raw)
+		rand.Seed(time.Now().UnixNano())
+		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw)
 		assert.Nil(err)
 		assert.NotNil(tx)
 		deposits = append(deposits, &common.VersionedTransaction{SignedTransaction: *tx})
@@ -240,13 +239,13 @@ func testConsensus(t *testing.T, dup int) {
 	logger.SetFilter("(?i)error")
 
 	for _, d := range deposits {
-		mathRand.Seed(time.Now().UnixNano())
+		rand.Seed(time.Now().UnixNano())
 		for n := len(nodes); n > 0; n-- {
-			randIndex := mathRand.Intn(n)
+			randIndex := rand.Intn(n)
 			nodes[n-1], nodes[randIndex] = nodes[randIndex], nodes[n-1]
 		}
 		wg := &sync.WaitGroup{}
-		start := mathRand.Intn(len(nodes) - 1)
+		start := rand.Intn(len(nodes) - 1)
 		for i := start; i < len(nodes) && i != start+dup; i++ {
 			wg.Add(1)
 			go func(n string, raw string) {
@@ -272,8 +271,8 @@ func testConsensus(t *testing.T, dup int) {
 	utxos := make([]*common.VersionedTransaction, 0)
 	for _, d := range deposits {
 		raw := fmt.Sprintf(`{"version":1,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, d.PayloadHash().String(), genesisAmount, domainAddress)
-		mathRand.Seed(time.Now().UnixNano())
-		tx, err := testSignTransaction(nodes[mathRand.Intn(len(nodes))].Host, accounts[0], raw)
+		rand.Seed(time.Now().UnixNano())
+		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw)
 		assert.Nil(err)
 		assert.NotNil(tx)
 		if tx != nil {
@@ -283,13 +282,13 @@ func testConsensus(t *testing.T, dup int) {
 	assert.Equal(INPUTS, len(utxos))
 
 	for _, tx := range utxos {
-		mathRand.Seed(time.Now().UnixNano())
+		rand.Seed(time.Now().UnixNano())
 		for n := len(nodes); n > 0; n-- {
-			randIndex := mathRand.Intn(n)
+			randIndex := rand.Intn(n)
 			nodes[n-1], nodes[randIndex] = nodes[randIndex], nodes[n-1]
 		}
 		wg := &sync.WaitGroup{}
-		start := mathRand.Intn(len(nodes) - 1)
+		start := rand.Intn(len(nodes) - 1)
 		for i := start; i < len(nodes) && i != start+dup; i++ {
 			wg.Add(1)
 			go func(n string, raw string) {
@@ -463,9 +462,9 @@ func testRemoveNode(nodes []*Node, r common.Address) []*Node {
 			tmp = append(tmp, n)
 		}
 	}
-	mathRand.Seed(time.Now().UnixNano())
+	rand.Seed(time.Now().UnixNano())
 	for n := len(tmp); n > 0; n-- {
-		randIndex := mathRand.Intn(n)
+		randIndex := rand.Intn(n)
 		tmp[n-1], tmp[randIndex] = tmp[randIndex], tmp[n-1]
 	}
 	return tmp
@@ -509,19 +508,8 @@ listener = "%s"`
 func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Address, genesisData, nodesData []byte, input, root string) (Node, *kernel.Node, *http.Server) {
 	var signer, payee common.Address
 
-	randomPubAccount := func() common.Address {
-		seed := make([]byte, 64)
-		_, err := rand.Read(seed)
-		if err != nil {
-			panic(err)
-		}
-		account := common.NewAddressFromSeed(seed)
-		account.PrivateViewKey = account.PublicSpendKey.DeterministicHashDerive()
-		account.PublicViewKey = account.PrivateViewKey.Public()
-		return account
-	}
-	signer = randomPubAccount()
-	payee = randomPubAccount()
+	signer = testDeterminAccountByIndex(NODES, "SIGNER")
+	payee = testDeterminAccountByIndex(NODES, "PAYEE")
 
 	dir := fmt.Sprintf("%s/mixin-17099", root)
 	err := os.MkdirAll(dir, 0755)
@@ -635,23 +623,22 @@ func testGetNodeToRemove(networkId crypto.Hash, signers, payees []common.Address
 	return nodes[0][0], nodes[0][1]
 }
 
+func testDeterminAccountByIndex(i int, role string) common.Address {
+	seed := make([]byte, 64)
+	copy(seed, []byte("TESTNODE#"+role+"#"))
+	seed[63] = byte(i)
+	account := common.NewAddressFromSeed(seed)
+	account.PrivateViewKey = account.PublicSpendKey.DeterministicHashDerive()
+	account.PublicViewKey = account.PrivateViewKey.Public()
+	return account
+}
+
 func setupTestNet(root string) ([]common.Address, []common.Address, []byte, []byte) {
 	var signers, payees []common.Address
 
-	randomPubAccount := func() common.Address {
-		seed := make([]byte, 64)
-		_, err := rand.Read(seed)
-		if err != nil {
-			panic(err)
-		}
-		account := common.NewAddressFromSeed(seed)
-		account.PrivateViewKey = account.PublicSpendKey.DeterministicHashDerive()
-		account.PublicViewKey = account.PrivateViewKey.Public()
-		return account
-	}
 	for i := 0; i < NODES; i++ {
-		signers = append(signers, randomPubAccount())
-		payees = append(payees, randomPubAccount())
+		signers = append(signers, testDeterminAccountByIndex(i, "SIGNER"))
+		payees = append(payees, testDeterminAccountByIndex(i, "PAYEE"))
 	}
 
 	inputs := make([]map[string]string, 0)
@@ -732,23 +719,11 @@ func testSignTransaction(node string, account common.Address, rawStr string) (*c
 
 	for _, out := range raw.Outputs {
 		if out.Mask.HasValue() {
-			tx.Outputs = append(tx.Outputs, &common.Output{
-				Type:   out.Type,
-				Amount: out.Amount,
-				Keys:   out.Keys,
-				Script: out.Script,
-				Mask:   out.Mask,
-			})
-		} else {
-			seed := make([]byte, 64)
-			_, err := rand.Read(seed)
-			if err != nil {
-				panic(err)
-			}
-			hash := crypto.NewHash(seed)
-			seed = append(hash[:], hash[:]...)
-			tx.AddOutputWithType(out.Type, out.Accounts, out.Script, out.Amount, seed)
+			panic("not here")
 		}
+		hash := crypto.NewHash([]byte(rawStr))
+		seed := append(hash[:], hash[:]...)
+		tx.AddOutputWithType(out.Type, out.Accounts, out.Script, out.Amount, seed)
 	}
 
 	extra, err := hex.DecodeString(raw.Extra)

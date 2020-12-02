@@ -667,10 +667,10 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		return nil
 	}
 
-	hasTx, err := node.checkTxInStorage(s.Transaction)
+	tx, err := node.checkTxInStorage(s.Transaction)
 	if err != nil {
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) check tx error %s\n", peerId, s.Hash, err)
-	} else if !hasTx {
+	} else if tx == nil {
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) SendTransactionRequestMessage %s\n", peerId, s.Hash, s.Transaction)
 		node.Peer.SendTransactionRequestMessage(peerId, s.Transaction)
 	}

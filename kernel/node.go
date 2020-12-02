@@ -343,15 +343,9 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 }
 
 func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
-	tx, _, err := node.persistStore.ReadTransaction(hash)
-	if err != nil {
+	tx, err := node.checkTxInStorage(hash)
+	if err != nil || tx == nil {
 		return err
-	}
-	if tx == nil {
-		tx, err = node.persistStore.CacheGetTransaction(hash)
-		if err != nil || tx == nil {
-			return err
-		}
 	}
 	return node.Peer.SendTransactionMessage(peerId, tx)
 }

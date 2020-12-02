@@ -6,14 +6,13 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
-func (node *Node) checkTxInStorage(id crypto.Hash) (bool, error) {
+func (node *Node) checkTxInStorage(id crypto.Hash) (*common.VersionedTransaction, error) {
 	tx, _, err := node.persistStore.ReadTransaction(id)
 	if err != nil || tx != nil {
-		return tx != nil, err
+		return tx, err
 	}
 
-	tx, err = node.persistStore.CacheGetTransaction(id)
-	return tx != nil, err
+	return node.persistStore.CacheGetTransaction(id)
 }
 
 func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapshot) error {
