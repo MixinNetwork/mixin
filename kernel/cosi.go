@@ -292,7 +292,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	chain.CosiVerifiers[s.Hash] = v
 	agg.Commitments[cd.CN.ConsensusIndex] = &R
 	chain.CosiAggregators[s.Hash] = agg
-	nodes := chain.node.AcceptedNodesList(s.Timestamp)
+	nodes := chain.node.NodesListWithoutState(s.Timestamp, true)
 	for _, cn := range nodes {
 		peerId := cn.IdForNetwork
 		err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R)
@@ -388,7 +388,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	ann.Responses[cd.CN.ConsensusIndex] = &response
 	copy(cosi.Signature[32:], response[:])
 
-	nodes := chain.node.AcceptedNodesList(s.Timestamp)
+	nodes := chain.node.NodesListWithoutState(s.Timestamp, true)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
 		if wantTx, found := ann.WantTxs[id]; !found {
@@ -489,7 +489,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		chain.assignNewGraphRound(final, cache)
 	}
 
-	nodes := chain.node.AcceptedNodesList(s.Timestamp)
+	nodes := chain.node.NodesListWithoutState(s.Timestamp, true)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
 		if agg.Responses[cn.ConsensusIndex] == nil {

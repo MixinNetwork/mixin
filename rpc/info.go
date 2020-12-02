@@ -61,7 +61,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	}
 
 	nodes := make([]map[string]interface{}, 0)
-	for _, n := range node.NodesListWithoutState(uint64(time.Now().UnixNano())) {
+	for _, n := range node.NodesListWithoutState(uint64(time.Now().UnixNano()), false) {
 		switch n.State {
 		case common.NodeStateAccepted, common.NodeStatePledging:
 			nodes = append(nodes, map[string]interface{}{

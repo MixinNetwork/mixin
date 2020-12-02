@@ -200,7 +200,7 @@ func (chain *Chain) determinBestRound(roundTime uint64, hint crypto.Hash) (*Fina
 	var valid bool
 	var best *FinalRound
 	var start, height uint64
-	nodes := chain.node.AcceptedNodesList(roundTime)
+	nodes := chain.node.NodesListWithoutState(roundTime, true)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
 		valid = valid || id == hint
@@ -314,7 +314,7 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, p
 
 func (chain *Chain) ConsensusKeys(round, timestamp uint64) []*crypto.Key {
 	var publics []*crypto.Key
-	nodes := chain.node.NodesListWithoutState(timestamp)
+	nodes := chain.node.NodesListWithoutState(timestamp, false)
 	for _, cn := range nodes {
 		if chain.node.ConsensusReady(cn, timestamp) {
 			publics = append(publics, &cn.Signer.PublicSpendKey)

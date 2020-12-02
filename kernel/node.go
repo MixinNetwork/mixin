@@ -127,7 +127,7 @@ func (node *Node) LoadNodeConfig() {
 }
 
 func (node *Node) PledgingNode(timestamp uint64) *CNode {
-	nodes := node.NodesListWithoutState(timestamp)
+	nodes := node.NodesListWithoutState(timestamp, false)
 	if len(nodes) == 0 {
 		return nil
 	}
@@ -139,9 +139,9 @@ func (node *Node) PledgingNode(timestamp uint64) *CNode {
 }
 
 func (node *Node) GetAcceptedOrPledgingNode(id crypto.Hash) *CNode {
-	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()))
+	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), false)
 	for _, cn := range nodes {
-		if cn.IdForNetwork == id {
+		if cn.IdForNetwork == id && (cn.State == common.NodeStateAccepted || cn.State == common.NodeStatePledging) {
 			return cn
 		}
 	}
@@ -166,7 +166,7 @@ func (node *Node) ConsensusReady(cn *CNode, timestamp uint64) bool {
 
 func (node *Node) ConsensusThreshold(timestamp uint64) int {
 	consensusBase := 0
-	nodes := node.NodesListWithoutState(timestamp)
+	nodes := node.NodesListWithoutState(timestamp, false)
 	for _, cn := range nodes {
 		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap
 		if threshold > uint64(3*time.Minute) {
@@ -362,7 +362,7 @@ func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTr
 
 func (node *Node) ReadAllNodesWithoutState() []crypto.Hash {
 	var all []crypto.Hash
-	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()))
+	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), false)
 	for _, cn := range nodes {
 		all = append(all, cn.IdForNetwork)
 	}
@@ -392,7 +392,7 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 	if r := chain.State.FinalRound; r != nil {
 		final = r.Number
 	}
-	nodes := node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
+	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
 	for _, cn := range nodes {
 		remote := node.SyncPoints.Get(cn.IdForNetwork)
 		if remote == nil {
@@ -414,7 +414,7 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 		final = r.Number
 	}
 
-	nodes := node.AcceptedNodesList(uint64(clock.Now().UnixNano()))
+	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
 	for _, cn := range nodes {
 		remote := node.SyncPoints.Get(cn.IdForNetwork)
 		if remote == nil {

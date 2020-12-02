@@ -43,7 +43,7 @@ func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snaps
 		if signaturesFilter[sig.String()] {
 			continue
 		}
-		nodes := chain.node.AcceptedNodesList(s.Timestamp)
+		nodes := chain.node.NodesListWithoutState(s.Timestamp, true)
 		for _, cn := range nodes {
 			if signersMap[cn.IdForNetwork] {
 				continue

@@ -151,7 +151,7 @@ func (chain *Chain) loadState() error {
 	chain.State.RoundHistory = history
 	cache.Timestamp = final.Start + config.SnapshotRoundGap
 
-	allNodes := chain.node.NodesListWithoutState(uint64(clock.Now().UnixNano()) * 2)
+	allNodes := chain.node.NodesListWithoutState(uint64(clock.Now().UnixNano()), false)
 	for _, cn := range allNodes {
 		if chain.ChainId == cn.IdForNetwork {
 			continue
