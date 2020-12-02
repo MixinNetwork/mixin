@@ -105,20 +105,6 @@ func (s *BadgerStore) WriteTransaction(ver *common.VersionedTransaction) error {
 	return txn.Commit()
 }
 
-func (s *BadgerStore) CheckTransactionInNode(nodeId, hash crypto.Hash) (bool, error) {
-	txn := s.snapshotsDB.NewTransaction(false)
-	defer txn.Discard()
-
-	key := graphUniqueKey(nodeId, hash)
-	_, err := txn.Get(key)
-	if err == badger.ErrKeyNotFound {
-		return false, nil
-	} else if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
 func readTransaction(txn *badger.Txn, hash crypto.Hash) (*common.VersionedTransaction, error) {
 	key := graphTransactionKey(hash)
 	item, err := txn.Get(key)

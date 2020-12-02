@@ -112,6 +112,13 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) e
 		} else if err != badger.ErrKeyNotFound {
 			return err
 		}
+		key = graphUniqueKey(snap.NodeId, snap.Transaction)
+		_, err = txn.Get(key)
+		if err == nil {
+			panic("snapshot duplication")
+		} else if err != badger.ErrKeyNotFound {
+			return err
+		}
 	}
 	// end assert
 

@@ -537,12 +537,9 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		}
 	}
 
-	tx, inNode, err := chain.node.checkFinalSnapshotTransaction(s)
+	tx, _, err := chain.node.validateSnapshotTransaction(s, true)
 	if err != nil {
 		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %s\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp), err.Error())
-		return nil
-	} else if inNode {
-		m.finalized = true
 		return nil
 	} else if tx == nil {
 		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %s\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp), "tx empty")
@@ -669,11 +666,6 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) SendSnapshotConfirmMessage error %s\n", peerId, s.Hash, err)
 		return nil
 	}
-	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
-	if err != nil || inNode {
-		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) already finalized %t %v\n", peerId, s.Hash, inNode, err)
-		return err
-	}
 
 	hasTx, err := node.checkTxInStorage(s.Transaction)
 	if err != nil {
@@ -684,6 +676,10 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 	}
 
 	chain := node.GetOrCreateChain(s.NodeId)
+	if !chain.verifyFinalization(s) {
+		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d\n", peerId, s, node.ConsensusThreshold(s.Timestamp))
+		return nil
+	}
 
 	if s.Version == 0 {
 		err := chain.legacyAppendFinalization(peerId, s)
@@ -691,10 +687,6 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 			logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) legacyAppendFinalization error %s\n", peerId, s.Hash, err)
 		}
 		return err
-	}
-	if !chain.verifyFinalization(s) {
-		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d\n", peerId, s, node.ConsensusThreshold(s.Timestamp))
-		return nil
 	}
 
 	err = chain.AppendFinalSnapshot(peerId, s)

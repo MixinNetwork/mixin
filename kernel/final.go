@@ -16,24 +16,9 @@ func (node *Node) checkTxInStorage(id crypto.Hash) (bool, error) {
 	return tx != nil, err
 }
 
-func (node *Node) checkFinalSnapshotTransaction(s *common.Snapshot) (*common.VersionedTransaction, bool, error) {
-	inNode, err := node.persistStore.CheckTransactionInNode(s.NodeId, s.Transaction)
-	if err != nil || inNode {
-		return nil, inNode, err
-	}
-
-	tx, _, err := node.validateSnapshotTransaction(s, true)
-	return tx, false, err
-}
-
 func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snapshot) error {
 	if chain.ChainId != s.NodeId {
 		panic("should never be here")
-	}
-
-	if !chain.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
-		logger.Verbosef("ERROR legacyVerifyFinalization %s %v %d\n", peerId, s, chain.node.ConsensusThreshold(s.Timestamp))
-		return nil
 	}
 
 	sigs := make([]*crypto.Signature, 0)
