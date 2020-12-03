@@ -45,8 +45,7 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 	epoch := time.Unix(1551312000, 0)
 	nodes := make([]*Node, 0)
 	instances := make([]*kernel.Node, 0)
-	stores := make([]storage.Store, 0)
-	for i, _ := range accounts {
+	for i := range accounts {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
 		custom, err := config.Initialize(dir + "/config.toml")
 		assert.Nil(err)
@@ -54,7 +53,6 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 		store, err := storage.NewBadgerStore(custom, dir)
 		assert.Nil(err)
 		assert.NotNil(store)
-		stores = append(stores, store)
 		if i == 0 {
 			kernel.TestMockDiff(epoch.Sub(time.Now()))
 		}
@@ -91,8 +89,8 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 	target := nodes[rand.Intn(len(nodes))]
 
 	tl, sl := testVerifySnapshots(assert, nodes)
-	assert.Equal(NODES+1, tl)
-	assert.Equal(NODES+1, sl)
+	assert.Equal(NODES+1, len(tl))
+	assert.Equal(NODES+1, len(sl))
 	gt := testVerifyInfo(assert, nodes)
 	assert.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
 
@@ -115,8 +113,8 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 	}
 
 	time.Sleep(3 * time.Second)
-	tl, sl = testVerifySnapshots(assert, nodes)
-	assert.Equal(INPUTS+NODES+1, tl)
+	tl, _ = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS+NODES+1, len(tl))
 	gt = testVerifyInfo(assert, nodes)
 	assert.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
 
@@ -141,8 +139,8 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 	}
 
 	time.Sleep(3 * time.Second)
-	tl, sl = testVerifySnapshots(assert, nodes)
-	assert.Equal(INPUTS*2+NODES+1, tl)
+	tl, _ = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1, len(tl))
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
 }
@@ -164,6 +162,9 @@ func testConsensus(t *testing.T, dup int) {
 
 	kernel.TestMockReset()
 
+	logger.SetLevel(logger.DEBUG)
+	logger.SetLimiter(10)
+
 	root, err := ioutil.TempDir("", "mixin-consensus-test")
 	assert.Nil(err)
 	defer os.RemoveAll(root)
@@ -174,8 +175,7 @@ func testConsensus(t *testing.T, dup int) {
 	epoch := time.Unix(1551312000, 0)
 	nodes := make([]*Node, 0)
 	instances := make([]*kernel.Node, 0)
-	stores := make([]storage.Store, 0)
-	for i, _ := range accounts {
+	for i := range accounts {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
 		custom, err := config.Initialize(dir + "/config.toml")
 		assert.Nil(err)
@@ -183,7 +183,6 @@ func testConsensus(t *testing.T, dup int) {
 		store, err := storage.NewBadgerStore(custom, dir)
 		assert.Nil(err)
 		assert.NotNil(store)
-		stores = append(stores, store)
 		if i == 0 {
 			kernel.TestMockDiff(epoch.Sub(time.Now()))
 		}
@@ -217,8 +216,8 @@ func testConsensus(t *testing.T, dup int) {
 	time.Sleep(3 * time.Second)
 
 	tl, sl := testVerifySnapshots(assert, nodes)
-	assert.Equal(NODES+1, tl)
-	assert.Equal(NODES+1, sl)
+	assert.Equal(NODES+1, len(tl))
+	assert.Equal(NODES+1, len(sl))
 	gt := testVerifyInfo(assert, nodes)
 	assert.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
 
@@ -233,10 +232,6 @@ func testConsensus(t *testing.T, dup int) {
 		assert.NotNil(tx)
 		deposits = append(deposits, &common.VersionedTransaction{SignedTransaction: *tx})
 	}
-
-	logger.SetLevel(0)
-	logger.SetLimiter(3)
-	logger.SetFilter("(?i)error")
 
 	for _, d := range deposits {
 		rand.Seed(time.Now().UnixNano())
@@ -259,8 +254,16 @@ func testConsensus(t *testing.T, dup int) {
 	}
 
 	time.Sleep(3 * time.Second)
-	tl, sl = testVerifySnapshots(assert, nodes)
-	assert.Equal(INPUTS+NODES+1, tl)
+	tl, _ = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS+NODES+1, len(tl))
+	for i, d := range deposits {
+		if !tl[d.PayloadHash().String()] {
+			t.Logf("DEPOSIT MISSING %d %s\n", i, d.PayloadHash())
+			id, err := testSendTransaction(nodes[0].Host, hex.EncodeToString(d.Marshal()))
+			assert.Nil(err)
+			assert.Contains(id, d.PayloadHash().String())
+		}
+	}
 	gt = testVerifyInfo(assert, nodes)
 	assert.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
 	hr := testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
@@ -302,8 +305,16 @@ func testConsensus(t *testing.T, dup int) {
 	}
 
 	time.Sleep(3 * time.Second)
-	tl, sl = testVerifySnapshots(assert, nodes)
-	assert.Equal(INPUTS*2+NODES+1, tl)
+	tl, _ = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1, len(tl))
+	for i, tx := range utxos {
+		if !tl[tx.PayloadHash().String()] {
+			t.Logf("UTXO MISSING %d %s\n", i, tx.PayloadHash())
+			id, err := testSendTransaction(nodes[0].Host, hex.EncodeToString(tx.Marshal()))
+			assert.Nil(err)
+			assert.Contains(id, tx.PayloadHash().String())
+		}
+	}
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
 	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
@@ -313,8 +324,8 @@ func testConsensus(t *testing.T, dup int) {
 
 	kernel.TestMockDiff((config.KernelMintTimeBegin + 24) * time.Hour)
 	time.Sleep(3 * time.Second)
-	tl, sl = testVerifySnapshots(assert, nodes)
-	assert.Equal(INPUTS*2+NODES+1, tl)
+	tl, _ = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1, len(tl))
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
 
@@ -325,17 +336,18 @@ func testConsensus(t *testing.T, dup int) {
 	input, err := testBuildPledgeInput(assert, nodes[0].Host, accounts[0], utxos)
 	assert.Nil(err)
 	time.Sleep(5 * time.Second)
-	tl, sl = testVerifySnapshots(assert, nodes)
-	assert.Equal(INPUTS*2+NODES+1+1, tl)
+	tl, _ = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1, len(tl))
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.Before(epoch.Add(61 * time.Second)))
+	t.Logf("PLEDGE %s\n", input)
 
 	pn, pi, sv := testPledgeNewNode(assert, nodes[0].Host, accounts[0], gdata, ndata, input, root)
 	defer pi.Teardown()
 	defer sv.Close()
 	time.Sleep(3 * time.Second)
-	tl, sl = testVerifySnapshots(assert, nodes)
-	assert.Equal(INPUTS*2+NODES+1+1+2, tl)
+	tl, _ = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1+2, len(tl))
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.After(epoch.Add((config.KernelMintTimeBegin + 24) * time.Hour)))
 	assert.Equal("499876.71232883", gt.PoolSize.String())
@@ -384,21 +396,23 @@ func testConsensus(t *testing.T, dup int) {
 	assert.NotNil(hr)
 	assert.Equal(uint64(0), hr.Round)
 
-	tl, sl = testVerifySnapshots(assert, nodes)
-	assert.Equal(INPUTS*2+NODES+1+1+2+1, tl)
+	tl, _ = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1+2+1, len(tl))
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.After(epoch.Add((config.KernelMintTimeBegin + 24) * time.Hour)))
 	assert.Equal("499876.71232883", gt.PoolSize.String())
 
 	kernel.TestMockDiff(364 * 24 * time.Hour)
 	time.Sleep(3 * time.Second)
-	tl, sl = testVerifySnapshots(assert, nodes)
-	assert.Equal(INPUTS*2+NODES+1+1+2+1, tl)
+	tl, _ = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1+2+1, len(tl))
 
+	logger.SetLevel(10)
 	input = testSendDummyTransaction(assert, nodes[0].Host, accounts[0], input, "3.5")
+	t.Logf("DUMMY %s\n", input)
 	time.Sleep(3 * time.Second)
-	tl, sl = testVerifySnapshots(assert, nodes)
-	assert.Equal(INPUTS*2+NODES+1+1+2+1+1, tl)
+	tl, _ = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1+2+1+1, len(tl))
 	for i := range nodes {
 		all = testListNodes(nodes[i].Host)
 		assert.Len(all, NODES+1)
@@ -410,10 +424,11 @@ func testConsensus(t *testing.T, dup int) {
 
 	signer, payee := testGetNodeToRemove(instances[0].NetworkId(), accounts, payees)
 	input = testSendDummyTransaction(assert, nodes[0].Host, accounts[0], input, "3.5")
+	assert.Len(input, 64)
 	nodes = testRemoveNode(nodes, signer)
 	time.Sleep(5 * time.Second)
-	tl, sl = testVerifySnapshots(assert, nodes)
-	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2, tl)
+	tl, _ = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2, len(tl))
 	for i := range nodes {
 		all = testListNodes(nodes[i].Host)
 		assert.Len(all, NODES+1)
@@ -443,8 +458,8 @@ func testConsensus(t *testing.T, dup int) {
 	input = testSendDummyTransaction(assert, nodes[0].Host, payee, all[NODES].Transaction.String(), "10000")
 	assert.Len(input, 64)
 	time.Sleep(3 * time.Second)
-	tl, sl = testVerifySnapshots(assert, nodes)
-	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2+1, tl)
+	tl, _ = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2+1, len(tl))
 	for i := range nodes {
 		all = testListNodes(nodes[i].Host)
 		assert.Len(all, NODES+1)
@@ -471,7 +486,7 @@ func testRemoveNode(nodes []*Node, r common.Address) []*Node {
 }
 
 func testSendDummyTransaction(assert *assert.Assertions, node string, domain common.Address, th, amount string) string {
-	raw, err := json.Marshal(map[string]interface{}{
+	raw, _ := json.Marshal(map[string]interface{}{
 		"version": 1,
 		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
 		"inputs": []map[string]interface{}{{
@@ -531,7 +546,7 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 		panic(err)
 	}
 
-	raw, err := json.Marshal(map[string]interface{}{
+	raw, _ := json.Marshal(map[string]interface{}{
 		"version": 1,
 		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
 		"inputs": []map[string]interface{}{{
@@ -577,7 +592,7 @@ func testBuildPledgeInput(assert *assert.Assertions, node string, domain common.
 			"index": 0,
 		})
 	}
-	raw, err := json.Marshal(map[string]interface{}{
+	raw, _ := json.Marshal(map[string]interface{}{
 		"version": 1,
 		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
 		"inputs":  inputs,
@@ -642,7 +657,7 @@ func setupTestNet(root string) ([]common.Address, []common.Address, []byte, []by
 	}
 
 	inputs := make([]map[string]string, 0)
-	for i, _ := range signers {
+	for i := range signers {
 		inputs = append(inputs, map[string]string{
 			"signer":  signers[i].String(),
 			"payee":   payees[i].String(),
@@ -733,7 +748,7 @@ func testSignTransaction(node string, account common.Address, rawStr string) (*c
 	tx.Extra = extra
 
 	signed := &common.SignedTransaction{Transaction: *tx}
-	for i, _ := range signed.Inputs {
+	for i := range signed.Inputs {
 		err := signed.SignInput(raw, i, []common.Address{account})
 		if err != nil {
 			return nil, err
@@ -752,7 +767,7 @@ func testVerifyInfo(assert *assert.Assertions, nodes []*Node) Info {
 	return info
 }
 
-func testVerifySnapshots(assert *assert.Assertions, nodes []*Node) (int, int) {
+func testVerifySnapshots(assert *assert.Assertions, nodes []*Node) (map[string]bool, map[string]bool) {
 	filters := make([]map[string]*common.Snapshot, 0)
 	for _, n := range nodes {
 		filters = append(filters, testListSnapshots(n.Host))
@@ -761,12 +776,12 @@ func testVerifySnapshots(assert *assert.Assertions, nodes []*Node) (int, int) {
 	for i := 0; i < len(filters)-1; i++ {
 		a, b := filters[i], filters[i+1]
 		m, n := make(map[string]bool), make(map[string]bool)
-		for k, _ := range a {
+		for k := range a {
 			s[k] = true
 			t[a[k].Transaction.String()] = true
 			m[a[k].Transaction.String()] = true
 		}
-		for k, _ := range b {
+		for k := range b {
 			s[k] = true
 			t[b[k].Transaction.String()] = true
 			n[b[k].Transaction.String()] = true
@@ -776,7 +791,7 @@ func testVerifySnapshots(assert *assert.Assertions, nodes []*Node) (int, int) {
 		assert.Equal(len(m), len(n))
 		assert.Equal(len(filters[i]), len(filters[i+1]))
 	}
-	return len(t), len(s)
+	return t, s
 }
 
 func assertKeyEqual(assert *assert.Assertions, a, b map[string]*common.Snapshot) {

@@ -68,7 +68,7 @@ func TestTransaction(t *testing.T) {
 	assert.Equal(488, len(pm))
 	assert.Equal("86a756657273696f6e01a54173736574c420a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdca6496e707574739285a448617368c4200000000000000000000000000000000000000000000000000000000000000000a5496e64657800a747656e65736973c0a74465706f736974c0a44d696e74c085a448617368c4200000000000000000000000000000000000000000000000000000000000000000a5496e64657801a747656e65736973c0a74465706f736974c0a44d696e74c0a74f7574707574739285a45479706500a6416d6f756e74c70500e8d4a51000a44b657973c0a6536372697074c403fffe02a44d61736bc4204fe2a684e0e6c5e370ca0d89f5e2cb0da1e2ecd4028fa2d395fbca4e33f2580585a45479706500a6416d6f756e74c70500e8d4a51000a44b65797393c42082240709ab6152f66d2887c78f4f13d2a9fcea5aab7ac48e8099bcb8e107173ac420c06fa8fd6bc52ada96cef6ea8da9ed1cdfb9bafbb7b4e345c827f7ae64c2353fc420df02b12f33cc261928ede939cb146533730a0fc4e2cabbe973e4cf90bdadfb68a6536372697074c403fffe02a44d61736bc420c6473159e19ed185b373e935081774e0c133b9416abdff319667187a71dff53ea54578747261c0aa5369676e617475726573c0", hex.EncodeToString(pm))
 
-	for i, _ := range ver.Inputs {
+	for i := range ver.Inputs {
 		err := ver.SignInput(store, i, accounts)
 		assert.NotNil(err)
 		assert.Contains(err.Error(), "invalid key for the input")
@@ -77,7 +77,7 @@ func TestTransaction(t *testing.T) {
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid tx signature number")
 
-	for i, _ := range ver.Inputs {
+	for i := range ver.Inputs {
 		err := ver.SignInput(store, i, accounts[0:i+1])
 		assert.Nil(err)
 	}
@@ -160,10 +160,6 @@ func (store storeImpl) ReadLastMintDistribution(group string) (*MintDistribution
 }
 
 func (store storeImpl) LockMintInput(mint *MintData, tx crypto.Hash, fork bool) error {
-	return nil
-}
-
-func (store storeImpl) LockWithdrawalClaim(hash, tx crypto.Hash, fork bool) error {
 	return nil
 }
 

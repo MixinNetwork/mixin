@@ -142,6 +142,7 @@ func (node *Node) tryToSendRemoveTransaction() error {
 	if err != nil {
 		return err
 	}
+	logger.Verbosef("tryToSendRemoveTransaction %s\n", tx.PayloadHash())
 
 	err = tx.Validate(node.persistStore)
 	if err != nil {
@@ -261,6 +262,7 @@ func (chain *Chain) tryToSendAcceptTransaction() error {
 	if err != nil {
 		return err
 	}
+	logger.Verbosef("tryToSendAcceptTransaction %s\n", ver.PayloadHash())
 
 	err = ver.Validate(chain.node.persistStore)
 	if err != nil {
