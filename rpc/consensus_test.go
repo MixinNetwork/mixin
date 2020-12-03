@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -162,7 +163,8 @@ func testConsensus(t *testing.T, dup int) {
 
 	kernel.TestMockReset()
 
-	logger.SetLevel(logger.DEBUG)
+	level, _ := strconv.ParseInt(os.Getenv("LOG"), 10, 64)
+	logger.SetLevel(int(level))
 	logger.SetLimiter(10)
 
 	root, err := ioutil.TempDir("", "mixin-consensus-test")
