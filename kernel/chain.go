@@ -17,7 +17,7 @@ import (
 const (
 	FinalPoolSlotsLimit     = config.SnapshotSyncRoundThreshold * 8
 	FinalPoolRoundSizeLimit = 1024
-	CachePoolSnapshotsLimit = 1024
+	CachePoolSnapshotsLimit = 8192
 )
 
 type PeerSnapshot struct {
@@ -54,7 +54,6 @@ type Chain struct {
 	CosiAggregators map[crypto.Hash]*CosiAggregator
 	CosiVerifiers   map[crypto.Hash]*CosiVerifier
 	CachePool       *util.RingBuffer
-	CacheIndex      uint64
 	FinalPool       [FinalPoolSlotsLimit]*ChainRound
 	FinalIndex      int
 	FinalCount      int
@@ -163,13 +162,6 @@ func (chain *Chain) loadState() error {
 		chain.State.RoundLinks[cn.IdForNetwork] = link
 	}
 
-	if chain.ChainId == chain.node.IdForNetwork {
-		chain.CacheIndex = 0
-	} else if len(chain.State.CacheRound.Snapshots) == 0 {
-		chain.CacheIndex = chain.State.CacheRound.Number
-	} else {
-		chain.CacheIndex = chain.State.CacheRound.Number + 1
-	}
 	return nil
 }
 
@@ -223,14 +215,10 @@ func (chain *Chain) QueuePollSnapshots() {
 		for i := 0; i < CachePoolSnapshotsLimit; i++ {
 			item, err := chain.CachePool.Poll(false)
 			if err != nil || item == nil {
+				logger.Verbosef("QueuePollSnapshots(%s) break with %v\n", chain.ChainId, err)
 				break
 			}
 			m := item.(*CosiAction)
-			s := m.Snapshot
-			cr := chain.State.CacheRound
-			if s != nil && cr != nil && s.RoundNumber > cr.Number+1 {
-				continue
-			}
 			_, err = chain.cosiHook(m)
 			if err != nil {
 				panic(err)
@@ -378,19 +366,6 @@ func (chain *Chain) AppendCosiAction(m *CosiAction) error {
 		}
 	default:
 		panic("should never be here")
-	}
-
-	if s := m.Snapshot; s != nil {
-		if s.NodeId != chain.ChainId {
-			panic("should never be here")
-		}
-		if s.RoundNumber < chain.CacheIndex {
-			return nil
-		}
-		if s.RoundNumber > chain.CacheIndex {
-			chain.CachePool.Reset()
-			chain.CacheIndex = s.RoundNumber
-		}
 	}
 
 	_, err := chain.CachePool.Offer(m)

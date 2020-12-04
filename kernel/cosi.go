@@ -80,7 +80,7 @@ func (chain *Chain) cosiHandleAction(m *CosiAction) error {
 		return chain.cosiHandleFinalization(m)
 	}
 	if err := chain.checkActionSanity(m); err != nil {
-		logger.Debugf("checkActionSanity %d ERROR %s\n", m.Action, err)
+		logger.Debugf("checkActionSanity %v ERROR %s\n", m, err)
 		return nil
 	}
 
@@ -309,21 +309,26 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	s, cd := m.Snapshot, m.data
 	if chain.IsPledging() && s.RoundNumber == 0 {
 	} else if chain.State.FinalRound == nil {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v empty final round\n", m.PeerId, m.Snapshot)
 		return nil
 	} else {
 		cache, final := chain.StateCopy()
 		if s.RoundNumber < cache.Number {
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v expired %d %d\n", m.PeerId, m.Snapshot, s.RoundNumber, cache.Number)
 			return nil
 		}
 		if s.RoundNumber > cache.Number+1 {
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v in future %d %d\n", m.PeerId, m.Snapshot, s.RoundNumber, cache.Number)
 			return chain.queueActionOrPanic(m)
 		}
 		if s.Timestamp <= final.Start+config.SnapshotRoundGap {
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v invalid timestamp %d %d\n", m.PeerId, m.Snapshot, s.Timestamp, final.Start+config.SnapshotRoundGap)
 			return nil
 		}
 		if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
 			updated, err := chain.updateEmptyHeadRoundAndPersist(m, cache, s.References)
 			if err != nil || !updated {
+				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v updateEmptyHeadRoundAndPersist %s %t\n", m.PeerId, m.Snapshot, err, updated)
 				return err
 			}
 			chain.assignNewGraphRound(final, cache)
@@ -332,8 +337,10 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 		if s.RoundNumber == cache.Number+1 {
 			nc, nf, _, err := chain.startNewRoundAndPersist(s, cache, false)
 			if err != nil {
+				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v startNewRoundAndPersist %s\n", m.PeerId, m.Snapshot, err)
 				return chain.queueActionOrPanic(m)
 			} else if nf == nil {
+				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v startNewRoundAndPersist failed\n", m.PeerId, m.Snapshot)
 				return nil
 			}
 			cache, final = nc, nf
@@ -341,6 +348,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 
 		chain.assignNewGraphRound(final, cache)
 		if err := cache.ValidateSnapshot(s, false); err != nil {
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v ValidateSnapshot %s\n", m.PeerId, m.Snapshot, err)
 			return nil
 		}
 	}
@@ -621,6 +629,7 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 
 func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, ver *common.VersionedTransaction) error {
 	if node.GetAcceptedOrPledgingNode(peerId) == nil {
+		logger.Verbosef("CosiQueueExternalChallenge(%s, %s) from malicious node\n", peerId, snap)
 		return nil
 	}
 	chain := node.GetOrCreateChain(peerId)

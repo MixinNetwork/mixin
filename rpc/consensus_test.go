@@ -409,9 +409,8 @@ func testConsensus(t *testing.T, dup int) {
 	tl, _ = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1, len(tl))
 
-	logger.SetLevel(10)
 	input = testSendDummyTransaction(assert, nodes[0].Host, accounts[0], input, "3.5")
-	t.Logf("DUMMY %s\n", input)
+	t.Logf("DUMMY 1 %s\n", input)
 	time.Sleep(3 * time.Second)
 	tl, _ = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1+1, len(tl))
@@ -426,6 +425,7 @@ func testConsensus(t *testing.T, dup int) {
 
 	signer, payee := testGetNodeToRemove(instances[0].NetworkId(), accounts, payees)
 	input = testSendDummyTransaction(assert, nodes[0].Host, accounts[0], input, "3.5")
+	t.Logf("DUMMY 2 %s\n", input)
 	assert.Len(input, 64)
 	nodes = testRemoveNode(nodes, signer)
 	time.Sleep(5 * time.Second)
@@ -458,6 +458,7 @@ func testConsensus(t *testing.T, dup int) {
 	assert.Greater(hr.Round, uint64(0))
 
 	input = testSendDummyTransaction(assert, nodes[0].Host, payee, all[NODES].Transaction.String(), "10000")
+	t.Logf("DUMMY 3 %s\n", input)
 	assert.Len(input, 64)
 	time.Sleep(3 * time.Second)
 	tl, _ = testVerifySnapshots(assert, nodes)
