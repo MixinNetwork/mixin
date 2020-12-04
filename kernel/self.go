@@ -2,10 +2,12 @@ package kernel
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/logger"
+	"github.com/dgraph-io/badger/v2"
 )
 
 func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool) (*common.VersionedTransaction, bool, error) {
@@ -31,12 +33,25 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 		return nil, false, err
 	}
 
-	err = tx.LockInputs(node.persistStore, finalized)
-	if err != nil {
-		return nil, false, err
-	}
+	err = node.lockAndPersistTransaction(tx, finalized)
+	return tx, false, err
+}
 
-	return tx, false, node.persistStore.WriteTransaction(tx)
+func (node *Node) lockAndPersistTransaction(tx *common.VersionedTransaction, finalized bool) error {
+	for {
+		err := tx.LockInputs(node.persistStore, finalized)
+		if errors.Is(err, badger.ErrConflict) {
+			continue
+		} else if err != nil {
+			return err
+		}
+
+		err = node.persistStore.WriteTransaction(tx)
+		if errors.Is(err, badger.ErrConflict) {
+			continue
+		}
+		return err
+	}
 }
 
 func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
