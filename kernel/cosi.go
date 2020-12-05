@@ -133,6 +133,10 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		if s.Signature != nil || s.Timestamp == 0 {
 			return fmt.Errorf("only empty snapshot with timestamp can be announced")
 		}
+		ov := chain.CosiVerifiers[s.Transaction]
+		if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber {
+			return fmt.Errorf("a transaction %s only in one round %d of one chain %s", s.Transaction, s.RoundNumber, chain.ChainId)
+		}
 	case CosiActionExternalChallenge:
 		if chain.ChainId == chain.node.IdForNetwork {
 			return fmt.Errorf("external action challenge chain %s %s", chain.ChainId, chain.node.IdForNetwork)
@@ -279,6 +283,11 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		s.References = cache.References
 	}
 
+	ov := chain.CosiVerifiers[s.Transaction]
+	if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber {
+		return chain.clearAndQueueSnapshotOrPanic(s)
+	}
+
 	s.Hash = s.PayloadHash()
 	agg := &CosiAggregator{
 		Snapshot:    s,
@@ -290,6 +299,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
 	R := v.random.Public()
 	chain.CosiVerifiers[s.Hash] = v
+	chain.CosiVerifiers[s.Transaction] = v
 	agg.Commitments[cd.CN.ConsensusIndex] = &R
 	chain.CosiAggregators[s.Hash] = agg
 	nodes := chain.node.NodesListWithoutState(s.Timestamp, true)
@@ -356,6 +366,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	r := crypto.CosiCommit(rand.Reader)
 	v := &CosiVerifier{Snapshot: s, Commitment: m.Commitment, random: r}
 	chain.CosiVerifiers[s.Hash] = v
+	chain.CosiVerifiers[s.Transaction] = v
 	err := chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, r.Public(), cd.TX == nil)
 	if err != nil {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendSnapshotCommitmentMessage(%s, %s) ERROR %s\n", s.NodeId, s.Hash, err.Error())
