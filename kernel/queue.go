@@ -35,17 +35,6 @@ func (node *Node) LoadCacheToQueue() error {
 	})
 }
 
-func (chain *Chain) queueActionOrPanic(m *CosiAction) error {
-	if chain.ChainId != m.PeerId {
-		panic("should never be here")
-	}
-	err := chain.AppendCosiAction(m)
-	if err != nil {
-		panic(err)
-	}
-	return nil
-}
-
 func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 	if chain.ChainId != s.NodeId {
 		panic("should never be here")

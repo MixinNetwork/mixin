@@ -329,7 +329,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 		}
 		if s.RoundNumber > cache.Number+1 {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v in future %d %d\n", m.PeerId, m.Snapshot, s.RoundNumber, cache.Number)
-			return chain.queueActionOrPanic(m)
+			return nil
 		}
 		if s.Timestamp <= final.Start+config.SnapshotRoundGap {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v invalid timestamp %d %d\n", m.PeerId, m.Snapshot, s.Timestamp, final.Start+config.SnapshotRoundGap)
@@ -342,13 +342,13 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 				return err
 			}
 			chain.assignNewGraphRound(final, cache)
-			return chain.queueActionOrPanic(m)
+			return chain.AppendCosiAction(m)
 		}
 		if s.RoundNumber == cache.Number+1 {
 			nc, nf, _, err := chain.startNewRoundAndPersist(s, cache, false)
 			if err != nil {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v startNewRoundAndPersist %s\n", m.PeerId, m.Snapshot, err)
-				return chain.queueActionOrPanic(m)
+				return chain.AppendCosiAction(m)
 			} else if nf == nil {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v startNewRoundAndPersist failed\n", m.PeerId, m.Snapshot)
 				return nil
