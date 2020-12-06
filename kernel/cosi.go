@@ -380,10 +380,12 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	ann := chain.CosiAggregators[m.SnapshotHash]
 	s, cd := ann.Snapshot, m.data
 	if ann.Commitments[cd.PN.ConsensusIndex] != nil {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment %v REPEAT\n", m)
 		return nil
 	}
 	base := chain.node.ConsensusThreshold(ann.Snapshot.Timestamp)
 	if len(ann.Commitments) >= base {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment %v EXCEED\n", m)
 		return nil
 	}
 	ann.Commitments[cd.PN.ConsensusIndex] = m.Commitment
@@ -391,6 +393,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	if len(ann.Commitments) < base {
 		return nil
 	}
+	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment %v ENOUGH\n", m)
 
 	cosi, err := crypto.CosiAggregateCommitment(ann.Commitments)
 	if err != nil {
@@ -459,25 +462,31 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	agg := chain.CosiAggregators[m.SnapshotHash]
 	s, cd := agg.Snapshot, m.data
 	if agg.Responses[cd.PN.ConsensusIndex] != nil {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v REPEAT\n", m)
 		return nil
 	}
 	if len(agg.Responses) >= len(agg.Commitments) {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v EXCEED\n", m)
 		return nil
 	}
+	base := chain.node.ConsensusThreshold(s.Timestamp)
+	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v NOW %d %d %d\n", m, len(agg.Responses), len(agg.Commitments), base)
 	agg.Responses[cd.PN.ConsensusIndex] = m.Response
 	if len(agg.Responses) != len(agg.Commitments) {
 		return nil
 	}
+	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v ENOUGH\n", m)
 
 	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	err := s.Signature.VerifyResponse(publics, cd.PN.ConsensusIndex, m.Response, m.SnapshotHash[:])
 	if err != nil {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v RESPONSE ERROR %s\n", m, err)
 		return nil
 	}
 
-	base := chain.node.ConsensusThreshold(agg.Snapshot.Timestamp)
 	s.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash[:], false)
 	if !chain.node.CacheVerifyCosi(m.SnapshotHash, s.Signature, publics, base) {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v AGGREGATE ERROR\n", m)
 		return nil
 	}
 
@@ -492,12 +501,15 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 			panic(fmt.Sprintf("should never be here %d %d", cache.Number, s.RoundNumber))
 		}
 		if s.RoundNumber < cache.Number {
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v EXPIRE %d %d\n", m, s.RoundNumber, cache.Number)
 			return chain.clearAndQueueSnapshotOrPanic(s)
 		}
 		if !s.References.Equal(cache.References) {
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v REFERENCES %v %v\n", m, s.References, cache.References)
 			return chain.clearAndQueueSnapshotOrPanic(s)
 		}
 		if err := cache.ValidateSnapshot(s, false); err != nil {
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v ValidateSnapshot %s\n", m, err)
 			return chain.clearAndQueueSnapshotOrPanic(s)
 		}
 
@@ -512,12 +524,12 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
 		if agg.Responses[cn.ConsensusIndex] == nil {
-			err := chain.node.SendTransactionToPeer(id, agg.Snapshot.Transaction)
+			err := chain.node.SendTransactionToPeer(id, s.Transaction)
 			if err != nil {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse SendTransactionToPeer(%s, %s) ERROR %s\n", id, m.SnapshotHash, err.Error())
 			}
 		}
-		err := chain.node.Peer.SendSnapshotFinalizationMessage(id, agg.Snapshot)
+		err := chain.node.Peer.SendSnapshotFinalizationMessage(id, s)
 		if err != nil {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse SendSnapshotFinalizationMessage(%s, %s) ERROR %s\n", id, m.SnapshotHash, err.Error())
 		}
