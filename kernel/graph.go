@@ -203,7 +203,11 @@ func (chain *Chain) determinBestRound(roundTime uint64, hint crypto.Hash) (*Fina
 	nodes := chain.node.NodesListWithoutState(roundTime, true)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
-		valid = valid || id == hint
+		if id == chain.ChainId {
+			continue
+		}
+
+		valid = valid || id == hint || hint == chain.ChainId
 		ec, link := chain.node.chains.m[id], chain.State.RoundLinks[id]
 		history := historySinceRound(ec.State.RoundHistory, link)
 		if len(history) == 0 {
@@ -215,7 +219,7 @@ func (chain *Chain) determinBestRound(roundTime uint64, hint crypto.Hash) (*Fina
 
 		r, cr := history[0], ec.State.CacheRound
 		rts, rh := r.Start, uint64(len(history))
-		if id == chain.ChainId || rh < height || rts > roundTime {
+		if rh < height || rts > roundTime {
 			continue
 		}
 
