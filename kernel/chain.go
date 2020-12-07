@@ -212,7 +212,7 @@ func (chain *Chain) QueuePollSnapshots() {
 				}
 			}
 		}
-		for i := 0; i < CachePoolSnapshotsLimit; i++ {
+		for {
 			item, err := chain.CachePool.Poll(false)
 			if err != nil || item == nil {
 				logger.Verbosef("QueuePollSnapshots(%s) break with %v\n", chain.ChainId, err)

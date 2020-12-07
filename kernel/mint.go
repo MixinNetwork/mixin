@@ -235,7 +235,14 @@ func (node *Node) NodesListWithoutState(threshold uint64, acceptedOnly bool) []*
 	nodes := make([]*CNode, 0)
 	for _, n := range filter {
 		if !acceptedOnly || n.State == common.NodeStateAccepted {
-			nodes = append(nodes, n)
+			nodes = append(nodes, &CNode{
+				IdForNetwork: n.IdForNetwork,
+				Signer:       n.Signer,
+				Payee:        n.Payee,
+				Transaction:  n.Transaction,
+				Timestamp:    n.Timestamp,
+				State:        n.State,
+			})
 		}
 	}
 	sort.Slice(nodes, func(i, j int) bool {

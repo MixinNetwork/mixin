@@ -80,7 +80,7 @@ func (chain *Chain) cosiHandleAction(m *CosiAction) error {
 		return chain.cosiHandleFinalization(m)
 	}
 	if err := chain.checkActionSanity(m); err != nil {
-		logger.Debugf("checkActionSanity %v ERROR %s\n", m, err)
+		logger.Debugf("cosiHandleAction checkActionSanity %v ERROR %s\n", m, err)
 		return nil
 	}
 
