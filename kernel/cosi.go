@@ -396,6 +396,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	}
 	ann.Commitments[cd.PN.ConsensusIndex] = m.Commitment
 	ann.WantTxs[m.PeerId] = m.WantTx
+	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment %v NOW %d %d\nn", m, len(ann.Commitments), base)
 	if len(ann.Commitments) < base {
 		return nil
 	}
@@ -445,15 +446,18 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	challenge, err := m.Signature.Challenge(publics, m.SnapshotHash[:])
 	if err != nil {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge %v Challenge ERROR %s\n", m, err)
 		return nil
 	}
 	if !pub.VerifyWithChallenge(m.SnapshotHash[:], sig, challenge) {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge %v VerifyWithChallenge ERROR\n", m)
 		return nil
 	}
 
 	priv := chain.node.Signer.PrivateSpendKey
 	response, err := m.Signature.Response(&priv, v.random, publics, m.SnapshotHash[:])
 	if err != nil {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge %v Response ERROR %s\n", m, err)
 		return err
 	}
 	err = chain.node.Peer.SendSnapshotResponseMessage(m.PeerId, m.SnapshotHash, response)
@@ -476,8 +480,8 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		return nil
 	}
 	base := chain.node.ConsensusThreshold(s.Timestamp)
-	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v NOW %d %d %d\n", m, len(agg.Responses), len(agg.Commitments), base)
 	agg.Responses[cd.PN.ConsensusIndex] = m.Response
+	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v NOW %d %d %d\n", m, len(agg.Responses), len(agg.Commitments), base)
 	if len(agg.Responses) != len(agg.Commitments) {
 		return nil
 	}
@@ -622,7 +626,9 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 }
 
 func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot, commitment *crypto.Key) error {
+	logger.Debugf("CosiQueueExternalAnnouncement(%s, %v)\n", peerId, s)
 	if node.GetAcceptedOrPledgingNode(peerId) == nil {
+		logger.Verbosef("CosiQueueExternalAnnouncement(%s, %v) from malicious node\n", peerId, s)
 		return nil
 	}
 	chain := node.GetOrCreateChain(s.NodeId)
@@ -640,7 +646,9 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 }
 
 func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool) error {
+	logger.Debugf("CosiAggregateSelfCommitments(%s, %s)\n", peerId, snap)
 	if node.GetAcceptedOrPledgingNode(peerId) == nil {
+		logger.Verbosef("CosiAggregateSelfCommitments(%s, %s) from malicious node\n", peerId, snap)
 		return nil
 	}
 	chain := node.GetOrCreateChain(node.IdForNetwork)
@@ -657,6 +665,7 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 }
 
 func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, ver *common.VersionedTransaction) error {
+	logger.Debugf("CosiQueueExternalChallenge(%s, %s)\n", peerId, snap)
 	if node.GetAcceptedOrPledgingNode(peerId) == nil {
 		logger.Verbosef("CosiQueueExternalChallenge(%s, %s) from malicious node\n", peerId, snap)
 		return nil
@@ -675,7 +684,9 @@ func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Has
 }
 
 func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Hash, response *[32]byte) error {
+	logger.Debugf("CosiAggregateSelfResponses(%s, %s)\n", peerId, snap)
 	if node.GetAcceptedOrPledgingNode(peerId) == nil {
+		logger.Verbosef("CosiAggregateSelfResponses(%s, %s) from malicious node\n", peerId, snap)
 		return nil
 	}
 	chain := node.GetOrCreateChain(node.IdForNetwork)
