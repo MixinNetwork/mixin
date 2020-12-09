@@ -3,7 +3,6 @@ package kernel
 import (
 	"crypto/rand"
 	"fmt"
-	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -221,12 +220,8 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		if len(cache.Snapshots) == 0 && !chain.node.CheckBroadcastedToPeers() {
 			return chain.clearAndQueueSnapshotOrPanic(s)
 		}
-		for {
-			s.Timestamp = uint64(clock.Now().UnixNano())
-			if s.Timestamp > cache.Timestamp {
-				break
-			}
-			time.Sleep(100 * time.Millisecond)
+		if s.Timestamp <= cache.Timestamp {
+			return chain.clearAndQueueSnapshotOrPanic(s)
 		}
 
 		if len(cache.Snapshots) == 0 {
@@ -242,12 +237,9 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 			if best != nil && best.NodeId != final.NodeId && threshold < best.Start {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement new best external %s:%d:%d => %s:%d:%d\n", external.NodeId, external.Number, external.Timestamp, best.NodeId, best.Number, best.Start)
 				references := &common.RoundLink{Self: final.Hash, External: best.Hash}
-				updated, err := chain.updateEmptyHeadRoundAndPersist(m, cache, references)
+				_, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, references)
 				if err != nil {
 					return err
-				}
-				if updated {
-					chain.assignNewGraphRound(final, cache)
 				}
 				return chain.clearAndQueueSnapshotOrPanic(s)
 			}
@@ -273,11 +265,11 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 					External: best.Hash,
 				},
 			}
-			chain.assignNewGraphRound(final, cache)
 			err = chain.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 			if err != nil {
 				panic(err)
 			}
+			chain.assignNewGraphRound(final, cache)
 		}
 		cache.Timestamp = s.Timestamp
 
@@ -342,12 +334,11 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 			return nil
 		}
 		if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
-			updated, err := chain.updateEmptyHeadRoundAndPersist(m, cache, s.References)
+			updated, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References)
 			if err != nil || !updated {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v updateEmptyHeadRoundAndPersist %s %t\n", m.PeerId, m.Snapshot, err, updated)
 				return err
 			}
-			chain.assignNewGraphRound(final, cache)
 			return chain.AppendCosiAction(m)
 		}
 		if s.RoundNumber == cache.Number+1 {
@@ -362,8 +353,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 			cache, final = nc, nf
 		}
 
-		chain.assignNewGraphRound(final, cache)
-		if err := cache.ValidateSnapshot(s, false); err != nil {
+		if err := cache.ValidateSnapshot(s); err != nil {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v ValidateSnapshot %s\n", m.PeerId, m.Snapshot, err)
 			return nil
 		}
@@ -518,16 +508,12 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v REFERENCES %v %v\n", m, s.References, cache.References)
 			return chain.clearAndQueueSnapshotOrPanic(s)
 		}
-		if err := cache.ValidateSnapshot(s, false); err != nil {
+		if err := cache.ValidateSnapshot(s); err != nil {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v ValidateSnapshot %s\n", m, err)
 			return chain.clearAndQueueSnapshotOrPanic(s)
 		}
 
-		chain.node.TopoWrite(s)
-		if err := cache.ValidateSnapshot(s, true); err != nil {
-			panic("should never be here")
-		}
-		chain.assignNewGraphRound(final, cache)
+		chain.AddSnapshot(final, cache, s)
 	}
 
 	nodes := chain.node.NodesListWithoutState(s.Timestamp, true)
@@ -565,12 +551,11 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 			return nil
 		}
 		if s.RoundNumber == cache.Number+1 {
-			nc, nf, dummy, err := chain.startNewRoundAndPersist(s, cache, true)
+			_, nf, dummy, err := chain.startNewRoundAndPersist(s, cache, true)
 			if err != nil || nf == nil {
 				logger.Verbosef("ERROR cosiHandleFinalization startNewRound %s %v\n", m.PeerId, s)
 				return nil
 			}
-			chain.assignNewGraphRound(nf, nc)
 			if dummy {
 				logger.Verbosef("ERROR handleFinalization startNewRound DUMMY %s %s %d\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp))
 				return nil
@@ -604,24 +589,19 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 	}
 
 	if !s.References.Equal(cache.References) {
-		updated, err := chain.updateEmptyHeadRoundAndPersist(m, cache, s.References)
+		updated, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References)
 		if err != nil || !updated {
 			return err
 		}
-		chain.assignNewGraphRound(final, cache)
 		return nil
 	}
 
-	if err := cache.ValidateSnapshot(s, false); err != nil {
+	if err := cache.ValidateSnapshot(s); err != nil {
 		logger.Verbosef("ERROR cosiHandleFinalization ValidateSnapshot %s %v %s\n", m.PeerId, s, err.Error())
 		return nil
 	}
-	chain.node.TopoWrite(s)
-	if err := cache.ValidateSnapshot(s, true); err != nil {
-		panic("should never be here")
-	}
+	chain.AddSnapshot(final, cache, s)
 	m.finalized = true
-	chain.assignNewGraphRound(final, cache)
 	return chain.node.reloadConsensusNodesList(s, tx)
 }
 

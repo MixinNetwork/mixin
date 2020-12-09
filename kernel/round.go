@@ -199,7 +199,20 @@ func (c *CacheRound) Gap() (uint64, uint64) {
 	return start, end
 }
 
-func (c *CacheRound) ValidateSnapshot(s *common.Snapshot, add bool) error {
+func (chain *Chain) AddSnapshot(final *FinalRound, cache *CacheRound, s *common.Snapshot) error {
+	chain.node.TopoWrite(s)
+	if err := cache.validateSnapshot(s, true); err != nil {
+		panic("should never be here")
+	}
+	chain.assignNewGraphRound(final, cache)
+	return nil
+}
+
+func (c *CacheRound) ValidateSnapshot(s *common.Snapshot) error {
+	return c.validateSnapshot(s, false)
+}
+
+func (c *CacheRound) validateSnapshot(s *common.Snapshot, add bool) error {
 	if !s.Hash.HasValue() {
 		panic(s)
 	}

@@ -40,6 +40,7 @@ func (chain *Chain) startNewRoundAndPersist(s *common.Snapshot, cache *CacheRoun
 	if err != nil {
 		panic(err)
 	}
+	chain.assignNewGraphRound(round, cache)
 	return cache, round, dummy, nil
 }
 
@@ -109,7 +110,7 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDu
 	return final, false, err
 }
 
-func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, cache *CacheRound, references *common.RoundLink) (bool, error) {
+func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, final *FinalRound, cache *CacheRound, references *common.RoundLink) (bool, error) {
 	if len(cache.Snapshots) != 0 {
 		logger.Verbosef("ERROR cosiHandleFinalization malformated head round references not empty %v\n", m)
 		return false, nil
@@ -133,6 +134,7 @@ func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, cache *CacheRo
 	if err != nil {
 		panic(err)
 	}
+	chain.assignNewGraphRound(final, cache)
 	return true, nil
 }
 
