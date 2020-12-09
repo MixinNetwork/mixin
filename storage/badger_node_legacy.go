@@ -8,7 +8,6 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/badger/v2"
 )
 
@@ -254,7 +253,25 @@ var legacyNodeStateSnapshotMap = map[string]string{
 	"e337a71e428312d0e1a6f6ee0b584191ac2b238d5f46bfe9d75fdb7e1acf80ec": "691d1c92bd925aeec761fdfa63461285cc89e6d0f519ef49b335f3a587754d57",
 }
 
-func readSnapshotFromTx(txn *badger.Txn, h crypto.Hash) (*common.VersionedTransaction, *common.SnapshotWithTopologicalOrder) {
+var legacyGenesisTimestampMap = map[string]uint64{
+	"75eabab3b5e3fe0a811bc2969f32716cc58bac7260b112380be45a23fc839939": 1551312000000000000,
+	"05b5e35f3fcef4895d35325a5c5fb9f95f71ec11f1b0f8cbd962581b6c89783e": 1551312000000000000,
+	"4c874bd7919149ef0bdae5d664dec2dbb9e1211be67de71e45131012aff3c115": 1551312000000000000,
+	"cc8fd5f8454bb932d42cdd0d6327868ef1351e673714688e1abbb84ee98b37e7": 1551312000000000000,
+	"16c7e9b96cc295bccaf7ad46543a04aa798d89fd328a8c31583c1b32a7cdeb56": 1551312000000000000,
+	"015d43f8232be2d86105aec38f03eb6e3ba4864cb2d5a743232b436d010c59ea": 1551312000000000000,
+	"5dcaab6ebe213cc6c843ebce0490aa34f5d27eb0914e74cf001cb04ef74d65fb": 1551312000000000000,
+	"5744b0cd97fdb01d775054090443c54ec115829fbda33552a8d8a0c524ca411f": 1551312000000000000,
+	"9849466d022029e24f3ff6b1afb459f5736d86e5be9f794fa8c14048365afee3": 1551312000000000000,
+	"91744feec431a8c54dce4f4329cfc2e2522b1d4af9ceb406c674392fa3bb552e": 1551312000000000000,
+	"a961fb2623c84de7a793d5cfd34274a6810e5a23f4639b9baf27713aea7df958": 1551312000000000000,
+	"949a9242d41654a473a1e34dc560788995f4453563bb44ef698e9a853d1b66a3": 1551312000000000000,
+	"fb18373c3efec76633b3e6074a48b22ec2ec5445cfb118405ec62489fcf3003f": 1551312000000000000,
+	"1888767a8095726fb8e151c5031ea175d099cc7942ba939570d685ab2ed630bd": 1551312000000000000,
+	"6b2c64ba1a70de5b447ca9e203d1b82ed08d9392f56502c4e10c035907cb94e0": 1551312000000000000,
+}
+
+func readSnapshotFromTx(txn *badger.Txn, h crypto.Hash) (*common.VersionedTransaction, uint64) {
 	tx, final, err := readTransactionAndFinalization(txn, h)
 	if err != nil {
 		panic(err)
@@ -270,12 +287,18 @@ func readSnapshotFromTx(txn *badger.Txn, h crypto.Hash) (*common.VersionedTransa
 	if err != nil {
 		panic(err)
 	}
-	return tx, snap
+	if snap != nil {
+		return tx, snap.Timestamp
+	}
+	ts := legacyGenesisTimestampMap[hash.String()]
+	if ts < 1551312000000000000 {
+		panic(hash)
+	}
+	return tx, ts
 }
 
 func readLegacyPledgeNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 	tx, snap := readSnapshotFromTx(txn, h)
-	logger.Printf(`"%s":"%s",`, tx.PayloadHash(), snap.PayloadHash())
 
 	var signer, payee common.Address
 	copy(signer.PublicSpendKey[:], tx.Extra)
@@ -290,14 +313,13 @@ func readLegacyPledgeNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 		Payee:       payee,
 		State:       common.NodeStatePledging,
 		Transaction: h,
-		Timestamp:   snap.Timestamp,
+		Timestamp:   snap,
 	}
 	return []*common.Node{node}
 }
 
 func readLegacyAcceptNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 	tx, snap := readSnapshotFromTx(txn, h)
-	logger.Printf(`"%s":"%s",`, tx.PayloadHash(), snap.PayloadHash())
 
 	var signer, payee common.Address
 	copy(signer.PublicSpendKey[:], tx.Extra)
@@ -312,7 +334,7 @@ func readLegacyAcceptNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 		Payee:       payee,
 		State:       common.NodeStateAccepted,
 		Transaction: h,
-		Timestamp:   snap.Timestamp,
+		Timestamp:   snap,
 	}
 	nodes := []*common.Node{node}
 
@@ -326,7 +348,6 @@ func readLegacyAcceptNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 
 func readLegacyCancelNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 	tx, snap := readSnapshotFromTx(txn, h)
-	logger.Printf(`"%s":"%s",`, tx.PayloadHash(), snap.PayloadHash())
 
 	var signer, payee common.Address
 	copy(signer.PublicSpendKey[:], tx.Extra)
@@ -341,7 +362,7 @@ func readLegacyCancelNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 		Payee:       payee,
 		State:       common.NodeStateCancelled,
 		Transaction: h,
-		Timestamp:   snap.Timestamp,
+		Timestamp:   snap,
 	}
 	nodes := []*common.Node{node}
 
@@ -351,7 +372,6 @@ func readLegacyCancelNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 
 func readLegacyRemoveNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 	tx, snap := readSnapshotFromTx(txn, h)
-	logger.Printf(`"%s":"%s",`, tx.PayloadHash(), snap.PayloadHash())
 
 	var signer, payee common.Address
 	copy(signer.PublicSpendKey[:], tx.Extra)
@@ -366,7 +386,7 @@ func readLegacyRemoveNodes(txn *badger.Txn, h crypto.Hash) []*common.Node {
 		Payee:       payee,
 		State:       common.NodeStateRemoved,
 		Transaction: h,
-		Timestamp:   snap.Timestamp,
+		Timestamp:   snap,
 	}
 	nodes := []*common.Node{node}
 
