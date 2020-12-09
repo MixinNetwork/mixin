@@ -283,7 +283,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 
 	ov := chain.CosiVerifiers[s.Transaction]
 	if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber {
-		return chain.clearAndQueueSnapshotOrPanic(s)
+		return nil
 	}
 
 	s.Hash = s.PayloadHash()
