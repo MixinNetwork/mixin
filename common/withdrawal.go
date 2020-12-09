@@ -6,6 +6,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
+	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 )
 
@@ -62,13 +63,16 @@ func (tx *SignedTransaction) validateWithdrawalSubmit(inputs map[string]*UTXO) e
 		return fmt.Errorf("invalid withdrawal submit mask %s", submit.Mask)
 	}
 
-	switch submit.Withdrawal.Asset().ChainId {
+	chainId := submit.Withdrawal.Asset().ChainId
+	switch chainId {
 	case ethereum.EthereumChainId:
 		return ethereum.VerifyAddress(submit.Withdrawal.Address)
 	case bitcoin.BitcoinChainId:
 		return bitcoin.VerifyAddress(submit.Withdrawal.Address)
+	case eos.EOSChainId:
+		return eos.VerifyAddress(submit.Withdrawal.Address)
 	}
-	return nil
+	return fmt.Errorf("invalid withdrawal chain id %s", chainId)
 }
 
 func (tx *SignedTransaction) validateWithdrawalFuel(store DataStore, inputs map[string]*UTXO) error {

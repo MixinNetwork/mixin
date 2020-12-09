@@ -5,6 +5,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
+	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 )
 
@@ -47,13 +48,16 @@ func (tx *SignedTransaction) verifyDepositFormat() error {
 		return fmt.Errorf("invalid amount %s", deposit.Amount.String())
 	}
 
-	switch deposit.Asset().ChainId {
+	chainId := deposit.Asset().ChainId
+	switch chainId {
 	case ethereum.EthereumChainId:
 		return ethereum.VerifyTransactionHash(deposit.TransactionHash)
 	case bitcoin.BitcoinChainId:
 		return bitcoin.VerifyTransactionHash(deposit.TransactionHash)
+	case eos.EOSChainId:
+		return eos.VerifyTransactionHash(deposit.TransactionHash)
 	}
-	return nil
+	return fmt.Errorf("invalid deposit chain id %s", chainId)
 }
 
 func (tx *SignedTransaction) validateDeposit(store DataStore, msg []byte, payloadHash crypto.Hash) error {
