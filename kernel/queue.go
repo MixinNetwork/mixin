@@ -40,8 +40,8 @@ func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 		panic("should never be here")
 	}
 	delete(chain.CosiVerifiers, s.Hash)
+	delete(chain.CosiVerifiers, s.Transaction)
 	delete(chain.CosiAggregators, s.Hash)
-	delete(chain.CosiAggregators, s.Transaction)
 	return chain.AppendSelfEmpty(&common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      s.NodeId,

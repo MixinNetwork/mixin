@@ -196,6 +196,7 @@ func testConsensus(t *testing.T, dup int) {
 		instances = append(instances, node)
 		host := fmt.Sprintf("127.0.0.1:180%02d", i+1)
 		nodes = append(nodes, &Node{Signer: node.Signer, Host: host})
+		t.Logf("NODES#%d %s\n", i, node.IdForNetwork)
 
 		server := NewServer(custom, store, node, 18000+i+1)
 		defer server.Close()
