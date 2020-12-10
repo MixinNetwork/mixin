@@ -73,39 +73,10 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDu
 	if external == nil {
 		return nil, false, fmt.Errorf("external round %s not collected yet", s.References.External)
 	}
-	if final.NodeId == external.NodeId {
-		return nil, false, nil
-	}
-	if !chain.node.genesisNodesMap[external.NodeId] && external.Number < 7+config.SnapshotReferenceThreshold {
-		return nil, false, nil
-	}
-	if !finalized {
-		externalChain := chain.node.GetOrCreateChain(external.NodeId)
-		if external.Number+config.SnapshotSyncRoundThreshold < externalChain.State.FinalRound.Number {
-			return nil, false, fmt.Errorf("external reference %s too early %d %d", s.References.External, external.Number, externalChain.State.FinalRound.Number)
-		}
-		if external.Timestamp > s.Timestamp {
-			return nil, false, fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-s.Timestamp).Seconds())
-		}
-		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64
-		best, err := chain.determinBestRound(s.Timestamp, external.NodeId)
-		if err != nil {
-			return nil, false, fmt.Errorf("external reference %s invalid %s", s.References.External, err)
-		} else if best != nil && threshold < best.Start {
-			return nil, false, fmt.Errorf("external reference %s too early %s:%d %f", s.References.External, best.NodeId, best.Number, time.Duration(best.Start-threshold).Seconds())
-		}
-	}
-	if external.Number < chain.State.RoundLinks[external.NodeId] {
+	updated, err := chain.updateExternal(final, external, s.Timestamp, finalized)
+	if !updated || err != nil {
 		return nil, false, err
 	}
-	link, err := chain.persistStore.ReadLink(s.NodeId, external.NodeId)
-	if err != nil {
-		return nil, false, err
-	}
-	if link != chain.State.RoundLinks[external.NodeId] {
-		panic(fmt.Errorf("should never be here %s=>%s %d %d", chain.ChainId, external.NodeId, link, chain.State.RoundLinks[external.NodeId]))
-	}
-	chain.State.RoundLinks[external.NodeId] = external.Number
 
 	return final, false, err
 }
@@ -124,17 +95,43 @@ func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, final *FinalRo
 		logger.Verbosef("ERROR cosiHandleFinalization head round references external not ready yet %v\n", m)
 		return false, err
 	}
-	link, err := chain.persistStore.ReadLink(cache.NodeId, external.NodeId)
-	if err != nil || external.Number < link {
+
+	updated, err := chain.updateExternal(final, external, cache.Timestamp, m.Action == CosiActionFinalization)
+	if !updated || err != nil {
 		return false, err
 	}
-	chain.State.RoundLinks[external.NodeId] = external.Number
+
 	cache.References = references.Copy()
 	err = chain.persistStore.UpdateEmptyHeadRound(cache.NodeId, cache.Number, cache.References)
 	if err != nil {
 		panic(err)
 	}
 	chain.assignNewGraphRound(final, cache)
+	return true, nil
+}
+
+func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, roundTime uint64, finalized bool) (bool, error) {
+	if final.NodeId == external.NodeId {
+		return false, nil
+	}
+	if external.Number < chain.State.RoundLinks[external.NodeId] {
+		return false, nil
+	}
+	link, err := chain.persistStore.ReadLink(final.NodeId, external.NodeId)
+	if err != nil {
+		return false, err
+	}
+	if link != chain.State.RoundLinks[external.NodeId] {
+		panic(fmt.Errorf("should never be here %s=>%s %d %d", chain.ChainId, external.NodeId, link, chain.State.RoundLinks[external.NodeId]))
+	}
+	if !finalized {
+		ec := chain.node.GetOrCreateChain(external.NodeId)
+		err := chain.checkRefernceSanity(ec, external, roundTime)
+		if err != nil {
+			return false, nil
+		}
+	}
+	chain.State.RoundLinks[external.NodeId] = external.Number
 	return true, nil
 }
 
@@ -167,17 +164,20 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 		panic(fmt.Errorf("should never be here %s %d %d", final.NodeId, final.Number, n))
 	}
 
-	rounds = append(rounds, final.Copy())
 	chain.StepForward()
+	rounds = append(rounds, final.Copy())
+	chain.State.RoundHistory = reduceHistory(rounds)
+}
 
+func reduceHistory(rounds []*FinalRound) []*FinalRound {
+	last := rounds[len(rounds)-1]
 	threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap * 64
-	if rounds[0].Start+threshold > final.Start && len(rounds) <= config.SnapshotReferenceThreshold {
-		chain.State.RoundHistory = rounds
-		return
+	if rounds[0].Start+threshold > last.Start && len(rounds) <= config.SnapshotReferenceThreshold {
+		return rounds
 	}
 	newRounds := make([]*FinalRound, 0)
 	for _, r := range rounds {
-		if r.Start+threshold <= final.Start {
+		if r.Start+threshold <= last.Start {
 			continue
 		}
 		newRounds = append(newRounds, r)
@@ -185,21 +185,17 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 	if rc := len(newRounds) - config.SnapshotReferenceThreshold; rc > 0 {
 		newRounds = newRounds[rc:]
 	}
-	chain.State.RoundHistory = newRounds
+	return newRounds
 }
 
 func (chain *Chain) determinBestRound(roundTime uint64, hint crypto.Hash) (*FinalRound, error) {
 	chain.node.chains.RLock()
 	defer chain.node.chains.RUnlock()
 
-	chain.State.RLock()
-	defer chain.State.RUnlock()
-
 	if chain.State.FinalRound == nil {
 		return nil, nil
 	}
 
-	var valid bool
 	var best *FinalRound
 	var start, height uint64
 	nodes := chain.node.NodesListWithoutState(roundTime, true)
@@ -209,49 +205,41 @@ func (chain *Chain) determinBestRound(roundTime uint64, hint crypto.Hash) (*Fina
 			continue
 		}
 
-		valid = valid || id == hint || hint == chain.ChainId
 		ec, link := chain.node.chains.m[id], chain.State.RoundLinks[id]
 		history := historySinceRound(ec.State.RoundHistory, link)
 		if len(history) == 0 {
-			if id != hint {
-				continue
-			}
-			return nil, fmt.Errorf("external hint history empty since %d", link)
-		}
-
-		r, cr := history[0], ec.State.CacheRound
-		rts, rh := r.Start, uint64(len(history))
-		if rh < height || rts > roundTime {
 			continue
 		}
 
-		if !chain.node.genesisNodesMap[id] && r.Number < 7+config.SnapshotReferenceThreshold*2 {
-			if id != hint {
-				continue
-			}
-			return nil, fmt.Errorf("external hint round too early yet not genesis %d", r.Number)
-		}
-		if ts := rts + config.SnapshotRoundGap*rh; ts > uint64(clock.Now().UnixNano()) {
-			if id != hint {
-				continue
-			}
-			return nil, fmt.Errorf("external hint round timestamp too future %d %d", ts, clock.Now().UnixNano())
-		}
-		if len(cr.Snapshots) == 0 && cr.Number == r.Number+1 && r.Number > 0 {
-			if id != hint {
-				continue
-			}
-			return nil, fmt.Errorf("external hint round without extra final yet %d", r.Number)
+		err := chain.checkRefernceSanity(ec, history[0].Common(), roundTime)
+		if err != nil {
+			continue
 		}
 
+		rts, rh := history[0].Start, uint64(len(history))
 		if rh > height || rts > start {
-			best, start, height = r, rts, rh
+			best, start, height = history[0], rts, rh
 		}
 	}
-	if valid {
-		return best, nil
+
+	return best, nil
+}
+
+func (chain *Chain) checkRefernceSanity(ec *Chain, external *common.Round, roundTime uint64) error {
+	if external.Timestamp > roundTime {
+		return fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-roundTime).Seconds())
 	}
-	return nil, fmt.Errorf("external hint not found in consensus %s", hint)
+	if !chain.node.genesisNodesMap[external.NodeId] && external.Number < 7+config.SnapshotReferenceThreshold {
+		return nil
+	}
+	cr, fr := ec.State.CacheRound, ec.State.FinalRound
+	if now := uint64(clock.Now().UnixNano()); fr.Start > now {
+		return fmt.Errorf("external hint round timestamp too future %d %d", fr.Start, clock.Now().UnixNano())
+	}
+	if len(cr.Snapshots) == 0 && cr.Number == external.Number+1 && external.Number > 0 {
+		return fmt.Errorf("external hint round without extra final yet %d", external.Number)
+	}
+	return nil
 }
 
 func historySinceRound(history []*FinalRound, link uint64) []*FinalRound {

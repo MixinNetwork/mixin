@@ -36,7 +36,6 @@ type ChainRound struct {
 }
 
 type ChainState struct {
-	sync.RWMutex
 	CacheRound   *CacheRound
 	FinalRound   *FinalRound
 	RoundHistory []*FinalRound
@@ -142,13 +141,9 @@ func (chain *Chain) loadState() error {
 	if err != nil {
 		return err
 	}
-	history, err := loadRoundHistoryForNode(chain.persistStore, final)
-	if err != nil {
-		return err
-	}
 	chain.State.FinalRound = final
-	chain.State.RoundHistory = history
 	cache.Timestamp = final.Start + config.SnapshotRoundGap
+	chain.State.RoundHistory = loadRoundHistoryForNode(chain.persistStore, final)
 
 	allNodes := chain.node.NodesListWithoutState(uint64(clock.Now().UnixNano()), false)
 	for _, cn := range allNodes {

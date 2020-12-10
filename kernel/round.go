@@ -92,23 +92,20 @@ func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (m
 	return cacheRound, finalRound, nil
 }
 
-func loadRoundHistoryForNode(store storage.Store, to *FinalRound) ([]*FinalRound, error) {
+func loadRoundHistoryForNode(store storage.Store, to *FinalRound) []*FinalRound {
 	var history []*FinalRound
-	start := to.Number - config.SnapshotReferenceThreshold
-	if to.Number < config.SnapshotReferenceThreshold {
+	start := to.Number + 1 - config.SnapshotReferenceThreshold
+	if to.Number+1 < config.SnapshotReferenceThreshold {
 		start = 0
 	}
 	for ; start <= to.Number; start++ {
-		final, err := loadFinalRoundForNode(store, to.NodeId, start)
+		r, err := loadFinalRoundForNode(store, to.NodeId, start)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
-		if final.Start+config.SnapshotReferenceThreshold*config.SnapshotRoundGap*64 < to.Start {
-			continue
-		}
-		history = append(history, final)
+		history = append(history, r)
 	}
-	return history, nil
+	return reduceHistory(history)
 }
 
 func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*CacheRound, error) {
@@ -178,6 +175,15 @@ func (f *FinalRound) Copy() *FinalRound {
 		Start:  f.Start,
 		End:    f.End,
 		Hash:   f.Hash,
+	}
+}
+
+func (f *FinalRound) Common() *common.Round {
+	return &common.Round{
+		Hash:      f.Hash,
+		NodeId:    f.NodeId,
+		Number:    f.Number,
+		Timestamp: f.Start,
 	}
 }
 
