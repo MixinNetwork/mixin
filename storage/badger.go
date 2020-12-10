@@ -46,8 +46,7 @@ func openDB(dir string, sync, valueLogGC, truncate bool) (*badger.DB, error) {
 	opts := badger.DefaultOptions(dir)
 	opts = opts.WithSyncWrites(sync)
 	opts = opts.WithCompression(options.None)
-	opts = opts.WithBlockCacheSize(0)
-	opts = opts.WithIndexCacheSize(0)
+	opts = opts.WithMaxCacheSize(0)
 	opts = opts.WithTruncate(truncate)
 	db, err := badger.Open(opts)
 	if err != nil {
