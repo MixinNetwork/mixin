@@ -129,12 +129,13 @@ func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, ro
 		ec := chain.node.GetOrCreateChain(external.NodeId)
 		err := chain.checkRefernceSanity(ec, external, roundTime)
 		if err != nil {
+			logger.Verbosef("cosi updateExternal checkRefernceSanity error %s\n", err)
 			return false, nil
 		}
 		threshold := external.Timestamp + config.SnapshotSyncRoundThreshold*config.SnapshotRoundGap*64
 		best := chain.determinBestRound(roundTime)
 		if best != nil && threshold < best.Start {
-			logger.Verbosef("external reference %s too early %s:%d %f", external.Hash, best.NodeId, best.Number, time.Duration(best.Start-threshold).Seconds())
+			logger.Verbosef("cosi updateExternal external reference %s too early %s:%d %f\n", external.Hash, best.NodeId, best.Number, time.Duration(best.Start-threshold).Seconds())
 			return false, nil
 		}
 	}

@@ -234,7 +234,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 			if best != nil && best.NodeId != final.NodeId && threshold < best.Start {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement new best external %s:%d:%d => %s:%d:%d\n", external.NodeId, external.Number, external.Timestamp, best.NodeId, best.Number, best.Start)
 				references := &common.RoundLink{Self: final.Hash, External: best.Hash}
-				_, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, references, false)
+				_, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, references, true)
 				if err != nil {
 					return err
 				}
@@ -544,6 +544,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 			return nil
 		}
 		if s.RoundNumber > cache.Number+1 {
+			logger.Debugf("ERROR cosiHandleFinalization in future %s %s %d %d\n", m.PeerId, s.Hash, s.RoundNumber, cache.Number)
 			return nil
 		}
 		if s.RoundNumber == cache.Number+1 {
@@ -577,16 +578,19 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		return chain.node.reloadConsensusNodesList(s, tx)
 	}
 	if chain.State.FinalRound == nil {
+		logger.Debugf("ERROR cosiHandleFinalization without consensus%s %s\n", m.PeerId, s.Hash)
 		return nil
 	}
 	cache, final := chain.StateCopy()
 	if s.RoundNumber != cache.Number {
+		logger.Debugf("ERROR cosiHandleFinalization malformed round %s %s %d %d\n", m.PeerId, s.Hash, s.RoundNumber, cache.Number)
 		return nil
 	}
 
 	if !s.References.Equal(cache.References) {
 		updated, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References, false)
 		if err != nil || !updated {
+			logger.Debugf("ERROR cosiHandleFinalization updateEmptyHeadRoundAndPersist failed %s %s %s %t\n", m.PeerId, s.Hash, err, updated)
 			return err
 		}
 		return nil
