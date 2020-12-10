@@ -132,6 +132,10 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		if s.Signature != nil || s.Timestamp == 0 {
 			return fmt.Errorf("only empty snapshot with timestamp can be announced")
 		}
+		ov := chain.CosiVerifiers[s.Transaction]
+		if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber {
+			return fmt.Errorf("a transaction %s only in one round %d of one chain %s", s.Transaction, s.RoundNumber, chain.ChainId)
+		}
 	case CosiActionExternalChallenge:
 		if chain.ChainId == chain.node.IdForNetwork {
 			return fmt.Errorf("external action challenge chain %s %s", chain.ChainId, chain.node.IdForNetwork)
@@ -277,6 +281,11 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		s.References = cache.References
 	}
 
+	ov := chain.CosiVerifiers[s.Transaction]
+	if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber {
+		return chain.clearAndQueueSnapshotOrPanic(s)
+	}
+
 	s.Hash = s.PayloadHash()
 	agg := &CosiAggregator{
 		Snapshot:    s,
@@ -318,7 +327,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 		}
 		if s.RoundNumber > cache.Number+1 {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v in future %d %d\n", m.PeerId, m.Snapshot, s.RoundNumber, cache.Number)
-			return chain.AppendCosiAction(m)
+			return nil
 		}
 		if s.Timestamp <= final.Start+config.SnapshotRoundGap {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v invalid timestamp %d %d\n", m.PeerId, m.Snapshot, s.Timestamp, final.Start+config.SnapshotRoundGap)

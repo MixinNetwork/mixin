@@ -217,7 +217,7 @@ func (c *CacheRound) validateSnapshot(s *common.Snapshot, add bool) error {
 		panic(s)
 	}
 	for _, cs := range c.Snapshots {
-		if cs.Hash == s.Hash || cs.Timestamp == s.Timestamp {
+		if cs.Hash == s.Hash || cs.Timestamp == s.Timestamp || cs.Transaction == s.Transaction {
 			return fmt.Errorf("ValidateSnapshot error duplication %s %d %s", s.Hash, s.Timestamp, s.Transaction)
 		}
 	}
