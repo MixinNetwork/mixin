@@ -73,7 +73,7 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, finaliz
 	if external == nil {
 		return nil, false, fmt.Errorf("external round %s not collected yet", s.References.External)
 	}
-	updated, err := chain.updateExternal(final, external, s.Timestamp, finalized)
+	updated, err := chain.updateExternal(final, external, s.Timestamp, !finalized)
 	if !updated || err != nil {
 		return nil, false, err
 	}
@@ -81,7 +81,7 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, finaliz
 	return final, false, err
 }
 
-func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, final *FinalRound, cache *CacheRound, references *common.RoundLink) (bool, error) {
+func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, final *FinalRound, cache *CacheRound, references *common.RoundLink, strict bool) (bool, error) {
 	if len(cache.Snapshots) != 0 {
 		logger.Verbosef("ERROR cosiHandleFinalization malformated head round references not empty %v\n", m)
 		return false, nil
@@ -96,7 +96,7 @@ func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, final *FinalRo
 		return false, err
 	}
 
-	updated, err := chain.updateExternal(final, external, cache.Timestamp, m.Action == CosiActionFinalization)
+	updated, err := chain.updateExternal(final, external, cache.Timestamp, strict)
 	if !updated || err != nil {
 		return false, err
 	}
@@ -110,7 +110,7 @@ func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, final *FinalRo
 	return true, nil
 }
 
-func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, roundTime uint64, finalized bool) (bool, error) {
+func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, roundTime uint64, strict bool) (bool, error) {
 	if final.NodeId == external.NodeId {
 		return false, nil
 	}
@@ -124,7 +124,8 @@ func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, ro
 	if link != chain.State.RoundLinks[external.NodeId] {
 		panic(fmt.Errorf("should never be here %s=>%s %d %d", chain.ChainId, external.NodeId, link, chain.State.RoundLinks[external.NodeId]))
 	}
-	if !finalized {
+
+	if strict {
 		ec := chain.node.GetOrCreateChain(external.NodeId)
 		err := chain.checkRefernceSanity(ec, external, roundTime)
 		if err != nil {

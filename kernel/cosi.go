@@ -234,7 +234,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 			if best != nil && best.NodeId != final.NodeId && threshold < best.Start {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement new best external %s:%d:%d => %s:%d:%d\n", external.NodeId, external.Number, external.Timestamp, best.NodeId, best.Number, best.Start)
 				references := &common.RoundLink{Self: final.Hash, External: best.Hash}
-				_, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, references)
+				_, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, references, false)
 				if err != nil {
 					return err
 				}
@@ -330,7 +330,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 			return nil
 		}
 		if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
-			updated, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References)
+			updated, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References, true)
 			if err != nil || !updated {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v updateEmptyHeadRoundAndPersist %s %t\n", m.PeerId, m.Snapshot, err, updated)
 				return err
@@ -585,7 +585,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 	}
 
 	if !s.References.Equal(cache.References) {
-		updated, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References)
+		updated, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References, false)
 		if err != nil || !updated {
 			return err
 		}
