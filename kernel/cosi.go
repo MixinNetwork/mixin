@@ -327,7 +327,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 		}
 		if s.RoundNumber > cache.Number+1 {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v in future %d %d\n", m.PeerId, m.Snapshot, s.RoundNumber, cache.Number)
-			return nil
+			return chain.AppendCosiAction(m)
 		}
 		if s.Timestamp <= final.Start+config.SnapshotRoundGap {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v invalid timestamp %d %d\n", m.PeerId, m.Snapshot, s.Timestamp, final.Start+config.SnapshotRoundGap)
