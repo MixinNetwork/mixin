@@ -229,10 +229,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 			if err != nil {
 				return err
 			}
-			best, err := chain.determinBestRound(s.Timestamp, chain.ChainId)
-			if err != nil {
-				logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement %v determinBestRound on update ERROR %s\n", m.Snapshot, err)
-			}
+			best := chain.determinBestRound(s.Timestamp)
 			threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*36
 			if best != nil && best.NodeId != final.NodeId && threshold < best.Start {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement new best external %s:%d:%d => %s:%d:%d\n", external.NodeId, external.Number, external.Timestamp, best.NodeId, best.Number, best.Start)
@@ -244,10 +241,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 				return chain.clearAndQueueSnapshotOrPanic(s)
 			}
 		} else if start, _ := cache.Gap(); s.Timestamp >= start+config.SnapshotRoundGap {
-			best, err := chain.determinBestRound(s.Timestamp, chain.ChainId)
-			if err != nil {
-				logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement %v determinBestRound on fresh ERROR %s\n", m.Snapshot, err)
-			}
+			best := chain.determinBestRound(s.Timestamp)
 			if best == nil {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement no best available\n")
 				return chain.clearAndQueueSnapshotOrPanic(s)
@@ -265,7 +259,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 					External: best.Hash,
 				},
 			}
-			err = chain.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
+			err := chain.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 			if err != nil {
 				panic(err)
 			}

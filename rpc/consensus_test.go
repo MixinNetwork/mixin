@@ -517,9 +517,9 @@ func testSendDummyTransaction(assert *assert.Assertions, node string, domain com
 
 const configDataTmpl = `[node]
 signer-key = "%s"
-consensus-only = true
+consensus-only = false
 memory-cache-size = 128
-kernel-operation-period = 2
+kernel-operation-period = 1
 cache-ttl = 3600
 [network]
 listener = "%s"`

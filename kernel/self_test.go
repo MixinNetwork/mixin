@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/stretchr/testify/assert"
 )
@@ -21,24 +20,10 @@ func TestDeterminBestRound(t *testing.T) {
 	assert.NotNil(node)
 
 	chain := node.GetOrCreateChain(node.IdForNetwork)
-	best, err := chain.determinBestRound(uint64(clock.Now().UnixNano()), crypto.Hash{})
-	assert.Nil(err)
+	best := chain.determinBestRound(uint64(clock.Now().UnixNano()))
 	assert.Nil(best)
 
 	chain = node.GetOrCreateChain(node.genesisNodes[0])
-	best, err = chain.determinBestRound(uint64(clock.Now().UnixNano()), crypto.Hash{})
-	assert.NotNil(err)
-	assert.Contains(err.Error(), "external hint not found in consensus")
-	assert.Nil(best)
-
-	chain = node.GetOrCreateChain(node.genesisNodes[0])
-	best, err = chain.determinBestRound(uint64(clock.Now().UnixNano()), node.IdForNetwork)
-	assert.NotNil(err)
-	assert.Contains(err.Error(), "external hint not found in consensus")
-	assert.Nil(best)
-
-	chain = node.GetOrCreateChain(node.genesisNodes[0])
-	best, err = chain.determinBestRound(uint64(clock.Now().UnixNano()), chain.ChainId)
-	assert.Nil(err)
+	best = chain.determinBestRound(uint64(clock.Now().UnixNano()))
 	assert.NotNil(best)
 }

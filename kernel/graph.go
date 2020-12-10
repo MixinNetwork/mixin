@@ -19,9 +19,9 @@ const (
 	MainnetNodeRemovalConsensusForkTimestamp = 1590000000000000000
 )
 
-func (chain *Chain) startNewRoundAndPersist(s *common.Snapshot, cache *CacheRound, allowDummy bool) (*CacheRound, *FinalRound, bool, error) {
+func (chain *Chain) startNewRoundAndPersist(s *common.Snapshot, cache *CacheRound, finalized bool) (*CacheRound, *FinalRound, bool, error) {
 	dummyExternal := cache.References.External
-	round, dummy, err := chain.startNewRound(s, cache, true)
+	round, dummy, err := chain.startNewRound(s, cache, finalized)
 	if err != nil {
 		return nil, nil, false, err
 	} else if round == nil {
@@ -36,6 +36,7 @@ func (chain *Chain) startNewRoundAndPersist(s *common.Snapshot, cache *CacheRoun
 	if dummy {
 		cache.References.External = dummyExternal
 	}
+
 	err = chain.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, round.Start)
 	if err != nil {
 		panic(err)
@@ -44,7 +45,7 @@ func (chain *Chain) startNewRoundAndPersist(s *common.Snapshot, cache *CacheRoun
 	return cache, round, dummy, nil
 }
 
-func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDummy bool) (*FinalRound, bool, error) {
+func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, finalized bool) (*FinalRound, bool, error) {
 	if chain.ChainId != cache.NodeId {
 		panic("should never be here")
 	}
@@ -62,12 +63,11 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, allowDu
 		return nil, false, fmt.Errorf("self cache snapshots not match yet %s %s", s.NodeId, s.References.Self)
 	}
 
-	finalized := chain.verifyFinalization(s)
 	external, err := chain.persistStore.ReadRound(s.References.External)
 	if err != nil {
 		return nil, false, err
 	}
-	if external == nil && finalized && allowDummy {
+	if external == nil && finalized {
 		return final, true, nil
 	}
 	if external == nil {
@@ -130,7 +130,14 @@ func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, ro
 		if err != nil {
 			return false, nil
 		}
+		threshold := external.Timestamp + config.SnapshotSyncRoundThreshold*config.SnapshotRoundGap*64
+		best := chain.determinBestRound(roundTime)
+		if best != nil && threshold < best.Start {
+			logger.Verbosef("external reference %s too early %s:%d %f", external.Hash, best.NodeId, best.Number, time.Duration(best.Start-threshold).Seconds())
+			return false, nil
+		}
 	}
+
 	chain.State.RoundLinks[external.NodeId] = external.Number
 	return true, nil
 }
@@ -188,12 +195,12 @@ func reduceHistory(rounds []*FinalRound) []*FinalRound {
 	return newRounds
 }
 
-func (chain *Chain) determinBestRound(roundTime uint64, hint crypto.Hash) (*FinalRound, error) {
+func (chain *Chain) determinBestRound(roundTime uint64) *FinalRound {
 	chain.node.chains.RLock()
 	defer chain.node.chains.RUnlock()
 
 	if chain.State.FinalRound == nil {
-		return nil, nil
+		return nil
 	}
 
 	var best *FinalRound
@@ -222,7 +229,7 @@ func (chain *Chain) determinBestRound(roundTime uint64, hint crypto.Hash) (*Fina
 		}
 	}
 
-	return best, nil
+	return best
 }
 
 func (chain *Chain) checkRefernceSanity(ec *Chain, external *common.Round, roundTime uint64) error {
@@ -230,8 +237,9 @@ func (chain *Chain) checkRefernceSanity(ec *Chain, external *common.Round, round
 		return fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-roundTime).Seconds())
 	}
 	if !chain.node.genesisNodesMap[external.NodeId] && external.Number < 7+config.SnapshotReferenceThreshold {
-		return nil
+		return fmt.Errorf("external hint round too early yet not genesis %d", external.Number)
 	}
+
 	cr, fr := ec.State.CacheRound, ec.State.FinalRound
 	if now := uint64(clock.Now().UnixNano()); fr.Start > now {
 		return fmt.Errorf("external hint round timestamp too future %d %d", fr.Start, clock.Now().UnixNano())
