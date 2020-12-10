@@ -15,7 +15,7 @@ require (
 	github.com/gobuffalo/packr v1.30.1
 	github.com/gofrs/uuid v3.3.0+incompatible
 	github.com/gorilla/handlers v1.5.1
-	github.com/lucas-clemente/quic-go v0.19.2
+	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/nwaples/rardecode v1.1.0 // indirect
 	github.com/pelletier/go-toml v1.8.1
@@ -29,5 +29,5 @@ require (
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	go.dedis.ch/kyber/v3 v3.0.13
-	golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392
+	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9
 )
