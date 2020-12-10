@@ -277,7 +277,9 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 
 	ov := chain.CosiVerifiers[s.Transaction]
 	if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber {
-		return chain.clearAndQueueSnapshotOrPanic(s)
+		err := fmt.Errorf("a transaction %s only in one round %d of one chain %s", s.Transaction, s.RoundNumber, chain.ChainId)
+		logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement ERROR %s\n", err)
+		return nil
 	}
 
 	s.Hash = s.PayloadHash()
