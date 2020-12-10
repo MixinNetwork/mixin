@@ -590,7 +590,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 	if !s.References.Equal(cache.References) {
 		updated, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References, false)
 		if err != nil || !updated {
-			logger.Debugf("ERROR cosiHandleFinalization updateEmptyHeadRoundAndPersist failed %s %s %s %t\n", m.PeerId, s.Hash, err, updated)
+			logger.Debugf("ERROR cosiHandleFinalization updateEmptyHeadRoundAndPersist failed %s %s %v %t\n", m.PeerId, s.Hash, err, updated)
 			return err
 		}
 		return nil
