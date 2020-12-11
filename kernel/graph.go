@@ -108,9 +108,6 @@ func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, final *FinalRo
 }
 
 func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, roundTime uint64, strict bool) error {
-	chain.RLock()
-	defer chain.RUnlock()
-
 	if final.NodeId == external.NodeId {
 		return fmt.Errorf("external reference self %s", final.NodeId)
 	}
@@ -145,9 +142,6 @@ func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, ro
 }
 
 func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
-	chain.RLock()
-	defer chain.RUnlock()
-
 	if chain.ChainId != cache.NodeId {
 		panic("should never be here")
 	}
@@ -203,9 +197,6 @@ func reduceHistory(rounds []*FinalRound) []*FinalRound {
 func (chain *Chain) determinBestRound(roundTime uint64) *FinalRound {
 	chain.node.chains.RLock()
 	defer chain.node.chains.RUnlock()
-
-	chain.RLock()
-	defer chain.RUnlock()
 
 	if chain.State == nil {
 		return nil

@@ -166,6 +166,11 @@ func (chain *Chain) QueuePollSnapshots() {
 	defer close(chain.plc)
 
 	for chain.running {
+		if chain.State == nil {
+			time.Sleep(300 * time.Millisecond)
+			continue
+		}
+
 		final, cache, stale := 0, 0, false
 		for i := 0; i < 2; i++ {
 			index := (chain.FinalIndex + i) % FinalPoolSlotsLimit
@@ -174,7 +179,7 @@ func (chain *Chain) QueuePollSnapshots() {
 				logger.Debugf("QueuePollSnapshots final round empty %s %d %d\n", chain.ChainId, chain.FinalIndex, index)
 				continue
 			}
-			if cs := chain.State; cs != nil && (round.Number < cs.CacheRound.Number || round.Number > cs.CacheRound.Number+1) {
+			if cs := chain.State; round.Number < cs.CacheRound.Number || round.Number > cs.CacheRound.Number+1 {
 				logger.Debugf("QueuePollSnapshots final round number bad %s %d %d %d\n", chain.ChainId, chain.FinalIndex, cs.CacheRound.Number, round.Number)
 				continue
 			}
@@ -207,7 +212,10 @@ func (chain *Chain) QueuePollSnapshots() {
 					break
 				}
 			}
+			logger.Debugf("QueuePollSnapshots final round done %s %d %d %d\n", chain.ChainId, chain.FinalIndex, round.Number, round.Size)
 		}
+
+		logger.Debugf("QueuePollSnapshots cache pool begin %s %d %d\n", chain.ChainId, chain.FinalIndex, chain.State.CacheRound.Number)
 		for {
 			item, err := chain.CachePool.Poll(false)
 			if err != nil || item == nil {
@@ -221,6 +229,8 @@ func (chain *Chain) QueuePollSnapshots() {
 			}
 			cache++
 		}
+		logger.Debugf("QueuePollSnapshots cache pool end %s %d %d\n", chain.ChainId, chain.FinalIndex, chain.State.CacheRound.Number)
+
 		if stale || final == 0 && cache == 0 {
 			time.Sleep(100 * time.Millisecond)
 		} else {
