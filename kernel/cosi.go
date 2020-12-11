@@ -213,7 +213,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	s, cd := m.Snapshot, m.data
 	s.Timestamp = uint64(clock.Now().UnixNano())
 	if chain.IsPledging() && s.RoundNumber == 0 && cd.TX.TransactionType() == common.TransactionTypeNodeAccept {
-	} else if chain.State.FinalRound == nil {
+	} else if chain.State == nil {
 		return nil
 	} else {
 		cache, final := chain.StateCopy()
@@ -313,7 +313,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 
 	s, cd := m.Snapshot, m.data
 	if chain.IsPledging() && s.RoundNumber == 0 {
-	} else if chain.State.FinalRound == nil {
+	} else if chain.State == nil {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v empty final round\n", m.PeerId, m.Snapshot)
 		return nil
 	} else {
@@ -539,7 +539,8 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		return nil
 	}
 
-	if cache := chain.State.CacheRound; cache != nil {
+	if chain.State != nil {
+		cache := chain.State.CacheRound
 		if s.RoundNumber < cache.Number {
 			logger.Debugf("ERROR cosiHandleFinalization expired round %s %s %d %d\n", m.PeerId, s.Hash, s.RoundNumber, cache.Number)
 			return nil
@@ -578,7 +579,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		}
 		return chain.node.reloadConsensusNodesList(s, tx)
 	}
-	if chain.State.FinalRound == nil {
+	if chain.State == nil {
 		logger.Debugf("ERROR cosiHandleFinalization without consensus%s %s\n", m.PeerId, s.Hash)
 		return nil
 	}

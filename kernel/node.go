@@ -281,7 +281,7 @@ func (node *Node) BuildGraph() []*network.SyncPoint {
 
 	points := make([]*network.SyncPoint, 0)
 	for _, chain := range node.chains.m {
-		if chain.State.CacheRound == nil {
+		if chain.State == nil {
 			continue
 		}
 		f := chain.State.FinalRound
@@ -381,11 +381,12 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 
 func (node *Node) CheckBroadcastedToPeers() bool {
 	chain := node.GetOrCreateChain(node.IdForNetwork)
-	final, count := uint64(0), 1
-	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()))
-	if r := chain.State.FinalRound; r != nil {
-		final = r.Number
+	if chain.State == nil {
+		return false
 	}
+
+	final, count := chain.State.FinalRound.Number, 1
+	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()))
 	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
 	for _, cn := range nodes {
 		remote := node.SyncPoints.Get(cn.IdForNetwork)
@@ -401,12 +402,13 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 
 func (node *Node) CheckCatchUpWithPeers() bool {
 	chain := node.GetOrCreateChain(node.IdForNetwork)
-	final, updated := uint64(0), 1
-	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()))
-	cache := chain.State.CacheRound
-	if r := chain.State.FinalRound; r != nil {
-		final = r.Number
+	if chain.State == nil {
+		return false
 	}
+
+	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()))
+	cache, updated := chain.State.CacheRound, 1
+	final := chain.State.FinalRound.Number
 
 	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
 	for _, cn := range nodes {

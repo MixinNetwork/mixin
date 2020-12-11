@@ -53,7 +53,7 @@ func (node *Node) LoadAllChains(store storage.Store, networkId crypto.Hash) erro
 		}
 
 		chain := node.GetOrCreateChain(cn.IdForNetwork)
-		if chain.State.CacheRound == nil {
+		if chain.State == nil {
 			continue
 		}
 		if t := chain.State.FinalRound.End; t > node.GraphTimestamp {

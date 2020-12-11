@@ -108,6 +108,9 @@ func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, final *FinalRo
 }
 
 func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, roundTime uint64, strict bool) error {
+	chain.RLock()
+	defer chain.RUnlock()
+
 	if final.NodeId == external.NodeId {
 		return fmt.Errorf("external reference self %s", final.NodeId)
 	}
@@ -118,6 +121,8 @@ func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, ro
 	if err != nil {
 		return err
 	}
+
+	// FIXME how does this happen?
 	if link != chain.State.RoundLinks[external.NodeId] {
 		panic(fmt.Errorf("should never be here %s=>%s %d %d", chain.ChainId, external.NodeId, link, chain.State.RoundLinks[external.NodeId]))
 	}
@@ -140,6 +145,9 @@ func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, ro
 }
 
 func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
+	chain.RLock()
+	defer chain.RUnlock()
+
 	if chain.ChainId != cache.NodeId {
 		panic("should never be here")
 	}
@@ -196,7 +204,10 @@ func (chain *Chain) determinBestRound(roundTime uint64) *FinalRound {
 	chain.node.chains.RLock()
 	defer chain.node.chains.RUnlock()
 
-	if chain.State.FinalRound == nil {
+	chain.RLock()
+	defer chain.RUnlock()
+
+	if chain.State == nil {
 		return nil
 	}
 

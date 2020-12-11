@@ -66,11 +66,8 @@ type Chain struct {
 
 func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 	chain := &Chain{
-		node:    node,
-		ChainId: chainId,
-		State: &ChainState{
-			RoundLinks: make(map[crypto.Hash]uint64),
-		},
+		node:             node,
+		ChainId:          chainId,
 		CosiAggregators:  make(map[crypto.Hash]*CosiAggregator),
 		CosiVerifiers:    make(map[crypto.Hash]*CosiVerifier),
 		CachePool:        util.NewRingBuffer(CachePoolSnapshotsLimit),
@@ -115,7 +112,7 @@ func (chain *Chain) Teardown() {
 }
 
 func (chain *Chain) IsPledging() bool {
-	return chain.State.FinalRound == nil && chain.ConsensusInfo != nil
+	return chain.State == nil && chain.ConsensusInfo != nil
 }
 
 func (chain *Chain) StateCopy() (*CacheRound, *FinalRound) {
@@ -126,24 +123,28 @@ func (chain *Chain) loadState() error {
 	chain.Lock()
 	defer chain.Unlock()
 
-	if chain.State.CacheRound != nil {
+	if chain.State != nil {
 		return nil
 	}
 	chain.ConsensusInfo = chain.node.getConsensusInfo(chain.ChainId)
+
+	state := &ChainState{
+		RoundLinks: make(map[crypto.Hash]uint64),
+	}
 
 	cache, err := loadHeadRoundForNode(chain.persistStore, chain.ChainId)
 	if err != nil || cache == nil {
 		return err
 	}
-	chain.State.CacheRound = cache
+	state.CacheRound = cache
 
 	final, err := loadFinalRoundForNode(chain.persistStore, chain.ChainId, cache.Number-1)
 	if err != nil {
 		return err
 	}
-	chain.State.FinalRound = final
+	state.FinalRound = final
+	state.RoundHistory = loadRoundHistoryForNode(chain.persistStore, final)
 	cache.Timestamp = final.Start + config.SnapshotRoundGap
-	chain.State.RoundHistory = loadRoundHistoryForNode(chain.persistStore, final)
 
 	allNodes := chain.node.NodesListWithoutState(uint64(clock.Now().UnixNano()), false)
 	for _, cn := range allNodes {
@@ -154,9 +155,10 @@ func (chain *Chain) loadState() error {
 		if err != nil {
 			return err
 		}
-		chain.State.RoundLinks[cn.IdForNetwork] = link
+		state.RoundLinks[cn.IdForNetwork] = link
 	}
 
+	chain.State = state
 	return nil
 }
 
@@ -172,9 +174,8 @@ func (chain *Chain) QueuePollSnapshots() {
 				logger.Debugf("QueuePollSnapshots final round empty %s %d %d\n", chain.ChainId, chain.FinalIndex, index)
 				continue
 			}
-			cr := chain.State.CacheRound
-			if cr != nil && (round.Number < cr.Number || round.Number > cr.Number+1) {
-				logger.Debugf("QueuePollSnapshots final round number bad %s %d %d %d\n", chain.ChainId, chain.FinalIndex, cr.Number, round.Number)
+			if cs := chain.State; cs != nil && (round.Number < cs.CacheRound.Number || round.Number > cs.CacheRound.Number+1) {
+				logger.Debugf("QueuePollSnapshots final round number bad %s %d %d %d\n", chain.ChainId, chain.FinalIndex, cs.CacheRound.Number, round.Number)
 				continue
 			}
 			if round.Timestamp > chain.node.GraphTimestamp+uint64(config.KernelNodeAcceptPeriodMaximum) {
@@ -263,7 +264,7 @@ func (chain *Chain) ConsumeFinalActions() {
 func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) (bool, error) {
 	logger.Debugf("appendFinalSnapshot(%s, %s)\n", peerId, s.Hash)
 	start, fi := uint64(0), chain.FinalIndex
-	if chain.State.CacheRound != nil {
+	if chain.State != nil {
 		start = chain.State.CacheRound.Number
 		pr := chain.FinalPool[fi]
 		if pr == nil || pr.Number == start || pr.Number+FinalPoolSlotsLimit == start {
@@ -325,7 +326,7 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	if s.NodeId != chain.ChainId {
 		panic("final queue malformed")
 	}
-	if cr := chain.State.CacheRound; cr != nil && cr.Number > s.RoundNumber {
+	if cs := chain.State; cs != nil && cs.CacheRound.Number > s.RoundNumber {
 		return nil
 	}
 	ps := &CosiAction{PeerId: peerId, Snapshot: s}

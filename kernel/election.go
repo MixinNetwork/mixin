@@ -25,7 +25,7 @@ func (node *Node) ElectionLoop() {
 	defer ticker.Stop()
 
 	chain := node.GetOrCreateChain(node.IdForNetwork)
-	for chain.State.CacheRound == nil {
+	for chain.State == nil {
 		select {
 		case <-node.done:
 			return
@@ -177,16 +177,13 @@ func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.Vers
 
 func (chain *Chain) checkNodeAcceptPossibility(timestamp uint64, s *common.Snapshot, finalized bool) error {
 	ci, epoch := chain.ConsensusInfo, chain.node.Epoch
-	if r := chain.State.CacheRound; r != nil {
-		return fmt.Errorf("invalid graph round %s %d", chain.ChainId, r.Number)
-	}
-	if r := chain.State.FinalRound; r != nil {
-		return fmt.Errorf("invalid graph round %s %d", chain.ChainId, r.Number)
+	if chain.State != nil {
+		return fmt.Errorf("invalid graph round %s %d", chain.ChainId, chain.State.CacheRound.Number)
 	}
 
 	pledging := chain.node.PledgingNode(timestamp)
-	if pledging == nil || chain.State.FinalRound != nil {
-		return fmt.Errorf("no consensus pledging node %t %t", pledging == nil, chain.State.FinalRound != nil)
+	if pledging == nil {
+		return fmt.Errorf("no consensus pledging node %t", pledging == nil)
 	}
 	if pledging.Signer.String() != ci.Signer.String() {
 		return fmt.Errorf("invalid consensus pledging node %s %s", pledging.Signer, ci.Signer)
@@ -358,6 +355,9 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 	}
 
 	chain := node.GetOrCreateChain(s.NodeId)
+	if err := chain.loadState(); err != nil {
+		return err
+	}
 	chain.assignNewGraphRound(final, cache)
 	return nil
 }
