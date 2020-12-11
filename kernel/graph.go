@@ -73,32 +73,29 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, finaliz
 	if external == nil {
 		return nil, false, fmt.Errorf("external round %s not collected yet", s.References.External)
 	}
-	updated, err := chain.updateExternal(final, external, s.Timestamp, !finalized)
-	if !updated || err != nil {
+	err = chain.updateExternal(final, external, s.Timestamp, !finalized)
+	if err != nil {
 		return nil, false, err
 	}
 
-	return final, false, err
+	return final, false, nil
 }
 
-func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, final *FinalRound, cache *CacheRound, references *common.RoundLink, strict bool) (bool, error) {
+func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, final *FinalRound, cache *CacheRound, references *common.RoundLink, timestamp uint64, strict bool) error {
 	if len(cache.Snapshots) != 0 {
-		logger.Verbosef("ERROR cosiHandleFinalization malformated head round references not empty %v\n", m)
-		return false, nil
+		return fmt.Errorf("malformated head round references not empty")
 	}
 	if references.Self != cache.References.Self {
-		logger.Verbosef("ERROR cosiHandleFinalization malformated head round references self diff %v\n", m)
-		return false, nil
+		return fmt.Errorf("malformated head round references self diff %s %s", references.Self, cache.References.Self)
 	}
 	external, err := chain.persistStore.ReadRound(references.External)
 	if err != nil || external == nil {
-		logger.Verbosef("ERROR cosiHandleFinalization head round references external not ready yet %v\n", m)
-		return false, err
+		return fmt.Errorf("round references external not ready yet %v %v", external, err)
 	}
 
-	updated, err := chain.updateExternal(final, external, cache.Timestamp, strict)
-	if !updated || err != nil {
-		return false, err
+	err = chain.updateExternal(final, external, timestamp, strict)
+	if err != nil {
+		return err
 	}
 
 	cache.References = references.Copy()
@@ -107,19 +104,19 @@ func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, final *FinalRo
 		panic(err)
 	}
 	chain.assignNewGraphRound(final, cache)
-	return true, nil
+	return nil
 }
 
-func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, roundTime uint64, strict bool) (bool, error) {
+func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, roundTime uint64, strict bool) error {
 	if final.NodeId == external.NodeId {
-		return false, nil
+		return fmt.Errorf("external reference self %s", final.NodeId)
 	}
 	if external.Number < chain.State.RoundLinks[external.NodeId] {
-		return false, nil
+		return fmt.Errorf("external reference back link %d %d", external.Number, chain.State.RoundLinks[external.NodeId])
 	}
 	link, err := chain.persistStore.ReadLink(final.NodeId, external.NodeId)
 	if err != nil {
-		return false, err
+		return err
 	}
 	if link != chain.State.RoundLinks[external.NodeId] {
 		panic(fmt.Errorf("should never be here %s=>%s %d %d", chain.ChainId, external.NodeId, link, chain.State.RoundLinks[external.NodeId]))
@@ -129,19 +126,17 @@ func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, ro
 		ec := chain.node.GetOrCreateChain(external.NodeId)
 		err := chain.checkRefernceSanity(ec, external, roundTime)
 		if err != nil {
-			logger.Verbosef("cosi updateExternal checkRefernceSanity error %s\n", err)
-			return false, nil
+			return fmt.Errorf("external refernce sanity %s", err)
 		}
 		threshold := external.Timestamp + config.SnapshotSyncRoundThreshold*config.SnapshotRoundGap*64
 		best := chain.determinBestRound(roundTime)
 		if best != nil && threshold < best.Start {
-			logger.Verbosef("cosi updateExternal external reference %s too early %s:%d %f\n", external.Hash, best.NodeId, best.Number, time.Duration(best.Start-threshold).Seconds())
-			return false, nil
+			return fmt.Errorf("external reference %s too early %s:%d %f", external.Hash, best.NodeId, best.Number, time.Duration(best.Start-threshold).Seconds())
 		}
 	}
 
 	chain.State.RoundLinks[external.NodeId] = external.Number
-	return true, nil
+	return nil
 }
 
 func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {

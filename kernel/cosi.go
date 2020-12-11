@@ -234,9 +234,10 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 			if best != nil && best.NodeId != final.NodeId && threshold < best.Start {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement new best external %s:%d:%d => %s:%d:%d\n", external.NodeId, external.Number, external.Timestamp, best.NodeId, best.Number, best.Start)
 				references := &common.RoundLink{Self: final.Hash, External: best.Hash}
-				_, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, references, true)
+				err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, references, s.Timestamp, true)
 				if err != nil {
-					return err
+					logger.Verbosef("ERROR cosiHandleFinalization updateEmptyHeadRoundAndPersist failed %s %s %v\n", m.PeerId, s.Hash, err)
+					return nil
 				}
 				return chain.clearAndQueueSnapshotOrPanic(s)
 			}
@@ -330,10 +331,10 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 			return nil
 		}
 		if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
-			updated, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References, true)
-			if err != nil || !updated {
-				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v updateEmptyHeadRoundAndPersist %s %t\n", m.PeerId, m.Snapshot, err, updated)
-				return err
+			err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References, s.Timestamp, true)
+			if err != nil {
+				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v updateEmptyHeadRoundAndPersist %v\n", m.PeerId, m.Snapshot, err)
+				return nil
 			}
 			return chain.AppendCosiAction(m)
 		}
@@ -588,10 +589,9 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 	}
 
 	if !s.References.Equal(cache.References) {
-		updated, err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References, false)
-		if err != nil || !updated {
-			logger.Debugf("ERROR cosiHandleFinalization updateEmptyHeadRoundAndPersist failed %s %s %v %t\n", m.PeerId, s.Hash, err, updated)
-			return err
+		err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References, s.Timestamp, false)
+		if err != nil {
+			logger.Debugf("ERROR cosiHandleFinalization updateEmptyHeadRoundAndPersist failed %s %s %v\n", m.PeerId, s.Hash, err)
 		}
 		return nil
 	}
