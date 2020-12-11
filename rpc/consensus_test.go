@@ -843,7 +843,7 @@ type Node struct {
 }
 
 func testListNodes(node string) []*Node {
-	data, err := callRPC(node, "listallnodes", []interface{}{})
+	data, err := callRPC(node, "listallnodes", []interface{}{0, false})
 	if err != nil {
 		panic(err)
 	}

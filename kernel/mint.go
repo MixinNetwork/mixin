@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"encoding/hex"
 	"fmt"
 	"sort"
 	"time"
@@ -158,7 +159,9 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 	}
 
 	if tx.PayloadHash() != signed.PayloadHash() {
-		return fmt.Errorf("malformed mint transaction at %d", timestamp)
+		th := hex.EncodeToString(tx.PayloadMarshal())
+		sh := hex.EncodeToString(signed.PayloadMarshal())
+		return fmt.Errorf("malformed mint transaction at %d %s %s", timestamp, th, sh)
 	}
 	return nil
 }

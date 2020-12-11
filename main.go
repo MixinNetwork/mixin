@@ -471,6 +471,18 @@ func main() {
 			Name:   "listallnodes",
 			Usage:  "List all nodes ever existed",
 			Action: listAllNodesCmd,
+			Flags: []cli.Flag{
+				&cli.Uint64Flag{
+					Name:  "threshold",
+					Value: 0,
+					Usage: "the threshold in Unix nanoseconds to build the nodes list",
+				},
+				&cli.BoolFlag{
+					Name:  "state",
+					Value: false,
+					Usage: "whether keep a full state queue",
+				},
+			},
 		},
 		{
 			Name:   "getinfo",

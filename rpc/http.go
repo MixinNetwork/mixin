@@ -152,7 +152,7 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 			renderer.RenderData(distributions)
 		}
 	case "listallnodes":
-		nodes, err := listAllNodes(impl.Store, impl.Node)
+		nodes, err := listAllNodes(impl.Store, impl.Node, call.Params)
 		if err != nil {
 			renderer.RenderError(err)
 		} else {

@@ -554,7 +554,10 @@ func listMintDistributionsCmd(c *cli.Context) error {
 }
 
 func listAllNodesCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "listallnodes", []interface{}{}, c.Bool("time"))
+	data, err := callRPC(c.String("node"), "listallnodes", []interface{}{
+		c.Uint64("threshold"),
+		c.Bool("state"),
+	}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}

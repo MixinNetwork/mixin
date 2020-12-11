@@ -17,7 +17,7 @@ const (
 	graphPrefixNodeOperation  = "NODEOPERATION"
 )
 
-func readAllNodes(txn *badger.Txn, offset uint64, withState bool) []*common.Node {
+func readAllNodes(txn *badger.Txn, threshold uint64, withState bool) []*common.Node {
 	it := txn.NewIterator(badger.DefaultIteratorOptions)
 	defer it.Close()
 
@@ -30,7 +30,7 @@ func readAllNodes(txn *badger.Txn, offset uint64, withState bool) []*common.Node
 		if err != nil {
 			panic(err)
 		}
-		if ts > offset {
+		if ts > threshold {
 			continue
 		}
 		n := &common.Node{
@@ -67,11 +67,11 @@ func readAllNodes(txn *badger.Txn, offset uint64, withState bool) []*common.Node
 	return nodes
 }
 
-func (s *BadgerStore) ReadAllNodes(offset uint64, withState bool) []*common.Node {
+func (s *BadgerStore) ReadAllNodes(threshold uint64, withState bool) []*common.Node {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	return readAllNodes(txn, offset, withState)
+	return readAllNodes(txn, threshold, withState)
 }
 
 func (s *BadgerStore) AddNodeOperation(tx *common.VersionedTransaction, timestamp, threshold uint64) error {
