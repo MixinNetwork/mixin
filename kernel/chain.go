@@ -227,9 +227,9 @@ func (chain *Chain) QueuePollSnapshots() {
 		logger.Debugf("QueuePollSnapshots cache pool end %s when final %d %d\n", chain.ChainId, chain.FinalIndex, chain.FinalCount)
 
 		if stale || final == 0 && cache == 0 {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(300 * time.Millisecond)
 		} else {
-			time.Sleep(1 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 }
