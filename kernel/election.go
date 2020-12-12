@@ -313,7 +313,8 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 	if err != nil {
 		return err
 	}
-	chain := node.GetOrCreateChain(node.IdForNetwork)
+
+	chain := node.GetOrCreateChain(s.NodeId)
 	err = chain.loadState()
 	if err != nil {
 		return err
@@ -321,7 +322,17 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 	if chain.ConsensusInfo == nil {
 		panic("should never be here")
 	}
-	chain = node.GetOrCreateChain(s.NodeId)
+
+	var signer common.Address
+	copy(signer.PublicSpendKey[:], tx.Extra)
+	signer.PrivateViewKey = signer.PublicSpendKey.DeterministicHashDerive()
+	signer.PublicViewKey = signer.PrivateViewKey.Public()
+	id := signer.Hash().ForNetwork(node.networkId)
+	if id == s.NodeId {
+		return nil
+	}
+
+	chain = node.GetOrCreateChain(id)
 	err = chain.loadState()
 	if err != nil {
 		return err
