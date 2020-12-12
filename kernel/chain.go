@@ -233,6 +233,7 @@ func (chain *Chain) QueuePollSnapshots() {
 }
 
 func (chain *Chain) StepForward() {
+	logger.Debugf("graph chain StepForward(%d, %d)\n", chain.FinalIndex, chain.FinalCount)
 	chain.FinalIndex = (chain.FinalIndex + 1) % FinalPoolSlotsLimit
 	chain.FinalCount = chain.FinalCount + 1
 }

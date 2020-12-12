@@ -162,9 +162,8 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 	}
 
 	rounds := chain.State.RoundHistory
-	if len(rounds) == 0 && final.Number == 0 {
-		logger.Printf("assign the first round %s %s\n", chain.node.IdForNetwork, chain.ChainId)
-	} else if n := rounds[len(rounds)-1].Number; n == final.Number {
+	if n := rounds[len(rounds)-1].Number; n == final.Number {
+		logger.Debugf("graph skip round %s %s %d\n", chain.node.IdForNetwork, chain.ChainId, final.Number)
 		return
 	} else if n+1 != final.Number {
 		panic(fmt.Errorf("should never be here %s %d %d", final.NodeId, final.Number, n))

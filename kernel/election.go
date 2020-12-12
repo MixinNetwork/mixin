@@ -344,6 +344,7 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 }
 
 func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
+	logger.Printf("finalizeNodeAcceptSnapshot(%v)\n", s)
 	cache := &CacheRound{
 		NodeId:    s.NodeId,
 		Number:    s.RoundNumber,
@@ -382,6 +383,7 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 	if err := chain.loadState(); err != nil {
 		return err
 	}
+	chain.StepForward()
 	chain.assignNewGraphRound(final, cache)
 	return nil
 }
