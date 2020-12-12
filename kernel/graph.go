@@ -288,6 +288,13 @@ func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto
 // Solution: Evil and slash.
 
 func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, publics []*crypto.Key, threshold int) bool {
+	if snap.String() == "b3ea56de6124ad2f3ad1d48f2aff8338b761e62bcde6f2f0acba63a32dd8eecc" &&
+		sig.String() == "dbb0347be24ecb8de3d66631d347fde724ff92e22e1f45deeb8b5d843fd62da39ca8e39de9f35f1e0f7336d4686917983470c098edc91f456d577fb18069620f000000003fdfe712" {
+		// FIXME this is a hack to fix the large round gap around node remove snapshot
+		// and a bug in too recent external reference, e.g. bare final round
+		return true
+	}
+
 	key := sig.Signature[:]
 	key = append(snap[:], key...)
 	for _, pub := range publics {
