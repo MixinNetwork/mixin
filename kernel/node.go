@@ -220,6 +220,7 @@ func (node *Node) LoadConsensusNodes() error {
 			Timestamp:    n.Timestamp,
 			State:        n.State,
 		}
+		logger.Printf("LoadConsensusNode %v\n", cnodes[i])
 	}
 	node.allNodesSortedWithState = cnodes
 	return nil

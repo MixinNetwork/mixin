@@ -88,16 +88,16 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 	return chain
 }
 
-func (node *Node) getConsensusInfo(id crypto.Hash) *CNode {
-	for _, n := range node.allNodesSortedWithState {
-		if id == n.IdForNetwork {
+func (chain *Chain) loadIdentity() *CNode {
+	for _, n := range chain.node.allNodesSortedWithState {
+		if chain.ChainId == n.IdForNetwork {
 			return n
 		}
 	}
-	if node.IdForNetwork == id {
+	if chain.node.IdForNetwork == chain.ChainId {
 		return &CNode{
-			IdForNetwork: id,
-			Signer:       node.Signer,
+			IdForNetwork: chain.ChainId,
+			Signer:       chain.node.Signer,
 		}
 	}
 	return nil
@@ -126,11 +126,9 @@ func (chain *Chain) loadState() error {
 	if chain.State != nil {
 		return nil
 	}
-	chain.ConsensusInfo = chain.node.getConsensusInfo(chain.ChainId)
 
-	state := &ChainState{
-		RoundLinks: make(map[crypto.Hash]uint64),
-	}
+	chain.ConsensusInfo = chain.loadIdentity()
+	state := &ChainState{RoundLinks: make(map[crypto.Hash]uint64)}
 
 	cache, err := loadHeadRoundForNode(chain.persistStore, chain.ChainId)
 	if err != nil || cache == nil {

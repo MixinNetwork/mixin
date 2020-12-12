@@ -707,7 +707,7 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 
 	chain := node.GetOrCreateChain(s.NodeId)
 	if !chain.verifyFinalization(s) {
-		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d\n", peerId, s, node.ConsensusThreshold(s.Timestamp))
+		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d %v %t %v %v\n", peerId, s, node.ConsensusThreshold(s.Timestamp), chain.ConsensusKeys(s.RoundNumber, s.Timestamp), chain.IsPledging(), chain.State, chain.ConsensusInfo)
 		return nil
 	}
 

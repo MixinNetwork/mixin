@@ -308,15 +308,28 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 	default:
 		return nil
 	}
+	logger.Printf("reloadConsensusNodesList(%v, %v)\n", s, tx)
 	err := node.LoadConsensusNodes()
 	if err != nil {
 		return err
 	}
-	err = node.GetOrCreateChain(node.IdForNetwork).loadState()
+	chain := node.GetOrCreateChain(node.IdForNetwork)
+	err = chain.loadState()
 	if err != nil {
 		return err
 	}
-	return node.GetOrCreateChain(s.NodeId).loadState()
+	if chain.ConsensusInfo == nil {
+		panic("should never be here")
+	}
+	chain = node.GetOrCreateChain(s.NodeId)
+	err = chain.loadState()
+	if err != nil {
+		return err
+	}
+	if chain.ConsensusInfo == nil {
+		panic("should never be here")
+	}
+	return nil
 }
 
 func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
