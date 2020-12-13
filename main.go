@@ -145,6 +145,17 @@ func main() {
 			},
 		},
 		{
+			Name:   "decodesignature",
+			Usage:  "Decode a signature",
+			Action: decodeSignatureCmd,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "signature",
+					Usage: "the cosi signature `HEX`",
+				},
+			},
+		},
+		{
 			Name:   "decryptghostkey",
 			Usage:  "Decrypt a ghost key with the private view key",
 			Action: decryptGhostCmd,

@@ -66,6 +66,18 @@ func decodeAddressCmd(c *cli.Context) error {
 	return nil
 }
 
+func decodeSignatureCmd(c *cli.Context) error {
+	var s struct{ S crypto.CosiSignature }
+	in := fmt.Sprintf(`{"S":"%s"}`, c.String("signature"))
+	err := json.Unmarshal([]byte(in), &s)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("signers:\t%v\n", s.S.Keys())
+	fmt.Printf("threshold:\t%d\n", len(s.S.Keys()))
+	return nil
+}
+
 func decryptGhostCmd(c *cli.Context) error {
 	view, err := crypto.KeyFromString(c.String("view"))
 	if err != nil {
