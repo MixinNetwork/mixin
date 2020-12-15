@@ -10,10 +10,6 @@ import (
 	"github.com/dgraph-io/badger/v2"
 )
 
-const (
-	TransactionScriptThresholdForkHack = "2a311e994281ab384f1d86fca7b7f2ef30ac34e5ba65dea16b976eb342e4f7ec"
-)
-
 func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool) (*common.VersionedTransaction, bool, error) {
 	tx, snap, err := node.persistStore.ReadTransaction(s.Transaction)
 	if err == nil && tx != nil {
@@ -30,8 +26,8 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 
 	err = tx.Validate(node.persistStore)
 	if err != nil {
-		if tx.PayloadHash().String() == TransactionScriptThresholdForkHack {
-			logger.Printf("the transaction script threshold is larger than %d\n", common.Operator64)
+		if transactionForkHackCheck(tx.PayloadHash()) {
+			logger.Printf("transaction fork hack %s\n", tx)
 		} else {
 			return nil, false, err
 		}
