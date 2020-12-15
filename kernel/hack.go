@@ -3,6 +3,7 @@ package kernel
 import "github.com/MixinNetwork/mixin/crypto"
 
 var (
+	TransactionEmptyOutputsForkHack    = "ed6114706e8a0491c6b254167a9812128f5b29e88594ff8656cc69f4e5b410ce"
 	TransactionScriptThresholdForkHack = "2a311e994281ab384f1d86fca7b7f2ef30ac34e5ba65dea16b976eb342e4f7ec"
 	TransactionDepositOutputsForkHacks = map[string]bool{
 		"5ae19842fa0d10ac13f4215a37f9eed3d7563f9af6a1b7ac3d412e05e49254b3": true,
@@ -109,8 +110,12 @@ var (
 )
 
 func transactionForkHackCheck(hash crypto.Hash) bool {
-	if hash.String() == TransactionScriptThresholdForkHack {
+	hs := hash.String()
+	if hs == TransactionEmptyOutputsForkHack {
 		return true
 	}
-	return TransactionDepositOutputsForkHacks[hash.String()]
+	if hs == TransactionScriptThresholdForkHack {
+		return true
+	}
+	return TransactionDepositOutputsForkHacks[hs]
 }
