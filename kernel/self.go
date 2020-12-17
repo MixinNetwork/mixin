@@ -27,7 +27,7 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 	err = tx.Validate(node.persistStore)
 	if err != nil {
 		if transactionForkHackCheck(tx.PayloadHash()) {
-			logger.Printf("transaction fork hack %s\n", tx)
+			logger.Printf("transaction fork hack %s\n", tx.PayloadHash())
 		} else {
 			return nil, false, err
 		}

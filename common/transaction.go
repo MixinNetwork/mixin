@@ -39,6 +39,7 @@ const (
 	TransactionTypeDomainAccept     = 0x10
 	TransactionTypeDomainRemove     = 0x11
 	TransactionTypeNodeCancel       = 0x12
+	TransactionTypeWithdrawalRebate = 0x13
 	TransactionTypeUnknown          = 0xff
 )
 
@@ -48,6 +49,7 @@ type Input struct {
 	Genesis []byte       `json:"genesis,omitempty"`
 	Deposit *DepositData `json:"deposit,omitempty"`
 	Mint    *MintData    `json:"mint,omitempty"`
+	Rebate  *RebateData  `msgpack:",omitempty"json:"rebate,omitempty"`
 }
 
 type Output struct {
@@ -105,6 +107,9 @@ func (tx *SignedTransaction) TransactionType() uint8 {
 		}
 		if in.Deposit != nil {
 			return TransactionTypeDeposit
+		}
+		if in.Rebate != nil {
+			return TransactionTypeWithdrawalRebate
 		}
 		if in.Genesis != nil {
 			return TransactionTypeUnknown

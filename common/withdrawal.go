@@ -10,6 +10,11 @@ import (
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 )
 
+type RebateData struct {
+	Chain           crypto.Hash `json:"chain"`
+	TransactionHash string      `json:"transaction"`
+}
+
 type WithdrawalData struct {
 	Chain    crypto.Hash `json:"chain"`
 	AssetKey string      `json:"asset"`
@@ -176,5 +181,9 @@ func (tx *SignedTransaction) validateWithdrawalClaim(store DataStore, inputs map
 	if !domainValid {
 		return fmt.Errorf("invalid domain signature for withdrawal claim")
 	}
+	return nil
+}
+
+func (tx *SignedTransaction) validateWithdrawalRebate() error {
 	return nil
 }

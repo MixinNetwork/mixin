@@ -57,6 +57,8 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 		return tx.validateWithdrawalFuel(store, inputsFilter)
 	case TransactionTypeWithdrawalClaim:
 		return tx.validateWithdrawalClaim(store, inputsFilter, msg)
+	case TransactionTypeWithdrawalRebate:
+		return tx.validateWithdrawalRebate()
 	case TransactionTypeNodePledge:
 		return tx.validateNodePledge(store, inputsFilter)
 	case TransactionTypeNodeCancel:
@@ -93,6 +95,11 @@ func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash cry
 
 		if in.Deposit != nil {
 			return inputsFilter, in.Deposit.Amount, nil
+		}
+
+		if in.Rebate != nil {
+			utxo, err := store.ReadUTXO(in.Hash, in.Index)
+			return inputsFilter, utxo.Amount, err
 		}
 
 		fk := fmt.Sprintf("%s:%d", in.Hash.String(), in.Index)
