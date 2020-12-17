@@ -250,28 +250,23 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 			if best.NodeId == final.NodeId {
 				panic("should never be here")
 			}
-
-			final = cache.asFinal()
-			cache = &CacheRound{
-				NodeId: s.NodeId,
-				Number: final.Number + 1,
-				References: &common.RoundLink{
-					Self:     final.Hash,
-					External: best.Hash,
-				},
+			s.RoundNumber = cache.Number + 1
+			s.References = &common.RoundLink{
+				Self:     cache.asFinal().Hash,
+				External: best.Hash,
 			}
-			err := chain.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
-			if err != nil {
-				panic(err)
+			nc, nf, _, err := chain.startNewRoundAndPersist(s, cache, false)
+			if err != nil || nf == nil {
+				logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement %s %v startNewRoundAndPersist %v %v\n", m.PeerId, m.Snapshot, err, nf)
+				return chain.clearAndQueueSnapshotOrPanic(s)
 			}
-			chain.assignNewGraphRound(final, cache)
+			cache, final = nc, nf
 		}
 		cache.Timestamp = s.Timestamp
 
 		if len(cache.Snapshots) > 0 && s.Timestamp > cache.Snapshots[0].Timestamp+uint64(config.SnapshotRoundGap*4/5) {
 			return chain.clearAndQueueSnapshotOrPanic(s)
 		}
-
 		s.RoundNumber = cache.Number
 		s.References = cache.References
 	}
@@ -552,7 +547,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		if s.RoundNumber == cache.Number+1 {
 			_, nf, dummy, err := chain.startNewRoundAndPersist(s, cache, true)
 			if err != nil || nf == nil {
-				logger.Verbosef("ERROR cosiHandleFinalization startNewRound %s %v\n", m.PeerId, s)
+				logger.Verbosef("ERROR cosiHandleFinalization startNewRound %s %v %v %v\n", m.PeerId, s, err, nf)
 				return nil
 			}
 			if dummy {

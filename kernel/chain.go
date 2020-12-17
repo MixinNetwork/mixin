@@ -161,6 +161,7 @@ func (chain *Chain) loadState() error {
 }
 
 func (chain *Chain) QueuePollSnapshots() {
+	logger.Printf("QueuePollSnapshots(%s)\n", chain.ChainId)
 	defer close(chain.plc)
 
 	for chain.running {
@@ -239,6 +240,7 @@ func (chain *Chain) StepForward() {
 }
 
 func (chain *Chain) ConsumeFinalActions() {
+	logger.Printf("ConsumeFinalActions(%s)\n", chain.ChainId)
 	defer close(chain.clc)
 
 	for chain.running {

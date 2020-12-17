@@ -118,8 +118,6 @@ func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, ro
 	if err != nil {
 		return err
 	}
-
-	// FIXME how does this happen?
 	if link != chain.State.RoundLinks[external.NodeId] {
 		panic(fmt.Errorf("should never be here %s=>%s %d %d", chain.ChainId, external.NodeId, link, chain.State.RoundLinks[external.NodeId]))
 	}
