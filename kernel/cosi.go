@@ -250,12 +250,8 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 			if best.NodeId == final.NodeId {
 				panic("should never be here")
 			}
-			s.RoundNumber = cache.Number + 1
-			s.References = &common.RoundLink{
-				Self:     cache.asFinal().Hash,
-				External: best.Hash,
-			}
-			nc, nf, _, err := chain.startNewRoundAndPersist(s, cache, false)
+			references := &common.RoundLink{Self: cache.asFinal().Hash, External: best.Hash}
+			nc, nf, _, err := chain.startNewRoundAndPersist(cache, references, s.Timestamp, false)
 			if err != nil || nf == nil {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement %s %v startNewRoundAndPersist %v %v\n", m.PeerId, m.Snapshot, err, nf)
 				return chain.clearAndQueueSnapshotOrPanic(s)
@@ -334,7 +330,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 			return chain.AppendCosiAction(m)
 		}
 		if s.RoundNumber == cache.Number+1 {
-			nc, nf, _, err := chain.startNewRoundAndPersist(s, cache, false)
+			nc, nf, _, err := chain.startNewRoundAndPersist(cache, s.References, s.Timestamp, false)
 			if err != nil {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v startNewRoundAndPersist %s\n", m.PeerId, m.Snapshot, err)
 				return chain.AppendCosiAction(m)
@@ -545,7 +541,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 			return nil
 		}
 		if s.RoundNumber == cache.Number+1 {
-			_, nf, dummy, err := chain.startNewRoundAndPersist(s, cache, true)
+			_, nf, dummy, err := chain.startNewRoundAndPersist(cache, s.References, s.Timestamp, true)
 			if err != nil || nf == nil {
 				logger.Verbosef("ERROR cosiHandleFinalization startNewRound %s %v %v %v\n", m.PeerId, s, err, nf)
 				return nil

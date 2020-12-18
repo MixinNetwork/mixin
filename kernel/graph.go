@@ -19,19 +19,19 @@ const (
 	MainnetNodeRemovalConsensusForkTimestamp = 1590000000000000000
 )
 
-func (chain *Chain) startNewRoundAndPersist(s *common.Snapshot, cache *CacheRound, finalized bool) (*CacheRound, *FinalRound, bool, error) {
+func (chain *Chain) startNewRoundAndPersist(cache *CacheRound, references *common.RoundLink, timestamp uint64, finalized bool) (*CacheRound, *FinalRound, bool, error) {
 	dummyExternal := cache.References.External
-	round, dummy, err := chain.startNewRound(s, cache, finalized)
+	round, dummy, err := chain.validateNewRound(cache, references, timestamp, finalized)
 	if err != nil {
 		return nil, nil, false, err
 	} else if round == nil {
 		return nil, nil, false, nil
 	}
 	cache = &CacheRound{
-		NodeId:     s.NodeId,
-		Number:     s.RoundNumber,
-		Timestamp:  s.Timestamp,
-		References: s.References.Copy(),
+		NodeId:     chain.ChainId,
+		Number:     round.Number + 1,
+		Timestamp:  timestamp,
+		References: references.Copy(),
 	}
 	if dummy {
 		cache.References.External = dummyExternal
@@ -45,25 +45,19 @@ func (chain *Chain) startNewRoundAndPersist(s *common.Snapshot, cache *CacheRoun
 	return cache, round, dummy, nil
 }
 
-func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, finalized bool) (*FinalRound, bool, error) {
+func (chain *Chain) validateNewRound(cache *CacheRound, references *common.RoundLink, timestamp uint64, finalized bool) (*FinalRound, bool, error) {
 	if chain.ChainId != cache.NodeId {
-		panic("should never be here")
-	}
-	if chain.ChainId != s.NodeId {
-		panic("should never be here")
-	}
-	if s.RoundNumber != cache.Number+1 {
 		panic("should never be here")
 	}
 	final := cache.asFinal()
 	if final == nil {
-		return nil, false, fmt.Errorf("self cache snapshots not collected yet %s %d", s.NodeId, s.RoundNumber)
+		return nil, false, fmt.Errorf("self cache snapshots not collected yet %s %d", chain.ChainId, cache.Number)
 	}
-	if s.References.Self != final.Hash {
-		return nil, false, fmt.Errorf("self cache snapshots not match yet %s %s", s.NodeId, s.References.Self)
+	if references.Self != final.Hash {
+		return nil, false, fmt.Errorf("self cache snapshots not match yet %s %s", chain.ChainId, references.Self)
 	}
 
-	external, err := chain.persistStore.ReadRound(s.References.External)
+	external, err := chain.persistStore.ReadRound(references.External)
 	if err != nil {
 		return nil, false, err
 	}
@@ -71,9 +65,9 @@ func (chain *Chain) startNewRound(s *common.Snapshot, cache *CacheRound, finaliz
 		return final, true, nil
 	}
 	if external == nil {
-		return nil, false, fmt.Errorf("external round %s not collected yet", s.References.External)
+		return nil, false, fmt.Errorf("external round %s not collected yet", references.External)
 	}
-	err = chain.updateExternal(final, external, s.Timestamp, !finalized)
+	err = chain.updateExternal(final, external, timestamp, !finalized)
 	if err != nil {
 		return nil, false, err
 	}
