@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/badger/v2"
 )
@@ -26,7 +27,7 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 
 	err = tx.Validate(node.persistStore)
 	if err != nil {
-		if transactionForkHackCheck(tx.PayloadHash()) {
+		if node.networkId.String() == config.MainnetId && transactionForkHackCheck(tx.PayloadHash()) {
 			logger.Printf("transaction fork hack %s\n", tx.PayloadHash())
 		} else {
 			return nil, false, err
