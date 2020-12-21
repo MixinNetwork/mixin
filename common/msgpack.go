@@ -5,9 +5,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/MixinNetwork/msgpack"
 	"github.com/gobuffalo/packr"
 	"github.com/valyala/gozstd"
+	"github.com/vmihailenco/msgpack/v4"
 )
 
 func init() {
