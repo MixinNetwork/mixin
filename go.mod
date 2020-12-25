@@ -12,6 +12,7 @@ require (
 	github.com/dgraph-io/badger/v2 v2.2007.2
 	github.com/dimfeld/httptreemux v5.0.1+incompatible
 	github.com/dsnet/compress v0.0.1 // indirect
+	github.com/ebfe/keccak v0.0.0-20150115210727-5cc570678d1b // indirect
 	github.com/ethereum/go-ethereum v1.9.25
 	github.com/gobuffalo/packr v1.30.1
 	github.com/gofrs/uuid v3.3.0+incompatible
@@ -19,6 +20,7 @@ require (
 	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/nwaples/rardecode v1.1.0 // indirect
+	github.com/paxosglobal/moneroutil v0.0.0-20170611151923-33d7e0c11a62
 	github.com/pelletier/go-toml v1.8.1
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
 	github.com/shopspring/decimal v1.2.0

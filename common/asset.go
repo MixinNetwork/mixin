@@ -7,6 +7,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
+	"github.com/MixinNetwork/mixin/domains/monero"
 )
 
 var (
@@ -28,6 +29,8 @@ func (a *Asset) Verify() error {
 		return ethereum.VerifyAssetKey(a.AssetKey)
 	case bitcoin.BitcoinChainId:
 		return bitcoin.VerifyAssetKey(a.AssetKey)
+	case monero.MoneroChainId:
+		return monero.VerifyAssetKey(a.AssetKey)
 	case eos.EOSChainId:
 		return eos.VerifyAssetKey(a.AssetKey)
 	default:
@@ -41,6 +44,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return ethereum.GenerateAssetId(a.AssetKey)
 	case bitcoin.BitcoinChainId:
 		return bitcoin.GenerateAssetId(a.AssetKey)
+	case monero.MoneroChainId:
+		return monero.GenerateAssetId(a.AssetKey)
 	case eos.EOSChainId:
 		return eos.GenerateAssetId(a.AssetKey)
 	default:
@@ -54,6 +59,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return ethereum.EthereumChainId
 	case bitcoin.BitcoinChainId:
 		return bitcoin.BitcoinChainId
+	case monero.MoneroChainId:
+		return monero.MoneroChainId
 	case eos.EOSChainId:
 		return eos.EOSChainId
 	}
