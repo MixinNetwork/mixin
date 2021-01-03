@@ -9,6 +9,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"github.com/MixinNetwork/mixin/domains/monero"
+	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
 	"github.com/MixinNetwork/mixin/domains/zcash"
 )
@@ -78,6 +79,8 @@ func (tx *SignedTransaction) validateWithdrawalSubmit(inputs map[string]*UTXO) e
 		return zcash.VerifyAddress(submit.Withdrawal.Address)
 	case siacoin.SiacoinChainId:
 		return siacoin.VerifyAddress(submit.Withdrawal.Address)
+	case polkadot.PolkadotChainId:
+		return polkadot.VerifyAddress(submit.Withdrawal.Address)
 	case eos.EOSChainId:
 		return eos.VerifyAddress(submit.Withdrawal.Address)
 	}

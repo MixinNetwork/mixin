@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"github.com/MixinNetwork/mixin/domains/monero"
+	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
 	"github.com/MixinNetwork/mixin/domains/zcash"
 )
@@ -37,6 +38,8 @@ func (a *Asset) Verify() error {
 		return zcash.VerifyAssetKey(a.AssetKey)
 	case siacoin.SiacoinChainId:
 		return siacoin.VerifyAssetKey(a.AssetKey)
+	case polkadot.PolkadotChainId:
+		return polkadot.VerifyAssetKey(a.AssetKey)
 	case eos.EOSChainId:
 		return eos.VerifyAssetKey(a.AssetKey)
 	default:
@@ -56,6 +59,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return zcash.GenerateAssetId(a.AssetKey)
 	case siacoin.SiacoinChainId:
 		return siacoin.GenerateAssetId(a.AssetKey)
+	case polkadot.PolkadotChainId:
+		return polkadot.GenerateAssetId(a.AssetKey)
 	case eos.EOSChainId:
 		return eos.GenerateAssetId(a.AssetKey)
 	default:
@@ -75,6 +80,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return zcash.ZcashChainId
 	case siacoin.SiacoinChainId:
 		return siacoin.SiacoinChainId
+	case polkadot.PolkadotChainId:
+		return polkadot.PolkadotChainId
 	case eos.EOSChainId:
 		return eos.EOSChainId
 	}
