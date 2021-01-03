@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"github.com/MixinNetwork/mixin/domains/monero"
+	"github.com/MixinNetwork/mixin/domains/siacoin"
 	"github.com/MixinNetwork/mixin/domains/zcash"
 )
 
@@ -60,6 +61,8 @@ func (tx *SignedTransaction) verifyDepositFormat() error {
 		return monero.VerifyTransactionHash(deposit.TransactionHash)
 	case zcash.ZcashChainId:
 		return zcash.VerifyTransactionHash(deposit.TransactionHash)
+	case siacoin.SiacoinChainId:
+		return siacoin.VerifyTransactionHash(deposit.TransactionHash)
 	case eos.EOSChainId:
 		return eos.VerifyTransactionHash(deposit.TransactionHash)
 	}
