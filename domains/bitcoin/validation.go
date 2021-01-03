@@ -33,7 +33,9 @@ func VerifyAssetKey(assetKey string) error {
 }
 
 func VerifyAddress(address string) error {
-	address = strings.TrimSpace(address)
+	if strings.TrimSpace(address) != address {
+		return fmt.Errorf("invalid bitcoin address %s", address)
+	}
 	btcAddress, err := btcutil.DecodeAddress(address, &chaincfg.MainNetParams)
 	if err != nil {
 		return fmt.Errorf("invalid bitcoin address %s %s", address, err.Error())

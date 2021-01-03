@@ -43,6 +43,9 @@ func VerifyAssetKey(assetKey string) error {
 }
 
 func VerifyAddress(address string) error {
+	if strings.TrimSpace(address) != address {
+		return fmt.Errorf("invalid ethereum address %s", address)
+	}
 	if len(address) != 42 {
 		return fmt.Errorf("invalid ethereum address %s", address)
 	}

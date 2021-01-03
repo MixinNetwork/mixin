@@ -29,6 +29,9 @@ func VerifyAssetKey(assetKey string) error {
 }
 
 func VerifyAddress(address string) error {
+	if strings.TrimSpace(address) != address {
+		return fmt.Errorf("invalid monero address %s", address)
+	}
 	addr := moneroutil.DecodeMoneroBase58(address)
 	if len(addr) != 69 {
 		return fmt.Errorf("invalid monero address %s", address)
