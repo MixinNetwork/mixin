@@ -15,7 +15,7 @@ require (
 	github.com/ebfe/keccak v0.0.0-20150115210727-5cc570678d1b // indirect
 	github.com/ethereum/go-ethereum v1.9.25
 	github.com/gobuffalo/packr v1.30.1
-	github.com/gofrs/uuid v3.3.0+incompatible
+	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/gorilla/handlers v1.5.1
 	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/mholt/archiver v3.1.1+incompatible
@@ -33,5 +33,5 @@ require (
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	gitlab.com/NebulousLabs/Sia v1.5.3
 	go.dedis.ch/kyber/v3 v3.0.13
-	golang.org/x/crypto v0.0.0-20201217014255-9d1352758620
+	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 )
