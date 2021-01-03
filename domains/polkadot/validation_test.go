@@ -12,8 +12,8 @@ func TestValidation(t *testing.T) {
 	assert := assert.New(t)
 
 	sc := "54c61a72-b982-4034-a556-0d99e3c21e39"
-	tx := "0x4e19029390b67d1c5b3b589939e268cd22d9495ecd8375d3d7143a6946e4a359"
-	addrMain := "16NyUzZDzKbQe4zY6D9PSLhYH6CeeQXP1BdMK9DgN4o29MBx"
+	tx := "0x69cb313180b82f8d98314fc57c09905acc82282df3d068091e2344ea35a85c5a"
+	addrMain := "13eM4Bgw55j93P7tiozfSjCkr55imbbiyso9MTG6YiQLaZSt"
 
 	assert.Nil(VerifyAssetKey(sc))
 	assert.NotNil(VerifyAssetKey(tx))

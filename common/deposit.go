@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"github.com/MixinNetwork/mixin/domains/monero"
+	"github.com/MixinNetwork/mixin/domains/zcash"
 )
 
 type DepositData struct {
@@ -57,6 +58,8 @@ func (tx *SignedTransaction) verifyDepositFormat() error {
 		return bitcoin.VerifyTransactionHash(deposit.TransactionHash)
 	case monero.MoneroChainId:
 		return monero.VerifyTransactionHash(deposit.TransactionHash)
+	case zcash.ZcashChainId:
+		return zcash.VerifyTransactionHash(deposit.TransactionHash)
 	case eos.EOSChainId:
 		return eos.VerifyTransactionHash(deposit.TransactionHash)
 	}
