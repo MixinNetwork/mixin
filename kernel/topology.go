@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/storage"
 )
 
@@ -21,6 +23,20 @@ func (node *Node) TopologicalOrder() uint64 {
 
 func (node *Node) SPS() float64 {
 	return node.TopoCounter.sps
+}
+
+type SnapshotWitness struct {
+	Signature *crypto.Signature `json:"signature"`
+	Timestamp uint64            `json:"timestamp"`
+}
+
+func (node *Node) WitnessSnapshot(s *common.SnapshotWithTopologicalOrder) *SnapshotWitness {
+	msg := crypto.NewHash(common.MsgpackMarshalPanic(s))
+	sig := node.Signer.PrivateSpendKey.Sign(msg[:])
+	return &SnapshotWitness{
+		Signature: &sig,
+		Timestamp: uint64(clock.Now().UnixNano()),
+	}
 }
 
 func (node *Node) TopoWrite(s *common.Snapshot) *common.SnapshotWithTopologicalOrder {

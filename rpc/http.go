@@ -131,14 +131,14 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 			renderer.RenderData(utxo)
 		}
 	case "getsnapshot":
-		snap, err := getSnapshot(impl.Store, call.Params)
+		snap, err := getSnapshot(impl.Node, impl.Store, call.Params)
 		if err != nil {
 			renderer.RenderError(err)
 		} else {
 			renderer.RenderData(snap)
 		}
 	case "listsnapshots":
-		snapshots, err := listSnapshots(impl.Store, call.Params)
+		snapshots, err := listSnapshots(impl.Node, impl.Store, call.Params)
 		if err != nil {
 			renderer.RenderError(err)
 		} else {
@@ -159,14 +159,14 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 			renderer.RenderData(nodes)
 		}
 	case "getroundbynumber":
-		round, err := getRoundByNumber(impl.Store, call.Params)
+		round, err := getRoundByNumber(impl.Node, impl.Store, call.Params)
 		if err != nil {
 			renderer.RenderError(err)
 		} else {
 			renderer.RenderData(round)
 		}
 	case "getroundbyhash":
-		round, err := getRoundByHash(impl.Store, call.Params)
+		round, err := getRoundByHash(impl.Node, impl.Store, call.Params)
 		if err != nil {
 			renderer.RenderError(err)
 		} else {

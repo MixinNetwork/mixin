@@ -26,7 +26,7 @@ func getRoundLink(store storage.Store, params []interface{}) (uint64, error) {
 	return store.ReadLink(from, to)
 }
 
-func getRoundByNumber(store storage.Store, params []interface{}) (map[string]interface{}, error) {
+func getRoundByNumber(kn *kernel.Node, store storage.Store, params []interface{}) (map[string]interface{}, error) {
 	if len(params) != 2 {
 		return nil, errors.New("invalid params count")
 	}
@@ -79,11 +79,11 @@ func getRoundByNumber(store storage.Store, params []interface{}) (map[string]int
 		"end":        end,
 		"number":     number,
 		"references": references,
-		"snapshots":  snapshotsToMap(snapshots, nil, false),
+		"snapshots":  snapshotsToMap(kn, snapshots, nil, false),
 	}, nil
 }
 
-func getRoundByHash(store storage.Store, params []interface{}) (map[string]interface{}, error) {
+func getRoundByHash(kn *kernel.Node, store storage.Store, params []interface{}) (map[string]interface{}, error) {
 	if len(params) != 1 {
 		return nil, errors.New("invalid params count")
 	}
@@ -126,6 +126,6 @@ func getRoundByHash(store storage.Store, params []interface{}) (map[string]inter
 		"end":        end,
 		"number":     round.Number,
 		"references": round.References,
-		"snapshots":  snapshotsToMap(snapshots, nil, false),
+		"snapshots":  snapshotsToMap(kn, snapshots, nil, false),
 	}, nil
 }

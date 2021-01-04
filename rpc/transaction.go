@@ -102,7 +102,7 @@ func getUTXO(store storage.Store, params []interface{}) (map[string]interface{},
 	return output, nil
 }
 
-func getSnapshot(store storage.Store, params []interface{}) (map[string]interface{}, error) {
+func getSnapshot(node *kernel.Node, store storage.Store, params []interface{}) (map[string]interface{}, error) {
 	if len(params) != 1 {
 		return nil, errors.New("invalid params count")
 	}
@@ -118,10 +118,10 @@ func getSnapshot(store storage.Store, params []interface{}) (map[string]interfac
 	if err != nil {
 		return nil, err
 	}
-	return snapshotToMap(snap, tx, true), nil
+	return snapshotToMap(node, snap, tx, true), nil
 }
 
-func listSnapshots(store storage.Store, params []interface{}) ([]map[string]interface{}, error) {
+func listSnapshots(node *kernel.Node, store storage.Store, params []interface{}) ([]map[string]interface{}, error) {
 	if len(params) != 4 {
 		return nil, errors.New("invalid params count")
 	}
@@ -144,26 +144,26 @@ func listSnapshots(store storage.Store, params []interface{}) ([]map[string]inte
 
 	if tx {
 		snapshots, transactions, err := store.ReadSnapshotWithTransactionsSinceTopology(offset, count)
-		return snapshotsToMap(snapshots, transactions, sig), err
+		return snapshotsToMap(node, snapshots, transactions, sig), err
 	}
 	snapshots, err := store.ReadSnapshotsSinceTopology(offset, count)
-	return snapshotsToMap(snapshots, nil, sig), err
+	return snapshotsToMap(node, snapshots, nil, sig), err
 }
 
-func snapshotsToMap(snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.VersionedTransaction, sig bool) []map[string]interface{} {
+func snapshotsToMap(node *kernel.Node, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.VersionedTransaction, sig bool) []map[string]interface{} {
 	tx := len(transactions) == len(snapshots)
 	result := make([]map[string]interface{}, len(snapshots))
 	for i, s := range snapshots {
 		if tx {
-			result[i] = snapshotToMap(s, transactions[i], sig)
+			result[i] = snapshotToMap(node, s, transactions[i], sig)
 		} else {
-			result[i] = snapshotToMap(s, nil, sig)
+			result[i] = snapshotToMap(node, s, nil, sig)
 		}
 	}
 	return result
 }
 
-func snapshotToMap(s *common.SnapshotWithTopologicalOrder, tx *common.VersionedTransaction, sig bool) map[string]interface{} {
+func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx *common.VersionedTransaction, sig bool) map[string]interface{} {
 	item := map[string]interface{}{
 		"version":    s.Version,
 		"node":       s.NodeId,
@@ -172,6 +172,7 @@ func snapshotToMap(s *common.SnapshotWithTopologicalOrder, tx *common.VersionedT
 		"timestamp":  s.Timestamp,
 		"hash":       s.Hash,
 		"topology":   s.TopologicalOrder,
+		"witness":    node.WitnessSnapshot(s),
 	}
 	if tx != nil {
 		item["transaction"] = transactionToMap(tx)
