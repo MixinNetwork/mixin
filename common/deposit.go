@@ -5,6 +5,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
+	"github.com/MixinNetwork/mixin/domains/dogecoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"github.com/MixinNetwork/mixin/domains/monero"
@@ -63,6 +64,8 @@ func (tx *SignedTransaction) verifyDepositFormat() error {
 		return monero.VerifyTransactionHash(deposit.TransactionHash)
 	case zcash.ZcashChainId:
 		return zcash.VerifyTransactionHash(deposit.TransactionHash)
+	case dogecoin.DogecoinChainId:
+		return dogecoin.VerifyTransactionHash(deposit.TransactionHash)
 	case siacoin.SiacoinChainId:
 		return siacoin.VerifyTransactionHash(deposit.TransactionHash)
 	case polkadot.PolkadotChainId:
