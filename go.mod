@@ -29,9 +29,9 @@ require (
 	github.com/unrolled/render v1.0.3
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/valyala/gozstd v1.9.0
-	github.com/vmihailenco/msgpack/v4 v4.0.0-00010101000000-000000000000
+	github.com/vmihailenco/msgpack/v4 v4.0.0
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	gitlab.com/NebulousLabs/Sia v1.5.3
 	go.dedis.ch/kyber/v3 v3.0.13
-	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
+	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
 )
