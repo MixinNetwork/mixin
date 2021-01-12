@@ -7,19 +7,15 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/MixinNetwork/mixin/crypto/edwards25519"
+	"filippo.io/edwards25519"
 )
 
 type Key [32]byte
 
 func NewKeyFromSeed(seed []byte) Key {
 	var key [32]byte
-	var src [64]byte
-	if len(seed) != len(src) {
-		panic(len(seed))
-	}
-	copy(src[:], seed)
-	edwards25519.ScReduce(&key, &src)
+	s := edwards25519.NewScalar().SetUniformBytes(seed)
+	copy(key[:], s.Bytes())
 	return key
 }
 
@@ -37,21 +33,49 @@ func KeyFromString(s string) (Key, error) {
 }
 
 func (k Key) CheckKey() bool {
-	var point edwards25519.ExtendedGroupElement
-	tmp := [32]byte(k)
-	return point.FromBytes(&tmp)
+	_, err := edwards25519.NewIdentityPoint().SetBytes(k[:])
+	return err == nil
 }
 
 func (k Key) CheckScalar() bool {
 	tmp := [32]byte(k)
-	return edwards25519.ScValid(&tmp)
+	return ScValid(&tmp)
+}
+
+func signum(a int64) int64 {
+	return a>>63 - ((-a) >> 63)
+}
+
+func load4(in []byte) int64 {
+	var r int64
+	r = int64(in[0])
+	r |= int64(in[1]) << 8
+	r |= int64(in[2]) << 16
+	r |= int64(in[3]) << 24
+	return r
+}
+
+func ScValid(s *[32]byte) bool {
+	s0 := load4(s[:])
+	s1 := load4(s[4:])
+	s2 := load4(s[8:])
+	s3 := load4(s[12:])
+	s4 := load4(s[16:])
+	s5 := load4(s[20:])
+	s6 := load4(s[24:])
+	s7 := load4(s[28:])
+	return (signum(1559614444-s0)+(signum(1477600026-s1)<<1)+(signum(2734136534-s2)<<2)+(signum(350157278-s3)<<3)+(signum(-s4)<<4)+(signum(-s5)<<5)+(signum(-s6)<<6)+(signum(268435456-s7)<<7))>>8 == 0
+
 }
 
 func (k Key) Public() Key {
-	var point edwards25519.ExtendedGroupElement
-	tmp := [32]byte(k)
-	edwards25519.GeScalarMultBase(&point, &tmp)
-	point.ToBytes(&tmp)
+	x, err := edwards25519.NewScalar().SetCanonicalBytes(k[:])
+	if err != nil {
+		panic(k.String())
+	}
+	v := edwards25519.NewIdentityPoint().ScalarBaseMult(x)
+	var tmp Key
+	copy(tmp[:], v.Bytes())
 	return tmp
 }
 
@@ -66,47 +90,37 @@ func (k Key) DeterministicHashDerive() Key {
 }
 
 func KeyMultPubPriv(pub, priv *Key) *Key {
-	if !pub.CheckKey() {
+	q, err := edwards25519.NewIdentityPoint().SetBytes(pub[:])
+	if err != nil {
 		panic(pub.String())
 	}
 	if !priv.CheckScalar() {
 		panic(priv.String())
 	}
+	x, err := edwards25519.NewScalar().SetCanonicalBytes(priv[:])
+	if err != nil {
+		panic(priv.String())
+	}
 
-	var point edwards25519.ExtendedGroupElement
-	var point2 edwards25519.ProjectiveGroupElement
-
-	tmp := [32]byte(*pub)
-	point.FromBytes(&tmp)
-	tmp = [32]byte(*priv)
-	edwards25519.GeScalarMult(&point2, &tmp, &point)
-
-	point2.ToBytes(&tmp)
-	key := Key(tmp)
+	v := edwards25519.NewIdentityPoint().ScalarMult(x, q)
+	var key Key
+	copy(key[:], v.Bytes())
 	return &key
 }
 
 func KeyAddPub(pub1, pub2 *Key) *Key {
-	if !pub1.CheckKey() {
+	p, err := edwards25519.NewIdentityPoint().SetBytes(pub1[:])
+	if err != nil {
 		panic(pub1.String())
 	}
-	if !pub2.CheckKey() {
+	q, err := edwards25519.NewIdentityPoint().SetBytes(pub2[:])
+	if err != nil {
 		panic(pub2.String())
 	}
 
-	var point1, point2 edwards25519.ExtendedGroupElement
-	var point3 edwards25519.CachedGroupElement
-	var point4 edwards25519.CompletedGroupElement
-	var point5 edwards25519.ProjectiveGroupElement
-	tmp := [32]byte(*pub1)
-	point1.FromBytes(&tmp)
-	tmp = [32]byte(*pub2)
-	point2.FromBytes(&tmp)
-	point2.ToCached(&point3)
-	edwards25519.GeAdd(&point4, &point1, &point3)
-	point4.ToProjective(&point5)
-	point5.ToBytes(&tmp)
-	key := Key(tmp)
+	v := edwards25519.NewIdentityPoint().Add(p, q)
+	var key Key
+	copy(key[:], v.Bytes())
 	return &key
 }
 
@@ -128,46 +142,54 @@ func (k *Key) MultScalar(outputIndex uint64) *Key {
 }
 
 func DeriveGhostPublicKey(r, A, B *Key, outputIndex uint64) *Key {
-	var point1, point2 edwards25519.ExtendedGroupElement
-	var point3 edwards25519.CachedGroupElement
-	var point4 edwards25519.CompletedGroupElement
-	var point5 edwards25519.ProjectiveGroupElement
-
-	tmp := [32]byte(*B)
-	point1.FromBytes(&tmp)
 	scalar := KeyMultPubPriv(A, r).MultScalar(outputIndex).HashScalar()
-	edwards25519.GeScalarMultBase(&point2, scalar)
-	point2.ToCached(&point3)
-	edwards25519.GeAdd(&point4, &point1, &point3)
-	point4.ToProjective(&point5)
-	point5.ToBytes(&tmp)
-	key := Key(tmp)
+	x, err := edwards25519.NewScalar().SetCanonicalBytes(scalar[:])
+	if err != nil {
+		panic(r.String())
+	}
+
+	p1, err := edwards25519.NewIdentityPoint().SetBytes(B[:])
+	if err != nil {
+		panic(B.String())
+	}
+	p2 := edwards25519.NewIdentityPoint().ScalarBaseMult(x)
+	p4 := edwards25519.NewIdentityPoint().Add(p1, p2)
+	var key Key
+	copy(key[:], p4.Bytes())
 	return &key
 }
 
 func DeriveGhostPrivateKey(R, a, b *Key, outputIndex uint64) *Key {
 	scalar := KeyMultPubPriv(R, a).MultScalar(outputIndex).HashScalar()
-	tmp := [32]byte(*b)
-	edwards25519.ScAdd(&tmp, &tmp, scalar)
-	key := Key(tmp)
+	x, err := edwards25519.NewScalar().SetCanonicalBytes(scalar[:])
+	if err != nil {
+		panic(a.String())
+	}
+	y, err := edwards25519.NewScalar().SetCanonicalBytes(b[:])
+	if err != nil {
+		panic(b.String())
+	}
+	t := edwards25519.NewScalar().Add(x, y)
+	var key Key
+	copy(key[:], t.Bytes())
 	return &key
 }
 
 func ViewGhostOutputKey(P, a, R *Key, outputIndex uint64) *Key {
-	var point1, point2 edwards25519.ExtendedGroupElement
-	var point3 edwards25519.CachedGroupElement
-	var point4 edwards25519.CompletedGroupElement
-	var point5 edwards25519.ProjectiveGroupElement
-
-	tmp := [32]byte(*P)
-	point1.FromBytes(&tmp)
 	scalar := KeyMultPubPriv(R, a).MultScalar(outputIndex).HashScalar()
-	edwards25519.GeScalarMultBase(&point2, scalar)
-	point2.ToCached(&point3)
-	edwards25519.GeSub(&point4, &point1, &point3)
-	point4.ToProjective(&point5)
-	point5.ToBytes(&tmp)
-	key := Key(tmp)
+	x, err := edwards25519.NewScalar().SetCanonicalBytes(scalar[:])
+	if err != nil {
+		panic(a.String())
+	}
+
+	p1, err := edwards25519.NewIdentityPoint().SetBytes(P[:])
+	if err != nil {
+		panic(P.String())
+	}
+	p2 := edwards25519.NewIdentityPoint().ScalarBaseMult(x)
+	p4 := edwards25519.NewIdentityPoint().Subtract(p1, p2)
+	var key Key
+	copy(key[:], p4.Bytes())
 	return &key
 }
 
@@ -178,7 +200,9 @@ func (k Key) HashScalar() *[32]byte {
 	copy(src[:32], hash[:])
 	hash = NewHash(hash[:])
 	copy(src[32:], hash[:])
-	edwards25519.ScReduce(&out, &src)
+
+	x := edwards25519.NewScalar().SetUniformBytes(src[:])
+	copy(out[:], x.Bytes())
 	return &out
 }
 

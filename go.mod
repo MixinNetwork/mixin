@@ -5,6 +5,7 @@ go 1.15
 replace github.com/vmihailenco/msgpack/v4 => github.com/MixinNetwork/msgpack/v4 v4.3.13
 
 require (
+	filippo.io/edwards25519 v1.0.0-beta.2
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/btcsuite/btcd v0.21.0-beta
 	github.com/btcsuite/btcutil v1.0.2

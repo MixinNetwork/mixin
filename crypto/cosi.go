@@ -7,7 +7,7 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/MixinNetwork/mixin/crypto/edwards25519"
+	"filippo.io/edwards25519"
 )
 
 type CosiSignature struct {
@@ -51,7 +51,7 @@ func CosiAggregateCommitment(randoms map[int]*Key) (*CosiSignature, error) {
 }
 
 func (c *CosiSignature) AggregateResponse(publics []*Key, responses map[int]*[32]byte, message []byte, strict bool) error {
-	var S *[32]byte
+	S := edwards25519.NewScalar()
 	var keys []*Key
 	for _, i := range c.Keys() {
 		if i >= len(publics) {
@@ -82,13 +82,14 @@ func (c *CosiSignature) AggregateResponse(publics []*Key, responses map[int]*[32
 				return fmt.Errorf("invalid cosi signature response %s", hex.EncodeToString(s[:]))
 			}
 		}
-		if S == nil {
-			S = s
-		} else {
-			edwards25519.ScAdd(S, S, s)
+
+		si, err := edwards25519.NewScalar().SetCanonicalBytes(s[:])
+		if err != nil {
+			return err
 		}
+		S = S.Add(S, si)
 	}
-	copy(c.Signature[32:], S[:])
+	copy(c.Signature[32:], S.Bytes())
 	return nil
 }
 
@@ -105,7 +106,8 @@ func (c *CosiSignature) Challenge(publics []*Key, message []byte) ([32]byte, err
 	h.Write(A[:])
 	h.Write(message)
 	h.Sum(hramDigest[:0])
-	edwards25519.ScReduce(&hramDigestReduced, &hramDigest)
+	si := edwards25519.NewScalar().SetUniformBytes(hramDigest[:])
+	copy(hramDigestReduced[:], si.Bytes())
 	return hramDigestReduced, nil
 }
 
@@ -117,9 +119,20 @@ func (c *CosiSignature) Response(privateKey, random *Key, publics []*Key, messag
 		return s, err
 	}
 
-	messageDigestReduced := [32]byte(*random)
-	expandedSecretKey := [32]byte(*privateKey)
-	edwards25519.ScMulAdd(&s, &hramDigestReduced, &expandedSecretKey, &messageDigestReduced)
+	x, err := edwards25519.NewScalar().SetCanonicalBytes(hramDigestReduced[:])
+	if err != nil {
+		panic(hramDigestReduced)
+	}
+	y, err := edwards25519.NewScalar().SetCanonicalBytes(privateKey[:])
+	if err != nil {
+		panic(privateKey.String())
+	}
+	z, err := edwards25519.NewScalar().SetCanonicalBytes(random[:])
+	if err != nil {
+		panic(random.String())
+	}
+	si := edwards25519.NewScalar().MultiplyAdd(x, y, z)
+	copy(s[:], si.Bytes())
 	return s, nil
 }
 
