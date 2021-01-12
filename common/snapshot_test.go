@@ -36,14 +36,15 @@ func TestSnapshot(t *testing.T) {
 	rand.Read(seed)
 	key := crypto.NewKeyFromSeed(seed)
 	sign(s, key)
+	key2 := crypto.NewKeyFromSeed(s.Signatures[0][:])
 	assert.Len(s.Signatures, 1)
 	assert.Len(s.VersionedPayload(), 136)
-	assert.False(checkSignature(s, key))
+	assert.False(checkSignature(s, key2.Public()))
 	assert.True(checkSignature(s, key.Public()))
 	sign(s, key)
 	assert.Len(s.Signatures, 1)
 	assert.Len(s.VersionedPayload(), 136)
-	assert.False(checkSignature(s, key))
+	assert.False(checkSignature(s, key2.Public()))
 	assert.True(checkSignature(s, key.Public()))
 }
 

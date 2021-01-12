@@ -93,35 +93,28 @@ func (c *CosiSignature) AggregateResponse(publics []*Key, responses map[int]*[32
 	return nil
 }
 
-func (c *CosiSignature) Challenge(publics []*Key, message []byte) ([32]byte, error) {
+func (c *CosiSignature) Challenge(publics []*Key, message []byte) (*edwards25519.Scalar, error) {
 	var hramDigest [64]byte
-	var hramDigestReduced [32]byte
 	R := c.Signature[:32]
 	A, err := c.AggregatePublicKey(publics)
 	if err != nil {
-		return hramDigestReduced, err
+		return nil, err
 	}
 	h := sha512.New()
 	h.Write(R)
 	h.Write(A[:])
 	h.Write(message)
 	h.Sum(hramDigest[:0])
-	si := edwards25519.NewScalar().SetUniformBytes(hramDigest[:])
-	copy(hramDigestReduced[:], si.Bytes())
-	return hramDigestReduced, nil
+	s := edwards25519.NewScalar().SetUniformBytes(hramDigest[:])
+	return s, nil
 }
 
 func (c *CosiSignature) Response(privateKey, random *Key, publics []*Key, message []byte) ([32]byte, error) {
 	var s [32]byte
 
-	hramDigestReduced, err := c.Challenge(publics, message)
+	x, err := c.Challenge(publics, message)
 	if err != nil {
 		return s, err
-	}
-
-	x, err := edwards25519.NewScalar().SetCanonicalBytes(hramDigestReduced[:])
-	if err != nil {
-		panic(hramDigestReduced)
 	}
 	y, err := edwards25519.NewScalar().SetCanonicalBytes(privateKey[:])
 	if err != nil {

@@ -81,7 +81,7 @@ func ScMinimal(scalar *[32]byte) bool {
 	return true
 }
 
-func (publicKey *Key) VerifyWithChallenge(message []byte, sig Signature, hReduced [32]byte) bool {
+func (publicKey *Key) VerifyWithChallenge(message []byte, sig Signature, a *edwards25519.Scalar) bool {
 	p, err := edwards25519.NewIdentityPoint().SetBytes(publicKey[:])
 	if err != nil {
 		panic(err)
@@ -95,10 +95,6 @@ func (publicKey *Key) VerifyWithChallenge(message []byte, sig Signature, hReduce
 		return false
 	}
 
-	a, err := edwards25519.NewScalar().SetCanonicalBytes(hReduced[:])
-	if err != nil {
-		panic(hReduced)
-	}
 	b, err := edwards25519.NewScalar().SetCanonicalBytes(sig[32:])
 	if err != nil {
 		panic(sig)
@@ -115,10 +111,8 @@ func (publicKey *Key) Verify(message []byte, sig Signature) bool {
 	var digest [64]byte
 	h.Sum(digest[:0])
 
-	var hReduced [32]byte
 	x := edwards25519.NewScalar().SetUniformBytes(digest[:])
-	copy(hReduced[:], x.Bytes())
-	return publicKey.VerifyWithChallenge(message, sig, hReduced)
+	return publicKey.VerifyWithChallenge(message, sig, x)
 }
 
 func (s Signature) String() string {
