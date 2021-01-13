@@ -37,37 +37,6 @@ func (k Key) CheckKey() bool {
 	return err == nil
 }
 
-func (k Key) CheckScalar() bool {
-	tmp := [32]byte(k)
-	return ScValid(&tmp)
-}
-
-func signum(a int64) int64 {
-	return a>>63 - ((-a) >> 63)
-}
-
-func load4(in []byte) int64 {
-	var r int64
-	r = int64(in[0])
-	r |= int64(in[1]) << 8
-	r |= int64(in[2]) << 16
-	r |= int64(in[3]) << 24
-	return r
-}
-
-func ScValid(s *[32]byte) bool {
-	s0 := load4(s[:])
-	s1 := load4(s[4:])
-	s2 := load4(s[8:])
-	s3 := load4(s[12:])
-	s4 := load4(s[16:])
-	s5 := load4(s[20:])
-	s6 := load4(s[24:])
-	s7 := load4(s[28:])
-	return (signum(1559614444-s0)+(signum(1477600026-s1)<<1)+(signum(2734136534-s2)<<2)+(signum(350157278-s3)<<3)+(signum(-s4)<<4)+(signum(-s5)<<5)+(signum(-s6)<<6)+(signum(268435456-s7)<<7))>>8 == 0
-
-}
-
 func (k Key) Public() Key {
 	x, err := edwards25519.NewScalar().SetCanonicalBytes(k[:])
 	if err != nil {
@@ -93,9 +62,6 @@ func KeyMultPubPriv(pub, priv *Key) *edwards25519.Point {
 	q, err := edwards25519.NewIdentityPoint().SetBytes(pub[:])
 	if err != nil {
 		panic(pub.String())
-	}
-	if !priv.CheckScalar() {
-		panic(priv.String())
 	}
 	x, err := edwards25519.NewScalar().SetCanonicalBytes(priv[:])
 	if err != nil {
