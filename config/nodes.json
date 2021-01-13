@@ -27,19 +27,25 @@
     "host": "mixin-node0.exinpool.com:7239"
   },
   {
-    "host": "mixin-node0.eoslaomao.com:443"
-  },
-  {
-    "host": "mixin-node1.eoslaomao.com:443"
-  },
-  {
-    "host": "node-box.f1ex.io:7239"
+    "host": "mixin-node1.exinpool.com:7239"
   },
   {
     "host": "node-candy.f1ex.io:7239"
   },
   {
+    "host": "node-box.f1ex.io:7239"
+  },
+  {
+    "host": "node-box-2.f1ex.io:7239"
+  },
+  {
     "host": "node-42.f1ex.io:7239"
+  },
+  {
+    "host": "mixin-node0.eoslaomao.com:443"
+  },
+  {
+    "host": "mixin-node1.eoslaomao.com:443"
   },
   {
     "host": "35.234.74.25:7239"
@@ -57,10 +63,10 @@
     "host": "35.185.16.229:7239"
   },
   {
-    "host": "mixin-node-01.poolin.com:7239"
+    "host": "35.227.72.6:7239"
   },
   {
-    "host": "35.227.72.6:7239"
+    "host": "mixin-node-01.poolin.com:7239"
   },
   {
     "host": "35.237.226.29:7239"
@@ -84,6 +90,21 @@
     "host": "3.15.58.214:7239"
   },
   {
-    "host": "mixin-node1.exinpool.com:7239"
+    "host": "3.213.97.106:7239"
+  },
+  {
+    "host": "50.17.96.121:7239"
+  },
+  {
+    "host": "52.198.28.182:7239"
+  },
+  {
+    "host": "18.180.214.206:7239"
+  },
+  {
+    "host": "44.233.85.154:7239"
+  },
+  {
+    "host": "54.188.62.72:7239"
   }
 ]
