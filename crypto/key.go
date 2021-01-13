@@ -72,22 +72,6 @@ func KeyMultPubPriv(pub, priv *Key) *edwards25519.Point {
 	return v
 }
 
-func KeyAddPub(pub1, pub2 *Key) *Key {
-	p, err := edwards25519.NewIdentityPoint().SetBytes(pub1[:])
-	if err != nil {
-		panic(pub1.String())
-	}
-	q, err := edwards25519.NewIdentityPoint().SetBytes(pub2[:])
-	if err != nil {
-		panic(pub2.String())
-	}
-
-	v := edwards25519.NewIdentityPoint().Add(p, q)
-	var key Key
-	copy(key[:], v.Bytes())
-	return &key
-}
-
 func HashScalar(k *edwards25519.Point, outputIndex uint64) *edwards25519.Scalar {
 	tmp := make([]byte, 12)
 	length := binary.PutUvarint(tmp, outputIndex)

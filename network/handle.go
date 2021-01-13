@@ -78,7 +78,7 @@ func (me *Peer) SendTransactionChallengeMessage(idForNetwork crypto.Hash, snap c
 	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeTransactionChallenge, data)
 }
 
-func (me *Peer) SendSnapshotResponseMessage(idForNetwork crypto.Hash, snap crypto.Hash, si [32]byte) error {
+func (me *Peer) SendSnapshotResponseMessage(idForNetwork crypto.Hash, snap crypto.Hash, si *[32]byte) error {
 	data := buildSnapshotResponseMessage(snap, si)
 	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeSnapshotResponse, data)
 }
@@ -167,7 +167,7 @@ func buildTransactionChallengeMessage(snap crypto.Hash, cosi *crypto.CosiSignatu
 	return data
 }
 
-func buildSnapshotResponseMessage(snap crypto.Hash, si [32]byte) []byte {
+func buildSnapshotResponseMessage(snap crypto.Hash, si *[32]byte) []byte {
 	data := []byte{PeerMessageTypeSnapshotResponse}
 	data = append(data, snap[:]...)
 	return append(data, si[:]...)

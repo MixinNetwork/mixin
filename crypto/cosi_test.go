@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"filippo.io/edwards25519"
 	"github.com/stretchr/testify/assert"
 	"go.dedis.ch/kyber/v3/xof/blake2xb"
 )
@@ -24,17 +25,17 @@ func TestCosi(t *testing.T) {
 		publics[i] = &pub
 	}
 
-	var aggregatedPublic *Key
+	P := edwards25519.NewIdentityPoint()
 	for i, k := range publics {
 		if i >= len(publics)*2/3+1 {
 			break
 		}
-		if aggregatedPublic == nil {
-			aggregatedPublic = k
-		} else {
-			aggregatedPublic = KeyAddPub(aggregatedPublic, k)
-		}
+		p, err := edwards25519.NewIdentityPoint().SetBytes(k[:])
+		assert.Nil(err)
+		P = P.Add(P, p)
 	}
+	var aggregatedPublic Key
+	copy(aggregatedPublic[:], P.Bytes())
 	assert.Equal("5ca50e13ae2a966bb810d49892f7ebd4ba8bf03957478e0ae0221b0d1fd7da55", aggregatedPublic.String())
 
 	randReader := blake2xb.New(nil)
@@ -67,9 +68,9 @@ func TestCosi(t *testing.T) {
 	for i := 0; i < len(masks); i++ {
 		s, err := cosi.Response(keys[masks[i]], randKeys[i], publics, message)
 		assert.Nil(err)
-		responses[masks[i]] = &s
+		responses[masks[i]] = s
 		assert.Equal("81a085ca768adc4901b5484ecc3cdbb4eee68307f78cd5ea041d7d4425496bd100000000000000000000000000000000000000000000000000000000000000000000000000fffc7f", cosi.String())
-		err = cosi.VerifyResponse(publics, masks[i], &s, message)
+		err = cosi.VerifyResponse(publics, masks[i], s, message)
 		assert.Nil(err)
 	}
 

@@ -30,23 +30,21 @@ func CosiCommit(randReader io.Reader) *Key {
 }
 
 func CosiAggregateCommitment(randoms map[int]*Key) (*CosiSignature, error) {
-	var encodedR *Key
-	cosi := CosiSignature{
-		commitments: make(map[int]*Key),
-	}
+	cosi := CosiSignature{commitments: make(map[int]*Key)}
+	P := edwards25519.NewIdentityPoint()
 	for i, R := range randoms {
-		if encodedR == nil {
-			encodedR = R
-		} else {
-			encodedR = KeyAddPub(encodedR, R)
+		p, err := edwards25519.NewIdentityPoint().SetBytes(R[:])
+		if err != nil {
+			return nil, err
 		}
-		err := cosi.Mark(i)
+		P = P.Add(P, p)
+		err = cosi.Mark(i)
 		if err != nil {
 			return nil, err
 		}
 		cosi.commitments[i] = R
 	}
-	copy(cosi.Signature[:32], encodedR[:])
+	copy(cosi.Signature[:32], P.Bytes())
 	return &cosi, nil
 }
 
@@ -109,12 +107,10 @@ func (c *CosiSignature) Challenge(publics []*Key, message []byte) (*edwards25519
 	return s, nil
 }
 
-func (c *CosiSignature) Response(privateKey, random *Key, publics []*Key, message []byte) ([32]byte, error) {
-	var s [32]byte
-
+func (c *CosiSignature) Response(privateKey, random *Key, publics []*Key, message []byte) (*[32]byte, error) {
 	x, err := c.Challenge(publics, message)
 	if err != nil {
-		return s, err
+		return nil, err
 	}
 	y, err := edwards25519.NewScalar().SetCanonicalBytes(privateKey[:])
 	if err != nil {
@@ -124,9 +120,10 @@ func (c *CosiSignature) Response(privateKey, random *Key, publics []*Key, messag
 	if err != nil {
 		panic(random.String())
 	}
+	var s [32]byte
 	si := edwards25519.NewScalar().MultiplyAdd(x, y, z)
 	copy(s[:], si.Bytes())
-	return s, nil
+	return &s, nil
 }
 
 func (c *CosiSignature) VerifyResponse(publics []*Key, signer int, s *[32]byte, message []byte) error {
@@ -177,19 +174,20 @@ func (c *CosiSignature) Keys() []int {
 }
 
 func (c *CosiSignature) AggregatePublicKey(publics []*Key) (*Key, error) {
-	var key *Key
+	P := edwards25519.NewIdentityPoint()
 	for _, i := range c.Keys() {
 		if i >= len(publics) {
 			return nil, fmt.Errorf("invalid cosi signature mask index %d/%d", i, len(publics))
 		}
-		k := publics[i]
-		if key == nil {
-			key = k
-		} else {
-			key = KeyAddPub(key, k)
+		p, err := edwards25519.NewIdentityPoint().SetBytes(publics[i][:])
+		if err != nil {
+			return nil, err
 		}
+		P = P.Add(P, p)
 	}
-	return key, nil
+	var key Key
+	copy(key[:], P.Bytes())
+	return &key, nil
 }
 
 func (c *CosiSignature) ThresholdVerify(threshold int) bool {

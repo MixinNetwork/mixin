@@ -392,7 +392,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	if err != nil {
 		return err
 	}
-	ann.Responses[cd.CN.ConsensusIndex] = &response
+	ann.Responses[cd.CN.ConsensusIndex] = response
 	copy(cosi.Signature[32:], response[:])
 
 	nodes := chain.node.NodesListWithoutState(s.Timestamp, true)
