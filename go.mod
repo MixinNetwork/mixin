@@ -25,14 +25,14 @@ require (
 	github.com/pelletier/go-toml v1.8.1
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
 	github.com/shopspring/decimal v1.2.0
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.6.1
 	github.com/ulikunitz/xz v0.5.9 // indirect
 	github.com/unrolled/render v1.0.3
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/valyala/gozstd v1.9.0
 	github.com/vmihailenco/msgpack/v4 v4.0.0
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
-	gitlab.com/NebulousLabs/Sia v1.5.3
+	gitlab.com/NebulousLabs/Sia v1.5.4
 	go.dedis.ch/kyber/v3 v3.0.13
-	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
+	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 )
