@@ -6,6 +6,7 @@ replace github.com/vmihailenco/msgpack/v4 => github.com/MixinNetwork/msgpack/v4 
 
 require (
 	filippo.io/edwards25519 v1.0.0-beta.2
+	github.com/MixinNetwork/mobilecoin-go v0.0.0-20210114164125-27714998b141
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/btcsuite/btcd v0.21.0-beta
 	github.com/btcsuite/btcutil v1.0.2
@@ -25,7 +26,7 @@ require (
 	github.com/pelletier/go-toml v1.8.1
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
 	github.com/shopspring/decimal v1.2.0
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	github.com/ulikunitz/xz v0.5.9 // indirect
 	github.com/unrolled/render v1.0.3
 	github.com/urfave/cli/v2 v2.3.0

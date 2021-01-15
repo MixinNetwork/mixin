@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/dogecoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
+	"github.com/MixinNetwork/mixin/domains/mobilecoin"
 	"github.com/MixinNetwork/mixin/domains/monero"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
@@ -48,6 +49,8 @@ func (a *Asset) Verify() error {
 		return eos.VerifyAssetKey(a.AssetKey)
 	case tron.TronChainId:
 		return tron.VerifyAssetKey(a.AssetKey)
+	case mobilecoin.MobileCoinChainId:
+		return mobilecoin.VerifyAssetKey(a.AssetKey)
 	default:
 		return fmt.Errorf("invalid chain id %s", a.ChainId)
 	}
@@ -73,6 +76,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return eos.GenerateAssetId(a.AssetKey)
 	case tron.TronChainId:
 		return tron.GenerateAssetId(a.AssetKey)
+	case mobilecoin.MobileCoinChainId:
+		return mobilecoin.GenerateAssetId(a.AssetKey)
 	default:
 		return crypto.Hash{}
 	}
@@ -98,6 +103,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return eos.EOSChainId
 	case tron.TronChainId:
 		return tron.TronChainId
+	case mobilecoin.MobileCoinChainId:
+		return mobilecoin.MobileCoinChainId
 	}
 	return crypto.Hash{}
 }
