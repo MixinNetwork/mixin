@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/dogecoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
+	"github.com/MixinNetwork/mixin/domains/mobilecoin"
 	"github.com/MixinNetwork/mixin/domains/monero"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
@@ -74,6 +75,8 @@ func (tx *SignedTransaction) verifyDepositFormat() error {
 		return eos.VerifyTransactionHash(deposit.TransactionHash)
 	case tron.TronChainId:
 		return tron.VerifyTransactionHash(deposit.TransactionHash)
+	case mobilecoin.MobileCoinChainId:
+		return mobilecoin.VerifyTransactionHash(deposit.TransactionHash)
 	}
 	return fmt.Errorf("invalid deposit chain id %s", chainId)
 }
