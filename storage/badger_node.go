@@ -30,6 +30,9 @@ func readAllNodes(txn *badger.Txn, threshold uint64, withState bool) []*common.N
 		if err != nil {
 			panic(err)
 		}
+		if ts == 0 {
+			panic(fmt.Errorf("invalid node timestamp %s", signer.String()))
+		}
 		if ts > threshold {
 			continue
 		}
