@@ -66,9 +66,6 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*CNode
 
 	var candi *CNode
 	for _, cn := range node.NodesListWithoutState(now, false) {
-		if cn.Timestamp == 0 {
-			cn.Timestamp = node.Epoch
-		}
 		if now < cn.Timestamp {
 			return nil, fmt.Errorf("invalid timestamp %d %d", cn.Timestamp, now)
 		}
@@ -432,9 +429,6 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	copy(signerSpend[:], tx.Extra)
 	offset := timestamp + uint64(config.KernelNodePledgePeriodMinimum)
 	for _, cn := range node.NodesListWithoutState(offset, false) {
-		if cn.Timestamp == 0 {
-			cn.Timestamp = node.Epoch
-		}
 		if timestamp < cn.Timestamp {
 			return fmt.Errorf("invalid snapshot timestamp %d %d", cn.Timestamp, timestamp)
 		}
