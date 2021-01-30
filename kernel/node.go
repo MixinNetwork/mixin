@@ -60,11 +60,6 @@ type CNode struct {
 }
 
 func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fastcache.Cache, addr string, dir string) (*Node, error) {
-	err := persistStore.TryToMigrateNodeStateQueue()
-	if err != nil {
-		return nil, err
-	}
-
 	var node = &Node{
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
 		chains:          &chainsMap{m: make(map[crypto.Hash]*Chain)},
@@ -82,7 +77,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 
 	node.LoadNodeConfig()
 
-	err = node.LoadGenesis(dir)
+	err := node.LoadGenesis(dir)
 	if err != nil {
 		return nil, err
 	}

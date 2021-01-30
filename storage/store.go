@@ -8,8 +8,6 @@ import (
 type Store interface {
 	Close() error
 
-	TryToMigrateNodeStateQueue() error
-
 	CheckGenesisLoad(snapshots []*common.SnapshotWithTopologicalOrder) (bool, error)
 	LoadGenesis(rounds []*common.Round, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.VersionedTransaction) error
 	ReadAllNodes(threshold uint64, withState bool) []*common.Node
