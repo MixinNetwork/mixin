@@ -16,7 +16,6 @@ import (
 
 const (
 	MainnetAcceptPeriodForkSnapshotHash = "b8855c19a38999f283d9be6daa45147aef47cc6d35007673f62390c2e137e4e1"
-	MainnetMinimumAcceptedNodesCount    = 7
 )
 
 var (
@@ -120,7 +119,7 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*CNode
 			return nil, fmt.Errorf("invalid node pending state %s %s", cn.Signer, cn.State)
 		}
 	}
-	if len(accepted) <= MainnetMinimumAcceptedNodesCount {
+	if len(accepted) <= config.KernelMinimumNodesCount {
 		return nil, fmt.Errorf("all old nodes removed %d", len(accepted))
 	}
 	candi := accepted[0]

@@ -21,6 +21,8 @@ const (
 	WithdrawalClaimFee         = "0.0001"
 	GossipSize                 = 3
 
+	KernelMinimumNodesCount = 7
+
 	KernelMintTimeBegin = 7
 	KernelMintTimeEnd   = 9
 

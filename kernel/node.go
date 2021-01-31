@@ -184,8 +184,8 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 			}
 		}
 	}
-	if consensusBase < len(node.genesisNodes) {
-		logger.Debugf("invalid consensus base %d %d %d\n", timestamp, consensusBase, len(node.genesisNodes))
+	if consensusBase < config.KernelMinimumNodesCount {
+		logger.Debugf("invalid consensus base %d %d %d\n", timestamp, consensusBase, config.KernelMinimumNodesCount)
 		return 1000
 	}
 	return consensusBase*2/3 + 1
