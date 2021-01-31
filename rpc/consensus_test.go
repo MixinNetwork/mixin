@@ -405,7 +405,7 @@ func testConsensus(t *testing.T, dup int) {
 	assert.True(gt.Timestamp.After(epoch.Add((config.KernelMintTimeBegin + 24) * time.Hour)))
 	assert.Equal("499876.71232883", gt.PoolSize.String())
 
-	kernel.TestMockDiff(364 * 24 * time.Hour)
+	kernel.TestMockDiff(24 * time.Hour)
 	time.Sleep(3 * time.Second)
 	tl, _ = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1, len(tl))
@@ -423,8 +423,11 @@ func testConsensus(t *testing.T, dup int) {
 		assert.Equal("ACCEPTED", all[NODES].State)
 	}
 	t.Log("ACCEPT TEST DONE", time.Now())
+	nodes = append(nodes, &Node{Host: "127.0.0.1:18099"})
 
-	signer, payee := testGetNodeToRemove(instances[0].NetworkId(), accounts, payees)
+	signer, payee := testGetNodeToRemove(instances[0].NetworkId(), accounts, payees, 0)
+	assert.Equal("XINGmuYCB65rzMgUf1W35pbhj4C7fY9JrzWCL5vGRdL84SPcWVPhtBJ7DAarc1QPt564JwbEdNCH8359kdPRH1ieSM9f96RZ", signer.String())
+	assert.Equal("XINMeKsKkSJJCgLWKvakEHaXBNPGfF7RmBu9jx5VZLE6UTuEaW4wSEqVybkH4xhQcqkT5jdiguiN3B3NKt8QBZTUbqZXJ1Fq", payee.String())
 	input = testSendDummyTransaction(assert, nodes[0].Host, accounts[0], input, "3.5")
 	t.Logf("DUMMY 2 %s\n", input)
 	assert.Len(input, 64)
@@ -458,12 +461,68 @@ func testConsensus(t *testing.T, dup int) {
 	assert.NotNil(hr)
 	assert.Greater(hr.Round, uint64(0))
 
-	input = testSendDummyTransaction(assert, nodes[0].Host, payee, all[NODES].Transaction.String(), "10000")
-	t.Logf("DUMMY 3 %s\n", input)
-	assert.Len(input, 64)
+	kernel.TestMockDiff(24 * time.Hour)
+	time.Sleep(3 * time.Second)
+	tl, _ = testVerifySnapshots(assert, nodes)
+
+	removal := testSendDummyTransaction(assert, nodes[0].Host, payee, all[NODES].Transaction.String(), "10000")
+	t.Logf("DUMMY 3 %s\n", removal)
+	assert.Len(removal, 64)
 	time.Sleep(3 * time.Second)
 	tl, _ = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2+1, len(tl))
+	for i := range nodes {
+		all = testListNodes(nodes[i].Host)
+		assert.Len(all, NODES+1)
+		assert.Equal(all[NODES].Signer.String(), signer.String())
+		assert.Equal(all[NODES].Payee.String(), payee.String())
+		assert.Equal("REMOVED", all[NODES].State)
+	}
+
+	signer, payee = testGetNodeToRemove(instances[0].NetworkId(), accounts, payees, 1)
+	assert.Equal("XINEBDHLoH3eDiicxWdbF7B79h1kZMT2rmuoQcvSPDYztBFvkgv8dESeCKW1Ejh8hQ7QUK2Lxd8aHa5heXmWYk2gc78wWVs", signer.String())
+	assert.Equal("XINRqCuT9qD7qd9Z4bJFhAHq4eRa1GWdeD6cM6AegbS9chCFRFpxfxvFey6LouzRDYJgKXd45YXM1douCFvwELZmQ9gSCjPP", payee.String())
+	input = testSendDummyTransaction(assert, nodes[0].Host, accounts[0], input, "3.5")
+	t.Logf("DUMMY 4 %s\n", input)
+	assert.Len(input, 64)
+	nodes = testRemoveNode(nodes, signer)
+	assert.Len(nodes, NODES+1-2)
+	time.Sleep(5 * time.Second)
+	tl, _ = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2+1+2, len(tl))
+	for i := range nodes {
+		all = testListNodes(nodes[i].Host)
+		assert.Len(all, NODES+1)
+		assert.Equal(all[NODES].Signer.String(), signer.String())
+		assert.Equal(all[NODES].Payee.String(), payee.String())
+		assert.Equal("REMOVED", all[NODES].State)
+	}
+
+	kernel.TestMockDiff(24 * time.Hour)
+	time.Sleep(3 * time.Second)
+	tl, _ = testVerifySnapshots(assert, nodes)
+
+	removal = testSendDummyTransaction(assert, nodes[0].Host, payee, all[NODES].Transaction.String(), "10000")
+	t.Logf("DUMMY 5 %s\n", removal)
+	assert.Len(removal, 64)
+	time.Sleep(3 * time.Second)
+	tl, _ = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2+1+2+1, len(tl))
+	for i := range nodes {
+		all = testListNodes(nodes[i].Host)
+		assert.Len(all, NODES+1)
+		assert.Equal(all[NODES].Signer.String(), signer.String())
+		assert.Equal(all[NODES].Payee.String(), payee.String())
+		assert.Equal("REMOVED", all[NODES].State)
+	}
+
+	input = testSendDummyTransaction(assert, nodes[0].Host, accounts[0], input, "3.5")
+	t.Logf("DUMMY 6 %s\n", input)
+	assert.Len(input, 64)
+	nodes = testRemoveNode(nodes, signer)
+	time.Sleep(5 * time.Second)
+	tl, _ = testVerifySnapshots(assert, nodes)
+	assert.Equal(INPUTS*2+NODES+1+1+2+1+1+2+1+2+1+1, len(tl))
 	for i := range nodes {
 		all = testListNodes(nodes[i].Host)
 		assert.Len(all, NODES+1)
@@ -475,7 +534,7 @@ func testConsensus(t *testing.T, dup int) {
 }
 
 func testRemoveNode(nodes []*Node, r common.Address) []*Node {
-	tmp := []*Node{{Host: "127.0.0.1:18099"}}
+	var tmp []*Node
 	for _, n := range nodes {
 		if n.Signer.String() != r.String() {
 			tmp = append(tmp, n)
@@ -629,7 +688,7 @@ func testSendTransaction(node, raw string) (string, error) {
 	return string(data), err
 }
 
-func testGetNodeToRemove(networkId crypto.Hash, signers, payees []common.Address) (common.Address, common.Address) {
+func testGetNodeToRemove(networkId crypto.Hash, signers, payees []common.Address, seq int) (common.Address, common.Address) {
 	nodes := make([][2]common.Address, len(signers))
 	for i := range signers {
 		nodes[i] = [2]common.Address{signers[i], payees[i]}
@@ -639,7 +698,7 @@ func testGetNodeToRemove(networkId crypto.Hash, signers, payees []common.Address
 		b := nodes[j][0].Hash().ForNetwork(networkId)
 		return a.String() < b.String()
 	})
-	return nodes[0][0], nodes[0][1]
+	return nodes[seq][0], nodes[seq][1]
 }
 
 func testDeterminAccountByIndex(i int, role string) common.Address {
