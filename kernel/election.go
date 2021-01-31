@@ -16,6 +16,44 @@ import (
 
 const (
 	MainnetAcceptPeriodForkSnapshotHash = "b8855c19a38999f283d9be6daa45147aef47cc6d35007673f62390c2e137e4e1"
+	MainnetMinimumAcceptedNodesCount    = 7
+)
+
+var (
+	MainnetRollingRemovalForkTransactionMap = map[string]bool{
+		"d5af53561d99eb52af2b98b57d3fb0cc8ae4c6449ec6c89d8427201051a947a2": true,
+		"aef48f91a3d6ffebc2dd0178d47de66cee222e48827adbf339d4197d5eee8af9": true,
+		"f77436fd09c2248b79a8f54321e0332d247af489b26d4a4216d8eeb3596e8d4b": true,
+		"b1ccc15b4e6c97e1d41ccaffc2c933368c03c9d0ef80c45f9fa41d013b23be22": true,
+		"e369448593bdb04c1ab9dd9d6536ea6ac91a49e1b8fdb8374ea1d896034267bc": true,
+		"6182da6d3e7bcee9d7a215edc04015aac1c6a9d4a84cef34e6c4fcbbd8d6cadf": true,
+		"5447772e29a35487fc42e6d10ba2b7ea6a7d77f99181b8a6f7ae25e964ff0994": true,
+		"246de39853bcffeb885aa27df9e6df0e19ddfcee1967b29c2c81e86b386affde": true,
+		"04f7ba291b44f838e8e784e76561455e9f068c0dedd750870e16169cdfb6a660": true,
+		"3d3f223aaeab0bc54ded3420c9949b1c871d1b0e245c3f53362cf99ccaadf337": true,
+		"c3c46410adfd1ebf8a3753d5d685fffd31a3c72c62118a678731e6292b2a426d": true,
+		"b26b3accf232512924087fc810a3ace700d8ccfd75a392e7403471465bc1a886": true,
+		"1c5883bc30f0caec912cc94011aa4ade2131cd63d21e652fdc8e49d62d79d73f": true,
+		"356c9511de0a621f87cb6c98be7bc8ace90a7c8021ea02ba7cfe71f94c8348c3": true,
+		"86cbbefd4b1a4ebf84fa6c7429c278032bf79cef0ce00ec0bb4c7bbb081dde72": true,
+		"ad1d3884c9335580ccea6cfb2a66cfb95f9bb77431cf5fda80c66028d796963e": true,
+		"46001500b12a3247e4a00fb32ac42f865f8bf320e01f55eee76aefe898b1cbb6": true,
+		"4a0ddc369fe4cf60118bb5dc58729841c356c807ca9cc6c2cc62516576d65fb2": true,
+		"98bcb9acfebcbd666a423f9f4628a2946ce1939e9f3ba5653270774686d6df1b": true,
+		"7fa19dbf5c014d37485412d90b2d60e14b4778c969c0b5da253d2538795cb0e3": true,
+		"35ba9f06bcf68ffab52d4fddfab6be11a7eddd8cf94baf10500a289ea97031af": true,
+		"46ae3d3d5c173f0b691250d7a3b24ba02731d7b9eae1808c655c0ca031b70cb6": true,
+		"ba7c57177d12c7a598bb1ac5ffc1c0ac52926f170da6baf438098b607d15f5c1": true,
+		"23e5e0b13eec7413116011b78a1a2bac0bc2070f02a6999d69a5c604e555b9b1": true,
+		"3e85d0329530a04c0132cb69c50b59103e7db405865de3dce41854d203778184": true,
+		"c3918ece3f938448e2a573ec88b0a5cedd2449d6fb2af21804a1dd24fa9b4c29": true,
+		"65da3f839b795bd57a52638767621ec9bc764b929a23ca26ebfc5cf49686b28e": true,
+		"a133c2b154e8103b39bca963acb7f545838e06f784dcfaa761fc6ef2163b850e": true,
+		"494a9b4326ffb2d22e53cd62945a349b2c205a2a1f3288ca8bee47446e535af8": true,
+		"b99fb0d60318c48d793840700789009ff34ff4632e788a7e71138bdae4772d59": true,
+		"0213977d3c00a91de68904fb03ce3982e139200a2ce2e6f5332c9c3fb83743c5": true,
+		"d598c36ed84b4318dffbeb81efac93be2bfd22a76f5099eef8e6a5b508628a8a": true,
+	}
 )
 
 func (node *Node) ElectionLoop() {
@@ -64,7 +102,7 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*CNode
 		return nil, fmt.Errorf("invalid node remove hour %d", hours%24)
 	}
 
-	var candi *CNode
+	var accepted []*CNode
 	for _, cn := range node.NodesListWithoutState(now, false) {
 		if now < cn.Timestamp {
 			return nil, fmt.Errorf("invalid timestamp %d %d", cn.Timestamp, now)
@@ -73,24 +111,19 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*CNode
 		if elapse < config.KernelNodePledgePeriodMinimum {
 			return nil, fmt.Errorf("invalid period %d %d %d %d", config.KernelNodePledgePeriodMinimum, elapse, now, cn.Timestamp)
 		}
-		if cn.State != common.NodeStateAccepted && cn.State != common.NodeStateCancelled && cn.State != common.NodeStateRemoved {
+		switch cn.State {
+		case common.NodeStateAccepted:
+			accepted = append(accepted, cn)
+		case common.NodeStateCancelled:
+		case common.NodeStateRemoved:
+		default:
 			return nil, fmt.Errorf("invalid node pending state %s %s", cn.Signer, cn.State)
 		}
-		if candi == nil && cn.State == common.NodeStateAccepted {
-			candi = cn
-			break
-		}
 	}
-	if candi == nil || candi.State != common.NodeStateAccepted {
-		return nil, fmt.Errorf("invalid node state %s %s", candi.IdForNetwork, candi.State)
+	if len(accepted) <= MainnetMinimumAcceptedNodesCount {
+		return nil, fmt.Errorf("all old nodes removed %d", len(accepted))
 	}
-
-	days := int((now - node.Epoch) / 3600000000000 / 24)
-	threshold := time.Duration(days/MintYearBatches*MintYearBatches) * 24 * time.Hour
-	if t := node.Epoch + uint64(threshold); candi.Timestamp >= t {
-		return nil, fmt.Errorf("all old nodes removed %d %d %d %d", candi.Timestamp, t, now, days)
-	}
-
+	candi := accepted[0]
 	if candi.IdForNetwork == nodeId {
 		return nil, fmt.Errorf("never handle the node remove transaction by the node self")
 	}
@@ -158,6 +191,9 @@ func (node *Node) tryToSendRemoveTransaction() error {
 }
 
 func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
+	if node.networkId.String() == config.MainnetId && MainnetRollingRemovalForkTransactionMap[tx.PayloadHash().String()] {
+		return nil
+	}
 	timestamp := s.Timestamp
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
 		timestamp = uint64(clock.Now().UnixNano())
