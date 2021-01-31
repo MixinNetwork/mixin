@@ -454,12 +454,6 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
 	}
 	since := timestamp - node.Epoch
-	days := int(since / 3600000000000 / 24)
-	elp := time.Duration((days%MintYearBatches)*24) * time.Hour
-	eta := time.Duration((MintYearBatches-days%MintYearBatches)*24) * time.Hour
-	if eta < config.KernelNodeAcceptPeriodMaximum*2 || elp < config.KernelNodeAcceptPeriodMinimum*2 {
-		return fmt.Errorf("invalid pledge timestamp %d %d", eta, elp)
-	}
 
 	var signerSpend crypto.Key
 	copy(signerSpend[:], tx.Extra)
