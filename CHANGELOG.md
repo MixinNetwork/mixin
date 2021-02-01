@@ -2,7 +2,7 @@
 
 Semantic Versioning
 
-## v0.10 Rolling Spiders, Feb 1, 2020
+## v0.10 Rolling Spiders, Feb 1, 2021
 
 Rolling nodes removal.
 
