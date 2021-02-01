@@ -335,7 +335,7 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) bool {
 	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	base := chain.node.ConsensusThreshold(s.Timestamp)
 	finalized := chain.node.CacheVerifyCosi(s.Hash, s.Signature, publics, base)
-	if finalized || s.Timestamp > MainnetNodeRemovalConsensusForkTimestamp {
+	if finalized {
 		return finalized
 	}
 
