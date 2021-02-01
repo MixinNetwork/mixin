@@ -89,7 +89,8 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 }
 
 func (chain *Chain) loadIdentity() *CNode {
-	for _, n := range chain.node.allNodesSortedWithState {
+	now := uint64(clock.Now().UnixNano())
+	for _, n := range chain.node.NodesListWithoutState(now, false) {
 		if chain.ChainId == n.IdForNetwork {
 			return n
 		}
