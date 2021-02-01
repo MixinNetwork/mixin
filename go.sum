@@ -26,8 +26,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/DataDog/zstd v1.4.1 h1:3oxKN3wbHibqx897utPC2LTQU4J+IHWWJO+glkAkpFM=
 github.com/DataDog/zstd v1.4.1/go.mod h1:1jcaCB/ufaK+sKp1NBhlGmpz41jOoPQ35bpF36t7BBo=
-github.com/MixinNetwork/mobilecoin-go v0.0.0-20210114164125-27714998b141 h1:cOZy5SsYN4DX2AolTf4RIJY+dBoHLa3Bia1jCCWyGoY=
-github.com/MixinNetwork/mobilecoin-go v0.0.0-20210114164125-27714998b141/go.mod h1:zJbaWyTX19cASJtIJFpsttKlIr99YRVGIx+Oy85M3QQ=
+github.com/MixinNetwork/mobilecoin-go v0.0.0-20210115024608-fb0c3e582591 h1:v/0R7gLjw89/kwTwrdbVRk5a+FCg5OlmWsg4rfowYOc=
+github.com/MixinNetwork/mobilecoin-go v0.0.0-20210115024608-fb0c3e582591/go.mod h1:zJbaWyTX19cASJtIJFpsttKlIr99YRVGIx+Oy85M3QQ=
 github.com/MixinNetwork/msgpack/v4 v4.3.13 h1:Vd3glVEVzusNIiOlODUtoAP6NhuMGf0ws1KFkHUnShI=
 github.com/MixinNetwork/msgpack/v4 v4.3.13/go.mod h1:gborTTJjAo/GWTqqRjrLCn9pgNN+NXzzngzBKDPIqw4=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=

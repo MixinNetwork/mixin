@@ -6,7 +6,7 @@ replace github.com/vmihailenco/msgpack/v4 => github.com/MixinNetwork/msgpack/v4 
 
 require (
 	filippo.io/edwards25519 v1.0.0-beta.2
-	github.com/MixinNetwork/mobilecoin-go v0.0.0-20210114164125-27714998b141
+	github.com/MixinNetwork/mobilecoin-go v0.0.0-20210115024608-fb0c3e582591
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/btcsuite/btcd v0.21.0-beta
 	github.com/btcsuite/btcutil v1.0.2
