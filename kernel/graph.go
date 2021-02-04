@@ -339,6 +339,7 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) bool {
 		return finalized
 	}
 
+	// FIXME remove this hack
 	nodes := chain.node.NodesListWithoutState(s.Timestamp, false)
 	rn := nodes[len(nodes)-1]
 	if rn.State != common.NodeStateRemoved {
