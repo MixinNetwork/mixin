@@ -339,9 +339,18 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) bool {
 		return finalized
 	}
 
+	nodes := chain.node.NodesListWithoutState(s.Timestamp, false)
+	rn := nodes[len(nodes)-1]
+	if rn.State != common.NodeStateRemoved {
+		return finalized
+	}
 	timestamp := s.Timestamp - uint64(config.KernelNodeAcceptPeriodMinimum)
-	publics = chain.ConsensusKeys(s.RoundNumber, timestamp)
-	base = chain.node.ConsensusThreshold(timestamp)
+	if rn.Timestamp < timestamp {
+		return finalized
+	}
+
+	rk := []*crypto.Key{&rn.Signer.PublicSpendKey}
+	publics = append(rk, publics...)
 	return chain.node.CacheVerifyCosi(s.Hash, s.Signature, publics, base)
 }
 
