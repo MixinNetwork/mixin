@@ -2,30 +2,31 @@ package common
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/hex"
 	"fmt"
 
-	"github.com/gobuffalo/packr"
 	"github.com/valyala/gozstd"
 	"github.com/vmihailenco/msgpack/v4"
 )
 
+//go:embed data/zstd.dic
+var ZstdEmbed []byte
+
 func init() {
 	msgpack.RegisterExt(0, (*Integer)(nil))
 
-	box := packr.NewBox("../config/data")
-	dic, err := box.Find("zstd.dic")
+	zcd, err := gozstd.NewCDictLevel(ZstdEmbed, 5)
 	if err != nil {
 		panic(err)
 	}
-	zstdCDict, err = gozstd.NewCDictLevel(dic, 5)
+	zdd, err := gozstd.NewDDict(ZstdEmbed)
 	if err != nil {
 		panic(err)
 	}
-	zstdDDict, err = gozstd.NewDDict(dic)
-	if err != nil {
-		panic(err)
-	}
+
+	zstdCDict = zcd
+	zstdDDict = zdd
 }
 
 var (

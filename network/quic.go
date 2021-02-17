@@ -16,7 +16,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/gobuffalo/packr"
+	"github.com/MixinNetwork/mixin/common"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/valyala/gozstd"
 )
@@ -85,12 +85,7 @@ func (t *QuicTransport) Dial(ctx context.Context) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	box := packr.NewBox("../config/data")
-	dic, err := box.Find("zstd.dic")
-	if err != nil {
-		return nil, err
-	}
-	cdict, err := gozstd.NewCDictLevel(dic, 5)
+	cdict, err := gozstd.NewCDictLevel(common.ZstdEmbed, 5)
 	if err != nil {
 		return nil, err
 	}
@@ -129,12 +124,7 @@ func (t *QuicTransport) Accept(ctx context.Context) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	box := packr.NewBox("../config/data")
-	dic, err := box.Find("zstd.dic")
-	if err != nil {
-		return nil, err
-	}
-	ddict, err := gozstd.NewDDict(dic)
+	ddict, err := gozstd.NewDDict(common.ZstdEmbed)
 	if err != nil {
 		return nil, err
 	}
