@@ -3,6 +3,7 @@ package kernel
 import (
 	"crypto/rand"
 	"fmt"
+	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -260,8 +261,15 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		}
 		cache.Timestamp = s.Timestamp
 
-		if len(cache.Snapshots) > 0 && s.Timestamp > cache.Snapshots[0].Timestamp+uint64(config.SnapshotRoundGap*4/5) {
-			return chain.clearAndQueueSnapshotOrPanic(s)
+		if len(cache.Snapshots) > 0 {
+			cft := cache.Snapshots[0].Timestamp
+			if s.Timestamp > cft+uint64(config.SnapshotRoundGap*4/5) {
+				return chain.clearAndQueueSnapshotOrPanic(s)
+			}
+			day := uint64(time.Hour) * 24
+			if s.Timestamp/day != cft/day {
+				return chain.clearAndQueueSnapshotOrPanic(s)
+			}
 		}
 		s.RoundNumber = cache.Number
 		s.References = cache.References

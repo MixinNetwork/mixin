@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -222,9 +223,14 @@ func (c *CacheRound) validateSnapshot(s *common.Snapshot, add bool) error {
 	if !s.Hash.HasValue() {
 		panic(s)
 	}
+	day := uint64(time.Hour) * 24
+	fork := uint64(SnapshotRoundDayLeapForkHack.UnixNano())
 	for _, cs := range c.Snapshots {
 		if cs.Hash == s.Hash || cs.Timestamp == s.Timestamp || cs.Transaction == s.Transaction {
 			return fmt.Errorf("ValidateSnapshot error duplication %s %d %s", s.Hash, s.Timestamp, s.Transaction)
+		}
+		if cs.Timestamp >= fork && cs.Timestamp/day != s.Timestamp/day {
+			return fmt.Errorf("ValidateSnapshot error round day leap %s %d %s", s.Hash, s.Timestamp, s.Transaction)
 		}
 	}
 	if start, end := c.Gap(); start <= end {
