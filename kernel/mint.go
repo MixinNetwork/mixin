@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	MainnetMintPeriodForkBatch     = 72
-	MainnetMintPeriodForkTimeBegin = 6
-	MainnetMintPeriodForkTimeEnd   = 18
+	MainnetMintPeriodForkBatch           = 72
+	MainnetMintPeriodForkTimeBegin       = 6
+	MainnetMintPeriodForkTimeEnd         = 18
+	MainnetMintWorkDistributionForkBatch = 723
 )
 
 var (
@@ -33,6 +34,30 @@ func init() {
 	MintYearShares = 10
 	MintYearBatches = 365
 	MintNodeMaximum = 50
+}
+
+func (chain *Chain) AggregateMintWork() {
+	logger.Printf("AggregateMintWork(%s)\n", chain.ChainId)
+	defer close(chain.wlc)
+
+	round, err := chain.persistStore.ReadWorkOffset(chain.ChainId)
+	if err != nil {
+		panic(err)
+	}
+	for chain.running {
+		time.Sleep(100 * time.Millisecond)
+		if cs := chain.State; cs == nil || cs.FinalRound.Number < round {
+			logger.Verbosef("AggregateMintWork(%s) waiting\n", chain.ChainId)
+			continue
+		}
+		snapshots, err := chain.persistStore.ReadSnapshotsForNodeRound(chain.ChainId, round)
+		if err != nil {
+			logger.Printf("AggregateMintWork(%s) ERROR %s\n", chain.ChainId, err.Error())
+			continue
+		}
+		day := snapshots[0].Timestamp / (uint64(time.Hour) * 24)
+		chain.persistStore.WriteRoundWork(chain.ChainId, round, day, snapshots)
+	}
 }
 
 func (node *Node) MintLoop() {
@@ -96,7 +121,7 @@ func (node *Node) buildMintTransaction(timestamp uint64, validateOnly bool) *com
 		return nil
 	}
 
-	nodes := node.sortMintNodes(timestamp)
+	nodes := node.sortMintNodes(timestamp, batch)
 	per := amount.Div(len(nodes))
 	diff := amount.Sub(per.Mul(len(nodes)))
 
@@ -217,7 +242,7 @@ func (node *Node) checkMintPossibility(timestamp uint64, validateOnly bool) (int
 	return batch, amount
 }
 
-func (node *Node) sortMintNodes(timestamp uint64) []*CNode {
+func (node *Node) sortMintNodes(timestamp uint64, batch int) []*CNode {
 	accepted := node.NodesListWithoutState(timestamp, true)
 	sort.Slice(accepted, func(i, j int) bool {
 		a := accepted[i].IdForNetwork
@@ -225,47 +250,4 @@ func (node *Node) sortMintNodes(timestamp uint64) []*CNode {
 		return a.String() < b.String()
 	})
 	return accepted
-}
-
-func (node *Node) NodesListWithoutState(threshold uint64, acceptedOnly bool) []*CNode {
-	filter := make(map[crypto.Hash]*CNode)
-	for _, n := range node.allNodesSortedWithState {
-		if n.Timestamp >= threshold {
-			break
-		}
-		filter[n.IdForNetwork] = n
-	}
-	nodes := make([]*CNode, 0)
-	for _, n := range filter {
-		if !acceptedOnly || n.State == common.NodeStateAccepted {
-			nodes = append(nodes, &CNode{
-				IdForNetwork: n.IdForNetwork,
-				Signer:       n.Signer,
-				Payee:        n.Payee,
-				Transaction:  n.Transaction,
-				Timestamp:    n.Timestamp,
-				State:        n.State,
-			})
-		}
-	}
-	sort.Slice(nodes, func(i, j int) bool {
-		if nodes[i].Timestamp < nodes[j].Timestamp {
-			return true
-		}
-		if nodes[i].Timestamp > nodes[j].Timestamp {
-			return false
-		}
-		a := nodes[i].IdForNetwork
-		b := nodes[j].IdForNetwork
-		return a.String() < b.String()
-	})
-	for index, i := 0, 0; i < len(nodes); i++ {
-		cn := nodes[i]
-		cn.ConsensusIndex = index
-		switch cn.State {
-		case common.NodeStateAccepted, common.NodeStatePledging:
-			index++
-		}
-	}
-	return nodes
 }

@@ -395,7 +395,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	s.Signature = cosi
 	v := chain.CosiVerifiers[m.SnapshotHash]
 	priv := chain.node.Signer.PrivateSpendKey
-	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
+	_, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	response, err := cosi.Response(&priv, v.random, publics, m.SnapshotHash[:])
 	if err != nil {
 		return err
@@ -429,7 +429,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	copy(sig[:], v.Commitment[:])
 	copy(sig[32:], m.Signature.Signature[32:])
 	pub := cd.CN.Signer.PublicSpendKey
-	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
+	_, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	challenge, err := m.Signature.Challenge(publics, m.SnapshotHash[:])
 	if err != nil {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge %v Challenge ERROR %s\n", m, err)
@@ -473,7 +473,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	}
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v ENOUGH\n", m)
 
-	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
+	cids, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	err := s.Signature.VerifyResponse(publics, cd.PN.ConsensusIndex, m.Response, m.SnapshotHash[:])
 	if err != nil {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v RESPONSE ERROR %s\n", m, err)
@@ -481,13 +481,14 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	}
 
 	s.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash[:], false)
-	if !chain.node.CacheVerifyCosi(m.SnapshotHash, s.Signature, publics, base) {
+	signers, finalized := chain.node.CacheVerifyCosi(m.SnapshotHash, s.Signature, cids, publics, base)
+	if !finalized {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v AGGREGATE ERROR\n", m)
 		return nil
 	}
 
 	if chain.IsPledging() && s.RoundNumber == 0 && cd.TX.TransactionType() == common.TransactionTypeNodeAccept {
-		err := chain.node.finalizeNodeAcceptSnapshot(s)
+		err := chain.node.finalizeNodeAcceptSnapshot(s, signers)
 		if err != nil {
 			return err
 		}
@@ -509,7 +510,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 			return chain.clearAndQueueSnapshotOrPanic(s)
 		}
 
-		chain.AddSnapshot(final, cache, s)
+		chain.AddSnapshot(final, cache, s, signers)
 	}
 
 	nodes := chain.node.NodesListWithoutState(s.Timestamp, true)
@@ -533,7 +534,8 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 	logger.Debugf("CosiLoop cosiHandleAction handleFinalization %s %v\n", m.PeerId, m.Snapshot)
 	s := m.Snapshot
 	m.WantTx = false
-	if !chain.verifyFinalization(s) {
+	signers, finalized := chain.verifyFinalization(s)
+	if !finalized {
 		logger.Verbosef("ERROR handleFinalization verifyFinalization %s %v %d\n", m.PeerId, s, chain.node.ConsensusThreshold(s.Timestamp))
 		return nil
 	}
@@ -572,7 +574,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 	}
 
 	if chain.IsPledging() && s.RoundNumber == 0 && tx.TransactionType() == common.TransactionTypeNodeAccept {
-		err := chain.node.finalizeNodeAcceptSnapshot(s)
+		err := chain.node.finalizeNodeAcceptSnapshot(s, signers)
 		if err != nil {
 			return err
 		}
@@ -600,7 +602,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		logger.Verbosef("ERROR cosiHandleFinalization ValidateSnapshot %s %v %s\n", m.PeerId, s, err.Error())
 		return nil
 	}
-	chain.AddSnapshot(final, cache, s)
+	chain.AddSnapshot(final, cache, s, signers)
 	m.finalized = true
 	return chain.node.reloadConsensusNodesList(s, tx)
 }
@@ -705,8 +707,8 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 	}
 
 	chain := node.GetOrCreateChain(s.NodeId)
-	if !chain.verifyFinalization(s) {
-		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d %v %t %v %v\n", peerId, s, node.ConsensusThreshold(s.Timestamp), chain.ConsensusKeys(s.RoundNumber, s.Timestamp), chain.IsPledging(), chain.State, chain.ConsensusInfo)
+	if _, finalized := chain.verifyFinalization(s); !finalized {
+		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d %t %v %v\n", peerId, s, node.ConsensusThreshold(s.Timestamp), chain.IsPledging(), chain.State, chain.ConsensusInfo)
 		return nil
 	}
 

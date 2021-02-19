@@ -206,8 +206,8 @@ func (c *CacheRound) Gap() (uint64, uint64) {
 	return start, end
 }
 
-func (chain *Chain) AddSnapshot(final *FinalRound, cache *CacheRound, s *common.Snapshot) error {
-	chain.node.TopoWrite(s)
+func (chain *Chain) AddSnapshot(final *FinalRound, cache *CacheRound, s *common.Snapshot, signers []crypto.Hash) error {
+	chain.node.TopoWrite(s, signers)
 	if err := cache.validateSnapshot(s, true); err != nil {
 		panic("should never be here")
 	}

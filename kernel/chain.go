@@ -61,10 +61,11 @@ type Chain struct {
 	finalActionsRing *util.RingBuffer
 	plc              chan struct{}
 	clc              chan struct{}
+	wlc              chan struct{}
 	running          bool
 }
 
-func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
+func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 	chain := &Chain{
 		node:             node,
 		ChainId:          chainId,
@@ -75,6 +76,7 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		finalActionsRing: util.NewRingBuffer(FinalPoolSlotsLimit),
 		plc:              make(chan struct{}),
 		clc:              make(chan struct{}),
+		wlc:              make(chan struct{}),
 		running:          true,
 	}
 
@@ -83,6 +85,7 @@ func (node *Node) BuildChain(chainId crypto.Hash) *Chain {
 		panic(err)
 	}
 
+	go chain.AggregateMintWork()
 	go chain.QueuePollSnapshots()
 	go chain.ConsumeFinalActions()
 	return chain
@@ -110,6 +113,7 @@ func (chain *Chain) Teardown() {
 	chain.finalActionsRing.Dispose()
 	<-chain.clc
 	<-chain.plc
+	<-chain.wlc
 }
 
 func (chain *Chain) IsPledging() bool {
@@ -400,7 +404,7 @@ func (node *Node) GetOrCreateChain(id crypto.Hash) *Chain {
 	if chain != nil {
 		return chain
 	}
-	node.chains.m[id] = node.BuildChain(id)
+	node.chains.m[id] = node.buildChain(id)
 	return node.chains.m[id]
 }
 

@@ -121,6 +121,49 @@ func (node *Node) LoadNodeConfig() {
 	node.Listener = node.custom.Network.Listener
 }
 
+func (node *Node) NodesListWithoutState(threshold uint64, acceptedOnly bool) []*CNode {
+	filter := make(map[crypto.Hash]*CNode)
+	for _, n := range node.allNodesSortedWithState {
+		if n.Timestamp >= threshold {
+			break
+		}
+		filter[n.IdForNetwork] = n
+	}
+	nodes := make([]*CNode, 0)
+	for _, n := range filter {
+		if !acceptedOnly || n.State == common.NodeStateAccepted {
+			nodes = append(nodes, &CNode{
+				IdForNetwork: n.IdForNetwork,
+				Signer:       n.Signer,
+				Payee:        n.Payee,
+				Transaction:  n.Transaction,
+				Timestamp:    n.Timestamp,
+				State:        n.State,
+			})
+		}
+	}
+	sort.Slice(nodes, func(i, j int) bool {
+		if nodes[i].Timestamp < nodes[j].Timestamp {
+			return true
+		}
+		if nodes[i].Timestamp > nodes[j].Timestamp {
+			return false
+		}
+		a := nodes[i].IdForNetwork
+		b := nodes[j].IdForNetwork
+		return a.String() < b.String()
+	})
+	for index, i := 0, 0; i < len(nodes); i++ {
+		cn := nodes[i]
+		cn.ConsensusIndex = index
+		switch cn.State {
+		case common.NodeStateAccepted, common.NodeStatePledging:
+			index++
+		}
+	}
+	return nodes
+}
+
 func (node *Node) PledgingNode(timestamp uint64) *CNode {
 	nodes := node.NodesListWithoutState(timestamp, false)
 	if len(nodes) == 0 {

@@ -375,7 +375,7 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 	return nil
 }
 
-func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
+func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot, signers []crypto.Hash) error {
 	logger.Printf("finalizeNodeAcceptSnapshot(%v)\n", s)
 	cache := &CacheRound{
 		NodeId:    s.NodeId,
@@ -390,7 +390,7 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot) error {
 		panic(err)
 	}
 
-	node.TopoWrite(s)
+	node.TopoWrite(s, signers)
 
 	final := cache.asFinal()
 	external, err := node.getInitialExternalReference(s)

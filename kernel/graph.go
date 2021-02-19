@@ -279,12 +279,12 @@ func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto
 // 3. Node A pledge snapshot finalized but not broadcasted on time.
 // Solution: Evil and slash.
 
-func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, publics []*crypto.Key, threshold int) bool {
+func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, cids []crypto.Hash, publics []*crypto.Key, threshold int) ([]crypto.Hash, bool) {
 	if snap.String() == "b3ea56de6124ad2f3ad1d48f2aff8338b761e62bcde6f2f0acba63a32dd8eecc" &&
 		sig.String() == "dbb0347be24ecb8de3d66631d347fde724ff92e22e1f45deeb8b5d843fd62da39ca8e39de9f35f1e0f7336d4686917983470c098edc91f456d577fb18069620f000000003fdfe712" {
 		// FIXME this is a hack to fix the large round gap around node remove snapshot
 		// and a bug in too recent external reference, e.g. bare final round
-		return true
+		return nil, true
 	}
 
 	key := sig.Signature[:]
@@ -298,61 +298,95 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, p
 	binary.BigEndian.PutUint64(tbuf, sig.Mask)
 	key = append(key, tbuf...)
 	value := node.cacheStore.Get(nil, key)
-	if len(value) == 1 {
-		return value[0] == byte(1)
+	if len(value) > 0 {
+		signers := convertBytesToSigners(sig, value)
+		return signers, len(signers) == len(sig.Keys())
 	}
+
 	err := sig.FullVerify(publics, threshold, snap[:])
 	if err != nil {
 		logger.Verbosef("CacheVerifyCosi(%s, %d, %d) ERROR %s\n", snap, len(publics), threshold, err.Error())
 		node.cacheStore.Set(key, []byte{0})
-	} else {
-		node.cacheStore.Set(key, []byte{1})
+		return nil, false
 	}
-	return err == nil
+
+	signers := make([]crypto.Hash, len(sig.Keys()))
+	for i, k := range sig.Keys() {
+		signers[i] = cids[k]
+	}
+	value = convertSignersToBytes(signers)
+	node.cacheStore.Set(key, value)
+	return signers, true
 }
 
-func (chain *Chain) ConsensusKeys(round, timestamp uint64) []*crypto.Key {
+func convertBytesToSigners(sig *crypto.CosiSignature, b []byte) []crypto.Hash {
+	if len(b) != len(sig.Keys())*len(crypto.Hash{}) {
+		return nil
+	}
+	signers := make([]crypto.Hash, len(sig.Keys()))
+	for i := 0; i < len(signers); i++ {
+		var h crypto.Hash
+		copy(h[:], b[i*32:i*32+32])
+		signers[i] = h
+	}
+	return signers
+}
+
+func convertSignersToBytes(signers []crypto.Hash) []byte {
+	var b []byte
+	for _, h := range signers {
+		b = append(b, h[:]...)
+	}
+	return b
+}
+
+func (chain *Chain) ConsensusKeys(round, timestamp uint64) ([]crypto.Hash, []*crypto.Key) {
+	var signers []crypto.Hash
 	var publics []*crypto.Key
 	nodes := chain.node.NodesListWithoutState(timestamp, false)
 	for _, cn := range nodes {
 		if chain.node.ConsensusReady(cn, timestamp) {
+			signers = append(signers, cn.IdForNetwork)
 			publics = append(publics, &cn.Signer.PublicSpendKey)
 		}
 	}
 	if chain.IsPledging() && round == 0 {
+		signers = append(signers, chain.ChainId)
 		publics = append(publics, &chain.ConsensusInfo.Signer.PublicSpendKey)
 	}
-	return publics
+	return signers, publics
 }
 
-func (chain *Chain) verifyFinalization(s *common.Snapshot) bool {
+func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool) {
 	if s.Version == 0 {
-		return chain.legacyVerifyFinalization(s.Timestamp, s.Signatures)
+		return nil, chain.legacyVerifyFinalization(s.Timestamp, s.Signatures)
 	}
 	if s.Version != common.SnapshotVersion || s.Signature == nil {
-		return false
+		return nil, false
 	}
-	publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
+	cids, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	base := chain.node.ConsensusThreshold(s.Timestamp)
-	finalized := chain.node.CacheVerifyCosi(s.Hash, s.Signature, publics, base)
+	signers, finalized := chain.node.CacheVerifyCosi(s.Hash, s.Signature, cids, publics, base)
 	if finalized {
-		return finalized
+		return signers, finalized
 	}
 
 	// FIXME remove this hack
 	nodes := chain.node.NodesListWithoutState(s.Timestamp, false)
 	rn := nodes[len(nodes)-1]
 	if rn.State != common.NodeStateRemoved {
-		return finalized
+		return nil, finalized
 	}
 	timestamp := s.Timestamp - uint64(config.KernelNodeAcceptPeriodMinimum)
 	if rn.Timestamp < timestamp {
-		return finalized
+		return nil, finalized
 	}
 
+	rs := []crypto.Hash{rn.IdForNetwork}
 	rk := []*crypto.Key{&rn.Signer.PublicSpendKey}
+	cids = append(rs, cids...)
 	publics = append(rk, publics...)
-	return chain.node.CacheVerifyCosi(s.Hash, s.Signature, publics, base)
+	return chain.node.CacheVerifyCosi(s.Hash, s.Signature, cids, publics, base)
 }
 
 func (chain *Chain) legacyVerifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {

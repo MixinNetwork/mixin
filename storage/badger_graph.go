@@ -20,10 +20,13 @@ const (
 	graphPrefixFinalization = "FINALIZATION" // transaction finalization hack
 	graphPrefixUnique       = "UNIQUE"       // unique transaction in one node
 	graphPrefixRound        = "ROUND"        // hash|node-if-cache {node:hash,number:734,references:{self-parent-round-hash,external-round-hash}}
-	graphPrefixSnapshot     = "SNAPSHOT"     // {
+	graphPrefixSnapshot     = "SNAPSHOT"     //
 	graphPrefixLink         = "LINK"         // self-external number
 	graphPrefixTopology     = "TOPOLOGY"
 	graphPrefixSnapTopology = "SNAPTOPO"
+	graphPrefixWorkLead     = "WORKLEAD"
+	graphPrefixWorkSign     = "WORKSIGN"
+	graphPrefixWorkOffset   = "WORKOFFSET"
 )
 
 func (s *BadgerStore) RemoveGraphEntries(prefix string) error {

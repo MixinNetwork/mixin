@@ -39,6 +39,8 @@ type Store interface {
 	ReadLastMintDistribution(group string) (*common.MintDistribution, error)
 	LockMintInput(mint *common.MintData, tx crypto.Hash, fork bool) error
 	ReadMintDistributions(group string, offset, count uint64) ([]*common.MintDistribution, []*common.VersionedTransaction, error)
+	ReadWorkOffset(nodeId crypto.Hash) (uint64, error)
+	WriteRoundWork(nodeId crypto.Hash, round, day uint64, snapshots []*common.SnapshotWithTopologicalOrder) error
 
 	RemoveGraphEntries(prefix string) error
 	ValidateGraphEntries(networkId crypto.Hash, depth uint64) (int, int, error)

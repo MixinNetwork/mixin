@@ -39,7 +39,7 @@ func (node *Node) WitnessSnapshot(s *common.SnapshotWithTopologicalOrder) *Snaps
 	}
 }
 
-func (node *Node) TopoWrite(s *common.Snapshot) *common.SnapshotWithTopologicalOrder {
+func (node *Node) TopoWrite(s *common.Snapshot, signers []crypto.Hash) *common.SnapshotWithTopologicalOrder {
 	node.TopoCounter.Lock()
 	defer node.TopoCounter.Unlock()
 
@@ -47,6 +47,7 @@ func (node *Node) TopoWrite(s *common.Snapshot) *common.SnapshotWithTopologicalO
 	topo := &common.SnapshotWithTopologicalOrder{
 		Snapshot:         *s,
 		TopologicalOrder: node.TopoCounter.seq,
+		Signers:          signers,
 	}
 	err := node.persistStore.WriteSnapshot(topo)
 	if err != nil {

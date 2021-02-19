@@ -39,14 +39,15 @@ type Snapshot struct {
 	References  *RoundLink            `json:"references"`
 	RoundNumber uint64                `json:"round"`
 	Timestamp   uint64                `json:"timestamp"`
-	Signatures  []*crypto.Signature   `json:"signatures,omitempty"msgpack:",omitempty"`
-	Signature   *crypto.CosiSignature `json:"signature,omitempty"msgpack:",omitempty"`
-	Hash        crypto.Hash           `msgpack:"-"json:"hash"`
+	Signatures  []*crypto.Signature   `json:"signatures,omitempty" msgpack:",omitempty"`
+	Signature   *crypto.CosiSignature `json:"signature,omitempty" msgpack:",omitempty"`
+	Hash        crypto.Hash           `msgpack:"-" json:"hash"`
 }
 
 type SnapshotWithTopologicalOrder struct {
 	Snapshot
-	TopologicalOrder uint64 `json:"topology"`
+	TopologicalOrder uint64        `json:"topology"`
+	Signers          []crypto.Hash `json:"-"`
 }
 
 func (m *RoundLink) Equal(n *RoundLink) bool {
