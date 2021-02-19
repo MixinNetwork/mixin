@@ -84,7 +84,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 				"state":       n.State,
 				"timestamp":   n.Timestamp,
 				"transaction": n.Transaction.String(),
-				"work":        works[n.IdForNetwork],
+				"works":       works[n.IdForNetwork],
 			})
 		}
 	}

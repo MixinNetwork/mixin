@@ -45,21 +45,24 @@ func (chain *Chain) AggregateMintWork() {
 		panic(err)
 	}
 	for chain.running {
-		time.Sleep(100 * time.Millisecond)
 		if cs := chain.State; cs == nil || cs.FinalRound.Number < round {
 			logger.Verbosef("AggregateMintWork(%s) waiting\n", chain.ChainId)
+			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		snapshots, err := chain.persistStore.ReadSnapshotsForNodeRound(chain.ChainId, round)
 		if err != nil {
-			logger.Printf("AggregateMintWork(%s) ERROR %s\n", chain.ChainId, err.Error())
+			logger.Printf("AggregateMintWork(%s) ERROR ReadSnapshotsForNodeRound %s\n", chain.ChainId, err.Error())
 			continue
 		}
-		if len(snapshots[0].Signers) == 0 {
-			continue
+		for chain.running {
+			err = chain.persistStore.WriteRoundWork(chain.ChainId, round, snapshots)
+			if err == nil {
+				break
+			}
+			logger.Printf("AggregateMintWork(%s) ERROR WriteRoundWork %s\n", chain.ChainId, err.Error())
 		}
-		day := snapshots[0].Timestamp / (uint64(time.Hour) * 24)
-		chain.persistStore.WriteRoundWork(chain.ChainId, round, day, snapshots)
+		round = round + 1
 	}
 }
 

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/binary"
+	"fmt"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -41,7 +42,7 @@ func (s *BadgerStore) ListNodeWorks(cids []crypto.Hash, day uint64) (map[crypto.
 	return works, nil
 }
 
-func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round, day uint64, snapshots []*common.SnapshotWithTopologicalOrder) error {
+func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots []*common.SnapshotWithTopologicalOrder) error {
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		offKey := graphWorkOffsetKey(nodeId)
 		oldOffset, err := graphReadUint64(txn, offKey)
@@ -49,12 +50,16 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round, day uint64, snap
 			return err
 		}
 		if round != oldOffset+1 {
-			panic(nodeId)
+			panic(fmt.Errorf("WriteRoundWork invalid offset %s %d %d", nodeId, oldOffset, round))
 		}
 		err = graphWriteUint64(txn, offKey, round)
 		if err != nil {
 			return err
 		}
+		if len(snapshots[0].Signers) == 0 {
+			return nil
+		}
+		day := snapshots[0].Timestamp / DAY_U64
 
 		wm := make(map[crypto.Hash]uint64)
 		for _, w := range snapshots {

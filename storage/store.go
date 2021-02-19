@@ -41,7 +41,7 @@ type Store interface {
 	ReadMintDistributions(group string, offset, count uint64) ([]*common.MintDistribution, []*common.VersionedTransaction, error)
 	ListNodeWorks(cids []crypto.Hash, day uint64) (map[crypto.Hash][2]uint64, error)
 	ReadWorkOffset(nodeId crypto.Hash) (uint64, error)
-	WriteRoundWork(nodeId crypto.Hash, round, day uint64, snapshots []*common.SnapshotWithTopologicalOrder) error
+	WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots []*common.SnapshotWithTopologicalOrder) error
 
 	RemoveGraphEntries(prefix string) error
 	ValidateGraphEntries(networkId crypto.Hash, depth uint64) (int, int, error)
