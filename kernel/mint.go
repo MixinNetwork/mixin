@@ -55,6 +55,9 @@ func (chain *Chain) AggregateMintWork() {
 			logger.Printf("AggregateMintWork(%s) ERROR %s\n", chain.ChainId, err.Error())
 			continue
 		}
+		if len(snapshots[0].Signers) == 0 {
+			continue
+		}
 		day := snapshots[0].Timestamp / (uint64(time.Hour) * 24)
 		chain.persistStore.WriteRoundWork(chain.ChainId, round, day, snapshots)
 	}

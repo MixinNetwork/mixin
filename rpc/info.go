@@ -7,6 +7,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 )
@@ -60,8 +61,20 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		}
 	}
 
+	cids := make([]crypto.Hash, 0)
 	nodes := make([]map[string]interface{}, 0)
-	for _, n := range node.NodesListWithoutState(uint64(time.Now().UnixNano()), false) {
+	list := node.NodesListWithoutState(uint64(time.Now().UnixNano()), false)
+	for _, n := range list {
+		switch n.State {
+		case common.NodeStateAccepted, common.NodeStatePledging:
+			cids = append(cids, n.IdForNetwork)
+		}
+	}
+	works, err := store.ListNodeWorks(cids, uint64(time.Now().UnixNano()/int64(time.Hour*24)))
+	if err != nil {
+		return info, err
+	}
+	for _, n := range list {
 		switch n.State {
 		case common.NodeStateAccepted, common.NodeStatePledging:
 			nodes = append(nodes, map[string]interface{}{
@@ -71,6 +84,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 				"state":       n.State,
 				"timestamp":   n.Timestamp,
 				"transaction": n.Transaction.String(),
+				"work":        works[n.IdForNetwork],
 			})
 		}
 	}
