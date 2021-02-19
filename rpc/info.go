@@ -70,7 +70,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 			cids = append(cids, n.IdForNetwork)
 		}
 	}
-	works, err := store.ListNodeWorks(cids, uint64(time.Now().UnixNano()/int64(time.Hour*24)))
+	works, err := store.ListNodeWorks(cids, uint32(time.Now().UnixNano()/int64(time.Hour*24)))
 	if err != nil {
 		return info, err
 	}

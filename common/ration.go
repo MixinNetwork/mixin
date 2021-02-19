@@ -5,10 +5,10 @@ import (
 	"math/big"
 )
 
-var One RationalNumber
+var OneRat RationalNumber
 
 func init() {
-	One = NewInteger(1).Ration(NewInteger(1))
+	OneRat = NewInteger(1).Ration(NewInteger(1))
 }
 
 type RationalNumber struct {

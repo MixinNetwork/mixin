@@ -20,7 +20,7 @@ func (s *BadgerStore) ReadWorkOffset(nodeId crypto.Hash) (uint64, error) {
 	return graphReadUint64(txn, offKey)
 }
 
-func (s *BadgerStore) ListNodeWorks(cids []crypto.Hash, day uint64) (map[crypto.Hash][2]uint64, error) {
+func (s *BadgerStore) ListNodeWorks(cids []crypto.Hash, day uint32) (map[crypto.Hash][2]uint64, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -60,7 +60,7 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 		if len(snapshots[0].Signers) == 0 {
 			return nil
 		}
-		day := snapshots[0].Timestamp / DAY_U64
+		day := uint32(snapshots[0].Timestamp / DAY_U64)
 
 		if round == off {
 			var fresh []*common.SnapshotWithTopologicalOrder
@@ -83,7 +83,7 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 			if w.RoundNumber != round {
 				panic(w)
 			}
-			if w.Timestamp/DAY_U64 != day {
+			if uint32(w.Timestamp/DAY_U64) != day {
 				panic(w)
 			}
 			for _, si := range w.Signers {
@@ -142,9 +142,9 @@ func graphReadWorkOffset(txn *badger.Txn, key []byte) (uint64, map[crypto.Hash]b
 
 	round := binary.BigEndian.Uint64(ival[:8])
 	snapshots := make(map[crypto.Hash]bool)
-	for i := 0; i < (len(ival)-8)/32; i++ {
+	for i, ival := 0, ival[8:]; i < len(ival)/32; i++ {
 		var h crypto.Hash
-		copy(h[:], ival[8+32*i:8+32*(i+1)])
+		copy(h[:], ival[32*i:32*(i+1)])
 		snapshots[h] = true
 	}
 	return round, snapshots, nil
@@ -175,16 +175,16 @@ func graphWorkOffsetKey(nodeId crypto.Hash) []byte {
 	return append([]byte(graphPrefixWorkOffset), nodeId[:]...)
 }
 
-func graphWorkSignKey(nodeId crypto.Hash, day uint64) []byte {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, day)
+func graphWorkSignKey(nodeId crypto.Hash, day uint32) []byte {
+	buf := make([]byte, 4)
+	binary.BigEndian.PutUint32(buf, day)
 	key := append([]byte(graphPrefixWorkSign), nodeId[:]...)
 	return append(key, buf...)
 }
 
-func graphWorkLeadKey(nodeId crypto.Hash, day uint64) []byte {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, day)
+func graphWorkLeadKey(nodeId crypto.Hash, day uint32) []byte {
+	buf := make([]byte, 4)
+	binary.BigEndian.PutUint32(buf, day)
 	key := append([]byte(graphPrefixWorkLead), nodeId[:]...)
 	return append(key, buf...)
 }

@@ -328,7 +328,7 @@ func (node *Node) distributeMintByWorks(base common.Integer, timestamp uint64) (
 		return mints, nil
 	}
 
-	works, err := node.persistStore.ListNodeWorks(cids, day)
+	works, err := node.persistStore.ListNodeWorks(cids, uint32(day))
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +342,7 @@ func (node *Node) distributeMintByWorks(base common.Integer, timestamp uint64) (
 		return nil, fmt.Errorf("distributeMintByWorks not ready yet %d %d %d %d", day, len(mints), t, node.ConsensusThreshold(timestamp))
 	}
 
-	works, err = node.persistStore.ListNodeWorks(cids, day-1)
+	works, err = node.persistStore.ListNodeWorks(cids, uint32(day)-1)
 	if err != nil {
 		return nil, err
 	}
@@ -385,7 +385,7 @@ func (node *Node) distributeMintByWorks(base common.Integer, timestamp uint64) (
 		rat := m.Work.Ration(avg)
 		if rat.Cmp(upper) >= 0 {
 			m.Work = avg.Mul(2)
-		} else if rat.Cmp(common.One) >= 0 {
+		} else if rat.Cmp(common.OneRat) >= 0 {
 			m.Work = rat.Product(avg.Div(6)).Add(avg.Mul(5).Div(6))
 		} else if rat.Cmp(lower) > 0 {
 			m.Work = rat.Product(avg)
