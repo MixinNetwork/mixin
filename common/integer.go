@@ -84,24 +84,6 @@ func (x Integer) Div(y int) (v Integer) {
 	return
 }
 
-func (x Integer) Ration(y Integer) (v Integer) {
-	if x.Sign() < 0 || y.Sign() <= 0 {
-		panic(fmt.Sprint(x, y))
-	}
-
-	v.i.Div(&x.i, &y.i)
-	return
-}
-
-func (x Integer) Product(y Integer) (v Integer) {
-	if x.Sign() < 0 || y.Sign() <= 0 {
-		panic(fmt.Sprint(x, y))
-	}
-
-	v.i.Mul(&x.i, &y.i)
-	return
-}
-
 func (x Integer) Cmp(y Integer) int {
 	return x.i.Cmp(&y.i)
 }

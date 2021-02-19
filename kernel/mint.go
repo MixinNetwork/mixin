@@ -46,14 +46,18 @@ func (chain *Chain) AggregateMintWork() {
 	}
 
 	for chain.running {
-		if cs := chain.State; cs == nil || cs.FinalRound.Number < round {
-			logger.Verbosef("AggregateMintWork(%s) waiting\n", chain.ChainId)
+		if cs := chain.State; cs == nil || cs.CacheRound.Number < round {
+			logger.Verbosef("AggregateMintWork(%s) waiting %v %d\n", chain.ChainId, cs, round)
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		snapshots, err := chain.persistStore.ReadSnapshotsForNodeRound(chain.ChainId, round)
 		if err != nil {
 			logger.Printf("AggregateMintWork(%s) ERROR ReadSnapshotsForNodeRound %s\n", chain.ChainId, err.Error())
+			continue
+		}
+		if len(snapshots) == 0 {
+			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		for chain.running {
@@ -63,7 +67,11 @@ func (chain *Chain) AggregateMintWork() {
 			}
 			logger.Printf("AggregateMintWork(%s) ERROR WriteRoundWork %s\n", chain.ChainId, err.Error())
 		}
-		round = round + 1
+		if round < chain.State.CacheRound.Number {
+			round = round + 1
+		} else {
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
 }
 
@@ -128,7 +136,47 @@ func (node *Node) buildMintTransaction(timestamp uint64, validateOnly bool) *com
 		return nil
 	}
 
-	nodes := node.sortMintNodes(timestamp)
+	if node.networkId.String() == config.MainnetId && batch < MainnetMintWorkDistributionForkBatch {
+		return node.legacyMintTransaction(timestamp, batch, amount)
+	}
+
+	mints, err := node.distributeMintByWorks(amount, timestamp)
+	if err != nil {
+		logger.Printf("buildMintTransaction ERROR %s\n", err.Error())
+		return nil
+	}
+
+	tx := common.NewTransaction(common.XINAssetId)
+	tx.AddKernelNodeMintInput(uint64(batch), amount)
+	script := common.NewThresholdScript(1)
+	total := common.NewInteger(0)
+	for _, m := range mints {
+		in := fmt.Sprintf("MINTKERNELNODE%d", batch)
+		si := crypto.NewHash([]byte(m.Signer.String() + in))
+		seed := append(si[:], si[:]...)
+		tx.AddScriptOutput([]common.Address{m.Payee}, script, m.Work, seed)
+		total = total.Add(m.Work)
+	}
+
+	if diff := amount.Sub(total); diff.Sign() > 0 {
+		addr := common.NewAddressFromSeed(make([]byte, 64))
+		script := common.NewThresholdScript(common.Operator64)
+		in := fmt.Sprintf("MINTKERNELNODE%dDIFF", batch)
+		si := crypto.NewHash([]byte(addr.String() + in))
+		seed := append(si[:], si[:]...)
+		tx.AddScriptOutput([]common.Address{addr}, script, diff, seed)
+	}
+	return tx.AsLatestVersion()
+}
+
+func (node *Node) legacyMintTransaction(timestamp uint64, batch int, amount common.Integer) *common.VersionedTransaction {
+	nodes := node.NodesListWithoutState(timestamp, true)
+	sort.Slice(nodes, func(i, j int) bool {
+		a := nodes[i].IdForNetwork
+		b := nodes[j].IdForNetwork
+		return a.String() < b.String()
+	})
+
 	per := amount.Div(len(nodes))
 	diff := amount.Sub(per.Mul(len(nodes)))
 
@@ -267,8 +315,12 @@ func (node *Node) distributeMintByWorks(base common.Integer, timestamp uint64) (
 		cids[i] = n.IdForNetwork
 		mints[i] = &CNodeWork{CNode: *n}
 	}
+	epoch := node.Epoch / (uint64(time.Hour) * 24)
 	day := timestamp / (uint64(time.Hour) * 24)
-	if day == 0 {
+	if day < epoch {
+		panic(fmt.Errorf("invalid mint day %d %d", epoch, day))
+	}
+	if day-epoch == 0 {
 		work := base.Div(len(mints))
 		for _, m := range mints {
 			m.Work = work
@@ -286,8 +338,8 @@ func (node *Node) distributeMintByWorks(base common.Integer, timestamp uint64) (
 			t -= 1
 		}
 	}
-	if t >= 0 {
-		return nil, fmt.Errorf("distributeMintByWorks not ready yet %d %d %d", day, len(mints), t)
+	if t > 0 {
+		return nil, fmt.Errorf("distributeMintByWorks not ready yet %d %d %d %d", day, len(mints), t, node.ConsensusThreshold(timestamp))
 	}
 
 	works, err = node.persistStore.ListNodeWorks(cids, day-1)
@@ -327,13 +379,15 @@ func (node *Node) distributeMintByWorks(base common.Integer, timestamp uint64) (
 	}
 
 	total = common.NewInteger(0)
+	upper := common.NewInteger(7).Ration(common.NewInteger(1))
+	lower := common.NewInteger(1).Ration(common.NewInteger(7))
 	for _, m := range mints {
 		rat := m.Work.Ration(avg)
-		if rat.Cmp(common.NewInteger(7)) >= 0 {
+		if rat.Cmp(upper) >= 0 {
 			m.Work = avg.Mul(2)
-		} else if rat.Cmp(common.NewInteger(1)) >= 0 {
-			m.Work = rat.Div(6).Product(avg).Add(avg.Mul(5).Div(6))
-		} else if rat.Cmp(common.NewInteger(1).Div(7)) > 0 {
+		} else if rat.Cmp(common.One) >= 0 {
+			m.Work = rat.Product(avg.Div(6)).Add(avg.Mul(5).Div(6))
+		} else if rat.Cmp(lower) > 0 {
 			m.Work = rat.Product(avg)
 		} else {
 			m.Work = avg.Div(7)
@@ -343,17 +397,7 @@ func (node *Node) distributeMintByWorks(base common.Integer, timestamp uint64) (
 
 	for _, m := range mints {
 		rat := m.Work.Ration(total)
-		m.Work = base.Product(rat)
+		m.Work = rat.Product(base)
 	}
 	return mints, nil
-}
-
-func (node *Node) sortMintNodes(timestamp uint64) []*CNode {
-	accepted := node.NodesListWithoutState(timestamp, true)
-	sort.Slice(accepted, func(i, j int) bool {
-		a := accepted[i].IdForNetwork
-		b := accepted[j].IdForNetwork
-		return a.String() < b.String()
-	})
-	return accepted
 }

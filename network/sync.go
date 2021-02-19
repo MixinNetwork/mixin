@@ -10,7 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
-func (me *Peer) cacheReadSnapshotsForNodeRound(nodeId crypto.Hash, number uint64, final bool) ([]*common.SnapshotWithTopologicalOrder, error) {
+func (me *Peer) cacheReadSnapshotsForNodeRound(nodeId crypto.Hash, number uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	return me.handle.ReadSnapshotsForNodeRound(nodeId, number)
 }
 
@@ -34,7 +34,7 @@ func (me *Peer) compareRoundGraphAndGetTopologicalOffset(p *Peer, local, remote 
 		number := r.Number + 2 // because the node may be stale or removed, and with cache
 		logger.Verbosef("network.sync compareRoundGraphAndGetTopologicalOffset %s try %s:%d\n", p.IdForNetwork, l.NodeId, number)
 
-		ss, err := me.cacheReadSnapshotsForNodeRound(l.NodeId, number, number <= l.Number)
+		ss, err := me.cacheReadSnapshotsForNodeRound(l.NodeId, number)
 		if err != nil {
 			return offset, err
 		}
@@ -95,7 +95,7 @@ func (me *Peer) syncHeadRoundToRemote(local, remote map[crypto.Hash]*SyncPoint, 
 	}
 	logger.Verbosef("network.sync syncHeadRoundToRemote %s %s:%d\n", p.IdForNetwork, nodeId, remoteFinal)
 	for i := remoteFinal; i <= remoteFinal+config.SnapshotReferenceThreshold+2; i++ {
-		ss, _ := me.cacheReadSnapshotsForNodeRound(nodeId, i, i <= localFinal)
+		ss, _ := me.cacheReadSnapshotsForNodeRound(nodeId, i)
 		for _, s := range ss {
 			me.SendSnapshotFinalizationMessage(p.IdForNetwork, &s.Snapshot)
 		}

@@ -45,14 +45,15 @@ func (s *BadgerStore) ListNodeWorks(cids []crypto.Hash, day uint64) (map[crypto.
 func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots []*common.SnapshotWithTopologicalOrder) error {
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		offKey := graphWorkOffsetKey(nodeId)
-		oldOffset, err := graphReadUint64(txn, offKey)
-		if err != nil || oldOffset >= round {
+		off, osm, err := graphReadWorkOffset(txn, offKey)
+		if err != nil || off > round {
 			return err
 		}
-		if round != oldOffset+1 {
-			panic(fmt.Errorf("WriteRoundWork invalid offset %s %d %d", nodeId, oldOffset, round))
+		if round > off+1 {
+			panic(fmt.Errorf("WriteRoundWork invalid offset %s %d %d", nodeId, off, round))
 		}
-		err = graphWriteUint64(txn, offKey, round)
+
+		err = graphWriteWorkOffset(txn, offKey, round, snapshots)
 		if err != nil {
 			return err
 		}
@@ -60,6 +61,19 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 			return nil
 		}
 		day := snapshots[0].Timestamp / DAY_U64
+
+		if round == off {
+			var fresh []*common.SnapshotWithTopologicalOrder
+			for _, ss := range snapshots {
+				if !osm[ss.Hash] {
+					fresh = append(fresh, ss)
+				}
+			}
+			if len(fresh) == 0 {
+				return nil
+			}
+			snapshots = fresh
+		}
 
 		wm := make(map[crypto.Hash]uint64)
 		for _, w := range snapshots {
@@ -102,6 +116,38 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 		}
 		return graphWriteUint64(txn, leadKey, ol+wm[nodeId])
 	})
+}
+
+func graphWriteWorkOffset(txn *badger.Txn, key []byte, val uint64, snapshots []*common.SnapshotWithTopologicalOrder) error {
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, val)
+	for _, s := range snapshots {
+		buf = append(buf, s.Hash[:]...)
+	}
+	return txn.Set(key, buf)
+}
+
+func graphReadWorkOffset(txn *badger.Txn, key []byte) (uint64, map[crypto.Hash]bool, error) {
+	item, err := txn.Get(key)
+	if err == badger.ErrKeyNotFound {
+		return 0, nil, nil
+	}
+	if err != nil {
+		return 0, nil, err
+	}
+	ival, err := item.ValueCopy(nil)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	round := binary.BigEndian.Uint64(ival[:8])
+	snapshots := make(map[crypto.Hash]bool)
+	for i := 0; i < (len(ival)-8)/32; i++ {
+		var h crypto.Hash
+		copy(h[:], ival[8+32*i:8+32*(i+1)])
+		snapshots[h] = true
+	}
+	return round, snapshots, nil
 }
 
 func graphWriteUint64(txn *badger.Txn, key []byte, val uint64) error {
