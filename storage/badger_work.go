@@ -168,7 +168,7 @@ func graphReadUint64(txn *badger.Txn, key []byte) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return binary.BigEndian.Uint64(ival), nil
+	return binary.BigEndian.Uint64(ival[:8]), nil
 }
 
 func graphWorkOffsetKey(nodeId crypto.Hash) []byte {

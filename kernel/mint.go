@@ -140,7 +140,8 @@ func (node *Node) buildMintTransaction(timestamp uint64, validateOnly bool) *com
 		return node.legacyMintTransaction(timestamp, batch, amount)
 	}
 
-	mints, err := node.distributeMintByWorks(amount, timestamp)
+	accepted := node.NodesListWithoutState(timestamp, true)
+	mints, err := node.distributeMintByWorks(accepted, amount, timestamp)
 	if err != nil {
 		logger.Printf("buildMintTransaction ERROR %s\n", err.Error())
 		return nil
@@ -156,6 +157,9 @@ func (node *Node) buildMintTransaction(timestamp uint64, validateOnly bool) *com
 		seed := append(si[:], si[:]...)
 		tx.AddScriptOutput([]common.Address{m.Payee}, script, m.Work, seed)
 		total = total.Add(m.Work)
+	}
+	if total.Cmp(amount) > 0 {
+		panic(fmt.Errorf("buildMintTransaction %s %s", amount, total))
 	}
 
 	if diff := amount.Sub(total); diff.Sign() > 0 {
@@ -307,8 +311,7 @@ type CNodeWork struct {
 // for 7a > x > a, y = 1/6x + 5/6a
 // for a > x > 1/7a, y = x
 // for x < 1/7a, y = 1/7a
-func (node *Node) distributeMintByWorks(base common.Integer, timestamp uint64) ([]*CNodeWork, error) {
-	accepted := node.NodesListWithoutState(timestamp, true)
+func (node *Node) distributeMintByWorks(accepted []*CNode, base common.Integer, timestamp uint64) ([]*CNodeWork, error) {
 	mints := make([]*CNodeWork, len(accepted))
 	cids := make([]crypto.Hash, len(accepted))
 	for i, n := range accepted {
@@ -332,14 +335,14 @@ func (node *Node) distributeMintByWorks(base common.Integer, timestamp uint64) (
 	if err != nil {
 		return nil, err
 	}
-	t := int(node.ConsensusThreshold(timestamp))
+	thr, agg := int(node.ConsensusThreshold(timestamp)), 0
 	for _, w := range works {
 		if w[0]+w[1] > 0 {
-			t -= 1
+			agg += 1
 		}
 	}
-	if t > 0 {
-		return nil, fmt.Errorf("distributeMintByWorks not ready yet %d %d %d %d", day, len(mints), t, node.ConsensusThreshold(timestamp))
+	if agg < thr {
+		return nil, fmt.Errorf("distributeMintByWorks not ready yet %d %d %d %d", day, len(mints), agg, thr)
 	}
 
 	works, err = node.persistStore.ListNodeWorks(cids, uint32(day)-1)
@@ -351,9 +354,11 @@ func (node *Node) distributeMintByWorks(base common.Integer, timestamp uint64) (
 	var min, max, total common.Integer
 	for _, m := range mints {
 		w := works[m.IdForNetwork]
-		lead := common.NewInteger(w[0]).Mul(120).Div(100)
+		m.Work = common.NewInteger(w[0]).Mul(120).Div(100)
 		sign := common.NewInteger(w[1])
-		m.Work = lead.Add(sign)
+		if sign.Sign() > 0 {
+			m.Work = m.Work.Add(sign)
+		}
 		if m.Work.Sign() == 0 {
 			continue
 		}
@@ -368,14 +373,14 @@ func (node *Node) distributeMintByWorks(base common.Integer, timestamp uint64) (
 		}
 		total = total.Add(m.Work)
 	}
-	if valid < config.KernelMinimumNodesCount {
-		return nil, fmt.Errorf("distributeMintByWorks not valid %d %d %d %d", day, len(mints), t, valid)
+	if valid < thr {
+		return nil, fmt.Errorf("distributeMintByWorks not valid %d %d %d %d", day, len(mints), thr, valid)
 	}
 
 	total = total.Sub(min).Sub(max)
 	avg := total.Div(valid - 2)
 	if avg.Sign() == 0 {
-		return nil, fmt.Errorf("distributeMintByWorks not valid %d %d %d %d", day, len(mints), t, valid)
+		return nil, fmt.Errorf("distributeMintByWorks not valid %d %d %d %d", day, len(mints), thr, valid)
 	}
 
 	total = common.NewInteger(0)
