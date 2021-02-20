@@ -48,7 +48,7 @@ func (chain *Chain) AggregateMintWork() {
 	for chain.running {
 		if cs := chain.State; cs == nil || cs.CacheRound.Number < round {
 			logger.Verbosef("AggregateMintWork(%s) waiting %v %d\n", chain.ChainId, cs, round)
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(300 * time.Millisecond)
 			continue
 		}
 		snapshots, err := chain.persistStore.ReadSnapshotsForNodeRound(chain.ChainId, round)
@@ -57,7 +57,7 @@ func (chain *Chain) AggregateMintWork() {
 			continue
 		}
 		if len(snapshots) == 0 {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(300 * time.Millisecond)
 			continue
 		}
 		for chain.running {
