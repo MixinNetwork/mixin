@@ -137,8 +137,8 @@ func TestMintWorks(t *testing.T) {
 	assert.Equal(uint64(1), offset)
 
 	timestamp = uint64(time.Now().Add(24 * time.Hour).UnixNano())
-	snapshots = testBuildMintSnapshots(node.IdForNetwork, signers[1:], 1, timestamp)
-	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 1, snapshots[:10])
+	snapshots = testBuildMintSnapshots(node.IdForNetwork, signers[1:], 2, timestamp)
+	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 2, snapshots[:10])
 	assert.Nil(err)
 
 	accepted := make([]*CNode, len(signers))

@@ -63,10 +63,17 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 		day := uint32(snapshots[0].Timestamp / DAY_U64)
 
 		if round == off {
+			filter := make(map[crypto.Hash]bool)
 			var fresh []*common.SnapshotWithTopologicalOrder
 			for _, ss := range snapshots {
 				if !osm[ss.Hash] {
 					fresh = append(fresh, ss)
+				}
+				filter[ss.Hash] = true
+			}
+			for id := range osm {
+				if !filter[id] {
+					panic(id)
 				}
 			}
 			if len(fresh) == 0 {
