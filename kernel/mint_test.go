@@ -153,7 +153,7 @@ func TestMintWorks(t *testing.T) {
 		if i == 0 {
 			assert.Equal("94.13241292", m.Work.String())
 		} else if m.IdForNetwork == node.IdForNetwork {
-			assert.Equal("680.89112015", m.Work.String())
+			assert.Equal("680.89112018", m.Work.String())
 		} else {
 			assert.Equal("658.92689049", m.Work.String())
 		}

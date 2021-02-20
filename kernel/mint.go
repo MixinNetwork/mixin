@@ -384,17 +384,13 @@ func (node *Node) distributeMintByWorks(accepted []*CNode, base common.Integer, 
 	}
 
 	total = common.NewInteger(0)
-	upper := common.NewInteger(7).Ration(common.NewInteger(1))
-	lower := common.NewInteger(1).Ration(common.NewInteger(7))
+	upper, lower := avg.Mul(7), avg.Div(7)
 	for _, m := range mints {
-		rat := m.Work.Ration(avg)
-		if rat.Cmp(upper) >= 0 {
+		if m.Work.Cmp(upper) >= 0 {
 			m.Work = avg.Mul(2)
-		} else if rat.Cmp(common.OneRat) >= 0 {
-			m.Work = rat.Product(avg.Div(6)).Add(avg.Mul(5).Div(6))
-		} else if rat.Cmp(lower) > 0 {
-			m.Work = rat.Product(avg)
-		} else {
+		} else if m.Work.Cmp(avg) >= 0 {
+			m.Work = m.Work.Div(6).Add(avg.Mul(5).Div(6))
+		} else if m.Work.Cmp(lower) <= 0 {
 			m.Work = avg.Div(7)
 		}
 		total = total.Add(m.Work)
