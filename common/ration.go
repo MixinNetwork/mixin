@@ -37,7 +37,8 @@ func (r RationalNumber) Product(x Integer) (v Integer) {
 }
 
 func (r RationalNumber) Cmp(x RationalNumber) int {
-	r.x.Mul(&r.x, &x.y)
-	r.y.Mul(&r.y, &x.x)
-	return r.x.Cmp(&r.y)
+	var v RationalNumber
+	v.x.Mul(&r.x, &x.y)
+	v.y.Mul(&r.y, &x.x)
+	return v.x.Cmp(&v.y)
 }
