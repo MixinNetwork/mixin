@@ -72,7 +72,7 @@ func TestMintWorks(t *testing.T) {
 	signers := append(node.genesisNodes, node.IdForNetwork)
 	timestamp := uint64(time.Now().UnixNano())
 	for i := 0; i < 2; i++ {
-		snapshots := testBuildMintSnapshots(node.IdForNetwork, signers, 0, timestamp)
+		snapshots := testBuildMintSnapshots(node.IdForNetwork, signers[1:], 0, timestamp)
 		err = node.persistStore.WriteRoundWork(node.IdForNetwork, 0, snapshots)
 		assert.Nil(err)
 
@@ -81,9 +81,13 @@ func TestMintWorks(t *testing.T) {
 		assert.Len(works, 16)
 		assert.Equal(uint64(100), works[node.IdForNetwork][0])
 		assert.Equal(uint64(0), works[node.IdForNetwork][1])
-		for _, id := range node.genesisNodes {
+		for i, id := range node.genesisNodes {
 			assert.Equal(uint64(0), works[id][0])
-			assert.Equal(uint64(100), works[id][1])
+			if i == 0 {
+				assert.Equal(uint64(0), works[id][1])
+			} else {
+				assert.Equal(uint64(100), works[id][1])
+			}
 		}
 		offset, err := node.persistStore.ReadWorkOffset(node.IdForNetwork)
 		assert.Nil(err)
@@ -91,7 +95,7 @@ func TestMintWorks(t *testing.T) {
 	}
 
 	timestamp = uint64(time.Now().UnixNano())
-	snapshots := testBuildMintSnapshots(node.IdForNetwork, signers, 1, timestamp)
+	snapshots := testBuildMintSnapshots(node.IdForNetwork, signers[1:], 1, timestamp)
 	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 1, snapshots[:98])
 	assert.Nil(err)
 
@@ -100,9 +104,13 @@ func TestMintWorks(t *testing.T) {
 	assert.Len(works, 16)
 	assert.Equal(uint64(198), works[node.IdForNetwork][0])
 	assert.Equal(uint64(0), works[node.IdForNetwork][1])
-	for _, id := range node.genesisNodes {
+	for i, id := range node.genesisNodes {
 		assert.Equal(uint64(0), works[id][0])
-		assert.Equal(uint64(198), works[id][1])
+		if i == 0 {
+			assert.Equal(uint64(0), works[id][1])
+		} else {
+			assert.Equal(uint64(198), works[id][1])
+		}
 	}
 	offset, err = node.persistStore.ReadWorkOffset(node.IdForNetwork)
 	assert.Nil(err)
@@ -116,16 +124,20 @@ func TestMintWorks(t *testing.T) {
 	assert.Len(works, 16)
 	assert.Equal(uint64(200), works[node.IdForNetwork][0])
 	assert.Equal(uint64(0), works[node.IdForNetwork][1])
-	for _, id := range node.genesisNodes {
+	for i, id := range node.genesisNodes {
 		assert.Equal(uint64(0), works[id][0])
-		assert.Equal(uint64(200), works[id][1])
+		if i == 0 {
+			assert.Equal(uint64(0), works[id][1])
+		} else {
+			assert.Equal(uint64(200), works[id][1])
+		}
 	}
 	offset, err = node.persistStore.ReadWorkOffset(node.IdForNetwork)
 	assert.Nil(err)
 	assert.Equal(uint64(1), offset)
 
 	timestamp = uint64(time.Now().Add(24 * time.Hour).UnixNano())
-	snapshots = testBuildMintSnapshots(node.IdForNetwork, signers, 1, timestamp)
+	snapshots = testBuildMintSnapshots(node.IdForNetwork, signers[1:], 1, timestamp)
 	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 1, snapshots[:10])
 	assert.Nil(err)
 
@@ -137,11 +149,13 @@ func TestMintWorks(t *testing.T) {
 	assert.Nil(err)
 	assert.Len(mints, 16)
 	total := common.NewInteger(0)
-	for _, m := range mints {
-		if m.IdForNetwork == node.IdForNetwork {
-			assert.Equal("644.49064447", m.Work.String())
+	for i, m := range mints {
+		if i == 0 {
+			assert.Equal("94.13241292", m.Work.String())
+		} else if m.IdForNetwork == node.IdForNetwork {
+			assert.Equal("680.89112015", m.Work.String())
 		} else {
-			assert.Equal("623.70062370", m.Work.String())
+			assert.Equal("658.92689049", m.Work.String())
 		}
 		total = total.Add(m.Work)
 	}
