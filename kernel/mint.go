@@ -45,6 +45,7 @@ func (chain *Chain) AggregateMintWork() {
 		panic(err)
 	}
 
+	fork := uint64(SnapshotRoundDayLeapForkHack.UnixNano())
 	for chain.running {
 		if cs := chain.State; cs == nil || cs.CacheRound.Number < round {
 			logger.Verbosef("AggregateMintWork(%s) waiting %v %d\n", chain.ChainId, cs, round)
@@ -61,6 +62,9 @@ func (chain *Chain) AggregateMintWork() {
 			continue
 		}
 		for chain.running {
+			if chain.node.networkId.String() == config.MainnetId && snapshots[0].Timestamp < fork {
+				break
+			}
 			err = chain.persistStore.WriteRoundWork(chain.ChainId, round, snapshots)
 			if err == nil {
 				break
