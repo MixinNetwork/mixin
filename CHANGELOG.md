@@ -2,6 +2,10 @@
 
 Semantic Versioning
 
+## v0.11 Diligent Hoverflies, Feb 21, 2021
+
+Fair mint distributions based on node works.
+
 ## v0.10 Rolling Spiders, Feb 1, 2021
 
 Rolling nodes removal.
