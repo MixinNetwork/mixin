@@ -123,6 +123,18 @@ func poolSize(batch int) common.Integer {
 	return MintPool
 }
 
+func (node *Node) PledgeAmount(ts uint64) common.Integer {
+	since := uint64(time.Now().UnixNano()) - node.Epoch
+	batch := int(since / 3600000000000 / 24)
+	liquidity, pool := MintLiquidity, MintPool
+	for i := 0; i < batch/MintYearBatches; i++ {
+		share := pool.Div(MintYearShares)
+		liquidity = liquidity.Add(share)
+		pool = pool.Sub(share)
+	}
+	return liquidity.Div(MintNodeMaximum)
+}
+
 func pledgeAmount(sinceEpoch time.Duration) common.Integer {
 	batch := int(sinceEpoch / 3600000000000 / 24)
 	liquidity, pool := MintLiquidity, MintPool

@@ -30,8 +30,9 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		return info, err
 	}
 	info["mint"] = map[string]interface{}{
-		"pool":  pool,
-		"batch": md.Batch,
+		"pool":   pool,
+		"batch":  md.Batch,
+		"pledge": node.PledgeAmount(uint64(time.Now().UnixNano())),
 	}
 	cacheMap, finalMap, err := kernel.LoadRoundGraph(store, node.NetworkId(), node.IdForNetwork)
 	if err != nil {
