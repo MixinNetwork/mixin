@@ -6,12 +6,11 @@ import (
 	"strconv"
 
 	"github.com/MixinNetwork/mixin/common"
-	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 )
 
-func listMintWorks(node *kernel.Node, params []interface{}) (map[crypto.Hash][2]uint64, error) {
+func listMintWorks(node *kernel.Node, params []interface{}) (map[string]interface{}, error) {
 	if len(params) != 1 {
 		return nil, errors.New("invalid params count")
 	}
@@ -20,7 +19,15 @@ func listMintWorks(node *kernel.Node, params []interface{}) (map[crypto.Hash][2]
 		return nil, err
 	}
 
-	return node.ListMintWorks(offset)
+	works, err := node.ListMintWorks(offset)
+	if err != nil {
+		return nil, err
+	}
+	wm := make(map[string]interface{})
+	for id, w := range works {
+		wm[id.String()] = w
+	}
+	return wm, nil
 }
 
 func listMintDistributions(store storage.Store, params []interface{}) ([]map[string]interface{}, error) {
