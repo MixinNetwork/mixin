@@ -553,6 +553,16 @@ func getUTXOCmd(c *cli.Context) error {
 	return err
 }
 
+func listMintWorksCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "listmintworks", []interface{}{
+		c.Uint64("since"),
+	}, c.Bool("time"))
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
+
 func listMintDistributionsCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "listmintdistributions", []interface{}{
 		c.Uint64("since"),

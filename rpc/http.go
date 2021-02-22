@@ -144,6 +144,13 @@ func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]strin
 		} else {
 			renderer.RenderData(snapshots)
 		}
+	case "listmintworks":
+		works, err := listMintWorks(impl.Node, call.Params)
+		if err != nil {
+			renderer.RenderError(err)
+		} else {
+			renderer.RenderData(works)
+		}
 	case "listmintdistributions":
 		distributions, err := listMintDistributions(impl.Store, call.Params)
 		if err != nil {

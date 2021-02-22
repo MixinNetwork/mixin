@@ -6,8 +6,22 @@ import (
 	"strconv"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 )
+
+func listMintWorks(node *kernel.Node, params []interface{}) (map[crypto.Hash][2]uint64, error) {
+	if len(params) != 1 {
+		return nil, errors.New("invalid params count")
+	}
+	offset, err := strconv.ParseUint(fmt.Sprint(params[0]), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	return node.ListMintWorks(offset)
+}
 
 func listMintDistributions(store storage.Store, params []interface{}) ([]map[string]interface{}, error) {
 	if len(params) != 3 {

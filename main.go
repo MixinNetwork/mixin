@@ -456,6 +456,19 @@ func main() {
 			},
 		},
 		{
+			Name:   "listmintworks",
+			Usage:  "List mint works",
+			Action: listMintWorksCmd,
+			Flags: []cli.Flag{
+				&cli.Uint64Flag{
+					Name:    "since",
+					Aliases: []string{"s"},
+					Value:   0,
+					Usage:   "the mint batch to list works",
+				},
+			},
+		},
+		{
 			Name:   "listmintdistributions",
 			Usage:  "List mint distributions",
 			Action: listMintDistributionsCmd,
