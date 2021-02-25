@@ -134,7 +134,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 			return fmt.Errorf("only empty snapshot with timestamp can be announced")
 		}
 		ov := chain.CosiVerifiers[s.Transaction]
-		if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber {
+		if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber && s.Timestamp < ov.Snapshot.Timestamp+config.SnapshotRoundGap*2 {
 			return fmt.Errorf("a transaction %s only in one round %d of one chain %s", s.Transaction, s.RoundNumber, chain.ChainId)
 		}
 	case CosiActionExternalChallenge:
@@ -276,7 +276,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	}
 
 	ov := chain.CosiVerifiers[s.Transaction]
-	if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber {
+	if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber && s.Timestamp < ov.Snapshot.Timestamp+config.SnapshotRoundGap*2 {
 		err := fmt.Errorf("a transaction %s only in one round %d of one chain %s", s.Transaction, s.RoundNumber, chain.ChainId)
 		logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement ERROR %s\n", err)
 		return nil
