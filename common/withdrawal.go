@@ -6,6 +6,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
+	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dogecoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
@@ -95,6 +96,8 @@ func (tx *SignedTransaction) validateWithdrawalSubmit(inputs map[string]*UTXO) e
 		return tron.VerifyAddress(submit.Withdrawal.Address)
 	case mobilecoin.MobileCoinChainId:
 		return mobilecoin.VerifyAddress(submit.Withdrawal.Address)
+	case cosmos.CosmosChainId:
+		return cosmos.VerifyAddress(submit.Withdrawal.Address)
 	}
 	return fmt.Errorf("invalid withdrawal chain id %s", chainId)
 }
