@@ -63,7 +63,7 @@ func (chain *Chain) AggregateMintWork() {
 		}
 		for chain.running {
 			if chain.node.networkId.String() == config.MainnetId && snapshots[0].Timestamp < fork {
-				break
+				snapshots = nil
 			}
 			err = chain.persistStore.WriteRoundWork(chain.ChainId, round, snapshots)
 			if err == nil {

@@ -54,7 +54,7 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 		}
 
 		err = graphWriteWorkOffset(txn, offKey, round, snapshots)
-		if err != nil {
+		if err != nil || len(snapshots) == 0 {
 			return err
 		}
 		if len(snapshots[0].Signers) == 0 {
