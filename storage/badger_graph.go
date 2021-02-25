@@ -29,7 +29,7 @@ const (
 	graphPrefixWorkOffset   = "WORKOFFSET"
 )
 
-func (s *BadgerStore) RemoveGraphEntries(prefix string) error {
+func (s *BadgerStore) RemoveGraphEntries(prefix string) (int, error) {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 
@@ -38,17 +38,18 @@ func (s *BadgerStore) RemoveGraphEntries(prefix string) error {
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
+	var removed int
 	it.Seek([]byte(prefix))
 	for ; it.ValidForPrefix([]byte(prefix)); it.Next() {
 		item := it.Item()
 		err := txn.Delete(item.Key())
 		if err != nil {
-			return err
+			return 0, err
 		}
+		removed += 1
 	}
 
-	it.Close()
-	return txn.Commit()
+	return removed, txn.Commit()
 }
 
 func (s *BadgerStore) ReadSnapshotsForNodeRound(nodeId crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error) {

@@ -43,6 +43,6 @@ type Store interface {
 	ReadWorkOffset(nodeId crypto.Hash) (uint64, error)
 	WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots []*common.SnapshotWithTopologicalOrder) error
 
-	RemoveGraphEntries(prefix string) error
+	RemoveGraphEntries(prefix string) (int, error)
 	ValidateGraphEntries(networkId crypto.Hash, depth uint64) (int, int, error)
 }

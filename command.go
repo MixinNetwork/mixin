@@ -144,7 +144,9 @@ func removeGraphEntries(c *cli.Context) error {
 		return err
 	}
 	defer store.Close()
-	return store.RemoveGraphEntries(c.String("prefix"))
+	removed, err := store.RemoveGraphEntries(c.String("prefix"))
+	fmt.Printf("removed %d entries with %v\n", removed, err)
+	return err
 }
 
 func validateGraphEntries(c *cli.Context) error {
