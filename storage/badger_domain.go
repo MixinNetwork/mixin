@@ -23,7 +23,8 @@ func (s *BadgerStore) ReadDomains() []common.Domain {
 
 	prefix := []byte(graphPrefixDomainAccept)
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-		acc := domainAccountForState(it.Item().Key(), graphPrefixDomainAccept)
+		key := it.Item().KeyCopy(nil)
+		acc := domainAccountForState(key, graphPrefixDomainAccept)
 		domains = append(domains, common.Domain{Account: acc})
 	}
 	return domains

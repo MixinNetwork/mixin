@@ -26,6 +26,7 @@ func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) 
 	it.Seek(graphMintKey(group, offset))
 	for ; it.ValidForPrefix(prefix) && uint64(len(mints)) < count; it.Next() {
 		item := it.Item()
+		key := item.KeyCopy(nil)
 		ival, err := item.ValueCopy(nil)
 		if err != nil {
 			return nil, nil, err
@@ -35,7 +36,7 @@ func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) 
 		if err != nil {
 			return nil, nil, err
 		}
-		if data.Batch != graphMintBatch(item.Key(), group) {
+		if data.Batch != graphMintBatch(key, group) {
 			panic("malformed mint data")
 		}
 
@@ -74,6 +75,7 @@ func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistri
 	it.Seek(graphMintKey(group, ^uint64(0)))
 	for ; it.ValidForPrefix(prefix); it.Next() {
 		item := it.Item()
+		key := item.KeyCopy(nil)
 		ival, err := item.ValueCopy(nil)
 		if err != nil {
 			return nil, err
@@ -83,7 +85,7 @@ func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistri
 		if err != nil {
 			return nil, err
 		}
-		if data.Batch != graphMintBatch(item.Key(), group) {
+		if data.Batch != graphMintBatch(key, group) {
 			panic("malformed mint data")
 		}
 		_, err = txn.Get(graphFinalizationKey(data.Transaction))
@@ -93,7 +95,7 @@ func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistri
 			return nil, err
 		}
 
-		dist.Batch = graphMintBatch(item.Key(), group)
+		dist.Batch = graphMintBatch(key, group)
 		dist.Transaction = data.Transaction
 		dist.Amount = data.Amount
 		break

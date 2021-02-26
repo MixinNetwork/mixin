@@ -25,7 +25,7 @@ func readAllNodes(txn *badger.Txn, threshold uint64, withState bool) []*common.N
 	nodes := make([]*common.Node, 0)
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 		item := it.Item()
-		signer, ts := nodeSignerFromStateKey(item.Key())
+		signer, ts := nodeSignerFromStateKey(item.KeyCopy(nil))
 		ival, err := item.ValueCopy(nil)
 		if err != nil {
 			panic(err)
@@ -131,7 +131,7 @@ func readLastNodeOperation(txn *badger.Txn) (string, crypto.Hash, uint64, error)
 	it.Seek(nodeOperationKey(^uint64(0)))
 	if it.ValidForPrefix([]byte(graphPrefixNodeOperation)) {
 		item := it.Item()
-		order := item.Key()[len(graphPrefixNodeOperation):]
+		order := item.KeyCopy(nil)[len(graphPrefixNodeOperation):]
 		timestamp = binary.BigEndian.Uint64(order)
 
 		val, err := item.ValueCopy(nil)

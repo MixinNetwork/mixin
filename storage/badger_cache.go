@@ -28,7 +28,7 @@ func (s *BadgerStore) CacheListTransactions(hook func(tx *common.VersionedTransa
 
 	prefix := []byte(cachePrefixTransactionCache)
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-		key := it.Item().Key()[len(prefix):]
+		key := it.Item().KeyCopy(nil)[len(prefix):]
 		key = append([]byte(graphPrefixFinalization), key...)
 		_, err := snapTxn.Get(key)
 		if err == nil {

@@ -41,13 +41,14 @@ func (s *BadgerStore) RemoveGraphEntries(prefix string) (int, error) {
 	var removed int
 	it.Seek([]byte(prefix))
 	for ; it.ValidForPrefix([]byte(prefix)); it.Next() {
-		item := it.Item()
-		err := txn.Delete(item.Key())
+		key := it.Item().KeyCopy(nil)
+		err := txn.Delete(key)
 		if err != nil {
 			return 0, err
 		}
 		removed += 1
 	}
+	it.Close()
 
 	return removed, txn.Commit()
 }
