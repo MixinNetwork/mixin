@@ -47,14 +47,18 @@ func (chain *Chain) AggregateMintWork() {
 
 	fork := uint64(SnapshotRoundDayLeapForkHack.UnixNano())
 	for chain.running {
-		if cs := chain.State; cs == nil || cs.CacheRound.Number < round {
-			logger.Verbosef("AggregateMintWork(%s) waiting %v %d\n", chain.ChainId, cs, round)
-			time.Sleep(300 * time.Millisecond)
+		if cs := chain.State; cs == nil {
+			logger.Verbosef("AggregateMintWork(%s) no state yet\n", chain.ChainId)
+			time.Sleep(time.Duration(chain.node.custom.Node.KernelOprationPeriod) * time.Second)
 			continue
+		}
+		crn := chain.State.CacheRound.Number
+		if crn < round {
+			panic(fmt.Errorf("AggregateMintWork(%s) waiting %d %d", chain.ChainId, crn, round))
 		}
 		snapshots, err := chain.persistStore.ReadSnapshotsForNodeRound(chain.ChainId, round)
 		if err != nil {
-			logger.Printf("AggregateMintWork(%s) ERROR ReadSnapshotsForNodeRound %s\n", chain.ChainId, err.Error())
+			logger.Verbosef("AggregateMintWork(%s) ERROR ReadSnapshotsForNodeRound %s\n", chain.ChainId, err.Error())
 			continue
 		}
 		if len(snapshots) == 0 {
@@ -69,12 +73,12 @@ func (chain *Chain) AggregateMintWork() {
 			if err == nil {
 				break
 			}
-			logger.Printf("AggregateMintWork(%s) ERROR WriteRoundWork %s\n", chain.ChainId, err.Error())
+			logger.Verbosef("AggregateMintWork(%s) ERROR WriteRoundWork %s\n", chain.ChainId, err.Error())
 		}
-		if round < chain.State.CacheRound.Number {
+		if round < crn {
 			round = round + 1
 		} else {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(300 * time.Millisecond)
 		}
 	}
 }
@@ -91,9 +95,7 @@ func (node *Node) MintLoop() {
 			return
 		case <-ticker.C:
 			err := node.tryToMintKernelNode()
-			if err != nil {
-				logger.Println(node.IdForNetwork, "tryToMintKernelNode", err)
-			}
+			logger.Println(node.IdForNetwork, "tryToMintKernelNode", err)
 		}
 	}
 }
