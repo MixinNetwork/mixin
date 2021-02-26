@@ -24,9 +24,9 @@ const (
 	graphPrefixLink         = "LINK"         // self-external number
 	graphPrefixTopology     = "TOPOLOGY"
 	graphPrefixSnapTopology = "SNAPTOPO"
-	graphPrefixWorkLead     = "WORKLEAD"
-	graphPrefixWorkSign     = "WORKSIGN"
-	graphPrefixWorkOffset   = "WORKOFFSET"
+	graphPrefixWorkLead     = "WORKPROPOSE"
+	graphPrefixWorkSign     = "WORKVOTE"
+	graphPrefixWorkOffset   = "WORKCHECKPOINT"
 )
 
 func (s *BadgerStore) RemoveGraphEntries(prefix string) (int, error) {
