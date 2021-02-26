@@ -53,18 +53,10 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 			panic(fmt.Errorf("WriteRoundWork invalid offset %s %d %d", nodeId, off, round))
 		}
 
-		err = graphWriteWorkOffset(txn, offKey, round, snapshots)
-		if err != nil || len(snapshots) == 0 {
-			return err
-		}
-		if len(snapshots[0].Signers) == 0 {
-			return nil
-		}
-		day := uint32(snapshots[0].Timestamp / DAY_U64)
-
+		fresh := snapshots
 		if round == off {
+			fresh = make([]*common.SnapshotWithTopologicalOrder, 0)
 			filter := make(map[crypto.Hash]bool)
-			var fresh []*common.SnapshotWithTopologicalOrder
 			for _, ss := range snapshots {
 				if !osm[ss.Hash] {
 					fresh = append(fresh, ss)
@@ -76,14 +68,19 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 					panic(id)
 				}
 			}
-			if len(fresh) == 0 {
-				return nil
-			}
-			snapshots = fresh
 		}
 
+		err = graphWriteWorkOffset(txn, offKey, round, snapshots)
+		if err != nil || len(fresh) == 0 {
+			return err
+		}
+		if len(fresh[0].Signers) == 0 {
+			return nil
+		}
+
+		day := uint32(fresh[0].Timestamp / DAY_U64)
 		wm := make(map[crypto.Hash]uint64)
-		for _, w := range snapshots {
+		for _, w := range fresh {
 			if w.NodeId != nodeId {
 				panic(w)
 			}
@@ -97,7 +94,7 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 				wm[si] += 1
 			}
 		}
-		if wm[nodeId] != uint64(len(snapshots)) {
+		if wm[nodeId] != uint64(len(fresh)) {
 			panic(nodeId)
 		}
 

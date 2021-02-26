@@ -48,7 +48,7 @@ func (chain *Chain) AggregateMintWork() {
 	fork := uint64(SnapshotRoundDayLeapForkHack.UnixNano())
 	for chain.running {
 		if cs := chain.State; cs == nil {
-			logger.Verbosef("AggregateMintWork(%s) no state yet\n", chain.ChainId)
+			logger.Printf("AggregateMintWork(%s) no state yet\n", chain.ChainId)
 			time.Sleep(time.Duration(chain.node.custom.Node.KernelOprationPeriod) * time.Second)
 			continue
 		}
