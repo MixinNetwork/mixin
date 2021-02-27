@@ -366,7 +366,7 @@ func (node *Node) distributeMintByWorks(accepted []*CNode, base common.Integer, 
 	}
 	thr, agg := int(node.ConsensusThreshold(timestamp)), 0
 	for _, w := range works {
-		if w[0]+w[1] > 0 {
+		if w[0] > 0 {
 			agg += 1
 		}
 	}
