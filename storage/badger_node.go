@@ -18,7 +18,9 @@ const (
 )
 
 func readAllNodes(txn *badger.Txn, threshold uint64, withState bool) []*common.Node {
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	opts := badger.DefaultIteratorOptions
+	opts.PrefetchSize = 30
+	it := txn.NewIterator(opts)
 	defer it.Close()
 
 	prefix := []byte(graphPrefixNodeStateQueue)

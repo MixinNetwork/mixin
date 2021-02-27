@@ -64,7 +64,9 @@ func (s *BadgerStore) ReadSnapshotsForNodeRound(nodeId crypto.Hash, round uint64
 func readSnapshotsForNodeRound(txn *badger.Txn, nodeId crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	snapshots := make([]*common.SnapshotWithTopologicalOrder, 0)
 
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	opts := badger.DefaultIteratorOptions
+	opts.PrefetchSize = 10
+	it := txn.NewIterator(opts)
 	defer it.Close()
 
 	key := graphSnapshotKey(nodeId, round, crypto.Hash{})

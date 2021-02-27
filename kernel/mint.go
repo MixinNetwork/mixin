@@ -74,7 +74,7 @@ func (chain *Chain) AggregateMintWork() {
 			continue
 		}
 		if len(snapshots) == 0 {
-			time.Sleep(300 * time.Millisecond)
+			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
 			continue
 		}
 		for chain.running {
@@ -90,7 +90,7 @@ func (chain *Chain) AggregateMintWork() {
 		if round < crn {
 			round = round + 1
 		} else {
-			time.Sleep(300 * time.Millisecond)
+			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
 		}
 	}
 

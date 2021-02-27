@@ -36,7 +36,9 @@ func (s *BadgerStore) ReadSnapshotWorksForNodeRound(nodeId crypto.Hash, round ui
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	opts := badger.DefaultIteratorOptions
+	opts.PrefetchValues = false
+	it := txn.NewIterator(opts)
 	defer it.Close()
 
 	snapshots := make([]*common.SnapshotWork, 0)
@@ -44,19 +46,20 @@ func (s *BadgerStore) ReadSnapshotWorksForNodeRound(nodeId crypto.Hash, round ui
 	prefix := key[:len(key)-8]
 	for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
 		item := it.Item()
-		k := item.KeyCopy(nil)
-		v, err := item.ValueCopy(nil)
+		var s common.SnapshotWork
+		err := item.Value(func(v []byte) error {
+			copy(s.Hash[:], v)
+			for i := 32; i < len(v); i += 32 {
+				var h crypto.Hash
+				copy(h[:], v[i:])
+				s.Signers = append(s.Signers, h)
+			}
+			return nil
+		})
 		if err != nil {
 			return snapshots, err
 		}
-		var s common.SnapshotWork
-		copy(s.Hash[:], v)
-		for i := 32; i < len(v); i += 32 {
-			var h crypto.Hash
-			copy(h[:], v[i:])
-			s.Signers = append(s.Signers, h)
-		}
-		ts := k[len(graphPrefixWorkSnapshot)+32+8:]
+		ts := item.Key()[len(key)-8:]
 		s.Timestamp = binary.BigEndian.Uint64(ts)
 		snapshots = append(snapshots, &s)
 	}
@@ -232,7 +235,9 @@ func writeSnapshotWork(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrde
 }
 
 func removeSnapshotWorksForRound(txn *badger.Txn, nodeId crypto.Hash, round uint64) error {
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	opts := badger.DefaultIteratorOptions
+	opts.PrefetchValues = false
+	it := txn.NewIterator(opts)
 	defer it.Close()
 
 	key := graphWorkSnaphotKey(nodeId, round, 0)
