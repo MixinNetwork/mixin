@@ -137,6 +137,9 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder, s
 		return err
 	}
 	err = writeSnapshotWork(txn, snap, signers)
+	if err != nil {
+		return err
+	}
 	return txn.Commit()
 }
 

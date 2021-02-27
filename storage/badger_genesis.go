@@ -31,6 +31,10 @@ func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.Sn
 		if err != nil {
 			return err
 		}
+		err = writeSnapshotWork(txn, snap, nil)
+		if err != nil {
+			return err
+		}
 	}
 
 	return txn.Commit()
