@@ -3,6 +3,7 @@ package storage
 import (
 	"encoding/binary"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -59,6 +60,39 @@ func (s *BadgerStore) ReadSnapshotWorksForNodeRound(nodeId crypto.Hash, round ui
 		s.Timestamp = binary.BigEndian.Uint64(ts)
 		snapshots = append(snapshots, &s)
 	}
+
+	// FIXME deprecate this
+	key = graphSnapshotKey(nodeId, round, crypto.Hash{})
+	prefix = key[:len(key)-len(crypto.Hash{})]
+	for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
+		item := it.Item()
+		v, err := item.ValueCopy(nil)
+		if err != nil {
+			return snapshots, err
+		}
+		var s struct {
+			common.SnapshotWithTopologicalOrder
+			Signers []crypto.Hash
+		}
+		err = common.DecompressMsgpackUnmarshal(v, &s)
+		if err != nil {
+			return snapshots, err
+		}
+		s.Hash = s.PayloadHash()
+		var exist bool
+		for _, o := range snapshots {
+			exist = exist || o.Hash == s.Hash
+		}
+		if !exist {
+			snapshots = append(snapshots, &common.SnapshotWork{
+				Hash:      s.Hash,
+				Timestamp: s.Timestamp,
+				Signers:   s.Signers,
+			})
+		}
+	}
+	sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].Timestamp < snapshots[j].Timestamp })
+	// FIXME end
 
 	return snapshots, nil
 }
