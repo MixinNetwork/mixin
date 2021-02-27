@@ -339,13 +339,14 @@ type CNodeWork struct {
 }
 
 func (node *Node) ListMintWorks(batch uint64) (map[crypto.Hash][2]uint64, error) {
-	list := node.NodesListWithoutState(uint64(time.Now().UnixNano()), true)
+	now := node.Epoch + batch*uint64(time.Hour*24)
+	list := node.NodesListWithoutState(now, true)
 	cids := make([]crypto.Hash, len(list))
 	for i, n := range list {
 		cids[i] = n.IdForNetwork
 	}
-	epoch := node.Epoch / (uint64(time.Hour) * 24)
-	works, err := node.persistStore.ListNodeWorks(cids, uint32(epoch+batch))
+	day := now / (uint64(time.Hour) * 24)
+	works, err := node.persistStore.ListNodeWorks(cids, uint32(day))
 	return works, err
 }
 
