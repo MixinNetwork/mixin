@@ -68,7 +68,7 @@ func (chain *Chain) AggregateMintWork() {
 		if crn < round {
 			panic(fmt.Errorf("AggregateMintWork(%s) waiting %d %d", chain.ChainId, crn, round))
 		}
-		snapshots, err := chain.persistStore.ReadSnapshotsForNodeRound(chain.ChainId, round)
+		snapshots, err := chain.persistStore.ReadSnapshotWorksForNodeRound(chain.ChainId, round)
 		if err != nil {
 			logger.Verbosef("AggregateMintWork(%s) ERROR ReadSnapshotsForNodeRound %s\n", chain.ChainId, err.Error())
 			continue

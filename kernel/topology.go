@@ -43,13 +43,16 @@ func (node *Node) TopoWrite(s *common.Snapshot, signers []crypto.Hash) *common.S
 	node.TopoCounter.Lock()
 	defer node.TopoCounter.Unlock()
 
+	if s.Version >= common.SnapshotVersion && len(signers) != len(s.Signature.Keys()) {
+		panic(s)
+	}
+
 	node.TopoCounter.seq += 1
 	topo := &common.SnapshotWithTopologicalOrder{
 		Snapshot:         *s,
 		TopologicalOrder: node.TopoCounter.seq,
-		Signers:          signers,
 	}
-	err := node.persistStore.WriteSnapshot(topo)
+	err := node.persistStore.WriteSnapshot(topo, signers)
 	if err != nil {
 		panic(err)
 	}

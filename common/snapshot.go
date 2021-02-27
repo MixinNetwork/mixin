@@ -46,8 +46,13 @@ type Snapshot struct {
 
 type SnapshotWithTopologicalOrder struct {
 	Snapshot
-	TopologicalOrder uint64        `json:"topology"`
-	Signers          []crypto.Hash `json:"-"`
+	TopologicalOrder uint64 `json:"topology"`
+}
+
+type SnapshotWork struct {
+	Hash      crypto.Hash
+	Timestamp uint64
+	Signers   []crypto.Hash
 }
 
 func (m *RoundLink) Equal(n *RoundLink) bool {

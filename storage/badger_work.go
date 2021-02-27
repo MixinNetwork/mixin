@@ -31,6 +31,37 @@ func (s *BadgerStore) WriteWorkOffsetHack(nodeId crypto.Hash, round uint64) erro
 	})
 }
 
+func (s *BadgerStore) ReadSnapshotWorksForNodeRound(nodeId crypto.Hash, round uint64) ([]*common.SnapshotWork, error) {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
+	snapshots := make([]*common.SnapshotWork, 0)
+	key := graphWorkSnaphotKey(nodeId, round, 0)
+	prefix := key[:len(key)-8]
+	for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
+		item := it.Item()
+		k := item.KeyCopy(nil)
+		v, err := item.ValueCopy(nil)
+		if err != nil {
+			return snapshots, err
+		}
+		var s common.SnapshotWork
+		copy(s.Hash[:], v)
+		for i := 32; i < len(v); i += 32 {
+			var h crypto.Hash
+			copy(h[:], v[i:])
+			s.Signers = append(s.Signers, h)
+		}
+		s.Timestamp = binary.BigEndian.Uint64(k[40:])
+		snapshots = append(snapshots, &s)
+	}
+
+	return snapshots, nil
+}
+
 func (s *BadgerStore) ListWorkOffsets(cids []crypto.Hash) (map[crypto.Hash]uint64, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
@@ -70,7 +101,7 @@ func (s *BadgerStore) ListNodeWorks(cids []crypto.Hash, day uint32) (map[crypto.
 	return works, nil
 }
 
-func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots []*common.SnapshotWithTopologicalOrder) error {
+func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots []*common.SnapshotWork) error {
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		offKey := graphWorkOffsetKey(nodeId)
 		off, osm, err := graphReadWorkOffset(txn, offKey)
@@ -83,7 +114,7 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 
 		fresh := snapshots
 		if round == off {
-			fresh = make([]*common.SnapshotWithTopologicalOrder, 0)
+			fresh = make([]*common.SnapshotWork, 0)
 			filter := make(map[crypto.Hash]bool)
 			for _, ss := range snapshots {
 				if !osm[ss.Hash] {
@@ -95,6 +126,11 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 				if !filter[id] {
 					panic(id)
 				}
+			}
+		} else {
+			err = removeSnapshotWorksForRound(txn, nodeId, off)
+			if err != nil {
+				return err
 			}
 		}
 
@@ -109,13 +145,13 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 		day := uint32(fresh[0].Timestamp / DAY_U64)
 		wm := make(map[crypto.Hash]uint64)
 		for _, w := range fresh {
-			if w.NodeId != nodeId {
-				panic(w)
-			}
-			if w.RoundNumber != round {
+			if w.Timestamp == 0 {
 				panic(w)
 			}
 			if uint32(w.Timestamp/DAY_U64) != day {
+				panic(w)
+			}
+			if !w.Hash.HasValue() {
 				panic(w)
 			}
 			for _, si := range w.Signers {
@@ -150,7 +186,33 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 	})
 }
 
-func graphWriteWorkOffset(txn *badger.Txn, key []byte, val uint64, snapshots []*common.SnapshotWithTopologicalOrder) error {
+func writeSnapshotWork(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder, signers []crypto.Hash) error {
+	key := graphWorkSnaphotKey(snap.NodeId, snap.RoundNumber, snap.Timestamp)
+	val := make([]byte, (1+len(signers))*32)
+	copy(val, snap.Hash[:])
+	for i, h := range signers {
+		copy(val[(i+1)*32:], h[:])
+	}
+	return txn.Set(key, val)
+}
+
+func removeSnapshotWorksForRound(txn *badger.Txn, nodeId crypto.Hash, round uint64) error {
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
+	key := graphWorkSnaphotKey(nodeId, round, 0)
+	prefix := key[:len(key)-8]
+	for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
+		k := it.Item().KeyCopy(nil)
+		err := txn.Delete(k)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func graphWriteWorkOffset(txn *badger.Txn, key []byte, val uint64, snapshots []*common.SnapshotWork) error {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, val)
 	for _, s := range snapshots {
@@ -218,5 +280,14 @@ func graphWorkLeadKey(nodeId crypto.Hash, day uint32) []byte {
 	buf := make([]byte, 4)
 	binary.BigEndian.PutUint32(buf, day)
 	key := append([]byte(graphPrefixWorkLead), nodeId[:]...)
+	return append(key, buf...)
+}
+
+func graphWorkSnaphotKey(nodeId crypto.Hash, round, ts uint64) []byte {
+	buf := make([]byte, 8)
+	key := append([]byte(graphPrefixWorkSnapshot), nodeId[:]...)
+	binary.BigEndian.PutUint64(buf, round)
+	key = append(key, buf...)
+	binary.BigEndian.PutUint64(buf, ts)
 	return append(key, buf...)
 }

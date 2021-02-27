@@ -27,6 +27,7 @@ const (
 	graphPrefixWorkLead     = "WORKPROPOSE"
 	graphPrefixWorkSign     = "WORKVOTE"
 	graphPrefixWorkOffset   = "WORKCHECKPOINT"
+	graphPrefixWorkSnapshot = "WORKSNAPSHOT"
 )
 
 func (s *BadgerStore) RemoveGraphEntries(prefix string) (int, error) {
@@ -87,7 +88,7 @@ func readSnapshotsForNodeRound(txn *badger.Txn, nodeId crypto.Hash, round uint64
 	return snapshots, nil
 }
 
-func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) error {
+func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder, signers []crypto.Hash) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 
@@ -135,6 +136,7 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder) e
 	if err != nil {
 		return err
 	}
+	err = writeSnapshotWork(txn, snap, signers)
 	return txn.Commit()
 }
 

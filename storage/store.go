@@ -29,7 +29,7 @@ type Store interface {
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadRound(hash crypto.Hash) (*common.Round, error)
 	ReadLink(from, to crypto.Hash) (uint64, error)
-	WriteSnapshot(*common.SnapshotWithTopologicalOrder) error
+	WriteSnapshot(*common.SnapshotWithTopologicalOrder, []crypto.Hash) error
 	ReadDomains() []common.Domain
 
 	CachePutTransaction(tx *common.VersionedTransaction) error
@@ -39,11 +39,12 @@ type Store interface {
 	ReadLastMintDistribution(group string) (*common.MintDistribution, error)
 	LockMintInput(mint *common.MintData, tx crypto.Hash, fork bool) error
 	ReadMintDistributions(group string, offset, count uint64) ([]*common.MintDistribution, []*common.VersionedTransaction, error)
+	ReadSnapshotWorksForNodeRound(nodeId crypto.Hash, round uint64) ([]*common.SnapshotWork, error)
 	ListWorkOffsets(cids []crypto.Hash) (map[crypto.Hash]uint64, error)
 	ListNodeWorks(cids []crypto.Hash, day uint32) (map[crypto.Hash][2]uint64, error)
 	ReadWorkOffset(nodeId crypto.Hash) (uint64, error)
 	WriteWorkOffsetHack(nodeId crypto.Hash, round uint64) error
-	WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots []*common.SnapshotWithTopologicalOrder) error
+	WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots []*common.SnapshotWork) error
 
 	RemoveGraphEntries(prefix string) (int, error)
 	ValidateGraphEntries(networkId crypto.Hash, depth uint64) (int, int, error)
