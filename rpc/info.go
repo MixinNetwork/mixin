@@ -32,7 +32,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	info["mint"] = map[string]interface{}{
 		"pool":   pool,
 		"batch":  md.Batch,
-		"pledge": node.PledgeAmount(uint64(time.Now().UnixNano())),
+		"pledge": node.PledgeAmount(node.GraphTimestamp),
 	}
 	cacheMap, finalMap, err := kernel.LoadRoundGraph(store, node.NetworkId(), node.IdForNetwork)
 	if err != nil {
@@ -64,7 +64,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 
 	cids := make([]crypto.Hash, 0)
 	nodes := make([]map[string]interface{}, 0)
-	list := node.NodesListWithoutState(uint64(time.Now().UnixNano()), false)
+	list := node.NodesListWithoutState(node.GraphTimestamp, false)
 	for _, n := range list {
 		switch n.State {
 		case common.NodeStateAccepted, common.NodeStatePledging:
@@ -75,7 +75,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	if err != nil {
 		return info, err
 	}
-	works, err := store.ListNodeWorks(cids, uint32(time.Now().UnixNano()/int64(time.Hour*24)))
+	works, err := store.ListNodeWorks(cids, uint32(node.GraphTimestamp/uint64(time.Hour*24)))
 	if err != nil {
 		return info, err
 	}
