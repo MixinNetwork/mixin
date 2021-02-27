@@ -20,6 +20,23 @@ func (s *BadgerStore) ReadWorkOffset(nodeId crypto.Hash) (uint64, error) {
 	return graphReadUint64(txn, offKey)
 }
 
+func (s *BadgerStore) ListWorkOffsets(cids []crypto.Hash) (map[crypto.Hash]uint64, error) {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	works := make(map[crypto.Hash]uint64)
+	for _, id := range cids {
+		key := graphWorkOffsetKey(id)
+		off, err := graphReadUint64(txn, key)
+		if err != nil {
+			return nil, err
+		}
+		works[id] = off
+	}
+
+	return works, nil
+}
+
 func (s *BadgerStore) ListNodeWorks(cids []crypto.Hash, day uint32) (map[crypto.Hash][2]uint64, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()

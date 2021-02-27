@@ -71,6 +71,10 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 			cids = append(cids, n.IdForNetwork)
 		}
 	}
+	offsets, err := store.ListWorkOffsets(cids)
+	if err != nil {
+		return info, err
+	}
 	works, err := store.ListNodeWorks(cids, uint32(time.Now().UnixNano()/int64(time.Hour*24)))
 	if err != nil {
 		return info, err
@@ -85,6 +89,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 				"state":       n.State,
 				"timestamp":   n.Timestamp,
 				"transaction": n.Transaction.String(),
+				"aggregator":  offsets[n.IdForNetwork],
 				"works":       works[n.IdForNetwork],
 			})
 		}

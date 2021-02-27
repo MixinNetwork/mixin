@@ -44,6 +44,7 @@ func (chain *Chain) AggregateMintWork() {
 	if err != nil {
 		panic(err)
 	}
+	logger.Printf("AggregateMintWork(%s) begin with %d\n", chain.ChainId, round)
 
 	fork := uint64(SnapshotRoundDayLeapForkHack.UnixNano())
 	for chain.running {
@@ -81,6 +82,8 @@ func (chain *Chain) AggregateMintWork() {
 			time.Sleep(300 * time.Millisecond)
 		}
 	}
+
+	logger.Printf("AggregateMintWork(%s) end with %d\n", chain.ChainId, round)
 }
 
 func (node *Node) MintLoop() {
