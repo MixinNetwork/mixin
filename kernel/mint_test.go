@@ -163,20 +163,16 @@ func TestMintWorks(t *testing.T) {
 	assert.True(common.NewInteger(10000).Sub(total).Cmp(common.NewIntegerFromString("0.0000001")) < 0)
 }
 
-func testBuildMintSnapshots(nodeId crypto.Hash, signers []crypto.Hash, round, timestamp uint64) []*common.SnapshotWithTopologicalOrder {
-	snapshots := make([]*common.SnapshotWithTopologicalOrder, 100)
+func testBuildMintSnapshots(nodeId crypto.Hash, signers []crypto.Hash, round, timestamp uint64) []*common.SnapshotWork {
+	snapshots := make([]*common.SnapshotWork, 100)
 	for i := range snapshots {
 		hash := []byte(fmt.Sprintf("MW%d%d%d", round, timestamp, i))
-		s := common.Snapshot{
-			NodeId:      nodeId,
-			RoundNumber: round,
-			Timestamp:   timestamp,
-			Hash:        crypto.NewHash(hash),
+		s := common.SnapshotWork{
+			Timestamp: timestamp,
+			Hash:      crypto.NewHash(hash),
+			Signers:   signers,
 		}
-		snapshots[i] = &common.SnapshotWithTopologicalOrder{
-			Snapshot: s,
-			Signers:  signers,
-		}
+		snapshots[i] = &s
 	}
 	return snapshots
 }

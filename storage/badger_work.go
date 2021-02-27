@@ -55,7 +55,8 @@ func (s *BadgerStore) ReadSnapshotWorksForNodeRound(nodeId crypto.Hash, round ui
 			copy(h[:], v[i:])
 			s.Signers = append(s.Signers, h)
 		}
-		s.Timestamp = binary.BigEndian.Uint64(k[40:])
+		ts := k[len(graphPrefixWorkSnapshot)+32+8:]
+		s.Timestamp = binary.BigEndian.Uint64(ts)
 		snapshots = append(snapshots, &s)
 	}
 
