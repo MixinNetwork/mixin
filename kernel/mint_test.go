@@ -9,6 +9,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -70,7 +71,7 @@ func TestMintWorks(t *testing.T) {
 	assert.Equal(uint64(0), offset)
 
 	signers := append(node.genesisNodes, node.IdForNetwork)
-	timestamp := uint64(time.Now().UnixNano())
+	timestamp := uint64(clock.Now().UnixNano())
 	for i := 0; i < 2; i++ {
 		snapshots := testBuildMintSnapshots(node.IdForNetwork, signers[1:], 0, timestamp)
 		err = node.persistStore.WriteRoundWork(node.IdForNetwork, 0, snapshots)
@@ -94,7 +95,7 @@ func TestMintWorks(t *testing.T) {
 		assert.Equal(uint64(0), offset)
 	}
 
-	timestamp = uint64(time.Now().UnixNano())
+	timestamp = uint64(clock.Now().UnixNano())
 	snapshots := testBuildMintSnapshots(node.IdForNetwork, signers[1:], 1, timestamp)
 	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 1, snapshots[:98])
 	assert.Nil(err)
@@ -136,7 +137,7 @@ func TestMintWorks(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal(uint64(1), offset)
 
-	timestamp = uint64(time.Now().Add(24 * time.Hour).UnixNano())
+	timestamp = uint64(clock.Now().Add(24 * time.Hour).UnixNano())
 	snapshots = testBuildMintSnapshots(node.IdForNetwork, signers[1:], 2, timestamp)
 	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 2, snapshots[:10])
 	assert.Nil(err)
