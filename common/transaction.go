@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	TxVersion      = 0x01
+	TxVersion      = 0x02
 	ExtraSizeLimit = 256
 
 	OutputTypeScript             = 0x00
@@ -54,7 +54,7 @@ type Output struct {
 	Type       uint8           `json:"type"`
 	Amount     Integer         `json:"amount"`
 	Keys       []crypto.Key    `json:"keys,omitempty"`
-	Withdrawal *WithdrawalData `msgpack:",omitempty"json:"withdrawal,omitempty"`
+	Withdrawal *WithdrawalData `msgpack:",omitempty" json:"withdrawal,omitempty"`
 
 	// OutputTypeScript fields
 	Script Script     `json:"script,omitempty"`
@@ -71,7 +71,7 @@ type Transaction struct {
 
 type SignedTransaction struct {
 	Transaction
-	Signatures [][]crypto.Signature `json:"signatures,omitempty"`
+	Signatures []map[uint16]*crypto.Signature `json:"signatures,omitempty"`
 }
 
 func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {
@@ -142,30 +142,33 @@ func (tx *SignedTransaction) TransactionType() uint8 {
 	return TransactionTypeUnknown
 }
 
-func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []Address) error {
+func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []*Address) error {
 	msg := MsgpackMarshalPanic(signed.Transaction)
 
 	if len(accounts) == 0 {
 		return nil
 	}
 
-	keysFilter := make(map[string]bool)
-	for _, k := range utxo.Keys {
-		keysFilter[k.String()] = true
+	keysFilter := make(map[string]uint16)
+	for i, k := range utxo.Keys {
+		keysFilter[k.String()] = uint16(i)
 	}
 
-	sigs := make([]crypto.Signature, 0)
+	sigs := make(map[uint16]*crypto.Signature)
 	for _, acc := range accounts {
 		priv := crypto.DeriveGhostPrivateKey(&utxo.Mask, &acc.PrivateViewKey, &acc.PrivateSpendKey, uint64(utxo.Index))
-		if keysFilter[priv.Public().String()] {
-			sigs = append(sigs, priv.Sign(msg))
+		i, found := keysFilter[priv.Public().String()]
+		if !found {
+			return fmt.Errorf("invalid key for the input %s", acc.String())
 		}
+		sig := priv.Sign(msg)
+		sigs[i] = &sig
 	}
 	signed.Signatures = append(signed.Signatures, sigs)
 	return nil
 }
 
-func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, accounts []Address) error {
+func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, accounts []*Address) error {
 	msg := MsgpackMarshalPanic(signed.Transaction)
 
 	if len(accounts) == 0 {
@@ -187,18 +190,20 @@ func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, account
 		return fmt.Errorf("input not found %s:%d", in.Hash.String(), in.Index)
 	}
 
-	keysFilter := make(map[string]bool)
-	for _, k := range utxo.Keys {
-		keysFilter[k.String()] = true
+	keysFilter := make(map[string]uint16)
+	for i, k := range utxo.Keys {
+		keysFilter[k.String()] = uint16(i)
 	}
 
-	sigs := make([]crypto.Signature, 0)
+	sigs := make(map[uint16]*crypto.Signature)
 	for _, acc := range accounts {
 		priv := crypto.DeriveGhostPrivateKey(&utxo.Mask, &acc.PrivateViewKey, &acc.PrivateSpendKey, uint64(in.Index))
-		if !keysFilter[priv.Public().String()] {
+		i, found := keysFilter[priv.Public().String()]
+		if !found {
 			return fmt.Errorf("invalid key for the input %s", acc.String())
 		}
-		sigs = append(sigs, priv.Sign(msg))
+		sig := priv.Sign(msg)
+		sigs[i] = &sig
 	}
 	signed.Signatures = append(signed.Signatures, sigs)
 	return nil
@@ -220,7 +225,9 @@ func (signed *SignedTransaction) SignRaw(key crypto.Key) error {
 			return err
 		}
 	}
-	signed.Signatures = append(signed.Signatures, []crypto.Signature{key.Sign(msg)})
+	sig := key.Sign(msg)
+	sigs := map[uint16]*crypto.Signature{0: &sig}
+	signed.Signatures = append(signed.Signatures, sigs)
 	return nil
 }
 
@@ -239,7 +246,7 @@ func (tx *Transaction) AddInput(hash crypto.Hash, index int) {
 	tx.Inputs = append(tx.Inputs, in)
 }
 
-func (tx *Transaction) AddOutputWithType(ot uint8, accounts []Address, s Script, amount Integer, seed []byte) {
+func (tx *Transaction) AddOutputWithType(ot uint8, accounts []*Address, s Script, amount Integer, seed []byte) {
 	out := &Output{
 		Type:   ot,
 		Amount: amount,
@@ -259,11 +266,11 @@ func (tx *Transaction) AddOutputWithType(ot uint8, accounts []Address, s Script,
 	tx.Outputs = append(tx.Outputs, out)
 }
 
-func (tx *Transaction) AddScriptOutput(accounts []Address, s Script, amount Integer, seed []byte) {
+func (tx *Transaction) AddScriptOutput(accounts []*Address, s Script, amount Integer, seed []byte) {
 	tx.AddOutputWithType(OutputTypeScript, accounts, s, amount, seed)
 }
 
-func (tx *Transaction) AddRandomScriptOutput(accounts []Address, s Script, amount Integer) error {
+func (tx *Transaction) AddRandomScriptOutput(accounts []*Address, s Script, amount Integer) error {
 	seed := make([]byte, 64)
 	_, err := rand.Read(seed)
 	if err != nil {

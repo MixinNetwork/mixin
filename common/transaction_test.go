@@ -13,11 +13,12 @@ import (
 func TestTransaction(t *testing.T) {
 	assert := assert.New(t)
 
-	accounts := make([]Address, 0)
+	accounts := make([]*Address, 0)
 	for i := 0; i < 3; i++ {
 		seed := make([]byte, 64)
 		seed[i] = byte(i)
-		accounts = append(accounts, NewAddressFromSeed(seed))
+		a := NewAddressFromSeed(seed)
+		accounts = append(accounts, &a)
 	}
 
 	seed := make([]byte, 64)
@@ -95,7 +96,7 @@ func TestTransaction(t *testing.T) {
 
 type storeImpl struct {
 	seed     []byte
-	accounts []Address
+	accounts []*Address
 }
 
 func (store storeImpl) ReadUTXO(hash crypto.Hash, index int) (*UTXOWithLock, error) {

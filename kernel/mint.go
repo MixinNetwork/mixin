@@ -183,7 +183,7 @@ func (node *Node) buildMintTransaction(timestamp uint64, validateOnly bool) *com
 		in := fmt.Sprintf("MINTKERNELNODE%d", batch)
 		si := crypto.NewHash([]byte(m.Signer.String() + in))
 		seed := append(si[:], si[:]...)
-		tx.AddScriptOutput([]common.Address{m.Payee}, script, m.Work, seed)
+		tx.AddScriptOutput([]*common.Address{&m.Payee}, script, m.Work, seed)
 		total = total.Add(m.Work)
 	}
 	if total.Cmp(amount) > 0 {
@@ -196,7 +196,7 @@ func (node *Node) buildMintTransaction(timestamp uint64, validateOnly bool) *com
 		in := fmt.Sprintf("MINTKERNELNODE%dDIFF", batch)
 		si := crypto.NewHash([]byte(addr.String() + in))
 		seed := append(si[:], si[:]...)
-		tx.AddScriptOutput([]common.Address{addr}, script, diff, seed)
+		tx.AddScriptOutput([]*common.Address{&addr}, script, diff, seed)
 	}
 	return tx.AsLatestVersion()
 }
@@ -219,7 +219,7 @@ func (node *Node) legacyMintTransaction(timestamp uint64, batch int, amount comm
 		in := fmt.Sprintf("MINTKERNELNODE%d", batch)
 		si := crypto.NewHash([]byte(n.Signer.String() + in))
 		seed := append(si[:], si[:]...)
-		tx.AddScriptOutput([]common.Address{n.Payee}, script, per, seed)
+		tx.AddScriptOutput([]*common.Address{&n.Payee}, script, per, seed)
 	}
 
 	if diff.Sign() > 0 {
@@ -228,7 +228,7 @@ func (node *Node) legacyMintTransaction(timestamp uint64, batch int, amount comm
 		in := fmt.Sprintf("MINTKERNELNODE%dDIFF", batch)
 		si := crypto.NewHash([]byte(addr.String() + in))
 		seed := append(si[:], si[:]...)
-		tx.AddScriptOutput([]common.Address{addr}, script, diff, seed)
+		tx.AddScriptOutput([]*common.Address{&addr}, script, diff, seed)
 	}
 
 	return tx.AsLatestVersion()
@@ -240,7 +240,7 @@ func (node *Node) tryToMintKernelNode() error {
 		return nil
 	}
 
-	err := signed.SignInput(node.persistStore, 0, []common.Address{node.Signer})
+	err := signed.SignInput(node.persistStore, 0, []*common.Address{&node.Signer})
 	if err != nil {
 		return err
 	}

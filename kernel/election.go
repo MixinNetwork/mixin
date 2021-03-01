@@ -161,7 +161,7 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 	in := fmt.Sprintf("NODEREMOVE%s", candi.Signer.String())
 	si := crypto.NewHash([]byte(candi.Payee.String() + in))
 	seed := append(si[:], si[:]...)
-	tx.AddOutputWithType(common.OutputTypeNodeRemove, []common.Address{candi.Payee}, script, accept.Outputs[0].Amount, seed)
+	tx.AddOutputWithType(common.OutputTypeNodeRemove, []*common.Address{&candi.Payee}, script, accept.Outputs[0].Amount, seed)
 
 	return tx.AsLatestVersion(), nil
 }

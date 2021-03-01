@@ -85,6 +85,7 @@ func validateScriptTransaction(inputs map[string]*UTXO) error {
 func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash crypto.Hash, txType uint8) (map[string]*UTXO, Integer, error) {
 	inputAmount := NewInteger(0)
 	inputsFilter := make(map[string]*UTXO)
+	keySigs := make(map[crypto.Key]*crypto.Signature)
 
 	for i, in := range tx.Inputs {
 		if in.Mint != nil {
@@ -114,7 +115,7 @@ func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash cry
 			return inputsFilter, inputAmount, fmt.Errorf("input locked for transaction %s", utxo.LockHash)
 		}
 
-		err = validateUTXO(i, &utxo.UTXO, tx.Signatures, msg, txType)
+		err = validateUTXO(i, &utxo.UTXO, tx.Signatures[i], nil, msg, txType, keySigs)
 		if err != nil {
 			return inputsFilter, inputAmount, err
 		}
@@ -122,6 +123,19 @@ func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash cry
 		inputAmount = inputAmount.Add(utxo.Amount)
 	}
 
+	if len(keySigs) == 0 {
+		return inputsFilter, inputAmount, nil
+	}
+
+	var keys []*crypto.Key
+	var sigs []*crypto.Signature
+	for k, s := range keySigs {
+		keys = append(keys, &k)
+		sigs = append(sigs, s)
+	}
+	if !crypto.BatchVerify(msg, keys, sigs) {
+		return inputsFilter, inputAmount, fmt.Errorf("batch verification failure")
+	}
 	return inputsFilter, inputAmount, nil
 }
 
@@ -187,19 +201,26 @@ func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
 	return outputAmount, nil
 }
 
-func validateUTXO(index int, utxo *UTXO, sigs [][]crypto.Signature, msg []byte, txType uint8) error {
+func validateUTXO(index int, utxo *UTXO, sigs map[uint16]*crypto.Signature, sigsV1 []*crypto.Signature, msg []byte, txType uint8, keySigs map[crypto.Key]*crypto.Signature) error {
 	switch utxo.Type {
 	case OutputTypeScript, OutputTypeNodeRemove:
 		var offset, valid int
-		for _, sig := range sigs[index] {
-			for i, k := range utxo.Keys {
-				if i < offset {
-					continue
+		if len(sigsV1) > 0 {
+			for _, sig := range sigsV1 {
+				for i, k := range utxo.Keys {
+					if i < offset {
+						continue
+					}
+					if k.Verify(msg, *sig) {
+						valid = valid + 1
+						offset = i + 1
+					}
 				}
-				if k.Verify(msg, sig) {
-					valid = valid + 1
-					offset = i + 1
-				}
+			}
+		} else {
+			for i := range sigs {
+				keySigs[utxo.Keys[i]] = sigs[i]
+				valid = valid + 1
 			}
 		}
 		return utxo.Script.Validate(valid)

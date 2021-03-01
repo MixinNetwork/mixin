@@ -41,8 +41,8 @@ func TestMsgpack(t *testing.T) {
 	hash, err := crypto.HashFromString(utxoHash)
 	assert.Nil(err)
 	tx.AddInput(hash, utxoIndex)
-	tx.AddRandomScriptOutput([]Address{receiver.Address()}, NewThresholdScript(1), NewIntegerFromString(amount))
-	tx.AddRandomScriptOutput([]Address{sender.Address()}, NewThresholdScript(1), charge)
+	tx.AddRandomScriptOutput([]*Address{receiver.Address()}, NewThresholdScript(1), NewIntegerFromString(amount))
+	tx.AddRandomScriptOutput([]*Address{sender.Address()}, NewThresholdScript(1), charge)
 	traceId, err := uuid.FromString("e3aa9cb9-4a28-11e9-81dd-f23c91a6e1fc")
 	assert.Nil(err)
 	tx.Extra = traceId.Bytes()
@@ -53,7 +53,8 @@ func TestMsgpack(t *testing.T) {
 	spend := sender.Address().PrivateSpendKey
 	priv := crypto.DeriveGhostPrivateKey(&mask, &view, &spend, uint64(utxoIndex))
 	sig := priv.Sign(msg)
-	signed.Signatures = append(signed.Signatures, []crypto.Signature{sig})
+	sigs := map[uint16]*crypto.Signature{0: &sig}
+	signed.Signatures = append(signed.Signatures, sigs)
 	raw := MsgpackMarshalPanic(signed)
 
 	assert.Len(hex.EncodeToString(raw), 930)
@@ -69,14 +70,14 @@ type MixinKey struct {
 	SpendKey string
 }
 
-func (mk *MixinKey) Address() Address {
+func (mk *MixinKey) Address() *Address {
 	a := Address{
 		PrivateViewKey:  parseKeyFromHex(mk.ViewKey),
 		PrivateSpendKey: parseKeyFromHex(mk.SpendKey),
 	}
 	a.PublicViewKey = a.PrivateViewKey.Public()
 	a.PublicSpendKey = a.PrivateSpendKey.Public()
-	return a
+	return &a
 }
 
 func parseKeyFromHex(src string) crypto.Key {

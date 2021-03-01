@@ -12,9 +12,10 @@ func TestUTXO(t *testing.T) {
 
 	genesisHash := crypto.Hash{}
 	script := Script{OperatorCmp, OperatorSum, 2}
-	accounts := make([]Address, 0)
+	accounts := make([]*Address, 0)
 	for i := 0; i < 3; i++ {
-		accounts = append(accounts, randomAccount())
+		a := randomAccount()
+		accounts = append(accounts, &a)
 	}
 
 	tx := NewTransaction(XINAssetId).AsLatestVersion()

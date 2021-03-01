@@ -255,7 +255,7 @@ func signTransactionCmd(c *cli.Context) error {
 	tx.Extra = extra
 
 	keys := c.StringSlice("key")
-	var accounts []common.Address
+	var accounts []*common.Address
 	for _, s := range keys {
 		key, err := hex.DecodeString(s)
 		if err != nil {
@@ -267,7 +267,7 @@ func signTransactionCmd(c *cli.Context) error {
 		var account common.Address
 		copy(account.PrivateViewKey[:], key[:32])
 		copy(account.PrivateSpendKey[:], key[32:])
-		accounts = append(accounts, account)
+		accounts = append(accounts, &account)
 	}
 
 	signed := tx.AsLatestVersion()
@@ -340,7 +340,7 @@ func pledgeNodeCmd(c *cli.Context) error {
 	tx.Extra = append(signer.PublicSpendKey[:], payee.PublicSpendKey[:]...)
 
 	signed := tx.AsLatestVersion()
-	err = signed.SignInput(raw, 0, []common.Address{account})
+	err = signed.SignInput(raw, 0, []*common.Address{&account})
 	if err != nil {
 		return err
 	}
@@ -414,7 +414,7 @@ func cancelNodeCmd(c *cli.Context) error {
 	tx := common.NewTransaction(common.XINAssetId)
 	tx.AddInput(pledge.PayloadHash(), 0)
 	tx.AddOutputWithType(common.OutputTypeNodeCancel, nil, common.Script{}, pledge.Outputs[0].Amount.Div(100), seed)
-	tx.AddScriptOutput([]common.Address{receiver}, common.NewThresholdScript(1), pledge.Outputs[0].Amount.Sub(tx.Outputs[0].Amount), seed)
+	tx.AddScriptOutput([]*common.Address{&receiver}, common.NewThresholdScript(1), pledge.Outputs[0].Amount.Sub(tx.Outputs[0].Amount), seed)
 	tx.Extra = append(pledge.Extra, viewKey[:]...)
 	utxo := &common.UTXO{
 		Input: common.Input{
@@ -428,7 +428,7 @@ func cancelNodeCmd(c *cli.Context) error {
 		},
 	}
 	signed := tx.AsLatestVersion()
-	err = signed.SignUTXO(utxo, []common.Address{account})
+	err = signed.SignUTXO(utxo, []*common.Address{&account})
 	if err != nil {
 		return err
 	}
@@ -755,12 +755,12 @@ type signerInput struct {
 		Mask    crypto.Key          `json:"mask"`
 	} `json:"inputs"`
 	Outputs []struct {
-		Type     uint8            `json:"type"`
-		Mask     crypto.Key       `json:"mask"`
-		Keys     []crypto.Key     `json:"keys"`
-		Amount   common.Integer   `json:"amount"`
-		Script   common.Script    `json:"script"`
-		Accounts []common.Address `json:"accounts"`
+		Type     uint8             `json:"type"`
+		Mask     crypto.Key        `json:"mask"`
+		Keys     []crypto.Key      `json:"keys"`
+		Amount   common.Integer    `json:"amount"`
+		Script   common.Script     `json:"script"`
+		Accounts []*common.Address `json:"accounts"`
 	}
 	Asset crypto.Hash `json:"asset"`
 	Extra string      `json:"extra"`

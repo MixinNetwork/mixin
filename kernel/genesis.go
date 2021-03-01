@@ -68,9 +68,9 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 		si := crypto.NewHash([]byte(in.Signer.String() + "NODEACCEPT"))
 		seed := append(si[:], si[:]...)
 		script := common.NewThresholdScript(uint8(len(gns.Nodes)*2/3 + 1))
-		accounts := []common.Address{}
+		accounts := []*common.Address{}
 		for _, d := range gns.Nodes {
-			accounts = append(accounts, d.Signer)
+			accounts = append(accounts, &d.Signer)
 		}
 
 		tx := common.NewTransaction(common.XINAssetId)
@@ -150,9 +150,9 @@ func buildDomainSnapshot(networkId crypto.Hash, epoch uint64, domain common.Addr
 	si := crypto.NewHash([]byte(domain.String() + "DOMAINACCEPT"))
 	seed := append(si[:], si[:]...)
 	script := common.NewThresholdScript(uint8(len(gns.Nodes)*2/3 + 1))
-	accounts := []common.Address{}
+	accounts := []*common.Address{}
 	for _, d := range gns.Nodes {
-		accounts = append(accounts, d.Signer)
+		accounts = append(accounts, &d.Signer)
 	}
 	tx := common.NewTransaction(common.XINAssetId)
 	tx.Inputs = []*common.Input{{Genesis: networkId[:]}}
