@@ -9,6 +9,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"github.com/MixinNetwork/mixin/domains/horizen"
+	"github.com/MixinNetwork/mixin/domains/kusama"
 	"github.com/MixinNetwork/mixin/domains/mobilecoin"
 	"github.com/MixinNetwork/mixin/domains/monero"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
@@ -74,6 +75,8 @@ func (tx *SignedTransaction) verifyDepositFormat() error {
 		return siacoin.VerifyTransactionHash(deposit.TransactionHash)
 	case polkadot.PolkadotChainId:
 		return polkadot.VerifyTransactionHash(deposit.TransactionHash)
+	case kusama.KusamaChainId:
+		return kusama.VerifyTransactionHash(deposit.TransactionHash)
 	case eos.EOSChainId:
 		return eos.VerifyTransactionHash(deposit.TransactionHash)
 	case tron.TronChainId:
