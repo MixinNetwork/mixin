@@ -84,5 +84,7 @@ func (node *Node) legacyMintTransaction(timestamp uint64, batch int, amount comm
 		tx.AddScriptOutput([]*common.Address{&addr}, script, diff, seed)
 	}
 
-	return tx.AsLatestVersion()
+	ver := tx.AsLatestVersion()
+	ver.Version = 1
+	return ver
 }
