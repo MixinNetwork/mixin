@@ -163,7 +163,12 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 	seed := append(si[:], si[:]...)
 	tx.AddOutputWithType(common.OutputTypeNodeRemove, []*common.Address{&candi.Payee}, script, accept.Outputs[0].Amount, seed)
 
-	return tx.AsLatestVersion(), nil
+	ver := tx.AsLatestVersion()
+	fork := uint64(ElectionTransactionV2ForkHack.UnixNano())
+	if node.networkId.String() == config.MainnetId && timestamp < fork {
+		ver.Version = 1
+	}
+	return ver, nil
 }
 
 func (node *Node) tryToSendRemoveTransaction() error {
@@ -283,7 +288,13 @@ func (chain *Chain) buildNodeAcceptTransaction(timestamp uint64, s *common.Snaps
 	tx.AddInput(ci.Transaction, 0)
 	tx.AddOutputWithType(common.OutputTypeNodeAccept, nil, common.Script{}, pledge.Outputs[0].Amount, []byte{})
 	tx.Extra = pledge.Extra
-	return tx.AsLatestVersion(), nil
+
+	ver := tx.AsLatestVersion()
+	fork := uint64(ElectionTransactionV2ForkHack.UnixNano())
+	if chain.node.networkId.String() == config.MainnetId && timestamp < fork {
+		ver.Version = 1
+	}
+	return ver, nil
 }
 
 func (chain *Chain) tryToSendAcceptTransaction() error {

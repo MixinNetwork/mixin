@@ -7,7 +7,8 @@ import (
 )
 
 var (
-	SnapshotRoundDayLeapForkHack, _ = time.Parse(time.RFC3339, "2021-02-19T00:00:00Z")
+	SnapshotRoundDayLeapForkHack, _  = time.Parse(time.RFC3339, "2021-02-19T00:00:00Z")
+	ElectionTransactionV2ForkHack, _ = time.Parse(time.RFC3339, "2021-03-10T00:00:00Z")
 
 	TransactionEmptyOutputsForkHack    = "ed6114706e8a0491c6b254167a9812128f5b29e88594ff8656cc69f4e5b410ce"
 	TransactionScriptThresholdForkHack = "2a311e994281ab384f1d86fca7b7f2ef30ac34e5ba65dea16b976eb342e4f7ec"

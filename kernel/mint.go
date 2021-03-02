@@ -3,7 +3,6 @@ package kernel
 import (
 	"encoding/hex"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -18,6 +17,7 @@ const (
 	MainnetMintPeriodForkTimeBegin       = 6
 	MainnetMintPeriodForkTimeEnd         = 18
 	MainnetMintWorkDistributionForkBatch = 729
+	MainnetMintTransactionV2ForkBatch    = 739
 )
 
 var (
@@ -153,8 +153,8 @@ func (node *Node) buildMintTransaction(timestamp uint64, validateOnly bool) *com
 		return nil
 	}
 
-	if node.networkId.String() == config.MainnetId && batch < MainnetMintWorkDistributionForkBatch {
-		return node.legacyMintTransaction(timestamp, batch, amount)
+	if node.networkId.String() == config.MainnetId && batch < MainnetMintTransactionV2ForkBatch {
+		return node.buildMintTransactionV1(timestamp, validateOnly)
 	}
 
 	accepted := node.NodesListWithoutState(timestamp, true)
@@ -187,39 +187,6 @@ func (node *Node) buildMintTransaction(timestamp uint64, validateOnly bool) *com
 		seed := append(si[:], si[:]...)
 		tx.AddScriptOutput([]*common.Address{&addr}, script, diff, seed)
 	}
-	return tx.AsLatestVersion()
-}
-
-func (node *Node) legacyMintTransaction(timestamp uint64, batch int, amount common.Integer) *common.VersionedTransaction {
-	nodes := node.NodesListWithoutState(timestamp, true)
-	sort.Slice(nodes, func(i, j int) bool {
-		a := nodes[i].IdForNetwork
-		b := nodes[j].IdForNetwork
-		return a.String() < b.String()
-	})
-
-	per := amount.Div(len(nodes))
-	diff := amount.Sub(per.Mul(len(nodes)))
-
-	tx := common.NewTransaction(common.XINAssetId)
-	tx.AddKernelNodeMintInput(uint64(batch), amount)
-	script := common.NewThresholdScript(1)
-	for _, n := range nodes {
-		in := fmt.Sprintf("MINTKERNELNODE%d", batch)
-		si := crypto.NewHash([]byte(n.Signer.String() + in))
-		seed := append(si[:], si[:]...)
-		tx.AddScriptOutput([]*common.Address{&n.Payee}, script, per, seed)
-	}
-
-	if diff.Sign() > 0 {
-		addr := common.NewAddressFromSeed(make([]byte, 64))
-		script := common.NewThresholdScript(common.Operator64)
-		in := fmt.Sprintf("MINTKERNELNODE%dDIFF", batch)
-		si := crypto.NewHash([]byte(addr.String() + in))
-		seed := append(si[:], si[:]...)
-		tx.AddScriptOutput([]*common.Address{&addr}, script, diff, seed)
-	}
-
 	return tx.AsLatestVersion()
 }
 
