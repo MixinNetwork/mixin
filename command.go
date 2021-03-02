@@ -189,13 +189,12 @@ func decodeTransactionCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	var tx common.SignedTransaction
-	err = common.MsgpackUnmarshal(raw, &tx)
+	ver, err := common.UnmarshalVersionedTransaction(raw)
 	if err != nil {
 		return err
 	}
-	ver := transactionToMap(tx.AsLatestVersion())
-	data, err := json.MarshalIndent(ver, "", "  ")
+	m := transactionToMap(ver)
+	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return err
 	}
