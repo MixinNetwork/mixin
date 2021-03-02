@@ -114,7 +114,7 @@ func validateInputsV1(store DataStore, tx *SignedTransaction, msg []byte, hash c
 			return inputsFilter, inputAmount, fmt.Errorf("input locked for transaction %s", utxo.LockHash)
 		}
 
-		err = validateUTXOV1(i, &utxo.UTXO, tx.SignaturesSliceV1[i], msg, txType, keySigs)
+		err = validateUTXOV1(i, &utxo.UTXO, tx.SignaturesSliceV1, msg, txType, keySigs)
 		if err != nil {
 			return inputsFilter, inputAmount, err
 		}
@@ -125,13 +125,20 @@ func validateInputsV1(store DataStore, tx *SignedTransaction, msg []byte, hash c
 	return inputsFilter, inputAmount, nil
 }
 
-func validateUTXOV1(index int, utxo *UTXO, sigs []*crypto.Signature, msg []byte, txType uint8, keySigs map[crypto.Key]*crypto.Signature) error {
+func validateUTXOV1(index int, utxo *UTXO, sigs [][]*crypto.Signature, msg []byte, txType uint8, keySigs map[crypto.Key]*crypto.Signature) error {
 	switch utxo.Type {
 	case OutputTypeScript, OutputTypeNodeRemove:
-		var valid int
-		for i := range sigs {
-			keySigs[utxo.Keys[i]] = sigs[i]
-			valid = valid + 1
+		var offset, valid int
+		for _, sig := range sigs[index] {
+			for i, k := range utxo.Keys {
+				if i < offset {
+					continue
+				}
+				if k.Verify(msg, *sig) {
+					valid = valid + 1
+					offset = i + 1
+				}
+			}
 		}
 		return utxo.Script.Validate(valid)
 	case OutputTypeNodePledge:
