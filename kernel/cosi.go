@@ -177,9 +177,9 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		if s.Timestamp+threshold*2 < chain.node.GraphTimestamp {
 			return fmt.Errorf("past snapshot timestamp %d", s.Timestamp)
 		}
-		if !chain.IsPledging() && !chain.node.CheckCatchUpWithPeers() {
-			return fmt.Errorf("node is slow in catching up")
-		}
+	}
+	if !chain.IsPledging() && !chain.node.CheckCatchUpWithPeers() {
+		return fmt.Errorf("node is slow in catching up")
 	}
 
 	cn := chain.node.GetAcceptedOrPledgingNode(chain.ChainId)
