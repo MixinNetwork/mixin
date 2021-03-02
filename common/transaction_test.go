@@ -244,6 +244,7 @@ func TestTransactionV1(t *testing.T) {
 		for _, sig := range ver.SignaturesMap[i] {
 			sigs = append(sigs, sig)
 		}
+		// FIXME this may fail because the map to slice order issue
 		ver.SignaturesSliceV1 = append(ver.SignaturesSliceV1, sigs)
 	}
 	err = ver.Validate(store)
