@@ -74,17 +74,17 @@ ring-final-size = 16384
 listener = "mixin-node.example.com:7239"`)
 
 func setupTestNode(assert *assert.Assertions, dir string) *Node {
-	err := ioutil.WriteFile(dir+"/config.toml", configData, 0644)
+	err := os.WriteFile(dir+"/config.toml", configData, 0644)
 	assert.Nil(err)
 
-	data, err := ioutil.ReadFile("../config/genesis.json")
+	data, err := os.ReadFile("../config/genesis.json")
 	assert.Nil(err)
-	err = ioutil.WriteFile(dir+"/genesis.json", data, 0644)
+	err = os.WriteFile(dir+"/genesis.json", data, 0644)
 	assert.Nil(err)
 
-	data, err = ioutil.ReadFile("../config/nodes.json")
+	data, err = os.ReadFile("../config/nodes.json")
 	assert.Nil(err)
-	err = ioutil.WriteFile(dir+"/nodes.json", data, 0644)
+	err = os.WriteFile(dir+"/nodes.json", data, 0644)
 	assert.Nil(err)
 
 	custom, err := config.Initialize(dir + "/config.toml")

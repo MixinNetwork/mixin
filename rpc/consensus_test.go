@@ -596,15 +596,15 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 	}
 
 	configData := []byte(fmt.Sprintf(configDataTmpl, signer.PrivateSpendKey.String(), "127.0.0.1:17099"))
-	err = ioutil.WriteFile(dir+"/config.toml", configData, 0644)
+	err = os.WriteFile(dir+"/config.toml", configData, 0644)
 	if err != nil {
 		panic(err)
 	}
-	err = ioutil.WriteFile(dir+"/genesis.json", genesisData, 0644)
+	err = os.WriteFile(dir+"/genesis.json", genesisData, 0644)
 	if err != nil {
 		panic(err)
 	}
-	err = ioutil.WriteFile(dir+"/nodes.json", nodesData, 0644)
+	err = os.WriteFile(dir+"/nodes.json", nodesData, 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -762,15 +762,15 @@ func setupTestNet(root string) ([]common.Address, []common.Address, []byte, []by
 		}
 
 		configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey.String(), nodes[i]["host"]))
-		err = ioutil.WriteFile(dir+"/config.toml", configData, 0644)
+		err = os.WriteFile(dir+"/config.toml", configData, 0644)
 		if err != nil {
 			panic(err)
 		}
-		err = ioutil.WriteFile(dir+"/genesis.json", genesisData, 0644)
+		err = os.WriteFile(dir+"/genesis.json", genesisData, 0644)
 		if err != nil {
 			panic(err)
 		}
-		err = ioutil.WriteFile(dir+"/nodes.json", nodesData, 0644)
+		err = os.WriteFile(dir+"/nodes.json", nodesData, 0644)
 		if err != nil {
 			panic(err)
 		}

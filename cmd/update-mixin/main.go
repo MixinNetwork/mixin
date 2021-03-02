@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -39,7 +38,7 @@ func updateBinary(bin string) error {
 		return err
 	}
 
-	version, err := ioutil.ReadFile(bin + "/VERSION")
+	version, err := os.ReadFile(bin + "/VERSION")
 	if err != nil {
 		return err
 	}
@@ -102,7 +101,7 @@ func updateBinary(bin string) error {
 		return err
 	}
 
-	err = ioutil.WriteFile(bin+"/VERSION", []byte(asset.UpdatedAt), 0644)
+	err = os.WriteFile(bin+"/VERSION", []byte(asset.UpdatedAt), 0644)
 	if err != nil {
 		return err
 	}

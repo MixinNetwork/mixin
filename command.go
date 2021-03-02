@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -155,7 +154,7 @@ func validateGraphEntries(c *cli.Context) error {
 		return err
 	}
 
-	f, err := ioutil.ReadFile(c.String("dir") + "/genesis.json")
+	f, err := os.ReadFile(c.String("dir") + "/genesis.json")
 	if err != nil {
 		return err
 	}
@@ -676,15 +675,15 @@ ring-final-size = 16384
 [network]
 listener = "%s"`, a.PrivateSpendKey.String(), nodes[i]["host"]))
 
-		err = ioutil.WriteFile(dir+"/config.toml", configData, 0644)
+		err = os.WriteFile(dir+"/config.toml", configData, 0644)
 		if err != nil {
 			return err
 		}
-		err = ioutil.WriteFile(dir+"/genesis.json", genesisData, 0644)
+		err = os.WriteFile(dir+"/genesis.json", genesisData, 0644)
 		if err != nil {
 			return err
 		}
-		err = ioutil.WriteFile(dir+"/nodes.json", nodesData, 0644)
+		err = os.WriteFile(dir+"/nodes.json", nodesData, 0644)
 		if err != nil {
 			return err
 		}

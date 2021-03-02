@@ -11,7 +11,7 @@ import (
 	"encoding/binary"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net"
 	"time"
@@ -185,7 +185,7 @@ func (c *QuicClient) Receive() ([]byte, error) {
 			return nil, err
 		}
 		defer c.gzipUnzipper.Close()
-		m.Data, err = ioutil.ReadAll(c.gzipUnzipper)
+		m.Data, err = io.ReadAll(c.gzipUnzipper)
 	case TransportCompressionZstd:
 		m.Data, err = gozstd.DecompressDict(nil, m.Data, c.zstdUnzipper)
 	}

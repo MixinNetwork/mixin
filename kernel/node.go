@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -267,7 +267,7 @@ func (node *Node) LoadConsensusNodes() error {
 func (node *Node) PingNeighborsFromConfig() error {
 	node.Peer = network.NewPeer(node, node.IdForNetwork, node.addr, node.custom.Network.GossipNeighbors)
 
-	f, err := ioutil.ReadFile(node.configDir + "/nodes.json")
+	f, err := os.ReadFile(node.configDir + "/nodes.json")
 	if err != nil {
 		return err
 	}
