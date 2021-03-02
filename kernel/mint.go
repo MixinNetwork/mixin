@@ -46,17 +46,6 @@ func (chain *Chain) AggregateMintWork() {
 	}
 	logger.Printf("AggregateMintWork(%s) begin with %d\n", chain.ChainId, round)
 
-	if cs := chain.State; cs != nil && cs.FinalRound.Number > round+60000 {
-		hack := cs.FinalRound.Number - 60000
-		err := chain.persistStore.WriteWorkOffsetHack(chain.ChainId, hack)
-		logger.Printf("AggregateMintWork(%s) skip hack from %d to %d with %v\n", chain.ChainId, round, hack, err)
-		if err != nil {
-			panic(err)
-		} else {
-			round = hack
-		}
-	}
-
 	fork := uint64(SnapshotRoundDayLeapForkHack.UnixNano())
 	for chain.running {
 		if cs := chain.State; cs == nil {

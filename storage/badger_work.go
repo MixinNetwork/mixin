@@ -21,17 +21,6 @@ func (s *BadgerStore) ReadWorkOffset(nodeId crypto.Hash) (uint64, error) {
 	return graphReadUint64(txn, offKey)
 }
 
-func (s *BadgerStore) WriteWorkOffsetHack(nodeId crypto.Hash, round uint64) error {
-	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
-		offKey := graphWorkOffsetKey(nodeId)
-		off, _, err := graphReadWorkOffset(txn, offKey)
-		if err != nil || off >= round {
-			return err
-		}
-		return graphWriteWorkOffset(txn, offKey, round, nil)
-	})
-}
-
 func (s *BadgerStore) ReadSnapshotWorksForNodeRound(nodeId crypto.Hash, round uint64) ([]*common.SnapshotWork, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
