@@ -58,7 +58,7 @@ func (ver *VersionedTransaction) validateV1(store DataStore) error {
 	case TransactionTypeMint:
 		return ver.validateMint(store)
 	case TransactionTypeDeposit:
-		return tx.validateDeposit(store, msg, ver.PayloadHash())
+		return tx.validateDepositV1(store, msg, ver.PayloadHash(), ver.SignaturesSliceV1)
 	case TransactionTypeWithdrawalSubmit:
 		return tx.validateWithdrawalSubmit(inputsFilter)
 	case TransactionTypeWithdrawalFuel:
@@ -156,6 +156,40 @@ func validateUTXOV1(index int, utxo *UTXO, sigs [][]*crypto.Signature, msg []byt
 	default:
 		return fmt.Errorf("invalid input type %d", utxo.Type)
 	}
+}
+
+func (tx *SignedTransaction) validateDepositV1(store DataStore, msg []byte, payloadHash crypto.Hash, sigs [][]*crypto.Signature) error {
+	if len(tx.Inputs) != 1 {
+		return fmt.Errorf("invalid inputs count %d for deposit", len(tx.Inputs))
+	}
+	if len(tx.Outputs) != 1 {
+		return fmt.Errorf("invalid outputs count %d for deposit", len(tx.Outputs))
+	}
+	if tx.Outputs[0].Type != OutputTypeScript {
+		return fmt.Errorf("invalid deposit output type %d", tx.Outputs[0].Type)
+	}
+	if len(sigs) != 1 || len(sigs[0]) != 1 {
+		return fmt.Errorf("invalid signatures count %d for deposit", len(sigs))
+	}
+	err := tx.verifyDepositFormat()
+	if err != nil {
+		return err
+	}
+
+	sig, valid := sigs[0][0], false
+	if sig == nil {
+		return fmt.Errorf("invalid domain signature index for deposit")
+	}
+	for _, d := range store.ReadDomains() {
+		if d.Account.PublicSpendKey.Verify(msg, *sig) {
+			valid = true
+		}
+	}
+	if !valid {
+		return fmt.Errorf("invalid domain signature for deposit")
+	}
+
+	return store.CheckDepositInput(tx.Inputs[0].Deposit, payloadHash)
 }
 
 func (tx *Transaction) validateNodeCancelV1(store DataStore, msg []byte, sigs [][]*crypto.Signature) error {

@@ -54,7 +54,7 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 	case TransactionTypeMint:
 		return ver.validateMint(store)
 	case TransactionTypeDeposit:
-		return tx.validateDeposit(store, msg, ver.PayloadHash())
+		return tx.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
 	case TransactionTypeWithdrawalSubmit:
 		return tx.validateWithdrawalSubmit(inputsFilter)
 	case TransactionTypeWithdrawalFuel:

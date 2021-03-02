@@ -84,7 +84,7 @@ func (tx *Transaction) verifyDepositFormat() error {
 	return fmt.Errorf("invalid deposit chain id %s", chainId)
 }
 
-func (tx *SignedTransaction) validateDeposit(store DataStore, msg []byte, payloadHash crypto.Hash) error {
+func (tx *SignedTransaction) validateDeposit(store DataStore, msg []byte, payloadHash crypto.Hash, sigs []map[uint16]*crypto.Signature) error {
 	if len(tx.Inputs) != 1 {
 		return fmt.Errorf("invalid inputs count %d for deposit", len(tx.Inputs))
 	}
@@ -94,15 +94,15 @@ func (tx *SignedTransaction) validateDeposit(store DataStore, msg []byte, payloa
 	if tx.Outputs[0].Type != OutputTypeScript {
 		return fmt.Errorf("invalid deposit output type %d", tx.Outputs[0].Type)
 	}
-	if len(tx.SignaturesMap) != 1 || len(tx.SignaturesMap[0]) != 1 {
-		return fmt.Errorf("invalid signatures count %d for deposit", len(tx.SignaturesMap))
+	if len(sigs) != 1 || len(sigs[0]) != 1 {
+		return fmt.Errorf("invalid signatures count %d for deposit", len(sigs))
 	}
 	err := tx.verifyDepositFormat()
 	if err != nil {
 		return err
 	}
 
-	sig, valid := tx.SignaturesMap[0][0], false
+	sig, valid := sigs[0][0], false
 	if sig == nil {
 		return fmt.Errorf("invalid domain signature index for deposit")
 	}
