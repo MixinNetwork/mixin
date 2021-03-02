@@ -3,7 +3,7 @@ package kernel
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -182,7 +182,7 @@ func buildDomainSnapshot(networkId crypto.Hash, epoch uint64, domain common.Addr
 }
 
 func readGenesis(path string) (*Genesis, error) {
-	f, err := ioutil.ReadFile(path)
+	f, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

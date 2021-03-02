@@ -1,7 +1,7 @@
 package config
 
 import (
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
@@ -59,7 +59,7 @@ type Custom struct {
 }
 
 func Initialize(file string) (*Custom, error) {
-	f, err := ioutil.ReadFile(file)
+	f, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
