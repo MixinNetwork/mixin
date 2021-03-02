@@ -43,13 +43,13 @@ func TestGenesis(t *testing.T) {
 	assert.Nil(err)
 	for i, s := range snapshots {
 		g := genesisSnapshots[i]
-		assert.Equal(g.Hash, s.Hash)
+		assert.Equal(g.Hash.String(), s.Hash.String())
 		assert.Equal(g.NodeId, s.NodeId)
 		assert.Equal(g.References, s.References)
 		assert.Equal(g.RoundNumber, s.RoundNumber)
 		assert.Equal(g.Timestamp, s.Timestamp)
 		assert.Equal(g.TopologicalOrder, s.TopologicalOrder)
-		assert.Equal(g.Transaction, s.Transaction)
+		assert.Equal(g.Transaction.String(), s.Transaction.String())
 		assert.Equal(g.Version, s.Version)
 	}
 }

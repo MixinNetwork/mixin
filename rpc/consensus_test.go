@@ -99,7 +99,7 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 	domainAddress := accounts[0].String()
 	deposits := make([]*common.VersionedTransaction, 0)
 	for i := 0; i < INPUTS; i++ {
-		raw := fmt.Sprintf(`{"version":1,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
+		raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
 		tx, err := testSignTransaction(target.Host, accounts[0], raw)
 		assert.Nil(err)
 		assert.NotNil(tx)
@@ -121,7 +121,7 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 
 	utxos := make([]*common.VersionedTransaction, 0)
 	for _, d := range deposits {
-		raw := fmt.Sprintf(`{"version":1,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, d.PayloadHash().String(), genesisAmount, domainAddress)
+		raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, d.PayloadHash().String(), genesisAmount, domainAddress)
 		rand.Seed(time.Now().UnixNano())
 		tx, err := testSignTransaction(nodes[0].Host, accounts[0], raw)
 		assert.Nil(err)
@@ -228,7 +228,7 @@ func testConsensus(t *testing.T, dup int) {
 	domainAddress := accounts[0].String()
 	deposits := make([]*common.VersionedTransaction, 0)
 	for i := 0; i < INPUTS; i++ {
-		raw := fmt.Sprintf(`{"version":1,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
+		raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
 		rand.Seed(time.Now().UnixNano())
 		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw)
 		assert.Nil(err)
@@ -276,7 +276,7 @@ func testConsensus(t *testing.T, dup int) {
 
 	utxos := make([]*common.VersionedTransaction, 0)
 	for _, d := range deposits {
-		raw := fmt.Sprintf(`{"version":1,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, d.PayloadHash().String(), genesisAmount, domainAddress)
+		raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, d.PayloadHash().String(), genesisAmount, domainAddress)
 		rand.Seed(time.Now().UnixNano())
 		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw)
 		assert.Nil(err)
@@ -550,7 +550,7 @@ func testRemoveNode(nodes []*Node, r common.Address) []*Node {
 
 func testSendDummyTransaction(assert *assert.Assertions, node string, domain common.Address, th, amount string) string {
 	raw, _ := json.Marshal(map[string]interface{}{
-		"version": 1,
+		"version": 2,
 		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
 		"inputs": []map[string]interface{}{{
 			"hash":  th,
@@ -610,7 +610,7 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 	}
 
 	raw, _ := json.Marshal(map[string]interface{}{
-		"version": 1,
+		"version": 2,
 		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
 		"inputs": []map[string]interface{}{{
 			"hash":  input,
@@ -656,7 +656,7 @@ func testBuildPledgeInput(assert *assert.Assertions, node string, domain common.
 		})
 	}
 	raw, _ := json.Marshal(map[string]interface{}{
-		"version": 1,
+		"version": 2,
 		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
 		"inputs":  inputs,
 		"outputs": []map[string]interface{}{{
@@ -812,7 +812,7 @@ func testSignTransaction(node string, account common.Address, rawStr string) (*c
 
 	signed := &common.SignedTransaction{Transaction: *tx}
 	for i := range signed.Inputs {
-		err := signed.SignInput(raw, i, []common.Address{account})
+		err := signed.SignInput(raw, i, []*common.Address{&account})
 		if err != nil {
 			return nil, err
 		}
@@ -1019,12 +1019,12 @@ type signerInput struct {
 		Mask    crypto.Key          `json:"mask"`
 	} `json:"inputs"`
 	Outputs []struct {
-		Type     uint8            `json:"type"`
-		Mask     crypto.Key       `json:"mask"`
-		Keys     []crypto.Key     `json:"keys"`
-		Amount   common.Integer   `json:"amount"`
-		Script   common.Script    `json:"script"`
-		Accounts []common.Address `json:"accounts"`
+		Type     uint8             `json:"type"`
+		Mask     crypto.Key        `json:"mask"`
+		Keys     []crypto.Key      `json:"keys"`
+		Amount   common.Integer    `json:"amount"`
+		Script   common.Script     `json:"script"`
+		Accounts []*common.Address `json:"accounts"`
 	}
 	Asset crypto.Hash `json:"asset"`
 	Extra string      `json:"extra"`

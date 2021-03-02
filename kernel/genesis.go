@@ -17,12 +17,12 @@ const (
 
 type Genesis struct {
 	Epoch int64 `json:"epoch"`
-	Nodes []struct {
+	Nodes []*struct {
 		Signer  common.Address `json:"signer"`
 		Payee   common.Address `json:"payee"`
 		Balance common.Integer `json:"balance"`
 	} `json:"nodes"`
-	Domains []struct {
+	Domains []*struct {
 		Signer  common.Address `json:"signer"`
 		Balance common.Integer `json:"balance"`
 	} `json:"domains"`
@@ -88,6 +88,7 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 		signed := tx.AsLatestVersion()
 		if networkId.String() == config.MainnetId {
 			snapshot.Version = 0
+			signed.Version = 1
 			signed, _ = common.UnmarshalVersionedTransaction(signed.Marshal())
 		}
 		snapshot.Transaction = signed.PayloadHash()
@@ -162,6 +163,7 @@ func buildDomainSnapshot(networkId crypto.Hash, epoch uint64, domain common.Addr
 
 	signed := tx.AsLatestVersion()
 	if networkId.String() == config.MainnetId {
+		signed.Version = 1
 		signed, _ = common.UnmarshalVersionedTransaction(signed.Marshal())
 	}
 	nodeId := domain.Hash().ForNetwork(networkId)

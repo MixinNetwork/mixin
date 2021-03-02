@@ -41,7 +41,7 @@ func TestNodeRemovePossibility(t *testing.T) {
 	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, uint64(now.UnixNano()))
 	assert.Nil(err)
 	assert.NotNil(tx)
-	assert.Equal("d5af53561d99eb52af2b98b57d3fb0cc8ae4c6449ec6c89d8427201051a947a2", tx.PayloadHash().String())
+	assert.Equal("eac42da808520bd8af6978499c0241510fe701789677c2d76899d20666acb3e1", tx.PayloadHash().String())
 	assert.Equal(common.XINAssetId, tx.Asset)
 	assert.Equal(pledgeAmount(0), tx.Outputs[0].Amount)
 	assert.Equal("fffe01", tx.Outputs[0].Script.String())
@@ -49,7 +49,7 @@ func TestNodeRemovePossibility(t *testing.T) {
 	assert.Equal(uint8(common.TransactionTypeNodeRemove), tx.TransactionType())
 	assert.Len(tx.Outputs[0].Keys, 1)
 
-	err = tx.SignInput(node.persistStore, 0, []common.Address{node.Signer})
+	err = tx.SignInput(node.persistStore, 0, []*common.Address{&node.Signer})
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid key for the input")
 	err = tx.Validate(node.persistStore)
