@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -44,7 +45,7 @@ func (node *Node) TopoWrite(s *common.Snapshot, signers []crypto.Hash) *common.S
 	defer node.TopoCounter.Unlock()
 
 	if s.Version >= common.SnapshotVersion && len(signers) != len(s.Signature.Keys()) {
-		panic(s)
+		panic(fmt.Errorf("malformed snapshot signers %s %d %d", s.Hash, len(signers), len(s.Signature.Keys())))
 	}
 
 	node.TopoCounter.seq += 1

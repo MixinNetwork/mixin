@@ -284,7 +284,11 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, c
 		sig.String() == "dbb0347be24ecb8de3d66631d347fde724ff92e22e1f45deeb8b5d843fd62da39ca8e39de9f35f1e0f7336d4686917983470c098edc91f456d577fb18069620f000000003fdfe712" {
 		// FIXME this is a hack to fix the large round gap around node remove snapshot
 		// and a bug in too recent external reference, e.g. bare final round
-		return nil, true
+		signers := make([]crypto.Hash, len(sig.Keys()))
+		for i, k := range sig.Keys() {
+			signers[i] = cids[k]
+		}
+		return signers, true
 	}
 
 	key := sig.Signature[:]
