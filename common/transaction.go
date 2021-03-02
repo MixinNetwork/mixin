@@ -71,7 +71,8 @@ type Transaction struct {
 
 type SignedTransaction struct {
 	Transaction
-	Signatures []map[uint16]*crypto.Signature `json:"signatures,omitempty"`
+	SignaturesMap     []map[uint16]*crypto.Signature `json:"signatures,omitempty" msgpack:"Signatures"`
+	SignaturesSliceV1 [][]*crypto.Signature          `json:"signatures,omitempty" msgpack:"-"`
 }
 
 func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {
@@ -164,7 +165,7 @@ func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []*Address) error
 		sig := priv.Sign(msg)
 		sigs[i] = &sig
 	}
-	signed.Signatures = append(signed.Signatures, sigs)
+	signed.SignaturesMap = append(signed.SignaturesMap, sigs)
 	return nil
 }
 
@@ -205,7 +206,7 @@ func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, account
 		sig := priv.Sign(msg)
 		sigs[i] = &sig
 	}
-	signed.Signatures = append(signed.Signatures, sigs)
+	signed.SignaturesMap = append(signed.SignaturesMap, sigs)
 	return nil
 }
 
@@ -227,7 +228,7 @@ func (signed *SignedTransaction) SignRaw(key crypto.Key) error {
 	}
 	sig := key.Sign(msg)
 	sigs := map[uint16]*crypto.Signature{0: &sig}
-	signed.Signatures = append(signed.Signatures, sigs)
+	signed.SignaturesMap = append(signed.SignaturesMap, sigs)
 	return nil
 }
 

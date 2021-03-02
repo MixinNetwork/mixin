@@ -12,7 +12,11 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 	msg := ver.PayloadMarshal()
 	txType := tx.TransactionType()
 
-	if ver.Version != TxVersion || tx.Version != TxVersion {
+	if ver.Version == 1 {
+		return ver.validateV1(store)
+	}
+
+	if ver.Version != TxVersion {
 		return fmt.Errorf("invalid tx version %d %d", ver.Version, tx.Version)
 	}
 	if txType == TransactionTypeUnknown {
@@ -21,8 +25,8 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 	if len(tx.Inputs) < 1 || len(tx.Outputs) < 1 {
 		return fmt.Errorf("invalid tx inputs or outputs %d %d", len(tx.Inputs), len(tx.Outputs))
 	}
-	if len(tx.Inputs) != len(tx.Signatures) && txType != TransactionTypeNodeAccept && txType != TransactionTypeNodeRemove {
-		return fmt.Errorf("invalid tx signature number %d %d %d", len(tx.Inputs), len(tx.Signatures), txType)
+	if len(tx.Inputs) != len(tx.SignaturesMap) && txType != TransactionTypeNodeAccept && txType != TransactionTypeNodeRemove {
+		return fmt.Errorf("invalid tx signature number %d %d %d", len(tx.Inputs), len(tx.SignaturesMap), txType)
 	}
 	if len(tx.Extra) > ExtraSizeLimit {
 		return fmt.Errorf("invalid extra size %d", len(tx.Extra))
@@ -35,7 +39,7 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 	if err != nil {
 		return err
 	}
-	outputAmount, err := validateOutputs(store, tx)
+	outputAmount, err := tx.validateOutputs(store)
 	if err != nil {
 		return err
 	}
@@ -60,7 +64,7 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 	case TransactionTypeNodePledge:
 		return tx.validateNodePledge(store, inputsFilter)
 	case TransactionTypeNodeCancel:
-		return tx.validateNodeCancel(store, msg, ver.Signatures)
+		return tx.validateNodeCancel(store, msg, ver.SignaturesMap)
 	case TransactionTypeNodeAccept:
 		return tx.validateNodeAccept(store)
 	case TransactionTypeNodeRemove:
@@ -115,7 +119,7 @@ func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash cry
 			return inputsFilter, inputAmount, fmt.Errorf("input locked for transaction %s", utxo.LockHash)
 		}
 
-		err = validateUTXO(i, &utxo.UTXO, tx.Signatures[i], nil, msg, txType, keySigs)
+		err = validateUTXO(i, &utxo.UTXO, tx.SignaturesMap[i], msg, txType, keySigs)
 		if err != nil {
 			return inputsFilter, inputAmount, err
 		}
@@ -123,7 +127,7 @@ func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash cry
 		inputAmount = inputAmount.Add(utxo.Amount)
 	}
 
-	if len(keySigs) == 0 {
+	if len(keySigs) == 0 && (txType == TransactionTypeNodeAccept || txType == TransactionTypeNodeRemove) {
 		return inputsFilter, inputAmount, nil
 	}
 
@@ -139,7 +143,7 @@ func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash cry
 	return inputsFilter, inputAmount, nil
 }
 
-func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
+func (tx *Transaction) validateOutputs(store DataStore) (Integer, error) {
 	outputAmount := NewInteger(0)
 	outputsFilter := make(map[crypto.Key]bool)
 	for _, o := range tx.Outputs {
@@ -201,26 +205,19 @@ func validateOutputs(store DataStore, tx *SignedTransaction) (Integer, error) {
 	return outputAmount, nil
 }
 
-func validateUTXO(index int, utxo *UTXO, sigs map[uint16]*crypto.Signature, sigsV1 []*crypto.Signature, msg []byte, txType uint8, keySigs map[crypto.Key]*crypto.Signature) error {
+func validateUTXO(index int, utxo *UTXO, sigs map[uint16]*crypto.Signature, msg []byte, txType uint8, keySigs map[crypto.Key]*crypto.Signature) error {
 	switch utxo.Type {
 	case OutputTypeScript, OutputTypeNodeRemove:
 		var offset, valid int
-		if len(sigsV1) > 0 {
-			for _, sig := range sigsV1 {
-				for i, k := range utxo.Keys {
-					if i < offset {
-						continue
-					}
-					if k.Verify(msg, *sig) {
-						valid = valid + 1
-						offset = i + 1
-					}
+		for _, sig := range sigs {
+			for i, k := range utxo.Keys {
+				if i < offset {
+					continue
 				}
-			}
-		} else {
-			for i := range sigs {
-				keySigs[utxo.Keys[i]] = sigs[i]
-				valid = valid + 1
+				if k.Verify(msg, *sig) {
+					valid = valid + 1
+					offset = i + 1
+				}
 			}
 		}
 		return utxo.Script.Validate(valid)

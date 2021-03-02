@@ -37,14 +37,14 @@ func (d *DepositData) UniqueKey() crypto.Hash {
 	return crypto.NewHash([]byte(index)).ForNetwork(d.Chain)
 }
 
-func (tx *SignedTransaction) DepositData() *DepositData {
+func (tx *Transaction) DepositData() *DepositData {
 	if len(tx.Inputs) != 1 {
 		return nil
 	}
 	return tx.Inputs[0].Deposit
 }
 
-func (tx *SignedTransaction) verifyDepositFormat() error {
+func (tx *Transaction) verifyDepositFormat() error {
 	deposit := tx.Inputs[0].Deposit
 	if err := deposit.Asset().Verify(); err != nil {
 		return fmt.Errorf("invalid asset data %s", err.Error())
@@ -94,15 +94,18 @@ func (tx *SignedTransaction) validateDeposit(store DataStore, msg []byte, payloa
 	if tx.Outputs[0].Type != OutputTypeScript {
 		return fmt.Errorf("invalid deposit output type %d", tx.Outputs[0].Type)
 	}
-	if len(tx.Signatures) != 1 || len(tx.Signatures[0]) != 1 {
-		return fmt.Errorf("invalid signatures count %d for deposit", len(tx.Signatures))
+	if len(tx.SignaturesMap) != 1 || len(tx.SignaturesMap[0]) != 1 {
+		return fmt.Errorf("invalid signatures count %d for deposit", len(tx.SignaturesMap))
 	}
 	err := tx.verifyDepositFormat()
 	if err != nil {
 		return err
 	}
 
-	sig, valid := tx.Signatures[0][0], false
+	sig, valid := tx.SignaturesMap[0][0], false
+	if sig == nil {
+		return fmt.Errorf("invalid domain signature index for deposit")
+	}
 	for _, d := range store.ReadDomains() {
 		if d.Account.PublicSpendKey.Verify(msg, *sig) {
 			valid = true

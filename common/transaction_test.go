@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTransaction(t *testing.T) {
+func TestTransactionV1(t *testing.T) {
 	assert := assert.New(t)
 
 	accounts := make([]*Address, 0)
@@ -28,6 +28,7 @@ func TestTransaction(t *testing.T) {
 	store := storeImpl{seed: seed, accounts: accounts}
 
 	ver := NewTransaction(XINAssetId).AsLatestVersion()
+	ver.Version = 1
 	assert.Equal("d2cf4d6e85d76512b29f173073be167423705e207f090f8cfc3e2b61fc32b6e2", ver.PayloadHash().String())
 	ver.AddInput(genesisHash, 0)
 	assert.Equal("b3afe7497740e05ba83e26977fbbfe7e1c2efc312d8d9aeb93bce43b9d8c6248", ver.PayloadHash().String())
@@ -81,6 +82,11 @@ func TestTransaction(t *testing.T) {
 	for i := range ver.Inputs {
 		err := ver.SignInput(store, i, accounts[0:i+1])
 		assert.Nil(err)
+		var sigs []*crypto.Signature
+		for _, sig := range ver.SignaturesMap[i] {
+			sigs = append(sigs, sig)
+		}
+		ver.SignaturesSliceV1 = append(ver.SignaturesSliceV1, sigs)
 	}
 	err = ver.Validate(store)
 	assert.Nil(err)

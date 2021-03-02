@@ -854,6 +854,6 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {
 		"outputs":    outputs,
 		"extra":      hex.EncodeToString(tx.Extra),
 		"hash":       tx.PayloadHash(),
-		"signatures": tx.Signatures,
+		"signatures": tx.SignaturesMap,
 	}
 }

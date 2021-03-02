@@ -32,7 +32,7 @@ func (w *WithdrawalData) Asset() *Asset {
 	}
 }
 
-func (tx *SignedTransaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
+func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 	for _, in := range inputs {
 		if in.Type != OutputTypeScript {
 			return fmt.Errorf("invalid utxo type %d", in.Type)
@@ -99,7 +99,7 @@ func (tx *SignedTransaction) validateWithdrawalSubmit(inputs map[string]*UTXO) e
 	return fmt.Errorf("invalid withdrawal chain id %s", chainId)
 }
 
-func (tx *SignedTransaction) validateWithdrawalFuel(store DataStore, inputs map[string]*UTXO) error {
+func (tx *Transaction) validateWithdrawalFuel(store DataStore, inputs map[string]*UTXO) error {
 	for _, in := range inputs {
 		if in.Type != OutputTypeScript {
 			return fmt.Errorf("invalid utxo type %d", in.Type)
@@ -140,7 +140,7 @@ func (tx *SignedTransaction) validateWithdrawalFuel(store DataStore, inputs map[
 	return nil
 }
 
-func (tx *SignedTransaction) validateWithdrawalClaim(store DataStore, inputs map[string]*UTXO, msg []byte) error {
+func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[string]*UTXO, msg []byte) error {
 	for _, in := range inputs {
 		if in.Type != OutputTypeScript {
 			return fmt.Errorf("invalid utxo type %d", in.Type)
