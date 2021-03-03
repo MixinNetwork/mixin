@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"sort"
 	"testing"
 
 	"github.com/MixinNetwork/mixin/crypto"
@@ -74,6 +75,7 @@ func TestTransaction(t *testing.T) {
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid tx signature number")
 
+	ver.SignaturesMap = nil
 	for i := range ver.Inputs {
 		err := ver.SignInput(store, i, accounts[0:i+1])
 		assert.Nil(err)
@@ -86,6 +88,67 @@ func TestTransaction(t *testing.T) {
 	}
 	err = ver.Validate(store)
 	assert.Nil(err)
+
+	assert.Len(ver.Inputs, 2)
+	assert.Len(ver.SignaturesSliceV1, 0)
+	assert.Len(ver.SignaturesMap, 2)
+	assert.Len(ver.SignaturesMap[0], 1)
+	assert.Len(ver.SignaturesMap[1], 2)
+	om := ver.SignaturesMap
+	sm := make([]map[uint16]*crypto.Signature, 2)
+	for i, m := range om {
+		if sm[i] == nil {
+			sm[i] = make(map[uint16]*crypto.Signature)
+		}
+		for j, s := range m {
+			sm[i][j+1] = s
+		}
+	}
+	ver.SignaturesMap = sm
+	err = ver.Validate(store)
+	assert.NotNil(err)
+	assert.Equal("batch verification failure 3 3", err.Error())
+	sm = make([]map[uint16]*crypto.Signature, 2)
+	for i, m := range om {
+		if sm[i] == nil {
+			sm[i] = make(map[uint16]*crypto.Signature)
+		}
+		for j, s := range m {
+			sm[i][j+2] = s
+		}
+	}
+	ver.SignaturesMap = sm
+	err = ver.Validate(store)
+	assert.NotNil(err)
+	assert.Equal("invalid signature map index 2 2", err.Error())
+	sm = make([]map[uint16]*crypto.Signature, 2)
+	for i, m := range om {
+		if sm[i] == nil {
+			sm[i] = make(map[uint16]*crypto.Signature)
+		}
+		for j, s := range m {
+			sm[i][j] = s
+		}
+	}
+	sm[0][1] = sm[0][0]
+	ver.SignaturesMap = sm
+	err = ver.Validate(store)
+	assert.NotNil(err)
+	assert.Equal("batch verification failure 4 4", err.Error())
+	sm = make([]map[uint16]*crypto.Signature, 2)
+	for i, m := range om {
+		if sm[i] == nil {
+			sm[i] = make(map[uint16]*crypto.Signature)
+		}
+		for j, s := range m {
+			sm[i][j] = s
+		}
+	}
+	sm[1][0] = sm[0][0]
+	ver.SignaturesMap = sm
+	err = ver.Validate(store)
+	assert.NotNil(err)
+	assert.Equal("batch verification failure 3 3", err.Error())
 
 	outputs := ver.ViewGhostKey(&accounts[1].PrivateViewKey)
 	assert.Len(outputs, 2)
@@ -123,7 +186,7 @@ func (store storeImpl) ReadUTXO(hash crypto.Hash, index int) (*UTXOWithLock, err
 		},
 	}
 
-	for i := 0; i <= index; i++ {
+	for i := 0; i <= index+1; i++ {
 		key := crypto.DeriveGhostPublicKey(&genesisMaskr, &store.accounts[i].PublicViewKey, &store.accounts[i].PublicSpendKey, uint64(index))
 		utxo.Keys = append(utxo.Keys, *key)
 	}
@@ -230,21 +293,35 @@ func TestTransactionV1(t *testing.T) {
 
 	for i := range ver.Inputs {
 		err := ver.SignInput(store, i, accounts)
-		assert.NotNil(err)
-		assert.Contains(err.Error(), "invalid key for the input")
+		if i == 0 {
+			assert.NotNil(err)
+			assert.Contains(err.Error(), "invalid key for the input")
+		} else {
+			assert.Nil(err)
+		}
 	}
 	err = ver.Validate(store)
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid tx signature number")
 
+	ver.SignaturesMap = nil
 	for i := range ver.Inputs {
 		err := ver.SignInput(store, i, accounts[0:i+1])
 		assert.Nil(err)
-		var sigs []*crypto.Signature
-		for _, sig := range ver.SignaturesMap[i] {
-			sigs = append(sigs, sig)
+		sortedSigs, off := make([]struct {
+			Index uint16
+			Sig   *crypto.Signature
+		}, len(ver.SignaturesMap[i])), 0
+		for j, sig := range ver.SignaturesMap[i] {
+			sortedSigs[off].Index = j
+			sortedSigs[off].Sig = sig
+			off += 1
 		}
-		// FIXME this may fail because the map to slice order issue
+		sort.Slice(sortedSigs, func(i, j int) bool { return sortedSigs[i].Index < sortedSigs[j].Index })
+		sigs := make([]*crypto.Signature, len(sortedSigs))
+		for j, sig := range sortedSigs {
+			sigs[j] = sig.Sig
+		}
 		ver.SignaturesSliceV1 = append(ver.SignaturesSliceV1, sigs)
 	}
 	err = ver.Validate(store)

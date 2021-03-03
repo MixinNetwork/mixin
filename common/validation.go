@@ -210,6 +210,9 @@ func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, ms
 	case OutputTypeScript, OutputTypeNodeRemove:
 		var valid int
 		for i, sig := range sigs[index] {
+			if int(i) >= len(utxo.Keys) {
+				return fmt.Errorf("invalid signature map index %d %d", i, len(utxo.Keys))
+			}
 			keySigs[&utxo.Keys[i]] = sig
 			valid = valid + 1
 		}
