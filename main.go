@@ -116,7 +116,7 @@ func main() {
 		{
 			Name:   "createaddress",
 			Usage:  "Create a new Mixin address",
-			Action: createAdressCmd,
+			Action: createAddressCmd,
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
 					Name:  "public",

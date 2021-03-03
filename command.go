@@ -20,7 +20,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func createAdressCmd(c *cli.Context) error {
+func createAddressCmd(c *cli.Context) error {
 	seed := make([]byte, 64)
 	_, err := rand.Read(seed)
 	if err != nil {
