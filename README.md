@@ -18,19 +18,21 @@ The `mixin` command is both the kernel node and tools to communicate with the no
 $ mixin
 
 NAME:
-   mixin - A free and lightning fast peer-to-peer transactional network for digital assets.
+   mixin - A free, lightning fast and decentralized network for transferring digital assets.
 
 USAGE:
    mixin [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.7.0
+   v0.12.0
 
 COMMANDS:
    kernel, k                    Start the Mixin Kernel daemon
+   clone                        Clone a graph to intialize the kernel
    setuptestnet                 Setup the test nodes and genesis
    createaddress                Create a new Mixin address
    decodeaddress                Decode an address as public view key and public spend key
+   decodesignature              Decode a signature
    decryptghostkey              Decrypt a ghost key with the private view key
    updateheadreference          Update the cache round external reference, never use it unless agree by other nodes
    removegraphentries           Remove data entries by prefix from the graph data storage
@@ -38,6 +40,7 @@ COMMANDS:
    signrawtransaction           Sign a JSON encoded transaction
    sendrawtransaction           Broadcast a hex encoded signed raw transaction
    decoderawtransaction         Decode a raw transaction as JSON
+   buildnodepledgetransaction   Build the transaction to pledge a node
    buildnodecanceltransaction   Build the transaction to cancel a pledging node
    decodenodepledgetransaction  Decode the extra info of a pledge transaction
    getroundlink                 Get the latest link between two nodes
@@ -46,15 +49,19 @@ COMMANDS:
    listsnapshots                List finalized snapshots
    getsnapshot                  Get the snapshot by hash
    gettransaction               Get the finalized transaction by hash
+   getcachetransaction          Get the transaction in cache by hash
    getutxo                      Get the UTXO by hash and index
+   listmintworks                List mint works
    listmintdistributions        List mint distributions
    listallnodes                 List all nodes ever existed
    getinfo                      Get info from the node
+   dumpgraphhead                Dump the graph head
    help, h                      Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
    --node value, -n value  the node RPC endpoint (default: "127.0.0.1:8239")
    --dir value, -d value   the data directory
+   --time                  print the runtime (default: false)
    --help, -h              show help (default: false)
    --version, -v           print the version (default: false)
 ```
