@@ -2,6 +2,10 @@
 
 Semantic Versioning
 
+## v0.12 Noisy Katydids, March 3, 2021
+
+Batch transaction signatures verification with transaction version 2.
+
 ## v0.11 Diligent Hoverflies, Feb 21, 2021
 
 Fair mint distributions based on node works.
