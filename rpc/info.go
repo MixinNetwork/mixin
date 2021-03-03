@@ -48,7 +48,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 			"round":      r.Number,
 			"timestamp":  r.Timestamp,
 			"snapshots":  r.Snapshots,
-			"references": r.References,
+			"references": roundLinkToMap(r.References),
 		}
 	}
 	finalGraph := make(map[string]interface{})

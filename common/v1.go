@@ -12,7 +12,7 @@ import (
 
 type SignedTransactionV1 struct {
 	Transaction
-	SignaturesSliceV1 [][]*crypto.Signature `json:"signatures,omitempty" msgpack:"Signatures"`
+	SignaturesSliceV1 [][]*crypto.Signature `msgpack:"Signatures"`
 }
 
 func (ver *VersionedTransaction) validateV1(store DataStore) error {

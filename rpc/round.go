@@ -78,7 +78,7 @@ func getRoundByNumber(kn *kernel.Node, store storage.Store, params []interface{}
 		"start":      start,
 		"end":        end,
 		"number":     number,
-		"references": references,
+		"references": roundLinkToMap(references),
 		"snapshots":  snapshotsToMap(kn, snapshots, nil, false),
 	}, nil
 }
@@ -125,7 +125,17 @@ func getRoundByHash(kn *kernel.Node, store storage.Store, params []interface{}) 
 		"start":      start,
 		"end":        end,
 		"number":     round.Number,
-		"references": round.References,
+		"references": roundLinkToMap(round.References),
 		"snapshots":  snapshotsToMap(kn, snapshots, nil, false),
 	}, nil
+}
+
+func roundLinkToMap(r *common.RoundLink) map[string]interface{} {
+	if r == nil {
+		return nil
+	}
+	return map[string]interface{}{
+		"self":     r.Self.String(),
+		"external": r.External.String(),
+	}
 }

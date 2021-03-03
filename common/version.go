@@ -6,7 +6,7 @@ import (
 
 type VersionedTransaction struct {
 	SignedTransaction
-	BadGenesis *SignedGenesisHackTransaction `json:"-" msgpack:"-"`
+	BadGenesis *SignedGenesisHackTransaction `msgpack:"-"`
 }
 
 func (tx *SignedTransaction) AsLatestVersion() *VersionedTransaction {

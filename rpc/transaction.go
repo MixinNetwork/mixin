@@ -167,7 +167,7 @@ func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx
 	item := map[string]interface{}{
 		"version":    s.Version,
 		"node":       s.NodeId,
-		"references": s.References,
+		"references": roundLinkToMap(s.References),
 		"round":      s.RoundNumber,
 		"timestamp":  s.Timestamp,
 		"hash":       s.Hash,
