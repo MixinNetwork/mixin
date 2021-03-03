@@ -20,7 +20,7 @@ New configuration file format, final kernel snapshot validation, storage optimiz
 
 ## v0.7 Exhilarating Dragonflies, Mar 9, 2020
 
-Update the archive only mode, to allow archive node or start an archive only node, set the consensus-only option to true in config.json.
+Update the archive only mode, to allow archive node or start an archive only node, set the `consensus-only` option to `false` in config.json.
 
 ## v0.6 Serene Ladybugs, Feb 11, 2020
 
