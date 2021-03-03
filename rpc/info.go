@@ -40,14 +40,24 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	}
 	cacheGraph := make(map[string]interface{})
 	for n, r := range cacheMap {
-		for i := range r.Snapshots {
-			r.Snapshots[i].Signatures = nil
+		sm := make([]map[string]interface{}, len(r.Snapshots))
+		for i, s := range r.Snapshots {
+			sm[i] = map[string]interface{}{
+				"version":     s.Version,
+				"node":        s.NodeId,
+				"references":  roundLinkToMap(s.References),
+				"round":       s.RoundNumber,
+				"timestamp":   s.Timestamp,
+				"hash":        s.Hash,
+				"transaction": s.Transaction,
+				"signature":   s.Signature,
+			}
 		}
 		cacheGraph[n.String()] = map[string]interface{}{
 			"node":       r.NodeId.String(),
 			"round":      r.Number,
 			"timestamp":  r.Timestamp,
-			"snapshots":  r.Snapshots,
+			"snapshots":  sm,
 			"references": roundLinkToMap(r.References),
 		}
 	}
