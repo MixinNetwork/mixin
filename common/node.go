@@ -72,11 +72,8 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs []ma
 	if len(tx.Inputs) != 1 {
 		return fmt.Errorf("invalid inputs count %d for cancel transaction", len(tx.Inputs))
 	}
-	if len(sigs) != 1 {
-		return fmt.Errorf("invalid signatures count %d for cancel transaction", len(sigs))
-	}
-	if len(sigs[0]) != 1 {
-		return fmt.Errorf("invalid signatures count %d for cancel transaction", len(sigs[0]))
+	if len(sigs) != 1 || len(sigs[0]) != 1 || sigs[0][0] == nil {
+		return fmt.Errorf("invalid signatures %v for cancel transaction", sigs)
 	}
 	if len(tx.Extra) != len(crypto.Key{})*3 {
 		return fmt.Errorf("invalid extra %s for cancel transaction", hex.EncodeToString(tx.Extra))

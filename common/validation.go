@@ -12,7 +12,7 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 	msg := ver.PayloadMarshal()
 	txType := tx.TransactionType()
 
-	if ver.Version == 1 {
+	if ver.Version < TxVersion {
 		return ver.validateV1(store)
 	}
 
@@ -208,15 +208,13 @@ func (tx *Transaction) validateOutputs(store DataStore) (Integer, error) {
 func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, msg []byte, txType uint8, keySigs map[*crypto.Key]*crypto.Signature) error {
 	switch utxo.Type {
 	case OutputTypeScript, OutputTypeNodeRemove:
-		var valid int
 		for i, sig := range sigs[index] {
 			if int(i) >= len(utxo.Keys) {
 				return fmt.Errorf("invalid signature map index %d %d", i, len(utxo.Keys))
 			}
 			keySigs[&utxo.Keys[i]] = sig
-			valid = valid + 1
 		}
-		return utxo.Script.Validate(valid)
+		return utxo.Script.Validate(len(sigs[index]))
 	case OutputTypeNodePledge:
 		if txType == TransactionTypeNodeAccept || txType == TransactionTypeNodeCancel {
 			return nil
