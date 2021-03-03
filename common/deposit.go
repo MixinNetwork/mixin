@@ -18,11 +18,11 @@ import (
 )
 
 type DepositData struct {
-	Chain           crypto.Hash `json:"chain"`
-	AssetKey        string      `json:"asset"`
-	TransactionHash string      `json:"transaction"`
-	OutputIndex     uint64      `json:"index"`
-	Amount          Integer     `json:"amount"`
+	Chain           crypto.Hash
+	AssetKey        string
+	TransactionHash string
+	OutputIndex     uint64
+	Amount          Integer
 }
 
 func (d *DepositData) Asset() *Asset {

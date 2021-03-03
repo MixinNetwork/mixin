@@ -223,8 +223,14 @@ func signTransactionCmd(c *cli.Context) error {
 
 	tx := common.NewTransaction(raw.Asset)
 	for _, in := range raw.Inputs {
-		if in.Deposit != nil {
-			tx.AddDepositInput(in.Deposit)
+		if d := in.Deposit; d != nil {
+			tx.AddDepositInput(&common.DepositData{
+				Chain:           d.Chain,
+				AssetKey:        d.AssetKey,
+				TransactionHash: d.TransactionHash,
+				OutputIndex:     d.OutputIndex,
+				Amount:          d.Amount,
+			})
 		} else {
 			tx.AddInput(in.Hash, in.Index)
 		}
@@ -746,11 +752,17 @@ func callRPC(node, method string, params []interface{}, pt bool) ([]byte, error)
 
 type signerInput struct {
 	Inputs []struct {
-		Hash    crypto.Hash         `json:"hash"`
-		Index   int                 `json:"index"`
-		Deposit *common.DepositData `json:"deposit,omitempty"`
-		Keys    []crypto.Key        `json:"keys"`
-		Mask    crypto.Key          `json:"mask"`
+		Hash    crypto.Hash `json:"hash"`
+		Index   int         `json:"index"`
+		Deposit *struct {
+			Chain           crypto.Hash    `json:"chain"`
+			AssetKey        string         `json:"asset"`
+			TransactionHash string         `json:"transaction"`
+			OutputIndex     uint64         `json:"index"`
+			Amount          common.Integer `json:"amount"`
+		} `json:"deposit,omitempty"`
+		Keys []crypto.Key `json:"keys"`
+		Mask crypto.Key   `json:"mask"`
 	} `json:"inputs"`
 	Outputs []struct {
 		Type     uint8             `json:"type"`

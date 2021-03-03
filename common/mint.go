@@ -11,23 +11,19 @@ const (
 )
 
 type MintData struct {
-	Group  string  `json:"group"`
-	Batch  uint64  `json:"batch"`
-	Amount Integer `json:"amount"`
+	Group  string
+	Batch  uint64
+	Amount Integer
 }
 
 type MintDistribution struct {
-	Group       string      `json:"group"`
-	Batch       uint64      `json:"batch"`
-	Amount      Integer     `json:"amount"`
-	Transaction crypto.Hash `json:"transaction"`
+	MintData
+	Transaction crypto.Hash
 }
 
 func (m *MintData) Distribute(tx crypto.Hash) *MintDistribution {
 	return &MintDistribution{
-		Group:       m.Group,
-		Batch:       m.Batch,
-		Amount:      m.Amount,
+		MintData:    *m,
 		Transaction: tx,
 	}
 }

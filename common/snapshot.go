@@ -11,16 +11,16 @@ const (
 )
 
 type Round struct {
-	Hash       crypto.Hash `json:"hash"`
-	NodeId     crypto.Hash `json:"node"`
-	Number     uint64      `json:"number"`
-	Timestamp  uint64      `json:"timestamp"`
-	References *RoundLink  `json:"references"`
+	Hash       crypto.Hash
+	NodeId     crypto.Hash
+	Number     uint64
+	Timestamp  uint64
+	References *RoundLink
 }
 
 type RoundLink struct {
-	Self     crypto.Hash `json:"self"`
-	External crypto.Hash `json:"external"`
+	Self     crypto.Hash
+	External crypto.Hash
 }
 
 type DeprecatedSnapshot struct {
@@ -33,20 +33,20 @@ type DeprecatedSnapshot struct {
 }
 
 type Snapshot struct {
-	Version     uint8                 `json:"version"`
-	NodeId      crypto.Hash           `json:"node"`
-	Transaction crypto.Hash           `json:"transaction"`
-	References  *RoundLink            `json:"references"`
-	RoundNumber uint64                `json:"round"`
-	Timestamp   uint64                `json:"timestamp"`
-	Signatures  []*crypto.Signature   `json:"signatures,omitempty" msgpack:",omitempty"`
-	Signature   *crypto.CosiSignature `json:"signature,omitempty" msgpack:",omitempty"`
-	Hash        crypto.Hash           `msgpack:"-" json:"hash"`
+	Version     uint8
+	NodeId      crypto.Hash
+	Transaction crypto.Hash
+	References  *RoundLink
+	RoundNumber uint64
+	Timestamp   uint64
+	Signatures  []*crypto.Signature   `msgpack:",omitempty"`
+	Signature   *crypto.CosiSignature `msgpack:",omitempty"`
+	Hash        crypto.Hash           `msgpack:"-"`
 }
 
 type SnapshotWithTopologicalOrder struct {
 	Snapshot
-	TopologicalOrder uint64 `json:"topology"`
+	TopologicalOrder uint64
 }
 
 type SnapshotWork struct {

@@ -19,10 +19,10 @@ import (
 )
 
 type WithdrawalData struct {
-	Chain    crypto.Hash `json:"chain"`
-	AssetKey string      `json:"asset"`
-	Address  string      `json:"address"`
-	Tag      string      `json:"tag"`
+	Chain    crypto.Hash
+	AssetKey string
+	Address  string
+	Tag      string
 }
 
 func (w *WithdrawalData) Asset() *Asset {

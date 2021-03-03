@@ -27,8 +27,8 @@ func (node *Node) SPS() float64 {
 }
 
 type SnapshotWitness struct {
-	Signature *crypto.Signature `json:"signature"`
-	Timestamp uint64            `json:"timestamp"`
+	Signature *crypto.Signature
+	Timestamp uint64
 }
 
 func (node *Node) WitnessSnapshot(s *common.SnapshotWithTopologicalOrder) *SnapshotWitness {

@@ -70,7 +70,7 @@ func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistri
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
-	dist := &common.MintDistribution{Group: group}
+	dist := &common.MintDistribution{}
 	prefix := []byte(graphPrefixMint + group)
 	it.Seek(graphMintKey(group, ^uint64(0)))
 	for ; it.ValidForPrefix(prefix); it.Next() {
@@ -95,6 +95,7 @@ func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistri
 			return nil, err
 		}
 
+		dist.Group = group
 		dist.Batch = graphMintBatch(key, group)
 		dist.Transaction = data.Transaction
 		dist.Amount = data.Amount

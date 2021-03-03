@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,20 +39,35 @@ func TestGenesis(t *testing.T) {
 	assert.Nil(err)
 	assert.Len(snapshots, 16)
 
-	var genesisSnapshots []*common.SnapshotWithTopologicalOrder
+	var genesisSnapshots []*SnapshotJSON
 	err = json.Unmarshal([]byte(genesisSnapshotsData), &genesisSnapshots)
 	assert.Nil(err)
 	for i, s := range snapshots {
 		g := genesisSnapshots[i]
 		assert.Equal(g.Hash.String(), s.Hash.String())
 		assert.Equal(g.NodeId, s.NodeId)
-		assert.Equal(g.References, s.References)
+		assert.Nil(g.References)
+		assert.Nil(s.References)
 		assert.Equal(g.RoundNumber, s.RoundNumber)
 		assert.Equal(g.Timestamp, s.Timestamp)
 		assert.Equal(g.TopologicalOrder, s.TopologicalOrder)
 		assert.Equal(g.Transaction.String(), s.Transaction.String())
 		assert.Equal(g.Version, s.Version)
 	}
+}
+
+type SnapshotJSON struct {
+	Version     uint8       `json:"version"`
+	NodeId      crypto.Hash `json:"node"`
+	Transaction crypto.Hash `json:"transaction"`
+	References  *struct {
+		Self     crypto.Hash `json:"self"`
+		External crypto.Hash `json:"external"`
+	} `json:"references"`
+	RoundNumber      uint64      `json:"round"`
+	Timestamp        uint64      `json:"timestamp"`
+	Hash             crypto.Hash `json:"hash"`
+	TopologicalOrder uint64      `json:"topology"`
 }
 
 var (
