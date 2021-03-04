@@ -857,7 +857,7 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {
 		outputs = append(outputs, output)
 	}
 
-	return map[string]interface{}{
+	tm := map[string]interface{}{
 		"version":    tx.Version,
 		"asset":      tx.Asset,
 		"inputs":     inputs,
@@ -866,4 +866,8 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {
 		"hash":       tx.PayloadHash(),
 		"signatures": tx.SignaturesMap,
 	}
+	if tx.SignaturesSliceV1 != nil {
+		tm["signatures"] = tx.SignaturesSliceV1
+	}
+	return tm
 }

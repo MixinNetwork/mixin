@@ -8,6 +8,10 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
+const (
+	MaximumEncodingInt = 256
+)
+
 var (
 	magic = []byte{0x77, 0x77}
 	null  = []byte{0x00, 0x00}
@@ -153,7 +157,7 @@ func (enc *Encoder) Write(b []byte) {
 }
 
 func (enc *Encoder) WriteInt(d int) {
-	if d > 256 {
+	if d > MaximumEncodingInt {
 		panic(d)
 	}
 	b := uint16ToByte(uint16(d))
@@ -161,7 +165,7 @@ func (enc *Encoder) WriteInt(d int) {
 }
 
 func (enc *Encoder) WriteUint16(d uint16) {
-	if d > 256 {
+	if d > MaximumEncodingInt {
 		panic(d)
 	}
 	b := uint16ToByte(d)
