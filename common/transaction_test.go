@@ -292,7 +292,7 @@ func TestTransactionV1(t *testing.T) {
 	assert.Equal(PM, hex.EncodeToString(pm))
 
 	for i := range ver.Inputs {
-		err := ver.signInputV1(store, i, accounts)
+		err := ver.SignInputV1(store, i, accounts)
 		if i == 0 {
 			assert.NotNil(err)
 			assert.Contains(err.Error(), "invalid key for the input")
@@ -306,7 +306,7 @@ func TestTransactionV1(t *testing.T) {
 
 	ver.SignaturesMap = nil
 	for i := range ver.Inputs {
-		err := ver.signInputV1(store, i, accounts[0:i+1])
+		err := ver.SignInputV1(store, i, accounts[0:i+1])
 		assert.Nil(err)
 		sortedSigs, off := make([]struct {
 			Index uint16
