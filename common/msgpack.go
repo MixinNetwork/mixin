@@ -63,7 +63,7 @@ func DecompressMsgpackUnmarshal(data []byte, val interface{}) error {
 
 func MsgpackMarshalPanic(val interface{}) []byte {
 	var buf bytes.Buffer
-	enc := msgpack.NewEncoder(&buf).UseCompactEncoding(true)
+	enc := msgpack.NewEncoder(&buf).UseCompactEncoding(true).SortMapKeys(true)
 	err := enc.Encode(val)
 	if err != nil {
 		panic(fmt.Errorf("MsgpackMarshalPanic: %#v %s", val, err.Error()))
