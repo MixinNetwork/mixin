@@ -50,7 +50,7 @@ func TestNodeRemovePossibility(t *testing.T) {
 	assert.Equal(uint8(common.TransactionTypeNodeRemove), tx.TransactionType())
 	assert.Len(tx.Outputs[0].Keys, 1)
 
-	err = tx.SignInput(node.persistStore, 0, []*common.Address{&node.Signer})
+	err = tx.SignInputV1(node.persistStore, 0, []*common.Address{&node.Signer})
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid key for the input")
 	err = tx.Validate(node.persistStore)

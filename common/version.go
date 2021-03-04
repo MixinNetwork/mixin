@@ -82,7 +82,8 @@ func (ver *VersionedTransaction) Marshal() []byte {
 		if err != nil {
 			panic(err)
 		}
-		if retv := ret.marshal(); !bytes.Equal(retv, val) {
+		retv := ret.marshal()
+		if !bytes.Equal(retv, val) {
 			panic(fmt.Errorf("malformed %s %s", hex.EncodeToString(val), hex.EncodeToString(retv)))
 		}
 	}
@@ -96,8 +97,9 @@ func (ver *VersionedTransaction) PayloadMarshal() []byte {
 		if err != nil {
 			panic(err)
 		}
-		if !bytes.Equal(ret.payloadMarshal(), val) {
-			panic(fmt.Errorf("malformed %d", len(val)))
+		retv := ret.payloadMarshal()
+		if !bytes.Equal(retv, val) {
+			panic(fmt.Errorf("malformed %s %s", hex.EncodeToString(val), hex.EncodeToString(retv)))
 		}
 	}
 	return val

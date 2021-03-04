@@ -15,7 +15,7 @@ type SignedTransactionV1 struct {
 	SignaturesSliceV1 [][]*crypto.Signature `msgpack:"Signatures"`
 }
 
-func (signed *SignedTransaction) signInputV1(reader UTXOReader, index int, accounts []*Address) error {
+func (signed *SignedTransaction) SignInputV1(reader UTXOReader, index int, accounts []*Address) error {
 	msg := MsgpackMarshalPanic(signed.Transaction)
 
 	if len(accounts) == 0 {
@@ -393,10 +393,18 @@ func compressMarshalV1(ver *VersionedTransaction) []byte {
 	case 0:
 		return CompressMsgpackMarshalPanic(ver.BadGenesis)
 	case 1:
-		return CompressMsgpackMarshalPanic(SignedTransactionV1{
+		val := CompressMsgpackMarshalPanic(SignedTransactionV1{
 			Transaction:       ver.Transaction,
 			SignaturesSliceV1: ver.SignaturesSliceV1,
 		})
+		if ver.Version == 1 && len(ver.Inputs) == 1 && hex.EncodeToString(ver.Inputs[0].Genesis) == config.MainnetId {
+			ver, err := decompressUnmarshalVersionedOne(val)
+			if err != nil {
+				panic(err)
+			}
+			return compressMarshalV1(ver)
+		}
+		return val
 	default:
 		panic(ver.Version)
 	}
@@ -407,10 +415,18 @@ func marshalV1(ver *VersionedTransaction) []byte {
 	case 0:
 		return MsgpackMarshalPanic(ver.BadGenesis)
 	case 1:
-		return MsgpackMarshalPanic(SignedTransactionV1{
+		val := MsgpackMarshalPanic(SignedTransactionV1{
 			Transaction:       ver.Transaction,
 			SignaturesSliceV1: ver.SignaturesSliceV1,
 		})
+		if ver.Version == 1 && len(ver.Inputs) == 1 && hex.EncodeToString(ver.Inputs[0].Genesis) == config.MainnetId {
+			ver, err := unmarshalVersionedOne(val)
+			if err != nil {
+				panic(err)
+			}
+			return marshalV1(ver)
+		}
+		return val
 	default:
 		panic(ver.Version)
 	}
@@ -421,7 +437,15 @@ func payloadMarshalV1(ver *VersionedTransaction) []byte {
 	case 0:
 		return MsgpackMarshalPanic(ver.BadGenesis.GenesisHackTransaction)
 	case 1:
-		return MsgpackMarshalPanic(ver.Transaction)
+		val := MsgpackMarshalPanic(ver.Transaction)
+		if ver.Version == 1 && len(ver.Inputs) == 1 && hex.EncodeToString(ver.Inputs[0].Genesis) == config.MainnetId {
+			ver, err := unmarshalVersionedOne(val)
+			if err != nil {
+				panic(err)
+			}
+			return payloadMarshalV1(ver)
+		}
+		return val
 	default:
 		panic(ver.Version)
 	}
