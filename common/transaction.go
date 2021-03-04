@@ -144,7 +144,7 @@ func (tx *SignedTransaction) TransactionType() uint8 {
 }
 
 func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []*Address) error {
-	msg := MsgpackMarshalPanic(signed.Transaction)
+	msg := signed.AsLatestVersion().PayloadMarshal()
 
 	if len(accounts) == 0 {
 		return nil
@@ -170,7 +170,7 @@ func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []*Address) error
 }
 
 func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, accounts []*Address) error {
-	msg := MsgpackMarshalPanic(signed.Transaction)
+	msg := signed.AsLatestVersion().PayloadMarshal()
 
 	if len(accounts) == 0 {
 		return nil
@@ -211,7 +211,7 @@ func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, account
 }
 
 func (signed *SignedTransaction) SignRaw(key crypto.Key) error {
-	msg := MsgpackMarshalPanic(signed.Transaction)
+	msg := signed.AsLatestVersion().PayloadMarshal()
 
 	if len(signed.Inputs) != 1 {
 		return fmt.Errorf("invalid inputs count %d", len(signed.Inputs))

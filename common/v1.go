@@ -15,6 +15,47 @@ type SignedTransactionV1 struct {
 	SignaturesSliceV1 [][]*crypto.Signature `msgpack:"Signatures"`
 }
 
+func (signed *SignedTransaction) signInputV1(reader UTXOReader, index int, accounts []*Address) error {
+	msg := MsgpackMarshalPanic(signed.Transaction)
+
+	if len(accounts) == 0 {
+		return nil
+	}
+	if index >= len(signed.Inputs) {
+		return fmt.Errorf("invalid input index %d/%d", index, len(signed.Inputs))
+	}
+	in := signed.Inputs[index]
+	if in.Deposit != nil || in.Mint != nil {
+		return signed.SignRaw(accounts[0].PrivateSpendKey)
+	}
+
+	utxo, err := reader.ReadUTXO(in.Hash, in.Index)
+	if err != nil {
+		return err
+	}
+	if utxo == nil {
+		return fmt.Errorf("input not found %s:%d", in.Hash.String(), in.Index)
+	}
+
+	keysFilter := make(map[string]uint16)
+	for i, k := range utxo.Keys {
+		keysFilter[k.String()] = uint16(i)
+	}
+
+	sigs := make(map[uint16]*crypto.Signature)
+	for _, acc := range accounts {
+		priv := crypto.DeriveGhostPrivateKey(&utxo.Mask, &acc.PrivateViewKey, &acc.PrivateSpendKey, uint64(in.Index))
+		i, found := keysFilter[priv.Public().String()]
+		if !found {
+			return fmt.Errorf("invalid key for the input %s", acc.String())
+		}
+		sig := priv.Sign(msg)
+		sigs[i] = &sig
+	}
+	signed.SignaturesMap = append(signed.SignaturesMap, sigs)
+	return nil
+}
+
 func (ver *VersionedTransaction) validateV1(store DataStore) error {
 	tx := &ver.SignedTransaction
 	msg := ver.PayloadMarshal()

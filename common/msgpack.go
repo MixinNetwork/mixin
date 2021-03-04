@@ -38,6 +38,27 @@ var (
 	CompressionVersionLatest = CompressionVersionZero
 )
 
+func Compress(b []byte) []byte {
+	b = gozstd.CompressDict(nil, b, zstdCDict)
+	return append(CompressionVersionLatest, b...)
+}
+
+func Decompress(b []byte) []byte {
+	header := len(CompressionVersionLatest)
+	if len(b) < header*2 {
+		return nil
+	}
+
+	if !bytes.Equal(b[:header], CompressionVersionZero) {
+		return nil
+	}
+	b, err := gozstd.DecompressDict(nil, b[header:], zstdDDict)
+	if err != nil {
+		return nil
+	}
+	return b
+}
+
 func CompressMsgpackMarshalPanic(val interface{}) []byte {
 	payload := MsgpackMarshalPanic(val)
 	payload = gozstd.CompressDict(nil, payload, zstdCDict)

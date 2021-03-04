@@ -108,27 +108,56 @@ func (ver *VersionedTransaction) PayloadHash() crypto.Hash {
 }
 
 func decompressUnmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
-	var ver VersionedTransaction
-	err := DecompressMsgpackUnmarshal(val, &ver)
-	if err == nil && ver.Version == TxVersion {
-		return &ver, nil
+	if len(val) > config.TransactionMaximumSize {
+		return nil, fmt.Errorf("transaction too large %d", len(val))
 	}
-	return decompressUnmarshalVersionedOne(val)
+
+	b := val
+	if !checkTxVersion(val) {
+		b = Decompress(val)
+	}
+	if !checkTxVersion(b) {
+		return decompressUnmarshalVersionedOne(val)
+	}
+
+	signed, err := NewDecoder(b).DecodeTransaction()
+	if err != nil {
+		return nil, err
+	}
+	ver := &VersionedTransaction{SignedTransaction: *signed}
+	return ver, nil
+}
+
+func checkTxVersion(val []byte) bool {
+	if len(val) < 4 {
+		return false
+	}
+	v := append(magic, 0, TxVersion)
+	return bytes.Equal(v, val[:4])
 }
 
 func unmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
-	var ver VersionedTransaction
-	err := MsgpackUnmarshal(val, &ver)
-	if err == nil && ver.Version == TxVersion {
-		return &ver, nil
+	if len(val) > config.TransactionMaximumSize {
+		return nil, fmt.Errorf("transaction too large %d", len(val))
 	}
-	return unmarshalVersionedOne(val)
+
+	if !checkTxVersion(val) {
+		return unmarshalVersionedOne(val)
+	}
+
+	signed, err := NewDecoder(val).DecodeTransaction()
+	if err != nil {
+		return nil, err
+	}
+	ver := &VersionedTransaction{SignedTransaction: *signed}
+	return ver, nil
 }
 
 func (ver *VersionedTransaction) compressMarshal() []byte {
 	switch ver.Version {
 	case TxVersion:
-		return CompressMsgpackMarshalPanic(ver.SignedTransaction)
+		b := ver.marshal()
+		return Compress(b)
 	case 0, 1:
 		return compressMarshalV1(ver)
 	default:
@@ -139,7 +168,7 @@ func (ver *VersionedTransaction) compressMarshal() []byte {
 func (ver *VersionedTransaction) marshal() []byte {
 	switch ver.Version {
 	case TxVersion:
-		return MsgpackMarshalPanic(ver.SignedTransaction)
+		return NewEncoder().EncodeTransaction(&ver.SignedTransaction)
 	case 0, 1:
 		return marshalV1(ver)
 	default:
@@ -150,7 +179,8 @@ func (ver *VersionedTransaction) marshal() []byte {
 func (ver *VersionedTransaction) payloadMarshal() []byte {
 	switch ver.Version {
 	case TxVersion:
-		return MsgpackMarshalPanic(ver.SignedTransaction.Transaction)
+		signed := &SignedTransaction{Transaction: ver.Transaction}
+		return NewEncoder().EncodeTransaction(signed)
 	case 0, 1:
 		return payloadMarshalV1(ver)
 	default:
