@@ -36,7 +36,7 @@ func (signed *SignedTransaction) SignRawV1(key crypto.Key) error {
 	return nil
 }
 
-func (signed *SignedTransaction) SignInputV1(reader UTXOReader, index int, accounts []Address) error {
+func (signed *SignedTransaction) SignInputV1(reader UTXOReader, index int, accounts []*Address) error {
 	msg := MsgpackMarshalPanic(signed.Transaction)
 
 	if len(accounts) == 0 {

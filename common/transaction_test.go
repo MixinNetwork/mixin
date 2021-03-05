@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
-	"sort"
 	"testing"
 
 	"github.com/MixinNetwork/mixin/crypto"
@@ -304,25 +303,10 @@ func TestTransactionV1(t *testing.T) {
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid tx signature number")
 
-	ver.SignaturesMap = nil
+	ver.SignaturesSliceV1 = nil
 	for i := range ver.Inputs {
 		err := ver.SignInputV1(store, i, accounts[0:i+1])
 		assert.Nil(err)
-		sortedSigs, off := make([]struct {
-			Index uint16
-			Sig   *crypto.Signature
-		}, len(ver.SignaturesMap[i])), 0
-		for j, sig := range ver.SignaturesMap[i] {
-			sortedSigs[off].Index = j
-			sortedSigs[off].Sig = sig
-			off += 1
-		}
-		sort.Slice(sortedSigs, func(i, j int) bool { return sortedSigs[i].Index < sortedSigs[j].Index })
-		sigs := make([]*crypto.Signature, len(sortedSigs))
-		for j, sig := range sortedSigs {
-			sigs[j] = sig.Sig
-		}
-		ver.SignaturesSliceV1 = append(ver.SignaturesSliceV1, sigs)
 	}
 	err = ver.Validate(store)
 	assert.Nil(err)
