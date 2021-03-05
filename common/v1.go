@@ -32,12 +32,11 @@ func (signed *SignedTransaction) SignRawV1(key crypto.Key) error {
 		}
 	}
 	sig := key.Sign(msg)
-	sigs := map[uint16]*crypto.Signature{0: &sig}
-	signed.SignaturesMap = append(signed.SignaturesMap, sigs)
+	signed.SignaturesSliceV1 = append(signed.SignaturesSliceV1, []*crypto.Signature{&sig})
 	return nil
 }
 
-func (signed *SignedTransaction) SignInputV1(reader UTXOReader, index int, accounts []*Address) error {
+func (signed *SignedTransaction) SignInputV1(reader UTXOReader, index int, accounts []Address) error {
 	msg := MsgpackMarshalPanic(signed.Transaction)
 
 	if len(accounts) == 0 {
@@ -48,7 +47,7 @@ func (signed *SignedTransaction) SignInputV1(reader UTXOReader, index int, accou
 	}
 	in := signed.Inputs[index]
 	if in.Deposit != nil || in.Mint != nil {
-		return signed.SignRawV1(accounts[0].PrivateSpendKey)
+		return signed.SignRaw(accounts[0].PrivateSpendKey)
 	}
 
 	utxo, err := reader.ReadUTXO(in.Hash, in.Index)
@@ -59,22 +58,21 @@ func (signed *SignedTransaction) SignInputV1(reader UTXOReader, index int, accou
 		return fmt.Errorf("input not found %s:%d", in.Hash.String(), in.Index)
 	}
 
-	keysFilter := make(map[string]uint16)
-	for i, k := range utxo.Keys {
-		keysFilter[k.String()] = uint16(i)
+	keysFilter := make(map[string]bool)
+	for _, k := range utxo.Keys {
+		keysFilter[k.String()] = true
 	}
 
-	sigs := make(map[uint16]*crypto.Signature)
+	sigs := make([]*crypto.Signature, 0)
 	for _, acc := range accounts {
 		priv := crypto.DeriveGhostPrivateKey(&utxo.Mask, &acc.PrivateViewKey, &acc.PrivateSpendKey, uint64(in.Index))
-		i, found := keysFilter[priv.Public().String()]
-		if !found {
+		if !keysFilter[priv.Public().String()] {
 			return fmt.Errorf("invalid key for the input %s", acc.String())
 		}
 		sig := priv.Sign(msg)
-		sigs[i] = &sig
+		sigs = append(sigs, &sig)
 	}
-	signed.SignaturesMap = append(signed.SignaturesMap, sigs)
+	signed.SignaturesSliceV1 = append(signed.SignaturesSliceV1, sigs)
 	return nil
 }
 
