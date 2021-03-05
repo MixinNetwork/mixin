@@ -196,11 +196,18 @@ func (node *Node) tryToMintKernelNode() error {
 		return nil
 	}
 
-	err := signed.SignInput(node.persistStore, 0, []*common.Address{&node.Signer})
-	if err != nil {
-		return err
+	if signed.Version == 1 {
+		err := signed.SignInputV1(node.persistStore, 0, []*common.Address{&node.Signer})
+		if err != nil {
+			return err
+		}
+	} else {
+		err := signed.SignInput(node.persistStore, 0, []*common.Address{&node.Signer})
+		if err != nil {
+			return err
+		}
 	}
-	err = signed.Validate(node.persistStore)
+	err := signed.Validate(node.persistStore)
 	if err != nil {
 		return err
 	}
