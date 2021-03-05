@@ -15,6 +15,28 @@ type SignedTransactionV1 struct {
 	SignaturesSliceV1 [][]*crypto.Signature `msgpack:"Signatures"`
 }
 
+func (signed *SignedTransaction) SignRawV1(key crypto.Key) error {
+	msg := MsgpackMarshalPanic(signed.Transaction)
+
+	if len(signed.Inputs) != 1 {
+		return fmt.Errorf("invalid inputs count %d", len(signed.Inputs))
+	}
+	in := signed.Inputs[0]
+	if in.Deposit == nil && in.Mint == nil {
+		return fmt.Errorf("invalid input format")
+	}
+	if in.Deposit != nil {
+		err := signed.verifyDepositFormat()
+		if err != nil {
+			return err
+		}
+	}
+	sig := key.Sign(msg)
+	sigs := map[uint16]*crypto.Signature{0: &sig}
+	signed.SignaturesMap = append(signed.SignaturesMap, sigs)
+	return nil
+}
+
 func (signed *SignedTransaction) SignInputV1(reader UTXOReader, index int, accounts []*Address) error {
 	msg := MsgpackMarshalPanic(signed.Transaction)
 
@@ -26,7 +48,7 @@ func (signed *SignedTransaction) SignInputV1(reader UTXOReader, index int, accou
 	}
 	in := signed.Inputs[index]
 	if in.Deposit != nil || in.Mint != nil {
-		return signed.SignRaw(accounts[0].PrivateSpendKey)
+		return signed.SignRawV1(accounts[0].PrivateSpendKey)
 	}
 
 	utxo, err := reader.ReadUTXO(in.Hash, in.Index)
