@@ -47,7 +47,7 @@ func (signed *SignedTransaction) SignInputV1(reader UTXOReader, index int, accou
 	}
 	in := signed.Inputs[index]
 	if in.Deposit != nil || in.Mint != nil {
-		return signed.SignRaw(accounts[0].PrivateSpendKey)
+		return signed.SignRawV1(accounts[0].PrivateSpendKey)
 	}
 
 	utxo, err := reader.ReadUTXO(in.Hash, in.Index)
