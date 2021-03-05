@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -198,6 +199,109 @@ func decodeTransactionCmd(c *cli.Context) error {
 		return err
 	}
 	fmt.Println(string(data))
+	return nil
+}
+
+func buildRawTransactionCmd(c *cli.Context) error {
+	seed, err := hex.DecodeString(c.String("seed"))
+	if err != nil {
+		return err
+	}
+	if len(seed) != 64 {
+		seed = make([]byte, 64)
+		_, err := rand.Read(seed)
+		if err != nil {
+			return err
+		}
+	}
+
+	viewKey, err := crypto.KeyFromString(c.String("view"))
+	if err != nil {
+		return err
+	}
+	spendKey, err := crypto.KeyFromString(c.String("spend"))
+	if err != nil {
+		return err
+	}
+	account := common.Address{
+		PrivateViewKey:  viewKey,
+		PrivateSpendKey: spendKey,
+		PublicViewKey:   viewKey.Public(),
+		PublicSpendKey:  spendKey.Public(),
+	}
+
+	asset, err := crypto.HashFromString(c.String("asset"))
+	if err != nil {
+		return err
+	}
+
+	extra, err := hex.DecodeString(c.String("extra"))
+	if err != nil {
+		return err
+	}
+
+	inputs := make([]map[string]interface{}, 0)
+	for _, in := range strings.Split(c.String("inputs"), ",") {
+		parts := strings.Split(in, ":")
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid input %s", in)
+		}
+		hash, err := crypto.HashFromString(parts[0])
+		if err != nil {
+			return err
+		}
+		index, err := strconv.ParseInt(parts[1], 10, 64)
+		if err != nil {
+			return err
+		}
+		inputs = append(inputs, map[string]interface{}{
+			"hash":  hash,
+			"index": int(index),
+		})
+	}
+
+	outputs := make([]map[string]interface{}, 0)
+	for _, out := range strings.Split(c.String("outputs"), ",") {
+		parts := strings.Split(out, ":")
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid output %s", out)
+		}
+		addr, err := common.NewAddressFromString(parts[0])
+		if err != nil {
+			return err
+		}
+		amount := common.NewIntegerFromString(parts[1])
+		if amount.Sign() == 0 {
+			return fmt.Errorf("invalid output %s", out)
+		}
+		outputs = append(outputs, map[string]interface{}{
+			"accounts": []*common.Address{&addr},
+			"amount":   amount,
+		})
+	}
+
+	var raw signerInput
+	raw.Node = c.String("node")
+	isb, _ := json.Marshal(map[string]interface{}{"inputs": inputs})
+	json.Unmarshal(isb, &raw)
+
+	tx := common.NewTransaction(asset)
+	for _, in := range inputs {
+		tx.AddInput(in["hash"].(crypto.Hash), in["index"].(int))
+	}
+	for _, out := range outputs {
+		tx.AddScriptOutput(out["accounts"].([]*common.Address), common.NewThresholdScript(1), out["amount"].(common.Integer), seed)
+	}
+	tx.Extra = extra
+
+	signed := tx.AsLatestVersion()
+	for i := range tx.Inputs {
+		err = signed.SignInput(raw, i, []*common.Address{&account})
+		if err != nil {
+			return err
+		}
+	}
+	fmt.Println(hex.EncodeToString(signed.Marshal()))
 	return nil
 }
 

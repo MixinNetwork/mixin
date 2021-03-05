@@ -222,6 +222,41 @@ func main() {
 			},
 		},
 		{
+			Name:   "buildrawtransaction",
+			Usage:  "Build a script raw transaction",
+			Action: buildRawTransactionCmd,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "asset",
+					Usage: "the asset id of the transaction",
+				},
+				&cli.StringFlag{
+					Name:  "extra",
+					Usage: "the extra of the transaction",
+				},
+				&cli.StringFlag{
+					Name:  "inputs",
+					Usage: "the inputs of the transaction",
+				},
+				&cli.StringFlag{
+					Name:  "outputs",
+					Usage: "the outputs of the transaction",
+				},
+				&cli.StringFlag{
+					Name:  "view",
+					Usage: "the private view key to sign the transaction",
+				},
+				&cli.StringFlag{
+					Name:  "spend",
+					Usage: "the private spend key to sign the transaction",
+				},
+				&cli.StringFlag{
+					Name:  "seed",
+					Usage: "the mask seed to hide the recipient public key",
+				},
+			},
+		},
+		{
 			Name:   "signrawtransaction",
 			Usage:  "Sign a JSON encoded transaction",
 			Action: signTransactionCmd,
