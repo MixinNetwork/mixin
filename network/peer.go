@@ -41,7 +41,7 @@ type SyncPoint struct {
 	NodeId crypto.Hash `json:"node"`
 	Number uint64      `json:"round"`
 	Hash   crypto.Hash `json:"hash"`
-	Pool   interface{} `json:"pool"msgpack:"-"`
+	Pool   interface{} `json:"pool" msgpack:"-"`
 }
 
 type ChanMsg struct {
@@ -112,6 +112,10 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) (*Peer, error
 	go me.openPeerStreamLoop(peer)
 	go me.syncToNeighborLoop(peer)
 	return peer, nil
+}
+
+func (me *Peer) Neighbors() []*Peer {
+	return me.neighbors.Slice()
 }
 
 func (p *Peer) disconnect() {

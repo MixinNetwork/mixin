@@ -53,6 +53,29 @@ func (s *BadgerStore) CacheListTransactions(hook func(tx *common.VersionedTransa
 	return nil
 }
 
+func (s *BadgerStore) CacheRemoveTransactions(hashes []crypto.Hash) error {
+	batch := 100
+	for {
+		err := s.cacheDB.Update(func(txn *badger.Txn) error {
+			for i := range hashes {
+				key := cacheTransactionCacheKey(hashes[i])
+				err := txn.Delete(key)
+				if err != nil {
+					return err
+				}
+				if i == batch {
+					break
+				}
+			}
+			return nil
+		})
+		if err != nil || len(hashes) <= batch {
+			return err
+		}
+		hashes = hashes[batch:]
+	}
+}
+
 func (s *BadgerStore) CachePutTransaction(tx *common.VersionedTransaction) error {
 	txn := s.cacheDB.NewTransaction(true)
 	defer txn.Discard()

@@ -1,11 +1,34 @@
 package kernel
 
 import (
+	"math/rand"
+	"time"
+
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 )
 
 func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, error) {
-	err := tx.Validate(node.persistStore)
+	hash := tx.PayloadHash()
+	in, _, err := node.persistStore.ReadTransaction(hash)
+	if err != nil {
+		return "", err
+	}
+	if in != nil {
+		return in.PayloadHash().String(), nil
+	}
+
+	old, err := node.persistStore.CacheGetTransaction(hash)
+	if err != nil {
+		return "", err
+	}
+	if old != nil {
+		return old.PayloadHash().String(), nil
+	}
+
+	err = tx.Validate(node.persistStore)
 	if err != nil {
 		return "", err
 	}
@@ -23,16 +46,58 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 	return tx.PayloadHash().String(), err
 }
 
-func (node *Node) LoadCacheToQueue() error {
+func (node *Node) LoopCacheQueue() error {
+	defer close(node.cqc)
+
 	chain := node.GetOrCreateChain(node.IdForNetwork)
-	return node.persistStore.CacheListTransactions(func(tx *common.VersionedTransaction) error {
-		s := &common.Snapshot{
-			Version:     common.SnapshotVersion,
-			NodeId:      node.IdForNetwork,
-			Transaction: tx.PayloadHash(),
+
+	for {
+		timer := time.NewTimer(time.Duration(config.SnapshotRoundGap))
+		select {
+		case <-node.done:
+			return nil
+		case <-timer.C:
 		}
-		return chain.AppendSelfEmpty(s)
-	})
+
+		neighbors := node.Peer.Neighbors()
+		var stale []crypto.Hash
+		err := node.persistStore.CacheListTransactions(func(tx *common.VersionedTransaction) error {
+			hash := tx.PayloadHash()
+			in, _, err := node.persistStore.ReadTransaction(hash)
+			if err != nil {
+				logger.Printf("LoopCacheQueue ReadTransaction ERROR %s\n", err)
+				return nil
+			}
+			if in != nil {
+				stale = append(stale, hash)
+				return nil
+			}
+			err = tx.Validate(node.persistStore)
+			if err != nil {
+				logger.Printf("LoopCacheQueue Validate ERROR %s\n", err)
+				stale = append(stale, hash)
+				return nil
+			}
+			peer := neighbors[rand.Intn(len(neighbors))]
+			node.SendTransactionToPeer(peer.IdForNetwork, hash)
+			s := &common.Snapshot{
+				Version:     common.SnapshotVersion,
+				NodeId:      node.IdForNetwork,
+				Transaction: tx.PayloadHash(),
+			}
+			chain.AppendSelfEmpty(s)
+			return nil
+		})
+		if err != nil {
+			logger.Printf("LoopCacheQueue CacheListTransactions ERROR %s\n", err)
+		}
+		err = node.persistStore.CacheRemoveTransactions(stale)
+		if err != nil {
+			logger.Printf("LoopCacheQueue CacheRemoveTransactions ERROR %s\n", err)
+		}
+
+		timer.Stop()
+	}
 }
 
 func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {

@@ -2,12 +2,14 @@ package kernel
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 )
 
 func (node *Node) Loop() error {
+	rand.Seed(time.Now().UnixNano())
 	err := node.PingNeighborsFromConfig()
 	if err != nil {
 		return err
@@ -18,7 +20,7 @@ func (node *Node) Loop() error {
 			panic(fmt.Errorf("ListenNeighbors %s", err.Error()))
 		}
 	}()
-	go node.LoadCacheToQueue()
+	go node.LoopCacheQueue()
 	go node.MintLoop()
 	node.ElectionLoop()
 	return nil
@@ -26,6 +28,7 @@ func (node *Node) Loop() error {
 
 func (node *Node) Teardown() {
 	close(node.done)
+	<-node.cqc
 	<-node.mlc
 	<-node.elc
 	node.chains.RLock()

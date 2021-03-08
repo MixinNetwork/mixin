@@ -35,6 +35,7 @@ type Store interface {
 	CachePutTransaction(tx *common.VersionedTransaction) error
 	CacheGetTransaction(hash crypto.Hash) (*common.VersionedTransaction, error)
 	CacheListTransactions(hook func(tx *common.VersionedTransaction) error) error
+	CacheRemoveTransactions([]crypto.Hash) error
 
 	ReadLastMintDistribution(group string) (*common.MintDistribution, error)
 	LockMintInput(mint *common.MintData, tx crypto.Hash, fork bool) error

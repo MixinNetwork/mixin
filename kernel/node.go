@@ -47,6 +47,7 @@ type Node struct {
 	done chan struct{}
 	elc  chan struct{}
 	mlc  chan struct{}
+	cqc  chan struct{}
 }
 
 type CNode struct {
@@ -73,6 +74,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fa
 		done:            make(chan struct{}),
 		elc:             make(chan struct{}),
 		mlc:             make(chan struct{}),
+		cqc:             make(chan struct{}),
 	}
 
 	node.LoadNodeConfig()
