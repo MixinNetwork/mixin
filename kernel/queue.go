@@ -12,12 +12,12 @@ import (
 
 func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, error) {
 	hash := tx.PayloadHash()
-	in, _, err := node.persistStore.ReadTransaction(hash)
+	_, finalized, err := node.persistStore.ReadTransaction(hash)
 	if err != nil {
 		return "", err
 	}
-	if in != nil {
-		return in.PayloadHash().String(), nil
+	if len(finalized) > 0 {
+		return hash.String(), nil
 	}
 
 	old, err := node.persistStore.CacheGetTransaction(hash)
@@ -63,12 +63,12 @@ func (node *Node) LoopCacheQueue() error {
 		var stale []crypto.Hash
 		err := node.persistStore.CacheListTransactions(func(tx *common.VersionedTransaction) error {
 			hash := tx.PayloadHash()
-			in, _, err := node.persistStore.ReadTransaction(hash)
+			_, finalized, err := node.persistStore.ReadTransaction(hash)
 			if err != nil {
 				logger.Printf("LoopCacheQueue ReadTransaction ERROR %s\n", err)
 				return nil
 			}
-			if in != nil {
+			if len(finalized) > 0 {
 				stale = append(stale, hash)
 				return nil
 			}
