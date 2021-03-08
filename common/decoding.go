@@ -236,7 +236,7 @@ func (dec *Decoder) ReadOutput() (*Output, error) {
 		if err != nil {
 			return nil, err
 		}
-		w.Address = string(tb)
+		w.Tag = string(tb)
 
 		o.Withdrawal = &w
 	}

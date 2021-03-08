@@ -955,8 +955,13 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {
 		if out.Mask.HasValue() {
 			output["mask"] = out.Mask
 		}
-		if out.Withdrawal != nil {
-			output["withdrawal"] = out.Withdrawal
+		if w := out.Withdrawal; w != nil {
+			output["withdrawal"] = map[string]interface{}{
+				"chain":     w.Chain,
+				"asset_key": w.AssetKey,
+				"address":   w.Address,
+				"tag":       w.Tag,
+			}
 		}
 		outputs = append(outputs, output)
 	}
