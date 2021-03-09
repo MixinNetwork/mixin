@@ -58,7 +58,7 @@ func (node *Node) LoopCacheQueue() error {
 			return nil
 		case <-timer.C:
 		}
-		caches, finals := node.PoolInfo()
+		caches, finals, _ := node.QueueState()
 		if caches > 1000 || finals > 500 {
 			timer.Stop()
 			continue
@@ -103,6 +103,28 @@ func (node *Node) LoopCacheQueue() error {
 
 		timer.Stop()
 	}
+}
+
+func (node *Node) QueueState() (uint64, uint64, map[crypto.Hash][2]uint64) {
+	node.chains.RLock()
+	defer node.chains.RUnlock()
+
+	var caches, finals uint64
+	state := make(map[crypto.Hash][2]uint64)
+	for _, chain := range node.chains.m {
+		sa := [2]uint64{
+			chain.CachePool.Len(),
+			chain.finalActionsRing.Len(),
+		}
+		round := chain.FinalPool[chain.FinalIndex]
+		if round != nil {
+			sa[1] = sa[1] + uint64(round.Size)
+		}
+		caches = caches + sa[0]
+		finals = finals + sa[1]
+		state[chain.ChainId] = sa
+	}
+	return caches, finals, state
 }
 
 func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {

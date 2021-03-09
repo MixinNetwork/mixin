@@ -30,22 +30,6 @@ type FinalRound struct {
 	Hash   crypto.Hash
 }
 
-func (node *Node) PoolInfo() (uint64, uint64) {
-	node.chains.RLock()
-	defer node.chains.RUnlock()
-
-	var caches, finals uint64
-	for _, chain := range node.chains.m {
-		caches = caches + chain.CachePool.Len()
-		finals = finals + chain.finalActionsRing.Len()
-		round := chain.FinalPool[chain.FinalIndex]
-		if round != nil {
-			finals = finals + uint64(round.Size)
-		}
-	}
-	return caches, finals
-}
-
 func (node *Node) LoadAllChains(store storage.Store, networkId crypto.Hash) error {
 	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), false)
 	for _, cn := range nodes {

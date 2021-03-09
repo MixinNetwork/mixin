@@ -111,10 +111,11 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		"topology":  node.TopologicalOrder(),
 		"sps":       node.SPS(),
 	}
-	caches, finals := node.PoolInfo()
+	caches, finals, state := node.QueueState()
 	info["queue"] = map[string]interface{}{
 		"finals": finals,
 		"caches": caches,
+		"state":  state,
 	}
 	return info, nil
 }
