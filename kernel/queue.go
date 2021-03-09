@@ -79,7 +79,7 @@ func (node *Node) LoopCacheQueue() error {
 			}
 			err = tx.Validate(node.persistStore)
 			if err != nil {
-				logger.Printf("LoopCacheQueue Validate ERROR %s\n", err)
+				logger.Verbosef("LoopCacheQueue Validate ERROR %s\n", err)
 				stale = append(stale, hash)
 				return nil
 			}
