@@ -58,6 +58,11 @@ func (node *Node) LoopCacheQueue() error {
 			return nil
 		case <-timer.C:
 		}
+		caches, finals := node.PoolInfo()
+		if caches > 1000 || finals > 500 {
+			timer.Stop()
+			continue
+		}
 
 		neighbors := node.Peer.Neighbors()
 		var stale []crypto.Hash
