@@ -105,12 +105,12 @@ func (node *Node) LoopCacheQueue() error {
 	}
 }
 
-func (node *Node) QueueState() (uint64, uint64, map[crypto.Hash][2]uint64) {
+func (node *Node) QueueState() (uint64, uint64, map[string][2]uint64) {
 	node.chains.RLock()
 	defer node.chains.RUnlock()
 
 	var caches, finals uint64
-	state := make(map[crypto.Hash][2]uint64)
+	state := make(map[string][2]uint64)
 	for _, chain := range node.chains.m {
 		sa := [2]uint64{
 			chain.CachePool.Len(),
@@ -122,7 +122,7 @@ func (node *Node) QueueState() (uint64, uint64, map[crypto.Hash][2]uint64) {
 		}
 		caches = caches + sa[0]
 		finals = finals + sa[1]
-		state[chain.ChainId] = sa
+		state[chain.ChainId.String()] = sa
 	}
 	return caches, finals, state
 }

@@ -12,6 +12,11 @@ import (
 type VersionedTransaction struct {
 	SignedTransaction
 	BadGenesis *SignedGenesisHackTransaction `msgpack:"-"`
+
+	mbytes  []byte
+	pmbytes []byte
+	cmbytes []byte
+	hash    crypto.Hash
 }
 
 func (tx *SignedTransaction) AsLatestVersion() *VersionedTransaction {
@@ -63,6 +68,9 @@ func UnmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
 }
 
 func (ver *VersionedTransaction) CompressMarshal() []byte {
+	if len(ver.cmbytes) > 0 {
+		return ver.cmbytes
+	}
 	val := ver.compressMarshal()
 	if config.Debug {
 		ret, err := decompressUnmarshalVersionedTransaction(val)
@@ -73,10 +81,14 @@ func (ver *VersionedTransaction) CompressMarshal() []byte {
 			panic(fmt.Errorf("malformed %d", len(val)))
 		}
 	}
-	return val
+	ver.cmbytes = val
+	return ver.cmbytes
 }
 
 func (ver *VersionedTransaction) Marshal() []byte {
+	if len(ver.mbytes) > 0 {
+		return ver.mbytes
+	}
 	val := ver.marshal()
 	if config.Debug {
 		ret, err := unmarshalVersionedTransaction(val)
@@ -88,10 +100,14 @@ func (ver *VersionedTransaction) Marshal() []byte {
 			panic(fmt.Errorf("malformed %s %s", hex.EncodeToString(val), hex.EncodeToString(retv)))
 		}
 	}
-	return val
+	ver.mbytes = val
+	return ver.mbytes
 }
 
 func (ver *VersionedTransaction) PayloadMarshal() []byte {
+	if len(ver.pmbytes) > 0 {
+		return ver.pmbytes
+	}
 	val := ver.payloadMarshal()
 	if config.Debug {
 		ret, err := unmarshalVersionedTransaction(val)
@@ -103,11 +119,15 @@ func (ver *VersionedTransaction) PayloadMarshal() []byte {
 			panic(fmt.Errorf("malformed %s %s", hex.EncodeToString(val), hex.EncodeToString(retv)))
 		}
 	}
-	return val
+	ver.pmbytes = val
+	return ver.pmbytes
 }
 
 func (ver *VersionedTransaction) PayloadHash() crypto.Hash {
-	return crypto.NewHash(ver.PayloadMarshal())
+	if !ver.hash.HasValue() {
+		ver.hash = crypto.NewHash(ver.PayloadMarshal())
+	}
+	return ver.hash
 }
 
 func decompressUnmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
