@@ -13,9 +13,7 @@ type VersionedTransaction struct {
 	SignedTransaction
 	BadGenesis *SignedGenesisHackTransaction `msgpack:"-"`
 
-	mbytes  []byte
 	pmbytes []byte
-	cmbytes []byte
 	hash    crypto.Hash
 }
 
@@ -68,9 +66,6 @@ func UnmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
 }
 
 func (ver *VersionedTransaction) CompressMarshal() []byte {
-	if len(ver.cmbytes) > 0 {
-		return ver.cmbytes
-	}
 	val := ver.compressMarshal()
 	if config.Debug {
 		ret, err := decompressUnmarshalVersionedTransaction(val)
@@ -81,14 +76,10 @@ func (ver *VersionedTransaction) CompressMarshal() []byte {
 			panic(fmt.Errorf("malformed %d", len(val)))
 		}
 	}
-	ver.cmbytes = val
-	return ver.cmbytes
+	return val
 }
 
 func (ver *VersionedTransaction) Marshal() []byte {
-	if len(ver.mbytes) > 0 {
-		return ver.mbytes
-	}
 	val := ver.marshal()
 	if config.Debug {
 		ret, err := unmarshalVersionedTransaction(val)
@@ -100,8 +91,7 @@ func (ver *VersionedTransaction) Marshal() []byte {
 			panic(fmt.Errorf("malformed %s %s", hex.EncodeToString(val), hex.EncodeToString(retv)))
 		}
 	}
-	ver.mbytes = val
-	return ver.mbytes
+	return val
 }
 
 func (ver *VersionedTransaction) PayloadMarshal() []byte {

@@ -33,12 +33,16 @@ func TestTransaction(t *testing.T) {
 	ver := NewTransaction(XINAssetId).AsLatestVersion()
 	assert.Equal("b2d01ebf49e4a16f405c72a51fc949554ec7bd7ad99d9581bd807cc83157f126", ver.PayloadHash().String())
 	ver.AddInput(genesisHash, 0)
+	ver.resetCache()
 	assert.Equal("66b277cb31c9f409dee65c81abfd0c8034c8a1067e04e27137daf69c404bf95b", ver.PayloadHash().String())
 	ver.AddInput(genesisHash, 1)
+	ver.resetCache()
 	assert.Equal("a0d1ab5b23f5f81d4f91b160f60c9d05766462c11fe52a39459b09aa77630530", ver.PayloadHash().String())
 	ver.Outputs = append(ver.Outputs, &Output{Type: OutputTypeScript, Amount: NewInteger(10000), Script: script, Mask: crypto.NewKeyFromSeed(bytes.Repeat([]byte{1}, 64))})
+	ver.resetCache()
 	assert.Equal("b1d57d9b3f15ad2a8fd143a76c4c7008579f7613a27ef7f2f626146cbe8dfdb7", ver.PayloadHash().String())
 	ver.AddScriptOutput(accounts, script, NewInteger(10000), bytes.Repeat([]byte{1}, 64))
+	ver.resetCache()
 	assert.Equal("ab4101ecd51e82fe37bfffcf3177f9cbe9b4eda8ba4ccd50acba149eb700db7b", ver.PayloadHash().String())
 
 	pm := ver.Marshal()
@@ -258,12 +262,16 @@ func TestTransactionV1(t *testing.T) {
 	ver.Version = 1
 	assert.Equal("d2cf4d6e85d76512b29f173073be167423705e207f090f8cfc3e2b61fc32b6e2", ver.PayloadHash().String())
 	ver.AddInput(genesisHash, 0)
+	ver.resetCache()
 	assert.Equal("b3afe7497740e05ba83e26977fbbfe7e1c2efc312d8d9aeb93bce43b9d8c6248", ver.PayloadHash().String())
 	ver.AddInput(genesisHash, 1)
+	ver.resetCache()
 	assert.Equal("e31ea7bd97a59169fbef1294b4dcc00dd33b6c4cd95367614415a5d6bdb1eee8", ver.PayloadHash().String())
 	ver.Outputs = append(ver.Outputs, &Output{Type: OutputTypeScript, Amount: NewInteger(10000), Script: script, Mask: crypto.NewKeyFromSeed(bytes.Repeat([]byte{1}, 64))})
+	ver.resetCache()
 	assert.Equal("56fb588ab4319a54694fbbdc85f41b913401137da83ac6724e2c3adb076460f9", ver.PayloadHash().String())
 	ver.AddScriptOutput(accounts, script, NewInteger(10000), bytes.Repeat([]byte{1}, 64))
+	ver.resetCache()
 	assert.Equal("d0a26a0a7f05941bc748b8f605f0b990511aafb865cf759364eb1d46156e6696", ver.PayloadHash().String())
 
 	pm := ver.Marshal()
@@ -318,4 +326,9 @@ func TestTransactionV1(t *testing.T) {
 	assert.Len(outputs, 2)
 	assert.NotEqual(outputs[1].Keys[1].String(), accounts[1].PublicSpendKey.String())
 	assert.NotEqual(outputs[1].Keys[1].String(), accounts[1].PublicViewKey.String())
+}
+
+func (ver *VersionedTransaction) resetCache() {
+	ver.hash = crypto.Hash{}
+	ver.pmbytes = nil
 }

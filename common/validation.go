@@ -31,7 +31,7 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 	if len(tx.Extra) > ExtraSizeLimit {
 		return fmt.Errorf("invalid extra size %d", len(tx.Extra))
 	}
-	if len(ver.Marshal()) > config.TransactionMaximumSize {
+	if len(msg) > config.TransactionMaximumSize {
 		return fmt.Errorf("invalid transaction size %d", len(msg))
 	}
 
