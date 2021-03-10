@@ -46,11 +46,12 @@ func (chain *Chain) AggregateMintWork() {
 	}
 	logger.Printf("AggregateMintWork(%s) begin with %d\n", chain.ChainId, round)
 
+	period := time.Duration(chain.node.custom.Node.KernelOprationPeriod) * time.Second
 	fork := uint64(SnapshotRoundDayLeapForkHack.UnixNano())
 	for chain.running {
 		if cs := chain.State; cs == nil {
 			logger.Printf("AggregateMintWork(%s) no state yet\n", chain.ChainId)
-			time.Sleep(time.Duration(chain.node.custom.Node.KernelOprationPeriod) * time.Second)
+			time.Sleep(period)
 			continue
 		}
 		crn := chain.State.CacheRound.Number
@@ -63,7 +64,7 @@ func (chain *Chain) AggregateMintWork() {
 			continue
 		}
 		if len(snapshots) == 0 {
-			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
+			time.Sleep(period)
 			continue
 		}
 		for chain.running {
@@ -79,7 +80,7 @@ func (chain *Chain) AggregateMintWork() {
 		if round < crn {
 			round = round + 1
 		} else {
-			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
+			time.Sleep(period)
 		}
 	}
 
