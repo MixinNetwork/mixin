@@ -36,12 +36,13 @@ func (s *BadgerStore) RemoveGraphEntries(prefix string) (int, error) {
 
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = false
+	opts.Prefix = []byte(prefix)
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
 	var removed int
 	it.Seek([]byte(prefix))
-	for ; it.ValidForPrefix([]byte(prefix)); it.Next() {
+	for ; it.Valid(); it.Next() {
 		key := it.Item().KeyCopy(nil)
 		err := txn.Delete(key)
 		if err != nil {
@@ -64,14 +65,15 @@ func (s *BadgerStore) ReadSnapshotsForNodeRound(nodeId crypto.Hash, round uint64
 func readSnapshotsForNodeRound(txn *badger.Txn, nodeId crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	snapshots := make([]*common.SnapshotWithTopologicalOrder, 0)
 
+	key := graphSnapshotKey(nodeId, round, crypto.Hash{})
+	prefix := key[:len(key)-len(crypto.Hash{})]
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchSize = 10
+	opts.Prefix = prefix
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
-	key := graphSnapshotKey(nodeId, round, crypto.Hash{})
-	prefix := key[:len(key)-len(crypto.Hash{})]
-	for it.Seek(key); it.ValidForPrefix(prefix); it.Next() {
+	for it.Seek(key); it.Valid(); it.Next() {
 		item := it.Item()
 		v, err := item.ValueCopy(nil)
 		if err != nil {

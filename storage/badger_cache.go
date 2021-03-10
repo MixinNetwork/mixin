@@ -21,13 +21,14 @@ func (s *BadgerStore) CacheListTransactions(hook func(tx *common.VersionedTransa
 	txn := s.cacheDB.NewTransaction(false)
 	defer txn.Discard()
 
+	prefix := []byte(cachePrefixTransactionCache)
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = false
+	opts.Prefix = prefix
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
-	prefix := []byte(cachePrefixTransactionCache)
-	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+	for it.Seek(prefix); it.Valid(); it.Next() {
 		key := it.Item().KeyCopy(nil)[len(prefix):]
 		key = append([]byte(graphPrefixFinalization), key...)
 		_, err := snapTxn.Get(key)

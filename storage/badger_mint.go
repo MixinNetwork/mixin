@@ -19,12 +19,14 @@ func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) 
 
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
+
+	opts := badger.DefaultIteratorOptions
+	opts.Prefix = []byte(graphPrefixMint + group)
+	it := txn.NewIterator(opts)
 	defer it.Close()
 
-	prefix := []byte(graphPrefixMint + group)
 	it.Seek(graphMintKey(group, offset))
-	for ; it.ValidForPrefix(prefix) && uint64(len(mints)) < count; it.Next() {
+	for ; it.Valid() && uint64(len(mints)) < count; it.Next() {
 		item := it.Item()
 		key := item.KeyCopy(nil)
 		ival, err := item.ValueCopy(nil)
@@ -67,13 +69,13 @@ func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistri
 
 	opts := badger.DefaultIteratorOptions
 	opts.Reverse = true
+	opts.Prefix = []byte(graphPrefixMint + group)
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
 	dist := &common.MintDistribution{}
-	prefix := []byte(graphPrefixMint + group)
 	it.Seek(graphMintKey(group, ^uint64(0)))
-	for ; it.ValidForPrefix(prefix); it.Next() {
+	for ; it.Valid(); it.Next() {
 		item := it.Item()
 		key := item.KeyCopy(nil)
 		ival, err := item.ValueCopy(nil)

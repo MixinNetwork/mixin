@@ -18,14 +18,15 @@ const (
 )
 
 func readAllNodes(txn *badger.Txn, threshold uint64, withState bool) []*common.Node {
+	prefix := []byte(graphPrefixNodeStateQueue)
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchSize = 30
+	opts.Prefix = prefix
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
-	prefix := []byte(graphPrefixNodeStateQueue)
 	nodes := make([]*common.Node, 0)
-	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+	for it.Seek(prefix); it.Valid(); it.Next() {
 		item := it.Item()
 		signer, ts := nodeSignerFromStateKey(item.KeyCopy(nil))
 		ival, err := item.ValueCopy(nil)
