@@ -79,8 +79,7 @@ func (node *Node) LoopCacheQueue() error {
 			}
 			err = tx.Validate(node.persistStore)
 			if err != nil {
-				logger.Verbosef("LoopCacheQueue Validate ERROR %s\n", err)
-				stale = append(stale, hash)
+				logger.Debugf("LoopCacheQueue Validate ERROR %s\n", err)
 				return nil
 			}
 			peer := neighbors[rand.Intn(len(neighbors))]
