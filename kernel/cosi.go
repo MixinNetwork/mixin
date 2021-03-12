@@ -166,7 +166,25 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		}
 	}
 
-	if m.Action != CosiActionSelfEmpty {
+	if chain.IsPledging() && s.RoundNumber == 0 {
+	} else if m.Action == CosiActionSelfEmpty {
+		if !chain.node.CheckBroadcastedToPeers() {
+			return fmt.Errorf("chain not broadcasted to peers yet")
+		}
+	} else {
+		if chain.State == nil {
+			return fmt.Errorf("state empty")
+		}
+		cache, final := chain.StateCopy()
+		if s.RoundNumber < cache.Number {
+			return fmt.Errorf("round stale %d %d", s.RoundNumber, cache.Number)
+		}
+		if s.RoundNumber > cache.Number+1 {
+			return fmt.Errorf("round future %d %d", s.RoundNumber, cache.Number)
+		}
+		if s.Timestamp <= final.Start+config.SnapshotRoundGap {
+			return fmt.Errorf("round timestamp invalid %d %d", s.Timestamp, final.Start+config.SnapshotRoundGap)
+		}
 		if m.SnapshotHash != s.Hash {
 			return fmt.Errorf("invalid snapshot hash %s %s", m.SnapshotHash, s.Hash)
 		}
@@ -178,6 +196,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 			return fmt.Errorf("past snapshot timestamp %d", s.Timestamp)
 		}
 	}
+
 	if !chain.IsPledging() && !chain.node.CheckCatchUpWithPeers() {
 		return fmt.Errorf("node is slow in catching up")
 	}
@@ -219,7 +238,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	} else {
 		cache, final := chain.StateCopy()
 		if len(cache.Snapshots) == 0 && !chain.node.CheckBroadcastedToPeers() {
-			return chain.clearAndQueueSnapshotOrPanic(s)
+			return nil
 		}
 		if s.Timestamp <= cache.Timestamp {
 			return chain.clearAndQueueSnapshotOrPanic(s)
@@ -499,15 +518,15 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		}
 		if s.RoundNumber < cache.Number {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v EXPIRE %d %d\n", m, s.RoundNumber, cache.Number)
-			return chain.clearAndQueueSnapshotOrPanic(s)
+			return nil
 		}
 		if !s.References.Equal(cache.References) {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v REFERENCES %v %v\n", m, s.References, cache.References)
-			return chain.clearAndQueueSnapshotOrPanic(s)
+			return nil
 		}
 		if err := cache.ValidateSnapshot(s); err != nil {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse %v ValidateSnapshot %s\n", m, err)
-			return chain.clearAndQueueSnapshotOrPanic(s)
+			return nil
 		}
 
 		chain.AddSnapshot(final, cache, s, signers)
