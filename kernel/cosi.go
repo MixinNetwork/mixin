@@ -553,13 +553,12 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 	logger.Debugf("CosiLoop cosiHandleAction handleFinalization %s %v\n", m.PeerId, m.Snapshot)
 	s := m.Snapshot
 	m.WantTx = false
-	signers, finalized := chain.verifyFinalization(s)
-	if !finalized {
-		logger.Verbosef("ERROR handleFinalization verifyFinalization %s %v %d\n", m.PeerId, s, chain.node.ConsensusThreshold(s.Timestamp))
-		return nil
-	}
 
-	if chain.State != nil {
+	if chain.IsPledging() && s.RoundNumber == 0 {
+	} else if chain.State == nil {
+		logger.Debugf("ERROR cosiHandleFinalization without consensus%s %s\n", m.PeerId, s.Hash)
+		return nil
+	} else {
 		cache := chain.State.CacheRound
 		if s.RoundNumber < cache.Number {
 			logger.Debugf("ERROR cosiHandleFinalization expired round %s %s %d %d\n", m.PeerId, s.Hash, s.RoundNumber, cache.Number)
@@ -582,6 +581,12 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		}
 	}
 
+	signers, finalized := chain.verifyFinalization(s)
+	if !finalized {
+		logger.Verbosef("ERROR handleFinalization verifyFinalization %s %v %d\n", m.PeerId, s, chain.node.ConsensusThreshold(s.Timestamp))
+		return nil
+	}
+
 	tx, _, err := chain.node.validateSnapshotTransaction(s, true)
 	if err != nil {
 		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %s\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp), err.Error())
@@ -598,17 +603,11 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 			return err
 		}
 		return chain.node.reloadConsensusNodesList(s, tx)
-	}
-	if chain.State == nil {
-		logger.Debugf("ERROR cosiHandleFinalization without consensus%s %s\n", m.PeerId, s.Hash)
-		return nil
-	}
-	cache, final := chain.StateCopy()
-	if s.RoundNumber != cache.Number {
-		logger.Debugf("ERROR cosiHandleFinalization malformed round %s %s %d %d\n", m.PeerId, s.Hash, s.RoundNumber, cache.Number)
+	} else if chain.State == nil {
 		return nil
 	}
 
+	cache, final := chain.StateCopy()
 	if !s.References.Equal(cache.References) {
 		err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References, s.Timestamp, false)
 		if err != nil {

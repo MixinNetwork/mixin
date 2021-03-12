@@ -204,7 +204,7 @@ func (c *CacheRound) ValidateSnapshot(s *common.Snapshot) error {
 }
 
 func (c *CacheRound) validateSnapshot(s *common.Snapshot, add bool) error {
-	if !s.Hash.HasValue() {
+	if s.RoundNumber != c.Number || !s.Hash.HasValue() {
 		panic(s)
 	}
 	day := uint64(time.Hour) * 24
