@@ -15,9 +15,6 @@ const (
 )
 
 func (s *BadgerStore) CacheListTransactions(hook func(tx *common.VersionedTransaction) error) error {
-	snapTxn := s.snapshotsDB.NewTransaction(false)
-	defer snapTxn.Discard()
-
 	txn := s.cacheDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -29,24 +26,13 @@ func (s *BadgerStore) CacheListTransactions(hook func(tx *common.VersionedTransa
 	defer it.Close()
 
 	for it.Seek(prefix); it.Valid(); it.Next() {
-		key := it.Item().KeyCopy(nil)[len(prefix):]
-		key = append([]byte(graphPrefixFinalization), key...)
-		_, err := snapTxn.Get(key)
-		if err == nil {
-			continue
-		} else if err != badger.ErrKeyNotFound {
-			return err
-		}
-
-		v, err := it.Item().ValueCopy(nil)
-		if err != nil {
-			return err
-		}
-		ver, err := common.DecompressUnmarshalVersionedTransaction(v)
-		if err != nil {
-			return err
-		}
-		err = hook(ver)
+		err := it.Item().Value(func(v []byte) error {
+			ver, err := common.DecompressUnmarshalVersionedTransaction(v)
+			if err != nil {
+				return err
+			}
+			return hook(ver)
+		})
 		if err != nil {
 			return err
 		}
