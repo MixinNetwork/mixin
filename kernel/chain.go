@@ -16,14 +16,13 @@ import (
 
 const (
 	FinalPoolSlotsLimit     = config.SnapshotSyncRoundThreshold * 8
-	FinalPoolRoundSizeLimit = 1024
-	CachePoolSnapshotsLimit = 8192
+	FinalPoolRoundSizeLimit = 128
+	CachePoolSnapshotsLimit = 256
 )
 
 type PeerSnapshot struct {
 	Snapshot  *common.Snapshot
-	filter    map[crypto.Hash]bool
-	peers     []crypto.Hash
+	peers     map[crypto.Hash]bool
 	finalized bool
 }
 
@@ -192,7 +191,7 @@ func (chain *Chain) QueuePollSnapshots() {
 				if ps.finalized {
 					continue
 				}
-				for _, pid := range ps.peers {
+				for pid := range ps.peers {
 					finalized, err := chain.cosiHook(&CosiAction{
 						PeerId:   pid,
 						Action:   CosiActionFinalization,
@@ -316,16 +315,14 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	if !found {
 		round.Snapshots[round.Size] = &PeerSnapshot{
 			Snapshot: s,
-			filter:   map[crypto.Hash]bool{peerId: true},
-			peers:    []crypto.Hash{peerId},
+			peers:    map[crypto.Hash]bool{peerId: true},
 		}
 		round.index[s.Hash] = round.Size
 		round.Size = round.Size + 1
 	} else {
 		ps := round.Snapshots[index]
-		if !ps.filter[peerId] {
-			ps.filter[peerId] = true
-			ps.peers = append(ps.peers, peerId)
+		if len(ps.peers) < 2 {
+			ps.peers[peerId] = true
 		}
 	}
 	chain.FinalPool[offset] = round
