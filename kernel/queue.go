@@ -70,7 +70,7 @@ func (node *Node) LoopCacheQueue() error {
 			hash := tx.PayloadHash()
 			_, finalized, err := node.persistStore.ReadTransaction(hash)
 			if err != nil {
-				logger.Printf("LoopCacheQueue ReadTransaction ERROR %s\n", err)
+				logger.Printf("LoopCacheQueue ReadTransaction ERROR %s %s\n", hash, err)
 				return nil
 			}
 			if len(finalized) > 0 {
@@ -79,7 +79,7 @@ func (node *Node) LoopCacheQueue() error {
 			}
 			err = tx.Validate(node.persistStore)
 			if err != nil {
-				logger.Debugf("LoopCacheQueue Validate ERROR %s\n", err)
+				logger.Debugf("LoopCacheQueue Validate ERROR %s %s\n", hash, err)
 				return nil
 			}
 			peer := neighbors[rand.Intn(len(neighbors))]

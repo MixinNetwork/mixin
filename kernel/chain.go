@@ -321,7 +321,7 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 		round.Size = round.Size + 1
 	} else {
 		ps := round.Snapshots[index]
-		if len(ps.peers) < 2 {
+		if len(ps.peers) < 3 {
 			ps.peers[peerId] = true
 		}
 	}
