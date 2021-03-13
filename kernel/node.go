@@ -33,6 +33,7 @@ type Node struct {
 
 	chains                  *chainsMap
 	allNodesSortedWithState []*CNode
+	nodeStateSequences      []*NodeStateSequence
 
 	genesisNodesMap map[crypto.Hash]bool
 	genesisNodes    []crypto.Hash
@@ -48,6 +49,12 @@ type Node struct {
 	elc  chan struct{}
 	mlc  chan struct{}
 	cqc  chan struct{}
+}
+
+type NodeStateSequence struct {
+	Timestamp         uint64
+	NodesWithoutState []*CNode
+	Hack              []*CNode
 }
 
 type CNode struct {
@@ -420,17 +427,16 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 	}
 }
 
-func (node *Node) CheckBroadcastedToPeers() bool {
-	chain := node.GetOrCreateChain(node.IdForNetwork)
+func (chain *Chain) CheckBroadcastedToPeers() bool {
 	if chain.State == nil {
 		return false
 	}
 
 	final, count := chain.State.FinalRound.Number, 1
-	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()))
-	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
+	threshold := chain.node.ConsensusThreshold(uint64(clock.Now().UnixNano()))
+	nodes := chain.node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
 	for _, cn := range nodes {
-		remote := node.SyncPoints.Get(cn.IdForNetwork)
+		remote := chain.node.SyncPoints.Get(cn.IdForNetwork)
 		if remote == nil {
 			continue
 		}
@@ -441,19 +447,18 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 	return count >= threshold
 }
 
-func (node *Node) CheckCatchUpWithPeers() bool {
-	chain := node.GetOrCreateChain(node.IdForNetwork)
+func (chain *Chain) CheckCatchUpWithPeers() bool {
 	if chain.State == nil {
 		return false
 	}
 
-	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()))
+	threshold := chain.node.ConsensusThreshold(uint64(clock.Now().UnixNano()))
 	cache, updated := chain.State.CacheRound, 1
 	final := chain.State.FinalRound.Number
 
-	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
+	nodes := chain.node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
 	for _, cn := range nodes {
-		remote := node.SyncPoints.Get(cn.IdForNetwork)
+		remote := chain.node.SyncPoints.Get(cn.IdForNetwork)
 		if remote == nil {
 			continue
 		}

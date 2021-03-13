@@ -80,6 +80,8 @@ func (node *Node) LoopCacheQueue() error {
 			err = tx.Validate(node.persistStore)
 			if err != nil {
 				logger.Debugf("LoopCacheQueue Validate ERROR %s %s\n", hash, err)
+				// not mark invalid tx as stale is to ensure final graph sync
+				// but we need some way to mitigate cache transaction DoS attach from nodes
 				return nil
 			}
 			peer := neighbors[rand.Intn(len(neighbors))]

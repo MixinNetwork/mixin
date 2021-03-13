@@ -57,6 +57,7 @@ type CosiVerifier struct {
 }
 
 func (chain *Chain) cosiHook(m *CosiAction) (bool, error) {
+	logger.Debugf("cosiHook(%s) %v\n", chain.ChainId, m)
 	if !chain.running {
 		return false, nil
 	}
@@ -168,7 +169,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 
 	if chain.IsPledging() && s.RoundNumber == 0 {
 	} else if m.Action == CosiActionSelfEmpty {
-		if !chain.node.CheckBroadcastedToPeers() {
+		if !chain.CheckBroadcastedToPeers() {
 			return fmt.Errorf("chain not broadcasted to peers yet")
 		}
 	} else {
@@ -197,7 +198,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		}
 	}
 
-	if !chain.IsPledging() && !chain.node.CheckCatchUpWithPeers() {
+	if !chain.IsPledging() && !chain.CheckCatchUpWithPeers() {
 		return fmt.Errorf("node is slow in catching up")
 	}
 
@@ -237,7 +238,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		return nil
 	} else {
 		cache, final := chain.StateCopy()
-		if len(cache.Snapshots) == 0 && !chain.node.CheckBroadcastedToPeers() {
+		if len(cache.Snapshots) == 0 && !chain.CheckBroadcastedToPeers() {
 			return nil
 		}
 		if s.Timestamp <= cache.Timestamp {

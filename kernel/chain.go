@@ -215,6 +215,7 @@ func (chain *Chain) QueuePollSnapshots() {
 
 		logger.Debugf("QueuePollSnapshots cache pool begin %s when final %d %d\n", chain.ChainId, chain.FinalIndex, chain.FinalCount)
 		for {
+			logger.Debugf("QueuePollSnapshots cache pool step %s from %d when final %d %d\n", chain.ChainId, cache, chain.FinalIndex, chain.FinalCount)
 			item, err := chain.CachePool.Poll(false)
 			if err != nil || item == nil || cache > 256 {
 				logger.Verbosef("QueuePollSnapshots(%s) break at %d with %v when final %d %d\n", chain.ChainId, cache, err, chain.FinalIndex, chain.FinalCount)
@@ -226,6 +227,7 @@ func (chain *Chain) QueuePollSnapshots() {
 				panic(err)
 			}
 			cache++
+			logger.Debugf("QueuePollSnapshots cache pool step %s to %d when final %d %d\n", chain.ChainId, cache, chain.FinalIndex, chain.FinalCount)
 		}
 		logger.Debugf("QueuePollSnapshots cache pool end %s when final %d %d\n", chain.ChainId, chain.FinalIndex, chain.FinalCount)
 
@@ -346,6 +348,7 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 }
 
 func (chain *Chain) AppendCosiAction(m *CosiAction) error {
+	logger.Debugf("AppendCosiAction(%s) %v\n", chain.ChainId, m)
 	switch m.Action {
 	case CosiActionSelfEmpty:
 		if m.PeerId != chain.ChainId {
@@ -375,7 +378,7 @@ func (chain *Chain) AppendCosiAction(m *CosiAction) error {
 	_, err := chain.CachePool.Offer(m)
 	if err != nil {
 		// it is possible that the ring disposed, and this method is called concurrently
-		logger.Verbosef("AppendCosiAction(%d, %s) ERROR %s\n", m.Action, m.SnapshotHash, err)
+		logger.Verbosef("AppendCosiAction(%s) %v ERROR %s\n", chain.ChainId, m, err)
 	}
 	return nil
 }
