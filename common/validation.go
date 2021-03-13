@@ -130,7 +130,7 @@ func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash cry
 	if len(keySigs) == 0 && (txType == TransactionTypeNodeAccept || txType == TransactionTypeNodeRemove) {
 		return inputsFilter, inputAmount, nil
 	}
-	if len(keySigs) != len(tx.Inputs) {
+	if len(keySigs) < len(tx.Inputs) {
 		return inputsFilter, inputAmount, fmt.Errorf("batch verification not ready %d %d", len(tx.Inputs), len(keySigs))
 	}
 
