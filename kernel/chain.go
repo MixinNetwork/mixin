@@ -11,7 +11,6 @@ import (
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/MixinNetwork/mixin/util"
 )
 
 const (
@@ -41,6 +40,8 @@ type ChainState struct {
 	RoundLinks   map[crypto.Hash]uint64
 }
 
+type ActionBuffer chan *CosiAction
+
 type Chain struct {
 	sync.RWMutex
 	node          *Node
@@ -51,13 +52,13 @@ type Chain struct {
 
 	CosiAggregators map[crypto.Hash]*CosiAggregator
 	CosiVerifiers   map[crypto.Hash]*CosiVerifier
-	CachePool       *util.RingBuffer
+	CachePool       ActionBuffer
 	FinalPool       [FinalPoolSlotsLimit]*ChainRound
 	FinalIndex      int
 	FinalCount      int
 
 	persistStore     storage.Store
-	finalActionsRing *util.RingBuffer
+	finalActionsRing ActionBuffer
 	plc              chan struct{}
 	clc              chan struct{}
 	wlc              chan struct{}
@@ -70,9 +71,9 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 		ChainId:          chainId,
 		CosiAggregators:  make(map[crypto.Hash]*CosiAggregator),
 		CosiVerifiers:    make(map[crypto.Hash]*CosiVerifier),
-		CachePool:        util.NewRingBuffer(CachePoolSnapshotsLimit),
+		CachePool:        make(chan *CosiAction, CachePoolSnapshotsLimit),
 		persistStore:     node.persistStore,
-		finalActionsRing: util.NewRingBuffer(FinalPoolSlotsLimit),
+		finalActionsRing: make(chan *CosiAction, FinalPoolSlotsLimit),
 		plc:              make(chan struct{}),
 		clc:              make(chan struct{}),
 		wlc:              make(chan struct{}),
@@ -88,6 +89,24 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 	go chain.QueuePollSnapshots()
 	go chain.ConsumeFinalActions()
 	return chain
+}
+
+func (ab ActionBuffer) Offer(m *CosiAction) error {
+	select {
+	case ab <- m:
+		return nil
+	default:
+		return fmt.Errorf("full")
+	}
+}
+
+func (ab ActionBuffer) Poll() *CosiAction {
+	select {
+	case m := <-ab:
+		return m
+	default:
+		return nil
+	}
 }
 
 func (chain *Chain) loadIdentity() *CNode {
@@ -108,8 +127,6 @@ func (chain *Chain) loadIdentity() *CNode {
 
 func (chain *Chain) Teardown() {
 	chain.running = false
-	chain.CachePool.Dispose()
-	chain.finalActionsRing.Dispose()
 	<-chain.clc
 	<-chain.plc
 	<-chain.wlc
@@ -216,18 +233,21 @@ func (chain *Chain) QueuePollSnapshots() {
 		logger.Debugf("QueuePollSnapshots cache pool begin %s when final %d %d\n", chain.ChainId, chain.FinalIndex, chain.FinalCount)
 		for {
 			logger.Debugf("QueuePollSnapshots cache pool step %s from %d when final %d %d\n", chain.ChainId, cache, chain.FinalIndex, chain.FinalCount)
-			item, err := chain.CachePool.Poll(false)
-			if err != nil || item == nil || cache > 256 {
-				logger.Verbosef("QueuePollSnapshots(%s) break at %d with %v when final %d %d\n", chain.ChainId, cache, err, chain.FinalIndex, chain.FinalCount)
+			m := chain.CachePool.Poll()
+			if m == nil {
+				logger.Verbosef("QueuePollSnapshots(%s) break at %d when final %d %d\n", chain.ChainId, cache, chain.FinalIndex, chain.FinalCount)
 				break
 			}
-			m := item.(*CosiAction)
-			_, err = chain.cosiHook(m)
+			_, err := chain.cosiHook(m)
 			if err != nil {
 				panic(err)
 			}
 			cache++
 			logger.Debugf("QueuePollSnapshots cache pool step %s to %d when final %d %d\n", chain.ChainId, cache, chain.FinalIndex, chain.FinalCount)
+			if cache > 256 {
+				logger.Verbosef("QueuePollSnapshots(%s) break at %d when final %d %d\n", chain.ChainId, cache, chain.FinalIndex, chain.FinalCount)
+				break
+			}
 		}
 		logger.Debugf("QueuePollSnapshots cache pool end %s when final %d %d\n", chain.ChainId, chain.FinalIndex, chain.FinalCount)
 
@@ -250,15 +270,11 @@ func (chain *Chain) ConsumeFinalActions() {
 	defer close(chain.clc)
 
 	for chain.running {
-		item, err := chain.finalActionsRing.Poll(false)
-		if err != nil {
-			logger.Verbosef("ConsumeFinalActions(%s) DONE %s\n", chain.ChainId, err)
-			return
-		} else if item == nil {
-			time.Sleep(10 * time.Millisecond)
+		ps := chain.finalActionsRing.Poll()
+		if ps == nil {
+			time.Sleep(100 * time.Millisecond)
 			continue
 		}
-		ps := item.(*CosiAction)
 		logger.Debugf("ConsumeFinalActions(%s) %s\n", chain.ChainId, ps.Snapshot.Hash)
 		for chain.running {
 			retry, err := chain.appendFinalSnapshot(ps.PeerId, ps.Snapshot)
@@ -340,8 +356,8 @@ func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 		return nil
 	}
 	ps := &CosiAction{PeerId: peerId, Snapshot: s}
-	success, _ := chain.finalActionsRing.Offer(ps)
-	if !success {
+	err := chain.finalActionsRing.Offer(ps)
+	if err != nil {
 		return fmt.Errorf("AppendFinalSnapshot(%s, %s) final actions ring full %d %d", peerId, s.Hash, s.RoundNumber, chain.FinalIndex)
 	}
 	return nil
@@ -375,10 +391,9 @@ func (chain *Chain) AppendCosiAction(m *CosiAction) error {
 		panic("should never be here")
 	}
 
-	_, err := chain.CachePool.Offer(m)
+	err := chain.CachePool.Offer(m)
 	if err != nil {
-		// it is possible that the ring disposed, and this method is called concurrently
-		logger.Verbosef("AppendCosiAction(%s) %v ERROR %s\n", chain.ChainId, m, err)
+		logger.Verbosef("AppendCosiAction(%s) %v FULL\n", chain.ChainId, m)
 	}
 	return nil
 }

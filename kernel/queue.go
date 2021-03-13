@@ -114,8 +114,8 @@ func (node *Node) QueueState() (uint64, uint64, map[string][2]uint64) {
 	state := make(map[string][2]uint64)
 	for _, chain := range node.chains.m {
 		sa := [2]uint64{
-			chain.CachePool.Len(),
-			chain.finalActionsRing.Len(),
+			uint64(len(chain.CachePool)),
+			uint64(len(chain.finalActionsRing)),
 		}
 		round := chain.FinalPool[chain.FinalIndex]
 		if round != nil {
