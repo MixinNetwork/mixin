@@ -16,7 +16,7 @@ import (
 
 const (
 	FinalPoolSlotsLimit     = config.SnapshotSyncRoundThreshold * 8
-	FinalPoolRoundSizeLimit = 128
+	FinalPoolRoundSizeLimit = 1024
 	CachePoolSnapshotsLimit = 256
 )
 
