@@ -32,10 +32,11 @@ type Node struct {
 	GraphTimestamp uint64
 	Epoch          uint64
 
-	chains                  *chainsMap
-	allNodesSortedWithState []*CNode
-	nodeStateSequences      []*NodeStateSequence
-	chain                   *Chain
+	chains                     *chainsMap
+	allNodesSortedWithState    []*CNode
+	nodeStateSequences         []*NodeStateSequence
+	acceptedNodeStateSequences []*NodeStateSequence
+	chain                      *Chain
 
 	genesisNodesMap map[crypto.Hash]bool
 	genesisNodes    []crypto.Hash
@@ -56,7 +57,6 @@ type Node struct {
 type NodeStateSequence struct {
 	Timestamp         uint64
 	NodesWithoutState []*CNode
-	Hack              []*CNode
 }
 
 type CNode struct {
@@ -132,7 +132,34 @@ func (node *Node) LoadNodeConfig() {
 	node.Listener = node.custom.Network.Listener
 }
 
+func (node *Node) buildNodeStateSequences(allNodesSortedWithState []*CNode, acceptedOnly bool) []*NodeStateSequence {
+	nodeStateSequences := make([]*NodeStateSequence, len(allNodesSortedWithState))
+	for i, n := range allNodesSortedWithState {
+		nodes := node.nodeSequeueWithoutState(n.Timestamp+1, acceptedOnly)
+		seq := &NodeStateSequence{
+			Timestamp:         n.Timestamp,
+			NodesWithoutState: nodes,
+		}
+		nodeStateSequences[i] = seq
+	}
+	return nodeStateSequences
+}
+
 func (node *Node) NodesListWithoutState(threshold uint64, acceptedOnly bool) []*CNode {
+	sequences := node.nodeStateSequences
+	if acceptedOnly {
+		sequences = node.acceptedNodeStateSequences
+	}
+	for i := len(sequences); i > 0; i-- {
+		seq := sequences[i-1]
+		if seq.Timestamp < threshold {
+			return seq.NodesWithoutState
+		}
+	}
+	return nil
+}
+
+func (node *Node) nodeSequeueWithoutState(threshold uint64, acceptedOnly bool) []*CNode {
 	filter := make(map[crypto.Hash]*CNode)
 	for _, n := range node.allNodesSortedWithState {
 		if n.Timestamp >= threshold {
@@ -272,6 +299,8 @@ func (node *Node) LoadConsensusNodes() error {
 		logger.Printf("LoadConsensusNode %v\n", cnodes[i])
 	}
 	node.allNodesSortedWithState = cnodes
+	node.nodeStateSequences = node.buildNodeStateSequences(cnodes, false)
+	node.acceptedNodeStateSequences = node.buildNodeStateSequences(cnodes, true)
 	node.chain = node.GetOrCreateChain(node.IdForNetwork)
 	return nil
 }
