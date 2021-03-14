@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -43,9 +44,10 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 }
 
 func (node *Node) lockAndPersistTransaction(tx *common.VersionedTransaction, finalized bool) error {
-	for {
+	for i := time.Duration(0); i < time.Second; i += time.Millisecond * 100 {
 		err := tx.LockInputs(node.persistStore, finalized)
 		if errors.Is(err, badger.ErrConflict) {
+			time.Sleep(i)
 			continue
 		} else if err != nil {
 			return err
@@ -53,10 +55,12 @@ func (node *Node) lockAndPersistTransaction(tx *common.VersionedTransaction, fin
 
 		err = node.persistStore.WriteTransaction(tx)
 		if errors.Is(err, badger.ErrConflict) {
+			time.Sleep(i)
 			continue
 		}
 		return err
 	}
+	panic(fmt.Errorf("lockAndPersistTransaction timeout %v %v\n", tx, finalized))
 }
 
 func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {

@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
+	"github.com/dgraph-io/badger/v2"
 )
 
 const (
@@ -75,7 +77,12 @@ func (chain *Chain) AggregateMintWork() {
 			if err == nil {
 				break
 			}
-			logger.Verbosef("AggregateMintWork(%s) ERROR WriteRoundWork %s\n", chain.ChainId, err.Error())
+			if errors.Is(err, badger.ErrConflict) {
+				logger.Verbosef("AggregateMintWork(%s) ERROR WriteRoundWork %s\n", chain.ChainId, err.Error())
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			panic(err)
 		}
 		if round < crn {
 			round = round + 1
