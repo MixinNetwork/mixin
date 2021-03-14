@@ -60,7 +60,7 @@ func (node *Node) lockAndPersistTransaction(tx *common.VersionedTransaction, fin
 		}
 		return err
 	}
-	panic(fmt.Errorf("lockAndPersistTransaction timeout %v %v\n", tx, finalized))
+	panic(fmt.Errorf("lockAndPersistTransaction timeout %v %v\n", tx.PayloadHash(), finalized))
 }
 
 func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
