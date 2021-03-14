@@ -457,11 +457,7 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 			node.SyncPoints.Set(peerId, p)
 		}
 	}
-	sm := make(map[crypto.Hash]*network.SyncPoint)
-	node.SyncPoints.For(func(k crypto.Hash, p *network.SyncPoint) {
-		sm[k] = p
-	})
-	node.SyncPointsMap = sm
+	node.SyncPointsMap = node.SyncPoints.Map()
 }
 
 func (node *Node) CheckBroadcastedToPeers() bool {
@@ -545,10 +541,13 @@ func (s *syncMap) Set(k crypto.Hash, p *network.SyncPoint) {
 	s.m[k] = p
 }
 
-func (s *syncMap) For(each func(crypto.Hash, *network.SyncPoint)) {
+func (s *syncMap) Map() map[crypto.Hash]*network.SyncPoint {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
+
+	m := make(map[crypto.Hash]*network.SyncPoint)
 	for k, p := range s.m {
-		each(k, p)
+		m[k] = p
 	}
+	return m
 }

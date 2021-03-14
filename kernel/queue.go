@@ -50,7 +50,11 @@ func (node *Node) LoopCacheQueue() error {
 
 	offset, limit := crypto.Hash{}, 100
 	for {
-		timer := time.NewTimer(time.Duration(config.SnapshotRoundGap))
+		period := time.Duration(config.SnapshotRoundGap)
+		if offset.HasValue() {
+			period = time.Millisecond * 300
+		}
+		timer := time.NewTimer(period)
 		select {
 		case <-node.done:
 			return nil
