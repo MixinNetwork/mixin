@@ -14,7 +14,7 @@ const (
 	cachePrefixSnapshotNodeMeta  = "SNAPSHOTNODEMETA"
 )
 
-func (s *BadgerStore) CacheListTransactions(hook func(tx *common.VersionedTransaction) error) error {
+func (s *BadgerStore) CacheListTransactions(offset crypto.Hash, limit int) ([]*common.VersionedTransaction, error) {
 	txn := s.cacheDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -25,19 +25,25 @@ func (s *BadgerStore) CacheListTransactions(hook func(tx *common.VersionedTransa
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
-	for it.Seek(prefix); it.Valid(); it.Next() {
+	var txs []*common.VersionedTransaction
+	it.Seek(cacheTransactionCacheKey(offset))
+	for ; it.Valid(); it.Next() {
 		err := it.Item().Value(func(v []byte) error {
 			ver, err := common.DecompressUnmarshalVersionedTransaction(v)
 			if err != nil {
 				return err
 			}
-			return hook(ver)
+			txs = append(txs, ver)
+			return nil
 		})
 		if err != nil {
-			return err
+			return nil, err
+		}
+		if len(txs) == limit {
+			break
 		}
 	}
-	return nil
+	return txs, nil
 }
 
 func (s *BadgerStore) CacheRemoveTransactions(hashes []crypto.Hash) error {

@@ -48,6 +48,7 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 func (node *Node) LoopCacheQueue() error {
 	defer close(node.cqc)
 
+	offset, limit := crypto.Hash{}, 100
 	for {
 		timer := time.NewTimer(time.Duration(config.SnapshotRoundGap))
 		select {
@@ -63,34 +64,37 @@ func (node *Node) LoopCacheQueue() error {
 
 		neighbors := node.Peer.Neighbors()
 		var stale []crypto.Hash
-		err := node.persistStore.CacheListTransactions(func(tx *common.VersionedTransaction) error {
-			hash := tx.PayloadHash()
-			_, finalized, err := node.persistStore.ReadTransaction(hash)
+		txs, err := node.persistStore.CacheListTransactions(offset, limit)
+		for _, tx := range txs {
+			offset = tx.PayloadHash()
+			_, finalized, err := node.persistStore.ReadTransaction(offset)
 			if err != nil {
-				logger.Printf("LoopCacheQueue ReadTransaction ERROR %s %s\n", hash, err)
-				return nil
+				logger.Printf("LoopCacheQueue ReadTransaction ERROR %s %s\n", offset, err)
+				continue
 			}
 			if len(finalized) > 0 {
-				stale = append(stale, hash)
-				return nil
+				stale = append(stale, offset)
+				continue
 			}
 			err = tx.Validate(node.persistStore)
 			if err != nil {
-				logger.Debugf("LoopCacheQueue Validate ERROR %s %s\n", hash, err)
+				logger.Debugf("LoopCacheQueue Validate ERROR %s %s\n", offset, err)
 				// not mark invalid tx as stale is to ensure final graph sync
 				// but we need some way to mitigate cache transaction DoS attach from nodes
-				return nil
+				continue
 			}
-			peer := neighbors[rand.Intn(len(neighbors))]
-			node.SendTransactionToPeer(peer.IdForNetwork, hash)
+			nbor := neighbors[rand.Intn(len(neighbors))]
+			node.SendTransactionToPeer(nbor.IdForNetwork, offset)
 			s := &common.Snapshot{
 				Version:     common.SnapshotVersion,
 				NodeId:      node.IdForNetwork,
 				Transaction: tx.PayloadHash(),
 			}
 			node.chain.AppendSelfEmpty(s)
-			return nil
-		})
+		}
+		if len(txs) < limit {
+			offset = crypto.Hash{}
+		}
 		if err != nil {
 			logger.Printf("LoopCacheQueue CacheListTransactions ERROR %s\n", err)
 		}
