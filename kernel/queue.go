@@ -36,20 +36,17 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 	if err != nil {
 		return "", err
 	}
-	chain := node.GetOrCreateChain(node.IdForNetwork)
 	s := &common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: tx.PayloadHash(),
 	}
-	err = chain.AppendSelfEmpty(s)
+	err = node.chain.AppendSelfEmpty(s)
 	return tx.PayloadHash().String(), err
 }
 
 func (node *Node) LoopCacheQueue() error {
 	defer close(node.cqc)
-
-	chain := node.GetOrCreateChain(node.IdForNetwork)
 
 	for {
 		timer := time.NewTimer(time.Duration(config.SnapshotRoundGap))
@@ -91,7 +88,7 @@ func (node *Node) LoopCacheQueue() error {
 				NodeId:      node.IdForNetwork,
 				Transaction: tx.PayloadHash(),
 			}
-			chain.AppendSelfEmpty(s)
+			node.chain.AppendSelfEmpty(s)
 			return nil
 		})
 		if err != nil {

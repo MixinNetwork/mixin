@@ -135,7 +135,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 			return fmt.Errorf("only empty snapshot with timestamp can be announced")
 		}
 		ov := chain.CosiVerifiers[s.Transaction]
-		if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber && s.Timestamp < ov.Snapshot.Timestamp+config.SnapshotRoundGap*2 {
+		if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber && s.Timestamp < ov.Snapshot.Timestamp+config.SnapshotRoundGap {
 			return fmt.Errorf("a transaction %s only in one round %d of one chain %s", s.Transaction, s.RoundNumber, chain.ChainId)
 		}
 	case CosiActionExternalChallenge:
@@ -180,7 +180,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		if s.RoundNumber < cache.Number {
 			return fmt.Errorf("round stale %d %d", s.RoundNumber, cache.Number)
 		}
-		if s.RoundNumber > cache.Number+1 {
+		if s.RoundNumber > cache.Number+2 {
 			return fmt.Errorf("round future %d %d", s.RoundNumber, cache.Number)
 		}
 		if s.Timestamp <= final.Start+config.SnapshotRoundGap {
@@ -296,7 +296,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	}
 
 	ov := chain.CosiVerifiers[s.Transaction]
-	if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber && s.Timestamp < ov.Snapshot.Timestamp+config.SnapshotRoundGap*2 {
+	if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber && s.Timestamp < ov.Snapshot.Timestamp+config.SnapshotRoundGap {
 		err := fmt.Errorf("a transaction %s only in one round %d of one chain %s", s.Transaction, s.RoundNumber, chain.ChainId)
 		logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement ERROR %s\n", err)
 		return nil
@@ -652,7 +652,6 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 		logger.Verbosef("CosiAggregateSelfCommitments(%s, %s) from malicious node\n", peerId, snap)
 		return nil
 	}
-	chain := node.GetOrCreateChain(node.IdForNetwork)
 
 	m := &CosiAction{
 		PeerId:       peerId,
@@ -661,7 +660,7 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 		Commitment:   commitment,
 		WantTx:       wantTx,
 	}
-	chain.AppendCosiAction(m)
+	node.chain.AppendCosiAction(m)
 	return nil
 }
 
@@ -690,7 +689,6 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 		logger.Verbosef("CosiAggregateSelfResponses(%s, %s) from malicious node\n", peerId, snap)
 		return nil
 	}
-	chain := node.GetOrCreateChain(node.IdForNetwork)
 
 	m := &CosiAction{
 		PeerId:       peerId,
@@ -698,7 +696,7 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 		SnapshotHash: snap,
 		Response:     response,
 	}
-	chain.AppendCosiAction(m)
+	node.chain.AppendCosiAction(m)
 	return nil
 }
 

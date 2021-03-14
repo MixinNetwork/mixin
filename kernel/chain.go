@@ -238,6 +238,7 @@ func (chain *Chain) QueuePollSnapshots() {
 				logger.Verbosef("QueuePollSnapshots(%s) break at %d when final %d %d\n", chain.ChainId, cache, chain.FinalIndex, chain.FinalCount)
 				break
 			}
+			logger.Debugf("QueuePollSnapshots cache pool step %s got %v when final %d %d\n", chain.ChainId, m, chain.FinalIndex, chain.FinalCount)
 			_, err := chain.cosiHook(m)
 			if err != nil {
 				panic(err)

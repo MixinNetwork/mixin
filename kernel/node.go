@@ -34,6 +34,7 @@ type Node struct {
 	chains                  *chainsMap
 	allNodesSortedWithState []*CNode
 	nodeStateSequences      []*NodeStateSequence
+	chain                   *Chain
 
 	genesisNodesMap map[crypto.Hash]bool
 	genesisNodes    []crypto.Hash
@@ -270,6 +271,7 @@ func (node *Node) LoadConsensusNodes() error {
 		logger.Printf("LoadConsensusNode %v\n", cnodes[i])
 	}
 	node.allNodesSortedWithState = cnodes
+	node.chain = node.GetOrCreateChain(node.IdForNetwork)
 	return nil
 }
 
@@ -428,12 +430,11 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 }
 
 func (node *Node) CheckBroadcastedToPeers() bool {
-	chain := node.GetOrCreateChain(node.IdForNetwork)
-	if chain.State == nil {
+	if node.chain.State == nil {
 		return false
 	}
 
-	final, count := chain.State.FinalRound.Number, 1
+	final, count := node.chain.State.FinalRound.Number, 1
 	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()))
 	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
 	for _, cn := range nodes {
@@ -449,14 +450,13 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 }
 
 func (node *Node) CheckCatchUpWithPeers() bool {
-	chain := node.GetOrCreateChain(node.IdForNetwork)
-	if chain.State == nil {
+	if node.chain.State == nil {
 		return false
 	}
 
 	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()))
-	cache, updated := chain.State.CacheRound, 1
-	final := chain.State.FinalRound.Number
+	cache, updated := node.chain.State.CacheRound, 1
+	final := node.chain.State.FinalRound.Number
 
 	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
 	for _, cn := range nodes {

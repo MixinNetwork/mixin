@@ -216,8 +216,7 @@ func (node *Node) tryToMintKernelNode() error {
 	if err != nil {
 		return err
 	}
-	chain := node.GetOrCreateChain(node.IdForNetwork)
-	return chain.AppendSelfEmpty(&common.Snapshot{
+	return node.chain.AppendSelfEmpty(&common.Snapshot{
 		Version:     common.SnapshotVersion,
 		NodeId:      node.IdForNetwork,
 		Transaction: signed.PayloadHash(),
