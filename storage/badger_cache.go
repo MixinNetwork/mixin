@@ -27,7 +27,7 @@ func (s *BadgerStore) CacheListTransactions(offset crypto.Hash, limit int) ([]*c
 
 	var txs []*common.VersionedTransaction
 	it.Seek(cacheTransactionCacheKey(offset))
-	for ; it.Valid(); it.Next() {
+	for ; len(txs) < limit && it.Valid(); it.Next() {
 		err := it.Item().Value(func(v []byte) error {
 			ver, err := common.DecompressUnmarshalVersionedTransaction(v)
 			if err != nil {
@@ -38,9 +38,6 @@ func (s *BadgerStore) CacheListTransactions(offset crypto.Hash, limit int) ([]*c
 		})
 		if err != nil {
 			return nil, err
-		}
-		if len(txs) == limit {
-			break
 		}
 	}
 	return txs, nil

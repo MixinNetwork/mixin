@@ -180,7 +180,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		if s.RoundNumber < cache.Number {
 			return fmt.Errorf("round stale %d %d", s.RoundNumber, cache.Number)
 		}
-		if s.RoundNumber > cache.Number+2 {
+		if s.RoundNumber > cache.Number+1 {
 			return fmt.Errorf("round future %d %d", s.RoundNumber, cache.Number)
 		}
 		if s.Timestamp <= final.Start+config.SnapshotRoundGap {
