@@ -24,9 +24,10 @@ type Node struct {
 	Signer       common.Address
 	Listener     string
 
-	Peer        *network.Peer
-	TopoCounter *TopologicalSequence
-	SyncPoints  *syncMap
+	Peer          *network.Peer
+	TopoCounter   *TopologicalSequence
+	SyncPoints    *syncMap
+	SyncPointsMap map[crypto.Hash]*network.SyncPoint
 
 	GraphTimestamp uint64
 	Epoch          uint64
@@ -427,10 +428,16 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 			node.SyncPoints.Set(peerId, p)
 		}
 	}
+	sm := make(map[crypto.Hash]*network.SyncPoint)
+	node.SyncPoints.For(func(k crypto.Hash, p *network.SyncPoint) {
+		sm[k] = p
+	})
+	node.SyncPointsMap = sm
 }
 
 func (node *Node) CheckBroadcastedToPeers() bool {
-	if node.chain.State == nil {
+	spm := node.SyncPointsMap
+	if len(spm) == 0 || node.chain.State == nil {
 		return false
 	}
 
@@ -438,7 +445,7 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()))
 	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
 	for _, cn := range nodes {
-		remote := node.SyncPoints.Get(cn.IdForNetwork)
+		remote := spm[cn.IdForNetwork]
 		if remote == nil {
 			continue
 		}
@@ -450,7 +457,8 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 }
 
 func (node *Node) CheckCatchUpWithPeers() bool {
-	if node.chain.State == nil {
+	spm := node.SyncPointsMap
+	if len(spm) == 0 || node.chain.State == nil {
 		return false
 	}
 
@@ -460,7 +468,7 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 
 	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
 	for _, cn := range nodes {
-		remote := node.SyncPoints.Get(cn.IdForNetwork)
+		remote := spm[cn.IdForNetwork]
 		if remote == nil {
 			continue
 		}
@@ -508,8 +516,10 @@ func (s *syncMap) Set(k crypto.Hash, p *network.SyncPoint) {
 	s.m[k] = p
 }
 
-func (s *syncMap) Get(k crypto.Hash) *network.SyncPoint {
+func (s *syncMap) For(each func(crypto.Hash, *network.SyncPoint)) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return s.m[k]
+	for k, p := range s.m {
+		each(k, p)
+	}
 }
