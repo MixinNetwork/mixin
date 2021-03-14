@@ -92,7 +92,7 @@ func (s *BadgerStore) WriteTransaction(ver *common.VersionedTransaction) error {
 				panic(fmt.Errorf("UTXO check error %s", err.Error()))
 			}
 			if out.LockHash != txHash {
-				panic(fmt.Errorf("utxo locked for transaction %s", out.LockHash))
+				panic(fmt.Errorf("utxo %s:%d locked for transaction %s instead of %s", out.Hash, out.Index, out.LockHash, txHash))
 			}
 		}
 	}

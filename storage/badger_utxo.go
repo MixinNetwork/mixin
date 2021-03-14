@@ -30,10 +30,10 @@ func (s *BadgerStore) ReadUTXO(hash crypto.Hash, index int) (*common.UTXOWithLoc
 	return &out, err
 }
 
-func (s *BadgerStore) LockUTXOs(inputs map[crypto.Hash]int, tx crypto.Hash, fork bool) error {
+func (s *BadgerStore) LockUTXOs(inputs []*common.Input, tx crypto.Hash, fork bool) error {
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
-		for hash, index := range inputs {
-			err := lockUTXO(txn, hash, index, tx, fork)
+		for _, in := range inputs {
+			err := lockUTXO(txn, in.Hash, in.Index, tx, fork)
 			if err != nil {
 				return err
 			}
