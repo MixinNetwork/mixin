@@ -200,7 +200,7 @@ func (store storeImpl) CheckGhost(key crypto.Key) (bool, error) {
 	return false, nil
 }
 
-func (store storeImpl) LockUTXO(hash crypto.Hash, index int, tx crypto.Hash, fork bool) error {
+func (store storeImpl) LockUTXOs(inputs map[crypto.Hash]int, tx crypto.Hash, fork bool) error {
 	return nil
 }
 

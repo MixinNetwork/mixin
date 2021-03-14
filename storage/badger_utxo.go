@@ -30,36 +30,46 @@ func (s *BadgerStore) ReadUTXO(hash crypto.Hash, index int) (*common.UTXOWithLoc
 	return &out, err
 }
 
-func (s *BadgerStore) LockUTXO(hash crypto.Hash, index int, tx crypto.Hash, fork bool) error {
+func (s *BadgerStore) LockUTXOs(inputs map[crypto.Hash]int, tx crypto.Hash, fork bool) error {
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
-		key := graphUtxoKey(hash, index)
-		item, err := txn.Get(key)
-		if err != nil {
-			return err
-		}
-		ival, err := item.ValueCopy(nil)
-		if err != nil {
-			return err
-		}
-
-		var out common.UTXOWithLock
-		err = common.DecompressMsgpackUnmarshal(ival, &out)
-		if err != nil {
-			return err
-		}
-
-		if out.LockHash.HasValue() && out.LockHash != tx {
-			if !fork {
-				return fmt.Errorf("utxo locked for transaction %s", out.LockHash)
-			}
-			err := pruneTransaction(txn, out.LockHash)
+		for hash, index := range inputs {
+			err := lockUTXO(txn, hash, index, tx, fork)
 			if err != nil {
 				return err
 			}
 		}
-		out.LockHash = tx
-		return txn.Set(key, common.CompressMsgpackMarshalPanic(out))
+		return nil
 	})
+}
+
+func lockUTXO(txn *badger.Txn, hash crypto.Hash, index int, tx crypto.Hash, fork bool) error {
+	key := graphUtxoKey(hash, index)
+	item, err := txn.Get(key)
+	if err != nil {
+		return err
+	}
+	ival, err := item.ValueCopy(nil)
+	if err != nil {
+		return err
+	}
+
+	var out common.UTXOWithLock
+	err = common.DecompressMsgpackUnmarshal(ival, &out)
+	if err != nil {
+		return err
+	}
+
+	if out.LockHash.HasValue() && out.LockHash != tx {
+		if !fork {
+			return fmt.Errorf("utxo locked for transaction %s", out.LockHash)
+		}
+		err := pruneTransaction(txn, out.LockHash)
+		if err != nil {
+			return err
+		}
+	}
+	out.LockHash = tx
+	return txn.Set(key, common.CompressMsgpackMarshalPanic(out))
 }
 
 func (s *BadgerStore) CheckGhost(key crypto.Key) (bool, error) {
