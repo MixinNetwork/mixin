@@ -30,6 +30,9 @@
     "host": "mixin-node1.exinpool.com:7239"
   },
   {
+    "host": "mixin-node2.exinpool.com:7239"
+  },
+  {
     "host": "node-candy.f1ex.io:7239"
   },
   {
@@ -109,6 +112,9 @@
   },
   {
     "host": "34.83.136.66:7239"
+  },
+  {
+    "host": "18.144.155.115:7239"
   },
   {
     "host": "lehigh.hotot.org:7239"
