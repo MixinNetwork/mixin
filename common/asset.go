@@ -21,6 +21,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/monero"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
+	"github.com/MixinNetwork/mixin/domains/solana"
 	"github.com/MixinNetwork/mixin/domains/tron"
 	"github.com/MixinNetwork/mixin/domains/zcash"
 )
@@ -64,6 +65,8 @@ func (a *Asset) Verify() error {
 		return siacoin.VerifyAssetKey(a.AssetKey)
 	case filecoin.FilecoinChainId:
 		return filecoin.VerifyAssetKey(a.AssetKey)
+	case solana.SolanaChainId:
+		return solana.VerifyAssetKey(a.AssetKey)
 	case polkadot.PolkadotChainId:
 		return polkadot.VerifyAssetKey(a.AssetKey)
 	case kusama.KusamaChainId:
@@ -109,6 +112,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return siacoin.GenerateAssetId(a.AssetKey)
 	case filecoin.FilecoinChainId:
 		return filecoin.GenerateAssetId(a.AssetKey)
+	case solana.SolanaChainId:
+		return solana.GenerateAssetId(a.AssetKey)
 	case polkadot.PolkadotChainId:
 		return polkadot.GenerateAssetId(a.AssetKey)
 	case kusama.KusamaChainId:
@@ -154,6 +159,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return siacoin.SiacoinChainId
 	case filecoin.FilecoinChainId:
 		return filecoin.FilecoinChainId
+	case solana.SolanaChainId:
+		return solana.SolanaChainId
 	case polkadot.PolkadotChainId:
 		return polkadot.PolkadotChainId
 	case kusama.KusamaChainId:
