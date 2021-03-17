@@ -65,6 +65,9 @@ func (node *Node) LoopCacheQueue() error {
 		}
 
 		neighbors := node.Peer.Neighbors()
+		if len(neighbors) <= 0 {
+			continue
+		}
 		var stale []crypto.Hash
 		err := node.persistStore.CacheListTransactions(func(tx *common.VersionedTransaction) error {
 			hash := tx.PayloadHash()
