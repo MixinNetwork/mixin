@@ -67,6 +67,9 @@ func (node *Node) LoopCacheQueue() error {
 		}
 
 		neighbors := node.Peer.Neighbors()
+		if len(neighbors) <= 0 {
+			continue
+		}
 		var stale []crypto.Hash
 		txs, err := node.persistStore.CacheListTransactions(offset, limit)
 		for _, tx := range txs {
