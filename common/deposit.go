@@ -11,6 +11,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"github.com/MixinNetwork/mixin/domains/horizen"
 	"github.com/MixinNetwork/mixin/domains/kusama"
+	"github.com/MixinNetwork/mixin/domains/litecoin"
 	"github.com/MixinNetwork/mixin/domains/mobilecoin"
 	"github.com/MixinNetwork/mixin/domains/monero"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
@@ -70,6 +71,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return zcash.VerifyTransactionHash(deposit.TransactionHash)
 	case horizen.HorizenChainId:
 		return horizen.VerifyTransactionHash(deposit.TransactionHash)
+	case litecoin.LitecoinChainId:
+		return litecoin.VerifyTransactionHash(deposit.TransactionHash)
 	case dogecoin.DogecoinChainId:
 		return dogecoin.VerifyTransactionHash(deposit.TransactionHash)
 	case siacoin.SiacoinChainId:
