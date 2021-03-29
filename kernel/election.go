@@ -88,7 +88,7 @@ func (node *Node) ElectionLoop() {
 	}
 }
 
-func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*CNode, error) {
+func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64, old *common.VersionedTransaction) (*CNode, error) {
 	if p := node.PledgingNode(now); p != nil {
 		return nil, fmt.Errorf("still pledging now %s", p.Signer.String())
 	}
@@ -103,6 +103,9 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*CNode
 
 	var accepted []*CNode
 	for _, cn := range node.NodesListWithoutState(now, false) {
+		if old != nil && cn.Transaction == old.PayloadHash() {
+			continue
+		}
 		if now < cn.Timestamp {
 			return nil, fmt.Errorf("invalid timestamp %d %d", cn.Timestamp, now)
 		}
@@ -129,8 +132,8 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64) (*CNode
 	return candi, nil
 }
 
-func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint64) (*common.VersionedTransaction, error) {
-	candi, err := node.checkRemovePossibility(nodeId, timestamp)
+func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint64, old *common.VersionedTransaction) (*common.VersionedTransaction, error) {
+	candi, err := node.checkRemovePossibility(nodeId, timestamp, old)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +175,7 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 }
 
 func (node *Node) tryToSendRemoveTransaction() error {
-	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, node.GraphTimestamp)
+	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, node.GraphTimestamp, nil)
 	if err != nil {
 		return err
 	}
@@ -202,7 +205,7 @@ func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.Vers
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
 		timestamp = uint64(clock.Now().UnixNano())
 	}
-	cantx, err := node.buildNodeRemoveTransaction(s.NodeId, timestamp)
+	cantx, err := node.buildNodeRemoveTransaction(s.NodeId, timestamp, tx)
 	if err != nil {
 		return err
 	}
@@ -469,6 +472,9 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	copy(signerSpend[:], tx.Extra)
 	offset := timestamp + uint64(config.KernelNodePledgePeriodMinimum)
 	for _, cn := range node.NodesListWithoutState(offset, false) {
+		if cn.Transaction == tx.PayloadHash() {
+			continue
+		}
 		if timestamp < cn.Timestamp {
 			return fmt.Errorf("invalid snapshot timestamp %d %d", cn.Timestamp, timestamp)
 		}

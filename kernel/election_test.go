@@ -26,19 +26,19 @@ func TestNodeRemovePossibility(t *testing.T) {
 
 	now, err := time.Parse(time.RFC3339, "2020-02-09T00:00:00Z")
 	assert.Nil(err)
-	candi, err := node.checkRemovePossibility(node.IdForNetwork, uint64(now.UnixNano()))
+	candi, err := node.checkRemovePossibility(node.IdForNetwork, uint64(now.UnixNano()), nil)
 	assert.Nil(candi)
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid node remove hour")
 
 	now, err = time.Parse(time.RFC3339, "2020-02-09T17:00:00Z")
 	assert.Nil(err)
-	candi, err = node.checkRemovePossibility(node.IdForNetwork, uint64(now.UnixNano()))
+	candi, err = node.checkRemovePossibility(node.IdForNetwork, uint64(now.UnixNano()), nil)
 	assert.Nil(err)
 	assert.NotNil(candi)
 	assert.Equal("028d97996a0b78f48e43f90e82137dbca60199519453a8fbf6e04b1e4d11efc9", candi.IdForNetwork.String())
 
-	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, uint64(now.UnixNano()))
+	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, uint64(now.UnixNano()), nil)
 	assert.Nil(err)
 	assert.NotNil(tx)
 	assert.Equal("d5af53561d99eb52af2b98b57d3fb0cc8ae4c6449ec6c89d8427201051a947a2", tx.PayloadHash().String())
