@@ -69,10 +69,10 @@ func NewQuicClient(addr string) (*QuicTransport, error) {
 
 func (t *QuicTransport) Dial(ctx context.Context) (Client, error) {
 	sess, err := quic.DialAddr(t.addr, t.tls, &quic.Config{
-		MaxIncomingStreams: MaxIncomingStreams,
-		HandshakeTimeout:   HandshakeTimeout,
-		MaxIdleTimeout:     IdleTimeout,
-		KeepAlive:          true,
+		MaxIncomingStreams:   MaxIncomingStreams,
+		HandshakeIdleTimeout: HandshakeTimeout,
+		MaxIdleTimeout:       IdleTimeout,
+		KeepAlive:            true,
 	})
 	if err != nil {
 		return nil, err
@@ -99,10 +99,10 @@ func (t *QuicTransport) Dial(ctx context.Context) (Client, error) {
 
 func (t *QuicTransport) Listen() error {
 	l, err := quic.ListenAddr(t.addr, t.tls, &quic.Config{
-		MaxIncomingStreams: MaxIncomingStreams,
-		HandshakeTimeout:   HandshakeTimeout,
-		MaxIdleTimeout:     IdleTimeout,
-		KeepAlive:          true,
+		MaxIncomingStreams:   MaxIncomingStreams,
+		HandshakeIdleTimeout: HandshakeTimeout,
+		MaxIdleTimeout:       IdleTimeout,
+		KeepAlive:            true,
 	})
 	if err != nil {
 		return err
