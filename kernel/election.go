@@ -101,9 +101,11 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64, old *co
 		return nil, fmt.Errorf("invalid node remove hour %d", hours%24)
 	}
 
+	var candi *CNode
 	var accepted []*CNode
 	for _, cn := range node.NodesListWithoutState(now, false) {
 		if old != nil && cn.Transaction == old.PayloadHash() {
+			candi = cn
 			continue
 		}
 		if now < cn.Timestamp {
@@ -125,7 +127,9 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64, old *co
 	if len(accepted) <= config.KernelMinimumNodesCount {
 		return nil, fmt.Errorf("all old nodes removed %d", len(accepted))
 	}
-	candi := accepted[0]
+	if candi == nil {
+		candi = accepted[0]
+	}
 	if candi.IdForNetwork == nodeId {
 		return nil, fmt.Errorf("never handle the node remove transaction by the node self")
 	}
@@ -136,6 +140,9 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 	candi, err := node.checkRemovePossibility(nodeId, timestamp, old)
 	if err != nil {
 		return nil, err
+	}
+	if old != nil && candi.Transaction == old.PayloadHash() {
+		return old, nil
 	}
 
 	accept, _, err := node.persistStore.ReadTransaction(candi.Transaction)
