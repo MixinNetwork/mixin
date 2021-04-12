@@ -5,6 +5,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
+	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dogecoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
@@ -54,6 +55,8 @@ func (a *Asset) Verify() error {
 		return tron.VerifyAssetKey(a.AssetKey)
 	case mobilecoin.MobileCoinChainId:
 		return mobilecoin.VerifyAssetKey(a.AssetKey)
+	case cosmos.CosmosChainId:
+		return cosmos.VerifyAssetKey(a.AssetKey)
 	default:
 		return fmt.Errorf("invalid chain id %s", a.ChainId)
 	}
@@ -83,6 +86,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return tron.GenerateAssetId(a.AssetKey)
 	case mobilecoin.MobileCoinChainId:
 		return mobilecoin.GenerateAssetId(a.AssetKey)
+	case cosmos.CosmosChainId:
+		return cosmos.GenerateAssetId(a.AssetKey)
 	default:
 		return crypto.Hash{}
 	}
@@ -112,6 +117,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return tron.TronChainId
 	case mobilecoin.MobileCoinChainId:
 		return mobilecoin.MobileCoinChainId
+	case cosmos.CosmosChainId:
+		return cosmos.CosmosChainId
 	}
 	return crypto.Hash{}
 }
