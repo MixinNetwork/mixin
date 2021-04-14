@@ -38,7 +38,7 @@ func CosiAggregateCommitment(randoms map[int]*Key) (*CosiSignature, error) {
 			return nil, err
 		}
 		P = P.Add(P, p)
-		err = cosi.Mark(i)
+		err = cosi.mark(i)
 		if err != nil {
 			return nil, err
 		}
@@ -94,7 +94,7 @@ func (c *CosiSignature) AggregateResponse(publics []*Key, responses map[int]*[32
 func (c *CosiSignature) Challenge(publics []*Key, message []byte) (*edwards25519.Scalar, error) {
 	var hramDigest [64]byte
 	R := c.Signature[:32]
-	A, err := c.AggregatePublicKey(publics)
+	A, err := c.aggregatePublicKey(publics)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +154,7 @@ func (c *CosiSignature) VerifyResponse(publics []*Key, signer int, s *[32]byte, 
 	return nil
 }
 
-func (c *CosiSignature) Mark(i int) error {
+func (c *CosiSignature) mark(i int) error {
 	if i >= 64 || i < 0 {
 		return fmt.Errorf("invalid cosi signature mask index %d", i)
 	}
@@ -173,7 +173,7 @@ func (c *CosiSignature) Keys() []int {
 	return keys
 }
 
-func (c *CosiSignature) AggregatePublicKey(publics []*Key) (*Key, error) {
+func (c *CosiSignature) aggregatePublicKey(publics []*Key) (*Key, error) {
 	P := edwards25519.NewIdentityPoint()
 	for _, i := range c.Keys() {
 		if i >= len(publics) {
@@ -198,9 +198,9 @@ func (c *CosiSignature) FullVerify(publics []*Key, threshold int, message []byte
 	if !c.ThresholdVerify(threshold) {
 		return fmt.Errorf("cosi.FullVerify publics %d threshold %d keys %d", len(publics), threshold, len(c.Keys()))
 	}
-	A, err := c.AggregatePublicKey(publics)
+	A, err := c.aggregatePublicKey(publics)
 	if err != nil {
-		return fmt.Errorf("cosi.FullVerify AggregatePublicKey %s", err.Error())
+		return fmt.Errorf("cosi.FullVerify aggregatePublicKey %s", err.Error())
 	}
 	if !A.Verify(message, c.Signature) {
 		return fmt.Errorf("cosi.FullVerify signature verify failed")

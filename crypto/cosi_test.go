@@ -78,7 +78,7 @@ func TestCosi(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal("81a085ca768adc4901b5484ecc3cdbb4eee68307f78cd5ea041d7d4425496bd142d036ee5382af36ba979ddbaaf7023f5e59cb79d884642a7b1cf662adedb7040000000000fffc7f", cosi.String())
 
-	A, err := cosi.AggregatePublicKey(publics)
+	A, err := cosi.aggregatePublicKey(publics)
 	assert.Nil(err)
 	assert.Equal("b5b493bbce28209e2c24030db057554ee3d683235011ccfb21b7e615c74d937f", A.String())
 	valid := A.Verify(message, cosi.Signature)
