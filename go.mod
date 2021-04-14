@@ -8,6 +8,7 @@ require (
 	filippo.io/edwards25519 v1.0.0-beta.3
 	github.com/MixinNetwork/mobilecoin-go v0.0.0-20210408103719-8a747265ebc6
 	github.com/VictoriaMetrics/fastcache v1.5.8
+	github.com/binance-chain/go-sdk v1.2.6
 	github.com/btcsuite/btcd v0.21.0-beta
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cornelk/hashmap v1.0.1

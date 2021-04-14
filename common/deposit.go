@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dogecoin"
@@ -86,6 +87,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return mobilecoin.VerifyTransactionHash(deposit.TransactionHash)
 	case cosmos.CosmosChainId:
 		return cosmos.VerifyTransactionHash(deposit.TransactionHash)
+	case binance.BinanceChainId:
+		return binance.VerifyTransactionHash(deposit.TransactionHash)
 	}
 	return fmt.Errorf("invalid deposit chain id %s", chainId)
 }
