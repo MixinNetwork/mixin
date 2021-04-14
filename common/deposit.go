@@ -6,6 +6,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
+	bitcoinCash "github.com/MixinNetwork/mixin/domains/bitcoin-cash"
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dogecoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
@@ -73,6 +74,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return horizen.VerifyTransactionHash(deposit.TransactionHash)
 	case dogecoin.DogecoinChainId:
 		return dogecoin.VerifyTransactionHash(deposit.TransactionHash)
+	case bitcoinCash.BitcoinCashChainId:
+		return bitcoinCash.VerifyTransactionHash(deposit.TransactionHash)
 	case siacoin.SiacoinChainId:
 		return siacoin.VerifyTransactionHash(deposit.TransactionHash)
 	case polkadot.PolkadotChainId:

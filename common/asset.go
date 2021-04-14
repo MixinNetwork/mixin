@@ -6,6 +6,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
+	bitcoinCash "github.com/MixinNetwork/mixin/domains/bitcoin-cash"
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dogecoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
@@ -47,6 +48,8 @@ func (a *Asset) Verify() error {
 		return horizen.VerifyAssetKey(a.AssetKey)
 	case dogecoin.DogecoinChainId:
 		return dogecoin.VerifyAssetKey(a.AssetKey)
+	case bitcoinCash.BitcoinCashChainId:
+		return bitcoinCash.VerifyAssetKey(a.AssetKey)
 	case siacoin.SiacoinChainId:
 		return siacoin.VerifyAssetKey(a.AssetKey)
 	case polkadot.PolkadotChainId:
@@ -82,6 +85,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return horizen.GenerateAssetId(a.AssetKey)
 	case dogecoin.DogecoinChainId:
 		return dogecoin.GenerateAssetId(a.AssetKey)
+	case bitcoinCash.BitcoinCashChainId:
+		return bitcoinCash.GenerateAssetId(a.AssetKey)
 	case siacoin.SiacoinChainId:
 		return siacoin.GenerateAssetId(a.AssetKey)
 	case polkadot.PolkadotChainId:
@@ -117,6 +122,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return horizen.HorizenChainId
 	case dogecoin.DogecoinChainId:
 		return dogecoin.DogecoinChainId
+	case bitcoinCash.BitcoinCashChainId:
+		return bitcoinCash.BitcoinCashChainId
 	case siacoin.SiacoinChainId:
 		return siacoin.SiacoinChainId
 	case polkadot.PolkadotChainId:

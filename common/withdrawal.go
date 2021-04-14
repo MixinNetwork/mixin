@@ -7,6 +7,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
+	bitcoinCash "github.com/MixinNetwork/mixin/domains/bitcoin-cash"
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dogecoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
@@ -88,6 +89,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return horizen.VerifyAddress(submit.Withdrawal.Address)
 	case dogecoin.DogecoinChainId:
 		return dogecoin.VerifyAddress(submit.Withdrawal.Address)
+	case bitcoinCash.BitcoinCashChainId:
+		return bitcoinCash.VerifyAddress(submit.Withdrawal.Address)
 	case siacoin.SiacoinChainId:
 		return siacoin.VerifyAddress(submit.Withdrawal.Address)
 	case polkadot.PolkadotChainId:
