@@ -13,6 +13,7 @@ require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cornelk/hashmap v1.0.1
 	github.com/cpacia/bchutil v0.0.0-20181003130114-b126f6a35b6c
+	github.com/decred/dcrd/dcrutil v1.4.0
 	github.com/dgraph-io/badger/v2 v2.2007.2
 	github.com/dimfeld/httptreemux v5.0.1+incompatible
 	github.com/dsnet/compress v0.0.1 // indirect
