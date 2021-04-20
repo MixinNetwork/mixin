@@ -14,6 +14,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"github.com/MixinNetwork/mixin/domains/filecoin"
+	"github.com/MixinNetwork/mixin/domains/handshake"
 	"github.com/MixinNetwork/mixin/domains/horizen"
 	"github.com/MixinNetwork/mixin/domains/kusama"
 	"github.com/MixinNetwork/mixin/domains/mobilecoin"
@@ -83,6 +84,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return decred.VerifyTransactionHash(deposit.TransactionHash)
 	case bitcoinCash.BitcoinCashChainId:
 		return bitcoinCash.VerifyTransactionHash(deposit.TransactionHash)
+	case handshake.HandshakenChainId:
+		return handshake.VerifyTransactionHash(deposit.TransactionHash)
 	case siacoin.SiacoinChainId:
 		return siacoin.VerifyTransactionHash(deposit.TransactionHash)
 	case filecoin.FilecoinChainId:

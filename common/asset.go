@@ -14,6 +14,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"github.com/MixinNetwork/mixin/domains/filecoin"
+	"github.com/MixinNetwork/mixin/domains/handshake"
 	"github.com/MixinNetwork/mixin/domains/horizen"
 	"github.com/MixinNetwork/mixin/domains/kusama"
 	"github.com/MixinNetwork/mixin/domains/mobilecoin"
@@ -57,6 +58,8 @@ func (a *Asset) Verify() error {
 		return decred.VerifyAssetKey(a.AssetKey)
 	case bitcoinCash.BitcoinCashChainId:
 		return bitcoinCash.VerifyAssetKey(a.AssetKey)
+	case handshake.HandshakenChainId:
+		return handshake.VerifyAssetKey(a.AssetKey)
 	case siacoin.SiacoinChainId:
 		return siacoin.VerifyAssetKey(a.AssetKey)
 	case filecoin.FilecoinChainId:
@@ -100,6 +103,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return decred.GenerateAssetId(a.AssetKey)
 	case bitcoinCash.BitcoinCashChainId:
 		return bitcoinCash.GenerateAssetId(a.AssetKey)
+	case handshake.HandshakenChainId:
+		return handshake.GenerateAssetId(a.AssetKey)
 	case siacoin.SiacoinChainId:
 		return siacoin.GenerateAssetId(a.AssetKey)
 	case filecoin.FilecoinChainId:
@@ -143,6 +148,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return decred.DecredChainId
 	case bitcoinCash.BitcoinCashChainId:
 		return bitcoinCash.BitcoinCashChainId
+	case handshake.HandshakenChainId:
+		return handshake.HandshakenChainId
 	case siacoin.SiacoinChainId:
 		return siacoin.SiacoinChainId
 	case filecoin.FilecoinChainId:
