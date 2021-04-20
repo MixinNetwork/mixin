@@ -19,10 +19,13 @@ require (
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/ebfe/keccak v0.0.0-20150115210727-5cc570678d1b // indirect
 	github.com/ethereum/go-ethereum v1.10.2
+	github.com/filecoin-project/go-address v0.0.5
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/gorilla/handlers v1.5.1
+	github.com/ipfs/go-cid v0.0.6
 	github.com/lucas-clemente/quic-go v0.20.1
 	github.com/mholt/archiver v3.1.1+incompatible
+	github.com/multiformats/go-multihash v0.0.13
 	github.com/nwaples/rardecode v1.1.0 // indirect
 	github.com/paxosglobal/moneroutil v0.0.0-20170611151923-33d7e0c11a62
 	github.com/pelletier/go-toml v1.9.0

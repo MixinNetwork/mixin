@@ -14,6 +14,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/dogecoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
+	"github.com/MixinNetwork/mixin/domains/filecoin"
 	"github.com/MixinNetwork/mixin/domains/horizen"
 	"github.com/MixinNetwork/mixin/domains/kusama"
 	"github.com/MixinNetwork/mixin/domains/mobilecoin"
@@ -99,6 +100,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return bitcoinCash.VerifyAddress(submit.Withdrawal.Address)
 	case siacoin.SiacoinChainId:
 		return siacoin.VerifyAddress(submit.Withdrawal.Address)
+	case filecoin.FilecoinChainId:
+		return filecoin.VerifyAddress(submit.Withdrawal.Address)
 	case polkadot.PolkadotChainId:
 		return polkadot.VerifyAddress(submit.Withdrawal.Address)
 	case kusama.KusamaChainId:
