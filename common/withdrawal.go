@@ -5,9 +5,9 @@ import (
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/domains/bch"
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
-	bitcoinCash "github.com/MixinNetwork/mixin/domains/bitcoin-cash"
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dash"
 	"github.com/MixinNetwork/mixin/domains/decred"
@@ -98,8 +98,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return dash.VerifyAddress(submit.Withdrawal.Address)
 	case decred.DecredChainId:
 		return decred.VerifyAddress(submit.Withdrawal.Address)
-	case bitcoinCash.BitcoinCashChainId:
-		return bitcoinCash.VerifyAddress(submit.Withdrawal.Address)
+	case bch.BitcoinCashChainId:
+		return bch.VerifyAddress(submit.Withdrawal.Address)
 	case handshake.HandshakenChainId:
 		return handshake.VerifyAddress(submit.Withdrawal.Address)
 	case siacoin.SiacoinChainId:

@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/domains/bch"
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
-	bitcoinCash "github.com/MixinNetwork/mixin/domains/bitcoin-cash"
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dash"
 	"github.com/MixinNetwork/mixin/domains/decred"
@@ -57,8 +57,8 @@ func (a *Asset) Verify() error {
 		return dash.VerifyAssetKey(a.AssetKey)
 	case decred.DecredChainId:
 		return decred.VerifyAssetKey(a.AssetKey)
-	case bitcoinCash.BitcoinCashChainId:
-		return bitcoinCash.VerifyAssetKey(a.AssetKey)
+	case bch.BitcoinCashChainId:
+		return bch.VerifyAssetKey(a.AssetKey)
 	case handshake.HandshakenChainId:
 		return handshake.VerifyAssetKey(a.AssetKey)
 	case siacoin.SiacoinChainId:
@@ -104,8 +104,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return dash.GenerateAssetId(a.AssetKey)
 	case decred.DecredChainId:
 		return decred.GenerateAssetId(a.AssetKey)
-	case bitcoinCash.BitcoinCashChainId:
-		return bitcoinCash.GenerateAssetId(a.AssetKey)
+	case bch.BitcoinCashChainId:
+		return bch.GenerateAssetId(a.AssetKey)
 	case handshake.HandshakenChainId:
 		return handshake.GenerateAssetId(a.AssetKey)
 	case siacoin.SiacoinChainId:
@@ -151,8 +151,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return dash.DashChainId
 	case decred.DecredChainId:
 		return decred.DecredChainId
-	case bitcoinCash.BitcoinCashChainId:
-		return bitcoinCash.BitcoinCashChainId
+	case bch.BitcoinCashChainId:
+		return bch.BitcoinCashChainId
 	case handshake.HandshakenChainId:
 		return handshake.HandshakenChainId
 	case siacoin.SiacoinChainId:
