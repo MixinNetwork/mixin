@@ -12,7 +12,7 @@ func TestValidation(t *testing.T) {
 	assert := assert.New(t)
 
 	sol := "11111111111111111111111111111111"
-	tx := "66xB9R354Bre7RpGEbQ7CPFxDioyQ1ejrMJhSa2jW1DQzhhoaS3SUiEmQxx3nzqHv1yUW7kkSiVcTtL7vdn34o6o"
+	tx := "rhz84aQJvQaYquFuDuyHVUHq8kZBjHrsmFDHRM2r87rjygCNBk6F9GtCfiLL31juDM4YptXHMyVXbcnupELcu1N"
 	addrMain := "GuscxHWgjxoMTokbW5bmt54WnHAVEtyE3RCVXgxdZjnG"
 
 	assert.Nil(VerifyAssetKey(sol))
@@ -20,7 +20,7 @@ func TestValidation(t *testing.T) {
 	assert.NotNil(VerifyAssetKey(addrMain))
 
 	assert.Nil(VerifyAddress(addrMain))
-	assert.NotNil(VerifyAddress(sol))
+	assert.Nil(VerifyAddress(sol))
 	assert.NotNil(VerifyAddress(addrMain[1:]))
 	assert.NotNil(VerifyAddress(strings.ToUpper(addrMain)))
 

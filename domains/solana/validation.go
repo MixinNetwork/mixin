@@ -29,11 +29,13 @@ func VerifyAddress(address string) error {
 	if strings.TrimSpace(address) != address {
 		return fmt.Errorf("invalid solana address %s", address)
 	}
-	if len(address) != 44 {
-		return fmt.Errorf("invalid solana address %s", address)
-	}
 	pub := base58.Decode(address)
 	if len(pub) != 32 {
+		return fmt.Errorf("invalid solana address %s", address)
+	}
+	var k crypto.Key
+	copy(k[:], pub)
+	if !k.CheckKey() {
 		return fmt.Errorf("invalid solana address %s", address)
 	}
 	addr := base58.Encode(pub)
@@ -44,11 +46,12 @@ func VerifyAddress(address string) error {
 }
 
 func VerifyTransactionHash(hash string) error {
-	if len(hash) != 88 {
-		return fmt.Errorf("invalid solana transaction hash %s", hash)
-	}
 	h := base58.Decode(hash)
 	if len(h) != 64 {
+		return fmt.Errorf("invalid solana transaction hash %s", hash)
+	}
+	hs := base58.Encode(h)
+	if hs != hash {
 		return fmt.Errorf("invalid solana transaction hash %s", hash)
 	}
 	return nil
