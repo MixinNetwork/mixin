@@ -27,14 +27,14 @@ func VerifyAssetKey(assetKey string) error {
 	if assetKey == TronChainBase {
 		return nil
 	}
+	if strings.TrimSpace(assetKey) != assetKey {
+		return fmt.Errorf("invalid tron asset key %s", assetKey)
+	}
 	if len(assetKey) == 7 {
 		if _, err := strconv.Atoi(assetKey); err != nil {
 			return fmt.Errorf("invalid tron asset key %s", assetKey)
 		}
 		return nil
-	}
-	if len(assetKey) != 34 {
-		return fmt.Errorf("invalid tron asset key %s", assetKey)
 	}
 	if !strings.HasPrefix(assetKey, "T") {
 		return fmt.Errorf("invalid tron asset key %s", assetKey)
@@ -50,7 +50,7 @@ func VerifyAssetKey(assetKey string) error {
 }
 
 func VerifyAddress(address string) error {
-	if len(address) != 34 {
+	if strings.TrimSpace(address) != address {
 		return fmt.Errorf("invalid tron address %s", address)
 	}
 	if !strings.HasPrefix(address, "T") {
@@ -110,6 +110,9 @@ func formatAddress(to string) (string, error) {
 	}
 	if version != 0x41 {
 		return "", fmt.Errorf("invalid tron address version %d", version)
+	}
+	if len(result) != 20 {
+		return "", fmt.Errorf("invalid tron address length %d", len(result))
 	}
 	return base58.CheckEncode(result, version), nil
 }
