@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/domains/arweave"
 	"github.com/MixinNetwork/mixin/domains/bch"
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
@@ -81,6 +82,8 @@ func (a *Asset) Verify() error {
 		return cosmos.VerifyAssetKey(a.AssetKey)
 	case binance.BinanceChainId:
 		return binance.VerifyAssetKey(a.AssetKey)
+	case arweave.ArweaveChainId:
+		return arweave.VerifyAssetKey(a.AssetKey)
 	default:
 		return fmt.Errorf("invalid chain id %s", a.ChainId)
 	}
@@ -128,6 +131,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return cosmos.GenerateAssetId(a.AssetKey)
 	case binance.BinanceChainId:
 		return binance.GenerateAssetId(a.AssetKey)
+	case arweave.ArweaveChainId:
+		return arweave.GenerateAssetId(a.AssetKey)
 	default:
 		return crypto.Hash{}
 	}
@@ -175,6 +180,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return cosmos.CosmosChainId
 	case binance.BinanceChainId:
 		return binance.BinanceChainId
+	case arweave.ArweaveChainId:
+		return arweave.ArweaveChainId
 	}
 	return crypto.Hash{}
 }

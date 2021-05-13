@@ -5,6 +5,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/domains/arweave"
 	"github.com/MixinNetwork/mixin/domains/bch"
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
@@ -122,6 +123,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return cosmos.VerifyAddress(submit.Withdrawal.Address)
 	case binance.BinanceChainId:
 		return binance.VerifyAddress(submit.Withdrawal.Address)
+	case arweave.ArweaveChainId:
+		return arweave.VerifyAddress(submit.Withdrawal.Address)
 	}
 	return fmt.Errorf("invalid withdrawal chain id %s", chainId)
 }
