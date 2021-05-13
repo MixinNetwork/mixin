@@ -14,6 +14,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/decred"
 	"github.com/MixinNetwork/mixin/domains/dogecoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
+	"github.com/MixinNetwork/mixin/domains/etc"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"github.com/MixinNetwork/mixin/domains/filecoin"
 	"github.com/MixinNetwork/mixin/domains/handshake"
@@ -45,6 +46,8 @@ func (a *Asset) Verify() error {
 	switch a.ChainId {
 	case ethereum.EthereumChainId:
 		return ethereum.VerifyAssetKey(a.AssetKey)
+	case etc.EthereumClassicChainId:
+		return etc.VerifyAssetKey(a.AssetKey)
 	case bitcoin.BitcoinChainId:
 		return bitcoin.VerifyAssetKey(a.AssetKey)
 	case monero.MoneroChainId:
@@ -96,6 +99,8 @@ func (a *Asset) AssetId() crypto.Hash {
 	switch a.ChainId {
 	case ethereum.EthereumChainId:
 		return ethereum.GenerateAssetId(a.AssetKey)
+	case etc.EthereumClassicChainId:
+		return etc.GenerateAssetId(a.AssetKey)
 	case bitcoin.BitcoinChainId:
 		return bitcoin.GenerateAssetId(a.AssetKey)
 	case monero.MoneroChainId:
@@ -147,6 +152,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 	switch a.ChainId {
 	case ethereum.EthereumChainId:
 		return ethereum.EthereumChainId
+	case etc.EthereumClassicChainId:
+		return etc.EthereumClassicChainId
 	case bitcoin.BitcoinChainId:
 		return bitcoin.BitcoinChainId
 	case monero.MoneroChainId:

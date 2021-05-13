@@ -15,6 +15,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/decred"
 	"github.com/MixinNetwork/mixin/domains/dogecoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
+	"github.com/MixinNetwork/mixin/domains/etc"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"github.com/MixinNetwork/mixin/domains/filecoin"
 	"github.com/MixinNetwork/mixin/domains/handshake"
@@ -86,6 +87,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 	switch chainId {
 	case ethereum.EthereumChainId:
 		return ethereum.VerifyAddress(submit.Withdrawal.Address)
+	case etc.EthereumClassicChainId:
+		return etc.VerifyAddress(submit.Withdrawal.Address)
 	case bitcoin.BitcoinChainId:
 		return bitcoin.VerifyAddress(submit.Withdrawal.Address)
 	case monero.MoneroChainId:

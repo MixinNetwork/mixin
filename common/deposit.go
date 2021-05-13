@@ -14,6 +14,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/decred"
 	"github.com/MixinNetwork/mixin/domains/dogecoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
+	"github.com/MixinNetwork/mixin/domains/etc"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"github.com/MixinNetwork/mixin/domains/filecoin"
 	"github.com/MixinNetwork/mixin/domains/handshake"
@@ -71,6 +72,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 	switch chainId {
 	case ethereum.EthereumChainId:
 		return ethereum.VerifyTransactionHash(deposit.TransactionHash)
+	case etc.EthereumClassicChainId:
+		return etc.VerifyTransactionHash(deposit.TransactionHash)
 	case bitcoin.BitcoinChainId:
 		return bitcoin.VerifyTransactionHash(deposit.TransactionHash)
 	case monero.MoneroChainId:
