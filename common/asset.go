@@ -23,6 +23,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/mobilecoin"
 	"github.com/MixinNetwork/mixin/domains/monero"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
+	"github.com/MixinNetwork/mixin/domains/ravencoin"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
 	"github.com/MixinNetwork/mixin/domains/solana"
 	"github.com/MixinNetwork/mixin/domains/tron"
@@ -58,6 +59,8 @@ func (a *Asset) Verify() error {
 		return horizen.VerifyAssetKey(a.AssetKey)
 	case dogecoin.DogecoinChainId:
 		return dogecoin.VerifyAssetKey(a.AssetKey)
+	case ravencoin.RavencoinChainId:
+		return ravencoin.VerifyAssetKey(a.AssetKey)
 	case dash.DashChainId:
 		return dash.VerifyAssetKey(a.AssetKey)
 	case decred.DecredChainId:
@@ -111,6 +114,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return horizen.GenerateAssetId(a.AssetKey)
 	case dogecoin.DogecoinChainId:
 		return dogecoin.GenerateAssetId(a.AssetKey)
+	case ravencoin.RavencoinChainId:
+		return ravencoin.GenerateAssetId(a.AssetKey)
 	case dash.DashChainId:
 		return dash.GenerateAssetId(a.AssetKey)
 	case decred.DecredChainId:
@@ -164,6 +169,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return horizen.HorizenChainId
 	case dogecoin.DogecoinChainId:
 		return dogecoin.DogecoinChainId
+	case ravencoin.RavencoinChainId:
+		return ravencoin.RavencoinChainId
 	case dash.DashChainId:
 		return dash.DashChainId
 	case decred.DecredChainId:
