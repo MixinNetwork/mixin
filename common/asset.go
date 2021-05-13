@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/bch"
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
+	"github.com/MixinNetwork/mixin/domains/bsv"
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dash"
 	"github.com/MixinNetwork/mixin/domains/decred"
@@ -60,6 +61,8 @@ func (a *Asset) Verify() error {
 		return decred.VerifyAssetKey(a.AssetKey)
 	case bch.BitcoinCashChainId:
 		return bch.VerifyAssetKey(a.AssetKey)
+	case bsv.BitcoinSVChainId:
+		return bsv.VerifyAssetKey(a.AssetKey)
 	case handshake.HandshakenChainId:
 		return handshake.VerifyAssetKey(a.AssetKey)
 	case siacoin.SiacoinChainId:
@@ -109,6 +112,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return decred.GenerateAssetId(a.AssetKey)
 	case bch.BitcoinCashChainId:
 		return bch.GenerateAssetId(a.AssetKey)
+	case bsv.BitcoinSVChainId:
+		return bsv.GenerateAssetId(a.AssetKey)
 	case handshake.HandshakenChainId:
 		return handshake.GenerateAssetId(a.AssetKey)
 	case siacoin.SiacoinChainId:
@@ -158,6 +163,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return decred.DecredChainId
 	case bch.BitcoinCashChainId:
 		return bch.BitcoinCashChainId
+	case bsv.BitcoinSVChainId:
+		return bsv.BitcoinSVChainId
 	case handshake.HandshakenChainId:
 		return handshake.HandshakenChainId
 	case siacoin.SiacoinChainId:

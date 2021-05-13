@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/bch"
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
+	"github.com/MixinNetwork/mixin/domains/bsv"
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dash"
 	"github.com/MixinNetwork/mixin/domains/decred"
@@ -86,6 +87,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return decred.VerifyTransactionHash(deposit.TransactionHash)
 	case bch.BitcoinCashChainId:
 		return bch.VerifyTransactionHash(deposit.TransactionHash)
+	case bsv.BitcoinSVChainId:
+		return bsv.VerifyTransactionHash(deposit.TransactionHash)
 	case handshake.HandshakenChainId:
 		return handshake.VerifyTransactionHash(deposit.TransactionHash)
 	case siacoin.SiacoinChainId:
