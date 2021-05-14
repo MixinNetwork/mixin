@@ -45,7 +45,7 @@ func VerifyAddress(address string) error {
 }
 
 func VerifyTransactionHash(hash string) error {
-	if len(hash) != 43 {
+	if strings.TrimSpace(hash) != hash {
 		return fmt.Errorf("invalid arweave transaction hash %s", hash)
 	}
 	decoded, err := base64.RawURLEncoding.DecodeString(hash)

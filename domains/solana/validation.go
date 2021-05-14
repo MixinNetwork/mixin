@@ -46,6 +46,9 @@ func VerifyAddress(address string) error {
 }
 
 func VerifyTransactionHash(hash string) error {
+	if strings.TrimSpace(hash) != hash {
+		return fmt.Errorf("invalid solana transaction hash %s", hash)
+	}
 	h := base58.Decode(hash)
 	if len(h) != 64 {
 		return fmt.Errorf("invalid solana transaction hash %s", hash)
