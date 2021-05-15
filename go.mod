@@ -18,7 +18,7 @@ require (
 	github.com/dimfeld/httptreemux v5.0.1+incompatible
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/ebfe/keccak v0.0.0-20150115210727-5cc570678d1b // indirect
-	github.com/ethereum/go-ethereum v1.10.2
+	github.com/ethereum/go-ethereum v1.10.3
 	github.com/filecoin-project/go-address v0.0.5
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/gorilla/handlers v1.5.1
@@ -28,11 +28,11 @@ require (
 	github.com/multiformats/go-multihash v0.0.15
 	github.com/nwaples/rardecode v1.1.0 // indirect
 	github.com/paxosglobal/moneroutil v0.0.0-20170611151923-33d7e0c11a62
-	github.com/pelletier/go-toml v1.9.0
+	github.com/pelletier/go-toml v1.9.1
 	github.com/shopspring/decimal v1.2.0
 	github.com/stretchr/testify v1.7.0
 	github.com/ulikunitz/xz v0.5.10 // indirect
-	github.com/unrolled/render v1.1.0
+	github.com/unrolled/render v1.2.0
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/valyala/gozstd v1.9.0
 	github.com/vmihailenco/msgpack/v4 v4.3.12
