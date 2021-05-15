@@ -23,6 +23,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/mobilecoin"
 	"github.com/MixinNetwork/mixin/domains/monero"
 	"github.com/MixinNetwork/mixin/domains/namecoin"
+	"github.com/MixinNetwork/mixin/domains/nervos"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/ravencoin"
 	"github.com/MixinNetwork/mixin/domains/ripple"
@@ -77,6 +78,8 @@ func (a *Asset) Verify() error {
 		return bsv.VerifyAssetKey(a.AssetKey)
 	case handshake.HandshakenChainId:
 		return handshake.VerifyAssetKey(a.AssetKey)
+	case nervos.NervosChainId:
+		return nervos.VerifyAssetKey(a.AssetKey)
 	case siacoin.SiacoinChainId:
 		return siacoin.VerifyAssetKey(a.AssetKey)
 	case filecoin.FilecoinChainId:
@@ -140,6 +143,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return bsv.GenerateAssetId(a.AssetKey)
 	case handshake.HandshakenChainId:
 		return handshake.GenerateAssetId(a.AssetKey)
+	case nervos.NervosChainId:
+		return nervos.GenerateAssetId(a.AssetKey)
 	case siacoin.SiacoinChainId:
 		return siacoin.GenerateAssetId(a.AssetKey)
 	case filecoin.FilecoinChainId:
@@ -203,6 +208,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return bsv.BitcoinSVChainId
 	case handshake.HandshakenChainId:
 		return handshake.HandshakenChainId
+	case nervos.NervosChainId:
+		return nervos.NervosChainId
 	case siacoin.SiacoinChainId:
 		return siacoin.SiacoinChainId
 	case filecoin.FilecoinChainId:

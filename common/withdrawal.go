@@ -24,6 +24,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/mobilecoin"
 	"github.com/MixinNetwork/mixin/domains/monero"
 	"github.com/MixinNetwork/mixin/domains/namecoin"
+	"github.com/MixinNetwork/mixin/domains/nervos"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/ravencoin"
 	"github.com/MixinNetwork/mixin/domains/ripple"
@@ -118,6 +119,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return bsv.VerifyAddress(submit.Withdrawal.Address)
 	case handshake.HandshakenChainId:
 		return handshake.VerifyAddress(submit.Withdrawal.Address)
+	case nervos.NervosChainId:
+		return nervos.VerifyAddress(submit.Withdrawal.Address)
 	case siacoin.SiacoinChainId:
 		return siacoin.VerifyAddress(submit.Withdrawal.Address)
 	case filecoin.FilecoinChainId:

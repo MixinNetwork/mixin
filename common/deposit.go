@@ -23,6 +23,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/mobilecoin"
 	"github.com/MixinNetwork/mixin/domains/monero"
 	"github.com/MixinNetwork/mixin/domains/namecoin"
+	"github.com/MixinNetwork/mixin/domains/nervos"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/ravencoin"
 	"github.com/MixinNetwork/mixin/domains/ripple"
@@ -103,6 +104,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return bsv.VerifyTransactionHash(deposit.TransactionHash)
 	case handshake.HandshakenChainId:
 		return handshake.VerifyTransactionHash(deposit.TransactionHash)
+	case nervos.NervosChainId:
+		return nervos.VerifyTransactionHash(deposit.TransactionHash)
 	case siacoin.SiacoinChainId:
 		return siacoin.VerifyTransactionHash(deposit.TransactionHash)
 	case filecoin.FilecoinChainId:
