@@ -29,6 +29,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/ripple"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
 	"github.com/MixinNetwork/mixin/domains/solana"
+	"github.com/MixinNetwork/mixin/domains/stellar"
 	"github.com/MixinNetwork/mixin/domains/tron"
 	"github.com/MixinNetwork/mixin/domains/zcash"
 )
@@ -128,6 +129,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return kusama.VerifyAddress(submit.Withdrawal.Address)
 	case ripple.RippleChainId:
 		return ripple.VerifyAddress(submit.Withdrawal.Address)
+	case stellar.StellarChainId:
+		return stellar.VerifyAddress(submit.Withdrawal.Address)
 	case eos.EOSChainId:
 		return eos.VerifyAddress(submit.Withdrawal.Address)
 	case tron.TronChainId:

@@ -31,6 +31,7 @@ require (
 	github.com/pelletier/go-toml v1.9.1
 	github.com/rubblelabs/ripple v0.0.0-20210505072502-507286b0fd28
 	github.com/shopspring/decimal v1.2.0
+	github.com/stellar/go v0.0.0-20210514162647-1dffd616d62c
 	github.com/stretchr/testify v1.7.0
 	github.com/ulikunitz/xz v0.5.10 // indirect
 	github.com/unrolled/render v1.2.0
