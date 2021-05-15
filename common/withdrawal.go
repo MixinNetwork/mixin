@@ -30,6 +30,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/siacoin"
 	"github.com/MixinNetwork/mixin/domains/solana"
 	"github.com/MixinNetwork/mixin/domains/stellar"
+	"github.com/MixinNetwork/mixin/domains/tezos"
 	"github.com/MixinNetwork/mixin/domains/tron"
 	"github.com/MixinNetwork/mixin/domains/zcash"
 )
@@ -131,6 +132,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return ripple.VerifyAddress(submit.Withdrawal.Address)
 	case stellar.StellarChainId:
 		return stellar.VerifyAddress(submit.Withdrawal.Address)
+	case tezos.TezosChainId:
+		return tezos.VerifyAddress(submit.Withdrawal.Address)
 	case eos.EOSChainId:
 		return eos.VerifyAddress(submit.Withdrawal.Address)
 	case tron.TronChainId:

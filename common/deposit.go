@@ -29,6 +29,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/siacoin"
 	"github.com/MixinNetwork/mixin/domains/solana"
 	"github.com/MixinNetwork/mixin/domains/stellar"
+	"github.com/MixinNetwork/mixin/domains/tezos"
 	"github.com/MixinNetwork/mixin/domains/tron"
 	"github.com/MixinNetwork/mixin/domains/zcash"
 )
@@ -116,6 +117,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return ripple.VerifyTransactionHash(deposit.TransactionHash)
 	case stellar.StellarChainId:
 		return stellar.VerifyTransactionHash(deposit.TransactionHash)
+	case tezos.TezosChainId:
+		return tezos.VerifyTransactionHash(deposit.TransactionHash)
 	case eos.EOSChainId:
 		return eos.VerifyTransactionHash(deposit.TransactionHash)
 	case tron.TronChainId:

@@ -29,6 +29,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/siacoin"
 	"github.com/MixinNetwork/mixin/domains/solana"
 	"github.com/MixinNetwork/mixin/domains/stellar"
+	"github.com/MixinNetwork/mixin/domains/tezos"
 	"github.com/MixinNetwork/mixin/domains/tron"
 	"github.com/MixinNetwork/mixin/domains/zcash"
 )
@@ -90,6 +91,8 @@ func (a *Asset) Verify() error {
 		return ripple.VerifyAddress(a.AssetKey)
 	case stellar.StellarChainId:
 		return stellar.VerifyAddress(a.AssetKey)
+	case tezos.TezosChainId:
+		return tezos.VerifyAddress(a.AssetKey)
 	case eos.EOSChainId:
 		return eos.VerifyAssetKey(a.AssetKey)
 	case tron.TronChainId:
@@ -151,6 +154,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return ripple.GenerateAssetId(a.AssetKey)
 	case stellar.StellarChainId:
 		return stellar.GenerateAssetId(a.AssetKey)
+	case tezos.TezosChainId:
+		return tezos.GenerateAssetId(a.AssetKey)
 	case eos.EOSChainId:
 		return eos.GenerateAssetId(a.AssetKey)
 	case tron.TronChainId:
@@ -212,6 +217,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return ripple.RippleChainId
 	case stellar.StellarChainId:
 		return stellar.StellarChainId
+	case tezos.TezosChainId:
+		return tezos.TezosChainId
 	case eos.EOSChainId:
 		return eos.EOSChainId
 	case tron.TronChainId:
