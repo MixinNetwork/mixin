@@ -25,6 +25,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/namecoin"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/ravencoin"
+	"github.com/MixinNetwork/mixin/domains/ripple"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
 	"github.com/MixinNetwork/mixin/domains/solana"
 	"github.com/MixinNetwork/mixin/domains/tron"
@@ -110,6 +111,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return polkadot.VerifyTransactionHash(deposit.TransactionHash)
 	case kusama.KusamaChainId:
 		return kusama.VerifyTransactionHash(deposit.TransactionHash)
+	case ripple.RippleChainId:
+		return ripple.VerifyTransactionHash(deposit.TransactionHash)
 	case eos.EOSChainId:
 		return eos.VerifyTransactionHash(deposit.TransactionHash)
 	case tron.TronChainId:

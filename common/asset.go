@@ -25,6 +25,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/namecoin"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/ravencoin"
+	"github.com/MixinNetwork/mixin/domains/ripple"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
 	"github.com/MixinNetwork/mixin/domains/solana"
 	"github.com/MixinNetwork/mixin/domains/tron"
@@ -84,6 +85,8 @@ func (a *Asset) Verify() error {
 		return polkadot.VerifyAssetKey(a.AssetKey)
 	case kusama.KusamaChainId:
 		return kusama.VerifyAddress(a.AssetKey)
+	case ripple.RippleChainId:
+		return ripple.VerifyAddress(a.AssetKey)
 	case eos.EOSChainId:
 		return eos.VerifyAssetKey(a.AssetKey)
 	case tron.TronChainId:
@@ -141,6 +144,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return polkadot.GenerateAssetId(a.AssetKey)
 	case kusama.KusamaChainId:
 		return kusama.GenerateAssetId(a.AssetKey)
+	case ripple.RippleChainId:
+		return ripple.GenerateAssetId(a.AssetKey)
 	case eos.EOSChainId:
 		return eos.GenerateAssetId(a.AssetKey)
 	case tron.TronChainId:
@@ -198,6 +203,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return polkadot.PolkadotChainId
 	case kusama.KusamaChainId:
 		return kusama.KusamaChainId
+	case ripple.RippleChainId:
+		return ripple.RippleChainId
 	case eos.EOSChainId:
 		return eos.EOSChainId
 	case tron.TronChainId:
