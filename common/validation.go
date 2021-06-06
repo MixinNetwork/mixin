@@ -25,6 +25,9 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 	if len(tx.Inputs) < 1 || len(tx.Outputs) < 1 {
 		return fmt.Errorf("invalid tx inputs or outputs %d %d", len(tx.Inputs), len(tx.Outputs))
 	}
+	if len(tx.Inputs) > SliceCountLimit || len(tx.Outputs) > SliceCountLimit {
+		return fmt.Errorf("invalid tx inputs or outputs %d %d", len(tx.Inputs), len(tx.Outputs))
+	}
 	if len(tx.Inputs) != len(tx.SignaturesMap) && txType != TransactionTypeNodeAccept && txType != TransactionTypeNodeRemove {
 		return fmt.Errorf("invalid tx signature number %d %d %d", len(tx.Inputs), len(tx.SignaturesMap), txType)
 	}
@@ -150,6 +153,9 @@ func (tx *Transaction) validateOutputs(store DataStore) (Integer, error) {
 	outputAmount := NewInteger(0)
 	outputsFilter := make(map[crypto.Key]bool)
 	for _, o := range tx.Outputs {
+		if len(o.Keys) > SliceCountLimit {
+			return outputAmount, fmt.Errorf("invalid output keys count %d", len(o.Keys))
+		}
 		if o.Amount.Sign() <= 0 {
 			return outputAmount, fmt.Errorf("invalid output amount %s", o.Amount.String())
 		}

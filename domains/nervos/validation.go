@@ -88,7 +88,6 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 }
 
 const (
-	personal                 = "ckb-default-hash"
 	ShortFormat         byte = 1
 	CodeHashSingleIndex byte = 0
 	PrefixMainNet            = "ckb"

@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	TxVersion      = 0x02
-	ExtraSizeLimit = 256
+	TxVersion       = 0x02
+	ExtraSizeLimit  = 256
+	SliceCountLimit = 256
 
 	OutputTypeScript             = 0x00
 	OutputTypeWithdrawalSubmit   = 0xa1
