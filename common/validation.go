@@ -92,6 +92,7 @@ func validateScriptTransaction(inputs map[string]*UTXO) error {
 func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash crypto.Hash, txType uint8) (map[string]*UTXO, Integer, error) {
 	inputAmount := NewInteger(0)
 	inputsFilter := make(map[string]*UTXO)
+	allKeys := make([]*crypto.Key, 0)
 	keySigs := make(map[*crypto.Key]*crypto.Signature)
 
 	for i, in := range tx.Inputs {
@@ -122,12 +123,13 @@ func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash cry
 			return inputsFilter, inputAmount, fmt.Errorf("input locked for transaction %s", utxo.LockHash)
 		}
 
-		err = validateUTXO(i, &utxo.UTXO, tx.SignaturesMap, msg, txType, keySigs)
+		err = validateUTXO(i, &utxo.UTXO, tx.SignaturesMap, tx.AggregatedSignature, msg, txType, keySigs)
 		if err != nil {
 			return inputsFilter, inputAmount, err
 		}
 		inputsFilter[fk] = &utxo.UTXO
 		inputAmount = inputAmount.Add(utxo.Amount)
+		allKeys = append(allKeys, utxo.Keys...)
 	}
 
 	if len(keySigs) == 0 && (txType == TransactionTypeNodeAccept || txType == TransactionTypeNodeRemove) {
@@ -136,15 +138,21 @@ func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash cry
 	if len(keySigs) < len(tx.Inputs) {
 		return inputsFilter, inputAmount, fmt.Errorf("batch verification not ready %d %d", len(tx.Inputs), len(keySigs))
 	}
-
-	var keys []*crypto.Key
-	var sigs []*crypto.Signature
-	for k, s := range keySigs {
-		keys = append(keys, k)
-		sigs = append(sigs, s)
-	}
-	if !crypto.BatchVerify(msg, keys, sigs) {
-		return inputsFilter, inputAmount, fmt.Errorf("batch verification failure %d %d", len(keys), len(sigs))
+	if as := tx.AggregatedSignature; as != nil {
+		err := crypto.AggregateVerify(&as.Signature, allKeys, as.Signers, msg)
+		if err != nil {
+			return inputsFilter, inputAmount, fmt.Errorf("aggregate verification failure %s", err)
+		}
+	} else {
+		var keys []*crypto.Key
+		var sigs []*crypto.Signature
+		for k, s := range keySigs {
+			keys = append(keys, k)
+			sigs = append(sigs, s)
+		}
+		if !crypto.BatchVerify(msg, keys, sigs) {
+			return inputsFilter, inputAmount, fmt.Errorf("batch verification failure %d %d", len(keys), len(sigs))
+		}
 	}
 	return inputsFilter, inputAmount, nil
 }
@@ -166,14 +174,14 @@ func (tx *Transaction) validateOutputs(store DataStore) (Integer, error) {
 		}
 
 		for _, k := range o.Keys {
-			if outputsFilter[k] {
+			if outputsFilter[*k] {
 				return outputAmount, fmt.Errorf("invalid output key %s", k.String())
 			}
-			outputsFilter[k] = true
+			outputsFilter[*k] = true
 			if !k.CheckKey() {
 				return outputAmount, fmt.Errorf("invalid output key format %s", k.String())
 			}
-			exist, err := store.CheckGhost(k)
+			exist, err := store.CheckGhost(*k)
 			if err != nil {
 				return outputAmount, err
 			} else if exist {
@@ -214,14 +222,14 @@ func (tx *Transaction) validateOutputs(store DataStore) (Integer, error) {
 	return outputAmount, nil
 }
 
-func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, msg []byte, txType uint8, keySigs map[*crypto.Key]*crypto.Signature) error {
+func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, as *AggregatedSignature, msg []byte, txType uint8, keySigs map[*crypto.Key]*crypto.Signature) error {
 	switch utxo.Type {
 	case OutputTypeScript, OutputTypeNodeRemove:
 		for i, sig := range sigs[index] {
 			if int(i) >= len(utxo.Keys) {
 				return fmt.Errorf("invalid signature map index %d %d", i, len(utxo.Keys))
 			}
-			keySigs[&utxo.Keys[i]] = sig
+			keySigs[utxo.Keys[i]] = sig
 		}
 		return utxo.Script.Validate(len(sigs[index]))
 	case OutputTypeNodePledge:

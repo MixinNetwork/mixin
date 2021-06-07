@@ -34,9 +34,9 @@ func TestAggregatedSignatureEncoding(t *testing.T) {
 	assert := assert.New(t)
 
 	for _, tp := range []struct {
-		Mask []int
-		Hex  string
-		Len  int
+		Signers []int
+		Hex     string
+		Len     int
 	}{
 		{
 			[]int{0, 1, 2, 10, 28, 1056, 65535},
@@ -59,7 +59,7 @@ func TestAggregatedSignatureEncoding(t *testing.T) {
 			88,
 		},
 	} {
-		js := &AggregatedSignature{Mask: tp.Mask}
+		js := &AggregatedSignature{Signers: tp.Signers}
 		enc := NewEncoder()
 		enc.EncodeAggregatedSignature(js)
 		jsb := enc.buf.Bytes()
@@ -75,6 +75,6 @@ func TestAggregatedSignatureEncoding(t *testing.T) {
 		assert.Equal(AggregatedSignaturePrefix, prefix)
 		djs, err := dec.ReadAggregatedSignature()
 		assert.Nil(err)
-		assert.Equal(js.Mask, djs.Mask)
+		assert.Equal(js.Signers, djs.Signers)
 	}
 }

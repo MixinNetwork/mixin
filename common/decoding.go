@@ -213,7 +213,7 @@ func (dec *Decoder) ReadOutput() (*Output, error) {
 		if err != nil {
 			return nil, err
 		}
-		o.Keys = append(o.Keys, k)
+		o.Keys = append(o.Keys, &k)
 	}
 
 	err = dec.Read(o.Mask[:])
@@ -399,7 +399,7 @@ func (dec *Decoder) ReadAggregatedSignature() (*AggregatedSignature, error) {
 			if err != nil {
 				return nil, err
 			}
-			js.Mask = append(js.Mask, m)
+			js.Signers = append(js.Signers, m)
 		}
 	case AggregatedSignatureOrdinayMask:
 		masks, err := dec.ReadBytes()
@@ -410,7 +410,7 @@ func (dec *Decoder) ReadAggregatedSignature() (*AggregatedSignature, error) {
 			for j := byte(0); j < 8; j++ {
 				k := byte(1) << j
 				if ctr&k == k {
-					js.Mask = append(js.Mask, i*8+int(j))
+					js.Signers = append(js.Signers, i*8+int(j))
 				}
 			}
 		}

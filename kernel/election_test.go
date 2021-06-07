@@ -61,7 +61,7 @@ func TestNodeRemovePossibility(t *testing.T) {
 	mask := tx.Outputs[0].Mask
 	ghost := tx.Outputs[0].Keys[0]
 	view := payee.PublicSpendKey.DeterministicHashDerive()
-	assert.Equal(payee.PublicSpendKey.String(), crypto.ViewGhostOutputKey(&ghost, &view, &mask, 0).String())
+	assert.Equal(payee.PublicSpendKey.String(), crypto.ViewGhostOutputKey(ghost, &view, &mask, 0).String())
 }
 
 var configData = []byte(`[node]

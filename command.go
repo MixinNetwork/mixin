@@ -514,7 +514,7 @@ func cancelNodeCmd(c *cli.Context) error {
 	if len(source.Outputs) != 1 || len(source.Outputs[0].Keys) != 1 {
 		return fmt.Errorf("invalid source transaction outputs %d %d", len(source.Outputs), len(source.Outputs[0].Keys))
 	}
-	pig := crypto.ViewGhostOutputKey(&source.Outputs[0].Keys[0], &viewKey, &source.Outputs[0].Mask, 0)
+	pig := crypto.ViewGhostOutputKey(source.Outputs[0].Keys[0], &viewKey, &source.Outputs[0].Mask, 0)
 	if pig.String() != receiver.PublicSpendKey.String() {
 		return fmt.Errorf("invalid source and receiver %s %s", pig.String(), receiver.PublicSpendKey)
 	}
@@ -865,13 +865,13 @@ type signerInput struct {
 			OutputIndex     uint64         `json:"index"`
 			Amount          common.Integer `json:"amount"`
 		} `json:"deposit,omitempty"`
-		Keys []crypto.Key `json:"keys"`
-		Mask crypto.Key   `json:"mask"`
+		Keys []*crypto.Key `json:"keys"`
+		Mask crypto.Key    `json:"mask"`
 	} `json:"inputs"`
 	Outputs []struct {
 		Type     uint8             `json:"type"`
 		Mask     crypto.Key        `json:"mask"`
-		Keys     []crypto.Key      `json:"keys"`
+		Keys     []*crypto.Key     `json:"keys"`
 		Amount   common.Integer    `json:"amount"`
 		Script   common.Script     `json:"script"`
 		Accounts []*common.Address `json:"accounts"`

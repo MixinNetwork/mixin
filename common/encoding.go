@@ -217,32 +217,32 @@ func (enc *Encoder) EncodeAggregatedSignature(js *AggregatedSignature) {
 	enc.WriteInt(MaximumEncodingInt)
 	enc.WriteInt(AggregatedSignaturePrefix)
 	enc.Write(js.Signature[:])
-	if len(js.Mask) == 0 {
+	if len(js.Signers) == 0 {
 		enc.WriteByte(AggregatedSignatureOrdinayMask)
 		enc.WriteInt(0)
 		return
 	}
-	for i, m := range js.Mask {
-		if i > 0 && m <= js.Mask[i-1] {
-			panic(js.Mask)
+	for i, m := range js.Signers {
+		if i > 0 && m <= js.Signers[i-1] {
+			panic(js.Signers)
 		}
 		if m > MaximumEncodingInt {
-			panic(js.Mask)
+			panic(js.Signers)
 		}
 	}
 
-	max := js.Mask[len(js.Mask)-1]
-	if max/8+1 > len(js.Mask)*2 {
+	max := js.Signers[len(js.Signers)-1]
+	if max/8+1 > len(js.Signers)*2 {
 		enc.WriteByte(AggregatedSignatureSparseMask)
-		enc.WriteInt(len(js.Mask))
-		for _, m := range js.Mask {
+		enc.WriteInt(len(js.Signers))
+		for _, m := range js.Signers {
 			enc.WriteInt(m)
 		}
 		return
 	}
 
 	masks := make([]byte, max/8+1)
-	for _, m := range js.Mask {
+	for _, m := range js.Signers {
 		masks[m/8] = masks[m/8] ^ (1 << (m % 8))
 	}
 	enc.WriteByte(AggregatedSignatureOrdinayMask)
@@ -251,6 +251,6 @@ func (enc *Encoder) EncodeAggregatedSignature(js *AggregatedSignature) {
 }
 
 type AggregatedSignature struct {
-	Mask      []int
+	Signers   []int
 	Signature crypto.Signature
 }

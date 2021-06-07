@@ -54,7 +54,7 @@ type Input struct {
 type Output struct {
 	Type       uint8
 	Amount     Integer
-	Keys       []crypto.Key
+	Keys       []*crypto.Key
 	Withdrawal *WithdrawalData `msgpack:",omitempty"`
 
 	// OutputTypeScript fields
@@ -92,8 +92,8 @@ func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {
 			Mask:   o.Mask,
 		}
 		for _, k := range o.Keys {
-			key := crypto.ViewGhostOutputKey(&k, a, &o.Mask, uint64(i))
-			out.Keys = append(out.Keys, *key)
+			key := crypto.ViewGhostOutputKey(k, a, &o.Mask, uint64(i))
+			out.Keys = append(out.Keys, key)
 		}
 		outputs = append(outputs, out)
 	}
@@ -254,7 +254,7 @@ func (tx *Transaction) AddOutputWithType(ot uint8, accounts []*Address, s Script
 		Type:   ot,
 		Amount: amount,
 		Script: s,
-		Keys:   make([]crypto.Key, 0),
+		Keys:   make([]*crypto.Key, 0),
 	}
 
 	if len(accounts) > 0 {
@@ -262,7 +262,7 @@ func (tx *Transaction) AddOutputWithType(ot uint8, accounts []*Address, s Script
 		out.Mask = r.Public()
 		for _, a := range accounts {
 			k := crypto.DeriveGhostPublicKey(&r, &a.PublicViewKey, &a.PublicSpendKey, uint64(len(tx.Outputs)))
-			out.Keys = append(out.Keys, *k)
+			out.Keys = append(out.Keys, k)
 		}
 	}
 

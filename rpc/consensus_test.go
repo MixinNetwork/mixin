@@ -1027,13 +1027,13 @@ type signerInput struct {
 			OutputIndex     uint64         `json:"index"`
 			Amount          common.Integer `json:"amount"`
 		} `json:"deposit,omitempty"`
-		Keys []crypto.Key `json:"keys"`
-		Mask crypto.Key   `json:"mask"`
+		Keys []*crypto.Key `json:"keys"`
+		Mask crypto.Key    `json:"mask"`
 	} `json:"inputs"`
 	Outputs []struct {
 		Type     uint8             `json:"type"`
 		Mask     crypto.Key        `json:"mask"`
-		Keys     []crypto.Key      `json:"keys"`
+		Keys     []*crypto.Key     `json:"keys"`
 		Amount   common.Integer    `json:"amount"`
 		Script   common.Script     `json:"script"`
 		Accounts []*common.Address `json:"accounts"`

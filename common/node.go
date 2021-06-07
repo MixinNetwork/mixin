@@ -148,8 +148,8 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs []ma
 	}
 	var a crypto.Key
 	copy(a[:], tx.Extra[len(crypto.Key{})*2:])
-	pledgeSpend := crypto.ViewGhostOutputKey(&pi.Keys[0], &a, &pi.Mask, uint64(lastPledge.Inputs[0].Index))
-	targetSpend := crypto.ViewGhostOutputKey(&script.Keys[0], &a, &script.Mask, 1)
+	pledgeSpend := crypto.ViewGhostOutputKey(pi.Keys[0], &a, &pi.Mask, uint64(lastPledge.Inputs[0].Index))
+	targetSpend := crypto.ViewGhostOutputKey(script.Keys[0], &a, &script.Mask, 1)
 	if !bytes.Equal(lastPledge.Extra, tx.Extra[:len(crypto.Key{})*2]) {
 		return fmt.Errorf("invalid pledge and cancel key %s %s", hex.EncodeToString(lastPledge.Extra), hex.EncodeToString(tx.Extra))
 	}

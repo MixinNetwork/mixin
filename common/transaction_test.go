@@ -191,7 +191,7 @@ func (store storeImpl) ReadUTXO(hash crypto.Hash, index int) (*UTXOWithLock, err
 
 	for i := 0; i <= index+1; i++ {
 		key := crypto.DeriveGhostPublicKey(&genesisMaskr, &store.accounts[i].PublicViewKey, &store.accounts[i].PublicSpendKey, uint64(index))
-		utxo.Keys = append(utxo.Keys, *key)
+		utxo.Keys = append(utxo.Keys, key)
 	}
 	return utxo, nil
 }

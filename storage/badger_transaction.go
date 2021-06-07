@@ -177,7 +177,7 @@ func finalizeTransaction(txn *badger.Txn, ver *common.VersionedTransaction, snap
 
 func writeUTXO(txn *badger.Txn, utxo *common.UTXO, extra []byte, timestamp uint64, genesis bool) error {
 	for _, k := range utxo.Keys {
-		key := graphGhostKey(k)
+		key := graphGhostKey(*k)
 
 		// FIXME assert kind checks, not needed at all
 		if config.Debug {
