@@ -57,7 +57,7 @@ func TestMsgpack(t *testing.T) {
 	signed.SignaturesMap = append(signed.SignaturesMap, sigs)
 	raw := MsgpackMarshalPanic(signed)
 
-	assert.Len(hex.EncodeToString(raw), 932)
+	assert.Len(hex.EncodeToString(raw), 772)
 
 	var dec SignedTransaction
 	err = MsgpackUnmarshal(raw, &dec)

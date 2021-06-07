@@ -160,6 +160,24 @@ func TestTransaction(t *testing.T) {
 	assert.Len(outputs, 2)
 	assert.NotEqual(outputs[1].Keys[1].String(), accounts[1].PublicSpendKey.String())
 	assert.NotEqual(outputs[1].Keys[1].String(), accounts[1].PublicViewKey.String())
+
+	ver.AggregatedSignature = &AggregatedSignature{}
+	err = ver.Validate(store)
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "invalid signatures map 2")
+	ver.SignaturesMap = nil
+	err = ver.Validate(store)
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "invalid signature keys 0 1")
+
+	aas := make([][]*Address, len(ver.Inputs))
+	for i := range ver.Inputs {
+		aas[i] = accounts[0 : i+1]
+	}
+	err = ver.AggregateSign(store, aas, seed)
+	assert.Nil(err)
+	err = ver.Validate(store)
+	assert.Nil(err)
 }
 
 type storeImpl struct {

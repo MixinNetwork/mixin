@@ -2,8 +2,11 @@ package common
 
 import (
 	"crypto/rand"
+	"crypto/sha512"
+	"encoding/binary"
 	"fmt"
 
+	"filippo.io/edwards25519"
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
@@ -73,7 +76,7 @@ type Transaction struct {
 type SignedTransaction struct {
 	Transaction
 	AggregatedSignature *AggregatedSignature           `msgpack:"-"`
-	SignaturesMap       []map[uint16]*crypto.Signature `msgpack:"Signatures"`
+	SignaturesMap       []map[uint16]*crypto.Signature `msgpack:"-"`
 	SignaturesSliceV1   [][]*crypto.Signature          `msgpack:"-"`
 }
 
@@ -231,6 +234,90 @@ func (signed *SignedTransaction) SignRaw(key crypto.Key) error {
 	sig := key.Sign(msg)
 	sigs := map[uint16]*crypto.Signature{0: &sig}
 	signed.SignaturesMap = append(signed.SignaturesMap, sigs)
+	return nil
+}
+
+func (signed *SignedTransaction) AggregateSign(reader UTXOReader, accounts [][]*Address, seed []byte) error {
+	var signers []int
+	var randoms []*crypto.Key
+	var pubKeys, privKeys []*crypto.Key
+	for index, in := range signed.Inputs {
+		utxo, err := reader.ReadUTXO(in.Hash, in.Index)
+		if err != nil {
+			return err
+		}
+		if utxo == nil {
+			return fmt.Errorf("input not found %s:%d", in.Hash.String(), in.Index)
+		}
+
+		keysFilter := make(map[string]int)
+		for i, k := range utxo.Keys {
+			keysFilter[k.String()] = i
+		}
+
+		for _, acc := range accounts[index] {
+			priv := crypto.DeriveGhostPrivateKey(&utxo.Mask, &acc.PrivateViewKey, &acc.PrivateSpendKey, uint64(in.Index))
+			i, found := keysFilter[priv.Public().String()]
+			if !found {
+				return fmt.Errorf("invalid key for the input %s", acc.String())
+			}
+			signers = append(signers, len(pubKeys)+i)
+			privKeys = append(privKeys, priv)
+		}
+		pubKeys = append(pubKeys, utxo.Keys...)
+	}
+
+	P := edwards25519.NewIdentityPoint()
+	A := edwards25519.NewIdentityPoint()
+	for _, m := range signers {
+		var buf [2]byte
+		pub := pubKeys[m]
+		binary.BigEndian.PutUint16(buf[:], uint16(m))
+		s := crypto.NewHash(append(seed, buf[:]...))
+		r := crypto.NewKeyFromSeed(append(s[:], s[:]...))
+		randoms = append(randoms, &r)
+		R := r.Public()
+
+		p, err := edwards25519.NewIdentityPoint().SetBytes(R[:])
+		if err != nil {
+			return err
+		}
+		P = P.Add(P, p)
+
+		a, err := edwards25519.NewIdentityPoint().SetBytes(pub[:])
+		if err != nil {
+			return err
+		}
+		A = A.Add(A, a)
+	}
+
+	var hramDigest [64]byte
+	msg := signed.AsLatestVersion().PayloadMarshal()
+	h := sha512.New()
+	h.Write(P.Bytes())
+	h.Write(A.Bytes())
+	h.Write(msg)
+	h.Sum(hramDigest[:0])
+	x := edwards25519.NewScalar().SetUniformBytes(hramDigest[:])
+
+	S := edwards25519.NewScalar()
+	for i, k := range privKeys {
+		y, err := edwards25519.NewScalar().SetCanonicalBytes(k[:])
+		if err != nil {
+			panic(k.String())
+		}
+		z, err := edwards25519.NewScalar().SetCanonicalBytes(randoms[i][:])
+		if err != nil {
+			panic(randoms[i].String())
+		}
+		s := edwards25519.NewScalar().MultiplyAdd(x, y, z)
+		S = S.Add(S, s)
+	}
+
+	as := &AggregatedSignature{Signers: signers}
+	copy(as.Signature[:32], P.Bytes())
+	copy(as.Signature[32:], S.Bytes())
+	signed.AggregatedSignature = as
 	return nil
 }
 
