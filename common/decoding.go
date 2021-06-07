@@ -69,12 +69,29 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	for ; sl > 0; sl -= 1 {
-		sm, err := dec.ReadSignatures()
+	if sl == MaximumEncodingInt {
+		prefix, err := dec.ReadInt()
 		if err != nil {
 			return nil, err
 		}
-		tx.SignaturesMap = append(tx.SignaturesMap, sm)
+		switch prefix {
+		case JointSignaturePrefix:
+			js, err := dec.ReadJointSignature()
+			if err != nil {
+				return nil, err
+			}
+			tx.JointSignature = js
+		default:
+			return nil, fmt.Errorf("invalid prefix %d", prefix)
+		}
+	} else {
+		for ; sl > 0; sl -= 1 {
+			sm, err := dec.ReadSignatures()
+			if err != nil {
+				return nil, err
+			}
+			tx.SignaturesMap = append(tx.SignaturesMap, sm)
+		}
 	}
 
 	es, err := dec.buf.ReadByte()
@@ -358,4 +375,47 @@ func (dec *Decoder) ReadMagic() (bool, error) {
 		return false, nil
 	}
 	return false, fmt.Errorf("malformed %v", b)
+}
+
+func (dec *Decoder) ReadJointSignature() (*JointSignature, error) {
+	var js JointSignature
+	err := dec.Read(js.Signature[:])
+	if err != nil {
+		return nil, err
+	}
+
+	typ, err := dec.buf.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+	switch typ {
+	case JointSignatureSparseMask:
+		l, err := dec.ReadInt()
+		if err != nil {
+			return nil, err
+		}
+		for ; l > 0; l-- {
+			m, err := dec.ReadInt()
+			if err != nil {
+				return nil, err
+			}
+			js.Mask = append(js.Mask, m)
+		}
+	case JointSignatureOrdinayMask:
+		masks, err := dec.ReadBytes()
+		if err != nil {
+			return nil, err
+		}
+		for i, ctr := range masks {
+			for j := byte(0); j < 8; j++ {
+				k := byte(1) << j
+				if ctr&k == k {
+					js.Mask = append(js.Mask, i*8+int(j))
+				}
+			}
+		}
+	default:
+		return nil, fmt.Errorf("invalid mask type %d", typ)
+	}
+	return &js, nil
 }

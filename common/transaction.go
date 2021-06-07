@@ -72,6 +72,7 @@ type Transaction struct {
 
 type SignedTransaction struct {
 	Transaction
+	JointSignature    *JointSignature                `msgpack:"-"`
 	SignaturesMap     []map[uint16]*crypto.Signature `msgpack:"Signatures"`
 	SignaturesSliceV1 [][]*crypto.Signature          `msgpack:"-"`
 }

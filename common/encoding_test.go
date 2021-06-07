@@ -29,3 +29,52 @@ func TestEncoding(t *testing.T) {
 	enc = hex.EncodeToString(signed.AsLatestVersion().PayloadMarshal())
 	assert.Equal(raw, enc)
 }
+
+func TestJointSignatureEncoding(t *testing.T) {
+	assert := assert.New(t)
+
+	for _, tp := range []struct {
+		Mask []int
+		Hex  string
+		Len  int
+	}{
+		{
+			[]int{0, 1, 2, 10, 28, 1056, 65535},
+			"ffffff0100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010007000000010002000a001c0420ffff",
+			85,
+		},
+		{
+			[]int{0, 1, 2, 10, 11, 12, 13, 14, 15, 16, 17, 28},
+			"ffffff010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000407fc0310",
+			75,
+		},
+		{
+			[]int{0, 1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 28, 29, 30, 31},
+			"ffffff01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000043ffc07f0",
+			75,
+		},
+		{
+			[]int{0, 1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 28, 29, 30, 128},
+			"ffffff01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000113ffc077000000000000000000000000001",
+			88,
+		},
+	} {
+		js := &JointSignature{Mask: tp.Mask}
+		enc := NewEncoder()
+		enc.EncodeJointSignature(js)
+		jsb := enc.buf.Bytes()
+		assert.Len(jsb, tp.Len)
+		assert.Equal(tp.Hex, hex.EncodeToString(jsb))
+
+		dec := NewDecoder(jsb)
+		jh, err := dec.ReadInt()
+		assert.Nil(err)
+		assert.Equal(MaximumEncodingInt, jh)
+		prefix, err := dec.ReadInt()
+		assert.Nil(err)
+		assert.Equal(JointSignaturePrefix, prefix)
+		djs, err := dec.ReadJointSignature()
+		assert.Nil(err)
+		assert.Equal(js.Mask, djs.Mask)
+	}
+}
