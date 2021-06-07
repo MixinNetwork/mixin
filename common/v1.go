@@ -36,7 +36,7 @@ func (signed *SignedTransaction) SignRawV1(key crypto.Key) error {
 	return nil
 }
 
-func (signed *SignedTransaction) SignInputV1(reader UTXOReader, index int, accounts []*Address) error {
+func (signed *SignedTransaction) SignInputV1(reader UTXOKeysReader, index int, accounts []*Address) error {
 	msg := MsgpackMarshalPanic(signed.Transaction)
 
 	if len(accounts) == 0 {
@@ -50,7 +50,7 @@ func (signed *SignedTransaction) SignInputV1(reader UTXOReader, index int, accou
 		return signed.SignRawV1(accounts[0].PrivateSpendKey)
 	}
 
-	utxo, err := reader.ReadUTXO(in.Hash, in.Index)
+	utxo, err := reader.ReadUTXOKeys(in.Hash, in.Index)
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (ver *VersionedTransaction) validateV1(store DataStore) error {
 	return fmt.Errorf("invalid transaction type %d", txType)
 }
 
-func validateInputsV1(store DataStore, tx *SignedTransaction, msg []byte, hash crypto.Hash, txType uint8) (map[string]*UTXO, Integer, error) {
+func validateInputsV1(store UTXOLockReader, tx *SignedTransaction, msg []byte, hash crypto.Hash, txType uint8) (map[string]*UTXO, Integer, error) {
 	inputAmount := NewInteger(0)
 	inputsFilter := make(map[string]*UTXO)
 	keySigs := make(map[crypto.Key]*crypto.Signature)
@@ -161,7 +161,7 @@ func validateInputsV1(store DataStore, tx *SignedTransaction, msg []byte, hash c
 			return inputsFilter, inputAmount, fmt.Errorf("invalid input %s", fk)
 		}
 
-		utxo, err := store.ReadUTXO(in.Hash, in.Index)
+		utxo, err := store.ReadUTXOLock(in.Hash, in.Index)
 		if err != nil {
 			return inputsFilter, inputAmount, err
 		}

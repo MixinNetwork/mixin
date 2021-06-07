@@ -92,6 +92,14 @@ func TestTransaction(t *testing.T) {
 	err = ver.Validate(store)
 	assert.Nil(err)
 
+	pm = ver.Marshal()
+	assert.Len(pm, 938)
+	ver, err = DecompressUnmarshalVersionedTransaction(pm)
+	assert.Nil(err)
+	assert.Nil(ver.AggregatedSignature)
+	assert.NotNil(ver.SignaturesMap)
+	assert.Equal(pm, ver.Marshal())
+
 	assert.Len(ver.Inputs, 2)
 	assert.Len(ver.SignaturesSliceV1, 0)
 	assert.Len(ver.SignaturesMap, 2)
@@ -178,6 +186,16 @@ func TestTransaction(t *testing.T) {
 	assert.Nil(err)
 	err = ver.Validate(store)
 	assert.Nil(err)
+
+	pm = ver.Marshal()
+	assert.Len(pm, 806)
+	ver, err = DecompressUnmarshalVersionedTransaction(pm)
+	assert.Nil(err)
+	assert.NotNil(ver.AggregatedSignature)
+	assert.Nil(ver.SignaturesMap)
+	assert.Equal(pm, ver.Marshal())
+	err = ver.Validate(store)
+	assert.Nil(err)
 }
 
 type storeImpl struct {
@@ -185,7 +203,18 @@ type storeImpl struct {
 	accounts []*Address
 }
 
-func (store storeImpl) ReadUTXO(hash crypto.Hash, index int) (*UTXOWithLock, error) {
+func (store storeImpl) ReadUTXOKeys(hash crypto.Hash, index int) (*UTXOKeys, error) {
+	utxo, err := store.ReadUTXOLock(hash, index)
+	if err != nil {
+		return nil, err
+	}
+	return &UTXOKeys{
+		Mask: utxo.Mask,
+		Keys: utxo.Keys,
+	}, nil
+}
+
+func (store storeImpl) ReadUTXOLock(hash crypto.Hash, index int) (*UTXOWithLock, error) {
 	genesisMaskr := crypto.NewKeyFromSeed(store.seed)
 	genesisMaskR := genesisMaskr.Public()
 

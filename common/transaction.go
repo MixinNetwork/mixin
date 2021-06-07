@@ -174,7 +174,7 @@ func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []*Address) error
 	return nil
 }
 
-func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, accounts []*Address) error {
+func (signed *SignedTransaction) SignInput(reader UTXOKeysReader, index int, accounts []*Address) error {
 	msg := signed.AsLatestVersion().PayloadMarshal()
 
 	if len(accounts) == 0 {
@@ -188,7 +188,7 @@ func (signed *SignedTransaction) SignInput(reader UTXOReader, index int, account
 		return signed.SignRaw(accounts[0].PrivateSpendKey)
 	}
 
-	utxo, err := reader.ReadUTXO(in.Hash, in.Index)
+	utxo, err := reader.ReadUTXOKeys(in.Hash, in.Index)
 	if err != nil {
 		return err
 	}
@@ -237,12 +237,12 @@ func (signed *SignedTransaction) SignRaw(key crypto.Key) error {
 	return nil
 }
 
-func (signed *SignedTransaction) AggregateSign(reader UTXOReader, accounts [][]*Address, seed []byte) error {
+func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [][]*Address, seed []byte) error {
 	var signers []int
 	var randoms []*crypto.Key
 	var pubKeys, privKeys []*crypto.Key
 	for index, in := range signed.Inputs {
-		utxo, err := reader.ReadUTXO(in.Hash, in.Index)
+		utxo, err := reader.ReadUTXOKeys(in.Hash, in.Index)
 		if err != nil {
 			return err
 		}

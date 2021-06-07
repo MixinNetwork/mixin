@@ -18,7 +18,8 @@ type Store interface {
 	UpdateEmptyHeadRound(node crypto.Hash, number uint64, references *common.RoundLink) error
 	TopologySequence() uint64
 
-	ReadUTXO(hash crypto.Hash, index int) (*common.UTXOWithLock, error)
+	ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKeys, error)
+	ReadUTXOLock(hash crypto.Hash, index int) (*common.UTXOWithLock, error)
 	LockUTXOs(inputs []*common.Input, tx crypto.Hash, fork bool) error
 	CheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error
 	LockDepositInput(deposit *common.DepositData, tx crypto.Hash, fork bool) error

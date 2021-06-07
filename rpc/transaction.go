@@ -76,7 +76,7 @@ func getUTXO(store storage.Store, params []interface{}) (map[string]interface{},
 	if err != nil {
 		return nil, err
 	}
-	utxo, err := store.ReadUTXO(hash, int(index))
+	utxo, err := store.ReadUTXOLock(hash, int(index))
 	if err != nil || utxo == nil {
 		return nil, err
 	}

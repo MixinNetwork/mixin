@@ -881,8 +881,8 @@ type signerInput struct {
 	Node  string      `json:"-"`
 }
 
-func (raw signerInput) ReadUTXO(hash crypto.Hash, index int) (*common.UTXOWithLock, error) {
-	utxo := &common.UTXOWithLock{}
+func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKeys, error) {
+	utxo := &common.UTXOKeys{}
 
 	for _, in := range raw.Inputs {
 		if in.Hash == hash && in.Index == index && len(in.Keys) > 0 {

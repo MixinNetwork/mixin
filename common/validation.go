@@ -96,7 +96,7 @@ func validateScriptTransaction(inputs map[string]*UTXO) error {
 	return nil
 }
 
-func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash crypto.Hash, txType uint8) (map[string]*UTXO, Integer, error) {
+func validateInputs(store UTXOLockReader, tx *SignedTransaction, msg []byte, hash crypto.Hash, txType uint8) (map[string]*UTXO, Integer, error) {
 	inputAmount := NewInteger(0)
 	inputsFilter := make(map[string]*UTXO)
 	allKeys := make([]*crypto.Key, 0)
@@ -116,7 +116,7 @@ func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash cry
 			return inputsFilter, inputAmount, fmt.Errorf("invalid input %s", fk)
 		}
 
-		utxo, err := store.ReadUTXO(in.Hash, in.Index)
+		utxo, err := store.ReadUTXOLock(in.Hash, in.Index)
 		if err != nil {
 			return inputsFilter, inputAmount, err
 		}
@@ -164,7 +164,7 @@ func validateInputs(store DataStore, tx *SignedTransaction, msg []byte, hash cry
 	return inputsFilter, inputAmount, nil
 }
 
-func (tx *Transaction) validateOutputs(store DataStore) (Integer, error) {
+func (tx *Transaction) validateOutputs(store GhostChecker) (Integer, error) {
 	outputAmount := NewInteger(0)
 	outputsFilter := make(map[crypto.Key]bool)
 	for _, o := range tx.Outputs {
