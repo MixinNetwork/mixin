@@ -14,7 +14,10 @@ type Key [32]byte
 
 func NewKeyFromSeed(seed []byte) Key {
 	var key [32]byte
-	s := edwards25519.NewScalar().SetUniformBytes(seed)
+	s, err := edwards25519.NewScalar().SetUniformBytes(seed)
+	if err != nil {
+		panic(err)
+	}
 	copy(key[:], s.Bytes())
 	return key
 }
@@ -85,13 +88,19 @@ func HashScalar(k *edwards25519.Point, outputIndex uint64) *edwards25519.Scalar 
 	copy(src[:32], hash[:])
 	hash = NewHash(hash[:])
 	copy(src[32:], hash[:])
-	s := edwards25519.NewScalar().SetUniformBytes(src[:])
+	s, err := edwards25519.NewScalar().SetUniformBytes(src[:])
+	if err != nil {
+		panic(err)
+	}
 
 	hash = NewHash(s.Bytes())
 	copy(src[:32], hash[:])
 	hash = NewHash(hash[:])
 	copy(src[32:], hash[:])
-	x := edwards25519.NewScalar().SetUniformBytes(src[:])
+	x, err := edwards25519.NewScalar().SetUniformBytes(src[:])
+	if err != nil {
+		panic(err)
+	}
 	return x
 }
 

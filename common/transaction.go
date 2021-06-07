@@ -298,7 +298,10 @@ func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [
 	h.Write(A.Bytes())
 	h.Write(msg)
 	h.Sum(hramDigest[:0])
-	x := edwards25519.NewScalar().SetUniformBytes(hramDigest[:])
+	x, err := edwards25519.NewScalar().SetUniformBytes(hramDigest[:])
+	if err != nil {
+		return err
+	}
 
 	S := edwards25519.NewScalar()
 	for i, k := range privKeys {

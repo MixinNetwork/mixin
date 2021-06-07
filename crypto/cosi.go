@@ -103,7 +103,10 @@ func (c *CosiSignature) Challenge(publics []*Key, message []byte) (*edwards25519
 	h.Write(A[:])
 	h.Write(message)
 	h.Sum(hramDigest[:0])
-	s := edwards25519.NewScalar().SetUniformBytes(hramDigest[:])
+	s, err := edwards25519.NewScalar().SetUniformBytes(hramDigest[:])
+	if err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 

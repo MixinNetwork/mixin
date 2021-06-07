@@ -5,12 +5,12 @@ go 1.16
 replace github.com/vmihailenco/msgpack/v4 => github.com/MixinNetwork/msgpack/v4 v4.3.13
 
 require (
-	filippo.io/edwards25519 v1.0.0-beta.3
+	filippo.io/edwards25519 v1.0.0-rc.1
 	github.com/MixinNetwork/mobilecoin-go v0.0.0-20210408103719-8a747265ebc6
-	github.com/VictoriaMetrics/fastcache v1.5.8
+	github.com/VictoriaMetrics/fastcache v1.6.0
 	github.com/binance-chain/go-sdk v1.2.6
 	github.com/btcsuite/btcd v0.20.1-beta
-	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
+	github.com/btcsuite/btcutil v1.0.3-0.20210527170813-e2ba6805a890
 	github.com/cornelk/hashmap v1.0.1
 	github.com/cpacia/bchutil v0.0.0-20181003130114-b126f6a35b6c
 	github.com/decred/dcrd/dcrutil v1.4.0
@@ -23,18 +23,18 @@ require (
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/gorilla/handlers v1.5.1
 	github.com/ipfs/go-cid v0.0.7
-	github.com/lucas-clemente/quic-go v0.20.1
+	github.com/lucas-clemente/quic-go v0.21.0
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/multiformats/go-multihash v0.0.15
 	github.com/nwaples/rardecode v1.1.0 // indirect
 	github.com/paxosglobal/moneroutil v0.0.0-20170611151923-33d7e0c11a62
-	github.com/pelletier/go-toml v1.9.1
+	github.com/pelletier/go-toml v1.9.2
 	github.com/rubblelabs/ripple v0.0.0-20210505072502-507286b0fd28
 	github.com/shopspring/decimal v1.2.0
-	github.com/stellar/go v0.0.0-20210514162647-1dffd616d62c
+	github.com/stellar/go v0.0.0-20210607172259-e5d27aca300a
 	github.com/stretchr/testify v1.7.0
 	github.com/ulikunitz/xz v0.5.10 // indirect
-	github.com/unrolled/render v1.2.0
+	github.com/unrolled/render v1.4.0
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/valyala/gozstd v1.9.0
 	github.com/vmihailenco/msgpack/v4 v4.3.12

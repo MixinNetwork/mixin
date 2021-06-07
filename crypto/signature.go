@@ -31,7 +31,11 @@ func (privateKey *Key) Sign(message []byte) Signature {
 	h.Write(message)
 	h.Sum(messageDigest[:0])
 
-	z := edwards25519.NewScalar().SetUniformBytes(messageDigest[:])
+	z, err := edwards25519.NewScalar().SetUniformBytes(messageDigest[:])
+	if err != nil {
+		panic(err)
+	}
+
 	R := edwards25519.NewIdentityPoint().ScalarBaseMult(z)
 
 	pub := privateKey.Public()
@@ -40,7 +44,10 @@ func (privateKey *Key) Sign(message []byte) Signature {
 	h.Write(pub[:])
 	h.Write(message)
 	h.Sum(hramDigest[:0])
-	x := edwards25519.NewScalar().SetUniformBytes(hramDigest[:])
+	x, err := edwards25519.NewScalar().SetUniformBytes(hramDigest[:])
+	if err != nil {
+		panic(err)
+	}
 
 	y, err := edwards25519.NewScalar().SetCanonicalBytes(privateKey[:])
 	if err != nil {
@@ -78,7 +85,10 @@ func (publicKey *Key) Verify(message []byte, sig Signature) bool {
 	var digest [64]byte
 	h.Sum(digest[:0])
 
-	x := edwards25519.NewScalar().SetUniformBytes(digest[:])
+	x, err := edwards25519.NewScalar().SetUniformBytes(digest[:])
+	if err != nil {
+		panic(err)
+	}
 	return publicKey.VerifyWithChallenge(message, sig, x)
 }
 
