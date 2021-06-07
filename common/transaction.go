@@ -261,7 +261,11 @@ func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [
 			if !found {
 				return fmt.Errorf("invalid key for the input %s", acc.String())
 			}
-			signers = append(signers, len(pubKeys)+i)
+			m := len(pubKeys) + i
+			if sl := len(signers); sl > 0 && m <= signers[sl-1] {
+				return fmt.Errorf("invalid signers order %d %d", signers[sl-1], m)
+			}
+			signers = append(signers, m)
 			privKeys = append(privKeys, priv)
 		}
 		pubKeys = append(pubKeys, utxo.Keys...)
@@ -271,7 +275,6 @@ func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [
 	A := edwards25519.NewIdentityPoint()
 	for _, m := range signers {
 		var buf [2]byte
-		pub := pubKeys[m]
 		binary.BigEndian.PutUint16(buf[:], uint16(m))
 		s := crypto.NewHash(append(seed, buf[:]...))
 		r := crypto.NewKeyFromSeed(append(s[:], s[:]...))
@@ -284,6 +287,7 @@ func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [
 		}
 		P = P.Add(P, p)
 
+		pub := pubKeys[m]
 		a, err := edwards25519.NewIdentityPoint().SetBytes(pub[:])
 		if err != nil {
 			return err
