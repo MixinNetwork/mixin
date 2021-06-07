@@ -30,7 +30,7 @@ func TestEncoding(t *testing.T) {
 	assert.Equal(raw, enc)
 }
 
-func TestJointSignatureEncoding(t *testing.T) {
+func TestAggregatedSignatureEncoding(t *testing.T) {
 	assert := assert.New(t)
 
 	for _, tp := range []struct {
@@ -59,9 +59,9 @@ func TestJointSignatureEncoding(t *testing.T) {
 			88,
 		},
 	} {
-		js := &JointSignature{Mask: tp.Mask}
+		js := &AggregatedSignature{Mask: tp.Mask}
 		enc := NewEncoder()
-		enc.EncodeJointSignature(js)
+		enc.EncodeAggregatedSignature(js)
 		jsb := enc.buf.Bytes()
 		assert.Len(jsb, tp.Len)
 		assert.Equal(tp.Hex, hex.EncodeToString(jsb))
@@ -72,8 +72,8 @@ func TestJointSignatureEncoding(t *testing.T) {
 		assert.Equal(MaximumEncodingInt, jh)
 		prefix, err := dec.ReadInt()
 		assert.Nil(err)
-		assert.Equal(JointSignaturePrefix, prefix)
-		djs, err := dec.ReadJointSignature()
+		assert.Equal(AggregatedSignaturePrefix, prefix)
+		djs, err := dec.ReadAggregatedSignature()
 		assert.Nil(err)
 		assert.Equal(js.Mask, djs.Mask)
 	}

@@ -174,20 +174,7 @@ func (c *CosiSignature) Keys() []int {
 }
 
 func (c *CosiSignature) aggregatePublicKey(publics []*Key) (*Key, error) {
-	P := edwards25519.NewIdentityPoint()
-	for _, i := range c.Keys() {
-		if i >= len(publics) {
-			return nil, fmt.Errorf("invalid cosi signature mask index %d/%d", i, len(publics))
-		}
-		p, err := edwards25519.NewIdentityPoint().SetBytes(publics[i][:])
-		if err != nil {
-			return nil, err
-		}
-		P = P.Add(P, p)
-	}
-	var key Key
-	copy(key[:], P.Bytes())
-	return &key, nil
+	return aggregatePublicKey(publics, c.Keys())
 }
 
 func (c *CosiSignature) ThresholdVerify(threshold int) bool {

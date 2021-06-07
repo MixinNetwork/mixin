@@ -75,12 +75,12 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 			return nil, err
 		}
 		switch prefix {
-		case JointSignaturePrefix:
-			js, err := dec.ReadJointSignature()
+		case AggregatedSignaturePrefix:
+			js, err := dec.ReadAggregatedSignature()
 			if err != nil {
 				return nil, err
 			}
-			tx.JointSignature = js
+			tx.AggregatedSignature = js
 		default:
 			return nil, fmt.Errorf("invalid prefix %d", prefix)
 		}
@@ -377,8 +377,8 @@ func (dec *Decoder) ReadMagic() (bool, error) {
 	return false, fmt.Errorf("malformed %v", b)
 }
 
-func (dec *Decoder) ReadJointSignature() (*JointSignature, error) {
-	var js JointSignature
+func (dec *Decoder) ReadAggregatedSignature() (*AggregatedSignature, error) {
+	var js AggregatedSignature
 	err := dec.Read(js.Signature[:])
 	if err != nil {
 		return nil, err
@@ -389,7 +389,7 @@ func (dec *Decoder) ReadJointSignature() (*JointSignature, error) {
 		return nil, err
 	}
 	switch typ {
-	case JointSignatureSparseMask:
+	case AggregatedSignatureSparseMask:
 		l, err := dec.ReadInt()
 		if err != nil {
 			return nil, err
@@ -401,7 +401,7 @@ func (dec *Decoder) ReadJointSignature() (*JointSignature, error) {
 			}
 			js.Mask = append(js.Mask, m)
 		}
-	case JointSignatureOrdinayMask:
+	case AggregatedSignatureOrdinayMask:
 		masks, err := dec.ReadBytes()
 		if err != nil {
 			return nil, err

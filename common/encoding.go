@@ -11,9 +11,9 @@ import (
 const (
 	MaximumEncodingInt = 0xFFFF
 
-	JointSignaturePrefix      = 0xFF01
-	JointSignatureSparseMask  = byte(0x01)
-	JointSignatureOrdinayMask = byte(0x00)
+	AggregatedSignaturePrefix      = 0xFF01
+	AggregatedSignatureSparseMask  = byte(0x01)
+	AggregatedSignatureOrdinayMask = byte(0x00)
 )
 
 var (
@@ -57,8 +57,8 @@ func (enc *Encoder) EncodeTransaction(signed *SignedTransaction) []byte {
 	enc.WriteInt(el)
 	enc.Write(signed.Extra)
 
-	if signed.JointSignature != nil {
-		enc.EncodeJointSignature(signed.JointSignature)
+	if signed.AggregatedSignature != nil {
+		enc.EncodeAggregatedSignature(signed.AggregatedSignature)
 	} else {
 		sl := len(signed.SignaturesMap)
 		if sl == MaximumEncodingInt {
@@ -213,12 +213,12 @@ func uint64ToByte(d uint64) []byte {
 	return b
 }
 
-func (enc *Encoder) EncodeJointSignature(js *JointSignature) {
+func (enc *Encoder) EncodeAggregatedSignature(js *AggregatedSignature) {
 	enc.WriteInt(MaximumEncodingInt)
-	enc.WriteInt(JointSignaturePrefix)
+	enc.WriteInt(AggregatedSignaturePrefix)
 	enc.Write(js.Signature[:])
 	if len(js.Mask) == 0 {
-		enc.WriteByte(JointSignatureOrdinayMask)
+		enc.WriteByte(AggregatedSignatureOrdinayMask)
 		enc.WriteInt(0)
 		return
 	}
@@ -233,7 +233,7 @@ func (enc *Encoder) EncodeJointSignature(js *JointSignature) {
 
 	max := js.Mask[len(js.Mask)-1]
 	if max/8+1 > len(js.Mask)*2 {
-		enc.WriteByte(JointSignatureSparseMask)
+		enc.WriteByte(AggregatedSignatureSparseMask)
 		enc.WriteInt(len(js.Mask))
 		for _, m := range js.Mask {
 			enc.WriteInt(m)
@@ -245,12 +245,12 @@ func (enc *Encoder) EncodeJointSignature(js *JointSignature) {
 	for _, m := range js.Mask {
 		masks[m/8] = masks[m/8] ^ (1 << (m % 8))
 	}
-	enc.WriteByte(JointSignatureOrdinayMask)
+	enc.WriteByte(AggregatedSignatureOrdinayMask)
 	enc.WriteInt(len(masks))
 	enc.Write(masks)
 }
 
-type JointSignature struct {
+type AggregatedSignature struct {
 	Mask      []int
 	Signature crypto.Signature
 }
