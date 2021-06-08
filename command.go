@@ -967,15 +967,21 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {
 	}
 
 	tm := map[string]interface{}{
-		"version":    tx.Version,
-		"asset":      tx.Asset,
-		"inputs":     inputs,
-		"outputs":    outputs,
-		"extra":      hex.EncodeToString(tx.Extra),
-		"hash":       tx.PayloadHash(),
-		"signatures": tx.SignaturesMap,
+		"version": tx.Version,
+		"asset":   tx.Asset,
+		"inputs":  inputs,
+		"outputs": outputs,
+		"extra":   hex.EncodeToString(tx.Extra),
+		"hash":    tx.PayloadHash(),
 	}
-	if tx.SignaturesSliceV1 != nil {
+	if as := tx.AggregatedSignature; as != nil {
+		tm["aggregated"] = map[string]interface{}{
+			"signers":   as.Signers,
+			"signature": as.Signature,
+		}
+	} else if tx.SignaturesMap != nil {
+		tm["signatures"] = tx.SignaturesMap
+	} else if tx.SignaturesSliceV1 != nil {
 		tm["signatures"] = tx.SignaturesSliceV1
 	}
 	return tm
