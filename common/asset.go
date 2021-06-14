@@ -89,13 +89,13 @@ func (a *Asset) Verify() error {
 	case polkadot.PolkadotChainId:
 		return polkadot.VerifyAssetKey(a.AssetKey)
 	case kusama.KusamaChainId:
-		return kusama.VerifyAddress(a.AssetKey)
+		return kusama.VerifyAssetKey(a.AssetKey)
 	case ripple.RippleChainId:
-		return ripple.VerifyAddress(a.AssetKey)
+		return ripple.VerifyAssetKey(a.AssetKey)
 	case stellar.StellarChainId:
-		return stellar.VerifyAddress(a.AssetKey)
+		return stellar.VerifyAssetKey(a.AssetKey)
 	case tezos.TezosChainId:
-		return tezos.VerifyAddress(a.AssetKey)
+		return tezos.VerifyAssetKey(a.AssetKey)
 	case eos.EOSChainId:
 		return eos.VerifyAssetKey(a.AssetKey)
 	case tron.TronChainId:
