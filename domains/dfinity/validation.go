@@ -38,6 +38,9 @@ func VerifyAddress(addr string) error {
 	if err != nil {
 		return err
 	}
+	if len(buf) != 32 {
+		return fmt.Errorf("invalid internet computer address %s", addr)
+	}
 	result := binary.BigEndian.Uint32(buf[:4])
 	if result != crc32.ChecksumIEEE(buf[4:]) {
 		return fmt.Errorf("invalid internet computer address %s", addr)
