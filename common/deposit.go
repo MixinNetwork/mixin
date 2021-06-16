@@ -12,6 +12,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dash"
 	"github.com/MixinNetwork/mixin/domains/decred"
+	"github.com/MixinNetwork/mixin/domains/dfinity"
 	"github.com/MixinNetwork/mixin/domains/dogecoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/etc"
@@ -134,6 +135,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return binance.VerifyTransactionHash(deposit.TransactionHash)
 	case arweave.ArweaveChainId:
 		return arweave.VerifyTransactionHash(deposit.TransactionHash)
+	case dfinity.DfinityChainId:
+		return dfinity.VerifyTransactionHash(deposit.TransactionHash)
 	}
 	return fmt.Errorf("invalid deposit chain id %s", chainId)
 }

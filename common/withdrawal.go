@@ -13,6 +13,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dash"
 	"github.com/MixinNetwork/mixin/domains/decred"
+	"github.com/MixinNetwork/mixin/domains/dfinity"
 	"github.com/MixinNetwork/mixin/domains/dogecoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/etc"
@@ -149,6 +150,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return binance.VerifyAddress(submit.Withdrawal.Address)
 	case arweave.ArweaveChainId:
 		return arweave.VerifyAddress(submit.Withdrawal.Address)
+	case dfinity.DfinityChainId:
+		return dfinity.VerifyAddress(submit.Withdrawal.Address)
 	}
 	return fmt.Errorf("invalid withdrawal chain id %s", chainId)
 }

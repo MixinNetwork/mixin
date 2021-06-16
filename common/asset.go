@@ -12,6 +12,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dash"
 	"github.com/MixinNetwork/mixin/domains/decred"
+	"github.com/MixinNetwork/mixin/domains/dfinity"
 	"github.com/MixinNetwork/mixin/domains/dogecoin"
 	"github.com/MixinNetwork/mixin/domains/eos"
 	"github.com/MixinNetwork/mixin/domains/etc"
@@ -108,6 +109,8 @@ func (a *Asset) Verify() error {
 		return binance.VerifyAssetKey(a.AssetKey)
 	case arweave.ArweaveChainId:
 		return arweave.VerifyAssetKey(a.AssetKey)
+	case dfinity.DfinityChainId:
+		return dfinity.VerifyAssetKey(a.AssetKey)
 	default:
 		return fmt.Errorf("invalid chain id %s", a.ChainId)
 	}
@@ -173,6 +176,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return binance.GenerateAssetId(a.AssetKey)
 	case arweave.ArweaveChainId:
 		return arweave.GenerateAssetId(a.AssetKey)
+	case dfinity.DfinityChainId:
+		return dfinity.GenerateAssetId(a.AssetKey)
 	default:
 		return crypto.Hash{}
 	}
@@ -238,6 +243,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return binance.BinanceChainId
 	case arweave.ArweaveChainId:
 		return arweave.ArweaveChainId
+	case dfinity.DfinityChainId:
+		return dfinity.DfinityChainId
 	}
 	return crypto.Hash{}
 }
