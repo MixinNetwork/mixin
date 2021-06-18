@@ -299,16 +299,8 @@ func (dec *Decoder) Read(b []byte) error {
 }
 
 func (dec *Decoder) ReadInt() (int, error) {
-	var b [2]byte
-	err := dec.Read(b[:])
-	if err != nil {
-		return 0, err
-	}
-	d := binary.BigEndian.Uint16(b[:])
-	if d > MaximumEncodingInt {
-		return 0, fmt.Errorf("large int %d", d)
-	}
-	return int(d), nil
+	d, err := dec.ReadUint16()
+	return int(d), err
 }
 
 func (dec *Decoder) ReadUint16() (uint16, error) {

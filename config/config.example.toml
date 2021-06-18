@@ -24,6 +24,15 @@ listener = "mixin-node.example.com:7239"
 # whether to gossip known neighbors to neighbors, and to connect neighbors gossiped
 # by neighbors
 gossip-neighbors = true
+# the nodes list
+peers = [
+  "mixin-node-01.b1.run:7239",
+  "mixin-node-02.b1.run:7239",
+  "mixin-node-03.b1.run:7239",
+  "mixin-node-04.b1.run:7239",
+  "mixin-node-05.b1.run:7239",
+  "mixin-node-07.b1.run:7239",
+]
 
 [rpc]
 # whether respond the runtime of each RPC call

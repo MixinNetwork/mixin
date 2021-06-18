@@ -47,8 +47,9 @@ type Custom struct {
 		ValueLogGC bool `toml:"value-log-gc"`
 	} `toml:"storage"`
 	Network struct {
-		Listener        string `toml:"listener"`
-		GossipNeighbors bool   `toml:"gossip-neighbors"`
+		Listener        string   `toml:"listener"`
+		GossipNeighbors bool     `toml:"gossip-neighbors"`
+		Peers           []string `toml:"peers"`
 	} `toml:"network"`
 	RPC struct {
 		Runtime bool `toml:"runtime"`
