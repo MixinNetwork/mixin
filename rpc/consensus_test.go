@@ -171,7 +171,7 @@ func testConsensus(t *testing.T, dup int) {
 	assert.Nil(err)
 	defer os.RemoveAll(root)
 
-	accounts, payees, gdata, ndata := setupTestNet(root)
+	accounts, payees, gdata, plist := setupTestNet(root)
 	assert.Len(accounts, NODES)
 
 	epoch := time.Unix(1551312000, 0)
@@ -345,7 +345,7 @@ func testConsensus(t *testing.T, dup int) {
 	assert.True(gt.Timestamp.Before(epoch.Add(61 * time.Second)))
 	t.Logf("PLEDGE %s\n", input)
 
-	pn, pi, sv := testPledgeNewNode(assert, nodes[0].Host, accounts[0], gdata, ndata, input, root)
+	pn, pi, sv := testPledgeNewNode(assert, nodes[0].Host, accounts[0], gdata, plist, input, root)
 	defer pi.Teardown()
 	defer sv.Close()
 	time.Sleep(3 * time.Second)
@@ -581,9 +581,11 @@ memory-cache-size = 128
 kernel-operation-period = 1
 cache-ttl = 3600
 [network]
-listener = "%s"`
+listener = "%s"
+peers = [%s]
+`
 
-func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Address, genesisData, nodesData []byte, input, root string) (Node, *kernel.Node, *http.Server) {
+func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Address, genesisData []byte, plist, input, root string) (Node, *kernel.Node, *http.Server) {
 	var signer, payee common.Address
 
 	signer = testDeterminAccountByIndex(NODES, "SIGNER")
@@ -595,16 +597,12 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 		panic(err)
 	}
 
-	configData := []byte(fmt.Sprintf(configDataTmpl, signer.PrivateSpendKey.String(), "127.0.0.1:17099"))
+	configData := []byte(fmt.Sprintf(configDataTmpl, signer.PrivateSpendKey.String(), "127.0.0.1:17099", plist))
 	err = os.WriteFile(dir+"/config.toml", configData, 0644)
 	if err != nil {
 		panic(err)
 	}
 	err = os.WriteFile(dir+"/genesis.json", genesisData, 0644)
-	if err != nil {
-		panic(err)
-	}
-	err = os.WriteFile(dir+"/nodes.json", nodesData, 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -711,7 +709,7 @@ func testDeterminAccountByIndex(i int, role string) common.Address {
 	return account
 }
 
-func setupTestNet(root string) ([]common.Address, []common.Address, []byte, []byte) {
+func setupTestNet(root string) ([]common.Address, []common.Address, []byte, string) {
 	var signers, payees []common.Address
 
 	for i := 0; i < NODES; i++ {
@@ -742,17 +740,11 @@ func setupTestNet(root string) ([]common.Address, []common.Address, []byte, []by
 		panic(err)
 	}
 
-	nodes := make([]map[string]string, 0)
-	for i, a := range signers {
-		nodes = append(nodes, map[string]string{
-			"host":   fmt.Sprintf("127.0.0.1:170%02d", i+1),
-			"signer": a.String(),
-		})
+	peers := make([]string, len(signers))
+	for i := range signers {
+		peers[i] = fmt.Sprintf("127.0.0.1:170%02d", i+1)
 	}
-	nodesData, err := json.MarshalIndent(nodes, "", "  ")
-	if err != nil {
-		panic(err)
-	}
+	peersList := `"` + strings.Join(peers, `","`) + `"`
 
 	for i, a := range signers {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
@@ -761,7 +753,7 @@ func setupTestNet(root string) ([]common.Address, []common.Address, []byte, []by
 			panic(err)
 		}
 
-		configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey.String(), nodes[i]["host"]))
+		configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey.String(), peers[i], peersList))
 		err = os.WriteFile(dir+"/config.toml", configData, 0644)
 		if err != nil {
 			panic(err)
@@ -770,12 +762,8 @@ func setupTestNet(root string) ([]common.Address, []common.Address, []byte, []by
 		if err != nil {
 			panic(err)
 		}
-		err = os.WriteFile(dir+"/nodes.json", nodesData, 0644)
-		if err != nil {
-			panic(err)
-		}
 	}
-	return signers, payees, genesisData, nodesData
+	return signers, payees, genesisData, peersList
 }
 
 func testSignTransaction(node string, account common.Address, rawStr string) (*common.SignedTransaction, error) {
