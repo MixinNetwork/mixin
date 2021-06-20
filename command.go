@@ -755,18 +755,12 @@ func setupTestNetCmd(c *cli.Context) error {
 	}
 	fmt.Println(string(genesisData))
 
-	nodes := make([]map[string]string, 0)
-	for i, a := range signers {
-		nodes = append(nodes, map[string]string{
-			"host":   fmt.Sprintf("127.0.0.1:700%d", i+1),
-			"signer": a.String(),
-		})
+	peers := make([]string, len(signers))
+	for i := range signers {
+		peers[i] = fmt.Sprintf("127.0.0.1:700%d", i+1)
 	}
-	nodesData, err := json.MarshalIndent(nodes, "", "  ")
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(nodesData))
+	peersList := `"` + strings.Join(peers, `","`) + `"`
+	fmt.Println(peers)
 
 	for i, a := range signers {
 		dir := fmt.Sprintf("/tmp/mixin-700%d", i+1)
@@ -775,7 +769,8 @@ func setupTestNetCmd(c *cli.Context) error {
 			return err
 		}
 
-		var configData = []byte(fmt.Sprintf(`[node]
+		var configData = []byte(fmt.Sprintf(`
+[node]
 signer-key = "%s"
 consensus-only = true
 memory-cache-size = 128
@@ -783,17 +778,15 @@ cache-ttl = 3600
 ring-cache-size = 4096
 ring-final-size = 16384
 [network]
-listener = "%s"`, a.PrivateSpendKey.String(), nodes[i]["host"]))
+listener = "%s"
+peers = [%s]
+`, a.PrivateSpendKey.String(), peers[i], peersList))
 
 		err = os.WriteFile(dir+"/config.toml", configData, 0644)
 		if err != nil {
 			return err
 		}
 		err = os.WriteFile(dir+"/genesis.json", genesisData, 0644)
-		if err != nil {
-			return err
-		}
-		err = os.WriteFile(dir+"/nodes.json", nodesData, 0644)
 		if err != nil {
 			return err
 		}

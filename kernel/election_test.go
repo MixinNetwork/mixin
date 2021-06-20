@@ -83,11 +83,6 @@ func setupTestNode(assert *assert.Assertions, dir string) *Node {
 	err = os.WriteFile(dir+"/genesis.json", data, 0644)
 	assert.Nil(err)
 
-	data, err = os.ReadFile("../config/nodes.json")
-	assert.Nil(err)
-	err = os.WriteFile(dir+"/nodes.json", data, 0644)
-	assert.Nil(err)
-
 	custom, err := config.Initialize(dir + "/config.toml")
 	assert.Nil(err)
 	cache := fastcache.New(16 * 1024 * 1024)
