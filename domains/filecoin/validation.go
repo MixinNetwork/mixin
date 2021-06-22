@@ -6,8 +6,9 @@ import (
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/ipfs/go-cid"
-	mh "github.com/multiformats/go-multihash"
+	"github.com/multiformats/go-multihash"
 )
 
 var (
@@ -21,7 +22,6 @@ func init() {
 	FilecoinChainId = crypto.NewHash([]byte(FilecoinChainBase))
 
 	address.CurrentNetwork = address.Mainnet
-	HashFunction = uint64(mh.BLAKE2B_MIN + 31)
 }
 
 func VerifyAssetKey(assetKey string) error {
@@ -57,14 +57,14 @@ func VerifyTransactionHash(hash string) error {
 	if err != nil {
 		return fmt.Errorf("invalid filecoin transaction hash %s %s", hash, err)
 	}
-	if id.Prefix().MhType != HashFunction {
+	if id.Prefix().MhType != abi.HashFunction {
 		return fmt.Errorf("invalid filecoin transaction hash %s 0", hash)
 	}
-	dmh, err := mh.Decode(id.Hash())
+	dmh, err := multihash.Decode(id.Hash())
 	if err != nil {
 		return fmt.Errorf("invalid filecoin transaction hash %s %s 1", hash, err)
 	}
-	if dmh.Code != HashFunction {
+	if dmh.Code != abi.HashFunction {
 		return fmt.Errorf("invalid filecoin transaction hash %s 2", hash)
 	}
 	if id.String() != hash {
