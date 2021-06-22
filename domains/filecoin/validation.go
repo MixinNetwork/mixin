@@ -14,7 +14,6 @@ import (
 var (
 	FilecoinChainBase string
 	FilecoinChainId   crypto.Hash
-	HashFunction      uint64
 )
 
 func init() {
