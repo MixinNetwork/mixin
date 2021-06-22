@@ -22,6 +22,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/handshake"
 	"github.com/MixinNetwork/mixin/domains/horizen"
 	"github.com/MixinNetwork/mixin/domains/kusama"
+	"github.com/MixinNetwork/mixin/domains/litecoin"
 	"github.com/MixinNetwork/mixin/domains/mobilecoin"
 	"github.com/MixinNetwork/mixin/domains/monero"
 	"github.com/MixinNetwork/mixin/domains/namecoin"
@@ -104,6 +105,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return zcash.VerifyAddress(submit.Withdrawal.Address)
 	case horizen.HorizenChainId:
 		return horizen.VerifyAddress(submit.Withdrawal.Address)
+	case litecoin.LitecoinChainId:
+		return litecoin.VerifyAddress(submit.Withdrawal.Address)
 	case dogecoin.DogecoinChainId:
 		return dogecoin.VerifyAddress(submit.Withdrawal.Address)
 	case ravencoin.RavencoinChainId:
