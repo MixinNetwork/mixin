@@ -6,8 +6,7 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcutil"
+	"github.com/MixinNetwork/mixin/domains/litecoin"
 )
 
 var (
@@ -31,14 +30,11 @@ func VerifyAddress(address string) error {
 	if strings.TrimSpace(address) != address {
 		return fmt.Errorf("invalid dogecoin address %s", address)
 	}
-	dogeAddress, err := btcutil.DecodeAddress(address, &mainNetParams)
+	dogeAddress, err := litecoin.DecodeAddress(address, &mainNetParams)
 	if err != nil {
 		return err
 	}
 	if dogeAddress.String() != address {
-		return fmt.Errorf("invalid dogecoin address %s", address)
-	}
-	if !dogeAddress.IsForNet(&mainNetParams) {
 		return fmt.Errorf("invalid dogecoin address %s", address)
 	}
 	return nil
@@ -70,13 +66,7 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 	}
 }
 
-var mainNetParams = chaincfg.Params{
-	Name:             "mainnet",
-	Net:              0xc0c0c0c0,
+var mainNetParams = litecoin.Params{
 	PubKeyHashAddrID: 0x1e,
 	ScriptHashAddrID: 0x16,
-	PrivateKeyID:     0x9e,
-
-	HDPrivateKeyID: [4]byte{0x02, 0xfa, 0xc3, 0x98},
-	HDPublicKeyID:  [4]byte{0x02, 0xfa, 0xca, 0xfd},
 }

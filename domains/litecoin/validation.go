@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcutil"
 )
 
 var (
@@ -31,9 +29,12 @@ func VerifyAddress(address string) error {
 	if strings.TrimSpace(address) != address {
 		return fmt.Errorf("invalid litecoin address %s", address)
 	}
-	ltcAddress, err := btcutil.DecodeAddress(address, &ltcMainNetParams)
+	ltcAddress, err := DecodeAddress(address, &ltcParams)
 	if err != nil {
-		return fmt.Errorf("invalid litecoin address %s %s", address, err.Error())
+		ltcAddress, err = DecodeAddress(address, &legacyParams)
+		if err != nil {
+			return fmt.Errorf("invalid litecoin address %s %s", address, err.Error())
+		}
 	}
 	if ltcAddress.String() != address {
 		return fmt.Errorf("invalid litecoin address %s %s", ltcAddress.String(), address)
@@ -67,16 +68,15 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 	}
 }
 
-var ltcMainNetParams = chaincfg.Params{
-	Name:            "mainnet",
-	Bech32HRPSegwit: "ltc",
-
-	PubKeyHashAddrID:        0x30,
-	ScriptHashAddrID:        0x05,
-	PrivateKeyID:            0xB0,
-	WitnessPubKeyHashAddrID: 0x06,
-	WitnessScriptHashAddrID: 0x0A,
-
-	HDPrivateKeyID: [4]byte{0x04, 0x88, 0xad, 0xe4},
-	HDPublicKeyID:  [4]byte{0x04, 0x88, 0xb2, 0x1e},
-}
+var (
+	ltcParams = Params{
+		Bech32HRPSegwit:  "ltc",
+		PubKeyHashAddrID: 0x30,
+		ScriptHashAddrID: 0x32,
+	}
+	legacyParams = Params{
+		Bech32HRPSegwit:  "ltc",
+		PubKeyHashAddrID: 0x30,
+		ScriptHashAddrID: 0x05,
+	}
+)

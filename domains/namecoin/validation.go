@@ -6,8 +6,7 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcutil"
+	"github.com/MixinNetwork/mixin/domains/litecoin"
 )
 
 var (
@@ -31,14 +30,11 @@ func VerifyAddress(address string) error {
 	if strings.TrimSpace(address) != address {
 		return fmt.Errorf("invalid namecoin address %s", address)
 	}
-	nmcAddress, err := btcutil.DecodeAddress(address, &mainNetParams)
+	nmcAddress, err := litecoin.DecodeAddress(address, &mainNetParams)
 	if err != nil {
 		return err
 	}
 	if nmcAddress.String() != address {
-		return fmt.Errorf("invalid namecoin address %s", address)
-	}
-	if !nmcAddress.IsForNet(&mainNetParams) {
 		return fmt.Errorf("invalid namecoin address %s", address)
 	}
 	return nil
@@ -70,14 +66,7 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 	}
 }
 
-var mainNetParams = chaincfg.Params{
-	Net:              0xfeb4bef9,
-	Name:             "main",
-	DefaultPort:      "8334",
+var mainNetParams = litecoin.Params{
 	PubKeyHashAddrID: 0x34,
 	ScriptHashAddrID: 0x0d,
-	PrivateKeyID:     0xb4,
-
-	HDPrivateKeyID: [4]byte{0x04, 0x88, 0xB2, 0x1E},
-	HDPublicKeyID:  [4]byte{0x04, 0x88, 0xAD, 0xE4},
 }
