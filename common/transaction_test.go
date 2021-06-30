@@ -180,10 +180,37 @@ func TestTransaction(t *testing.T) {
 
 	aas := make([][]*Address, len(ver.Inputs))
 	for i := range ver.Inputs {
-		aas[i] = accounts[0 : i+1]
+		aas[i] = append([]*Address{}, accounts[0:i]...)
 	}
+	ver.AggregatedSignature = nil
 	err = ver.AggregateSign(store, aas, seed)
 	assert.Nil(err)
+	assert.Len(ver.AggregatedSignature.Signers, 1)
+	err = ver.Validate(store)
+	assert.NotNil(err)
+
+	aas = make([][]*Address, len(ver.Inputs))
+	for i := range ver.Inputs {
+		accs := append([]*Address{}, accounts[0:i+1]...)
+		accs[len(accs)-1], accs[0] = accs[0], accs[len(accs)-1]
+		aas[i] = accs
+	}
+	ver.AggregatedSignature = nil
+	err = ver.AggregateSign(store, aas, seed)
+	assert.NotNil(err)
+	assert.Nil(ver.AggregatedSignature)
+	assert.NotNil(ver.Marshal())
+	err = ver.Validate(store)
+	assert.NotNil(err)
+
+	aas = make([][]*Address, len(ver.Inputs))
+	for i := range ver.Inputs {
+		aas[i] = append([]*Address{}, accounts[0:i+1]...)
+	}
+	ver.AggregatedSignature = nil
+	err = ver.AggregateSign(store, aas, seed)
+	assert.Nil(err)
+	assert.Len(ver.AggregatedSignature.Signers, 3)
 	err = ver.Validate(store)
 	assert.Nil(err)
 
