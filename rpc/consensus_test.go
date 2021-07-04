@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
@@ -36,7 +35,7 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 
 	kernel.TestMockReset()
 
-	root, err := ioutil.TempDir("", "mixin-attsg-test")
+	root, err := os.MkdirTemp("", "mixin-attsg-test")
 	assert.Nil(err)
 	defer os.RemoveAll(root)
 
@@ -167,7 +166,7 @@ func testConsensus(t *testing.T, dup int) {
 	logger.SetLevel(int(level))
 	logger.SetLimiter(10)
 
-	root, err := ioutil.TempDir("", "mixin-consensus-test")
+	root, err := os.MkdirTemp("", "mixin-consensus-test")
 	assert.Nil(err)
 	defer os.RemoveAll(root)
 

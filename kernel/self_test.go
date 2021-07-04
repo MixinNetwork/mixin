@@ -1,7 +1,6 @@
 package kernel
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -12,7 +11,7 @@ import (
 func TestDeterminBestRound(t *testing.T) {
 	assert := assert.New(t)
 
-	root, err := ioutil.TempDir("", "mixin-self-test")
+	root, err := os.MkdirTemp("", "mixin-self-test")
 	assert.Nil(err)
 	defer os.RemoveAll(root)
 

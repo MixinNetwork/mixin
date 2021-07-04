@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -14,7 +13,7 @@ func TestBadger(t *testing.T) {
 	custom, err := config.Initialize("../config/config.example.toml")
 	assert.Nil(err)
 
-	root, err := ioutil.TempDir("", "mixin-badger-test")
+	root, err := os.MkdirTemp("", "mixin-badger-test")
 	assert.Nil(err)
 	defer os.RemoveAll(root)
 

@@ -2,7 +2,6 @@ package kernel
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -15,7 +14,7 @@ import (
 func TestGenesis(t *testing.T) {
 	assert := assert.New(t)
 
-	root, err := ioutil.TempDir("", "mixin-genesis-test")
+	root, err := os.MkdirTemp("", "mixin-genesis-test")
 	assert.Nil(err)
 	defer os.RemoveAll(root)
 

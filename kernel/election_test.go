@@ -1,7 +1,6 @@
 package kernel
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -17,7 +16,7 @@ import (
 func TestNodeRemovePossibility(t *testing.T) {
 	assert := assert.New(t)
 
-	root, err := ioutil.TempDir("", "mixin-election-test")
+	root, err := os.MkdirTemp("", "mixin-election-test")
 	assert.Nil(err)
 	defer os.RemoveAll(root)
 

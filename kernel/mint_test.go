@@ -2,7 +2,6 @@ package kernel
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -59,7 +58,7 @@ func TestPoolSize(t *testing.T) {
 func TestMintWorks(t *testing.T) {
 	assert := assert.New(t)
 
-	root, err := ioutil.TempDir("", "mixin-mint-test")
+	root, err := os.MkdirTemp("", "mixin-mint-test")
 	assert.Nil(err)
 	defer os.RemoveAll(root)
 
