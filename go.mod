@@ -8,7 +8,6 @@ require (
 	filippo.io/edwards25519 v1.0.0-rc.1
 	github.com/MixinNetwork/mobilecoin-go v0.0.0-20210622080237-fed5245fb80c
 	github.com/VictoriaMetrics/fastcache v1.6.0
-	github.com/algorand/go-algorand-sdk v1.9.1 // indirect
 	github.com/binance-chain/go-sdk v1.2.6
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
@@ -23,7 +22,6 @@ require (
 	github.com/filecoin-project/go-address v0.0.5
 	github.com/filecoin-project/go-state-types v0.1.0
 	github.com/gofrs/uuid v4.0.0+incompatible
-	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/gorilla/handlers v1.5.1
 	github.com/ipfs/go-cid v0.0.7
 	github.com/lucas-clemente/quic-go v0.21.1
@@ -45,5 +43,4 @@ require (
 	gitlab.com/NebulousLabs/Sia v1.5.6
 	go.dedis.ch/kyber/v3 v3.0.13
 	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
-	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 )
