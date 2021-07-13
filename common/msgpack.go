@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/valyala/gozstd"
+	"github.com/klauspost/compress/zstd"
 	"github.com/vmihailenco/msgpack/v4"
 )
 
@@ -16,30 +16,29 @@ var ZstdEmbed []byte
 func init() {
 	msgpack.RegisterExt(0, (*Integer)(nil))
 
-	zcd, err := gozstd.NewCDictLevel(ZstdEmbed, 5)
+	enc, err := zstd.NewWriter(nil, zstd.WithEncoderDict(ZstdEmbed), zstd.WithEncoderLevel(3))
 	if err != nil {
 		panic(err)
 	}
-	zdd, err := gozstd.NewDDict(ZstdEmbed)
+	dec, err := zstd.NewReader(nil, zstd.WithDecoderDicts(ZstdEmbed))
 	if err != nil {
 		panic(err)
 	}
 
-	zstdCDict = zcd
-	zstdDDict = zdd
+	zstdEncoder, zstdDecoder = enc, dec
 }
 
 var (
 	// zstd --train /tmp/zstd/* -o config/data/zstd.dic
-	zstdCDict *gozstd.CDict
-	zstdDDict *gozstd.DDict
+	zstdEncoder *zstd.Encoder
+	zstdDecoder *zstd.Decoder
 
 	CompressionVersionZero   = []byte{0, 0, 0, 0}
 	CompressionVersionLatest = CompressionVersionZero
 )
 
 func Compress(b []byte) []byte {
-	b = gozstd.CompressDict(nil, b, zstdCDict)
+	b = zstdEncoder.EncodeAll(b, nil)
 	return append(CompressionVersionLatest, b...)
 }
 
@@ -52,7 +51,7 @@ func Decompress(b []byte) []byte {
 	if !bytes.Equal(b[:header], CompressionVersionZero) {
 		return nil
 	}
-	b, err := gozstd.DecompressDict(nil, b[header:], zstdDDict)
+	b, err := zstdDecoder.DecodeAll(b[header:], nil)
 	if err != nil {
 		return nil
 	}
@@ -61,7 +60,7 @@ func Decompress(b []byte) []byte {
 
 func CompressMsgpackMarshalPanic(val interface{}) []byte {
 	payload := MsgpackMarshalPanic(val)
-	payload = gozstd.CompressDict(nil, payload, zstdCDict)
+	payload = zstdEncoder.EncodeAll(payload, nil)
 	return append(CompressionVersionLatest, payload...)
 }
 
@@ -73,7 +72,7 @@ func DecompressMsgpackUnmarshal(data []byte, val interface{}) error {
 
 	version := data[:header]
 	if bytes.Equal(version, CompressionVersionZero) {
-		payload, err := gozstd.DecompressDict(nil, data[header:], zstdDDict)
+		payload, err := zstdDecoder.DecodeAll(data[header:], nil)
 		if err != nil {
 			return err
 		}

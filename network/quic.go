@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/klauspost/compress/zstd"
 	"github.com/lucas-clemente/quic-go"
-	"github.com/valyala/gozstd"
 )
 
 // /etc/sysctl.conf
@@ -37,8 +37,8 @@ type QuicClient struct {
 	session      quic.Session
 	send         quic.SendStream
 	receive      quic.ReceiveStream
-	zstdZipper   *gozstd.CDict
-	zstdUnzipper *gozstd.DDict
+	zstdZipper   *zstd.Encoder
+	zstdUnzipper *zstd.Decoder
 	gzipZipper   *gzip.Writer
 	gzipUnzipper *gzip.Reader
 }
@@ -85,7 +85,7 @@ func (t *QuicTransport) Dial(ctx context.Context) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	cdict, err := gozstd.NewCDictLevel(common.ZstdEmbed, 5)
+	cdict, err := zstd.NewWriter(nil, zstd.WithEncoderDict(common.ZstdEmbed), zstd.WithEncoderLevel(3))
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (t *QuicTransport) Accept(ctx context.Context) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	ddict, err := gozstd.NewDDict(common.ZstdEmbed)
+	ddict, err := zstd.NewReader(nil, zstd.WithDecoderDicts(common.ZstdEmbed))
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +187,7 @@ func (c *QuicClient) Receive() ([]byte, error) {
 		defer c.gzipUnzipper.Close()
 		m.Data, err = io.ReadAll(c.gzipUnzipper)
 	case TransportCompressionZstd:
-		m.Data, err = gozstd.DecompressDict(nil, m.Data, c.zstdUnzipper)
+		m.Data, err = c.zstdUnzipper.DecodeAll(m.Data, nil)
 	}
 
 	return m.Data, err
@@ -212,7 +212,7 @@ func (c *QuicClient) Send(data []byte) error {
 		}
 		data = buf.Bytes()
 	case TransportCompressionZstd:
-		data = gozstd.CompressDict(nil, data, c.zstdZipper)
+		data = c.zstdZipper.EncodeAll(data, nil)
 	}
 
 	err := c.send.SetWriteDeadline(time.Now().Add(WriteDeadline))
