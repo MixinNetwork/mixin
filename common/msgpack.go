@@ -16,8 +16,8 @@ var ZstdEmbed []byte
 func init() {
 	msgpack.RegisterExt(0, (*Integer)(nil))
 
-	zstdEncoder = NewZstdEncoder()
-	zstdDecoder = NewZstdDecoder()
+	zstdEncoder = NewZstdEncoder(2)
+	zstdDecoder = NewZstdDecoder(2)
 }
 
 var (

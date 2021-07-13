@@ -88,7 +88,7 @@ func (t *QuicTransport) Dial(ctx context.Context) (Client, error) {
 	return &QuicClient{
 		session:    sess,
 		send:       stm,
-		zstdZipper: common.NewZstdEncoder(),
+		zstdZipper: common.NewZstdEncoder(1),
 		gzipZipper: zipper,
 	}, nil
 }
@@ -123,7 +123,7 @@ func (t *QuicTransport) Accept(ctx context.Context) (Client, error) {
 	return &QuicClient{
 		session:      sess,
 		receive:      stm,
-		zstdUnzipper: common.NewZstdDecoder(),
+		zstdUnzipper: common.NewZstdDecoder(1),
 		gzipUnzipper: new(gzip.Reader),
 	}, nil
 }
@@ -224,6 +224,9 @@ func (c *QuicClient) Send(data []byte) error {
 func (c *QuicClient) Close() error {
 	if c.send != nil {
 		c.send.Close()
+		c.zstdZipper.Close()
+	} else {
+		c.zstdUnzipper.Close()
 	}
 	return c.session.CloseWithError(0, "DONE")
 }

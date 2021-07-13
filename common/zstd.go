@@ -1,11 +1,18 @@
 package common
 
-import "github.com/klauspost/compress/zstd"
+import (
+	"runtime"
 
-func NewZstdDecoder() *zstd.Decoder {
+	"github.com/klauspost/compress/zstd"
+)
+
+func NewZstdDecoder(ccr int) *zstd.Decoder {
+	if ccr > runtime.GOMAXPROCS(0) {
+		ccr = runtime.GOMAXPROCS(0)
+	}
 	opts := []zstd.DOption{
 		zstd.WithDecoderDicts(ZstdEmbed),
-		zstd.WithDecoderConcurrency(2),
+		zstd.WithDecoderConcurrency(ccr),
 		zstd.WithDecoderLowmem(true),
 		zstd.WithDecoderMaxMemory(1024 * 1024 * 16),
 	}
@@ -16,11 +23,16 @@ func NewZstdDecoder() *zstd.Decoder {
 	return dec
 }
 
-func NewZstdEncoder() *zstd.Encoder {
+func NewZstdEncoder(ccr int) *zstd.Encoder {
+	if ccr > runtime.GOMAXPROCS(0) {
+		ccr = runtime.GOMAXPROCS(0)
+	}
 	opts := []zstd.EOption{
+		zstd.WithEncoderConcurrency(ccr),
 		zstd.WithEncoderDict(ZstdEmbed),
 		zstd.WithEncoderLevel(3),
-		zstd.WithWindowSize(8192),
+		zstd.WithWindowSize(1024 * 32),
+		zstd.WithEncoderCRC(false),
 	}
 	enc, err := zstd.NewWriter(nil, opts...)
 	if err != nil {
