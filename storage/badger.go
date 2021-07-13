@@ -49,6 +49,9 @@ func openDB(dir string, sync, valueLogGC, truncate bool) (*badger.DB, error) {
 	opts = opts.WithBlockCacheSize(0)
 	opts = opts.WithIndexCacheSize(0)
 	opts = opts.WithTruncate(truncate)
+	opts = opts.WithMaxTableSize(32 << 20)
+	opts = opts.WithTableLoadingMode(options.MemoryMap)
+	opts = opts.WithValueLogLoadingMode(options.FileIO)
 	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
