@@ -1,8 +1,6 @@
 package network
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -11,7 +9,6 @@ import (
 	"encoding/binary"
 	"encoding/pem"
 	"fmt"
-	"io"
 	"math/big"
 	"net"
 	"time"
@@ -39,8 +36,6 @@ type QuicClient struct {
 	receive      quic.ReceiveStream
 	zstdZipper   *zstd.Encoder
 	zstdUnzipper *zstd.Decoder
-	gzipZipper   *gzip.Writer
-	gzipUnzipper *gzip.Reader
 }
 
 type QuicTransport struct {
@@ -81,15 +76,10 @@ func (t *QuicTransport) Dial(ctx context.Context) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	zipper, err := gzip.NewWriterLevel(nil, 3)
-	if err != nil {
-		return nil, err
-	}
 	return &QuicClient{
 		session:    sess,
 		send:       stm,
 		zstdZipper: common.NewZstdEncoder(1),
-		gzipZipper: zipper,
 	}, nil
 }
 
@@ -124,7 +114,6 @@ func (t *QuicTransport) Accept(ctx context.Context) (Client, error) {
 		session:      sess,
 		receive:      stm,
 		zstdUnzipper: common.NewZstdDecoder(1),
-		gzipUnzipper: new(gzip.Reader),
 	}, nil
 }
 
@@ -151,7 +140,7 @@ func (c *QuicClient) Receive() ([]byte, error) {
 		return nil, fmt.Errorf("quic receive invalid message version %d", m.Version)
 	}
 	m.Compression = header[1]
-	if m.Compression != TransportCompressionGzip && m.Compression != TransportCompressionZstd {
+	if m.Compression != TransportCompressionZstd {
 		return nil, fmt.Errorf("quic receive invalid message compression %d", m.Compression)
 	}
 	m.Size = binary.BigEndian.Uint32(header[2:])
@@ -171,13 +160,6 @@ func (c *QuicClient) Receive() ([]byte, error) {
 	}
 
 	switch m.Compression {
-	case TransportCompressionGzip:
-		err = c.gzipUnzipper.Reset(bytes.NewBuffer(m.Data))
-		if err != nil {
-			return nil, err
-		}
-		defer c.gzipUnzipper.Close()
-		m.Data, err = io.ReadAll(c.gzipUnzipper)
 	case TransportCompressionZstd:
 		m.Data, err = c.zstdUnzipper.DecodeAll(m.Data, nil)
 	}
@@ -191,18 +173,6 @@ func (c *QuicClient) Send(data []byte) error {
 	}
 
 	switch TransportCompressionMethod {
-	case TransportCompressionGzip:
-		var buf bytes.Buffer
-		c.gzipZipper.Reset(&buf)
-		_, err := c.gzipZipper.Write(data)
-		if err != nil {
-			return err
-		}
-		err = c.gzipZipper.Close()
-		if err != nil {
-			return err
-		}
-		data = buf.Bytes()
 	case TransportCompressionZstd:
 		data = c.zstdZipper.EncodeAll(data, nil)
 	}

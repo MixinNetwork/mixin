@@ -2,9 +2,7 @@ package kernel
 
 import (
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
-	"os"
 	"sort"
 	"sync"
 	"time"
@@ -307,9 +305,6 @@ func (node *Node) LoadConsensusNodes() error {
 
 func (node *Node) PingNeighborsFromConfig() error {
 	node.Peer = network.NewPeer(node, node.IdForNetwork, node.addr, node.custom.Network.GossipNeighbors)
-	if len(node.custom.Network.Peers) == 0 {
-		return node.PingNeighborsFromConfigLegacy()
-	}
 
 	for _, s := range node.custom.Network.Peers {
 		if s == node.Listener {
@@ -317,29 +312,6 @@ func (node *Node) PingNeighborsFromConfig() error {
 		}
 		node.Peer.PingNeighbor(s)
 	}
-	return nil
-}
-
-// FIXME remove this
-func (node *Node) PingNeighborsFromConfigLegacy() error {
-	f, err := os.ReadFile(node.configDir + "/nodes.json")
-	if err != nil {
-		return err
-	}
-	var inputs []struct {
-		Host string `json:"host"`
-	}
-	err = json.Unmarshal(f, &inputs)
-	if err != nil {
-		return err
-	}
-	for _, in := range inputs {
-		if in.Host == node.Listener {
-			continue
-		}
-		node.Peer.PingNeighbor(in.Host)
-	}
-
 	return nil
 }
 
