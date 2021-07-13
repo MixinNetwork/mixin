@@ -212,7 +212,7 @@ func (c *QuicClient) Send(data []byte) error {
 		}
 		data = buf.Bytes()
 	case TransportCompressionZstd:
-		data = c.zstdZipper.EncodeAll(data, nil)
+		data = c.zstdZipper.EncodeAll(data, make([]byte, 0, len(data)))
 	}
 
 	err := c.send.SetWriteDeadline(time.Now().Add(WriteDeadline))

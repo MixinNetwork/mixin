@@ -38,7 +38,7 @@ var (
 )
 
 func Compress(b []byte) []byte {
-	b = zstdEncoder.EncodeAll(b, nil)
+	b = zstdEncoder.EncodeAll(b, make([]byte, 0, len(b)))
 	return append(CompressionVersionLatest, b...)
 }
 
