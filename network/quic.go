@@ -85,14 +85,10 @@ func (t *QuicTransport) Dial(ctx context.Context) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	cdict, err := zstd.NewWriter(nil, zstd.WithEncoderDict(common.ZstdEmbed), zstd.WithEncoderLevel(3))
-	if err != nil {
-		return nil, err
-	}
 	return &QuicClient{
 		session:    sess,
 		send:       stm,
-		zstdZipper: cdict,
+		zstdZipper: common.NewZstdEncoder(),
 		gzipZipper: zipper,
 	}, nil
 }
@@ -124,14 +120,10 @@ func (t *QuicTransport) Accept(ctx context.Context) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	ddict, err := zstd.NewReader(nil, zstd.WithDecoderDicts(common.ZstdEmbed))
-	if err != nil {
-		return nil, err
-	}
 	return &QuicClient{
 		session:      sess,
 		receive:      stm,
-		zstdUnzipper: ddict,
+		zstdUnzipper: common.NewZstdDecoder(),
 		gzipUnzipper: new(gzip.Reader),
 	}, nil
 }
@@ -212,7 +204,7 @@ func (c *QuicClient) Send(data []byte) error {
 		}
 		data = buf.Bytes()
 	case TransportCompressionZstd:
-		data = c.zstdZipper.EncodeAll(data, make([]byte, 0, len(data)))
+		data = c.zstdZipper.EncodeAll(data, nil)
 	}
 
 	err := c.send.SetWriteDeadline(time.Now().Add(WriteDeadline))

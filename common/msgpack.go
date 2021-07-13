@@ -16,16 +16,8 @@ var ZstdEmbed []byte
 func init() {
 	msgpack.RegisterExt(0, (*Integer)(nil))
 
-	enc, err := zstd.NewWriter(nil, zstd.WithEncoderDict(ZstdEmbed), zstd.WithEncoderLevel(3))
-	if err != nil {
-		panic(err)
-	}
-	dec, err := zstd.NewReader(nil, zstd.WithDecoderDicts(ZstdEmbed))
-	if err != nil {
-		panic(err)
-	}
-
-	zstdEncoder, zstdDecoder = enc, dec
+	zstdEncoder = NewZstdEncoder()
+	zstdDecoder = NewZstdDecoder()
 }
 
 var (
@@ -38,7 +30,7 @@ var (
 )
 
 func Compress(b []byte) []byte {
-	b = zstdEncoder.EncodeAll(b, make([]byte, 0, len(b)))
+	b = zstdEncoder.EncodeAll(b, nil)
 	return append(CompressionVersionLatest, b...)
 }
 
