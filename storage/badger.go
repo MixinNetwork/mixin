@@ -17,11 +17,11 @@ type BadgerStore struct {
 }
 
 func NewBadgerStore(custom *config.Custom, dir string) (*BadgerStore, error) {
-	snapshotsDB, err := openDB(dir+"/snapshots", true, custom.Storage.ValueLogGC, custom.Storage.Truncate)
+	snapshotsDB, err := openDB(dir+"/snapshots", true, custom)
 	if err != nil {
 		return nil, err
 	}
-	cacheDB, err := openDB(dir+"/cache", false, custom.Storage.ValueLogGC, true)
+	cacheDB, err := openDB(dir+"/cache", false, custom)
 	if err != nil {
 		return nil, err
 	}
@@ -42,22 +42,25 @@ func (store *BadgerStore) Close() error {
 	return store.cacheDB.Close()
 }
 
-func openDB(dir string, sync, valueLogGC, truncate bool) (*badger.DB, error) {
+func openDB(dir string, sync bool, custom *config.Custom) (*badger.DB, error) {
 	opts := badger.DefaultOptions(dir)
 	opts = opts.WithSyncWrites(sync)
 	opts = opts.WithCompression(options.None)
 	opts = opts.WithBlockCacheSize(0)
 	opts = opts.WithIndexCacheSize(0)
-	opts = opts.WithTruncate(truncate)
-	opts = opts.WithMaxTableSize(32 << 20)
-	opts = opts.WithTableLoadingMode(options.MemoryMap)
-	opts = opts.WithValueLogLoadingMode(options.FileIO)
+	opts = opts.WithTruncate(!sync || custom.Storage.Truncate)
+	opts = opts.WithMaxTableSize(64 << 20)
+	opts = opts.WithValueLogFileSize(1024 << 20)
+	if custom.Storage.LowMemoryMode {
+		opts = opts.WithTableLoadingMode(options.FileIO)
+		opts = opts.WithValueLogLoadingMode(options.FileIO)
+	}
 	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
 	}
 
-	if valueLogGC {
+	if custom.Storage.ValueLogGC {
 		go func() {
 			for {
 				lsm, vlog := db.Size()
