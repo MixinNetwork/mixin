@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/gofrs/uuid"
+	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -109,6 +109,12 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 	return crypto.NewHash([]byte(id))
 }
 
+const (
+	AddressLength = 20
+)
+
+type Address [AddressLength]byte
+
 func formatAddress(to string) (string, error) {
 	var bytesto [20]byte
 	_bytesto, err := hex.DecodeString(to[2:])
@@ -116,6 +122,38 @@ func formatAddress(to string) (string, error) {
 		return "", err
 	}
 	copy(bytesto[:], _bytesto)
-	address := common.Address(bytesto)
+	address := Address(bytesto)
 	return address.Hex(), nil
+}
+
+func (a *Address) Hex() string {
+	return string(a.checksumHex())
+}
+
+func (a *Address) hex() []byte {
+	var buf [len(a)*2 + 2]byte
+	copy(buf[:2], "0x")
+	hex.Encode(buf[2:], a[:])
+	return buf[:]
+}
+
+func (a *Address) checksumHex() []byte {
+	buf := a.hex()
+
+	// compute checksum
+	sha := sha3.NewLegacyKeccak256()
+	sha.Write(buf[2:])
+	hash := sha.Sum(nil)
+	for i := 2; i < len(buf); i++ {
+		hashByte := hash[(i-2)/2]
+		if i%2 == 0 {
+			hashByte = hashByte >> 4
+		} else {
+			hashByte &= 0xf
+		}
+		if buf[i] > '9' && hashByte > 7 {
+			buf[i] -= 32
+		}
+	}
+	return buf[:]
 }

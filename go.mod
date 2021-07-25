@@ -17,7 +17,6 @@ require (
 	github.com/dimfeld/httptreemux v5.0.1+incompatible
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/ebfe/keccak v0.0.0-20150115210727-5cc570678d1b // indirect
-	github.com/ethereum/go-ethereum v1.10.6
 	github.com/filecoin-project/go-address v0.0.6
 	github.com/filecoin-project/go-state-types v0.1.0
 	github.com/gofrs/uuid v4.0.0+incompatible
@@ -30,6 +29,7 @@ require (
 	github.com/nwaples/rardecode v1.1.1 // indirect
 	github.com/paxosglobal/moneroutil v0.0.0-20170611151923-33d7e0c11a62
 	github.com/pelletier/go-toml v1.9.3
+	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/rubblelabs/ripple v0.0.0-20210505072502-507286b0fd28
 	github.com/shopspring/decimal v1.2.0
 	github.com/stellar/go v0.0.0-20210723162917-1dd5bb02c4da
@@ -38,6 +38,7 @@ require (
 	github.com/unrolled/render v1.4.0
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/vmihailenco/msgpack/v4 v4.3.12
+	github.com/willf/bitset v1.1.11
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	go.dedis.ch/kyber/v3 v3.0.13
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97

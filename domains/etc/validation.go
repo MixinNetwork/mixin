@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/MixinNetwork/mixin/domains/ethereum"
 )
 
 var (
@@ -92,6 +92,6 @@ func formatAddress(to string) (string, error) {
 		return "", err
 	}
 	copy(bytesto[:], _bytesto)
-	address := common.Address(bytesto)
+	address := ethereum.Address(bytesto)
 	return address.Hex(), nil
 }

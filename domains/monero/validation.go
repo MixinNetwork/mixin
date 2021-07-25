@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"hash"
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	ethereum "github.com/ethereum/go-ethereum/crypto"
 	"github.com/paxosglobal/moneroutil"
+	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -36,14 +37,14 @@ func VerifyAddress(address string) error {
 	if len(addr) != 69 {
 		return fmt.Errorf("invalid monero address %s", address)
 	}
-	checksum := ethereum.Keccak256(addr[:len(addr)-4])[:4]
+	checksum := Keccak256(addr[:len(addr)-4])[:4]
 	if bytes.Compare(checksum, addr[len(addr)-4:]) != 0 {
 		return fmt.Errorf("invalid monero address %s", address)
 	}
 	if addr[0] != 18 && addr[0] != 42 {
 		return fmt.Errorf("invalid monero address %s", address)
 	}
-	checksum = ethereum.Keccak256([]byte{addr[0]}, addr[1:33], addr[33:65])[:4]
+	checksum = Keccak256([]byte{addr[0]}, addr[1:33], addr[33:65])[:4]
 	result := moneroutil.EncodeMoneroBase58([]byte{addr[0]}, addr[1:33], addr[33:65], checksum[:])
 	if result != address {
 		return fmt.Errorf("invalid monero address %s", address)
@@ -75,4 +76,23 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 	default:
 		panic(assetKey)
 	}
+}
+
+type KeccakState interface {
+	hash.Hash
+	Read([]byte) (int, error)
+}
+
+func NewKeccakState() KeccakState {
+	return sha3.NewLegacyKeccak256().(KeccakState)
+}
+
+func Keccak256(data ...[]byte) []byte {
+	b := make([]byte, 32)
+	d := NewKeccakState()
+	for _, b := range data {
+		d.Write(b)
+	}
+	d.Read(b)
+	return b
 }
