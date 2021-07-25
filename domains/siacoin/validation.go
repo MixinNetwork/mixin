@@ -1,12 +1,13 @@
 package siacoin
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"gitlab.com/NebulousLabs/Sia/types"
+	"golang.org/x/crypto/blake2b"
 )
 
 var (
@@ -30,13 +31,13 @@ func VerifyAddress(address string) error {
 	if strings.TrimSpace(address) != address {
 		return fmt.Errorf("invalid siacoin address %s", address)
 	}
-	var uh types.UnlockHash
+	var uh UnlockHash
 	err := uh.LoadString(address)
 	if err != nil {
 		return err
 	}
 	if uh.String() != address {
-		return fmt.Errorf("invalid siacoin address %s", address)
+		return fmt.Errorf("invalid siacoin address %s %s", address, uh.String())
 	}
 	return nil
 }
@@ -65,4 +66,46 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 	default:
 		panic(assetKey)
 	}
+}
+
+const (
+	HashSize               = 32
+	UnlockHashChecksumSize = 6
+)
+
+type UnlockHash [38]byte
+
+func (uh *UnlockHash) LoadString(strUH string) error {
+	// Check the length of strUH.
+	if len(strUH) != HashSize*2+UnlockHashChecksumSize*2 {
+		return fmt.Errorf("wrong len %d", len(strUH))
+	}
+
+	// Decode the unlock hash.
+	var byteUnlockHash []byte
+	var checksum []byte
+	_, err := fmt.Sscanf(strUH[:HashSize*2], "%x", &byteUnlockHash)
+	if err != nil {
+		return err
+	}
+
+	// Decode and verify the checksum.
+	_, err = fmt.Sscanf(strUH[HashSize*2:], "%x", &checksum)
+	if err != nil {
+		return err
+	}
+
+	expectedChecksum := blake2b.Sum256(byteUnlockHash)
+	if !bytes.Equal(expectedChecksum[:UnlockHashChecksumSize], checksum) {
+		return fmt.Errorf("wrong checksum")
+	}
+
+	copy(uh[:], byteUnlockHash[:])
+	return nil
+}
+
+func (uh UnlockHash) String() string {
+	b := uh[:HashSize]
+	uhChecksum := blake2b.Sum256(b)
+	return fmt.Sprintf("%x%x", b, uhChecksum[:UnlockHashChecksumSize])
 }
