@@ -14,26 +14,26 @@ require (
 	github.com/cornelk/hashmap v1.0.1
 	github.com/cpacia/bchutil v0.0.0-20181003130114-b126f6a35b6c
 	github.com/decred/dcrd/dcrutil v1.4.0
-	github.com/dgraph-io/badger/v2 v2.2007.2
+	github.com/dgraph-io/badger/v2 v2.2007.3
 	github.com/dimfeld/httptreemux v5.0.1+incompatible
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/ebfe/keccak v0.0.0-20150115210727-5cc570678d1b // indirect
-	github.com/ethereum/go-ethereum v1.10.4
+	github.com/ethereum/go-ethereum v1.10.6
 	github.com/filecoin-project/go-address v0.0.6
 	github.com/filecoin-project/go-state-types v0.1.0
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/gorilla/handlers v1.5.1
 	github.com/ipfs/go-cid v0.0.7
 	github.com/klauspost/compress v1.13.1
-	github.com/lucas-clemente/quic-go v0.21.1
+	github.com/lucas-clemente/quic-go v0.22.0
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/multiformats/go-multihash v0.0.15
-	github.com/nwaples/rardecode v1.1.0 // indirect
+	github.com/nwaples/rardecode v1.1.1 // indirect
 	github.com/paxosglobal/moneroutil v0.0.0-20170611151923-33d7e0c11a62
 	github.com/pelletier/go-toml v1.9.3
 	github.com/rubblelabs/ripple v0.0.0-20210505072502-507286b0fd28
 	github.com/shopspring/decimal v1.2.0
-	github.com/stellar/go v0.0.0-20210709185743-9485f89bdbf6
+	github.com/stellar/go v0.0.0-20210723162917-1dd5bb02c4da
 	github.com/stretchr/testify v1.7.0
 	github.com/ulikunitz/xz v0.5.10 // indirect
 	github.com/unrolled/render v1.4.0
