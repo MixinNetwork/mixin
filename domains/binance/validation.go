@@ -3,12 +3,13 @@ package binance
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/binance-chain/go-sdk/common/types"
+	"github.com/btcsuite/btcutil/bech32"
 	"github.com/gofrs/uuid"
 )
 
@@ -39,7 +40,7 @@ func VerifyAddress(address string) error {
 	if strings.TrimSpace(address) != address {
 		return fmt.Errorf("invalid binance address %s", address)
 	}
-	addr, err := types.AccAddressFromBech32(address)
+	addr, err := AccAddressFromBech32(address)
 	if err != nil {
 		return fmt.Errorf("invalid binance address %s %s", address, err)
 	}
@@ -84,4 +85,62 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 	sum[8] = (sum[8] & 0x3f) | 0x80
 	id := uuid.FromBytesOrNil(sum).String()
 	return crypto.NewHash([]byte(id))
+}
+
+type AccAddress []byte
+
+// AccAddressFromBech32 to create an AccAddress from a bech32 string
+func AccAddressFromBech32(address string) (addr AccAddress, err error) {
+	bz, err := GetFromBech32(address, "bnb")
+	if err != nil {
+		return nil, err
+	}
+	return AccAddress(bz), nil
+}
+
+// GetFromBech32 to decode a bytestring from a bech32-encoded string
+func GetFromBech32(bech32str, prefix string) ([]byte, error) {
+	if len(bech32str) == 0 {
+		return nil, errors.New("decoding bech32 address failed: must provide an address")
+	}
+	hrp, bz, err := DecodeAndConvert(bech32str)
+	if err != nil {
+		return nil, err
+	}
+
+	if hrp != prefix {
+		return nil, fmt.Errorf("invalid bech32 prefix. Expected %s, Got %s", prefix, hrp)
+	}
+
+	return bz, nil
+}
+
+// String representation
+func (bz AccAddress) String() string {
+	bech32Addr, err := ConvertAndEncode("bnb", bz)
+	if err != nil {
+		panic(err)
+	}
+	return bech32Addr
+}
+
+func DecodeAndConvert(bech string) (string, []byte, error) {
+	hrp, data, err := bech32.Decode(bech)
+	if err != nil {
+		return "", nil, err
+	}
+	converted, err := bech32.ConvertBits(data, 5, 8, false)
+	if err != nil {
+		return "", nil, err
+	}
+	return hrp, converted, nil
+}
+
+func ConvertAndEncode(hrp string, data []byte) (string, error) {
+	converted, err := bech32.ConvertBits(data, 8, 5, true)
+	if err != nil {
+		return "", err
+	}
+	return bech32.Encode(hrp, converted)
+
 }
