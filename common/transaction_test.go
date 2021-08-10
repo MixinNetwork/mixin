@@ -74,7 +74,7 @@ func TestTransaction(t *testing.T) {
 		assert.NotNil(err)
 		assert.Contains(err.Error(), "invalid key for the input")
 	}
-	err = ver.Validate(store)
+	err = ver.Validate(store, false)
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid tx signature number")
 
@@ -82,14 +82,14 @@ func TestTransaction(t *testing.T) {
 	for i := range ver.Inputs {
 		err := ver.SignInput(store, i, accounts[0:i+1])
 		assert.Nil(err)
-		err = ver.Validate(store)
+		err = ver.Validate(store, false)
 		if i < len(ver.Inputs)-1 {
 			assert.NotNil(err)
 		} else {
 			assert.Nil(err)
 		}
 	}
-	err = ver.Validate(store)
+	err = ver.Validate(store, false)
 	assert.Nil(err)
 
 	pm = ver.Marshal()
@@ -116,7 +116,7 @@ func TestTransaction(t *testing.T) {
 		}
 	}
 	ver.SignaturesMap = sm
-	err = ver.Validate(store)
+	err = ver.Validate(store, false)
 	assert.NotNil(err)
 	assert.Equal("batch verification failure 3 3", err.Error())
 	sm = make([]map[uint16]*crypto.Signature, 2)
@@ -129,7 +129,7 @@ func TestTransaction(t *testing.T) {
 		}
 	}
 	ver.SignaturesMap = sm
-	err = ver.Validate(store)
+	err = ver.Validate(store, false)
 	assert.NotNil(err)
 	assert.Equal("invalid signature map index 2 2", err.Error())
 	sm = make([]map[uint16]*crypto.Signature, 2)
@@ -143,7 +143,7 @@ func TestTransaction(t *testing.T) {
 	}
 	sm[0][1] = sm[0][0]
 	ver.SignaturesMap = sm
-	err = ver.Validate(store)
+	err = ver.Validate(store, false)
 	assert.NotNil(err)
 	assert.Equal("batch verification failure 4 4", err.Error())
 	sm = make([]map[uint16]*crypto.Signature, 2)
@@ -157,7 +157,7 @@ func TestTransaction(t *testing.T) {
 	}
 	sm[1][0] = sm[0][0]
 	ver.SignaturesMap = sm
-	err = ver.Validate(store)
+	err = ver.Validate(store, false)
 	assert.NotNil(err)
 	assert.Equal("batch verification failure 3 3", err.Error())
 
@@ -170,11 +170,11 @@ func TestTransaction(t *testing.T) {
 	assert.NotEqual(outputs[1].Keys[1].String(), accounts[1].PublicViewKey.String())
 
 	ver.AggregatedSignature = &AggregatedSignature{}
-	err = ver.Validate(store)
+	err = ver.Validate(store, false)
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid signatures map 2")
 	ver.SignaturesMap = nil
-	err = ver.Validate(store)
+	err = ver.Validate(store, false)
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid signature keys 0 1")
 
@@ -186,7 +186,7 @@ func TestTransaction(t *testing.T) {
 	err = ver.AggregateSign(store, aas, seed)
 	assert.Nil(err)
 	assert.Len(ver.AggregatedSignature.Signers, 1)
-	err = ver.Validate(store)
+	err = ver.Validate(store, false)
 	assert.NotNil(err)
 
 	aas = make([][]*Address, len(ver.Inputs))
@@ -200,7 +200,7 @@ func TestTransaction(t *testing.T) {
 	assert.NotNil(err)
 	assert.Nil(ver.AggregatedSignature)
 	assert.NotNil(ver.Marshal())
-	err = ver.Validate(store)
+	err = ver.Validate(store, false)
 	assert.NotNil(err)
 
 	aas = make([][]*Address, len(ver.Inputs))
@@ -211,7 +211,7 @@ func TestTransaction(t *testing.T) {
 	err = ver.AggregateSign(store, aas, seed)
 	assert.Nil(err)
 	assert.Len(ver.AggregatedSignature.Signers, 3)
-	err = ver.Validate(store)
+	err = ver.Validate(store, false)
 	assert.Nil(err)
 
 	pm = ver.Marshal()
@@ -221,7 +221,7 @@ func TestTransaction(t *testing.T) {
 	assert.NotNil(ver.AggregatedSignature)
 	assert.Nil(ver.SignaturesMap)
 	assert.Equal(pm, ver.Marshal())
-	err = ver.Validate(store)
+	err = ver.Validate(store, false)
 	assert.Nil(err)
 }
 
@@ -381,7 +381,7 @@ func TestTransactionV1(t *testing.T) {
 			assert.Nil(err)
 		}
 	}
-	err = ver.Validate(store)
+	err = ver.Validate(store, false)
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid tx signature number")
 
@@ -390,7 +390,7 @@ func TestTransactionV1(t *testing.T) {
 		err := ver.SignInputV1(store, i, accounts[0:i+1])
 		assert.Nil(err)
 	}
-	err = ver.Validate(store)
+	err = ver.Validate(store, false)
 	assert.Nil(err)
 
 	outputs := ver.ViewGhostKey(&accounts[1].PrivateViewKey)

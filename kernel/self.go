@@ -26,7 +26,7 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 		return nil, false, err
 	}
 
-	err = tx.Validate(node.persistStore)
+	err = tx.Validate(node.persistStore, finalized)
 	if err != nil {
 		if node.networkId.String() == config.MainnetId && transactionForkHackCheck(tx.PayloadHash()) {
 			logger.Printf("transaction fork hack %s\n", tx.PayloadHash())

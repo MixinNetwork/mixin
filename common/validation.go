@@ -7,13 +7,13 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
-func (ver *VersionedTransaction) Validate(store DataStore) error {
+func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	tx := &ver.SignedTransaction
 	msg := ver.PayloadMarshal()
 	txType := tx.TransactionType()
 
 	if ver.Version < TxVersion {
-		return ver.validateV1(store)
+		return ver.validateV1(store, fork)
 	}
 
 	if ver.Version != TxVersion {
@@ -45,7 +45,7 @@ func (ver *VersionedTransaction) Validate(store DataStore) error {
 		}
 	}
 
-	inputsFilter, inputAmount, err := validateInputs(store, tx, msg, ver.PayloadHash(), txType)
+	inputsFilter, inputAmount, err := validateInputs(store, tx, msg, ver.PayloadHash(), txType, fork)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func validateScriptTransaction(inputs map[string]*UTXO) error {
 	return nil
 }
 
-func validateInputs(store UTXOLockReader, tx *SignedTransaction, msg []byte, hash crypto.Hash, txType uint8) (map[string]*UTXO, Integer, error) {
+func validateInputs(store UTXOLockReader, tx *SignedTransaction, msg []byte, hash crypto.Hash, txType uint8, fork bool) (map[string]*UTXO, Integer, error) {
 	inputAmount := NewInteger(0)
 	inputsFilter := make(map[string]*UTXO)
 	allKeys := make([]*crypto.Key, 0)
@@ -127,7 +127,9 @@ func validateInputs(store UTXOLockReader, tx *SignedTransaction, msg []byte, has
 			return inputsFilter, inputAmount, fmt.Errorf("invalid input asset %s %s", utxo.Asset.String(), tx.Asset.String())
 		}
 		if utxo.LockHash.HasValue() && utxo.LockHash != hash {
-			return inputsFilter, inputAmount, fmt.Errorf("input locked for transaction %s", utxo.LockHash)
+			if !fork {
+				return inputsFilter, inputAmount, fmt.Errorf("input locked for transaction %s", utxo.LockHash)
+			}
 		}
 
 		err = validateUTXO(i, &utxo.UTXO, tx.SignaturesMap, tx.AggregatedSignature, msg, txType, keySigs, len(allKeys))

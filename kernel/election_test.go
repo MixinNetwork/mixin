@@ -52,7 +52,7 @@ func TestNodeRemovePossibility(t *testing.T) {
 	err = tx.SignInputV1(node.persistStore, 0, []*common.Address{&node.Signer})
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid key for the input")
-	err = tx.Validate(node.persistStore)
+	err = tx.Validate(node.persistStore, false)
 	assert.Nil(err)
 
 	payee, err := common.NewAddressFromString("XINYDpVHXHxkFRPbP9LZak5p7FZs3mWTeKvrAzo4g9uziTW99t7LrU7me66Xhm6oXGTbYczQLvznk3hxgNSfNBaZveAmEeRM")

@@ -215,7 +215,7 @@ func (node *Node) tryToMintKernelNode() error {
 			return err
 		}
 	}
-	err := signed.Validate(node.persistStore)
+	err := signed.Validate(node.persistStore, false)
 	if err != nil {
 		return err
 	}

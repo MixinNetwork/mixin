@@ -76,7 +76,7 @@ func (signed *SignedTransaction) SignInputV1(reader UTXOKeysReader, index int, a
 	return nil
 }
 
-func (ver *VersionedTransaction) validateV1(store DataStore) error {
+func (ver *VersionedTransaction) validateV1(store DataStore, fork bool) error {
 	tx := &ver.SignedTransaction
 	msg := ver.PayloadMarshal()
 	txType := tx.TransactionType()
@@ -100,7 +100,7 @@ func (ver *VersionedTransaction) validateV1(store DataStore) error {
 		return fmt.Errorf("invalid transaction size %d", len(msg))
 	}
 
-	inputsFilter, inputAmount, err := validateInputsV1(store, tx, msg, ver.PayloadHash(), txType)
+	inputsFilter, inputAmount, err := validateInputsV1(store, tx, msg, ver.PayloadHash(), txType, fork)
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (ver *VersionedTransaction) validateV1(store DataStore) error {
 	return fmt.Errorf("invalid transaction type %d", txType)
 }
 
-func validateInputsV1(store UTXOLockReader, tx *SignedTransaction, msg []byte, hash crypto.Hash, txType uint8) (map[string]*UTXO, Integer, error) {
+func validateInputsV1(store UTXOLockReader, tx *SignedTransaction, msg []byte, hash crypto.Hash, txType uint8, fork bool) (map[string]*UTXO, Integer, error) {
 	inputAmount := NewInteger(0)
 	inputsFilter := make(map[string]*UTXO)
 	keySigs := make(map[crypto.Key]*crypto.Signature)
@@ -172,7 +172,9 @@ func validateInputsV1(store UTXOLockReader, tx *SignedTransaction, msg []byte, h
 			return inputsFilter, inputAmount, fmt.Errorf("invalid input asset %s %s", utxo.Asset.String(), tx.Asset.String())
 		}
 		if utxo.LockHash.HasValue() && utxo.LockHash != hash {
-			return inputsFilter, inputAmount, fmt.Errorf("input locked for transaction %s", utxo.LockHash)
+			if !fork {
+				return inputsFilter, inputAmount, fmt.Errorf("input locked for transaction %s", utxo.LockHash)
+			}
 		}
 
 		err = validateUTXOV1(i, &utxo.UTXO, tx.SignaturesSliceV1, msg, txType, keySigs)
