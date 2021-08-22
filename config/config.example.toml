@@ -12,12 +12,8 @@ memory-cache-size = 16384
 cache-ttl = 7200
 
 [storage]
-# low memory mode will not mmap table
-low-memory-mode = false
 # enable value log gc will reduce disk storage usage
 value-log-gc = true
-# whether value log files should be truncated to delete corrupt data, if any.
-truncate = false
 
 [network]
 # the public endpoint to receive peer packets, may be a proxy or load balancer
