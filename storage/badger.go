@@ -48,7 +48,6 @@ func openDB(dir string, sync bool, custom *config.Custom) (*badger.DB, error) {
 	opts = opts.WithCompression(options.None)
 	opts = opts.WithBlockCacheSize(0)
 	opts = opts.WithIndexCacheSize(0)
-	opts = opts.WithValueLogFileSize(1024 << 20)
 	opts = opts.WithMetricsEnabled(false)
 	opts = opts.WithLoggingLevel(badger.ERROR)
 	db, err := badger.Open(opts)
