@@ -336,12 +336,11 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 }
 
 func (me *Peer) acceptNeighborConnection(client Client) error {
-	done := make(chan bool, 1)
 	receive := make(chan *PeerMessage, 1024)
 
 	defer func() {
 		client.Close()
-		done <- true
+		close(receive)
 	}()
 
 	peer, err := me.authenticateNeighbor(client)
@@ -349,7 +348,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		return fmt.Errorf("peer authentication error %s", err.Error())
 	}
 
-	go me.handlePeerMessage(peer, receive, done)
+	go me.handlePeerMessage(peer, receive)
 
 	for {
 		data, err := client.Receive()

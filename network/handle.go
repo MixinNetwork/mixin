@@ -276,47 +276,42 @@ func parseNetworkMessage(data []byte) (*PeerMessage, error) {
 	return msg, nil
 }
 
-func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage, done chan bool) {
-	for {
-		select {
-		case <-done:
-			return
-		case msg := <-receive:
-			switch msg.Type {
-			case PeerMessageTypePing:
-			case PeerMessageTypeGossipNeighbors:
-				if me.gossipNeighbors {
-					me.handle.UpdateNeighbors(msg.Neighbors)
-				}
-			case PeerMessageTypeGraph:
-				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeGraph %s\n", peer.IdForNetwork)
-				me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.Graph)
-				peer.syncRing.Offer(msg.Graph)
-			case PeerMessageTypeTransactionRequest:
-				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionRequest %s %s\n", peer.IdForNetwork, msg.TransactionHash)
-				me.handle.SendTransactionToPeer(peer.IdForNetwork, msg.TransactionHash)
-			case PeerMessageTypeTransaction:
-				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransaction %s\n", peer.IdForNetwork)
-				me.handle.CachePutTransaction(peer.IdForNetwork, msg.Transaction)
-			case PeerMessageTypeSnapshotConfirm:
-				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotConfirm %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
-				me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash)
-			case PeerMessageTypeSnapshotAnnoucement:
-				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotAnnoucement %s %s\n", peer.IdForNetwork, msg.Snapshot.Transaction)
-				me.handle.CosiQueueExternalAnnouncement(peer.IdForNetwork, msg.Snapshot, &msg.Commitment)
-			case PeerMessageTypeSnapshotCommitment:
-				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotCommitment %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
-				me.handle.CosiAggregateSelfCommitments(peer.IdForNetwork, msg.SnapshotHash, &msg.Commitment, msg.WantTx)
-			case PeerMessageTypeTransactionChallenge:
-				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionChallenge %s %s %t\n", peer.IdForNetwork, msg.SnapshotHash, msg.Transaction != nil)
-				me.handle.CosiQueueExternalChallenge(peer.IdForNetwork, msg.SnapshotHash, &msg.Cosi, msg.Transaction)
-			case PeerMessageTypeSnapshotResponse:
-				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotResponse %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
-				me.handle.CosiAggregateSelfResponses(peer.IdForNetwork, msg.SnapshotHash, &msg.Response)
-			case PeerMessageTypeSnapshotFinalization:
-				logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotFinalization %s %s\n", peer.IdForNetwork, msg.Snapshot.Transaction)
-				me.handle.VerifyAndQueueAppendSnapshotFinalization(peer.IdForNetwork, msg.Snapshot)
+func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage) {
+	for msg := range receive {
+		switch msg.Type {
+		case PeerMessageTypePing:
+		case PeerMessageTypeGossipNeighbors:
+			if me.gossipNeighbors {
+				me.handle.UpdateNeighbors(msg.Neighbors)
 			}
+		case PeerMessageTypeGraph:
+			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeGraph %s\n", peer.IdForNetwork)
+			me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.Graph)
+			peer.syncRing.Offer(msg.Graph)
+		case PeerMessageTypeTransactionRequest:
+			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionRequest %s %s\n", peer.IdForNetwork, msg.TransactionHash)
+			me.handle.SendTransactionToPeer(peer.IdForNetwork, msg.TransactionHash)
+		case PeerMessageTypeTransaction:
+			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransaction %s\n", peer.IdForNetwork)
+			me.handle.CachePutTransaction(peer.IdForNetwork, msg.Transaction)
+		case PeerMessageTypeSnapshotConfirm:
+			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotConfirm %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
+			me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash)
+		case PeerMessageTypeSnapshotAnnoucement:
+			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotAnnoucement %s %s\n", peer.IdForNetwork, msg.Snapshot.Transaction)
+			me.handle.CosiQueueExternalAnnouncement(peer.IdForNetwork, msg.Snapshot, &msg.Commitment)
+		case PeerMessageTypeSnapshotCommitment:
+			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotCommitment %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
+			me.handle.CosiAggregateSelfCommitments(peer.IdForNetwork, msg.SnapshotHash, &msg.Commitment, msg.WantTx)
+		case PeerMessageTypeTransactionChallenge:
+			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionChallenge %s %s %t\n", peer.IdForNetwork, msg.SnapshotHash, msg.Transaction != nil)
+			me.handle.CosiQueueExternalChallenge(peer.IdForNetwork, msg.SnapshotHash, &msg.Cosi, msg.Transaction)
+		case PeerMessageTypeSnapshotResponse:
+			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotResponse %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
+			me.handle.CosiAggregateSelfResponses(peer.IdForNetwork, msg.SnapshotHash, &msg.Response)
+		case PeerMessageTypeSnapshotFinalization:
+			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotFinalization %s %s\n", peer.IdForNetwork, msg.Snapshot.Transaction)
+			me.handle.VerifyAndQueueAppendSnapshotFinalization(peer.IdForNetwork, msg.Snapshot)
 		}
 	}
 }
