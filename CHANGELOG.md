@@ -2,6 +2,10 @@
 
 Semantic Versioning
 
+## v0.13 Insomniac Mosquitoes
+
+Upgrades the storage format, and optimizes memory usage.
+
 ## v0.12 Noisy Katydids, March 3, 2021
 
 Batch transaction signatures verification with transaction version 2.

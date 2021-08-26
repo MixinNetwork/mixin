@@ -278,6 +278,8 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 				return chain.clearAndQueueSnapshotOrPanic(s)
 			}
 			cache, final = nc, nf
+			chain.CosiAggregators = make(map[crypto.Hash]*CosiAggregator)
+			chain.CosiVerifiers = make(map[crypto.Hash]*CosiVerifier)
 		}
 		cache.Timestamp = s.Timestamp
 
@@ -367,6 +369,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 				return nil
 			}
 			cache, final = nc, nf
+			chain.CosiVerifiers = make(map[crypto.Hash]*CosiVerifier)
 		}
 
 		if err := cache.ValidateSnapshot(s); err != nil {
