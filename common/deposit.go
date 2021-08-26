@@ -10,6 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
 	"github.com/MixinNetwork/mixin/domains/bsv"
+	"github.com/MixinNetwork/mixin/domains/bytom"
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dash"
 	"github.com/MixinNetwork/mixin/domains/decred"
@@ -143,6 +144,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return dfinity.VerifyTransactionHash(deposit.TransactionHash)
 	case algorand.AlgorandChainId:
 		return algorand.VerifyTransactionHash(deposit.TransactionHash)
+	case bytom.BytomChainId:
+		return bytom.VerifyTransactionHash(deposit.TransactionHash)
 	}
 	return fmt.Errorf("invalid deposit chain id %s", chainId)
 }

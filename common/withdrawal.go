@@ -11,6 +11,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
 	"github.com/MixinNetwork/mixin/domains/bsv"
+	"github.com/MixinNetwork/mixin/domains/bytom"
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dash"
 	"github.com/MixinNetwork/mixin/domains/decred"
@@ -158,6 +159,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return dfinity.VerifyAddress(submit.Withdrawal.Address)
 	case algorand.AlgorandChainId:
 		return algorand.VerifyAddress(submit.Withdrawal.Address)
+	case bytom.BytomChainId:
+		return bytom.VerifyAddress(submit.Withdrawal.Address)
 	}
 	return fmt.Errorf("invalid withdrawal chain id %s", chainId)
 }

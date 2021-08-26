@@ -10,6 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
 	"github.com/MixinNetwork/mixin/domains/bsv"
+	"github.com/MixinNetwork/mixin/domains/bytom"
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dash"
 	"github.com/MixinNetwork/mixin/domains/decred"
@@ -117,6 +118,8 @@ func (a *Asset) Verify() error {
 		return dfinity.VerifyAssetKey(a.AssetKey)
 	case algorand.AlgorandChainId:
 		return algorand.VerifyAssetKey(a.AssetKey)
+	case bytom.BytomChainId:
+		return bytom.VerifyAssetKey(a.AssetKey)
 	default:
 		return fmt.Errorf("invalid chain id %s", a.ChainId)
 	}
@@ -188,6 +191,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return dfinity.GenerateAssetId(a.AssetKey)
 	case algorand.AlgorandChainId:
 		return algorand.GenerateAssetId(a.AssetKey)
+	case bytom.BytomChainId:
+		return bytom.GenerateAssetId(a.AssetKey)
 	default:
 		return crypto.Hash{}
 	}
@@ -259,6 +264,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return dfinity.DfinityChainId
 	case algorand.AlgorandChainId:
 		return algorand.AlgorandChainId
+	case bytom.BytomChainId:
+		return bytom.BytomChainId
 	}
 	return crypto.Hash{}
 }
