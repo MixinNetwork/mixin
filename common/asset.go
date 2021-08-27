@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/domains/akash"
 	"github.com/MixinNetwork/mixin/domains/algorand"
 	"github.com/MixinNetwork/mixin/domains/arweave"
 	"github.com/MixinNetwork/mixin/domains/bch"
@@ -111,6 +112,8 @@ func (a *Asset) Verify() error {
 		return cosmos.VerifyAssetKey(a.AssetKey)
 	case binance.BinanceChainId:
 		return binance.VerifyAssetKey(a.AssetKey)
+	case akash.AkashChainId:
+		return akash.VerifyAssetKey(a.AssetKey)
 	case arweave.ArweaveChainId:
 		return arweave.VerifyAssetKey(a.AssetKey)
 	case dfinity.DfinityChainId:
@@ -182,6 +185,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return cosmos.GenerateAssetId(a.AssetKey)
 	case binance.BinanceChainId:
 		return binance.GenerateAssetId(a.AssetKey)
+	case akash.AkashChainId:
+		return akash.GenerateAssetId(a.AssetKey)
 	case arweave.ArweaveChainId:
 		return arweave.GenerateAssetId(a.AssetKey)
 	case dfinity.DfinityChainId:
@@ -253,6 +258,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return cosmos.CosmosChainId
 	case binance.BinanceChainId:
 		return binance.BinanceChainId
+	case akash.AkashChainId:
+		return akash.AkashChainId
 	case arweave.ArweaveChainId:
 		return arweave.ArweaveChainId
 	case dfinity.DfinityChainId:
