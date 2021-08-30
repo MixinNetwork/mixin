@@ -21,7 +21,8 @@ const (
 
 type PeerSnapshot struct {
 	Snapshot  *common.Snapshot
-	peers     map[crypto.Hash]bool
+	peers     []crypto.Hash
+	filter    map[crypto.Hash]bool
 	finalized bool
 }
 
@@ -208,7 +209,7 @@ func (chain *Chain) QueuePollSnapshots() {
 				if ps.finalized {
 					continue
 				}
-				for pid := range ps.peers {
+				for _, pid := range ps.peers {
 					finalized, err := chain.cosiHook(&CosiAction{
 						PeerId:   pid,
 						Action:   CosiActionFinalization,
@@ -334,14 +335,16 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	if !found {
 		round.Snapshots[round.Size] = &PeerSnapshot{
 			Snapshot: s,
-			peers:    map[crypto.Hash]bool{peerId: true},
+			peers:    []crypto.Hash{peerId},
+			filter:   map[crypto.Hash]bool{peerId: true},
 		}
 		round.index[s.Hash] = round.Size
 		round.Size = round.Size + 1
 	} else {
 		ps := round.Snapshots[index]
-		if len(ps.peers) < 3 {
-			ps.peers[peerId] = true
+		if len(ps.filter) < 3 && !ps.filter[peerId] {
+			ps.filter[peerId] = true
+			ps.peers = append(ps.peers, peerId)
 		}
 	}
 	chain.FinalPool[offset] = round
