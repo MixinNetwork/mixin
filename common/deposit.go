@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/domains/akash"
 	"github.com/MixinNetwork/mixin/domains/algorand"
 	"github.com/MixinNetwork/mixin/domains/arweave"
 	"github.com/MixinNetwork/mixin/domains/bch"
@@ -137,6 +138,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return cosmos.VerifyTransactionHash(deposit.TransactionHash)
 	case binance.BinanceChainId:
 		return binance.VerifyTransactionHash(deposit.TransactionHash)
+	case akash.AkashChainId:
+		return akash.VerifyTransactionHash(deposit.TransactionHash)
 	case arweave.ArweaveChainId:
 		return arweave.VerifyTransactionHash(deposit.TransactionHash)
 	case dfinity.DfinityChainId:
