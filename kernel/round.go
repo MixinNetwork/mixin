@@ -48,33 +48,23 @@ func (node *Node) LoadAllChains(store storage.Store, networkId crypto.Hash) erro
 	return nil
 }
 
-func LoadRoundGraph(store storage.Store, networkId, idForNetwork crypto.Hash) (map[crypto.Hash]*CacheRound, map[crypto.Hash]*FinalRound, error) {
+func (node *Node) LoadRoundGraph() (map[crypto.Hash]*CacheRound, map[crypto.Hash]*FinalRound) {
 	cacheRound := make(map[crypto.Hash]*CacheRound)
 	finalRound := make(map[crypto.Hash]*FinalRound)
 
-	allNodes := store.ReadAllNodes(uint64(clock.Now().UnixNano()), false)
-	for _, cn := range allNodes {
-		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateCancelled {
+	node.chains.RLock()
+	defer node.chains.RUnlock()
+
+	for _, chain := range node.chains.m {
+		if chain.State == nil {
 			continue
 		}
-
-		id := cn.IdForNetwork(networkId)
-
-		cache, err := loadHeadRoundForNode(store, id)
-		if err != nil {
-			return nil, nil, err
-		}
-		cacheRound[cache.NodeId] = cache
-
-		final, err := loadFinalRoundForNode(store, id, cache.Number-1)
-		if err != nil {
-			return nil, nil, err
-		}
-		finalRound[final.NodeId] = final
-		cache.Timestamp = final.Start + config.SnapshotRoundGap
+		c, f := chain.StateCopy()
+		finalRound[chain.ChainId] = f
+		cacheRound[chain.ChainId] = c
 	}
 
-	return cacheRound, finalRound, nil
+	return cacheRound, finalRound
 }
 
 func loadRoundHistoryForNode(store storage.Store, to *FinalRound) []*FinalRound {

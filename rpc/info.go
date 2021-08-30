@@ -34,10 +34,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		"batch":  md.Batch,
 		"pledge": node.PledgeAmount(node.GraphTimestamp),
 	}
-	cacheMap, finalMap, err := kernel.LoadRoundGraph(store, node.NetworkId(), node.IdForNetwork)
-	if err != nil {
-		return info, err
-	}
+	cacheMap, finalMap := node.LoadRoundGraph()
 	cacheGraph := make(map[string]interface{})
 	for n, r := range cacheMap {
 		sm := make([]map[string]interface{}, len(r.Snapshots))
