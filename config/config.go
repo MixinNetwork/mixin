@@ -43,7 +43,9 @@ type Custom struct {
 		CacheTTL             int        `toml:"cache-ttl"`
 	} `toml:"node"`
 	Storage struct {
-		ValueLogGC bool `toml:"value-log-gc"`
+		Truncate      bool `toml:"truncate"`
+		ValueLogGC    bool `toml:"value-log-gc"`
+		LowMemoryMode bool `toml:"low-memory-mode"`
 	} `toml:"storage"`
 	Network struct {
 		Listener        string   `toml:"listener"`

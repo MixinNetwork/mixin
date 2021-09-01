@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v2"
 )
 
 func main() {

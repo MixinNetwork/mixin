@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
-	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v2"
 )
 
 func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.VersionedTransaction) error {

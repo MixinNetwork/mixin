@@ -5,8 +5,8 @@ import (
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/dgraph-io/badger/v3"
-	"github.com/dgraph-io/badger/v3/options"
+	"github.com/dgraph-io/badger/v2"
+	"github.com/dgraph-io/badger/v2/options"
 )
 
 type BadgerStore struct {
@@ -48,8 +48,13 @@ func openDB(dir string, sync bool, custom *config.Custom) (*badger.DB, error) {
 	opts = opts.WithCompression(options.None)
 	opts = opts.WithBlockCacheSize(0)
 	opts = opts.WithIndexCacheSize(0)
-	opts = opts.WithMetricsEnabled(false)
-	opts = opts.WithLoggingLevel(badger.ERROR)
+	opts = opts.WithTruncate(!sync || custom.Storage.Truncate)
+	opts = opts.WithMaxTableSize(64 << 20)
+	opts = opts.WithValueLogFileSize(1024 << 20)
+	if custom.Storage.LowMemoryMode {
+		opts = opts.WithTableLoadingMode(options.FileIO)
+		opts = opts.WithValueLogLoadingMode(options.FileIO)
+	}
 	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
