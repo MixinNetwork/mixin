@@ -161,6 +161,19 @@ func (node *Node) buildMintTransaction(timestamp uint64, validateOnly bool) *com
 		return nil
 	}
 
+	// TODO mint works should calculate according to finalized previous round, new fork required
+	if raw := TransactionMintWorkHacks[batch]; raw != "" && node.networkId.String() == config.MainnetId {
+		rt, err := hex.DecodeString(raw)
+		if err != nil {
+			panic(raw)
+		}
+		ver, err := common.UnmarshalVersionedTransaction(rt)
+		if err != nil {
+			panic(raw)
+		}
+		return ver
+	}
+
 	if node.networkId.String() == config.MainnetId && batch < MainnetMintTransactionV2ForkBatch {
 		return node.buildMintTransactionV1(timestamp, validateOnly)
 	}
