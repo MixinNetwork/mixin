@@ -7,6 +7,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/akash"
 	"github.com/MixinNetwork/mixin/domains/algorand"
 	"github.com/MixinNetwork/mixin/domains/arweave"
+	"github.com/MixinNetwork/mixin/domains/avalanche"
 	"github.com/MixinNetwork/mixin/domains/bch"
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
@@ -136,6 +137,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return mobilecoin.VerifyTransactionHash(deposit.TransactionHash)
 	case cosmos.CosmosChainId:
 		return cosmos.VerifyTransactionHash(deposit.TransactionHash)
+	case avalanche.AvalancheChainId:
+		return avalanche.VerifyTransactionHash(deposit.TransactionHash)
 	case binance.BinanceChainId:
 		return binance.VerifyTransactionHash(deposit.TransactionHash)
 	case akash.AkashChainId:

@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/akash"
 	"github.com/MixinNetwork/mixin/domains/algorand"
 	"github.com/MixinNetwork/mixin/domains/arweave"
+	"github.com/MixinNetwork/mixin/domains/avalanche"
 	"github.com/MixinNetwork/mixin/domains/bch"
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
@@ -151,6 +152,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return mobilecoin.VerifyAddress(submit.Withdrawal.Address)
 	case cosmos.CosmosChainId:
 		return cosmos.VerifyAddress(submit.Withdrawal.Address)
+	case avalanche.AvalancheChainId:
+		return avalanche.VerifyAddress(submit.Withdrawal.Address)
 	case binance.BinanceChainId:
 		return binance.VerifyAddress(submit.Withdrawal.Address)
 	case akash.AkashChainId:
