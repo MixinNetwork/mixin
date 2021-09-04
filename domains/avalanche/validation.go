@@ -56,9 +56,6 @@ func VerifyAddress(address string) error {
 }
 
 func VerifyTransactionHash(hash string) error {
-	if len(hash) != 49 {
-		return fmt.Errorf("invalid avalanche transaction hash %s", hash)
-	}
 	decodedBytes := base58.Decode(hash)
 	if len(decodedBytes) != 36 {
 		return fmt.Errorf("invalid avalanche transaction hash %s", hash)
