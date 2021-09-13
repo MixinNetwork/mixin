@@ -14,6 +14,7 @@ func TestValidation(t *testing.T) {
 	near := "d6ac94f7-c932-4e11-97dd-617867f0669e"
 	tx := "8Z87eXBbFQN1b91UVVHsASeFPvucCZmmG9oae6wZV6uN"
 	addrMain := "d6b52637bf0e03a253a634a64705580ed0d2d58479613a0aa13c4342db172323"
+	addrInvalid := "d6b52637bf0e03a253a634a64705580ed0d2d58479613a0aa13c4342db172321"
 
 	assert.Nil(VerifyAssetKey(near))
 	assert.NotNil(VerifyAssetKey(tx))
@@ -22,6 +23,7 @@ func TestValidation(t *testing.T) {
 
 	assert.Nil(VerifyAddress(addrMain))
 	assert.NotNil(VerifyAddress(near))
+	assert.NotNil(VerifyAddress(addrInvalid))
 	assert.NotNil(VerifyAddress(addrMain[1:]))
 	assert.NotNil(VerifyAddress(strings.ToUpper(addrMain)))
 

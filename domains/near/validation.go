@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"filippo.io/edwards25519"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/btcsuite/btcutil/base58"
 )
@@ -31,12 +32,19 @@ func VerifyAddress(address string) error {
 	if strings.TrimSpace(address) != address {
 		return fmt.Errorf("invalid near address %s", address)
 	}
+	if strings.ToLower(address) != address {
+		return fmt.Errorf("invalid near address %s", address)
+	}
 	addr, err := hex.DecodeString(address)
 	if err != nil {
 		return fmt.Errorf("invalid near address %s", address)
 	}
 	if len(addr) != ed25519.PublicKeySize {
 		return fmt.Errorf("invalid near address length %s", address)
+	}
+	_, err = edwards25519.NewIdentityPoint().SetBytes(addr)
+	if err != nil {
+		return fmt.Errorf("invalid near address %s", address)
 	}
 	if hex.EncodeToString(addr) != address {
 		return fmt.Errorf("invalid near address %s", address)
