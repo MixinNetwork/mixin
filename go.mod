@@ -21,18 +21,18 @@ require (
 	github.com/filecoin-project/go-state-types v0.1.0
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/gorilla/handlers v1.5.1
-	github.com/ipfs/go-cid v0.0.7
-	github.com/klauspost/compress v1.13.1
-	github.com/lucas-clemente/quic-go v0.22.0
+	github.com/ipfs/go-cid v0.1.0
+	github.com/klauspost/compress v1.13.5
+	github.com/lucas-clemente/quic-go v0.23.0
 	github.com/mholt/archiver v3.1.1+incompatible
-	github.com/multiformats/go-multihash v0.0.15
-	github.com/nwaples/rardecode v1.1.1 // indirect
+	github.com/multiformats/go-multihash v0.0.16
+	github.com/nwaples/rardecode v1.1.2 // indirect
 	github.com/paxosglobal/moneroutil v0.0.0-20170611151923-33d7e0c11a62
-	github.com/pelletier/go-toml v1.9.3
+	github.com/pelletier/go-toml v1.9.4
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/rubblelabs/ripple v0.0.0-20210505072502-507286b0fd28
 	github.com/shopspring/decimal v1.2.0
-	github.com/stellar/go v0.0.0-20210723162917-1dd5bb02c4da
+	github.com/stellar/go v0.0.0-20210909092819-e011c915474e
 	github.com/stretchr/testify v1.7.0
 	github.com/ulikunitz/xz v0.5.10 // indirect
 	github.com/unrolled/render v1.4.0
