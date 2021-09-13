@@ -28,6 +28,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/mobilecoin"
 	"github.com/MixinNetwork/mixin/domains/monero"
 	"github.com/MixinNetwork/mixin/domains/namecoin"
+	"github.com/MixinNetwork/mixin/domains/near"
 	"github.com/MixinNetwork/mixin/domains/nervos"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/ravencoin"
@@ -93,6 +94,8 @@ func (a *Asset) Verify() error {
 		return filecoin.VerifyAssetKey(a.AssetKey)
 	case solana.SolanaChainId:
 		return solana.VerifyAssetKey(a.AssetKey)
+	case near.NearChainId:
+		return near.VerifyAssetKey(a.AssetKey)
 	case polkadot.PolkadotChainId:
 		return polkadot.VerifyAssetKey(a.AssetKey)
 	case kusama.KusamaChainId:
@@ -168,6 +171,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return filecoin.GenerateAssetId(a.AssetKey)
 	case solana.SolanaChainId:
 		return solana.GenerateAssetId(a.AssetKey)
+	case near.NearChainId:
+		return near.GenerateAssetId(a.AssetKey)
 	case polkadot.PolkadotChainId:
 		return polkadot.GenerateAssetId(a.AssetKey)
 	case kusama.KusamaChainId:
@@ -243,6 +248,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return filecoin.FilecoinChainId
 	case solana.SolanaChainId:
 		return solana.SolanaChainId
+	case near.NearChainId:
+		return near.NearChainId
 	case polkadot.PolkadotChainId:
 		return polkadot.PolkadotChainId
 	case kusama.KusamaChainId:

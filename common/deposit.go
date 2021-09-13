@@ -28,6 +28,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/mobilecoin"
 	"github.com/MixinNetwork/mixin/domains/monero"
 	"github.com/MixinNetwork/mixin/domains/namecoin"
+	"github.com/MixinNetwork/mixin/domains/near"
 	"github.com/MixinNetwork/mixin/domains/nervos"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/ravencoin"
@@ -119,6 +120,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return filecoin.VerifyTransactionHash(deposit.TransactionHash)
 	case solana.SolanaChainId:
 		return solana.VerifyTransactionHash(deposit.TransactionHash)
+	case near.NearChainId:
+		return near.VerifyTransactionHash(deposit.TransactionHash)
 	case polkadot.PolkadotChainId:
 		return polkadot.VerifyTransactionHash(deposit.TransactionHash)
 	case kusama.KusamaChainId:
