@@ -8,7 +8,19 @@ After a new DKG, the custodians transfer assets to _Mc_, and _Mc_ becomes the ne
 
 And all custodians pass messages to each other through a secure end-to-end encrypted Mixin Messenger chat group.
 
+## Bitcoin
+
+Use a segwit address as custodian, and transfer coins to new address whenever a new DKG happens. This also applies to all Bitcoin similar blockchains without smart contracts.
+
+## Ethereum
+
+Use a contract as custodian which is owned by the DKG address, and change the owner to new address whenever a new DKG happens. This also applies to all smart contracts enabled blockchains.
+
 ## NOTICE
 
-1. Never deploy this on public servers.
-2. Never connect this to public Mixin Kernel nodes.
+custodian <---> private proxy <---> kernel and mm
+
+0. Never allow any incoming traffic.
+1. only allow outbouding traffic to the proxy.
+2. Never deploy this on public servers.
+3. Never connect this to public Mixin Kernel nodes.
