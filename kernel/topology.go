@@ -16,6 +16,11 @@ type TopologicalSequence struct {
 	seq   uint64
 	point uint64
 	sps   float64
+
+	filter map[crypto.Hash]bool
+	check  uint64
+	count  uint64
+	tps    float64
 }
 
 func (node *Node) TopologicalOrder() uint64 {
@@ -24,6 +29,10 @@ func (node *Node) TopologicalOrder() uint64 {
 
 func (node *Node) SPS() float64 {
 	return node.TopoCounter.sps
+}
+
+func (node *Node) TPS() float64 {
+	return node.TopoCounter.tps
 }
 
 type SnapshotWitness struct {
@@ -48,6 +57,14 @@ func (node *Node) TopoWrite(s *common.Snapshot, signers []crypto.Hash) *common.S
 		panic(fmt.Errorf("malformed snapshot signers %s %d %d", s.Hash, len(signers), len(s.Signature.Keys())))
 	}
 
+	if node.TopoCounter.seq%100000 == 7 {
+		node.TopoCounter.filter = make(map[crypto.Hash]bool)
+	}
+	if !node.TopoCounter.filter[s.Transaction] {
+		node.TopoCounter.filter[s.Transaction] = true
+		node.TopoCounter.count += 1
+	}
+
 	node.TopoCounter.seq += 1
 	topo := &common.SnapshotWithTopologicalOrder{
 		Snapshot:         *s,
@@ -66,12 +83,16 @@ func (topo *TopologicalSequence) TopoStats() {
 		time.Sleep(time.Duration(durationSeconds) * time.Second)
 		topo.sps = float64(topo.seq-topo.point) / float64(durationSeconds)
 		topo.point = topo.seq
+
+		topo.tps = float64(topo.count-topo.check) / float64(durationSeconds)
+		topo.check = topo.count
 	}
 }
 
 func getTopologyCounter(store storage.Store) *TopologicalSequence {
 	topo := &TopologicalSequence{
-		seq: store.TopologySequence(),
+		seq:    store.TopologySequence(),
+		filter: make(map[crypto.Hash]bool),
 	}
 	topo.point = topo.seq
 	go topo.TopoStats()
