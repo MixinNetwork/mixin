@@ -7,10 +7,9 @@ replace github.com/vmihailenco/msgpack/v4 => github.com/MixinNetwork/msgpack/v4 
 require (
 	filippo.io/edwards25519 v1.0.0-rc.1
 	github.com/MixinNetwork/mobilecoin-go v0.0.0-20210622080237-fed5245fb80c
-	github.com/VictoriaMetrics/fastcache v1.6.0
+	github.com/VictoriaMetrics/fastcache v1.7.0
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
-	github.com/cornelk/hashmap v1.0.1
 	github.com/cpacia/bchutil v0.0.0-20181003130114-b126f6a35b6c
 	github.com/decred/dcrd/dcrutil v1.4.0
 	github.com/dgraph-io/badger/v3 v3.2103.1
@@ -20,7 +19,7 @@ require (
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/gorilla/handlers v1.5.1
 	github.com/ipfs/go-cid v0.1.0
-	github.com/klauspost/compress v1.13.5
+	github.com/klauspost/compress v1.13.6
 	github.com/lucas-clemente/quic-go v0.23.0
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/multiformats/go-multihash v0.0.16
@@ -28,14 +27,14 @@ require (
 	github.com/pelletier/go-toml v1.9.4
 	github.com/rubblelabs/ripple v0.0.0-20210505072502-507286b0fd28
 	github.com/shopspring/decimal v1.2.0
-	github.com/stellar/go v0.0.0-20210909092819-e011c915474e
+	github.com/stellar/go v0.0.0-20210922145424-856a1aba5220
 	github.com/stretchr/testify v1.7.0
 	github.com/unrolled/render v1.4.0
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/vmihailenco/msgpack/v4 v4.3.12
 	github.com/willf/bitset v1.1.11
 	go.dedis.ch/kyber/v3 v3.0.13
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 )
 
 require (
@@ -43,13 +42,12 @@ require (
 	github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f // indirect
 	github.com/bwesterb/go-ristretto v1.1.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
-	github.com/cespare/xxhash/v2 v2.1.1 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dchest/blake256 v1.0.0 // indirect
 	github.com/dchest/blake2b v1.0.0 // indirect
-	github.com/dchest/siphash v1.1.0 // indirect
 	github.com/decred/base58 v1.0.0 // indirect
 	github.com/decred/dcrd/chaincfg v1.5.1 // indirect
 	github.com/decred/dcrd/chaincfg/chainhash v1.0.1 // indirect
@@ -70,7 +68,7 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/golang/snappy v0.0.3 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/flatbuffers v1.12.0 // indirect
 	github.com/gtank/merlin v0.1.1 // indirect
 	github.com/ipfs/go-block-format v0.0.2 // indirect
@@ -106,7 +104,7 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/mod v0.4.2 // indirect
 	golang.org/x/net v0.0.0-20210614182718-04defd469f4e // indirect
-	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
+	golang.org/x/sys v0.0.0-20210910150752-751e447fb3d0 // indirect
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/tools v0.1.4 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
