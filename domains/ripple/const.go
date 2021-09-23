@@ -1,0 +1,8 @@
+package ripple
+
+const (
+	ALPHABET = "rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz"
+
+	RIPPLE_ACCOUNT_ID_VERSION = 0
+	RIPPLE_ACCOUNT_ID_LENGTH  = 20
+)

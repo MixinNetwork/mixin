@@ -23,7 +23,6 @@ require (
 	github.com/multiformats/go-multihash v0.0.16
 	github.com/paxosglobal/moneroutil v0.0.0-20170611151923-33d7e0c11a62
 	github.com/pelletier/go-toml v1.9.4
-	github.com/rubblelabs/ripple v0.0.0-20210505072502-507286b0fd28
 	github.com/shopspring/decimal v1.2.0
 	github.com/stellar/go v0.0.0-20210922145424-856a1aba5220
 	github.com/stretchr/testify v1.7.0
