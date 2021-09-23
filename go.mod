@@ -13,11 +13,9 @@ require (
 	github.com/cpacia/bchutil v0.0.0-20181003130114-b126f6a35b6c
 	github.com/decred/dcrd/dcrutil v1.4.0
 	github.com/dgraph-io/badger/v3 v3.2103.1
-	github.com/dimfeld/httptreemux v5.0.1+incompatible
 	github.com/filecoin-project/go-address v0.0.6
 	github.com/filecoin-project/go-state-types v0.1.0
 	github.com/gofrs/uuid v4.0.0+incompatible
-	github.com/gorilla/handlers v1.5.1
 	github.com/ipfs/go-cid v0.1.0
 	github.com/klauspost/compress v1.13.6
 	github.com/lucas-clemente/quic-go v0.23.0
@@ -29,7 +27,6 @@ require (
 	github.com/shopspring/decimal v1.2.0
 	github.com/stellar/go v0.0.0-20210922145424-856a1aba5220
 	github.com/stretchr/testify v1.7.0
-	github.com/unrolled/render v1.4.0
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/vmihailenco/msgpack/v4 v4.3.12
 	github.com/willf/bitset v1.1.11
@@ -61,7 +58,6 @@ require (
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/ebfe/keccak v0.0.0-20150115210727-5cc570678d1b // indirect
-	github.com/felixge/httpsnoop v1.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
