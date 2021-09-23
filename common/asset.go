@@ -31,6 +31,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/near"
 	"github.com/MixinNetwork/mixin/domains/nervos"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
+	"github.com/MixinNetwork/mixin/domains/polygon"
 	"github.com/MixinNetwork/mixin/domains/ravencoin"
 	"github.com/MixinNetwork/mixin/domains/ripple"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
@@ -126,6 +127,8 @@ func (a *Asset) Verify() error {
 		return dfinity.VerifyAssetKey(a.AssetKey)
 	case algorand.AlgorandChainId:
 		return algorand.VerifyAssetKey(a.AssetKey)
+	case polygon.PolygonChainId:
+		return polygon.VerifyAssetKey(a.AssetKey)
 	default:
 		return fmt.Errorf("invalid chain id %s", a.ChainId)
 	}
@@ -203,6 +206,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return dfinity.GenerateAssetId(a.AssetKey)
 	case algorand.AlgorandChainId:
 		return algorand.GenerateAssetId(a.AssetKey)
+	case polygon.PolygonChainId:
+		return polygon.GenerateAssetId(a.AssetKey)
 	default:
 		return crypto.Hash{}
 	}
@@ -280,6 +285,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return dfinity.DfinityChainId
 	case algorand.AlgorandChainId:
 		return algorand.AlgorandChainId
+	case polygon.PolygonChainId:
+		return polygon.PolygonChainId
 	}
 	return crypto.Hash{}
 }
