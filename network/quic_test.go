@@ -3,7 +3,6 @@ package network
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -18,13 +17,16 @@ func TestQuic(t *testing.T) {
 	defer serverTrans.Close()
 	err = serverTrans.Listen()
 	assert.Nil(err)
+
+	wait := make(chan struct{})
 	go func() {
 		server, err := serverTrans.Accept(context.Background())
 		assert.Nil(err)
 		assert.NotNil(server)
 		msg, err := server.Receive()
 		assert.Nil(err)
-		assert.Equal("hello mixin", string(msg))
+		assert.Equal("hello mixin", string(msg.Data))
+		wait <- struct{}{}
 	}()
 
 	clientTrans, err := NewQuicClient(addr)
@@ -35,5 +37,5 @@ func TestQuic(t *testing.T) {
 	assert.NotNil(client)
 	err = client.Send([]byte("hello mixin"))
 	assert.Nil(err)
-	time.Sleep(1 * time.Second)
+	<-wait
 }

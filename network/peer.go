@@ -351,11 +351,11 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 	go me.handlePeerMessage(peer, receive)
 
 	for {
-		data, err := client.Receive()
+		tm, err := client.Receive()
 		if err != nil {
 			return fmt.Errorf("client.Receive %s %s", peer.IdForNetwork, err.Error())
 		}
-		msg, err := parseNetworkMessage(data)
+		msg, err := parseNetworkMessage(tm.Version, tm.Data)
 		if err != nil {
 			return fmt.Errorf("parseNetworkMessage %s %s", peer.IdForNetwork, err.Error())
 		}
@@ -372,12 +372,12 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 	var peer *Peer
 	auth := make(chan error)
 	go func() {
-		data, err := client.Receive()
+		tm, err := client.Receive()
 		if err != nil {
 			auth <- err
 			return
 		}
-		msg, err := parseNetworkMessage(data)
+		msg, err := parseNetworkMessage(tm.Version, tm.Data)
 		if err != nil {
 			auth <- err
 			return

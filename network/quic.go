@@ -121,7 +121,7 @@ func (c *QuicClient) RemoteAddr() net.Addr {
 	return c.session.RemoteAddr()
 }
 
-func (c *QuicClient) Receive() ([]byte, error) {
+func (c *QuicClient) Receive() (*TransportMessage, error) {
 	err := c.receive.SetReadDeadline(time.Now().Add(ReadDeadline))
 	if err != nil {
 		return nil, err
@@ -164,7 +164,7 @@ func (c *QuicClient) Receive() ([]byte, error) {
 		m.Data, err = c.zstdUnzipper.DecodeAll(m.Data, nil)
 	}
 
-	return m.Data, err
+	return &m, err
 }
 
 func (c *QuicClient) Send(data []byte) error {

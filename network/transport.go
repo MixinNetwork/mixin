@@ -24,7 +24,7 @@ type TransportMessage struct {
 
 type Client interface {
 	RemoteAddr() net.Addr
-	Receive() ([]byte, error)
+	Receive() (*TransportMessage, error)
 	Send([]byte) error
 	Close() error
 }
