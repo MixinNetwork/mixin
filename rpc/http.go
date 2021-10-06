@@ -24,7 +24,10 @@ type Call struct {
 }
 
 func handlePanic(w http.ResponseWriter, r *http.Request) {
-	recover()
+	rcv := recover()
+	if rcv == nil {
+		return
+	}
 	rdr := &Render{w: w}
 	rdr.RenderError(fmt.Errorf("bad request"))
 }
