@@ -164,7 +164,6 @@ func testConsensus(t *testing.T, dup int) {
 
 	level, _ := strconv.ParseInt(os.Getenv("LOG"), 10, 64)
 	logger.SetLevel(int(level))
-	logger.SetLimiter(10)
 
 	root, err := os.MkdirTemp("", "mixin-consensus-test")
 	assert.Nil(err)
