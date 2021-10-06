@@ -32,4 +32,4 @@ jobs:
       - name: Testing
         working-directory: .
         run: |
-          go test -v ./...
+          go test `go list ./... | grep -v rpc`
