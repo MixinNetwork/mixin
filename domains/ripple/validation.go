@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	rcrypto "github.com/rubblelabs/ripple/crypto"
-	"github.com/rubblelabs/ripple/data"
 )
 
 var (
@@ -31,19 +29,18 @@ func VerifyAddress(address string) error {
 	if strings.TrimSpace(address) != address {
 		return fmt.Errorf("invalid ripple address %s", address)
 	}
-	destinationHash, err := rcrypto.NewRippleHash(address)
+	destinationHash, err := newHashFromString(address)
 	if err != nil {
 		return fmt.Errorf("invalid ripple address %s %s", address, err)
 	}
-	var destination data.Account
-	if len(destinationHash.Payload()) != len(destination) {
+	if len(destinationHash) != RIPPLE_ACCOUNT_ID_LENGTH+1 {
 		return fmt.Errorf("invalid ripple address %s", address)
 	}
-	accountId, err := rcrypto.NewAccountId(destinationHash.Payload())
+	accountId, err := newAccountId(destinationHash[1:])
 	if err != nil {
 		return fmt.Errorf("invalid ripple address %s %s", address, err)
 	}
-	if accountId.String() != address {
+	if accountId != address {
 		return fmt.Errorf("invalid ripple address %s", address)
 	}
 	return nil
@@ -76,4 +73,22 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 	default:
 		panic(assetKey)
 	}
+}
+
+func newHashFromString(s string) ([]byte, error) {
+	decoded, err := Base58Decode(s, ALPHABET)
+	if err != nil {
+		return nil, err
+	}
+	return decoded[:len(decoded)-4], nil
+}
+
+func newAccountId(b []byte) (string, error) {
+	version := RIPPLE_ACCOUNT_ID_VERSION
+	if len(b) != RIPPLE_ACCOUNT_ID_LENGTH {
+		return "", fmt.Errorf("Hash is wrong size, expected: %d got: %d", RIPPLE_ACCOUNT_ID_LENGTH, len(b))
+	}
+
+	h := append([]byte{byte(version)}, b...)
+	return Base58Encode(h, ALPHABET), nil
 }

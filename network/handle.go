@@ -196,7 +196,7 @@ func buildGraphMessage(points []*SyncPoint) []byte {
 	return append([]byte{PeerMessageTypeGraph}, data...)
 }
 
-func parseNetworkMessage(data []byte) (*PeerMessage, error) {
+func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 	if len(data) < 1 {
 		return nil, errors.New("invalid message data")
 	}

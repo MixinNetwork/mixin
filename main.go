@@ -65,11 +65,6 @@ func main() {
 					Value:   logger.INFO,
 					Usage:   "the log level",
 				},
-				&cli.IntFlag{
-					Name:  "limiter",
-					Value: 0,
-					Usage: "limit the log count for the same content, 0 means no limit",
-				},
 				&cli.StringFlag{
 					Name:  "filter",
 					Usage: "the RE2 regex pattern to filter log",
@@ -96,11 +91,6 @@ func main() {
 					Aliases: []string{"l"},
 					Value:   logger.INFO,
 					Usage:   "the log level",
-				},
-				&cli.IntFlag{
-					Name:  "limiter",
-					Value: 0,
-					Usage: "limit the log count for the same content, 0 means no limit",
 				},
 				&cli.StringFlag{
 					Name:  "filter",
@@ -564,7 +554,6 @@ func cloneCmd(c *cli.Context) error {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	logger.SetLevel(c.Int("log"))
-	logger.SetLimiter(c.Int("limiter"))
 	err := logger.SetFilter(c.String("filter"))
 	if err != nil {
 		return err
@@ -611,7 +600,6 @@ func kernelCmd(c *cli.Context) error {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	logger.SetLevel(c.Int("log"))
-	logger.SetLimiter(c.Int("limiter"))
 	err := logger.SetFilter(c.String("filter"))
 	if err != nil {
 		return err

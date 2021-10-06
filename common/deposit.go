@@ -31,6 +31,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/near"
 	"github.com/MixinNetwork/mixin/domains/nervos"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
+	"github.com/MixinNetwork/mixin/domains/polygon"
 	"github.com/MixinNetwork/mixin/domains/ravencoin"
 	"github.com/MixinNetwork/mixin/domains/ripple"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
@@ -152,6 +153,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return dfinity.VerifyTransactionHash(deposit.TransactionHash)
 	case algorand.AlgorandChainId:
 		return algorand.VerifyTransactionHash(deposit.TransactionHash)
+	case polygon.PolygonChainId:
+		return polygon.VerifyTransactionHash(deposit.TransactionHash)
 	}
 	return fmt.Errorf("invalid deposit chain id %s", chainId)
 }

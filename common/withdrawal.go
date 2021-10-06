@@ -32,6 +32,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/near"
 	"github.com/MixinNetwork/mixin/domains/nervos"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
+	"github.com/MixinNetwork/mixin/domains/polygon"
 	"github.com/MixinNetwork/mixin/domains/ravencoin"
 	"github.com/MixinNetwork/mixin/domains/ripple"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
@@ -167,6 +168,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return dfinity.VerifyAddress(submit.Withdrawal.Address)
 	case algorand.AlgorandChainId:
 		return algorand.VerifyAddress(submit.Withdrawal.Address)
+	case polygon.PolygonChainId:
+		return polygon.VerifyAddress(submit.Withdrawal.Address)
 	}
 	return fmt.Errorf("invalid withdrawal chain id %s", chainId)
 }

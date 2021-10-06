@@ -9,12 +9,9 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/dimfeld/httptreemux"
-	"github.com/gorilla/handlers"
-	"github.com/unrolled/render"
 )
 
-type R struct {
+type RPC struct {
 	Store  storage.Store
 	Node   *kernel.Node
 	custom *config.Custom
@@ -26,64 +23,67 @@ type Call struct {
 	Params []interface{} `json:"params"`
 }
 
-func NewRouter(custom *config.Custom, store storage.Store, node *kernel.Node) *httptreemux.TreeMux {
-	router := httptreemux.New()
-	impl := &R{Store: store, Node: node, custom: custom}
-	router.POST("/", impl.handle)
-	registerHandlers(router)
-	return router
-}
-
-func registerHandlers(router *httptreemux.TreeMux) {
-	router.MethodNotAllowedHandler = func(w http.ResponseWriter, r *http.Request, _ map[string]httptreemux.HandlerFunc) {
-		render.New().JSON(w, http.StatusNotFound, map[string]interface{}{"error": "not found"})
+func handlePanic(w http.ResponseWriter, r *http.Request) {
+	rcv := recover()
+	if rcv == nil {
+		return
 	}
-	router.NotFoundHandler = func(w http.ResponseWriter, r *http.Request) {
-		render.New().JSON(w, http.StatusNotFound, map[string]interface{}{"error": "not found"})
-	}
-	router.PanicHandler = func(w http.ResponseWriter, r *http.Request, rcv interface{}) {
-		render.New().JSON(w, http.StatusInternalServerError, map[string]interface{}{"error": "server error"})
-	}
+	rdr := &Render{w: w}
+	rdr.RenderError(fmt.Errorf("bad request"))
 }
 
 type Render struct {
 	w     http.ResponseWriter
-	impl  *render.Render
 	start time.Time
 	id    string
 }
 
 func (r *Render) RenderData(data interface{}) {
 	body := map[string]interface{}{"data": data}
-	if r.id != "" {
-		body["id"] = r.id
-	}
-	if !r.start.IsZero() {
-		body["runtime"] = fmt.Sprint(time.Since(r.start).Seconds())
-	}
-	r.impl.JSON(r.w, http.StatusOK, body)
+	r.render(body)
 }
 
 func (r *Render) RenderError(err error) {
 	body := map[string]interface{}{"error": err.Error()}
+	r.render(body)
+}
+
+func (r *Render) render(body map[string]interface{}) {
 	if r.id != "" {
 		body["id"] = r.id
 	}
 	if !r.start.IsZero() {
 		body["runtime"] = fmt.Sprint(time.Since(r.start).Seconds())
 	}
-	r.impl.JSON(r.w, http.StatusOK, body)
+	b, err := json.Marshal(body)
+	if err != nil {
+		panic(err)
+	}
+	r.w.Header().Set("Content-Type", "application/json")
+	r.w.WriteHeader(http.StatusOK)
+	_, err = r.w.Write(b)
+	if err != nil {
+		panic(err)
+	}
 }
 
-func (impl *R) handle(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	defer handlePanic(w, r)
+
+	rdr := &Render{w: w}
+	if r.URL.Path != "/" || r.Method != "POST" {
+		rdr.RenderError(fmt.Errorf("bad request %s %s", r.Method, r.URL.Path))
+		return
+	}
+
 	var call Call
 	d := json.NewDecoder(r.Body)
 	d.UseNumber()
 	if err := d.Decode(&call); err != nil {
-		render.New().JSON(w, http.StatusBadRequest, map[string]interface{}{"error": err.Error()})
+		rdr.RenderError(fmt.Errorf("bad request %s", err.Error()))
 		return
 	}
-	renderer := &Render{w: w, impl: render.New(), id: call.Id}
+	renderer := &Render{w: w, id: call.Id}
 	if impl.custom.RPC.Runtime {
 		renderer.start = time.Now()
 	}
@@ -203,7 +203,8 @@ func handleCORS(handler http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Methods", "OPTIONS,GET,POST,DELETE")
 		w.Header().Set("Access-Control-Max-Age", "600")
 		if r.Method == "OPTIONS" {
-			render.New().JSON(w, http.StatusOK, map[string]interface{}{})
+			rdr := Render{w: w}
+			rdr.render(map[string]interface{}{})
 		} else {
 			handler.ServeHTTP(w, r)
 		}
@@ -211,9 +212,8 @@ func handleCORS(handler http.Handler) http.Handler {
 }
 
 func NewServer(custom *config.Custom, store storage.Store, node *kernel.Node, port int) *http.Server {
-	router := NewRouter(custom, store, node)
-	handler := handleCORS(router)
-	handler = handlers.ProxyHeaders(handler)
+	rpc := &RPC{Store: store, Node: node, custom: custom}
+	handler := handleCORS(rpc)
 
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),

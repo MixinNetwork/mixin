@@ -107,6 +107,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		"final":     finalGraph,
 		"topology":  node.TopologicalOrder(),
 		"sps":       node.SPS(),
+		"tps":       node.TPS(),
 	}
 	caches, finals, state := node.QueueState()
 	info["queue"] = map[string]interface{}{
