@@ -24,7 +24,7 @@ require (
 	github.com/paxosglobal/moneroutil v0.0.0-20170611151923-33d7e0c11a62
 	github.com/pelletier/go-toml v1.9.4
 	github.com/shopspring/decimal v1.2.0
-	github.com/stellar/go v0.0.0-20210922145424-856a1aba5220
+	github.com/stellar/go v0.0.0-20211004213516-a1db2a6b1fd3
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/vmihailenco/msgpack/v4 v4.3.12

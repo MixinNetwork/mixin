@@ -167,11 +167,12 @@ func (enc *Encoder) Write(b []byte) {
 	}
 }
 
-func (enc *Encoder) WriteByte(b byte) {
+func (enc *Encoder) WriteByte(b byte) error {
 	err := enc.buf.WriteByte(b)
 	if err != nil {
 		panic(err)
 	}
+	return nil
 }
 
 func (enc *Encoder) WriteInt(d int) {
