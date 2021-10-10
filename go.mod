@@ -12,23 +12,18 @@ require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cpacia/bchutil v0.0.0-20181003130114-b126f6a35b6c
 	github.com/decred/dcrd/dcrutil v1.4.0
-	github.com/dgraph-io/badger/v3 v3.2103.1
-	github.com/filecoin-project/go-address v0.0.6
-	github.com/filecoin-project/go-state-types v0.1.0
+	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/gofrs/uuid v4.0.0+incompatible
-	github.com/ipfs/go-cid v0.1.0
 	github.com/klauspost/compress v1.13.6
 	github.com/lucas-clemente/quic-go v0.23.0
 	github.com/mholt/archiver v3.1.1+incompatible
-	github.com/multiformats/go-multihash v0.0.16
 	github.com/paxosglobal/moneroutil v0.0.0-20170611151923-33d7e0c11a62
 	github.com/pelletier/go-toml v1.9.4
 	github.com/shopspring/decimal v1.2.0
-	github.com/stellar/go v0.0.0-20211004213516-a1db2a6b1fd3
+	github.com/stellar/go v0.0.0-20211008195307-10c7eda545ed
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/vmihailenco/msgpack/v4 v4.3.12
-	github.com/willf/bitset v1.1.11
 	go.dedis.ch/kyber/v3 v3.0.13
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 )
@@ -64,36 +59,22 @@ require (
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/google/flatbuffers v1.12.0 // indirect
+	github.com/google/flatbuffers v1.12.1 // indirect
 	github.com/gtank/merlin v0.1.1 // indirect
-	github.com/ipfs/go-block-format v0.0.2 // indirect
-	github.com/ipfs/go-ipfs-util v0.0.1 // indirect
-	github.com/ipfs/go-ipld-cbor v0.0.5 // indirect
-	github.com/ipfs/go-ipld-format v0.0.1 // indirect
-	github.com/klauspost/cpuid/v2 v2.0.4 // indirect
 	github.com/marten-seemann/qtls-go1-16 v0.1.4 // indirect
 	github.com/marten-seemann/qtls-go1-17 v0.1.0 // indirect
 	github.com/mimoo/StrobeGo v0.0.0-20181016162300-f8f6d4d2b643 // indirect
-	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
-	github.com/minio/sha256-simd v1.0.0 // indirect
-	github.com/mr-tron/base58 v1.2.0 // indirect
-	github.com/multiformats/go-base32 v0.0.3 // indirect
-	github.com/multiformats/go-base36 v0.1.0 // indirect
-	github.com/multiformats/go-multibase v0.0.3 // indirect
-	github.com/multiformats/go-varint v0.0.6 // indirect
 	github.com/nwaples/rardecode v1.1.2 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/onsi/ginkgo v1.16.4 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/polydawn/refmt v0.0.0-20190807091052-3d65705ee9f1 // indirect
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/stellar/go-xdr v0.0.0-20201028102745-f80a23dac78a // indirect
 	github.com/ulikunitz/xz v0.5.10 // indirect
 	github.com/vmihailenco/tagparser v0.1.1 // indirect
-	github.com/whyrusleeping/cbor-gen v0.0.0-20210303213153-67a261a1d291 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	go.dedis.ch/fixbuf v1.0.3 // indirect
 	go.opencensus.io v0.23.0 // indirect
