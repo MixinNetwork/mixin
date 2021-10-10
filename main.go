@@ -562,11 +562,7 @@ func cloneCmd(c *cli.Context) error {
 		return err
 	}
 
-	cache, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1e8, // number of keys to track frequency of (10M).
-		MaxCost:     int64(custom.Node.MemoryCacheSize * 1024 * 1024),
-		BufferItems: 64, // number of keys per Get buffer.
-	})
+	cache, err := newCache(custom)
 	if err != nil {
 		return err
 	}
@@ -606,11 +602,7 @@ func kernelCmd(c *cli.Context) error {
 		return err
 	}
 
-	cache, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1e8, // number of keys to track frequency of (10M).
-		MaxCost:     int64(custom.Node.MemoryCacheSize * 1024 * 1024),
-		BufferItems: 64, // number of keys per Get buffer.
-	})
+	cache, err := newCache(custom)
 	if err != nil {
 		return err
 	}
@@ -640,4 +632,13 @@ func kernelCmd(c *cli.Context) error {
 	}
 
 	return node.Loop()
+}
+
+func newCache(conf *config.Custom) (*ristretto.Cache, error) {
+	cost := int64(conf.Node.MemoryCacheSize * 1024 * 1024)
+	return ristretto.NewCache(&ristretto.Config{
+		NumCounters: cost / 8 * 10,
+		MaxCost:     cost,
+		BufferItems: 64,
+	})
 }
