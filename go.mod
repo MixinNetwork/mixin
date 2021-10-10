@@ -9,14 +9,12 @@ require (
 	github.com/MixinNetwork/mobilecoin-go v0.0.0-20210622080237-fed5245fb80c
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
-	github.com/cpacia/bchutil v0.0.0-20181003130114-b126f6a35b6c
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/dgraph-io/ristretto v0.1.0
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/klauspost/compress v1.13.6
 	github.com/lucas-clemente/quic-go v0.23.0
 	github.com/mholt/archiver v3.1.1+incompatible
-	github.com/paxosglobal/moneroutil v0.0.0-20170611151923-33d7e0c11a62
 	github.com/pelletier/go-toml v1.9.4
 	github.com/shopspring/decimal v1.2.0
 	github.com/stretchr/testify v1.7.0
@@ -37,7 +35,6 @@ require (
 	github.com/dchest/blake2b v1.0.0 // indirect
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
-	github.com/ebfe/keccak v0.0.0-20150115210727-5cc570678d1b // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
