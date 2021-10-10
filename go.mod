@@ -10,7 +10,6 @@ require (
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cpacia/bchutil v0.0.0-20181003130114-b126f6a35b6c
-	github.com/decred/dcrd/dcrutil v1.4.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/dgraph-io/ristretto v0.1.0
 	github.com/gofrs/uuid v4.0.0+incompatible
@@ -28,7 +27,6 @@ require (
 )
 
 require (
-	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412 // indirect
 	github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f // indirect
 	github.com/bwesterb/go-ristretto v1.1.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
@@ -36,17 +34,7 @@ require (
 	github.com/cheekybits/genny v1.0.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dchest/blake256 v1.0.0 // indirect
 	github.com/dchest/blake2b v1.0.0 // indirect
-	github.com/decred/base58 v1.0.0 // indirect
-	github.com/decred/dcrd/chaincfg v1.5.1 // indirect
-	github.com/decred/dcrd/chaincfg/chainhash v1.0.1 // indirect
-	github.com/decred/dcrd/chaincfg/v2 v2.0.2 // indirect
-	github.com/decred/dcrd/dcrec v1.0.0 // indirect
-	github.com/decred/dcrd/dcrec/edwards v1.0.0 // indirect
-	github.com/decred/dcrd/dcrec/secp256k1 v1.0.2 // indirect
-	github.com/decred/dcrd/dcrutil/v2 v2.0.0 // indirect
-	github.com/decred/dcrd/wire v1.2.0 // indirect
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/ebfe/keccak v0.0.0-20150115210727-5cc570678d1b // indirect
