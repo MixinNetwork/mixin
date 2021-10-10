@@ -77,7 +77,7 @@ func Initialize(file string) (*Custom, error) {
 		config.Node.KernelOprationPeriod = 700
 	}
 	if config.Node.MemoryCacheSize == 0 {
-		config.Node.MemoryCacheSize = 1024 * 16
+		config.Node.MemoryCacheSize = 1024 * 4
 	}
 	if config.Node.CacheTTL == 0 {
 		config.Node.CacheTTL = 3600 * 2

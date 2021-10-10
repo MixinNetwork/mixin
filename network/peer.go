@@ -14,7 +14,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/util"
-	"github.com/VictoriaMetrics/fastcache"
+	"github.com/dgraph-io/ristretto"
 )
 
 type Peer struct {
@@ -455,13 +455,13 @@ func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.
 }
 
 type confirmMap struct {
-	cache *fastcache.Cache
+	cache *ristretto.Cache
 }
 
 func (m *confirmMap) contains(key []byte, duration time.Duration) bool {
-	val := m.cache.Get(nil, key)
-	if len(val) == 8 {
-		ts := time.Unix(0, int64(binary.BigEndian.Uint64(val)))
+	val, found := m.cache.Get(key)
+	if found {
+		ts := time.Unix(0, int64(binary.BigEndian.Uint64(val.([]byte))))
 		return ts.Add(duration).After(time.Now())
 	}
 	return false
@@ -470,7 +470,7 @@ func (m *confirmMap) contains(key []byte, duration time.Duration) bool {
 func (m *confirmMap) store(key []byte, ts time.Time) {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, uint64(ts.UnixNano()))
-	m.cache.Set(key, buf)
+	m.cache.Set(key, buf, 8)
 }
 
 type neighborMap struct {
