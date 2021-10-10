@@ -637,7 +637,7 @@ func kernelCmd(c *cli.Context) error {
 func newCache(conf *config.Custom) (*ristretto.Cache, error) {
 	cost := int64(conf.Node.MemoryCacheSize * 1024 * 1024)
 	return ristretto.NewCache(&ristretto.Config{
-		NumCounters: cost / 8 * 10,
+		NumCounters: cost / 1024 * 10,
 		MaxCost:     cost,
 		BufferItems: 64,
 	})
