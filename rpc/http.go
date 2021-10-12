@@ -61,10 +61,7 @@ func (r *Render) render(body map[string]interface{}) {
 	}
 	r.w.Header().Set("Content-Type", "application/json")
 	r.w.WriteHeader(http.StatusOK)
-	_, err = r.w.Write(b)
-	if err != nil {
-		panic(err)
-	}
+	r.w.Write(b)
 }
 
 func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
