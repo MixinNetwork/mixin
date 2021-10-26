@@ -252,15 +252,15 @@ func historySinceRound(history []*FinalRound, link uint64) []*FinalRound {
 func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto.Key) bool {
 	key := append(snap[:], sig[:]...)
 	key = append(key, pub[:]...)
-	value := node.cacheStore.Get(nil, key)
-	if len(value) == 1 {
-		return value[0] == byte(1)
+	value, found := node.cacheStore.Get(key)
+	if found {
+		return value.(byte) == byte(1)
 	}
 	valid := pub.Verify(snap[:], sig)
 	if valid {
-		node.cacheStore.Set(key, []byte{1})
+		node.cacheStore.Set(key, byte(1), 1)
 	} else {
-		node.cacheStore.Set(key, []byte{0})
+		node.cacheStore.Set(key, byte(0), 1)
 	}
 	return valid
 }
@@ -301,16 +301,16 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, c
 	key = append(key, tbuf...)
 	binary.BigEndian.PutUint64(tbuf, sig.Mask)
 	key = append(key, tbuf...)
-	value := node.cacheStore.Get(nil, key)
-	if len(value) > 0 {
-		signers := convertBytesToSigners(sig, value)
+	value, found := node.cacheStore.Get(key)
+	if found {
+		signers := convertBytesToSigners(sig, value.([]byte))
 		return signers, len(signers) == len(sig.Keys())
 	}
 
 	err := sig.FullVerify(publics, threshold, snap[:])
 	if err != nil {
 		logger.Verbosef("CacheVerifyCosi(%s, %d, %d) ERROR %s\n", snap, len(publics), threshold, err.Error())
-		node.cacheStore.Set(key, []byte{0})
+		node.cacheStore.Set(key, []byte{0}, 1)
 		return nil, false
 	}
 
@@ -318,8 +318,8 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, c
 	for i, k := range sig.Keys() {
 		signers[i] = cids[k]
 	}
-	value = convertSignersToBytes(signers)
-	node.cacheStore.Set(key, value)
+	vb := convertSignersToBytes(signers)
+	node.cacheStore.Set(key, vb, int64(len(vb)))
 	return signers, true
 }
 

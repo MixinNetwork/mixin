@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/paxosglobal/moneroutil"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -33,7 +32,7 @@ func VerifyAddress(address string) error {
 	if strings.TrimSpace(address) != address {
 		return fmt.Errorf("invalid monero address %s", address)
 	}
-	addr := moneroutil.DecodeMoneroBase58(address)
+	addr := DecodeMoneroBase58(address)
 	if len(addr) != 69 {
 		return fmt.Errorf("invalid monero address %s", address)
 	}
@@ -45,7 +44,7 @@ func VerifyAddress(address string) error {
 		return fmt.Errorf("invalid monero address %s", address)
 	}
 	checksum = Keccak256([]byte{addr[0]}, addr[1:33], addr[33:65])[:4]
-	result := moneroutil.EncodeMoneroBase58([]byte{addr[0]}, addr[1:33], addr[33:65], checksum[:])
+	result := EncodeMoneroBase58([]byte{addr[0]}, addr[1:33], addr[33:65], checksum[:])
 	if result != address {
 		return fmt.Errorf("invalid monero address %s", address)
 	}

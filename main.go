@@ -6,14 +6,13 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime"
-	"time"
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/rpc"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/VictoriaMetrics/fastcache"
+	"github.com/dgraph-io/ristretto"
 	"github.com/urfave/cli/v2"
 )
 
@@ -563,16 +562,10 @@ func cloneCmd(c *cli.Context) error {
 		return err
 	}
 
-	cache := fastcache.New(custom.Node.MemoryCacheSize * 1024 * 1024)
-	go func() {
-		var s fastcache.Stats
-		for {
-			time.Sleep(1 * time.Minute)
-			cache.UpdateStats(&s)
-			logger.Printf("CACHE STATS GET: %d SET: %d COLLISION: %d SIZE: %dMB\n", s.GetCalls, s.SetCalls, s.Collisions, s.BytesSize/1024/1024)
-			s.Reset()
-		}
-	}()
+	cache, err := newCache(custom)
+	if err != nil {
+		return err
+	}
 
 	store, err := storage.NewBadgerStore(custom, c.String("dir"))
 	if err != nil {
@@ -609,16 +602,10 @@ func kernelCmd(c *cli.Context) error {
 		return err
 	}
 
-	cache := fastcache.New(custom.Node.MemoryCacheSize * 1024 * 1024)
-	go func() {
-		var s fastcache.Stats
-		for {
-			time.Sleep(1 * time.Minute)
-			cache.UpdateStats(&s)
-			logger.Printf("CACHE STATS GET: %d SET: %d COLLISION: %d SIZE: %dMB\n", s.GetCalls, s.SetCalls, s.Collisions, s.BytesSize/1024/1024)
-			s.Reset()
-		}
-	}()
+	cache, err := newCache(custom)
+	if err != nil {
+		return err
+	}
 
 	store, err := storage.NewBadgerStore(custom, c.String("dir"))
 	if err != nil {
@@ -645,4 +632,13 @@ func kernelCmd(c *cli.Context) error {
 	}
 
 	return node.Loop()
+}
+
+func newCache(conf *config.Custom) (*ristretto.Cache, error) {
+	cost := int64(conf.Node.MemoryCacheSize * 1024 * 1024)
+	return ristretto.NewCache(&ristretto.Config{
+		NumCounters: cost / 1024 * 10,
+		MaxCost:     cost,
+		BufferItems: 64,
+	})
 }

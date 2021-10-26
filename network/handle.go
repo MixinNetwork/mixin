@@ -9,7 +9,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/VictoriaMetrics/fastcache"
+	"github.com/dgraph-io/ristretto"
 )
 
 const (
@@ -45,7 +45,7 @@ type PeerMessage struct {
 }
 
 type SyncHandle interface {
-	GetCacheStore() *fastcache.Cache
+	GetCacheStore() *ristretto.Cache
 	BuildAuthenticationMessage() []byte
 	Authenticate(msg []byte) (crypto.Hash, string, error)
 	UpdateNeighbors(neighbors []string) error

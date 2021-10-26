@@ -45,7 +45,7 @@ func VerifyAddress(address string) error {
 		return fmt.Errorf("invalid nervos address %s", address)
 	}
 
-	if payload[1] != CodeHashSingleIndex {
+	if payload[1] != CodeHashIndexSingle && payload[1] != CodeHashIndexAnyoneCanPay {
 		return fmt.Errorf("invalid nervos address %s", address)
 	}
 	ckbAddress, err := EncodeAddress(payload)
@@ -88,9 +88,10 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 }
 
 const (
-	ShortFormat         byte = 1
-	CodeHashSingleIndex byte = 0
-	PrefixMainNet            = "ckb"
+	ShortFormat               byte = 1
+	CodeHashIndexSingle       byte = 0
+	CodeHashIndexAnyoneCanPay byte = 2
+	PrefixMainNet                  = "ckb"
 )
 
 func EncodeAddress(payload []byte) (string, error) {

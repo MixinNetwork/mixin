@@ -9,7 +9,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/VictoriaMetrics/fastcache"
+	"github.com/dgraph-io/ristretto"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -84,7 +84,14 @@ func setupTestNode(assert *assert.Assertions, dir string) *Node {
 
 	custom, err := config.Initialize(dir + "/config.toml")
 	assert.Nil(err)
-	cache := fastcache.New(16 * 1024 * 1024)
+
+	cache, err := ristretto.NewCache(&ristretto.Config{
+		NumCounters: 1e7, // number of keys to track frequency of (10M).
+		MaxCost:     1 << 30,
+		BufferItems: 64, // number of keys per Get buffer.
+	})
+	assert.Nil(err)
+
 	store, err := storage.NewBadgerStore(custom, dir)
 	assert.Nil(err)
 	assert.NotNil(store)

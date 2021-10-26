@@ -1,12 +1,13 @@
 package stellar
 
 import (
+	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
 	"strings"
 
+	"filippo.io/edwards25519"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/stellar/go/keypair"
 )
 
 var (
@@ -33,12 +34,16 @@ func VerifyAddress(address string) error {
 	if strings.ToUpper(address) != address {
 		return fmt.Errorf("invalid stellar address %s", address)
 	}
-	fromAddress, err := keypair.Parse(address)
+	payload, err := Decode(VersionByteAccountID, address)
 	if err != nil {
 		return fmt.Errorf("invalid stellar address %s %s", address, err)
 	}
-	if fromAddress.Address() != address {
-		return fmt.Errorf("invalid stellar address %s", address)
+	if len(payload) != ed25519.PublicKeySize {
+		return fmt.Errorf("invalid near address length %s", address)
+	}
+	_, err = edwards25519.NewIdentityPoint().SetBytes(payload)
+	if err != nil {
+		return fmt.Errorf("invalid near address %s", address)
 	}
 	return nil
 }

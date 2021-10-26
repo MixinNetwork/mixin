@@ -38,7 +38,7 @@ func (node *Node) Teardown() {
 	node.chains.RUnlock()
 	node.Peer.Teardown()
 	node.persistStore.Close()
-	node.cacheStore.Reset()
+	node.cacheStore.Clear()
 }
 
 func TestMockReset() {

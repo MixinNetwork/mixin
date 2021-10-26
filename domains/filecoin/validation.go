@@ -1,14 +1,11 @@
 package filecoin
 
 import (
+	"encoding/base32"
 	"fmt"
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/ipfs/go-cid"
-	"github.com/multiformats/go-multihash"
 )
 
 var (
@@ -20,7 +17,7 @@ func init() {
 	FilecoinChainBase = "08285081-e1d8-4be6-9edc-e203afa932da"
 	FilecoinChainId = crypto.NewHash([]byte(FilecoinChainBase))
 
-	address.CurrentNetwork = address.Mainnet
+	CurrentNetwork = Mainnet
 }
 
 func VerifyAssetKey(assetKey string) error {
@@ -35,14 +32,14 @@ func VerifyAddress(addr string) error {
 		return fmt.Errorf("invalid filecoin address %s", addr)
 	}
 
-	if string(addr[0]) != address.MainnetPrefix {
+	if string(addr[0]) != MainnetPrefix {
 		return fmt.Errorf("invalid filecoin address %s", addr)
 	}
-	a, err := address.NewFromString(addr)
+	a, err := NewFromString(addr)
 	if err != nil {
 		return fmt.Errorf("invalid filecoin address %s %s", addr, err)
 	}
-	if a.Protocol() != address.SECP256K1 && a.Protocol() != address.BLS {
+	if a.Protocol() != SECP256K1 && a.Protocol() != BLS {
 		return fmt.Errorf("invalid filecoin address %s", addr)
 	}
 	if a.String() != addr {
@@ -52,22 +49,45 @@ func VerifyAddress(addr string) error {
 }
 
 func VerifyTransactionHash(hash string) error {
-	id, err := cid.Parse(hash)
+	if strings.TrimSpace(hash) != hash {
+		return fmt.Errorf("invalid filecoin transaction hash %s", hash)
+	}
+	if strings.ToLower(hash) != hash {
+		return fmt.Errorf("invalid filecoin transaction hash %s", hash)
+	}
+	if len(hash) < 32 {
+		return fmt.Errorf("invalid filecoin transaction hash %s", hash)
+	}
+	if hash[0] != 'b' {
+		return fmt.Errorf("invalid filecoin transaction hash %s", hash)
+	}
+	bb, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(strings.ToUpper(hash[1:]))
 	if err != nil {
 		return fmt.Errorf("invalid filecoin transaction hash %s %s", hash, err)
 	}
-	if id.Prefix().MhType != abi.HashFunction {
-		return fmt.Errorf("invalid filecoin transaction hash %s 0", hash)
-	}
-	dmh, err := multihash.Decode(id.Hash())
+
+	vers, n, err := FromUvarint(bb)
 	if err != nil {
-		return fmt.Errorf("invalid filecoin transaction hash %s %s 1", hash, err)
+		return fmt.Errorf("invalid filecoin transaction hash %s %s", hash, err)
 	}
-	if dmh.Code != abi.HashFunction {
+	if vers != 1 {
+		return fmt.Errorf("invalid filecoin transaction hash %s %s", hash, err)
+	}
+	_, cn, err := FromUvarint(bb[n:])
+	if err != nil {
+		return fmt.Errorf("invalid filecoin transaction hash %s %s", hash, err)
+	}
+
+	code, n, err := FromUvarint(bb[n+cn:])
+	if err != nil || n <= 0 {
+		return fmt.Errorf("invalid filecoin transaction hash %s %s", hash, err)
+	}
+	if code != 45600 {
 		return fmt.Errorf("invalid filecoin transaction hash %s 2", hash)
 	}
-	if id.String() != hash {
-		return fmt.Errorf("invalid filecoin transaction hash %s %s 3", hash, id.String())
+	id := "b" + strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(bb))
+	if id != hash {
+		return fmt.Errorf("invalid filecoin transaction hash %s %s 3", hash, id)
 	}
 	return nil
 }

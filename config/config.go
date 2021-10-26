@@ -10,7 +10,7 @@ import (
 
 const (
 	Debug        = true
-	BuildVersion = "v0.13.4-BUILD_VERSION"
+	BuildVersion = "v0.13.7-BUILD_VERSION"
 
 	MainnetId                  = "6430225c42bb015b4da03102fa962e4f4ef3969e03e04345db229f8377ef7997"
 	SnapshotRoundGap           = uint64(3 * time.Second)
@@ -79,7 +79,7 @@ func Initialize(file string) (*Custom, error) {
 		config.Node.KernelOprationPeriod = 700
 	}
 	if config.Node.MemoryCacheSize == 0 {
-		config.Node.MemoryCacheSize = 1024 * 16
+		config.Node.MemoryCacheSize = 1024 * 4
 	}
 	if config.Node.CacheTTL == 0 {
 		config.Node.CacheTTL = 3600 * 2

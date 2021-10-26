@@ -21,7 +21,7 @@ import (
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/VictoriaMetrics/fastcache"
+	"github.com/dgraph-io/ristretto"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,7 +49,7 @@ func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
 		custom, err := config.Initialize(dir + "/config.toml")
 		assert.Nil(err)
-		cache := fastcache.New(custom.Node.MemoryCacheSize * 1024 * 1024)
+		cache := newCache(custom)
 		store, err := storage.NewBadgerStore(custom, dir)
 		assert.Nil(err)
 		assert.NotNil(store)
@@ -179,7 +179,7 @@ func testConsensus(t *testing.T, dup int) {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
 		custom, err := config.Initialize(dir + "/config.toml")
 		assert.Nil(err)
-		cache := fastcache.New(custom.Node.MemoryCacheSize * 1024 * 1024)
+		cache := newCache(custom)
 		store, err := storage.NewBadgerStore(custom, dir)
 		assert.Nil(err)
 		assert.NotNil(store)
@@ -626,7 +626,7 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 
 	custom, err := config.Initialize(dir + "/config.toml")
 	assert.Nil(err)
-	cache := fastcache.New(custom.Node.MemoryCacheSize * 1024 * 1024)
+	cache := newCache(custom)
 	store, err := storage.NewBadgerStore(custom, dir)
 	assert.Nil(err)
 	assert.NotNil(store)
@@ -1063,4 +1063,16 @@ func (raw signerInput) CheckDepositInput(deposit *common.DepositData, tx crypto.
 
 func (raw signerInput) ReadLastMintDistribution(group string) (*common.MintDistribution, error) {
 	return nil, nil
+}
+
+func newCache(conf *config.Custom) *ristretto.Cache {
+	cache, err := ristretto.NewCache(&ristretto.Config{
+		NumCounters: 1e7, // number of keys to track frequency of (10M).
+		MaxCost:     int64(conf.Node.MemoryCacheSize) * 1024 * 1024,
+		BufferItems: 64, // number of keys per Get buffer.
+	})
+	if err != nil {
+		panic(err)
+	}
+	return cache
 }

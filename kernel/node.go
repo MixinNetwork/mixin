@@ -14,7 +14,7 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/network"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/VictoriaMetrics/fastcache"
+	"github.com/dgraph-io/ristretto"
 )
 
 type Node struct {
@@ -41,7 +41,7 @@ type Node struct {
 	startAt         time.Time
 	networkId       crypto.Hash
 	persistStore    storage.Store
-	cacheStore      *fastcache.Cache
+	cacheStore      *ristretto.Cache
 	custom          *config.Custom
 	configDir       string
 	addr            string
@@ -67,7 +67,7 @@ type CNode struct {
 	ConsensusIndex int
 }
 
-func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *fastcache.Cache, addr string, dir string) (*Node, error) {
+func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ristretto.Cache, addr string, dir string) (*Node, error) {
 	var node = &Node{
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
 		chains:          &chainsMap{m: make(map[crypto.Hash]*Chain)},
@@ -337,7 +337,7 @@ func (node *Node) Uptime() time.Duration {
 	return clock.Now().Sub(node.startAt)
 }
 
-func (node *Node) GetCacheStore() *fastcache.Cache {
+func (node *Node) GetCacheStore() *ristretto.Cache {
 	return node.cacheStore
 }
 

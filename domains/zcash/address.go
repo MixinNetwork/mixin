@@ -1,11 +1,10 @@
 package zcash
 
 import (
-	"crypto/sha256"
 	"errors"
 
+	"github.com/MixinNetwork/mixin/domains/tezos"
 	"github.com/btcsuite/btcutil"
-	"github.com/btcsuite/btcutil/base58"
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -15,7 +14,7 @@ type Params struct {
 }
 
 func encodeAddress(hash160 []byte, netID [2]byte) string {
-	return CheckEncode(hash160[:ripemd160.Size], netID)
+	return tezos.CheckEncode(hash160[:ripemd160.Size], netID[:])
 }
 
 type Address interface {
@@ -43,10 +42,12 @@ func (a *AddressScriptHash) EncodeAddress() string {
 }
 
 func DecodeAddress(address string, params *Params) (Address, error) {
-	decoded, netID, err := CheckDecode(address)
+	decoded, netIB, err := tezos.CheckDecode(address, 2)
 	if err != nil {
 		return nil, err
 	}
+	var netID [2]byte
+	copy(netID[:], netIB)
 
 	switch len(decoded) {
 	case ripemd160.Size: // P2PKH or P2SH
@@ -89,46 +90,3 @@ func newAddressPubKeyHash(pkHash []byte, netID [2]byte) (*AddressPubKeyHash, err
 	copy(addr.hash[:], pkHash)
 	return addr, nil
 }
-
-// checksum: first four bytes of sha256^2
-func checksum(input []byte) (cksum [4]byte) {
-	h := sha256.Sum256(input)
-	h2 := sha256.Sum256(h[:])
-	copy(cksum[:], h2[:4])
-	return
-}
-
-// CheckDecode decodes a string that was encoded with CheckEncode and verifies
-// the checksum.
-func CheckDecode(input string) (result []byte, version [2]byte, err error) {
-	decoded := base58.Decode(input)
-	if len(decoded) < 6 {
-		return nil, [2]byte{0, 0}, ErrInvalidFormat
-	}
-	version = [2]byte{decoded[0], decoded[1]}
-	var cksum [4]byte
-	copy(cksum[:], decoded[len(decoded)-4:])
-	if checksum(decoded[:len(decoded)-4]) != cksum {
-		return nil, [2]byte{0, 0}, ErrChecksum
-	}
-	payload := decoded[2 : len(decoded)-4]
-	result = append(result, payload...)
-	return
-}
-
-// CheckEncode prepends two version bytes and appends a four byte checksum.
-func CheckEncode(input []byte, version [2]byte) string {
-	b := make([]byte, 0, 2+len(input)+4)
-	b = append(b, version[:]...)
-	b = append(b, input[:]...)
-	cksum := checksum(b)
-	b = append(b, cksum[:]...)
-	return base58.Encode(b)
-}
-
-// ErrChecksum indicates that the checksum of a check-encoded string does not verify against
-// the checksum.
-var ErrChecksum = errors.New("checksum error")
-
-// ErrInvalidFormat indicates that the check-encoded string has an invalid format.
-var ErrInvalidFormat = errors.New("invalid format: version and/or checksum bytes missing")
