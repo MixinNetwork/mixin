@@ -37,6 +37,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/siacoin"
 	"github.com/MixinNetwork/mixin/domains/solana"
 	"github.com/MixinNetwork/mixin/domains/stellar"
+	"github.com/MixinNetwork/mixin/domains/terra"
 	"github.com/MixinNetwork/mixin/domains/tezos"
 	"github.com/MixinNetwork/mixin/domains/tron"
 	"github.com/MixinNetwork/mixin/domains/zcash"
@@ -121,6 +122,8 @@ func (a *Asset) Verify() error {
 		return binance.VerifyAssetKey(a.AssetKey)
 	case akash.AkashChainId:
 		return akash.VerifyAssetKey(a.AssetKey)
+	case terra.TerraChainId:
+		return terra.VerifyAssetKey(a.AssetKey)
 	case arweave.ArweaveChainId:
 		return arweave.VerifyAssetKey(a.AssetKey)
 	case dfinity.DfinityChainId:
@@ -200,6 +203,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return binance.GenerateAssetId(a.AssetKey)
 	case akash.AkashChainId:
 		return akash.GenerateAssetId(a.AssetKey)
+	case terra.TerraChainId:
+		return terra.GenerateAssetId(a.AssetKey)
 	case arweave.ArweaveChainId:
 		return arweave.GenerateAssetId(a.AssetKey)
 	case dfinity.DfinityChainId:
@@ -279,6 +284,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return binance.BinanceChainId
 	case akash.AkashChainId:
 		return akash.AkashChainId
+	case terra.TerraChainId:
+		return terra.TerraChainId
 	case arweave.ArweaveChainId:
 		return arweave.ArweaveChainId
 	case dfinity.DfinityChainId:

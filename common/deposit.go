@@ -37,6 +37,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/siacoin"
 	"github.com/MixinNetwork/mixin/domains/solana"
 	"github.com/MixinNetwork/mixin/domains/stellar"
+	"github.com/MixinNetwork/mixin/domains/terra"
 	"github.com/MixinNetwork/mixin/domains/tezos"
 	"github.com/MixinNetwork/mixin/domains/tron"
 	"github.com/MixinNetwork/mixin/domains/zcash"
@@ -147,6 +148,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return binance.VerifyTransactionHash(deposit.TransactionHash)
 	case akash.AkashChainId:
 		return akash.VerifyTransactionHash(deposit.TransactionHash)
+	case terra.TerraChainId:
+		return terra.VerifyTransactionHash(deposit.TransactionHash)
 	case arweave.ArweaveChainId:
 		return arweave.VerifyTransactionHash(deposit.TransactionHash)
 	case dfinity.DfinityChainId:
