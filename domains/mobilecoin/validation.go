@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	mobilecoin "github.com/MixinNetwork/mobilecoin-go"
+	account "github.com/jadeydi/mobilecoin-account"
 )
 
 var (
@@ -27,7 +27,7 @@ func VerifyAssetKey(assetKey string) error {
 }
 
 func VerifyAddress(address string) error {
-	am, err := mobilecoin.DecodeAccount(address)
+	am, err := account.DecodeAccount(address)
 	if err != nil {
 		return err
 	}
