@@ -154,10 +154,8 @@ github.com/gtank/merlin v0.1.1/go.mod h1:T86dnYJhcGOh5BjZFCJWTDeTK7XW8uE+E21Cy/b
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
-github.com/jadeydi/mobilecoin-account v0.0.0-20211027145828-01097478ea7a h1:y/+0i6dtzThV5DhEgEJuehi+ZsHksh8VzcJ6zXXqWmI=
-github.com/jadeydi/mobilecoin-account v0.0.0-20211027145828-01097478ea7a/go.mod h1:7H49ZCXUtkjffRQx1fzjAr6rKX8wGXWOAY8A2GuU1Aw=
-github.com/jadeydi/mobilecoin-account v0.0.0-20211027153453-dd20e7b84146 h1:a04cw1Jeeaymsb0ojISgkc1pwHkEPdfAQjJ7JJCf/6o=
-github.com/jadeydi/mobilecoin-account v0.0.0-20211027153453-dd20e7b84146/go.mod h1:7H49ZCXUtkjffRQx1fzjAr6rKX8wGXWOAY8A2GuU1Aw=
+github.com/jadeydi/mobilecoin-account v0.0.0-20211028053259-47bbc95060e8 h1:aocMHmGEQeTb05EDtnOgLllkGZITKf0CmUaZu4PvZgc=
+github.com/jadeydi/mobilecoin-account v0.0.0-20211028053259-47bbc95060e8/go.mod h1:d0B3ZA6E28MSIIqYm30KPHNxjKA/x00oL7vNk16kEUA=
 github.com/jellevandenhooff/dkim v0.0.0-20150330215556-f50fe3d243e1/go.mod h1:E0B/fFc00Y+Rasa88328GlI/XbtyysCtTHZS8h7IrBU=
 github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
@@ -454,6 +452,8 @@ google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 h1:+kGHl1aib/qcwaR
 google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013/go.mod h1:NbSheEEYHJ7i3ixzK3sjbqSGDJWnxyFXZblF3eUsNvo=
 google.golang.org/genproto v0.0.0-20211027151537-807f52c398cb h1:FDdKKQzWACWe/MtHvgdMDnsD6d/YAr86Y6JVbke1KXg=
 google.golang.org/genproto v0.0.0-20211027151537-807f52c398cb/go.mod h1:5CzLGKJ67TSI2B9POpiiyGha0AjJvZIUgRMt1dSmuhc=
+google.golang.org/genproto v0.0.0-20211027162914-98a5263abeca h1:+e+aQDO4/c9KaG8PXWHTc6/+Du6kz+BKcXCSnV4SSTE=
+google.golang.org/genproto v0.0.0-20211027162914-98a5263abeca/go.mod h1:5CzLGKJ67TSI2B9POpiiyGha0AjJvZIUgRMt1dSmuhc=
 google.golang.org/grpc v1.14.0/go.mod h1:yo6s7OP7yaDglbqo1J04qKzAhqBH6lvTonzMVmEdcZw=
 google.golang.org/grpc v1.16.0/go.mod h1:0JHn/cJsOMiMfNA9+DeHDlAU7KAAB5GDlYFpa9MZMio=
 google.golang.org/grpc v1.17.0/go.mod h1:6QZJwpn2B+Zp71q/5VxRsJ6NXXVCE5NRUHRo+f3cWCs=

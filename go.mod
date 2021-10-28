@@ -44,7 +44,7 @@ require (
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/flatbuffers v1.12.1 // indirect
 	github.com/gtank/merlin v0.1.1 // indirect
-	github.com/jadeydi/mobilecoin-account v0.0.0-20211027153453-dd20e7b84146 // indirect
+	github.com/jadeydi/mobilecoin-account v0.0.0-20211028053259-47bbc95060e8 // indirect
 	github.com/marten-seemann/qtls-go1-16 v0.1.4 // indirect
 	github.com/marten-seemann/qtls-go1-17 v0.1.0 // indirect
 	github.com/mimoo/StrobeGo v0.0.0-20181016162300-f8f6d4d2b643 // indirect
@@ -68,7 +68,7 @@ require (
 	golang.org/x/tools v0.1.1 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.5 // indirect
-	google.golang.org/genproto v0.0.0-20211027151537-807f52c398cb // indirect
+	google.golang.org/genproto v0.0.0-20211027162914-98a5263abeca // indirect
 	google.golang.org/grpc v1.41.0 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
