@@ -238,7 +238,7 @@ func (node *Node) ConsensusReady(cn *CNode, timestamp uint64) bool {
 	return false
 }
 
-func (node *Node) ConsensusThreshold(timestamp uint64) int {
+func (node *Node) ConsensusThreshold(timestamp uint64, final bool) int {
 	consensusBase := 0
 	nodes := node.NodesListWithoutState(timestamp, false)
 	for _, cn := range nodes {
@@ -254,7 +254,7 @@ func (node *Node) ConsensusThreshold(timestamp uint64) int {
 				panic("should never be here")
 			}
 			t := uint64(config.KernelNodeAcceptPeriodMinimum) - threshold*3
-			if cn.Timestamp+t < timestamp {
+			if !final && cn.Timestamp+t < timestamp {
 				consensusBase++
 			}
 		case common.NodeStateAccepted:
@@ -453,7 +453,7 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 	}
 
 	final, count := node.chain.State.FinalRound.Number, 1
-	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()))
+	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()), false)
 	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
 	for _, cn := range nodes {
 		remote := spm[cn.IdForNetwork]
@@ -473,7 +473,7 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 		return false
 	}
 
-	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()))
+	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()), false)
 	cache, updated := node.chain.State.CacheRound, 1
 	final := node.chain.State.FinalRound.Number
 

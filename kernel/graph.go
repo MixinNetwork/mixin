@@ -369,7 +369,7 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 		return nil, false
 	}
 	cids, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
-	base := chain.node.ConsensusThreshold(s.Timestamp)
+	base := chain.node.ConsensusThreshold(s.Timestamp, true)
 	signers, finalized := chain.node.CacheVerifyCosi(s.Hash, s.Signature, cids, publics, base)
 	if finalized {
 		return signers, finalized
@@ -394,5 +394,5 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 }
 
 func (chain *Chain) legacyVerifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {
-	return len(sigs) >= chain.node.ConsensusThreshold(timestamp)
+	return len(sigs) >= chain.node.ConsensusThreshold(timestamp, true)
 }

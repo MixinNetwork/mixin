@@ -358,7 +358,7 @@ func (node *Node) distributeMintByWorks(accepted []*CNode, base common.Integer, 
 	if err != nil {
 		return nil, err
 	}
-	thr, agg := int(node.ConsensusThreshold(timestamp)), 0
+	thr, agg := int(node.ConsensusThreshold(timestamp, false)), 0
 	for _, w := range works {
 		if w[0] > 0 {
 			agg += 1
