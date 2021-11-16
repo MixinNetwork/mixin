@@ -29,6 +29,10 @@ func NewEncoder() *Encoder {
 	return &Encoder{buf: new(bytes.Buffer)}
 }
 
+func (enc *Encoder) Bytes() []byte {
+	return enc.buf.Bytes()
+}
+
 func (enc *Encoder) EncodeTransaction(signed *SignedTransaction) []byte {
 	if signed.Version != TxVersion {
 		panic(signed)
@@ -70,7 +74,7 @@ func (enc *Encoder) EncodeTransaction(signed *SignedTransaction) []byte {
 		}
 	}
 
-	return enc.buf.Bytes()
+	return enc.Bytes()
 }
 
 func (enc *Encoder) EncodeInput(in *Input) {
