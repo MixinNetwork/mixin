@@ -27,7 +27,7 @@ func NewIntegerFromString(x string) (v Integer) {
 	if err != nil {
 		panic(err)
 	}
-	if d.Sign() <= 0 {
+	if d.Sign() < 0 {
 		panic(x)
 	}
 	s := d.Mul(decimal.New(1, Precision)).StringFixed(0)
