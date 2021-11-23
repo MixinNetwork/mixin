@@ -190,7 +190,7 @@ func writeUTXO(txn *badger.Txn, utxo *common.UTXO, extra []byte, timestamp uint6
 		}
 		// assert end
 
-		err := txn.Set(key, []byte{0})
+		err := txn.Set(key, utxo.Hash[:])
 		if err != nil {
 			return err
 		}
