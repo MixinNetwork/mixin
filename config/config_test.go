@@ -19,7 +19,7 @@ func TestConfig(t *testing.T) {
 	assert.Equal(7200, custom.Node.CacheTTL)
 
 	assert.Equal("mixin-node.example.com:7239", custom.Network.Listener)
-	assert.Len(custom.Network.Peers, 38)
-	assert.Equal("lehigh.hotot.org:7239", custom.Network.Peers[36])
+	assert.Len(custom.Network.Peers, 37)
+	assert.Equal("lehigh.hotot.org:7239", custom.Network.Peers[35])
 	assert.Equal(false, custom.RPC.Runtime)
 }
