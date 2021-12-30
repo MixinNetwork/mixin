@@ -54,21 +54,30 @@ func (node *Node) Import(configDir string, source storage.Store) error {
 }
 
 func (chain *Chain) importFrom(source storage.Store) (uint64, error) {
-	for i := uint64(0); ; i++ {
-		ss, err := source.ReadSnapshotsForNodeRound(chain.ChainId, i)
+	var threshold, round uint64
+	for {
+		if round > threshold+16 {
+			time.Sleep(3 * time.Second)
+			continue
+		}
+		ss, err := source.ReadSnapshotsForNodeRound(chain.ChainId, round)
 		if err != nil || len(ss) == 0 {
-			return i, err
+			return round, err
 		}
 		for _, s := range ss {
 			tx, _, err := source.ReadTransaction(s.Transaction)
 			if err != nil {
-				return i, err
+				return round, err
 			}
 			err = chain.importSnapshot(s, tx)
 			if err != nil {
-				return i, err
+				return round, err
 			}
 		}
+		if fr := chain.State.FinalRound; fr != nil {
+			threshold = fr.Number
+		}
+		round = round + 1
 	}
 }
 
@@ -76,10 +85,11 @@ func (chain *Chain) importSnapshot(s *common.SnapshotWithTopologicalOrder, tx *c
 	if s.Transaction != tx.PayloadHash() {
 		return fmt.Errorf("malformed transaction hash %s %s", s.Transaction, tx.PayloadHash())
 	}
-	old, _, err := chain.persistStore.ReadTransaction(s.Transaction)
+	old, err := chain.persistStore.CacheGetTransaction(s.Transaction)
 	if err != nil {
 		return fmt.Errorf("ReadTransaction %s %v", s.Transaction, err)
-	} else if old == nil {
+	}
+	if old == nil {
 		err := chain.persistStore.CachePutTransaction(tx)
 		if err != nil {
 			return fmt.Errorf("CachePutTransaction %s %v", s.Transaction, err)
