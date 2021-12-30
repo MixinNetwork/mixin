@@ -6,7 +6,6 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
-	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
@@ -66,13 +65,20 @@ func (node *Node) Import(configDir string, source storage.Store) error {
 
 func (chain *Chain) importFrom(source storage.Store) (uint64, error) {
 	var threshold, round uint64
-	filter := make(map[crypto.Hash]time.Time)
+	filter := make(map[uint64]time.Time)
 	period := time.Duration(config.SnapshotRoundGap)
 	for {
-		if round > threshold+16 {
+		if cs := chain.State; cs != nil {
+			threshold = cs.CacheRound.Number
+		}
+		if round > threshold+128 {
 			time.Sleep(period)
 			round = threshold
 		}
+		if filter[round].Add(period * 2).After(clock.Now()) {
+			continue
+		}
+		filter[round] = clock.Now()
 		ss, err := source.ReadSnapshotsForNodeRound(chain.ChainId, round)
 		if err != nil || len(ss) == 0 {
 			return round, err
@@ -82,16 +88,10 @@ func (chain *Chain) importFrom(source storage.Store) (uint64, error) {
 			if err != nil {
 				return round, err
 			}
-			if filter[s.Hash].After(clock.Now().Add(period * 2)) {
-				continue
-			}
 			err = chain.importSnapshot(s, tx)
 			if err != nil {
 				return round, err
 			}
-		}
-		if cs := chain.State; cs != nil {
-			threshold = cs.CacheRound.Number
 		}
 		round = round + 1
 	}
