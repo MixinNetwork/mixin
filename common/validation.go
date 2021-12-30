@@ -190,10 +190,10 @@ func (tx *Transaction) validateOutputs(store GhostChecker) (Integer, error) {
 			if !k.CheckKey() {
 				return outputAmount, fmt.Errorf("invalid output key format %s", k.String())
 			}
-			exist, err := store.CheckGhost(*k)
+			by, err := store.CheckGhost(*k)
 			if err != nil {
 				return outputAmount, err
-			} else if exist {
+			} else if by != nil {
 				return outputAmount, fmt.Errorf("invalid output key %s", k.String())
 			}
 		}

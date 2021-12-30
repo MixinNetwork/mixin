@@ -480,6 +480,18 @@ func main() {
 			},
 		},
 		{
+			Name:   "getkey",
+			Usage:  "Get the ghost key",
+			Action: getKeyCmd,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "key",
+					Aliases: []string{"k"},
+					Usage:   "the ghost key",
+				},
+			},
+		},
+		{
 			Name:   "listmintworks",
 			Usage:  "List mint works",
 			Action: listMintWorksCmd,

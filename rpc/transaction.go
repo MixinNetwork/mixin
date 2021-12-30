@@ -102,6 +102,25 @@ func getUTXO(store storage.Store, params []interface{}) (map[string]interface{},
 	return output, nil
 }
 
+func getGhostKey(store storage.Store, params []interface{}) (map[string]interface{}, error) {
+	if len(params) != 1 {
+		return nil, errors.New("invalid params count")
+	}
+	key, err := crypto.KeyFromString(fmt.Sprint(params[0]))
+	if err != nil {
+		return nil, err
+	}
+	by, err := store.CheckGhost(key)
+	if err != nil {
+		return nil, err
+	}
+	res := map[string]interface{}{"transaction": nil}
+	if by != nil {
+		res["transaction"] = by.String()
+	}
+	return res, nil
+}
+
 func getSnapshot(node *kernel.Node, store storage.Store, params []interface{}) (map[string]interface{}, error) {
 	if len(params) != 1 {
 		return nil, errors.New("invalid params count")

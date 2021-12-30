@@ -83,16 +83,18 @@ func lockUTXO(txn *badger.Txn, hash crypto.Hash, index int, tx crypto.Hash, fork
 	return txn.Set(key, common.CompressMsgpackMarshalPanic(out))
 }
 
-func (s *BadgerStore) CheckGhost(key crypto.Key) (bool, error) {
+func (s *BadgerStore) CheckGhost(key crypto.Key) (*crypto.Hash, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	_, err := txn.Get(graphGhostKey(key))
+	item, err := txn.Get(graphGhostKey(key))
 	if err == badger.ErrKeyNotFound {
-		return false, nil
+		return nil, nil
 	}
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	return true, nil
+	var by crypto.Hash
+	_, err = item.ValueCopy(by[:])
+	return &by, err
 }

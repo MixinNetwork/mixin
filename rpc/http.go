@@ -127,6 +127,13 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			renderer.RenderData(utxo)
 		}
+	case "getkey":
+		utxo, err := getGhostKey(impl.Store, call.Params)
+		if err != nil {
+			renderer.RenderError(err)
+		} else {
+			renderer.RenderData(utxo)
+		}
 	case "getsnapshot":
 		snap, err := getSnapshot(impl.Node, impl.Store, call.Params)
 		if err != nil {

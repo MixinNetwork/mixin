@@ -37,7 +37,7 @@ type UTXOLocker interface {
 }
 
 type GhostChecker interface {
-	CheckGhost(key crypto.Key) (bool, error)
+	CheckGhost(key crypto.Key) (*crypto.Hash, error)
 }
 
 type NodeReader interface {

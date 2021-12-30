@@ -270,8 +270,8 @@ func (store storeImpl) ReadUTXOLock(hash crypto.Hash, index int) (*UTXOWithLock,
 	return utxo, nil
 }
 
-func (store storeImpl) CheckGhost(key crypto.Key) (bool, error) {
-	return false, nil
+func (store storeImpl) CheckGhost(key crypto.Key) (*crypto.Hash, error) {
+	return nil, nil
 }
 
 func (store storeImpl) LockUTXOs(inputs []*Input, tx crypto.Hash, fork bool) error {
