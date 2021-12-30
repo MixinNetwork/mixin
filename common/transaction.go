@@ -15,20 +15,20 @@ const (
 	ExtraSizeLimit  = 256
 	SliceCountLimit = 256
 
-	OutputTypeScript             = 0x00
-	OutputTypeWithdrawalSubmit   = 0xa1
-	OutputTypeWithdrawalFuel     = 0xa2
-	OutputTypeNodePledge         = 0xa3
-	OutputTypeNodeAccept         = 0xa4
-	outputTypeNodeResign         = 0xa5
-	OutputTypeNodeRemove         = 0xa6
-	OutputTypeDomainAccept       = 0xa7
-	OutputTypeDomainRemove       = 0xa8
-	OutputTypeWithdrawalClaim    = 0xa9
-	OutputTypeNodeCancel         = 0xaa
-	OutputTypeDomainAssetCustody = 0xab
-	OutputTypeDomainAssetRelease = 0xac
-	OutputTypeDomainAssetMigrate = 0xad
+	OutputTypeScript              = 0x00
+	OutputTypeWithdrawalSubmit    = 0xa1
+	OutputTypeWithdrawalFuel      = 0xa2
+	OutputTypeNodePledge          = 0xa3
+	OutputTypeNodeAccept          = 0xa4
+	outputTypeNodeResign          = 0xa5
+	OutputTypeNodeRemove          = 0xa6
+	OutputTypeDomainAccept        = 0xa7
+	OutputTypeDomainRemove        = 0xa8
+	OutputTypeWithdrawalClaim     = 0xa9
+	OutputTypeNodeCancel          = 0xaa
+	OutputTypeCustodianDeposit    = 0xab
+	OutputTypeCustodianWithdrawal = 0xac
+	OutputTypeCustodianMigration  = 0xad
 
 	TransactionTypeScript           = 0x00
 	TransactionTypeMint             = 0x01
