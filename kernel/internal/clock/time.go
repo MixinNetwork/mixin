@@ -12,17 +12,19 @@ import (
 // FIXME GLOBAL VARAIBLES
 
 var (
+	inTest   bool
 	mutex    *sync.RWMutex
 	mockDiff time.Duration
 )
 
 func init() {
+	inTest = strings.Contains(config.BuildVersion, "BUILD_VERSION")
 	mutex = new(sync.RWMutex)
 	mockDiff = 0
 }
 
 func Reset() {
-	if !inTest() {
+	if !inTest {
 		panic(fmt.Errorf("clock reset not allowed in build version %s", config.BuildVersion))
 	}
 
@@ -32,7 +34,7 @@ func Reset() {
 }
 
 func MockDiff(at time.Duration) {
-	if !inTest() {
+	if !inTest {
 		panic(fmt.Errorf("clock mock not allowed in build version %s", config.BuildVersion))
 	}
 
@@ -42,15 +44,11 @@ func MockDiff(at time.Duration) {
 }
 
 func Now() time.Time {
-	if !inTest() {
+	if !inTest {
 		return time.Now()
 	}
 
 	mutex.RLock()
 	defer mutex.RUnlock()
 	return time.Now().Add(mockDiff)
-}
-
-func inTest() bool {
-	return strings.Contains(config.BuildVersion, "BUILD_VERSION")
 }
