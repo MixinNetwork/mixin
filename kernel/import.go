@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
@@ -34,31 +36,42 @@ func (node *Node) Import(configDir string, source storage.Store) error {
 		}
 	}
 
+	go func() {
+		startAt := clock.Now()
+		for {
+			time.Sleep(10 * time.Second)
+			duration := clock.Now().Sub(startAt).Seconds()
+			sps := float64(node.TopoCounter.seq) / duration
+			logger.Printf("TOPO %d SPS ALL %f LIVE %f\n", node.TopoCounter.seq, sps, node.TopoCounter.sps)
+		}
+	}()
+
+	waiting := make(chan error)
 	nodes := source.ReadAllNodes(uint64(clock.Now().UnixNano()), false)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork(node.networkId)
-		chain := node.GetOrCreateChain(id)
+		cn := node.GetOrCreateChain(id)
 		go func(chain *Chain) {
 			total, err := chain.importFrom(source)
 			logger.Printf("NODE %s IMPORT FINISHED WITH %d %v\n", id, total, err)
-		}(chain)
+			waiting <- err
+		}(cn)
 	}
 
-	startAt := clock.Now()
-	for {
-		time.Sleep(10 * time.Second)
-		duration := clock.Now().Sub(startAt).Seconds()
-		sps := float64(node.TopoCounter.seq) / duration
-		logger.Printf("TOPO %d SPS ALL %f LIVE %f\n", node.TopoCounter.seq, sps, node.TopoCounter.sps)
+	for i := 0; i < len(nodes); i++ {
+		<-waiting
 	}
+	return nil
 }
 
 func (chain *Chain) importFrom(source storage.Store) (uint64, error) {
 	var threshold, round uint64
+	filter := make(map[crypto.Hash]time.Time)
+	period := time.Duration(config.SnapshotRoundGap)
 	for {
 		if round > threshold+16 {
-			time.Sleep(3 * time.Second)
-			continue
+			time.Sleep(period)
+			round = threshold
 		}
 		ss, err := source.ReadSnapshotsForNodeRound(chain.ChainId, round)
 		if err != nil || len(ss) == 0 {
@@ -69,13 +82,16 @@ func (chain *Chain) importFrom(source storage.Store) (uint64, error) {
 			if err != nil {
 				return round, err
 			}
+			if filter[s.Hash].After(clock.Now().Add(period * 2)) {
+				continue
+			}
 			err = chain.importSnapshot(s, tx)
 			if err != nil {
 				return round, err
 			}
 		}
-		if fr := chain.State.FinalRound; fr != nil {
-			threshold = fr.Number
+		if cs := chain.State; cs != nil {
+			threshold = cs.CacheRound.Number
 		}
 		round = round + 1
 	}
