@@ -53,6 +53,9 @@ var (
 		"0213977d3c00a91de68904fb03ce3982e139200a2ce2e6f5332c9c3fb83743c5": true,
 		"d598c36ed84b4318dffbeb81efac93be2bfd22a76f5099eef8e6a5b508628a8a": true,
 	}
+	MainnetMultiplePledgingSnapshotHackMap = map[string]bool{
+		"75d9cc79b7f80d3cf96a232b7d921d9e9c2cb93fd8df08c9ab244273f6bbd77a": true,
+	}
 )
 
 func (node *Node) ElectionLoop() {
@@ -480,6 +483,9 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	offset := timestamp + uint64(config.KernelNodePledgePeriodMinimum)
 	for _, cn := range node.NodesListWithoutState(offset, false) {
 		if cn.Transaction == tx.PayloadHash() {
+			continue
+		}
+		if MainnetMultiplePledgingSnapshotHackMap[tx.PayloadHash().String()] {
 			continue
 		}
 		if timestamp < cn.Timestamp {
