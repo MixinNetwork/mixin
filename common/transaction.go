@@ -26,9 +26,10 @@ const (
 	OutputTypeDomainRemove        = 0xa8
 	OutputTypeWithdrawalClaim     = 0xa9
 	OutputTypeNodeCancel          = 0xaa
-	OutputTypeCustodianDeposit    = 0xab
-	OutputTypeCustodianWithdrawal = 0xac
-	OutputTypeCustodianMigration  = 0xad
+	OutputTypeCustodianEvolution  = 0xb1
+	OutputTypeCustodianMigration  = 0xb2
+	OutputTypeCustodianDeposit    = 0xb3
+	OutputTypeCustodianWithdrawal = 0xb4
 
 	TransactionTypeScript           = 0x00
 	TransactionTypeMint             = 0x01
