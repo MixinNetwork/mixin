@@ -12,8 +12,8 @@ require (
 	github.com/dgraph-io/ristretto v0.1.0
 	github.com/gofrs/uuid v4.2.0+incompatible
 	github.com/jadeydi/mobilecoin-account v1.0.0
-	github.com/klauspost/compress v1.13.6
-	github.com/lucas-clemente/quic-go v0.24.0
+	github.com/klauspost/compress v1.14.2
+	github.com/lucas-clemente/quic-go v0.25.0
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/pelletier/go-toml v1.9.4
 	github.com/shopspring/decimal v1.3.1
@@ -21,7 +21,7 @@ require (
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/vmihailenco/msgpack/v4 v4.3.12
 	go.dedis.ch/kyber/v3 v3.0.13
-	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
+	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 )
 
 require (
@@ -45,6 +45,7 @@ require (
 	github.com/google/flatbuffers v1.12.1 // indirect
 	github.com/marten-seemann/qtls-go1-16 v0.1.4 // indirect
 	github.com/marten-seemann/qtls-go1-17 v0.1.0 // indirect
+	github.com/marten-seemann/qtls-go1-18 v0.1.0-beta.1 // indirect
 	github.com/nwaples/rardecode v1.1.2 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/onsi/ginkgo v1.16.4 // indirect
@@ -59,7 +60,7 @@ require (
 	go.dedis.ch/fixbuf v1.0.3 // indirect
 	go.opencensus.io v0.22.5 // indirect
 	golang.org/x/mod v0.4.2 // indirect
-	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
+	golang.org/x/net v0.0.0-20211111160137-58aab5ef257a // indirect
 	golang.org/x/sys v0.0.0-20211111213525-f221eed1c01e // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.1 // indirect
