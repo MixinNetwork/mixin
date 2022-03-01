@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"filippo.io/edwards25519"
@@ -37,6 +38,10 @@ func VerifyAddress(address string) error {
 	}
 	addr, err := hex.DecodeString(address)
 	if err != nil {
+		err = validateAccountId(address)
+		if err == nil {
+			return nil
+		}
 		return fmt.Errorf("invalid near address %s", address)
 	}
 	if len(addr) != ed25519.PublicKeySize {
@@ -50,6 +55,20 @@ func VerifyAddress(address string) error {
 		return fmt.Errorf("invalid near address %s", address)
 	}
 	return nil
+}
+
+func validateAccountId(accountId string) error {
+	if len(accountId) < 2 || len(accountId) > 64 {
+		return fmt.Errorf("near invalid account length %d", len(accountId))
+	}
+	if !strings.HasSuffix(accountId, ".near") {
+		return fmt.Errorf("near invalid account suffix %s", accountId)
+	}
+	match, _ := regexp.MatchString(`^(([a-z\d]+[\-_])*[a-z\d]+\.)*([a-z\d]+[\-_])*[a-z\d]+$`, accountId)
+	if match {
+		return nil
+	}
+	return fmt.Errorf("near invalid account id format %s", accountId)
 }
 
 func VerifyTransactionHash(hash string) error {
