@@ -38,8 +38,7 @@ func VerifyAddress(address string) error {
 	}
 	addr, err := hex.DecodeString(address)
 	if err != nil {
-		err = validateAccountId(address)
-		if err == nil {
+		if validateAccountId(address) == nil {
 			return nil
 		}
 		return fmt.Errorf("invalid near address %s", address)
