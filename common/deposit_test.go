@@ -106,7 +106,6 @@ func TestDeposit(t *testing.T) {
 	si := crypto.NewHash([]byte("DEPOSIT" + viewKey + requestID))
 	seed = append(si[:], si[:]...)
 	tx.AddScriptOutput([]*Address{receiver.Address()}, NewThresholdScript(1), NewIntegerFromString("1006"), seed)
-
 	si = crypto.NewHash([]byte("DEPOSIT" + viewKey + "7d7d5c8e-8f3e-44db-8d0d-beed5e739469"))
 	seed = append(si[:], si[:]...)
 	tx.AddScriptOutput([]*Address{receiver.Address()}, NewThresholdScript(1), NewIntegerFromString("1007"), seed)
@@ -148,6 +147,26 @@ func TestDeposit(t *testing.T) {
 	si = crypto.NewHash([]byte("DEPOSIT" + viewKey + requestID))
 	seed = append(si[:], si[:]...)
 	tx.AddScriptOutput([]*Address{receiver.Address(), sender.Address()}, NewThresholdScript(2), NewIntegerFromString("1006"), seed)
+	ver = tx.AsLatestVersion()
+	domain = parseKeyFromHex(receiver.SpendKey)
+	err = ver.SignRaw(domain)
+	assert.Nil(err)
+	msg = ver.PayloadMarshal()
+	signed = &ver.SignedTransaction
+	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
+	assert.Nil(err)
+
+	tx = NewTransaction(assetID)
+	tx.AddDepositInput(&DepositData{
+		Chain:           ethereum.EthereumChainId,
+		AssetKey:        assetKey,
+		TransactionHash: transactionHash,
+		OutputIndex:     0,
+		Amount:          NewIntegerFromString("1006"),
+	})
+	si = crypto.NewHash([]byte("DEPOSIT" + viewKey + requestID))
+	seed = append(si[:], si[:]...)
+	tx.AddScriptOutput([]*Address{receiver.Address(), sender.Address()}, NewThresholdScript(1), NewIntegerFromString("1006"), seed)
 	ver = tx.AsLatestVersion()
 	domain = parseKeyFromHex(receiver.SpendKey)
 	err = ver.SignRaw(domain)
