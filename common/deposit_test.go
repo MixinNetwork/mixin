@@ -175,4 +175,14 @@ func TestDeposit(t *testing.T) {
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
 	assert.Nil(err)
+
+	pm := ver.Marshal()
+	ver, err = DecompressUnmarshalVersionedTransaction(pm)
+	assert.Nil(err)
+	assert.Equal(1, len(ver.SignaturesMap))
+	assert.Equal(1, len(ver.SignaturesMap[0]))
+	msg = ver.PayloadMarshal()
+	signed = &ver.SignedTransaction
+	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
+	assert.Nil(err)
 }
