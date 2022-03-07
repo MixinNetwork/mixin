@@ -26,13 +26,11 @@ func TestMsgpack(t *testing.T) {
 	assert.Equal("8273.00000000", charge.String())
 
 	receiver := &MixinKey{
-		UserId:   "477c8d28-3060-3e11-a278-802f2c37f815",
 		ViewKey:  "981ec8403e35b3feb829a7734b8cf56a1229bb344f59fa2766453aa17e931f02",
 		SpendKey: "c8327d02a2b79c0f15f8d70118836a79b88d9942cabaaa2b90486a49ec07b001",
 	}
 
 	sender := &MixinKey{
-		UserId:   "2b9a8ab4-dc66-3956-9356-0c31963d56f9",
 		ViewKey:  "77ac6731865c29247588b14dff8e163c81dfaac130cc22882b77a0539db00b0f",
 		SpendKey: "87be1eeb3b72909b5447a1699af7538fc0a492222d7b8ab98187299adc4d1b0e",
 	}
@@ -81,13 +79,11 @@ func TestMsgpackV1(t *testing.T) {
 	assert.Equal("8273.00000000", charge.String())
 
 	receiver := &MixinKey{
-		UserId:   "477c8d28-3060-3e11-a278-802f2c37f815",
 		ViewKey:  "981ec8403e35b3feb829a7734b8cf56a1229bb344f59fa2766453aa17e931f02",
 		SpendKey: "c8327d02a2b79c0f15f8d70118836a79b88d9942cabaaa2b90486a49ec07b001",
 	}
 
 	sender := &MixinKey{
-		UserId:   "2b9a8ab4-dc66-3956-9356-0c31963d56f9",
 		ViewKey:  "77ac6731865c29247588b14dff8e163c81dfaac130cc22882b77a0539db00b0f",
 		SpendKey: "87be1eeb3b72909b5447a1699af7538fc0a492222d7b8ab98187299adc4d1b0e",
 	}
@@ -120,7 +116,6 @@ func TestMsgpackV1(t *testing.T) {
 }
 
 type MixinKey struct {
-	UserId   string
 	ViewKey  string
 	SpendKey string
 }
