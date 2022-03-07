@@ -13,8 +13,8 @@ const (
 	graphPrefixDomainRemove = "DOMAINREMOVE"
 )
 
-func (s *BadgerStore) ReadDomains() []common.Domain {
-	domains := make([]common.Domain, 0)
+func (s *BadgerStore) ReadDomains() []*common.Domain {
+	domains := make([]*common.Domain, 0)
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -25,7 +25,7 @@ func (s *BadgerStore) ReadDomains() []common.Domain {
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 		key := it.Item().KeyCopy(nil)
 		acc := domainAccountForState(key, graphPrefixDomainAccept)
-		domains = append(domains, common.Domain{Account: acc})
+		domains = append(domains, &common.Domain{Account: acc})
 	}
 	return domains
 }

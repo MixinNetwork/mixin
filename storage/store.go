@@ -31,7 +31,7 @@ type Store interface {
 	ReadRound(hash crypto.Hash) (*common.Round, error)
 	ReadLink(from, to crypto.Hash) (uint64, error)
 	WriteSnapshot(*common.SnapshotWithTopologicalOrder, []crypto.Hash) error
-	ReadDomains() []common.Domain
+	ReadDomains() []*common.Domain
 
 	CachePutTransaction(tx *common.VersionedTransaction) error
 	CacheGetTransaction(hash crypto.Hash) (*common.VersionedTransaction, error)
