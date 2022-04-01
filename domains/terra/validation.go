@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
@@ -29,6 +30,10 @@ func VerifyAssetKey(assetKey string) error {
 		return nil
 	}
 	err := VerifyAddress(assetKey)
+	if err == nil {
+		return nil
+	}
+	err = validateDenom(assetKey)
 	if err == nil {
 		return nil
 	}
@@ -114,4 +119,13 @@ func decodeAndConvert(bech string) (string, []byte, error) {
 		return "", nil, fmt.Errorf("decoding bech32 failed: %w", err)
 	}
 	return hrp, converted, nil
+}
+
+func validateDenom(denom string) error {
+	reDnmString := `[a-zA-Z][a-zA-Z0-9/-]{2,127}`
+	reDnm := regexp.MustCompile(fmt.Sprintf(`^%s$`, reDnmString))
+	if !reDnm.MatchString(denom) {
+		return fmt.Errorf("invalid denom: %s", denom)
+	}
+	return nil
 }
