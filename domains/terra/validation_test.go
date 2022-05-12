@@ -35,7 +35,7 @@ func TestValidation(t *testing.T) {
 	assert.NotNil(VerifyTransactionHash("0x" + tx))
 	assert.NotNil(VerifyTransactionHash(strings.ToUpper(tx)))
 
-	assert.Equal(crypto.NewHash([]byte("138885d1-3201-36c0-b110-dc8a9a32af9b")), GenerateAssetId(assetKey))
+	assert.Equal(crypto.NewHash([]byte("eb5bb26d-bfda-4e63-bf1d-a462b78343b7")), GenerateAssetId(assetKey))
 	assert.Equal(crypto.NewHash([]byte("cd54d4a2-6b64-3fe2-a1bc-16bb26deb2a3")), GenerateAssetId(anc))
 	assert.Equal(crypto.NewHash([]byte(TerraChainBase)), TerraChainId)
 }
