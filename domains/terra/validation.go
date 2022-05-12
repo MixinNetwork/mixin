@@ -81,7 +81,10 @@ func VerifyTransactionHash(hash string) error {
 }
 
 func GenerateAssetId(assetKey string) crypto.Hash {
-	if assetKey != "uluna" && VerifyAssetKey(assetKey) != nil {
+	if assetKey == TerraAssetKey {
+		return TerraChainId
+	}
+	if VerifyAssetKey(assetKey) != nil {
 		panic(assetKey)
 	}
 
