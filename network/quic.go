@@ -31,7 +31,7 @@ const (
 )
 
 type QuicClient struct {
-	session      quic.Session
+	session      quic.Connection
 	send         quic.SendStream
 	receive      quic.ReceiveStream
 	zstdZipper   *zstd.Encoder
