@@ -56,6 +56,7 @@ peers = [
   "mixin-node-04.b.watch:7239",
   "lehigh.hotot.org:7239",
   "lehigh-2.hotot.org:7239",
+  "54.174.188.230:7239",
 ]
 
 [rpc]
