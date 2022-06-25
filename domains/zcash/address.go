@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/MixinNetwork/mixin/domains/tezos"
-	"github.com/btcsuite/btcutil"
+	"github.com/btcsuite/btcd/btcutil"
 	"golang.org/x/crypto/ripemd160"
 )
 
