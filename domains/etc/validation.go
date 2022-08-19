@@ -1,12 +1,15 @@
 package etc
 
 import (
+	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
+	"github.com/gofrs/uuid"
 )
 
 var (
@@ -20,10 +23,23 @@ func init() {
 }
 
 func VerifyAssetKey(assetKey string) error {
-	if assetKey == "0x0000000000000000000000000000000000000000" {
-		return nil
+	if len(assetKey) != 42 {
+		return fmt.Errorf("invalid ethereum classic asset key %s", assetKey)
 	}
-	return fmt.Errorf("invalid ethereum classic asset key %s", assetKey)
+	if !strings.HasPrefix(assetKey, "0x") {
+		return fmt.Errorf("invalid ethereum classic asset key %s", assetKey)
+	}
+	if assetKey != strings.ToLower(assetKey) {
+		return fmt.Errorf("invalid ethereum classic asset key %s", assetKey)
+	}
+	k, err := hex.DecodeString(assetKey[2:])
+	if err != nil {
+		return fmt.Errorf("invalid ethereum classic asset key %s", assetKey)
+	}
+	if len(k) != 20 {
+		return fmt.Errorf("invalid ethereum classic asset key %s", assetKey)
+	}
+	return nil
 }
 
 func VerifyAddress(address string) error {
@@ -82,7 +98,15 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 	if assetKey == "0x0000000000000000000000000000000000000000" {
 		return EthereumClassicChainId
 	}
-	panic(assetKey)
+
+	h := md5.New()
+	io.WriteString(h, EthereumClassicChainBase)
+	io.WriteString(h, assetKey)
+	sum := h.Sum(nil)
+	sum[6] = (sum[6] & 0x0f) | 0x30
+	sum[8] = (sum[8] & 0x3f) | 0x80
+	id := uuid.FromBytesOrNil(sum).String()
+	return crypto.NewHash([]byte(id))
 }
 
 func formatAddress(to string) (string, error) {

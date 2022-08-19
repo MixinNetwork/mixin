@@ -18,7 +18,7 @@ func TestValidation(t *testing.T) {
 	assert.Equal("0xA974c709cFb4566686553a20790685A47acEAA33", xinFormat)
 
 	assert.Nil(VerifyAssetKey("0x0000000000000000000000000000000000000000"))
-	assert.NotNil(VerifyAssetKey(xin))
+	assert.Nil(VerifyAssetKey(xin))
 	assert.NotNil(VerifyAssetKey(xinFormat))
 	assert.NotNil(VerifyAssetKey(xin[2:]))
 	assert.NotNil(VerifyAssetKey(strings.ToUpper(xin)))
