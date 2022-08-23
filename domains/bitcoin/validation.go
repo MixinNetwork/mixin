@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/chaincfg"
 )
 
 const (
