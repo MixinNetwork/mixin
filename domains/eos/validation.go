@@ -2,6 +2,7 @@ package eos
 
 import (
 	"crypto/md5"
+	"encoding/base32"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"github.com/gofrs/uuid"
 )
 
+var base32Encoding = base32.NewEncoding(".12345abcdefghijklmnopqrstuvwxyz").WithPadding(base32.NoPadding)
 var (
 	EOSChainBase string
 	EOSChainId   crypto.Hash
@@ -25,7 +27,7 @@ func init() {
 func VerifyAssetKey(assetKey string) error {
 	parts := strings.Split(assetKey, ":")
 	if len(parts) != 2 {
-		return fmt.Errorf("invalid eos asset key %s", assetKey)
+		return fmt.Errorf("invalid eos asset key part %s", assetKey)
 	}
 	account, symbol := parts[0], parts[1]
 	err := VerifyAddress(account)
@@ -45,6 +47,15 @@ func VerifyAddress(address string) error {
 	if strings.ToLower(address) != address {
 		return fmt.Errorf("invalid eos address %s", address)
 	}
+	_, err := base32Encoding.DecodeString(address)
+	if err != nil {
+		return err
+	}
+	parts := strings.Split(address, ".")
+	if len(parts) != 1 && len(parts) != 2 && len(parts) != 3 {
+		return fmt.Errorf("invalid eos address dot part %s", address)
+	}
+
 	dot := strings.Index(address, ".")
 	if dot == 0 || dot == len(address)-1 {
 		return fmt.Errorf("invalid eos address %s", address)
@@ -53,8 +64,15 @@ func VerifyAddress(address string) error {
 		address = address[:dot] + address[dot+1:]
 	}
 	dot = strings.Index(address, ".")
-	if dot >= 0 {
-		return fmt.Errorf("invalid eos address %s", address)
+	if dot == 0 {
+		return fmt.Errorf("invalid eos address dot %s", address)
+	}
+	if dot > 0 {
+		address = address[:dot] + address[dot+1:]
+		dot = strings.Index(address, ".")
+		if dot >= 0 {
+			return fmt.Errorf("invalid eos address %s", address)
+		}
 	}
 	if len(address) > 12 {
 		return fmt.Errorf("invalid eos address %s", address)
