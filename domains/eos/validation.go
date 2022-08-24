@@ -2,7 +2,6 @@ package eos
 
 import (
 	"crypto/md5"
-	"encoding/base32"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -13,7 +12,6 @@ import (
 	"github.com/gofrs/uuid"
 )
 
-var base32Encoding = base32.NewEncoding(".12345abcdefghijklmnopqrstuvwxyz").WithPadding(base32.NoPadding)
 var (
 	EOSChainBase string
 	EOSChainId   crypto.Hash
@@ -47,37 +45,25 @@ func VerifyAddress(address string) error {
 	if strings.ToLower(address) != address {
 		return fmt.Errorf("invalid eos address %s", address)
 	}
-	_, err := base32Encoding.DecodeString(address)
-	if err != nil {
-		return err
-	}
-	parts := strings.Split(address, ".")
-	if len(parts) != 1 && len(parts) != 2 && len(parts) != 3 {
-		return fmt.Errorf("invalid eos address dot part %s", address)
-	}
 
-	dot := strings.Index(address, ".")
-	if dot == 0 || dot == len(address)-1 {
-		return fmt.Errorf("invalid eos address %s", address)
-	}
-	if dot > 0 {
-		address = address[:dot] + address[dot+1:]
-	}
-	dot = strings.Index(address, ".")
-	if dot == 0 {
-		return fmt.Errorf("invalid eos address dot %s", address)
-	}
-	if dot > 0 {
-		address = address[:dot] + address[dot+1:]
-		dot = strings.Index(address, ".")
-		if dot >= 0 {
+	pure, remaining := "", address
+	for {
+		dot := strings.Index(remaining, ".")
+		if dot < 0 {
+			pure = pure + remaining
+			break
+		}
+		if dot == 0 || dot == len(remaining)-1 {
 			return fmt.Errorf("invalid eos address %s", address)
 		}
+		pure = pure + remaining[:dot]
+		remaining = remaining[dot+1:]
 	}
-	if len(address) > 12 {
+
+	if len(pure) > 12 {
 		return fmt.Errorf("invalid eos address %s", address)
 	}
-	matched, err := regexp.MatchString("^[a-z1-5]{1,12}$", address)
+	matched, err := regexp.MatchString("^[a-z1-5]{1,12}$", pure)
 	if err != nil || !matched {
 		return fmt.Errorf("invalid eos address %s", address)
 	}
