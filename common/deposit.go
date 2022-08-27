@@ -36,6 +36,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/ripple"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
 	"github.com/MixinNetwork/mixin/domains/solana"
+	"github.com/MixinNetwork/mixin/domains/starcoin"
 	"github.com/MixinNetwork/mixin/domains/stellar"
 	"github.com/MixinNetwork/mixin/domains/terra"
 	"github.com/MixinNetwork/mixin/domains/tezos"
@@ -142,6 +143,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return mobilecoin.VerifyTransactionHash(deposit.TransactionHash)
 	case cosmos.CosmosChainId:
 		return cosmos.VerifyTransactionHash(deposit.TransactionHash)
+	case starcoin.StarcoinChainId:
+		return starcoin.VerifyTransactionHash(deposit.TransactionHash)
 	case avalanche.AvalancheChainId:
 		return avalanche.VerifyTransactionHash(deposit.TransactionHash)
 	case binance.BinanceChainId:

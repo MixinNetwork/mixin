@@ -120,7 +120,7 @@ func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, ro
 		ec := chain.node.GetOrCreateChain(external.NodeId)
 		err := chain.checkRefernceSanity(ec, external, roundTime)
 		if err != nil {
-			return fmt.Errorf("external refernce sanity %s", err)
+			return fmt.Errorf("external reference sanity %s", err)
 		}
 		threshold := external.Timestamp + config.SnapshotSyncRoundThreshold*config.SnapshotRoundGap*64
 		best := chain.determinBestRound(roundTime)

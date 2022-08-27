@@ -36,6 +36,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/ripple"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
 	"github.com/MixinNetwork/mixin/domains/solana"
+	"github.com/MixinNetwork/mixin/domains/starcoin"
 	"github.com/MixinNetwork/mixin/domains/stellar"
 	"github.com/MixinNetwork/mixin/domains/terra"
 	"github.com/MixinNetwork/mixin/domains/tezos"
@@ -116,6 +117,8 @@ func (a *Asset) Verify() error {
 		return mobilecoin.VerifyAssetKey(a.AssetKey)
 	case cosmos.CosmosChainId:
 		return cosmos.VerifyAssetKey(a.AssetKey)
+	case starcoin.StarcoinChainId:
+		return starcoin.VerifyAssetKey(a.AssetKey)
 	case avalanche.AvalancheChainId:
 		return avalanche.VerifyAssetKey(a.AssetKey)
 	case binance.BinanceChainId:
@@ -197,6 +200,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return mobilecoin.GenerateAssetId(a.AssetKey)
 	case cosmos.CosmosChainId:
 		return cosmos.GenerateAssetId(a.AssetKey)
+	case starcoin.StarcoinChainId:
+		return starcoin.GenerateAssetId(a.AssetKey)
 	case avalanche.AvalancheChainId:
 		return avalanche.GenerateAssetId(a.AssetKey)
 	case binance.BinanceChainId:
@@ -278,6 +283,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return mobilecoin.MobileCoinChainId
 	case cosmos.CosmosChainId:
 		return cosmos.CosmosChainId
+	case starcoin.StarcoinChainId:
+		return starcoin.StarcoinChainId
 	case avalanche.AvalancheChainId:
 		return avalanche.AvalancheChainId
 	case binance.BinanceChainId:
