@@ -1,11 +1,14 @@
 package solana
 
 import (
+	"crypto/md5"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/btcsuite/btcd/btcutil/base58"
+	"github.com/gofrs/uuid"
 )
 
 var (
@@ -22,7 +25,20 @@ func VerifyAssetKey(assetKey string) error {
 	if assetKey == "11111111111111111111111111111111" {
 		return nil
 	}
-	return fmt.Errorf("invalid solana asset key %s", assetKey)
+	pub := base58.Decode(assetKey)
+	if len(pub) != 32 {
+		return fmt.Errorf("invalid solana assetKey length %s", assetKey)
+	}
+	var k crypto.Key
+	copy(k[:], pub)
+	if !k.CheckKey() {
+		return fmt.Errorf("invalid solana assetKey public key %s", assetKey)
+	}
+	addr := base58.Encode(pub)
+	if addr != assetKey {
+		return fmt.Errorf("invalid solana assetKey %s", assetKey)
+	}
+	return nil
 }
 
 func VerifyAddress(address string) error {
@@ -61,10 +77,20 @@ func VerifyTransactionHash(hash string) error {
 }
 
 func GenerateAssetId(assetKey string) crypto.Hash {
-	switch assetKey {
-	case "11111111111111111111111111111111":
+	if assetKey == "11111111111111111111111111111111" {
 		return SolanaChainId
-	default:
+	}
+	err := VerifyAssetKey(assetKey)
+	if err != nil {
 		panic(assetKey)
 	}
+
+	h := md5.New()
+	io.WriteString(h, SolanaChainBase)
+	io.WriteString(h, assetKey)
+	sum := h.Sum(nil)
+	sum[6] = (sum[6] & 0x0f) | 0x30
+	sum[8] = (sum[8] & 0x3f) | 0x80
+	id := uuid.FromBytesOrNil(sum).String()
+	return crypto.NewHash([]byte(id))
 }
