@@ -99,14 +99,21 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 		return EthereumChainId
 	}
 
+	return BuildChainAssetId(EthereumChainBase, assetKey)
+}
+
+func BuildChainAssetId(base, asset string) crypto.Hash {
 	h := md5.New()
-	io.WriteString(h, EthereumChainBase)
-	io.WriteString(h, assetKey)
+	io.WriteString(h, base)
+	io.WriteString(h, asset)
 	sum := h.Sum(nil)
 	sum[6] = (sum[6] & 0x0f) | 0x30
 	sum[8] = (sum[8] & 0x3f) | 0x80
-	id := uuid.FromBytesOrNil(sum).String()
-	return crypto.NewHash([]byte(id))
+	id, err := uuid.FromBytes(sum)
+	if err != nil {
+		panic(hex.EncodeToString(sum))
+	}
+	return crypto.NewHash([]byte(id.String()))
 }
 
 const (

@@ -1,16 +1,14 @@
 package terra
 
 import (
-	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"regexp"
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"github.com/btcsuite/btcd/btcutil/bech32"
-	"github.com/gofrs/uuid"
 )
 
 var (
@@ -88,14 +86,7 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 		panic(assetKey)
 	}
 
-	h := md5.New()
-	io.WriteString(h, TerraChainBase)
-	io.WriteString(h, assetKey)
-	sum := h.Sum(nil)
-	sum[6] = (sum[6] & 0x0f) | 0x30
-	sum[8] = (sum[8] & 0x3f) | 0x80
-	id := uuid.FromBytesOrNil(sum).String()
-	return crypto.NewHash([]byte(id))
+	return ethereum.BuildChainAssetId(TerraChainBase, assetKey)
 }
 
 func convertAndEncode(hrp string, data []byte) (string, error) {

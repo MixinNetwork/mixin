@@ -1,15 +1,13 @@
 package eos
 
 import (
-	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"regexp"
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/gofrs/uuid"
+	"github.com/MixinNetwork/mixin/domains/ethereum"
 )
 
 var (
@@ -97,12 +95,5 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 		return EOSChainId
 	}
 
-	h := md5.New()
-	io.WriteString(h, EOSChainBase)
-	io.WriteString(h, assetKey)
-	sum := h.Sum(nil)
-	sum[6] = (sum[6] & 0x0f) | 0x30
-	sum[8] = (sum[8] & 0x3f) | 0x80
-	id := uuid.FromBytesOrNil(sum).String()
-	return crypto.NewHash([]byte(id))
+	return ethereum.BuildChainAssetId(EOSChainBase, assetKey)
 }

@@ -1,14 +1,12 @@
 package polygon
 
 import (
-	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/gofrs/uuid"
+	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -99,14 +97,7 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 		return PolygonChainId
 	}
 
-	h := md5.New()
-	io.WriteString(h, PolygonChainBase)
-	io.WriteString(h, assetKey)
-	sum := h.Sum(nil)
-	sum[6] = (sum[6] & 0x0f) | 0x30
-	sum[8] = (sum[8] & 0x3f) | 0x80
-	id := uuid.FromBytesOrNil(sum).String()
-	return crypto.NewHash([]byte(id))
+	return ethereum.BuildChainAssetId(PolygonChainBase, assetKey)
 }
 
 const (

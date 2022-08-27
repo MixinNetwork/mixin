@@ -1,16 +1,14 @@
 package tron
 
 import (
-	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"github.com/btcsuite/btcd/btcutil/base58"
-	"github.com/gofrs/uuid"
 )
 
 var (
@@ -93,14 +91,7 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 		return TronChainId
 	}
 
-	h := md5.New()
-	io.WriteString(h, TronChainBase)
-	io.WriteString(h, assetKey)
-	sum := h.Sum(nil)
-	sum[6] = (sum[6] & 0x0f) | 0x30
-	sum[8] = (sum[8] & 0x3f) | 0x80
-	id := uuid.FromBytesOrNil(sum).String()
-	return crypto.NewHash([]byte(id))
+	return ethereum.BuildChainAssetId(TronChainBase, assetKey)
 }
 
 func formatAddress(to string) (string, error) {
