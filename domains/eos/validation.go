@@ -25,7 +25,7 @@ func init() {
 func VerifyAssetKey(assetKey string) error {
 	parts := strings.Split(assetKey, ":")
 	if len(parts) != 2 {
-		return fmt.Errorf("invalid eos asset key %s", assetKey)
+		return fmt.Errorf("invalid eos asset key part %s", assetKey)
 	}
 	account, symbol := parts[0], parts[1]
 	err := VerifyAddress(account)
@@ -45,21 +45,25 @@ func VerifyAddress(address string) error {
 	if strings.ToLower(address) != address {
 		return fmt.Errorf("invalid eos address %s", address)
 	}
-	dot := strings.Index(address, ".")
-	if dot == 0 || dot == len(address)-1 {
+
+	pure, remaining := "", address
+	for {
+		dot := strings.Index(remaining, ".")
+		if dot < 0 {
+			pure = pure + remaining
+			break
+		}
+		if dot == 0 || dot == len(remaining)-1 {
+			return fmt.Errorf("invalid eos address %s", address)
+		}
+		pure = pure + remaining[:dot]
+		remaining = remaining[dot+1:]
+	}
+
+	if len(pure) > 12 {
 		return fmt.Errorf("invalid eos address %s", address)
 	}
-	if dot > 0 {
-		address = address[:dot] + address[dot+1:]
-	}
-	dot = strings.Index(address, ".")
-	if dot >= 0 {
-		return fmt.Errorf("invalid eos address %s", address)
-	}
-	if len(address) > 12 {
-		return fmt.Errorf("invalid eos address %s", address)
-	}
-	matched, err := regexp.MatchString("^[a-z1-5]{1,12}$", address)
+	matched, err := regexp.MatchString("^[a-z1-5]{1,12}$", pure)
 	if err != nil || !matched {
 		return fmt.Errorf("invalid eos address %s", address)
 	}

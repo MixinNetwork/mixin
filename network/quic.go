@@ -31,7 +31,7 @@ const (
 )
 
 type QuicClient struct {
-	session      quic.Session
+	session      quic.Connection
 	send         quic.SendStream
 	receive      quic.ReceiveStream
 	zstdZipper   *zstd.Encoder
@@ -67,7 +67,7 @@ func (t *QuicTransport) Dial(ctx context.Context) (Client, error) {
 		MaxIncomingStreams:   MaxIncomingStreams,
 		HandshakeIdleTimeout: HandshakeTimeout,
 		MaxIdleTimeout:       IdleTimeout,
-		KeepAlive:            true,
+		KeepAlivePeriod:      IdleTimeout / 2,
 	})
 	if err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func (t *QuicTransport) Listen() error {
 		MaxIncomingStreams:   MaxIncomingStreams,
 		HandshakeIdleTimeout: HandshakeTimeout,
 		MaxIdleTimeout:       IdleTimeout,
-		KeepAlive:            true,
+		KeepAlivePeriod:      IdleTimeout / 2,
 	})
 	if err != nil {
 		return err

@@ -36,7 +36,9 @@ import (
 	"github.com/MixinNetwork/mixin/domains/ripple"
 	"github.com/MixinNetwork/mixin/domains/siacoin"
 	"github.com/MixinNetwork/mixin/domains/solana"
+	"github.com/MixinNetwork/mixin/domains/starcoin"
 	"github.com/MixinNetwork/mixin/domains/stellar"
+	"github.com/MixinNetwork/mixin/domains/terra"
 	"github.com/MixinNetwork/mixin/domains/tezos"
 	"github.com/MixinNetwork/mixin/domains/tron"
 	"github.com/MixinNetwork/mixin/domains/zcash"
@@ -115,12 +117,16 @@ func (a *Asset) Verify() error {
 		return mobilecoin.VerifyAssetKey(a.AssetKey)
 	case cosmos.CosmosChainId:
 		return cosmos.VerifyAssetKey(a.AssetKey)
+	case starcoin.StarcoinChainId:
+		return starcoin.VerifyAssetKey(a.AssetKey)
 	case avalanche.AvalancheChainId:
 		return avalanche.VerifyAssetKey(a.AssetKey)
 	case binance.BinanceChainId:
 		return binance.VerifyAssetKey(a.AssetKey)
 	case akash.AkashChainId:
 		return akash.VerifyAssetKey(a.AssetKey)
+	case terra.TerraChainId:
+		return terra.VerifyAssetKey(a.AssetKey)
 	case arweave.ArweaveChainId:
 		return arweave.VerifyAssetKey(a.AssetKey)
 	case dfinity.DfinityChainId:
@@ -194,12 +200,16 @@ func (a *Asset) AssetId() crypto.Hash {
 		return mobilecoin.GenerateAssetId(a.AssetKey)
 	case cosmos.CosmosChainId:
 		return cosmos.GenerateAssetId(a.AssetKey)
+	case starcoin.StarcoinChainId:
+		return starcoin.GenerateAssetId(a.AssetKey)
 	case avalanche.AvalancheChainId:
 		return avalanche.GenerateAssetId(a.AssetKey)
 	case binance.BinanceChainId:
 		return binance.GenerateAssetId(a.AssetKey)
 	case akash.AkashChainId:
 		return akash.GenerateAssetId(a.AssetKey)
+	case terra.TerraChainId:
+		return terra.GenerateAssetId(a.AssetKey)
 	case arweave.ArweaveChainId:
 		return arweave.GenerateAssetId(a.AssetKey)
 	case dfinity.DfinityChainId:
@@ -273,12 +283,16 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return mobilecoin.MobileCoinChainId
 	case cosmos.CosmosChainId:
 		return cosmos.CosmosChainId
+	case starcoin.StarcoinChainId:
+		return starcoin.StarcoinChainId
 	case avalanche.AvalancheChainId:
 		return avalanche.AvalancheChainId
 	case binance.BinanceChainId:
 		return binance.BinanceChainId
 	case akash.AkashChainId:
 		return akash.AkashChainId
+	case terra.TerraChainId:
+		return terra.TerraChainId
 	case arweave.ArweaveChainId:
 		return arweave.ArweaveChainId
 	case dfinity.DfinityChainId:

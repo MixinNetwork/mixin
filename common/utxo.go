@@ -46,7 +46,7 @@ type NodeReader interface {
 }
 
 type DomainReader interface {
-	ReadDomains() []Domain
+	ReadDomains() []*Domain
 }
 
 type DataStore interface {

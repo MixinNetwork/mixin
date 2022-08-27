@@ -2,12 +2,13 @@ package nervos
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
 
-	"github.com/btcsuite/btcutil/bech32"
+	"github.com/btcsuite/btcd/btcutil/bech32"
 )
 
 var (
@@ -41,11 +42,7 @@ func VerifyAddress(address string) error {
 	if len(payload) <= 1 {
 		return fmt.Errorf("invalid nervos address %s", address)
 	}
-	if payload[0] != ShortFormat {
-		return fmt.Errorf("invalid nervos address %s", address)
-	}
-
-	if payload[1] != CodeHashIndexSingle && payload[1] != CodeHashIndexAnyoneCanPay {
+	if payload[1] != CodeHashIndexSingle && payload[1] != CodeHashIndexAnyoneCanPay && payload[1] != 155 {
 		return fmt.Errorf("invalid nervos address %s", address)
 	}
 	ckbAddress, err := EncodeAddress(payload)
@@ -53,7 +50,13 @@ func VerifyAddress(address string) error {
 		return fmt.Errorf("invalid nervos address %s %s", address, err)
 	}
 	if address != ckbAddress {
-		return fmt.Errorf("invalid nervos address %s", address)
+		ckbAddress, err = EncodeBech32mAddress(payload)
+		if err != nil {
+			return fmt.Errorf("invalid nervos address %s %s", address, err)
+		}
+		if ckbAddress != address {
+			return fmt.Errorf("invalid nervos address %s", address)
+		}
 	}
 	return nil
 }
@@ -88,7 +91,6 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 }
 
 const (
-	ShortFormat               byte = 1
 	CodeHashIndexSingle       byte = 0
 	CodeHashIndexAnyoneCanPay byte = 2
 	PrefixMainNet                  = "ckb"
@@ -106,8 +108,20 @@ func EncodeAddress(payload []byte) (string, error) {
 	return address, nil
 }
 
+func EncodeBech32mAddress(payload []byte) (string, error) {
+	data, err := bech32.ConvertBits(payload, 8, 5, true)
+	if err != nil {
+		return "", err
+	}
+	address, err := bech32.EncodeM(PrefixMainNet, data)
+	if err != nil {
+		return "", err
+	}
+	return address, nil
+}
+
 func DecodeAddress(address string) (prefix string, payload []byte, err error) {
-	prefix, data, err := bech32.Decode(address)
+	prefix, data, err := bech32.DecodeNoLimit(address)
 	if err != nil {
 		return "", nil, err
 	}
@@ -117,6 +131,9 @@ func DecodeAddress(address string) (prefix string, payload []byte, err error) {
 	payload, err = bech32.ConvertBits(data, 5, 8, false)
 	if err != nil {
 		return "", nil, err
+	}
+	if payload[0] != 0x00 && payload[0] != 0x01 {
+		return "", nil, errors.New("unknown address format type")
 	}
 	return prefix, payload, nil
 }

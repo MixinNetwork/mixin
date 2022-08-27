@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/btcsuite/btcutil/base58"
+	"github.com/btcsuite/btcd/btcutil/base58"
 )
 
 // AddressParamsV0 defines an interface that is used to provide the parameters

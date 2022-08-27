@@ -13,10 +13,12 @@ func TestValidation(t *testing.T) {
 
 	eos := "eosio.token:EOS"
 	usdt := "tethertether:USDT"
+	papaya := "eos.v2.wei:PAPAYA"
 	tx := "197be13b8d572ae4c83fe2bc60e87ac8993896242bb486790fd4378f88d8d961"
 
 	assert.Nil(VerifyAssetKey(eos))
 	assert.Nil(VerifyAssetKey(usdt))
+	assert.Nil(VerifyAssetKey(papaya))
 	assert.NotNil(VerifyAssetKey("eosio.token"))
 	assert.NotNil(VerifyAssetKey("eosio.token.2"))
 	assert.NotNil(VerifyAssetKey("eos.io.token"))
@@ -26,12 +28,17 @@ func TestValidation(t *testing.T) {
 
 	assert.Nil(VerifyAddress("eosio.token"))
 	assert.Nil(VerifyAddress("tethertether"))
+	assert.Nil(VerifyAddress("eos.io.token"))
+	assert.Nil(VerifyAddress("eos.io.token.t"))
+	assert.NotNil(VerifyAddress("eos.io..token"))
 	assert.NotNil(VerifyAddress("eosio.token6"))
 	assert.NotNil(VerifyAddress("Eosio.token"))
-	assert.NotNil(VerifyAddress("eos.io.token"))
+	assert.NotNil(VerifyAddress("eos.io.token.long"))
 	assert.NotNil(VerifyAddress("."))
 	assert.NotNil(VerifyAddress(".token"))
 	assert.NotNil(VerifyAddress("eosio."))
+	assert.NotNil(VerifyAddress("eosio.token."))
+	assert.NotNil(VerifyAddress(".eosio.token."))
 
 	assert.Nil(VerifyTransactionHash(tx))
 	assert.NotNil(VerifyTransactionHash(eos))

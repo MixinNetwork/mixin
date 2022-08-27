@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/btcsuite/btcutil/bech32"
+	"github.com/btcsuite/btcd/btcutil/bech32"
 )
 
 var (
@@ -60,7 +60,7 @@ func VerifyTransactionHash(hash string) error {
 		return fmt.Errorf("invalid cosmos transaction hash %s %s", hash, err.Error())
 	}
 	if strings.ToLower(hash) != hash {
-		return fmt.Errorf("invalid bitcoin transaction hash %s", hash)
+		return fmt.Errorf("invalid cosmos transaction hash %s", hash)
 	}
 	if len(h) != 32 {
 		return fmt.Errorf("invalid cosmos transaction hash %s", hash)
