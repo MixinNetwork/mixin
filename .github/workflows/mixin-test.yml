@@ -27,7 +27,7 @@ jobs:
         run: |
           go build -o mixin .
       - name: Testing
-        if: ${{ matrix.os != 'windows-latest' }}
+        if: ${{ matrix.os == 'ubuntu-latest' }}
         working-directory: .
         run: |
-          go test ./...
+          INPUT=10 go test ./...

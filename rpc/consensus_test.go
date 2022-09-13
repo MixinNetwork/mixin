@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
+var (
 	NODES  = 8
 	INPUTS = 100
 )
@@ -35,7 +35,12 @@ func TestConsensus(t *testing.T) {
 	kernel.TestMockReset()
 
 	level, _ := strconv.ParseInt(os.Getenv("LOG"), 10, 64)
+	enableElection, _ := strconv.ParseBool(os.Getenv("ELECTION"))
+	inputs, _ := strconv.ParseInt(os.Getenv("INPUT"), 10, 64)
 	logger.SetLevel(int(level))
+	if inputs > 0 {
+		INPUTS = int(inputs)
+	}
 
 	root, err := os.MkdirTemp("", "mixin-consensus-test")
 	assert.Nil(err)
@@ -94,7 +99,7 @@ func TestConsensus(t *testing.T) {
 	gt := testVerifyInfo(assert, nodes)
 	assert.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
 
-	genesisAmount := float64(10003.5) / INPUTS
+	genesisAmount := 10003.5 / float64(INPUTS)
 	domainAddress := accounts[0].String()
 	deposits := make([]*common.VersionedTransaction, 0)
 	for i := 0; i < INPUTS; i++ {
@@ -165,7 +170,6 @@ func TestConsensus(t *testing.T) {
 	assert.Greater(hr.Round, uint64(0))
 	t.Log("INPUT TEST DONE", time.Now())
 
-	enableElection, _ := strconv.ParseBool(os.Getenv("ELECTION"))
 	if !enableElection {
 		return
 	}
