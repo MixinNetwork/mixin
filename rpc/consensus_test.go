@@ -30,136 +30,8 @@ const (
 	INPUTS = 100
 )
 
-func TestAllTransactionsToSingleGenesisNode(t *testing.T) {
+func TestConsensus(t *testing.T) {
 	assert := assert.New(t)
-
-	kernel.TestMockReset()
-
-	root, err := os.MkdirTemp("", "mixin-attsg-test")
-	assert.Nil(err)
-	defer os.RemoveAll(root)
-
-	accounts, _, _, _ := setupTestNet(root)
-	assert.Len(accounts, NODES)
-
-	epoch := time.Unix(1551312000, 0)
-	nodes := make([]*Node, 0)
-	instances := make([]*kernel.Node, 0)
-	for i := range accounts {
-		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
-		custom, err := config.Initialize(dir + "/config.toml")
-		assert.Nil(err)
-		cache := newCache(custom)
-		store, err := storage.NewBadgerStore(custom, dir)
-		assert.Nil(err)
-		assert.NotNil(store)
-		if i == 0 {
-			kernel.TestMockDiff(epoch.Sub(time.Now()))
-		}
-		node, err := kernel.SetupNode(custom, store, cache, fmt.Sprintf(":170%02d", i+1), dir)
-		assert.Nil(err)
-		assert.NotNil(node)
-		err = node.PingNeighborsFromConfig()
-		assert.Nil(err)
-		instances = append(instances, node)
-		host := fmt.Sprintf("127.0.0.1:180%02d", i+1)
-		nodes = append(nodes, &Node{Signer: node.Signer, Host: host})
-
-		server := NewServer(custom, store, node, 18000+i+1)
-		defer server.Close()
-		go func(node *kernel.Node, store storage.Store, num int, s *http.Server) {
-			go s.ListenAndServe()
-			go node.Loop()
-		}(node, store, i, server)
-	}
-	defer func() {
-		var wg sync.WaitGroup
-		for _, n := range instances {
-			wg.Add(1)
-			go func(node *kernel.Node) {
-				node.Teardown()
-				wg.Done()
-			}(n)
-		}
-		wg.Wait()
-	}()
-	time.Sleep(3 * time.Second)
-
-	rand.Seed(time.Now().UnixNano())
-	target := nodes[rand.Intn(len(nodes))]
-
-	tl, sl := testVerifySnapshots(assert, nodes)
-	assert.Equal(NODES+1, len(tl))
-	assert.Equal(NODES+1, len(sl))
-	gt := testVerifyInfo(assert, nodes)
-	assert.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
-
-	genesisAmount := float64(10003.5) / INPUTS
-	domainAddress := accounts[0].String()
-	deposits := make([]*common.VersionedTransaction, 0)
-	for i := 0; i < INPUTS; i++ {
-		raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
-		tx, err := testSignTransaction(target.Host, accounts[0], raw)
-		assert.Nil(err)
-		assert.NotNil(tx)
-		deposits = append(deposits, &common.VersionedTransaction{SignedTransaction: *tx})
-	}
-
-	for _, d := range deposits {
-		n, raw := target.Host, hex.EncodeToString(d.Marshal())
-		id, err := testSendTransaction(n, raw)
-		assert.Nil(err)
-		assert.Len(id, 75)
-	}
-
-	time.Sleep(3 * time.Second)
-	tl, _ = testVerifySnapshots(assert, nodes)
-	assert.Equal(INPUTS+NODES+1, len(tl))
-	gt = testVerifyInfo(assert, nodes)
-	assert.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
-
-	utxos := make([]*common.VersionedTransaction, 0)
-	for _, d := range deposits {
-		raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, d.PayloadHash().String(), genesisAmount, domainAddress)
-		rand.Seed(time.Now().UnixNano())
-		tx, err := testSignTransaction(nodes[0].Host, accounts[0], raw)
-		assert.Nil(err)
-		assert.NotNil(tx)
-		if tx != nil {
-			utxos = append(utxos, &common.VersionedTransaction{SignedTransaction: *tx})
-		}
-	}
-	assert.Equal(INPUTS, len(utxos))
-
-	for _, tx := range utxos {
-		n, raw := nodes[0].Host, hex.EncodeToString(tx.Marshal())
-		id, err := testSendTransaction(n, raw)
-		assert.Nil(err)
-		assert.Len(id, 75)
-	}
-
-	time.Sleep(3 * time.Second)
-	tl, _ = testVerifySnapshots(assert, nodes)
-	assert.Equal(INPUTS*2+NODES+1, len(tl))
-	gt = testVerifyInfo(assert, nodes)
-	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
-}
-
-func TestConsensusSingle(t *testing.T) {
-	testConsensus(t, 1)
-}
-
-func TestConsensusDouble(t *testing.T) {
-	testConsensus(t, 2)
-}
-
-func TestConsensusMany(t *testing.T) {
-	testConsensus(t, -1)
-}
-
-func testConsensus(t *testing.T, dup int) {
-	assert := assert.New(t)
-
 	kernel.TestMockReset()
 
 	level, _ := strconv.ParseInt(os.Getenv("LOG"), 10, 64)
@@ -235,23 +107,8 @@ func testConsensus(t *testing.T, dup int) {
 	}
 
 	for _, d := range deposits {
-		rand.Seed(time.Now().UnixNano())
-		for n := len(nodes); n > 0; n-- {
-			randIndex := rand.Intn(n)
-			nodes[n-1], nodes[randIndex] = nodes[randIndex], nodes[n-1]
-		}
-		wg := &sync.WaitGroup{}
-		start := rand.Intn(len(nodes) - 1)
-		for i := start; i < len(nodes) && i != start+dup; i++ {
-			wg.Add(1)
-			go func(n string, raw string) {
-				defer wg.Done()
-				id, err := testSendTransaction(n, raw)
-				assert.Nil(err)
-				assert.Len(id, 75)
-			}(nodes[i].Host, hex.EncodeToString(d.Marshal()))
-		}
-		wg.Wait()
+		id := testSendTransactionToNodes(t, nodes, hex.EncodeToString(d.Marshal()))
+		assert.Len(id, 75)
 	}
 
 	time.Sleep(3 * time.Second)
@@ -286,23 +143,8 @@ func testConsensus(t *testing.T, dup int) {
 	assert.Equal(INPUTS, len(utxos))
 
 	for _, tx := range utxos {
-		rand.Seed(time.Now().UnixNano())
-		for n := len(nodes); n > 0; n-- {
-			randIndex := rand.Intn(n)
-			nodes[n-1], nodes[randIndex] = nodes[randIndex], nodes[n-1]
-		}
-		wg := &sync.WaitGroup{}
-		start := rand.Intn(len(nodes) - 1)
-		for i := start; i < len(nodes) && i != start+dup; i++ {
-			wg.Add(1)
-			go func(n string, raw string) {
-				defer wg.Done()
-				id, err := testSendTransaction(n, raw)
-				assert.Nil(err)
-				assert.Len(id, 75)
-			}(nodes[i].Host, hex.EncodeToString(tx.Marshal()))
-		}
-		wg.Wait()
+		id := testSendTransactionToNodes(t, nodes, hex.EncodeToString(tx.Marshal()))
+		assert.Len(id, 75)
 	}
 
 	time.Sleep(3 * time.Second)
@@ -323,6 +165,11 @@ func testConsensus(t *testing.T, dup int) {
 	assert.Greater(hr.Round, uint64(0))
 	t.Log("INPUT TEST DONE", time.Now())
 
+	enableElection, _ := strconv.ParseBool(os.Getenv("ELECTION"))
+	if !enableElection {
+		return
+	}
+
 	kernel.TestMockDiff((config.KernelMintTimeBegin + 24) * time.Hour)
 	time.Sleep(3 * time.Second)
 	tl, _ = testVerifySnapshots(assert, nodes)
@@ -334,7 +181,7 @@ func testConsensus(t *testing.T, dup int) {
 	assert.Len(all, NODES)
 	assert.Equal("ACCEPTED", all[NODES-1].State)
 
-	input, err := testBuildPledgeInput(assert, nodes[0].Host, accounts[0], utxos)
+	input, err := testBuildPledgeInput(t, nodes, accounts[0], utxos)
 	assert.Nil(err)
 	time.Sleep(5 * time.Second)
 	tl, _ = testVerifySnapshots(assert, nodes)
@@ -343,7 +190,7 @@ func testConsensus(t *testing.T, dup int) {
 	assert.True(gt.Timestamp.Before(epoch.Add(61 * time.Second)))
 	t.Logf("PLEDGE %s\n", input)
 
-	pn, pi, sv := testPledgeNewNode(assert, nodes[0].Host, accounts[0], gdata, plist, input, root)
+	pn, pi, sv := testPledgeNewNode(t, nodes, accounts[0], gdata, plist, input, root)
 	defer pi.Teardown()
 	defer sv.Close()
 	time.Sleep(3 * time.Second)
@@ -408,7 +255,7 @@ func testConsensus(t *testing.T, dup int) {
 	tl, _ = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1, len(tl))
 
-	input = testSendDummyTransaction(assert, nodes[0].Host, accounts[0], input, "3.5")
+	input = testSendDummyTransaction(t, nodes, accounts[0], input, "3.5")
 	t.Logf("DUMMY 1 %s\n", input)
 	time.Sleep(3 * time.Second)
 	tl, _ = testVerifySnapshots(assert, nodes)
@@ -426,7 +273,7 @@ func testConsensus(t *testing.T, dup int) {
 	signer, payee := testGetNodeToRemove(instances[0].NetworkId(), accounts, payees, 0)
 	assert.Equal("XINGmuYCB65rzMgUf1W35pbhj4C7fY9JrzWCL5vGRdL84SPcWVPhtBJ7DAarc1QPt564JwbEdNCH8359kdPRH1ieSM9f96RZ", signer.String())
 	assert.Equal("XINMeKsKkSJJCgLWKvakEHaXBNPGfF7RmBu9jx5VZLE6UTuEaW4wSEqVybkH4xhQcqkT5jdiguiN3B3NKt8QBZTUbqZXJ1Fq", payee.String())
-	input = testSendDummyTransaction(assert, nodes[0].Host, accounts[0], input, "3.5")
+	input = testSendDummyTransaction(t, nodes, accounts[0], input, "3.5")
 	t.Logf("DUMMY 2 %s\n", input)
 	assert.Len(input, 64)
 	nodes = testRemoveNode(nodes, signer)
@@ -463,7 +310,7 @@ func testConsensus(t *testing.T, dup int) {
 	time.Sleep(3 * time.Second)
 	tl, _ = testVerifySnapshots(assert, nodes)
 
-	removal := testSendDummyTransaction(assert, nodes[0].Host, payee, all[NODES].Transaction.String(), "10000")
+	removal := testSendDummyTransaction(t, nodes, payee, all[NODES].Transaction.String(), "10000")
 	t.Logf("DUMMY 3 %s\n", removal)
 	assert.Len(removal, 64)
 	time.Sleep(3 * time.Second)
@@ -480,7 +327,7 @@ func testConsensus(t *testing.T, dup int) {
 	signer, payee = testGetNodeToRemove(instances[0].NetworkId(), accounts, payees, 1)
 	assert.Equal("XINEBDHLoH3eDiicxWdbF7B79h1kZMT2rmuoQcvSPDYztBFvkgv8dESeCKW1Ejh8hQ7QUK2Lxd8aHa5heXmWYk2gc78wWVs", signer.String())
 	assert.Equal("XINRqCuT9qD7qd9Z4bJFhAHq4eRa1GWdeD6cM6AegbS9chCFRFpxfxvFey6LouzRDYJgKXd45YXM1douCFvwELZmQ9gSCjPP", payee.String())
-	input = testSendDummyTransaction(assert, nodes[0].Host, accounts[0], input, "3.5")
+	input = testSendDummyTransaction(t, nodes, accounts[0], input, "3.5")
 	t.Logf("DUMMY 4 %s\n", input)
 	assert.Len(input, 64)
 	nodes = testRemoveNode(nodes, signer)
@@ -500,7 +347,7 @@ func testConsensus(t *testing.T, dup int) {
 	time.Sleep(3 * time.Second)
 	tl, _ = testVerifySnapshots(assert, nodes)
 
-	removal = testSendDummyTransaction(assert, nodes[0].Host, payee, all[NODES].Transaction.String(), "10000")
+	removal = testSendDummyTransaction(t, nodes, payee, all[NODES].Transaction.String(), "10000")
 	t.Logf("DUMMY 5 %s\n", removal)
 	assert.Len(removal, 64)
 	time.Sleep(3 * time.Second)
@@ -514,7 +361,7 @@ func testConsensus(t *testing.T, dup int) {
 		assert.Equal("REMOVED", all[NODES].State)
 	}
 
-	input = testSendDummyTransaction(assert, nodes[0].Host, accounts[0], input, "3.5")
+	input = testSendDummyTransaction(t, nodes, accounts[0], input, "3.5")
 	t.Logf("DUMMY 6 %s\n", input)
 	assert.Len(input, 64)
 	nodes = testRemoveNode(nodes, signer)
@@ -546,7 +393,8 @@ func testRemoveNode(nodes []*Node, r common.Address) []*Node {
 	return tmp
 }
 
-func testSendDummyTransaction(assert *assert.Assertions, node string, domain common.Address, th, amount string) string {
+func testSendDummyTransaction(t *testing.T, nodes []*Node, domain common.Address, th, amount string) string {
+	assert := assert.New(t)
 	raw, _ := json.Marshal(map[string]interface{}{
 		"version": 2,
 		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
@@ -561,11 +409,11 @@ func testSendDummyTransaction(assert *assert.Assertions, node string, domain com
 			"accounts": []string{domain.String()},
 		}},
 	})
-	tx, err := testSignTransaction(node, domain, string(raw))
+	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw))
 	assert.Nil(err)
 	ver := common.VersionedTransaction{SignedTransaction: *tx}
-	input, err := testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
-	assert.Nil(err)
+	input := testSendTransactionToNodes(t, nodes, hex.EncodeToString(ver.Marshal()))
+	assert.Len(input, 75)
 	var hash map[string]string
 	err = json.Unmarshal([]byte(input), &hash)
 	assert.Nil(err)
@@ -583,7 +431,8 @@ listener = "%s"
 peers = [%s]
 `
 
-func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Address, genesisData []byte, plist, input, root string) (Node, *kernel.Node, *http.Server) {
+func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genesisData []byte, plist, input, root string) (Node, *kernel.Node, *http.Server) {
+	assert := assert.New(t)
 	var signer, payee common.Address
 
 	signer = testDeterminAccountByIndex(NODES, "SIGNER")
@@ -618,11 +467,11 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 		}},
 		"extra": signer.PublicSpendKey.String() + payee.PublicSpendKey.String(),
 	})
-	tx, err := testSignTransaction(node, domain, string(raw))
+	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw))
 	assert.Nil(err)
 	ver := common.VersionedTransaction{SignedTransaction: *tx}
-	_, err = testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
-	assert.Nil(err)
+	id := testSendTransactionToNodes(t, nodes, hex.EncodeToString(ver.Marshal()))
+	assert.Len(id, 75)
 
 	custom, err := config.Initialize(dir + "/config.toml")
 	assert.Nil(err)
@@ -643,7 +492,8 @@ func testPledgeNewNode(assert *assert.Assertions, node string, domain common.Add
 	return Node{Signer: signer, Payee: payee, Host: "127.0.0.1:18099"}, pnode, server
 }
 
-func testBuildPledgeInput(assert *assert.Assertions, node string, domain common.Address, utxos []*common.VersionedTransaction) (string, error) {
+func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, utxos []*common.VersionedTransaction) (string, error) {
+	assert := assert.New(t)
 	inputs := []map[string]interface{}{}
 	for _, tx := range utxos {
 		inputs = append(inputs, map[string]interface{}{
@@ -667,14 +517,41 @@ func testBuildPledgeInput(assert *assert.Assertions, node string, domain common.
 			"accounts": []string{domain.String()},
 		}},
 	})
-	tx, err := testSignTransaction(node, domain, string(raw))
+	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw))
 	assert.Nil(err)
 	ver := common.VersionedTransaction{SignedTransaction: *tx}
-	input, err := testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
-	assert.Nil(err)
+	input := testSendTransactionToNodes(t, nodes, hex.EncodeToString(ver.Marshal()))
+	assert.Len(input, 75)
 	var hash map[string]string
 	err = json.Unmarshal([]byte(input), &hash)
 	return hash["hash"], err
+}
+
+func testSendTransactionToNodes(t *testing.T, nodes []*Node, raw string) string {
+	assert := assert.New(t)
+
+	rand.Seed(time.Now().UnixNano())
+	for n := len(nodes); n > 0; n-- {
+		ri := rand.Intn(n)
+		nodes[n-1], nodes[ri] = nodes[ri], nodes[n-1]
+	}
+	wg, dup := &sync.WaitGroup{}, 3
+	start := rand.Intn(len(nodes) - dup)
+
+	var txHash string
+	for i := start; i < len(nodes) && i != start+dup; i++ {
+		wg.Add(1)
+		go func(n string, raw string) {
+			defer wg.Done()
+			id, err := testSendTransaction(n, raw)
+			assert.Nil(err)
+			assert.Len(id, 75)
+			txHash = id
+		}(nodes[i].Host, raw)
+	}
+	wg.Wait()
+
+	return txHash
 }
 
 func testSendTransaction(node, raw string) (string, error) {

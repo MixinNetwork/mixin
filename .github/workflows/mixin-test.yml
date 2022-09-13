@@ -30,4 +30,4 @@ jobs:
         if: ${{ matrix.os != 'windows-latest' }}
         working-directory: .
         run: |
-          go test `go list ./... | grep -v rpc`
+          go test
