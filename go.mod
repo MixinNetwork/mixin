@@ -1,6 +1,6 @@
 module github.com/MixinNetwork/mixin
 
-go 1.17
+go 1.19
 
 replace github.com/vmihailenco/msgpack/v4 => github.com/MixinNetwork/msgpack/v4 v4.3.13
 
