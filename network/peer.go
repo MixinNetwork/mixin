@@ -260,7 +260,9 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 		if err != nil {
 			return resend, err
 		}
-		me.snapshotsCaches.store(resend.key, time.Now())
+		if resend.key != nil {
+			me.snapshotsCaches.store(resend.key, time.Now())
+		}
 	}
 	logger.Verbosef("LOOP PEER STREAM %s\n", p.Address)
 
