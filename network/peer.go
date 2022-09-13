@@ -335,13 +335,11 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 				me.snapshotsCaches.store(msgs[0].key, time.Now())
 			}
 		} else {
-			data := buildBundleMessage(msgs)
-			err := client.Send(data)
-			if err != nil {
-				key := crypto.NewHash(data)
-				return &ChanMsg{key[:], data}, err
-			}
 			for _, msg := range msgs {
+				err := client.Send(msg.data)
+				if err != nil {
+					return msg, err
+				}
 				if msg.key != nil {
 					me.snapshotsCaches.store(msg.key, time.Now())
 				}
