@@ -254,7 +254,7 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	}
 	logger.Verbosef("AUTH PEER STREAM %s\n", p.Address)
 
-	if resend != nil {
+	if resend != nil && !me.snapshotsCaches.contains(resend.key, time.Minute) {
 		logger.Verbosef("RESEND PEER STREAM %s\n", hex.EncodeToString(resend.key))
 		err := client.Send(resend.data)
 		if err != nil {
@@ -271,64 +271,79 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	defer gossipNeighborsTicker.Stop()
 
 	for !me.closing && !p.closing {
-		gd, hd, nd := false, false, false
-
+		msgs, size := []*ChanMsg{}, 0
 		select {
 		case <-graphTicker.C:
 			msg := buildGraphMessage(me.handle.BuildGraph())
-			err := client.Send(msg)
-			if err != nil {
-				return nil, err
-			}
+			msgs = append(msgs, &ChanMsg{nil, msg})
+			size = size + len(msg)
 		case <-gossipNeighborsTicker.C:
 			if me.gossipNeighbors {
 				msg := buildGossipNeighborsMessage(me.neighbors.Slice())
-				err := client.Send(msg)
-				if err != nil {
-					return nil, err
-				}
+				msgs = append(msgs, &ChanMsg{nil, msg})
+				size = size + len(msg)
 			}
 		default:
-			gd = true
 		}
 
-		item, err := p.highRing.Poll(false)
-		if err != nil {
-			return nil, err
-		} else if item == nil {
-			hd = true
-		} else {
-			msg := item.(*ChanMsg)
-			if !me.snapshotsCaches.contains(msg.key, time.Minute) {
-				err := client.Send(msg.data)
-				if err != nil {
-					return msg, err
-				}
-				me.snapshotsCaches.store(msg.key, time.Now())
+		for len(msgs) < MaxMessageBundleSize && size < TransportMessageMaxSize/2 {
+			item, err := p.highRing.Poll(false)
+			if err != nil {
+				return nil, err
+			} else if item == nil {
+				break
 			}
+			msg := item.(*ChanMsg)
+			if me.snapshotsCaches.contains(msg.key, time.Minute) {
+				continue
+			}
+			msgs = append(msgs, msg)
+			size = size + len(msg.data)
 		}
-		if !hd {
+
+		for len(msgs) < MaxMessageBundleSize && size < TransportMessageMaxSize/2 {
+			item, err := p.normalRing.Poll(false)
+			if err != nil {
+				return nil, err
+			} else if item == nil {
+				break
+			}
+			msg := item.(*ChanMsg)
+			if me.snapshotsCaches.contains(msg.key, time.Minute) {
+				continue
+			}
+			msgs = append(msgs, msg)
+			size = size + len(msg.data)
+		}
+
+		if len(msgs) == 0 {
+			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 
-		item, err = p.normalRing.Poll(false)
-		if err != nil {
-			return nil, err
-		} else if item == nil {
-			nd = true
-		} else {
-			msg := item.(*ChanMsg)
-			if !me.snapshotsCaches.contains(msg.key, time.Minute) {
-				err := client.Send(msg.data)
-				if err != nil {
-					return msg, err
-				}
-				me.snapshotsCaches.store(msg.key, time.Now())
+		if len(msgs) == 1 {
+			if msgs[0].key != nil && me.snapshotsCaches.contains(msgs[0].key, time.Minute) {
+				continue
 			}
-		}
-
-		if gd && hd && nd {
-			time.Sleep(100 * time.Millisecond)
+			err := client.Send(msgs[0].data)
+			if err != nil {
+				return msgs[0], err
+			}
+			if msgs[0].key != nil {
+				me.snapshotsCaches.store(msgs[0].key, time.Now())
+			}
+		} else {
+			data := buildBundleMessage(msgs)
+			err := client.Send(data)
+			if err != nil {
+				key := crypto.NewHash(data)
+				return &ChanMsg{key[:], data}, err
+			}
+			for _, msg := range msgs {
+				if msg.key != nil {
+					me.snapshotsCaches.store(msg.key, time.Now())
+				}
+			}
 		}
 	}
 
@@ -360,10 +375,32 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 			return fmt.Errorf("parseNetworkMessage %s %s", peer.IdForNetwork, err.Error())
 		}
 
-		select {
-		case receive <- msg:
-		default:
-			return fmt.Errorf("peer receive timeout %s", peer.IdForNetwork)
+		if msg.Type != PeerMessageTypeBundle {
+			select {
+			case receive <- msg:
+			default:
+				return fmt.Errorf("peer receive timeout %s", peer.IdForNetwork)
+			}
+		}
+
+		for data := msg.Data; len(data) > 4; {
+			size := binary.BigEndian.Uint32(data[:4])
+			if size < 16 || int(size+4) > len(data) {
+				return fmt.Errorf("parseNetworkMessage %s invalid bundle element size", peer.IdForNetwork)
+			}
+			elm, err := parseNetworkMessage(tm.Version, data[4:4+size])
+			if err != nil {
+				return fmt.Errorf("parseNetworkMessage %s %s", peer.IdForNetwork, err.Error())
+			}
+			if elm.Type == PeerMessageTypeBundle {
+				return fmt.Errorf("parseNetworkMessage %s invalid bundle element type", peer.IdForNetwork)
+			}
+			select {
+			case receive <- elm:
+			default:
+				return fmt.Errorf("peer receive timeout %s", peer.IdForNetwork)
+			}
+			data = data[4+size:]
 		}
 	}
 }
@@ -387,7 +424,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			return
 		}
 
-		id, addr, err := me.handle.Authenticate(msg.Auth)
+		id, addr, err := me.handle.Authenticate(msg.Data)
 		if err != nil {
 			auth <- err
 			return
@@ -468,6 +505,9 @@ func (m *confirmMap) contains(key []byte, duration time.Duration) bool {
 }
 
 func (m *confirmMap) store(key []byte, ts time.Time) {
+	if key == nil {
+		panic(ts)
+	}
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, uint64(ts.UnixNano()))
 	m.cache.Set(key, buf, 8)

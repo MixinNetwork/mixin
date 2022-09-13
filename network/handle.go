@@ -2,6 +2,7 @@ package network
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -26,7 +27,10 @@ const (
 	PeerMessageTypeSnapshotResponse     = 13 // peer generate A from nodes and Z, send response si = ri + H(R || A || M)ai to leader
 	PeerMessageTypeSnapshotFinalization = 14 // leader generate A, verify si B = ri B + H(R || A || M)ai B = Ri + H(R || A || M)Ai, then finalize based on threshold
 
+	PeerMessageTypeBundle          = 100
 	PeerMessageTypeGossipNeighbors = 101
+
+	MaxMessageBundleSize = 16
 )
 
 type PeerMessage struct {
@@ -40,7 +44,7 @@ type PeerMessage struct {
 	Response        [32]byte
 	WantTx          bool
 	Graph           []*SyncPoint
-	Auth            []byte
+	Data            []byte
 	Neighbors       []string
 }
 
@@ -196,6 +200,18 @@ func buildGraphMessage(points []*SyncPoint) []byte {
 	return append([]byte{PeerMessageTypeGraph}, data...)
 }
 
+func buildBundleMessage(msgs []*ChanMsg) []byte {
+	data := []byte{PeerMessageTypeBundle}
+	for _, m := range msgs {
+		if len(m.data) > TransportMessageMaxSize {
+			panic(hex.EncodeToString(m.data))
+		}
+		data = binary.BigEndian.AppendUint32(data, uint32(len(m.data)))
+		data = append(data, m.data...)
+	}
+	return data
+}
+
 func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 	if len(data) < 1 {
 		return nil, errors.New("invalid message data")
@@ -214,7 +230,7 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 			return nil, err
 		}
 	case PeerMessageTypeAuthentication:
-		msg.Auth = data[1:]
+		msg.Data = data[1:]
 	case PeerMessageTypeSnapshotConfirm:
 		copy(msg.SnapshotHash[:], data[1:])
 	case PeerMessageTypeTransaction:
@@ -272,6 +288,8 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		if msg.Snapshot == nil {
 			return nil, fmt.Errorf("invalid snapshot finalization message data")
 		}
+	case PeerMessageTypeBundle:
+		msg.Data = data[1:]
 	}
 	return msg, nil
 }
