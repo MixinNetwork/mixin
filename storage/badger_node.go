@@ -239,9 +239,8 @@ func writeNodePledge(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 }
 
 func nodeStateQueueKey(signer crypto.Key, timestamp uint64) []byte {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, timestamp)
-	key := append([]byte(graphPrefixNodeStateQueue), buf...)
+	key := []byte(graphPrefixNodeStateQueue)
+	key = binary.BigEndian.AppendUint64(key, timestamp)
 	return append(key, signer[:]...)
 }
 
@@ -286,7 +285,6 @@ func nodeState(ival []byte) string {
 }
 
 func nodeOperationKey(timestamp uint64) []byte {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, timestamp)
-	return append([]byte(graphPrefixNodeOperation), buf...)
+	key := []byte(graphPrefixNodeOperation)
+	return binary.BigEndian.AppendUint64(key, timestamp)
 }

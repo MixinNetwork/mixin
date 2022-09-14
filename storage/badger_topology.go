@@ -159,9 +159,8 @@ func graphSnapTopologyKey(hash crypto.Hash) []byte {
 }
 
 func graphTopologyKey(order uint64) []byte {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, order)
-	return append([]byte(graphPrefixTopology), buf...)
+	key := []byte(graphPrefixTopology)
+	return binary.BigEndian.AppendUint64(key, order)
 }
 
 func graphTopologyOrder(key []byte) uint64 {

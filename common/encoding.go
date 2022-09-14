@@ -183,7 +183,7 @@ func (enc *Encoder) WriteInt(d int) {
 	if d > MaximumEncodingInt {
 		panic(d)
 	}
-	b := uint16ToByte(uint16(d))
+	b := uint16ToBytes(uint16(d))
 	enc.Write(b)
 }
 
@@ -191,12 +191,12 @@ func (enc *Encoder) WriteUint16(d uint16) {
 	if d > MaximumEncodingInt {
 		panic(d)
 	}
-	b := uint16ToByte(d)
+	b := uint16ToBytes(d)
 	enc.Write(b)
 }
 
 func (enc *Encoder) WriteUint64(d uint64) {
-	b := uint64ToByte(d)
+	b := uint64ToBytes(d)
 	enc.Write(b)
 }
 
@@ -206,13 +206,13 @@ func (enc *Encoder) WriteInteger(d Integer) {
 	enc.Write(b)
 }
 
-func uint16ToByte(d uint16) []byte {
+func uint16ToBytes(d uint16) []byte {
 	b := make([]byte, 2)
 	binary.BigEndian.PutUint16(b, d)
 	return b
 }
 
-func uint64ToByte(d uint64) []byte {
+func uint64ToBytes(d uint64) []byte {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, d)
 	return b

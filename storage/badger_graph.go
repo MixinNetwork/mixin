@@ -170,9 +170,7 @@ func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder, v
 }
 
 func graphSnapshotKey(nodeId crypto.Hash, round uint64, hash crypto.Hash) []byte {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, round)
 	key := append([]byte(graphPrefixSnapshot), nodeId[:]...)
-	key = append(key, buf...)
+	key = binary.BigEndian.AppendUint64(key, round)
 	return append(key, hash[:]...)
 }

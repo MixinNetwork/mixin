@@ -212,8 +212,7 @@ func removeSnapshotWorksForRound(txn *badger.Txn, nodeId crypto.Hash, round uint
 }
 
 func graphWriteWorkOffset(txn *badger.Txn, key []byte, val uint64, snapshots []*common.SnapshotWork) error {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, val)
+	buf := binary.BigEndian.AppendUint64(nil, val)
 	for _, s := range snapshots {
 		buf = append(buf, s.Hash[:]...)
 	}
@@ -244,8 +243,7 @@ func graphReadWorkOffset(txn *badger.Txn, key []byte) (uint64, map[crypto.Hash]b
 }
 
 func graphWriteUint64(txn *badger.Txn, key []byte, val uint64) error {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, val)
+	buf := binary.BigEndian.AppendUint64(nil, val)
 	return txn.Set(key, buf)
 }
 
@@ -269,24 +267,17 @@ func graphWorkOffsetKey(nodeId crypto.Hash) []byte {
 }
 
 func graphWorkSignKey(nodeId crypto.Hash, day uint32) []byte {
-	buf := make([]byte, 4)
-	binary.BigEndian.PutUint32(buf, day)
 	key := append([]byte(graphPrefixWorkSign), nodeId[:]...)
-	return append(key, buf...)
+	return binary.BigEndian.AppendUint32(key, day)
 }
 
 func graphWorkLeadKey(nodeId crypto.Hash, day uint32) []byte {
-	buf := make([]byte, 4)
-	binary.BigEndian.PutUint32(buf, day)
 	key := append([]byte(graphPrefixWorkLead), nodeId[:]...)
-	return append(key, buf...)
+	return binary.BigEndian.AppendUint32(key, day)
 }
 
 func graphWorkSnaphotKey(nodeId crypto.Hash, round, ts uint64) []byte {
-	buf := make([]byte, 8)
 	key := append([]byte(graphPrefixWorkSnapshot), nodeId[:]...)
-	binary.BigEndian.PutUint64(buf, round)
-	key = append(key, buf...)
-	binary.BigEndian.PutUint64(buf, ts)
-	return append(key, buf...)
+	key = binary.BigEndian.AppendUint64(key, round)
+	return binary.BigEndian.AppendUint64(key, ts)
 }

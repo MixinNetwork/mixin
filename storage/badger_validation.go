@@ -142,9 +142,8 @@ func computeRoundHash(nodeId crypto.Hash, number uint64, snapshots []*common.Sna
 		panic(err)
 	}
 
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, number)
-	hash := crypto.NewHash(append(nodeId[:], buf...))
+	buf := binary.BigEndian.AppendUint64(nodeId[:], number)
+	hash := crypto.NewHash(buf)
 	for _, s := range snapshots {
 		if s.Timestamp > end {
 			panic(nodeId)

@@ -165,9 +165,8 @@ func readLink(txn *badger.Txn, from, to crypto.Hash) (uint64, error) {
 }
 
 func writeLink(txn *badger.Txn, from, to crypto.Hash, link uint64) error {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, link)
 	key := graphLinkKey(from, to)
+	buf := binary.BigEndian.AppendUint64(nil, link)
 	return txn.Set(key, buf)
 }
 

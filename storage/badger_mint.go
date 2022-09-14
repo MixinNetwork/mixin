@@ -153,9 +153,7 @@ func writeMintDistribution(txn *badger.Txn, mint *common.MintData, tx crypto.Has
 }
 
 func graphMintKey(group string, batch uint64) []byte {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, batch)
-	key := append([]byte(group), buf...)
+	key := binary.BigEndian.AppendUint64([]byte(group), batch)
 	return append([]byte(graphPrefixMint), key...)
 }
 

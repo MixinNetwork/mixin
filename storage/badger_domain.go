@@ -32,9 +32,7 @@ func (s *BadgerStore) ReadDomains() []*common.Domain {
 
 func writeDomainAccept(txn *badger.Txn, publicSpend crypto.Key, tx crypto.Hash, timestamp uint64) error {
 	key := graphDomainAcceptKey(publicSpend)
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, timestamp)
-	val := append(tx[:], buf...)
+	val := binary.BigEndian.AppendUint64(tx[:], timestamp)
 	return txn.Set(key, val)
 }
 

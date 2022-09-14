@@ -158,12 +158,10 @@ func buildSnapshotCommitmentMessage(snap crypto.Hash, R crypto.Key, wantTx bool)
 }
 
 func buildTransactionChallengeMessage(snap crypto.Hash, cosi *crypto.CosiSignature, tx *common.VersionedTransaction) []byte {
-	mask := make([]byte, 8)
-	binary.BigEndian.PutUint64(mask, cosi.Mask)
 	data := []byte{PeerMessageTypeTransactionChallenge}
 	data = append(data, snap[:]...)
 	data = append(data, cosi.Signature[:]...)
-	data = append(data, mask...)
+	data = binary.BigEndian.AppendUint64(data, cosi.Mask)
 	if tx != nil {
 		pl := tx.Marshal()
 		return append(data, pl...)

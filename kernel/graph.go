@@ -296,11 +296,8 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, c
 	for _, pub := range publics {
 		key = append(key, pub[:]...)
 	}
-	tbuf := make([]byte, 8)
-	binary.BigEndian.PutUint64(tbuf, uint64(threshold))
-	key = append(key, tbuf...)
-	binary.BigEndian.PutUint64(tbuf, sig.Mask)
-	key = append(key, tbuf...)
+	key = binary.BigEndian.AppendUint64(key, uint64(threshold))
+	key = binary.BigEndian.AppendUint64(key, sig.Mask)
 	value, found := node.cacheStore.Get(key)
 	if found {
 		signers := convertBytesToSigners(sig, value.([]byte))

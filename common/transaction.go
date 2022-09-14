@@ -275,9 +275,8 @@ func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [
 	P := edwards25519.NewIdentityPoint()
 	A := edwards25519.NewIdentityPoint()
 	for _, m := range signers {
-		var buf [2]byte
-		binary.BigEndian.PutUint16(buf[:], uint16(m))
-		s := crypto.NewHash(append(seed, buf[:]...))
+		buf := binary.BigEndian.AppendUint16(seed, uint16(m))
+		s := crypto.NewHash(buf)
 		r := crypto.NewKeyFromSeed(append(s[:], s[:]...))
 		randoms = append(randoms, &r)
 		R := r.Public()
