@@ -41,6 +41,7 @@ func TestConsensus(t *testing.T) {
 	if inputs > 0 {
 		INPUTS = int(inputs)
 	}
+	t.Logf("TEST WITH %d INPUTS", INPUTS)
 
 	root, err := os.MkdirTemp("", "mixin-consensus-test")
 	assert.Nil(err)
