@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/btcsuite/btcd/btcutil"
-	"github.com/btcsuite/btcd/chaincfg"
 )
 
 const (
@@ -36,12 +34,9 @@ func VerifyAddress(address string) error {
 	if strings.TrimSpace(address) != address {
 		return fmt.Errorf("invalid bitcoin address %s", address)
 	}
-	btcAddress, err := btcutil.DecodeAddress(address, &chaincfg.MainNetParams)
+	err := DecodeCheckAddress(address)
 	if err != nil {
 		return fmt.Errorf("invalid bitcoin address %s %s", address, err.Error())
-	}
-	if btcAddress.String() != address {
-		return fmt.Errorf("invalid bitcoin address %s %s", btcAddress.String(), address)
 	}
 	return nil
 }

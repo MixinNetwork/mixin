@@ -6,7 +6,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
-	"github.com/btcsuite/btcd/btcutil/base58"
+	"github.com/MixinNetwork/mixin/util/base58"
 )
 
 var (

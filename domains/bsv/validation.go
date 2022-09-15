@@ -6,9 +6,8 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/btcsuite/btcd/btcutil"
-	"github.com/btcsuite/btcd/btcutil/base58"
-	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/MixinNetwork/mixin/domains/litecoin"
+	"github.com/MixinNetwork/mixin/util/base58"
 )
 
 var (
@@ -34,16 +33,15 @@ func VerifyAddress(address string) error {
 	}
 
 	address = strings.TrimSpace(address)
-	params := &chaincfg.MainNetParams
 	_, netID, err := base58.CheckDecode(address)
 	if err != nil {
 		return fmt.Errorf("invalid bitcoin sv address %s %s", address, err)
 	}
-	if netID != params.PubKeyHashAddrID {
+	if netID != mainNetParams.PubKeyHashAddrID {
 		return fmt.Errorf("invalid bitcoin sv address %s", address)
 	}
 
-	bsvAddress, err := btcutil.DecodeAddress(address, params)
+	bsvAddress, err := litecoin.DecodeAddress(address, &mainNetParams)
 	if err != nil {
 		return fmt.Errorf("invalid bitcoin sv address %s %s", address, err)
 	}
@@ -77,4 +75,9 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 	default:
 		panic(assetKey)
 	}
+}
+
+var mainNetParams = litecoin.Params{
+	PubKeyHashAddrID: 0x00, // starts with 1
+	ScriptHashAddrID: 0x05, // starts with 3
 }

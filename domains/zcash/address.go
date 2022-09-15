@@ -3,8 +3,8 @@ package zcash
 import (
 	"errors"
 
+	"github.com/MixinNetwork/mixin/domains/litecoin"
 	"github.com/MixinNetwork/mixin/domains/tezos"
-	"github.com/btcsuite/btcd/btcutil"
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -55,13 +55,13 @@ func DecodeAddress(address string, params *Params) (Address, error) {
 		isP2SH := netID == params.ScriptBase58Prefixes
 		switch hash160 := decoded; {
 		case isP2PKH && isP2SH:
-			return nil, btcutil.ErrAddressCollision
+			return nil, litecoin.ErrAddressCollision
 		case isP2PKH:
 			return newAddressPubKeyHash(hash160, netID)
 		case isP2SH:
 			return newAddressScriptHashFromHash(hash160, netID)
 		default:
-			return nil, btcutil.ErrUnknownAddressType
+			return nil, litecoin.ErrUnknownAddressType
 		}
 
 	default:
