@@ -24,7 +24,7 @@ func (s *BadgerStore) ReadSnapshotWorksForNodeRound(nodeId crypto.Hash, round ui
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	key := graphWorkSnaphotKey(nodeId, round, 0)
+	key := graphWorkSnapshotKey(nodeId, round, 0)
 	prefix := key[:len(key)-8]
 
 	opts := badger.DefaultIteratorOptions
@@ -182,7 +182,7 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 }
 
 func writeSnapshotWork(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder, signers []crypto.Hash) error {
-	key := graphWorkSnaphotKey(snap.NodeId, snap.RoundNumber, snap.Timestamp)
+	key := graphWorkSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Timestamp)
 	val := make([]byte, (1+len(signers))*32)
 	copy(val, snap.Hash[:])
 	for i, h := range signers {
@@ -192,7 +192,7 @@ func writeSnapshotWork(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrde
 }
 
 func removeSnapshotWorksForRound(txn *badger.Txn, nodeId crypto.Hash, round uint64) error {
-	key := graphWorkSnaphotKey(nodeId, round, 0)
+	key := graphWorkSnapshotKey(nodeId, round, 0)
 	prefix := key[:len(key)-8]
 
 	opts := badger.DefaultIteratorOptions
@@ -276,7 +276,7 @@ func graphWorkLeadKey(nodeId crypto.Hash, day uint32) []byte {
 	return binary.BigEndian.AppendUint32(key, day)
 }
 
-func graphWorkSnaphotKey(nodeId crypto.Hash, round, ts uint64) []byte {
+func graphWorkSnapshotKey(nodeId crypto.Hash, round, ts uint64) []byte {
 	key := append([]byte(graphPrefixWorkSnapshot), nodeId[:]...)
 	key = binary.BigEndian.AppendUint64(key, round)
 	return binary.BigEndian.AppendUint64(key, ts)

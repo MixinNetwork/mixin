@@ -11,9 +11,9 @@ import (
 const (
 	MaximumEncodingInt = 0xFFFF
 
-	AggregatedSignaturePrefix      = 0xFF01
-	AggregatedSignatureSparseMask  = byte(0x01)
-	AggregatedSignatureOrdinayMask = byte(0x00)
+	AggregatedSignaturePrefix       = 0xFF01
+	AggregatedSignatureSparseMask   = byte(0x01)
+	AggregatedSignatureOrdinaryMask = byte(0x00)
 )
 
 var (
@@ -223,7 +223,7 @@ func (enc *Encoder) EncodeAggregatedSignature(js *AggregatedSignature) {
 	enc.WriteInt(AggregatedSignaturePrefix)
 	enc.Write(js.Signature[:])
 	if len(js.Signers) == 0 {
-		enc.WriteByte(AggregatedSignatureOrdinayMask)
+		enc.WriteByte(AggregatedSignatureOrdinaryMask)
 		enc.WriteInt(0)
 		return
 	}
@@ -250,7 +250,7 @@ func (enc *Encoder) EncodeAggregatedSignature(js *AggregatedSignature) {
 	for _, m := range js.Signers {
 		masks[m/8] = masks[m/8] ^ (1 << (m % 8))
 	}
-	enc.WriteByte(AggregatedSignatureOrdinayMask)
+	enc.WriteByte(AggregatedSignatureOrdinaryMask)
 	enc.WriteInt(len(masks))
 	enc.Write(masks)
 }

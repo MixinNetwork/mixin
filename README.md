@@ -80,7 +80,7 @@ spend key:	7c2b5c97278ed371d75610cccd9681af31b0d99be4adc2d66983f3c455fc9702
 
 Share the `address` to receive assets from other Mixin Kernel addresses, and keep `view key` and `spend key` privately and securely.
 
-Both the `view key` and `spend key` are required to spend the assets received from others, and the `view key` iteself is sufficient to decode and view all the transactions sent to `address`.
+Both the `view key` and `spend key` are required to spend the assets received from others, and the `view key` itself is sufficient to decode and view all the transactions sent to `address`.
 
 
 ## Sign and Send Raw Transaction
@@ -146,7 +146,7 @@ OPTIONS:
 
 ## Local Test Net
 
-This will setup a minimum local test net, with all nodes in a single device.
+This will set up a minimum local test net, with all nodes in a single device.
 
 ```
 $ mixin setuptestnet

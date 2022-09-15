@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDeterminBestRound(t *testing.T) {
+func TestDetermineBestRound(t *testing.T) {
 	assert := assert.New(t)
 
 	root, err := os.MkdirTemp("", "mixin-self-test")
@@ -19,10 +19,10 @@ func TestDeterminBestRound(t *testing.T) {
 	assert.NotNil(node)
 
 	chain := node.GetOrCreateChain(node.IdForNetwork)
-	best := chain.determinBestRound(uint64(clock.Now().UnixNano()))
+	best := chain.determineBestRound(uint64(clock.Now().UnixNano()))
 	assert.Nil(best)
 
 	chain = node.GetOrCreateChain(node.genesisNodes[0])
-	best = chain.determinBestRound(uint64(clock.Now().UnixNano()))
+	best = chain.determineBestRound(uint64(clock.Now().UnixNano()))
 	assert.NotNil(best)
 }

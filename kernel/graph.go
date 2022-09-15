@@ -118,12 +118,12 @@ func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, ro
 
 	if strict {
 		ec := chain.node.GetOrCreateChain(external.NodeId)
-		err := chain.checkRefernceSanity(ec, external, roundTime)
+		err := chain.checkReferenceSanity(ec, external, roundTime)
 		if err != nil {
 			return fmt.Errorf("external reference sanity %s", err)
 		}
 		threshold := external.Timestamp + config.SnapshotSyncRoundThreshold*config.SnapshotRoundGap*64
-		best := chain.determinBestRound(roundTime)
+		best := chain.determineBestRound(roundTime)
 		if best != nil && threshold < best.Start {
 			return fmt.Errorf("external reference %s too early %s:%d %f", external.Hash, best.NodeId, best.Number, time.Duration(best.Start-threshold).Seconds())
 		}
@@ -185,7 +185,7 @@ func reduceHistory(rounds []*FinalRound) []*FinalRound {
 	return newRounds
 }
 
-func (chain *Chain) determinBestRound(roundTime uint64) *FinalRound {
+func (chain *Chain) determineBestRound(roundTime uint64) *FinalRound {
 	chain.node.chains.RLock()
 	defer chain.node.chains.RUnlock()
 
@@ -208,7 +208,7 @@ func (chain *Chain) determinBestRound(roundTime uint64) *FinalRound {
 			continue
 		}
 
-		err := chain.checkRefernceSanity(ec, history[0].Common(), roundTime)
+		err := chain.checkReferenceSanity(ec, history[0].Common(), roundTime)
 		if err != nil {
 			continue
 		}
@@ -222,7 +222,7 @@ func (chain *Chain) determinBestRound(roundTime uint64) *FinalRound {
 	return best
 }
 
-func (chain *Chain) checkRefernceSanity(ec *Chain, external *common.Round, roundTime uint64) error {
+func (chain *Chain) checkReferenceSanity(ec *Chain, external *common.Round, roundTime uint64) error {
 	if external.Timestamp > roundTime {
 		return fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-roundTime).Seconds())
 	}

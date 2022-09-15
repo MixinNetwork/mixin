@@ -31,7 +31,7 @@ type node struct {
 	data     interface{}
 }
 
-// RingBuffer is a MPMC buffer that achieves threadsafety with CAS operations
+// RingBuffer is a MPMC buffer that achieves thread safety with CAS operations
 // only.  A put on full or get on empty call will block until an item
 // is put or retrieved.  Calling Dispose on the RingBuffer will unblock
 // any blocked threads with an error.  This buffer is similar to the buffer

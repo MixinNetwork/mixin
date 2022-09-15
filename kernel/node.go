@@ -133,7 +133,7 @@ func (node *Node) LoadNodeConfig() {
 func (node *Node) buildNodeStateSequences(allNodesSortedWithState []*CNode, acceptedOnly bool) []*NodeStateSequence {
 	nodeStateSequences := make([]*NodeStateSequence, len(allNodesSortedWithState))
 	for i, n := range allNodesSortedWithState {
-		nodes := node.nodeSequeueWithoutState(n.Timestamp+1, acceptedOnly)
+		nodes := node.nodeSequenceWithoutState(n.Timestamp+1, acceptedOnly)
 		seq := &NodeStateSequence{
 			Timestamp:         n.Timestamp,
 			NodesWithoutState: nodes,
@@ -157,7 +157,7 @@ func (node *Node) NodesListWithoutState(threshold uint64, acceptedOnly bool) []*
 	return nil
 }
 
-func (node *Node) nodeSequeueWithoutState(threshold uint64, acceptedOnly bool) []*CNode {
+func (node *Node) nodeSequenceWithoutState(threshold uint64, acceptedOnly bool) []*CNode {
 	filter := make(map[crypto.Hash]*CNode)
 	for _, n := range node.allNodesSortedWithState {
 		if n.Timestamp >= threshold {

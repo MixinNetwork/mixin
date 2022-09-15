@@ -393,7 +393,7 @@ func (dec *Decoder) ReadAggregatedSignature() (*AggregatedSignature, error) {
 			}
 			js.Signers = append(js.Signers, m)
 		}
-	case AggregatedSignatureOrdinayMask:
+	case AggregatedSignatureOrdinaryMask:
 		masks, err := dec.ReadBytes()
 		if err != nil {
 			return nil, err

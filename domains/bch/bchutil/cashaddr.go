@@ -15,9 +15,9 @@ var (
 	// to a bad checksum.
 	ErrChecksumMismatch = errors.New("checksum mismatch")
 
-	// ErrUnknownAddressType describes an error where an address can not
-	// decoded as a specific address type due to the string encoding
-	// begining with an identifier byte unknown to any standard or
+	// ErrUnknownAddressType describes an error where an address cannot
+	// be decoded as a specific address type due to the string encoding
+	// beginning with an identifier byte unknown to any standard or
 	// registered (via chaincfg.Register) network.
 	ErrUnknownAddressType = errors.New("unknown address type")
 
