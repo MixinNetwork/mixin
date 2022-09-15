@@ -9,7 +9,7 @@ require (
 	github.com/dgraph-io/badger/v3 v3.2103.2
 	github.com/dgraph-io/ristretto v0.1.0
 	github.com/gofrs/uuid v4.3.0+incompatible
-	github.com/jadeydi/mobilecoin-account v1.2.7
+	github.com/jadeydi/mobilecoin-account v1.2.6-0.20220915100107-35671e7f3c4c
 	github.com/klauspost/compress v1.15.9
 	github.com/lucas-clemente/quic-go v0.29.0
 	github.com/mholt/archiver v3.1.1+incompatible
@@ -19,11 +19,10 @@ require (
 	github.com/urfave/cli/v2 v2.16.3
 	github.com/vmihailenco/msgpack/v4 v4.3.12
 	go.dedis.ch/kyber/v3 v3.0.14
-	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 )
 
 require (
-	github.com/btcsuite/btcd/btcutil v1.1.2 // indirect
 	github.com/bwesterb/go-ristretto v1.2.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
@@ -39,7 +38,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
+	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/flatbuffers v1.12.1 // indirect
 	github.com/marten-seemann/qtls-go1-18 v0.1.2 // indirect
 	github.com/marten-seemann/qtls-go1-19 v0.1.0 // indirect
