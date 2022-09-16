@@ -13,7 +13,7 @@ const (
 	DEBUG   = 7
 )
 
-// FIXME GLOBAL VARAIBLES
+// FIXME GLOBAL VARIABLES
 
 var (
 	level  int

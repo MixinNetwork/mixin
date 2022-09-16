@@ -21,9 +21,9 @@ const (
 	PeerMessageTypeTransactionRequest = 6
 	PeerMessageTypeTransaction        = 7
 
-	PeerMessageTypeSnapshotAnnoucement  = 10 // leader send snapshot to peer
+	PeerMessageTypeSnapshotAnnouncement = 10 // leader send snapshot to peer
 	PeerMessageTypeSnapshotCommitment   = 11 // peer generate ri based, send Ri to leader
-	PeerMessageTypeTransactionChallenge = 12 // leader send bitmask Z and aggragated R to peer
+	PeerMessageTypeTransactionChallenge = 12 // leader send bitmask Z and aggregated R to peer
 	PeerMessageTypeSnapshotResponse     = 13 // peer generate A from nodes and Z, send response si = ri + H(R || A || M)ai to leader
 	PeerMessageTypeSnapshotFinalization = 14 // leader generate A, verify si B = ri B + H(R || A || M)ai B = Ri + H(R || A || M)Ai, then finalize based on threshold
 
@@ -69,7 +69,7 @@ type SyncHandle interface {
 
 func (me *Peer) SendSnapshotAnnouncementMessage(idForNetwork crypto.Hash, s *common.Snapshot, R crypto.Key) error {
 	data := buildSnapshotAnnouncementMessage(s, R)
-	return me.sendSnapshotMessageToPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeSnapshotAnnoucement, data)
+	return me.sendSnapshotMessageToPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeSnapshotAnnouncement, data)
 }
 
 func (me *Peer) SendSnapshotCommitmentMessage(idForNetwork crypto.Hash, snap crypto.Hash, R crypto.Key, wantTx bool) error {
@@ -144,7 +144,7 @@ func buildGossipNeighborsMessage(neighbors []*Peer) []byte {
 func buildSnapshotAnnouncementMessage(s *common.Snapshot, R crypto.Key) []byte {
 	data := common.MsgpackMarshalPanic(s)
 	data = append(R[:], data...)
-	return append([]byte{PeerMessageTypeSnapshotAnnoucement}, data...)
+	return append([]byte{PeerMessageTypeSnapshotAnnouncement}, data...)
 }
 
 func buildSnapshotCommitmentMessage(snap crypto.Hash, R crypto.Key, wantTx bool) []byte {
@@ -239,7 +239,7 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		msg.Transaction = ver
 	case PeerMessageTypeTransactionRequest:
 		copy(msg.TransactionHash[:], data[1:])
-	case PeerMessageTypeSnapshotAnnoucement:
+	case PeerMessageTypeSnapshotAnnouncement:
 		if len(data[1:]) <= 32 {
 			return nil, fmt.Errorf("invalid announcement message size %d", len(data[1:]))
 		}
@@ -313,8 +313,8 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage) {
 		case PeerMessageTypeSnapshotConfirm:
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotConfirm %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
 			me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash)
-		case PeerMessageTypeSnapshotAnnoucement:
-			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotAnnoucement %s %s\n", peer.IdForNetwork, msg.Snapshot.Transaction)
+		case PeerMessageTypeSnapshotAnnouncement:
+			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotAnnouncement %s %s\n", peer.IdForNetwork, msg.Snapshot.Transaction)
 			me.handle.CosiQueueExternalAnnouncement(peer.IdForNetwork, msg.Snapshot, &msg.Commitment)
 		case PeerMessageTypeSnapshotCommitment:
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotCommitment %s %s\n", peer.IdForNetwork, msg.SnapshotHash)

@@ -9,7 +9,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 )
 
-// FIXME GLOBAL VARAIBLES
+// FIXME GLOBAL VARIABLES
 
 var (
 	inTest   bool

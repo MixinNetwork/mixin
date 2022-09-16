@@ -440,8 +440,8 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 	assert := assert.New(t)
 	var signer, payee common.Address
 
-	signer = testDeterminAccountByIndex(NODES, "SIGNER")
-	payee = testDeterminAccountByIndex(NODES, "PAYEE")
+	signer = testDetermineAccountByIndex(NODES, "SIGNER")
+	payee = testDetermineAccountByIndex(NODES, "PAYEE")
 
 	dir := fmt.Sprintf("%s/mixin-17099", root)
 	err := os.MkdirAll(dir, 0755)
@@ -579,7 +579,7 @@ func testGetNodeToRemove(networkId crypto.Hash, signers, payees []common.Address
 	return nodes[seq][0], nodes[seq][1]
 }
 
-func testDeterminAccountByIndex(i int, role string) common.Address {
+func testDetermineAccountByIndex(i int, role string) common.Address {
 	seed := make([]byte, 64)
 	copy(seed, []byte("TESTNODE#"+role+"#"))
 	seed[63] = byte(i)
@@ -593,8 +593,8 @@ func setupTestNet(root string) ([]common.Address, []common.Address, []byte, stri
 	var signers, payees []common.Address
 
 	for i := 0; i < NODES; i++ {
-		signers = append(signers, testDeterminAccountByIndex(i, "SIGNER"))
-		payees = append(payees, testDeterminAccountByIndex(i, "PAYEE"))
+		signers = append(signers, testDetermineAccountByIndex(i, "SIGNER"))
+		payees = append(payees, testDetermineAccountByIndex(i, "PAYEE"))
 	}
 
 	inputs := make([]map[string]string, 0)

@@ -72,7 +72,7 @@ func main() {
 		},
 		{
 			Name:   "clone",
-			Usage:  "Clone a graph to intialize the kernel",
+			Usage:  "Clone a graph to initialize the kernel",
 			Action: cloneCmd,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
