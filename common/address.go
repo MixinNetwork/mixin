@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/btcsuite/btcd/btcutil/base58"
+	"github.com/MixinNetwork/mixin/util/base58"
 )
 
 const MainNetworkId = "XIN"

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/btcsuite/btcd/btcutil/bech32"
+	"github.com/MixinNetwork/mixin/util/bech32"
 )
 
 var (

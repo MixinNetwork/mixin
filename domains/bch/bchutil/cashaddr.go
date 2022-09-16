@@ -2,11 +2,7 @@ package bchutil
 
 import (
 	"errors"
-	"fmt"
 
-	"github.com/btcsuite/btcd/btcutil"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/txscript"
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -15,24 +11,7 @@ var (
 	// to a bad checksum.
 	ErrChecksumMismatch = errors.New("checksum mismatch")
 
-	// ErrUnknownAddressType describes an error where an address cannot
-	// be decoded as a specific address type due to the string encoding
-	// beginning with an identifier byte unknown to any standard or
-	// registered (via chaincfg.Register) network.
-	ErrUnknownAddressType = errors.New("unknown address type")
-
-	// ErrAddressCollision describes an error where an address can not
-	// be uniquely determined as either a pay-to-pubkey-hash or
-	// pay-to-script-hash address since the leading identifier is used for
-	// describing both address kinds, but for different networks.  Rather
-	// than assuming or defaulting to one or the other, this error is
-	// returned and the caller must decide how to decode the address.
-	ErrAddressCollision = errors.New("address collision")
-
-	// ErrInvalidFormat describes an error where decoding failed due to invalid version
-	ErrInvalidFormat = errors.New("invalid format: version and/or checksum bytes missing")
-
-	Prefixes map[string]string
+	Prefix = "bitcoincash"
 )
 
 type AddressType int
@@ -41,13 +20,6 @@ const (
 	P2PKH AddressType = 0
 	P2SH  AddressType = 1
 )
-
-func init() {
-	Prefixes = make(map[string]string)
-	Prefixes[chaincfg.MainNetParams.Name] = "bitcoincash"
-	Prefixes[chaincfg.TestNet3Params.Name] = "bchtest"
-	Prefixes[chaincfg.RegressionNetParams.Name] = "bchreg"
-}
 
 type data []byte
 
@@ -372,238 +344,24 @@ func encodeCashAddress(hash160 []byte, prefix string, t AddressType) string {
 // the Address if addr is a valid encoding for a known address type.
 //
 // The bitcoin cash network the address is associated with is extracted if possible.
-func DecodeAddress(addr string, defaultNet *chaincfg.Params) (btcutil.Address, error) {
-	pre, ok := Prefixes[defaultNet.Name]
-	if !ok {
-		return nil, errors.New("unknown network parameters")
-	}
-
+func VerifyAddress(addr string) error {
 	// Add prefix if it does not exist
-	if len(addr) >= len(pre)+1 && addr[:len(pre)+1] != pre+":" {
-		addr = pre + ":" + addr
+	if len(addr) >= len(Prefix)+1 && addr[:len(Prefix)+1] != Prefix+":" {
+		addr = Prefix + ":" + addr
 	}
 
 	// Switch on decoded length to determine the type.
-	decoded, _, typ, err := CheckDecodeCashAddress(addr)
+	decoded, _, _, err := CheckDecodeCashAddress(addr)
 	if err != nil {
 		if err == ErrChecksumMismatch {
-			return nil, ErrChecksumMismatch
+			return ErrChecksumMismatch
 		}
-		return nil, errors.New("decoded address is of unknown format")
+		return errors.New("decoded address is of unknown format")
 	}
-	switch len(decoded) {
-	case ripemd160.Size: // P2PKH or P2SH
-		switch typ {
-		case P2PKH:
-			return newCashAddressPubKeyHash(decoded, defaultNet)
-		case P2SH:
-			return newCashAddressScriptHashFromHash(decoded, defaultNet)
-		default:
-			return nil, ErrUnknownAddressType
-		}
-
-	default:
-		return nil, errors.New("decoded address is of unknown size")
+	if len(decoded) != ripemd160.Size {
+		return errors.New("decoded address is of unknown size")
 	}
-}
-
-// AddressPubKeyHash is an Address for a pay-to-pubkey-hash (P2PKH)
-// transaction.
-type CashAddressPubKeyHash struct {
-	hash   [ripemd160.Size]byte
-	prefix string
-}
-
-// NewAddressPubKeyHash returns a new AddressPubKeyHash.  pkHash mustbe 20
-// bytes.
-func NewCashAddressPubKeyHash(pkHash []byte, net *chaincfg.Params) (*CashAddressPubKeyHash, error) {
-	return newCashAddressPubKeyHash(pkHash, net)
-}
-
-// newAddressPubKeyHash is the internal API to create a pubkey hash address
-// with a known leading identifier byte for a network, rather than looking
-// it up through its parameters.  This is useful when creating a new address
-// structure from a string encoding where the identifer byte is already
-// known.
-func newCashAddressPubKeyHash(pkHash []byte, net *chaincfg.Params) (*CashAddressPubKeyHash, error) {
-	// Check for a valid pubkey hash length.
-	if len(pkHash) != ripemd160.Size {
-		return nil, errors.New("pkHash must be 20 bytes")
-	}
-
-	prefix, ok := Prefixes[net.Name]
-	if !ok {
-		return nil, errors.New("unknown network parameters")
-	}
-
-	addr := &CashAddressPubKeyHash{prefix: prefix}
-	copy(addr.hash[:], pkHash)
-	return addr, nil
-}
-
-// EncodeAddress returns the string encoding of a pay-to-pubkey-hash
-// address.  Part of the Address interface.
-func (a *CashAddressPubKeyHash) EncodeAddress() string {
-	return encodeCashAddress(a.hash[:], a.prefix, P2PKH)
-}
-
-// ScriptAddress returns the bytes to be included in a txout script to pay
-// to a pubkey hash.  Part of the Address interface.
-func (a *CashAddressPubKeyHash) ScriptAddress() []byte {
-	return a.hash[:]
-}
-
-// IsForNet returns whether or not the pay-to-pubkey-hash address is associated
-// with the passed bitcoin cash network.
-func (a *CashAddressPubKeyHash) IsForNet(net *chaincfg.Params) bool {
-	checkPre, ok := Prefixes[net.Name]
-	if !ok {
-		return false
-	}
-	return a.prefix == checkPre
-}
-
-// String returns a human-readable string for the pay-to-pubkey-hash address.
-// This is equivalent to calling EncodeAddress, but is provided so the type can
-// be used as a fmt.Stringer.
-func (a *CashAddressPubKeyHash) String() string {
-	return a.EncodeAddress()
-}
-
-// Hash160 returns the underlying array of the pubkey hash.  This can be useful
-// when an array is more appropiate than a slice (for example, when used as map
-// keys).
-func (a *CashAddressPubKeyHash) Hash160() *[ripemd160.Size]byte {
-	return &a.hash
-}
-
-// AddressScriptHash is an Address for a pay-to-script-hash (P2SH)
-// transaction.
-type CashAddressScriptHash struct {
-	hash   [ripemd160.Size]byte
-	prefix string
-}
-
-// NewAddressScriptHash returns a new AddressScriptHash.
-func NewCashAddressScriptHash(serializedScript []byte, net *chaincfg.Params) (*CashAddressScriptHash, error) {
-	scriptHash := btcutil.Hash160(serializedScript)
-	return newCashAddressScriptHashFromHash(scriptHash, net)
-}
-
-// NewAddressScriptHashFromHash returns a new AddressScriptHash.  scriptHash
-// must be 20 bytes.
-func NewCashAddressScriptHashFromHash(scriptHash []byte, net *chaincfg.Params) (*CashAddressScriptHash, error) {
-	return newCashAddressScriptHashFromHash(scriptHash, net)
-}
-
-// newAddressScriptHashFromHash is the internal API to create a script hash
-// address with a known leading identifier byte for a network, rather than
-// looking it up through its parameters.  This is useful when creating a new
-// address structure from a string encoding where the identifer byte is already
-// known.
-func newCashAddressScriptHashFromHash(scriptHash []byte, net *chaincfg.Params) (*CashAddressScriptHash, error) {
-	// Check for a valid script hash length.
-	if len(scriptHash) != ripemd160.Size {
-		return nil, errors.New("scriptHash must be 20 bytes")
-	}
-
-	pre, ok := Prefixes[net.Name]
-	if !ok {
-		return nil, errors.New("unknown network parameters")
-	}
-
-	addr := &CashAddressScriptHash{prefix: pre}
-	copy(addr.hash[:], scriptHash)
-	return addr, nil
-}
-
-// EncodeAddress returns the string encoding of a pay-to-script-hash
-// address.  Part of the Address interface.
-func (a *CashAddressScriptHash) EncodeAddress() string {
-	return encodeCashAddress(a.hash[:], a.prefix, P2SH)
-}
-
-// ScriptAddress returns the bytes to be included in a txout script to pay
-// to a script hash.  Part of the Address interface.
-func (a *CashAddressScriptHash) ScriptAddress() []byte {
-	return a.hash[:]
-}
-
-// IsForNet returns whether or not the pay-to-script-hash address is associated
-// with the passed bitcoin cash network.
-func (a *CashAddressScriptHash) IsForNet(net *chaincfg.Params) bool {
-	pre, ok := Prefixes[net.Name]
-	if !ok {
-		return false
-	}
-	return pre == a.prefix
-}
-
-// String returns a human-readable string for the pay-to-script-hash address.
-// This is equivalent to calling EncodeAddress, but is provided so the type can
-// be used as a fmt.Stringer.
-func (a *CashAddressScriptHash) String() string {
-	return a.EncodeAddress()
-}
-
-// Hash160 returns the underlying array of the script hash.  This can be useful
-// when an array is more appropiate than a slice (for example, when used as map
-// keys).
-func (a *CashAddressScriptHash) Hash160() *[ripemd160.Size]byte {
-	return &a.hash
-}
-
-// PayToAddrScript creates a new script to pay a transaction output to a the
-// specified address.
-func cashPayToAddrScript(addr btcutil.Address) ([]byte, error) {
-	const nilAddrErrStr = "unable to generate payment script for nil address"
-
-	switch addr := addr.(type) {
-	case *CashAddressPubKeyHash:
-		if addr == nil {
-			return nil, errors.New(nilAddrErrStr)
-		}
-		return payToPubKeyHashScript(addr.ScriptAddress())
-
-	case *CashAddressScriptHash:
-		if addr == nil {
-			return nil, errors.New(nilAddrErrStr)
-		}
-		return payToScriptHashScript(addr.ScriptAddress())
-	}
-	return nil, fmt.Errorf("unable to generate payment script for unsupported "+
-		"address type %T", addr)
-}
-
-// payToPubKeyHashScript creates a new script to pay a transaction
-// output to a 20-byte pubkey hash. It is expected that the input is a valid
-// hash.
-func payToPubKeyHashScript(pubKeyHash []byte) ([]byte, error) {
-	return txscript.NewScriptBuilder().AddOp(txscript.OP_DUP).AddOp(txscript.OP_HASH160).
-		AddData(pubKeyHash).AddOp(txscript.OP_EQUALVERIFY).AddOp(txscript.OP_CHECKSIG).
-		Script()
-}
-
-// payToScriptHashScript creates a new script to pay a transaction output to a
-// script hash. It is expected that the input is a valid hash.
-func payToScriptHashScript(scriptHash []byte) ([]byte, error) {
-	return txscript.NewScriptBuilder().AddOp(txscript.OP_HASH160).AddData(scriptHash).
-		AddOp(txscript.OP_EQUAL).Script()
-}
-
-// ExtractPkScriptAddrs returns the type of script, addresses and required
-// signatures associated with the passed PkScript.  Note that it only works for
-// 'standard' transaction script types.  Any data such as public keys which are
-// invalid are omitted from the results.
-func ExtractPkScriptAddrs(pkScript []byte, chainParams *chaincfg.Params) (btcutil.Address, error) {
-	// No valid addresses or required signatures if the script doesn't
-	// parse.
-	if len(pkScript) == 1+1+20+1 && pkScript[0] == 0xa9 && pkScript[1] == 0x14 && pkScript[22] == 0x87 {
-		return NewCashAddressScriptHashFromHash(pkScript[2:22], chainParams)
-	} else if len(pkScript) == 1+1+1+20+1+1 && pkScript[0] == 0x76 && pkScript[1] == 0xa9 && pkScript[2] == 0x14 && pkScript[23] == 0x88 && pkScript[24] == 0xac {
-		return NewCashAddressPubKeyHash(pkScript[3:23], chainParams)
-	}
-	return nil, errors.New("unknown script type")
+	return nil
 }
 
 // Base32 conversion contains some licensed code

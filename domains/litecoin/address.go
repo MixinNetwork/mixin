@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/btcsuite/btcd/btcutil/base58"
-	"github.com/btcsuite/btcd/btcutil/bech32"
+	"github.com/MixinNetwork/mixin/util/base58"
+	"github.com/MixinNetwork/mixin/util/bech32"
 	"golang.org/x/crypto/ripemd160"
 )
 

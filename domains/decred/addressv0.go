@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/btcsuite/btcd/btcutil/base58"
+	"github.com/MixinNetwork/mixin/util/base58"
 )
 
 // AddressParamsV0 defines an interface that is used to provide the parameters
