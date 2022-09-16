@@ -10,7 +10,7 @@ require (
 	github.com/dgraph-io/ristretto v0.1.0
 	github.com/gofrs/uuid v4.3.0+incompatible
 	github.com/jadeydi/mobilecoin-account v1.3.0
-	github.com/klauspost/compress v1.15.9
+	github.com/klauspost/compress v1.15.10
 	github.com/lucas-clemente/quic-go v0.29.0
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/pelletier/go-toml v1.9.5
