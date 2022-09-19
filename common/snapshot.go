@@ -34,15 +34,16 @@ type DeprecatedSnapshot struct {
 }
 
 type Snapshot struct {
-	Version     uint8
-	NodeId      crypto.Hash
-	Transaction crypto.Hash
-	References  *RoundLink
-	RoundNumber uint64
-	Timestamp   uint64
-	Signatures  []*crypto.Signature   `msgpack:",omitempty"`
-	Signature   *crypto.CosiSignature `msgpack:",omitempty"`
-	Hash        crypto.Hash           `msgpack:"-"`
+	Version      uint8
+	NodeId       crypto.Hash
+	Transaction  crypto.Hash
+	References   *RoundLink
+	RoundNumber  uint64
+	Timestamp    uint64
+	Signatures   []*crypto.Signature   `msgpack:",omitempty"`
+	Signature    *crypto.CosiSignature `msgpack:",omitempty"`
+	Hash         crypto.Hash           `msgpack:"-"`
+	Transactions []crypto.Hash         `msgpack:"-"`
 }
 
 type SnapshotWithTopologicalOrder struct {
@@ -85,13 +86,27 @@ func (s *Snapshot) VersionedPayload() []byte {
 			Timestamp:   s.Timestamp,
 		}
 		return MsgpackMarshalPanic(p)
+	case SnapshotVersionCommonEncoding:
+		p := &Snapshot{
+			Version:      s.Version,
+			NodeId:       s.NodeId,
+			RoundNumber:  s.RoundNumber,
+			References:   s.References,
+			Transactions: s.Transactions,
+			Timestamp:    s.Timestamp,
+		}
+		return NewEncoder().EncodeSnapshot(p)
 	default:
 		panic(fmt.Errorf("invalid snapshot version %d", s.Version))
 	}
 }
 
 func (s *Snapshot) PayloadHash() crypto.Hash {
-	return crypto.NewHash(s.VersionedPayload())
+	p := s.VersionedPayload()
+	if s.Version < SnapshotVersionCommonEncoding {
+		return crypto.NewHash(p)
+	}
+	return crypto.Blake3Hash(p)
 }
 
 func (tx *VersionedTransaction) LockInputs(locker UTXOLocker, fork bool) error {

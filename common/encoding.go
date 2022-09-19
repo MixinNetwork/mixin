@@ -33,6 +33,34 @@ func (enc *Encoder) Bytes() []byte {
 	return enc.buf.Bytes()
 }
 
+func (enc *Encoder) EncodeSnapshot(s *Snapshot) []byte {
+	if s.Version < SnapshotVersionCommonEncoding {
+		panic(s)
+	}
+	if len(s.Transactions) != 1 { // FIXME
+		panic(s)
+	}
+
+	enc.Write(magic)
+	enc.Write([]byte{0x00, s.Version})
+	enc.Write(s.NodeId[:])
+	enc.WriteUint64(s.RoundNumber)
+	enc.Write(s.References.Self[:])
+	enc.Write(s.References.External[:])
+
+	enc.WriteInt(len(s.Transactions))
+	sort.Slice(s.Transactions, func(i, j int) bool {
+		return bytes.Compare(s.Transactions[i][:], s.Transactions[j][:]) < 0
+	})
+	for _, t := range s.Transactions {
+		enc.Write(t[:])
+	}
+
+	enc.WriteUint64(s.Timestamp)
+	enc.EncodeCosiSignature(s.Signature)
+	return enc.Bytes()
+}
+
 func (enc *Encoder) EncodeTransaction(signed *SignedTransaction) []byte {
 	if signed.Version < TxVersionCommonEncoding {
 		panic(signed)
@@ -216,6 +244,11 @@ func uint64ToBytes(d uint64) []byte {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, d)
 	return b
+}
+
+func (enc *Encoder) EncodeCosiSignature(s *crypto.CosiSignature) {
+	enc.Write(s.Signature[:])
+	enc.WriteUint64(s.Mask)
 }
 
 func (enc *Encoder) EncodeAggregatedSignature(js *AggregatedSignature) {
