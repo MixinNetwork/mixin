@@ -12,11 +12,11 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	msg := ver.PayloadMarshal()
 	txType := tx.TransactionType()
 
-	if ver.Version < TxVersion {
+	if ver.Version < TxVersionCommonEncoding {
 		return ver.validateV1(store, fork)
 	}
 
-	if ver.Version != TxVersion {
+	if ver.Version != TxVersionBlake3Hash && ver.Version != TxVersionCommonEncoding {
 		return fmt.Errorf("invalid tx version %d %d", ver.Version, tx.Version)
 	}
 	if txType == TransactionTypeUnknown {

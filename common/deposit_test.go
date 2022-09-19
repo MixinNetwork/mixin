@@ -48,7 +48,7 @@ func TestDeposit(t *testing.T) {
 	}
 
 	tx := NewTransaction(assetID)
-	ver := tx.AsLatestVersion()
+	ver := tx.AsVersioned()
 	msg := ver.PayloadMarshal()
 	signed := &ver.SignedTransaction
 	err := signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
@@ -69,7 +69,7 @@ func TestDeposit(t *testing.T) {
 		OutputIndex:     1,
 		Amount:          NewIntegerFromString("1007"),
 	})
-	ver = tx.AsLatestVersion()
+	ver = tx.AsVersioned()
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
@@ -84,7 +84,7 @@ func TestDeposit(t *testing.T) {
 		OutputIndex:     0,
 		Amount:          NewIntegerFromString("1006"),
 	})
-	ver = tx.AsLatestVersion()
+	ver = tx.AsVersioned()
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
@@ -105,7 +105,7 @@ func TestDeposit(t *testing.T) {
 	si = crypto.NewHash([]byte(transactionHash + "2"))
 	seed = append(si[:], si[:]...)
 	tx.AddScriptOutput([]*Address{receiver.Address()}, NewThresholdScript(1), NewIntegerFromString("1007"), seed)
-	ver = tx.AsLatestVersion()
+	ver = tx.AsVersioned()
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
@@ -123,7 +123,7 @@ func TestDeposit(t *testing.T) {
 	si = crypto.NewHash([]byte(transactionHash))
 	seed = append(si[:], si[:]...)
 	tx.AddScriptOutput([]*Address{receiver.Address()}, NewThresholdScript(1), NewIntegerFromString("1006"), seed)
-	ver = tx.AsLatestVersion()
+	ver = tx.AsVersioned()
 	domain := parseKeyFromHex(sender.SpendKey)
 	err = ver.SignRaw(domain)
 	assert.Nil(err)
@@ -144,7 +144,7 @@ func TestDeposit(t *testing.T) {
 	si = crypto.NewHash([]byte(transactionHash))
 	seed = append(si[:], si[:]...)
 	tx.AddScriptOutput([]*Address{receiver.Address()}, NewThresholdScript(1), NewIntegerFromString("1006"), seed)
-	ver = tx.AsLatestVersion()
+	ver = tx.AsVersioned()
 	domain = parseKeyFromHex(receiver.SpendKey)
 	err = ver.SignRaw(domain)
 	assert.Nil(err)
@@ -164,7 +164,7 @@ func TestDeposit(t *testing.T) {
 	si = crypto.NewHash([]byte(transactionHash))
 	seed = append(si[:], si[:]...)
 	tx.AddScriptOutput([]*Address{receiver.Address(), sender.Address()}, NewThresholdScript(2), NewIntegerFromString("1006"), seed)
-	ver = tx.AsLatestVersion()
+	ver = tx.AsVersioned()
 	domain = parseKeyFromHex(receiver.SpendKey)
 	err = ver.SignRaw(domain)
 	assert.Nil(err)
@@ -184,7 +184,7 @@ func TestDeposit(t *testing.T) {
 	si = crypto.NewHash([]byte(transactionHash))
 	seed = append(si[:], si[:]...)
 	tx.AddScriptOutput([]*Address{receiver.Address(), sender.Address()}, NewThresholdScript(1), NewIntegerFromString("1006"), seed)
-	ver = tx.AsLatestVersion()
+	ver = tx.AsVersioned()
 	domain = parseKeyFromHex(receiver.SpendKey)
 	err = ver.SignRaw(domain)
 	assert.Nil(err)

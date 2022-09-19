@@ -208,7 +208,7 @@ func (node *Node) buildMintTransaction(timestamp uint64, validateOnly bool) *com
 		seed := append(si[:], si[:]...)
 		tx.AddScriptOutput([]*common.Address{&addr}, script, diff, seed)
 	}
-	return tx.AsLatestVersion()
+	return tx.AsVersioned()
 }
 
 func (node *Node) tryToMintKernelNode() error {
@@ -237,7 +237,7 @@ func (node *Node) tryToMintKernelNode() error {
 		return err
 	}
 	return node.chain.AppendSelfEmpty(&common.Snapshot{
-		Version:     common.SnapshotVersion,
+		Version:     common.SnapshotVersionMsgpackEncoding,
 		NodeId:      node.IdForNetwork,
 		Transaction: signed.PayloadHash(),
 	})

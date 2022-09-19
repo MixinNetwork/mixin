@@ -37,7 +37,7 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 		return "", err
 	}
 	s := &common.Snapshot{
-		Version:     common.SnapshotVersion,
+		Version:     common.SnapshotVersionMsgpackEncoding,
 		NodeId:      node.IdForNetwork,
 		Transaction: tx.PayloadHash(),
 	}
@@ -93,7 +93,7 @@ func (node *Node) LoopCacheQueue() error {
 			nbor := neighbors[rand.Intn(len(neighbors))]
 			node.SendTransactionToPeer(nbor.IdForNetwork, offset)
 			s := &common.Snapshot{
-				Version:     common.SnapshotVersion,
+				Version:     common.SnapshotVersionMsgpackEncoding,
 				NodeId:      node.IdForNetwork,
 				Transaction: tx.PayloadHash(),
 			}
@@ -141,7 +141,7 @@ func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 		panic("should never be here")
 	}
 	return chain.AppendSelfEmpty(&common.Snapshot{
-		Version:     common.SnapshotVersion,
+		Version:     common.SnapshotVersionMsgpackEncoding,
 		NodeId:      s.NodeId,
 		Transaction: s.Transaction,
 	})

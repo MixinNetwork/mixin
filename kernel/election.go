@@ -176,7 +176,7 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 	seed := append(si[:], si[:]...)
 	tx.AddOutputWithType(common.OutputTypeNodeRemove, []*common.Address{&candi.Payee}, script, accept.Outputs[0].Amount, seed)
 
-	ver := tx.AsLatestVersion()
+	ver := tx.AsVersioned()
 	fork := uint64(ElectionTransactionV2ForkHack.UnixNano())
 	if node.networkId.String() == config.MainnetId && timestamp < fork {
 		ver.Version = 1
@@ -201,7 +201,7 @@ func (node *Node) tryToSendRemoveTransaction() error {
 	}
 	chain := node.GetOrCreateChain(node.IdForNetwork)
 	return chain.AppendSelfEmpty(&common.Snapshot{
-		Version:     common.SnapshotVersion,
+		Version:     common.SnapshotVersionMsgpackEncoding,
 		NodeId:      node.IdForNetwork,
 		Transaction: tx.PayloadHash(),
 	})
@@ -302,7 +302,7 @@ func (chain *Chain) buildNodeAcceptTransaction(timestamp uint64, s *common.Snaps
 	tx.AddOutputWithType(common.OutputTypeNodeAccept, nil, common.Script{}, pledge.Outputs[0].Amount, []byte{})
 	tx.Extra = pledge.Extra
 
-	ver := tx.AsLatestVersion()
+	ver := tx.AsVersioned()
 	fork := uint64(ElectionTransactionV2ForkHack.UnixNano())
 	if chain.node.networkId.String() == config.MainnetId && timestamp < fork {
 		ver.Version = 1
@@ -326,7 +326,7 @@ func (chain *Chain) tryToSendAcceptTransaction() error {
 		return err
 	}
 	chain.AppendSelfEmpty(&common.Snapshot{
-		Version:     common.SnapshotVersion,
+		Version:     common.SnapshotVersionMsgpackEncoding,
 		NodeId:      chain.ChainId,
 		Transaction: ver.PayloadHash(),
 	})

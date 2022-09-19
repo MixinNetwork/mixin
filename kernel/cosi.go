@@ -153,7 +153,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 	if s == nil {
 		return fmt.Errorf("no snapshot in cosi")
 	}
-	if s.Version != common.SnapshotVersion {
+	if s.Version != common.SnapshotVersionMsgpackEncoding {
 		return fmt.Errorf("invalid snapshot version %d", s.Version)
 	}
 	if s.NodeId != chain.ChainId {

@@ -205,7 +205,7 @@ func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx
 	if sig && s.Version == 0 {
 		item["signatures"] = s.Signatures
 	}
-	if sig && s.Version == common.SnapshotVersion {
+	if sig && s.Version == common.SnapshotVersionMsgpackEncoding {
 		item["signature"] = s.Signature
 	}
 	return item

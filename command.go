@@ -294,7 +294,7 @@ func buildRawTransactionCmd(c *cli.Context) error {
 	}
 	tx.Extra = extra
 
-	signed := tx.AsLatestVersion()
+	signed := tx.AsVersioned()
 	for i := range tx.Inputs {
 		err = signed.SignInput(raw, i, []*common.Address{&account})
 		if err != nil {
@@ -378,7 +378,7 @@ func signTransactionCmd(c *cli.Context) error {
 		accounts = append(accounts, &account)
 	}
 
-	signed := tx.AsLatestVersion()
+	signed := tx.AsVersioned()
 	for i := range signed.Inputs {
 		err := signed.SignInput(raw, i, accounts)
 		if err != nil {
@@ -447,7 +447,7 @@ func pledgeNodeCmd(c *cli.Context) error {
 	tx.AddOutputWithType(common.OutputTypeNodePledge, nil, common.Script{}, amount, seed)
 	tx.Extra = append(signer.PublicSpendKey[:], payee.PublicSpendKey[:]...)
 
-	signed := tx.AsLatestVersion()
+	signed := tx.AsVersioned()
 	err = signed.SignInput(raw, 0, []*common.Address{&account})
 	if err != nil {
 		return err
@@ -535,7 +535,7 @@ func cancelNodeCmd(c *cli.Context) error {
 			Mask: source.Outputs[0].Mask,
 		},
 	}
-	signed := tx.AsLatestVersion()
+	signed := tx.AsVersioned()
 	err = signed.SignUTXO(utxo, []*common.Address{&account})
 	if err != nil {
 		return err

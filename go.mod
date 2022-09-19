@@ -18,6 +18,7 @@ require (
 	github.com/stretchr/testify v1.8.0
 	github.com/urfave/cli/v2 v2.16.3
 	github.com/vmihailenco/msgpack/v4 v4.3.12
+	github.com/zeebo/blake3 v0.2.3
 	go.dedis.ch/kyber/v3 v3.0.14
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
 )
@@ -40,6 +41,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/flatbuffers v1.12.1 // indirect
+	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
 	github.com/marten-seemann/qtls-go1-18 v0.1.2 // indirect
 	github.com/marten-seemann/qtls-go1-19 v0.1.0 // indirect
 	github.com/nwaples/rardecode v1.1.3 // indirect
