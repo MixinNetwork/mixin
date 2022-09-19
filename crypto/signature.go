@@ -23,6 +23,7 @@ func (s *Signature) S() []byte {
 func (privateKey *Key) Sign(message []byte) Signature {
 	var digest1, messageDigest, hramDigest [64]byte
 
+	// the hash costs almost nothing compared to elliptic curve ops
 	h := sha512.New()
 	h.Write(privateKey[:32])
 	h.Sum(digest1[:0])
