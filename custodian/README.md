@@ -20,6 +20,8 @@ The evolution transaction may have multiple outputs typed as CustodianEvolution,
 
 A custodian deposit transaction submitted to the Kernel will be credited to the custodian DKG address, and all custodian nodes should check this transaction on Bitcoin or Ethereum blockchains respectively, through a proxy node.
 
+After a valid custodian deposit, the custodian should submit a CustodianDepositAccepted transaction, similar to the domain deposit transaction format.
+
 ## Withdrawal
 
 A custodian withdrawal transaction submitted to the Kernel triggers the custodian to verify and submit the exact withdrawal transaction on Bitcoin or Ethereum.
@@ -28,7 +30,7 @@ The custodian withdrawal transaction can only be submitted by the domain, then t
 
 Let's assume the kernel has a total balance of 100BTC in the UTXOs, and the domain can't withdraw unless the remaining is more than 70BTC.
 
-Whenever a UTXO is spent on the withdrawal submit transaction, the total balance is dropped, so the threshold.
+Whenever a UTXO is spent on the withdrawal submit transaction, the total balance is dropped, so the threshold, then the domain is able to withdraw assets instantly.
 
 ## Bitcoin
 
