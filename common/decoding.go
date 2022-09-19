@@ -17,6 +17,71 @@ func NewDecoder(b []byte) *Decoder {
 	return &Decoder{buf: bytes.NewReader(b)}
 }
 
+func (dec *Decoder) DecodeSnapshot() (*Snapshot, error) {
+	b := make([]byte, 4)
+	err := dec.Read(b)
+	if err != nil {
+		return nil, err
+	}
+	version := checkTxVersion(b)
+	if version < SnapshotVersionCommonEncoding {
+		return nil, fmt.Errorf("invalid version %v", b)
+	}
+
+	var s Snapshot
+	s.Version = version
+
+	err = dec.Read(s.NodeId[:])
+	if err != nil {
+		return nil, err
+	}
+	rn, err := dec.ReadUint64()
+	if err != nil {
+		return nil, err
+	}
+	s.RoundNumber = rn
+
+	var rl RoundLink
+	err = dec.Read(rl.Self[:])
+	if err != nil {
+		return nil, err
+	}
+	err = dec.Read(rl.External[:])
+	if err != nil {
+		return nil, err
+	}
+	s.References = &rl
+
+	tl, err := dec.ReadInt()
+	if err != nil {
+		return nil, err
+	}
+	if tl != 1 {
+		return nil, fmt.Errorf("invalid transactions count %d", tl)
+	}
+	for i := 0; i < tl; i++ {
+		var tx crypto.Hash
+		err = dec.Read(tx[:])
+		if err != nil {
+			return nil, err
+		}
+		s.Transactions = append(s.Transactions, tx)
+	}
+
+	ts, err := dec.ReadUint64()
+	if err != nil {
+		return nil, err
+	}
+	s.Timestamp = ts
+
+	cs, err := dec.ReadCosiSignature()
+	if err != nil {
+		return nil, err
+	}
+	s.Signature = cs
+	return &s, nil
+}
+
 func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 	b := make([]byte, 4)
 	err := dec.Read(b)
@@ -368,6 +433,20 @@ func (dec *Decoder) ReadMagic() (bool, error) {
 		return false, nil
 	}
 	return false, fmt.Errorf("malformed %v", b)
+}
+
+func (dec *Decoder) ReadCosiSignature() (*crypto.CosiSignature, error) {
+	var s crypto.CosiSignature
+	err := dec.Read(s.Signature[:])
+	if err != nil {
+		return nil, err
+	}
+	m, err := dec.ReadUint64()
+	if err != nil {
+		return nil, err
+	}
+	s.Mask = m
+	return &s, nil
 }
 
 func (dec *Decoder) ReadAggregatedSignature() (*AggregatedSignature, error) {
