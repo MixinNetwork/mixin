@@ -17,8 +17,8 @@ type VersionedTransaction struct {
 	hash    crypto.Hash
 }
 
-func (tx *SignedTransaction) AsLatestVersion() *VersionedTransaction {
-	if tx.Version != TxVersion {
+func (tx *SignedTransaction) AsVersioned() *VersionedTransaction {
+	if tx.Version < TxVersionCommonEncoding {
 		panic(tx.Version)
 	}
 	return &VersionedTransaction{
@@ -26,8 +26,8 @@ func (tx *SignedTransaction) AsLatestVersion() *VersionedTransaction {
 	}
 }
 
-func (tx *Transaction) AsLatestVersion() *VersionedTransaction {
-	if tx.Version != TxVersion {
+func (tx *Transaction) AsVersioned() *VersionedTransaction {
+	if tx.Version < TxVersionCommonEncoding {
 		panic(tx.Version)
 	}
 	return &VersionedTransaction{
@@ -94,7 +94,11 @@ func (ver *VersionedTransaction) PayloadMarshal() []byte {
 
 func (ver *VersionedTransaction) PayloadHash() crypto.Hash {
 	if !ver.hash.HasValue() {
-		ver.hash = crypto.NewHash(ver.PayloadMarshal())
+		if ver.Version >= TxVersionBlake3Hash {
+			ver.hash = crypto.Blake3Hash(ver.PayloadMarshal())
+		} else {
+			ver.hash = crypto.NewHash(ver.PayloadMarshal())
+		}
 	}
 	return ver.hash
 }
@@ -105,10 +109,10 @@ func decompressUnmarshalVersionedTransaction(val []byte) (*VersionedTransaction,
 	}
 
 	b := val
-	if !checkTxVersion(val) {
+	if checkTxVersion(val) < TxVersionCommonEncoding {
 		b = Decompress(val)
 	}
-	if !checkTxVersion(b) {
+	if checkTxVersion(b) < TxVersionCommonEncoding {
 		return decompressUnmarshalVersionedOne(val)
 	}
 
@@ -120,12 +124,19 @@ func decompressUnmarshalVersionedTransaction(val []byte) (*VersionedTransaction,
 	return ver, nil
 }
 
-func checkTxVersion(val []byte) bool {
+func checkTxVersion(val []byte) uint8 {
 	if len(val) < 4 {
-		return false
+		return 0
 	}
-	v := append(magic, 0, TxVersion)
-	return bytes.Equal(v, val[:4])
+	v := append(magic, 0, TxVersionBlake3Hash)
+	if bytes.Equal(v, val[:4]) {
+		return TxVersionBlake3Hash
+	}
+	v = append(magic, 0, TxVersionCommonEncoding)
+	if bytes.Equal(v, val[:4]) {
+		return TxVersionCommonEncoding
+	}
+	return 0
 }
 
 func unmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
@@ -133,7 +144,7 @@ func unmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
 		return nil, fmt.Errorf("transaction too large %d", len(val))
 	}
 
-	if !checkTxVersion(val) {
+	if checkTxVersion(val) < TxVersionCommonEncoding {
 		return unmarshalVersionedOne(val)
 	}
 
@@ -147,7 +158,7 @@ func unmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
 
 func (ver *VersionedTransaction) compressMarshal() []byte {
 	switch ver.Version {
-	case TxVersion:
+	case TxVersionCommonEncoding, TxVersionBlake3Hash:
 		b := ver.marshal()
 		return Compress(b)
 	case 0, 1:
@@ -159,7 +170,7 @@ func (ver *VersionedTransaction) compressMarshal() []byte {
 
 func (ver *VersionedTransaction) marshal() []byte {
 	switch ver.Version {
-	case TxVersion:
+	case TxVersionCommonEncoding, TxVersionBlake3Hash:
 		return NewEncoder().EncodeTransaction(&ver.SignedTransaction)
 	case 0, 1:
 		return marshalV1(ver)
@@ -170,7 +181,7 @@ func (ver *VersionedTransaction) marshal() []byte {
 
 func (ver *VersionedTransaction) payloadMarshal() []byte {
 	switch ver.Version {
-	case TxVersion:
+	case TxVersionCommonEncoding, TxVersionBlake3Hash:
 		signed := &SignedTransaction{Transaction: ver.Transaction}
 		return NewEncoder().EncodeTransaction(signed)
 	case 0, 1:

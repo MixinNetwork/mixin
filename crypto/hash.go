@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/zeebo/blake3"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -13,6 +14,10 @@ type Hash [32]byte
 
 func NewHash(data []byte) Hash {
 	return Hash(sha3.Sum256(data))
+}
+
+func Blake3Hash(data []byte) Hash {
+	return Hash(blake3.Sum256(data))
 }
 
 func HashFromString(src string) (Hash, error) {

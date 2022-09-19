@@ -362,7 +362,7 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 	if s.Version == 0 {
 		return nil, chain.legacyVerifyFinalization(s.Timestamp, s.Signatures)
 	}
-	if s.Version != common.SnapshotVersion || s.Signature == nil {
+	if s.Version != common.SnapshotVersionMsgpackEncoding || s.Signature == nil {
 		return nil, false
 	}
 	cids, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)

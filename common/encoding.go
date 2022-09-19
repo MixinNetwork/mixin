@@ -34,7 +34,7 @@ func (enc *Encoder) Bytes() []byte {
 }
 
 func (enc *Encoder) EncodeTransaction(signed *SignedTransaction) []byte {
-	if signed.Version != TxVersion {
+	if signed.Version < TxVersionCommonEncoding {
 		panic(signed)
 	}
 	if len(signed.SignaturesSliceV1) > 0 {

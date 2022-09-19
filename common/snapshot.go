@@ -7,7 +7,8 @@ import (
 )
 
 const (
-	SnapshotVersion = 1
+	SnapshotVersionMsgpackEncoding = 1
+	SnapshotVersionCommonEncoding  = 2
 )
 
 type Round struct {
@@ -74,7 +75,7 @@ func (s *Snapshot) VersionedPayload() []byte {
 			Timestamp:   s.Timestamp,
 		}
 		return MsgpackMarshalPanic(p)
-	case SnapshotVersion:
+	case SnapshotVersionMsgpackEncoding:
 		p := Snapshot{
 			Version:     s.Version,
 			NodeId:      s.NodeId,

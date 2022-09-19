@@ -26,7 +26,7 @@ func TestEncoding(t *testing.T) {
 	enc := hex.EncodeToString(NewEncoder().EncodeTransaction(signed))
 	assert.Equal(raw, enc)
 
-	enc = hex.EncodeToString(signed.AsLatestVersion().PayloadMarshal())
+	enc = hex.EncodeToString(signed.AsVersioned().PayloadMarshal())
 	assert.Equal(raw, enc)
 }
 

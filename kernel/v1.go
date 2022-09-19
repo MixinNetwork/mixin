@@ -49,7 +49,7 @@ func (node *Node) buildMintTransactionV1(timestamp uint64, validateOnly bool) *c
 		seed := append(si[:], si[:]...)
 		tx.AddScriptOutput([]*common.Address{&addr}, script, diff, seed)
 	}
-	ver := tx.AsLatestVersion()
+	ver := tx.AsVersioned()
 	ver.Version = 1
 	return ver
 }
@@ -84,7 +84,7 @@ func (node *Node) legacyMintTransaction(timestamp uint64, batch int, amount comm
 		tx.AddScriptOutput([]*common.Address{&addr}, script, diff, seed)
 	}
 
-	ver := tx.AsLatestVersion()
+	ver := tx.AsVersioned()
 	ver.Version = 1
 	return ver
 }

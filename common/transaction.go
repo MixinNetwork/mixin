@@ -11,7 +11,9 @@ import (
 )
 
 const (
-	TxVersion       = 0x02
+	TxVersionBlake3Hash     = 0x03
+	TxVersionCommonEncoding = 0x02
+
 	ExtraSizeLimit  = 256
 	SliceCountLimit = 256
 
@@ -150,7 +152,7 @@ func (tx *SignedTransaction) TransactionType() uint8 {
 }
 
 func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []*Address) error {
-	msg := signed.AsLatestVersion().PayloadMarshal()
+	msg := signed.AsVersioned().PayloadMarshal()
 
 	if len(accounts) == 0 {
 		return nil
@@ -176,7 +178,7 @@ func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []*Address) error
 }
 
 func (signed *SignedTransaction) SignInput(reader UTXOKeysReader, index int, accounts []*Address) error {
-	msg := signed.AsLatestVersion().PayloadMarshal()
+	msg := signed.AsVersioned().PayloadMarshal()
 
 	if len(accounts) == 0 {
 		return nil
@@ -217,7 +219,7 @@ func (signed *SignedTransaction) SignInput(reader UTXOKeysReader, index int, acc
 }
 
 func (signed *SignedTransaction) SignRaw(key crypto.Key) error {
-	msg := signed.AsLatestVersion().PayloadMarshal()
+	msg := signed.AsVersioned().PayloadMarshal()
 
 	if len(signed.Inputs) != 1 {
 		return fmt.Errorf("invalid inputs count %d", len(signed.Inputs))
@@ -296,7 +298,7 @@ func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [
 	}
 
 	var hramDigest [64]byte
-	msg := signed.AsLatestVersion().PayloadMarshal()
+	msg := signed.AsVersioned().PayloadMarshal()
 	h := sha512.New()
 	h.Write(P.Bytes())
 	h.Write(A.Bytes())
@@ -330,7 +332,7 @@ func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [
 
 func NewTransaction(asset crypto.Hash) *Transaction {
 	return &Transaction{
-		Version: TxVersion,
+		Version: TxVersionCommonEncoding,
 		Asset:   asset,
 	}
 }

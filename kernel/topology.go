@@ -53,7 +53,7 @@ func (node *Node) TopoWrite(s *common.Snapshot, signers []crypto.Hash) *common.S
 	node.TopoCounter.Lock()
 	defer node.TopoCounter.Unlock()
 
-	if s.Version >= common.SnapshotVersion && len(signers) != len(s.Signature.Keys()) {
+	if s.Version >= common.SnapshotVersionMsgpackEncoding && len(signers) != len(s.Signature.Keys()) {
 		panic(fmt.Errorf("malformed snapshot signers %s %d %d", s.Hash, len(signers), len(s.Signature.Keys())))
 	}
 

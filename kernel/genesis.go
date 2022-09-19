@@ -80,12 +80,12 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 
 		nodeId := in.Signer.Hash().ForNetwork(networkId)
 		snapshot := common.Snapshot{
-			Version:     common.SnapshotVersion,
+			Version:     common.SnapshotVersionMsgpackEncoding,
 			NodeId:      nodeId,
 			RoundNumber: 0,
 			Timestamp:   epoch,
 		}
-		signed := tx.AsLatestVersion()
+		signed := tx.AsVersioned()
 		if networkId.String() == config.MainnetId {
 			snapshot.Version = 0
 			signed.Version = 1
@@ -161,14 +161,14 @@ func buildDomainSnapshot(networkId crypto.Hash, epoch uint64, domain common.Addr
 	tx.Extra = make([]byte, len(domain.PublicSpendKey))
 	copy(tx.Extra, domain.PublicSpendKey[:])
 
-	signed := tx.AsLatestVersion()
+	signed := tx.AsVersioned()
 	if networkId.String() == config.MainnetId {
 		signed.Version = 1
 		signed, _ = common.UnmarshalVersionedTransaction(signed.Marshal())
 	}
 	nodeId := domain.Hash().ForNetwork(networkId)
 	snapshot := common.Snapshot{
-		Version:     common.SnapshotVersion,
+		Version:     common.SnapshotVersionMsgpackEncoding,
 		NodeId:      nodeId,
 		Transaction: signed.PayloadHash(),
 		RoundNumber: 0,

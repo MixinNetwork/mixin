@@ -30,7 +30,7 @@ func TestTransaction(t *testing.T) {
 	script := Script{OperatorCmp, OperatorSum, 13}
 	store := storeImpl{seed: seed, accounts: accounts}
 
-	ver := NewTransaction(XINAssetId).AsLatestVersion()
+	ver := NewTransaction(XINAssetId).AsVersioned()
 	assert.Equal("b2d01ebf49e4a16f405c72a51fc949554ec7bd7ad99d9581bd807cc83157f126", ver.PayloadHash().String())
 	ver.AddInput(genesisHash, 0)
 	ver.resetCache()
@@ -333,7 +333,7 @@ func TestTransactionV1(t *testing.T) {
 	script := Script{OperatorCmp, OperatorSum, 2}
 	store := storeImpl{seed: seed, accounts: accounts}
 
-	ver := NewTransaction(XINAssetId).AsLatestVersion()
+	ver := NewTransaction(XINAssetId).AsVersioned()
 	ver.Version = 1
 	assert.Equal("d2cf4d6e85d76512b29f173073be167423705e207f090f8cfc3e2b61fc32b6e2", ver.PayloadHash().String())
 	ver.AddInput(genesisHash, 0)
