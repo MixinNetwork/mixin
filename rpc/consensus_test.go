@@ -115,7 +115,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	for i := 0; i < INPUTS; i++ {
 		raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
 		rand.Seed(time.Now().UnixNano())
-		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw)
+		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw, snapVersionMint)
 		assert.Nil(err)
 		assert.NotNil(tx)
 		deposits = append(deposits, &common.VersionedTransaction{SignedTransaction: *tx})
@@ -148,7 +148,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	for _, d := range deposits {
 		raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, d.PayloadHash().String(), genesisAmount, domainAddress)
 		rand.Seed(time.Now().UnixNano())
-		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw)
+		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw, snapVersionMint)
 		assert.Nil(err)
 		assert.NotNil(tx)
 		if tx != nil {
@@ -195,7 +195,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	assert.Len(all, NODES)
 	assert.Equal("ACCEPTED", all[NODES-1].State)
 
-	input, err := testBuildPledgeInput(t, nodes, accounts[0], utxos)
+	input, err := testBuildPledgeInput(t, nodes, accounts[0], utxos, snapVersionMint)
 	assert.Nil(err)
 	time.Sleep(5 * time.Second)
 	tl, _ = testVerifySnapshots(assert, nodes)
@@ -269,7 +269,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	tl, _ = testVerifySnapshots(assert, nodes)
 	assert.Equal(INPUTS*2+NODES+1+1+2+1, len(tl))
 
-	input = testSendDummyTransaction(t, nodes, accounts[0], input, "3.5")
+	input = testSendDummyTransaction(t, nodes, accounts[0], input, "3.5", snapVersionMint)
 	t.Logf("DUMMY 1 %s\n", input)
 	time.Sleep(3 * time.Second)
 	tl, _ = testVerifySnapshots(assert, nodes)
@@ -287,7 +287,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	signer, payee := testGetNodeToRemove(instances[0].NetworkId(), accounts, payees, 0)
 	assert.Equal("XINGmuYCB65rzMgUf1W35pbhj4C7fY9JrzWCL5vGRdL84SPcWVPhtBJ7DAarc1QPt564JwbEdNCH8359kdPRH1ieSM9f96RZ", signer.String())
 	assert.Equal("XINMeKsKkSJJCgLWKvakEHaXBNPGfF7RmBu9jx5VZLE6UTuEaW4wSEqVybkH4xhQcqkT5jdiguiN3B3NKt8QBZTUbqZXJ1Fq", payee.String())
-	input = testSendDummyTransaction(t, nodes, accounts[0], input, "3.5")
+	input = testSendDummyTransaction(t, nodes, accounts[0], input, "3.5", snapVersionMint)
 	t.Logf("DUMMY 2 %s\n", input)
 	assert.Len(input, 64)
 	nodes = testRemoveNode(nodes, signer)
@@ -324,7 +324,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	time.Sleep(3 * time.Second)
 	tl, _ = testVerifySnapshots(assert, nodes)
 
-	removal := testSendDummyTransaction(t, nodes, payee, all[NODES].Transaction.String(), "10000")
+	removal := testSendDummyTransaction(t, nodes, payee, all[NODES].Transaction.String(), "10000", snapVersionMint)
 	t.Logf("DUMMY 3 %s\n", removal)
 	assert.Len(removal, 64)
 	time.Sleep(3 * time.Second)
@@ -341,7 +341,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	signer, payee = testGetNodeToRemove(instances[0].NetworkId(), accounts, payees, 1)
 	assert.Equal("XINEBDHLoH3eDiicxWdbF7B79h1kZMT2rmuoQcvSPDYztBFvkgv8dESeCKW1Ejh8hQ7QUK2Lxd8aHa5heXmWYk2gc78wWVs", signer.String())
 	assert.Equal("XINRqCuT9qD7qd9Z4bJFhAHq4eRa1GWdeD6cM6AegbS9chCFRFpxfxvFey6LouzRDYJgKXd45YXM1douCFvwELZmQ9gSCjPP", payee.String())
-	input = testSendDummyTransaction(t, nodes, accounts[0], input, "3.5")
+	input = testSendDummyTransaction(t, nodes, accounts[0], input, "3.5", snapVersionMint)
 	t.Logf("DUMMY 4 %s\n", input)
 	assert.Len(input, 64)
 	nodes = testRemoveNode(nodes, signer)
@@ -361,7 +361,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	time.Sleep(3 * time.Second)
 	tl, _ = testVerifySnapshots(assert, nodes)
 
-	removal = testSendDummyTransaction(t, nodes, payee, all[NODES].Transaction.String(), "10000")
+	removal = testSendDummyTransaction(t, nodes, payee, all[NODES].Transaction.String(), "10000", snapVersionMint)
 	t.Logf("DUMMY 5 %s\n", removal)
 	assert.Len(removal, 64)
 	time.Sleep(3 * time.Second)
@@ -375,7 +375,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 		assert.Equal("REMOVED", all[NODES].State)
 	}
 
-	input = testSendDummyTransaction(t, nodes, accounts[0], input, "3.5")
+	input = testSendDummyTransaction(t, nodes, accounts[0], input, "3.5", snapVersionMint)
 	t.Logf("DUMMY 6 %s\n", input)
 	assert.Len(input, 64)
 	nodes = testRemoveNode(nodes, signer)
@@ -407,7 +407,7 @@ func testRemoveNode(nodes []*Node, r common.Address) []*Node {
 	return tmp
 }
 
-func testSendDummyTransaction(t *testing.T, nodes []*Node, domain common.Address, th, amount string) string {
+func testSendDummyTransaction(t *testing.T, nodes []*Node, domain common.Address, th, amount string, snapVersionMint int) string {
 	assert := assert.New(t)
 	raw, _ := json.Marshal(map[string]interface{}{
 		"version": 2,
@@ -423,7 +423,7 @@ func testSendDummyTransaction(t *testing.T, nodes []*Node, domain common.Address
 			"accounts": []string{domain.String()},
 		}},
 	})
-	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw))
+	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw), snapVersionMint)
 	assert.Nil(err)
 	ver := common.VersionedTransaction{SignedTransaction: *tx}
 	input := testSendTransactionToNodes(t, nodes, hex.EncodeToString(ver.Marshal()))
@@ -483,7 +483,7 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 		}},
 		"extra": signer.PublicSpendKey.String() + payee.PublicSpendKey.String(),
 	})
-	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw))
+	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw), snapVersionMint)
 	assert.Nil(err)
 	ver := common.VersionedTransaction{SignedTransaction: *tx}
 	id := testSendTransactionToNodes(t, nodes, hex.EncodeToString(ver.Marshal()))
@@ -509,7 +509,7 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 	return Node{Signer: signer, Payee: payee, Host: "127.0.0.1:18099"}, pnode, server
 }
 
-func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, utxos []*common.VersionedTransaction) (string, error) {
+func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, utxos []*common.VersionedTransaction, snapVersionMint int) (string, error) {
 	assert := assert.New(t)
 	inputs := []map[string]interface{}{}
 	for _, tx := range utxos {
@@ -534,7 +534,7 @@ func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, ut
 			"accounts": []string{domain.String()},
 		}},
 	})
-	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw))
+	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw), snapVersionMint)
 	assert.Nil(err)
 	ver := common.VersionedTransaction{SignedTransaction: *tx}
 	input := testSendTransactionToNodes(t, nodes, hex.EncodeToString(ver.Marshal()))
@@ -658,7 +658,7 @@ func setupTestNet(root string) ([]common.Address, []common.Address, []byte, stri
 	return signers, payees, genesisData, peersList
 }
 
-func testSignTransaction(node string, account common.Address, rawStr string) (*common.SignedTransaction, error) {
+func testSignTransaction(node string, account common.Address, rawStr string, snapVersionMint int) (*common.SignedTransaction, error) {
 	var raw signerInput
 	err := json.Unmarshal([]byte(rawStr), &raw)
 	if err != nil {
@@ -666,7 +666,10 @@ func testSignTransaction(node string, account common.Address, rawStr string) (*c
 	}
 	raw.Node = node
 
-	tx := common.NewTransaction(raw.Asset)
+	tx := common.NewTransactionV2(raw.Asset)
+	if snapVersionMint < 1 && time.Now().UnixNano()%2 == 1 {
+		tx = common.NewTransactionV3(raw.Asset)
+	}
 	for _, in := range raw.Inputs {
 		if d := in.Deposit; d != nil {
 			tx.AddDepositInput(&common.DepositData{

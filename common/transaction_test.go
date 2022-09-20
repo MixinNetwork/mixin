@@ -13,6 +13,221 @@ import (
 func TestTransaction(t *testing.T) {
 	assert := assert.New(t)
 
+	PM := "77770003a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc00020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000200000005e8d4a5100000004fe2a684e0e6c5e370ca0d89f5e2cb0da1e2ecd4028fa2d395fbca4e33f258050003fffe0d000000000005e8d4a51000001082240709ab6152f66d2887c78f4f13d2a9fcea5aab7ac48e8099bcb8e107173ac06fa8fd6bc52ada96cef6ea8da9ed1cdfb9bafbb7b4e345c827f7ae64c2353fdf02b12f33cc261928ede939cb146533730a0fc4e2cabbe973e4cf90bdadfb6832218c3a5ac643ff812bf9968fa545ea3862e8c103762e0eef25c4969ddb1cf262e1678c55a525f1be99c3168fd0d9e5aa4058046a0dace30c0eacca6570f976bb5214f113d3c99bf80c7336f9ce4a15af88e782cb3b912162db7c94a93ef12ffed7db88dbb7f9eb9b4ffd36493551ab1aecabc6d1153c9e5ce62599cfe68a28470d974e6e1397a055175082a606916d10becc943e01c39c1f40cf784d016ab28bc8c3e483b06ea5abb6c7f1f55683b903071205ed0c8d0a7079b647fdd8f49784d74d969eded1ab4fea0c98515bad32fbb7587a13de9e64f7ffd0d7b7d3c358867d3ece1fd8e73df21402b0585a359503ae28d5e57aaa47918a70fc2fe2c73855a3baacb8acf8e87830f70b28737cd91d6b733681da009d0d7a69de93eff57cfa973a8156c81379bf470c83a1c64dbb05e3dd060d87575dcc3b0b40d75b06719ef8473ab7400748532e593bd84405390b50ca0ef514b7a75bc74d9632183a4de891a54b45813fd35c739402dc1321c43da131722dff4befd6cfcaaa73cfa8054623dd0c98361eb656e5d9dfd6ec5332fa323f973e1693645fb7d06843898b91c6473159e19ed185b373e935081774e0c133b9416abdff319667187a71dff53e0003fffe0d000000000000"
+	CM := "0000000028b52ffd4300c118533ce0017d1400642777770003a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc00020105e8d4a5100000004fe2a684e0e6c5e370ca0d89f5e2cb0da1e2ecd4028fa2d395fbca4e33f258050003fffe0d1082240709ab6152f66d2887c78f4f13d2a9fcea5aab7ac48e8099bcb8e107173ac06fa8fd6bc52ada96cef6ea8da9ed1cdfb9bafbb7b4e345c827f7ae64c2353fdf02b12f33cc261928ede939cb146533730a0fc4e2cabbe973e4cf90bdadfb6832218c3a5ac643ff812bf9968fa545ea3862e8c103762e0eef25c4969ddb1cf262e1678c55a525f1be99c3168fd0d9e5aa4058046a0dace30c0eacca6570f976bb5214f113d3c99bf80c7336f9ce4a15af88e782cb3b912162db7c94a93ef12ffed7db88dbb7f9eb9b4ffd36493551ab1aecabc6d1153c9e5ce62599cfe68a28470d974e6e1397a055175082a606916d10becc943e01c39c1f40cf784d016ab28bc8c3e483b06ea5abb6c7f1f55683b903071205ed0c8d0a7079b647fdd8f49784d74d969eded1ab4fea0c98515bad32fbb7587a13de9e64f7ffd0d7b7d3c358867d3ece1fd8e73df21402b0585a359503ae28d5e57aaa47918a70fc2fe2c73855a3baacb8acf8e87830f70b28737cd91d6b733681da009d0d7a69de93eff57cfa973a8156c81379bf470c83a1c64dbb05e3dd060d87575dcc3b0b40d75b06719ef8473ab7400748532e593bd84405390b50ca0ef514b7a75bc74d9632183a4de891a54b45813fd35c739402dc1321c43da131722dff4befd6cfcaaa73cfa8054623dd0c98361eb656e5d9dfd6ec5332fa323f973e1693645fb7d06843898b91c6473159e19ed185b373e935081774e0c133b9416abdff319667187a71dff53e000700216a889d55a52db4aa823095819b3bad3baf993d01"
+
+	accounts := make([]*Address, 0)
+	for i := 0; i < 16; i++ {
+		seed := make([]byte, 64)
+		seed[i] = byte(i)
+		a := NewAddressFromSeed(seed)
+		accounts = append(accounts, &a)
+	}
+
+	seed := make([]byte, 64)
+	rand.Read(seed)
+	genesisHash := crypto.Hash{}
+	script := Script{OperatorCmp, OperatorSum, 13}
+	store := storeImpl{seed: seed, accounts: accounts}
+
+	ver := NewTransactionV3(XINAssetId).AsVersioned()
+	assert.Equal("1b85dd60063828dc6dd19f305c94e30fc800b178ec10c1e7a5dceb8bba3d564c", ver.PayloadHash().String())
+	ver.AddInput(genesisHash, 0)
+	ver.resetCache()
+	assert.Equal("192bdd48885be8a0ee99344b42b4993af611cb274367d0f9065bf15f0aded9b8", ver.PayloadHash().String())
+	ver.AddInput(genesisHash, 1)
+	ver.resetCache()
+	assert.Equal("bb4271a72a82949ee20879a42f609db8334bc0d7c65ee2b1ac3a7f121b47875e", ver.PayloadHash().String())
+	ver.Outputs = append(ver.Outputs, &Output{Type: OutputTypeScript, Amount: NewInteger(10000), Script: script, Mask: crypto.NewKeyFromSeed(bytes.Repeat([]byte{1}, 64))})
+	ver.resetCache()
+	assert.Equal("226556fde05832561ca2f137d4ef6405c47f29b4a09cba0ece15d45bf750e123", ver.PayloadHash().String())
+	ver.AddScriptOutput(accounts, script, NewInteger(10000), bytes.Repeat([]byte{1}, 64))
+	ver.resetCache()
+	assert.Equal("0463eab4ad4627b095751a48363fcaaa9ef88ca1e222f87d5939535bda9ff8b7", ver.PayloadHash().String())
+
+	pm := ver.Marshal()
+	assert.Equal(736, len(pm))
+	assert.Equal(PM, hex.EncodeToString(pm))
+	cm := ver.CompressMarshal()
+	assert.Equal(674, len(cm))
+	assert.Equal(CM, hex.EncodeToString(cm))
+	ver, err := DecompressUnmarshalVersionedTransaction(cm)
+	assert.Nil(err)
+	pm = ver.Marshal()
+	assert.Equal(736, len(pm))
+	assert.Equal(PM, hex.EncodeToString(pm))
+	ver, err = DecompressUnmarshalVersionedTransaction(pm)
+	assert.Nil(err)
+	pm = ver.Marshal()
+	assert.Equal(736, len(pm))
+	assert.Equal(PM, hex.EncodeToString(pm))
+	cm, err = hex.DecodeString(CM)
+	assert.Nil(err)
+	ver, err = DecompressUnmarshalVersionedTransaction(cm)
+	assert.Nil(err)
+	pm = ver.Marshal()
+	assert.Equal(736, len(pm))
+	assert.Equal(PM, hex.EncodeToString(pm))
+
+	for i := range ver.Inputs {
+		err := ver.SignInput(store, i, accounts)
+		assert.NotNil(err)
+		assert.Contains(err.Error(), "invalid key for the input")
+	}
+	err = ver.Validate(store, false)
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "invalid tx signature number")
+
+	ver.SignaturesMap = nil
+	for i := range ver.Inputs {
+		err := ver.SignInput(store, i, accounts[0:i+1])
+		assert.Nil(err)
+		err = ver.Validate(store, false)
+		if i < len(ver.Inputs)-1 {
+			assert.NotNil(err)
+		} else {
+			assert.Nil(err)
+		}
+	}
+	err = ver.Validate(store, false)
+	assert.Nil(err)
+
+	pm = ver.Marshal()
+	assert.Len(pm, 938)
+	ver, err = DecompressUnmarshalVersionedTransaction(pm)
+	assert.Nil(err)
+	assert.Nil(ver.AggregatedSignature)
+	assert.NotNil(ver.SignaturesMap)
+	assert.Equal(pm, ver.Marshal())
+
+	assert.Len(ver.Inputs, 2)
+	assert.Len(ver.SignaturesSliceV1, 0)
+	assert.Len(ver.SignaturesMap, 2)
+	assert.Len(ver.SignaturesMap[0], 1)
+	assert.Len(ver.SignaturesMap[1], 2)
+	om := ver.SignaturesMap
+	sm := make([]map[uint16]*crypto.Signature, 2)
+	for i, m := range om {
+		if sm[i] == nil {
+			sm[i] = make(map[uint16]*crypto.Signature)
+		}
+		for j, s := range m {
+			sm[i][j+1] = s
+		}
+	}
+	ver.SignaturesMap = sm
+	err = ver.Validate(store, false)
+	assert.NotNil(err)
+	assert.Equal("batch verification failure 3 3", err.Error())
+	sm = make([]map[uint16]*crypto.Signature, 2)
+	for i, m := range om {
+		if sm[i] == nil {
+			sm[i] = make(map[uint16]*crypto.Signature)
+		}
+		for j, s := range m {
+			sm[i][j+2] = s
+		}
+	}
+	ver.SignaturesMap = sm
+	err = ver.Validate(store, false)
+	assert.NotNil(err)
+	assert.Equal("invalid signature map index 2 2", err.Error())
+	sm = make([]map[uint16]*crypto.Signature, 2)
+	for i, m := range om {
+		if sm[i] == nil {
+			sm[i] = make(map[uint16]*crypto.Signature)
+		}
+		for j, s := range m {
+			sm[i][j] = s
+		}
+	}
+	sm[0][1] = sm[0][0]
+	ver.SignaturesMap = sm
+	err = ver.Validate(store, false)
+	assert.NotNil(err)
+	assert.Equal("batch verification failure 4 4", err.Error())
+	sm = make([]map[uint16]*crypto.Signature, 2)
+	for i, m := range om {
+		if sm[i] == nil {
+			sm[i] = make(map[uint16]*crypto.Signature)
+		}
+		for j, s := range m {
+			sm[i][j] = s
+		}
+	}
+	sm[1][0] = sm[0][0]
+	ver.SignaturesMap = sm
+	err = ver.Validate(store, false)
+	assert.NotNil(err)
+	assert.Equal("batch verification failure 3 3", err.Error())
+
+	outputs := ver.ViewGhostKey(&accounts[1].PrivateViewKey)
+	assert.Len(outputs, 2)
+	assert.Equal(outputs[1].Keys[1].String(), accounts[1].PublicSpendKey.String())
+	outputs = ver.ViewGhostKey(&accounts[1].PrivateSpendKey)
+	assert.Len(outputs, 2)
+	assert.NotEqual(outputs[1].Keys[1].String(), accounts[1].PublicSpendKey.String())
+	assert.NotEqual(outputs[1].Keys[1].String(), accounts[1].PublicViewKey.String())
+
+	ver.AggregatedSignature = &AggregatedSignature{}
+	err = ver.Validate(store, false)
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "invalid signatures map 2")
+	ver.SignaturesMap = nil
+	err = ver.Validate(store, false)
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "invalid signature keys 0 1")
+
+	aas := make([][]*Address, len(ver.Inputs))
+	for i := range ver.Inputs {
+		aas[i] = append([]*Address{}, accounts[0:i]...)
+	}
+	ver.AggregatedSignature = nil
+	err = ver.AggregateSign(store, aas, seed)
+	assert.Nil(err)
+	assert.Len(ver.AggregatedSignature.Signers, 1)
+	err = ver.Validate(store, false)
+	assert.NotNil(err)
+
+	aas = make([][]*Address, len(ver.Inputs))
+	for i := range ver.Inputs {
+		accs := append([]*Address{}, accounts[0:i+1]...)
+		accs[len(accs)-1], accs[0] = accs[0], accs[len(accs)-1]
+		aas[i] = accs
+	}
+	ver.AggregatedSignature = nil
+	err = ver.AggregateSign(store, aas, seed)
+	assert.NotNil(err)
+	assert.Nil(ver.AggregatedSignature)
+	assert.NotNil(ver.Marshal())
+	err = ver.Validate(store, false)
+	assert.NotNil(err)
+
+	aas = make([][]*Address, len(ver.Inputs))
+	for i := range ver.Inputs {
+		aas[i] = append([]*Address{}, accounts[0:i+1]...)
+	}
+	ver.AggregatedSignature = nil
+	err = ver.AggregateSign(store, aas, seed)
+	assert.Nil(err)
+	assert.Len(ver.AggregatedSignature.Signers, 3)
+	err = ver.Validate(store, false)
+	assert.Nil(err)
+
+	pm = ver.Marshal()
+	assert.Len(pm, 806)
+	ver, err = DecompressUnmarshalVersionedTransaction(pm)
+	assert.Nil(err)
+	assert.NotNil(ver.AggregatedSignature)
+	assert.Nil(ver.SignaturesMap)
+	assert.Equal(pm, ver.Marshal())
+	err = ver.Validate(store, false)
+	assert.Nil(err)
+}
+
+func TestTransactionLegacy(t *testing.T) {
+	assert := assert.New(t)
+
 	PM := "77770002a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc00020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000200000005e8d4a5100000004fe2a684e0e6c5e370ca0d89f5e2cb0da1e2ecd4028fa2d395fbca4e33f258050003fffe0d000000000005e8d4a51000001082240709ab6152f66d2887c78f4f13d2a9fcea5aab7ac48e8099bcb8e107173ac06fa8fd6bc52ada96cef6ea8da9ed1cdfb9bafbb7b4e345c827f7ae64c2353fdf02b12f33cc261928ede939cb146533730a0fc4e2cabbe973e4cf90bdadfb6832218c3a5ac643ff812bf9968fa545ea3862e8c103762e0eef25c4969ddb1cf262e1678c55a525f1be99c3168fd0d9e5aa4058046a0dace30c0eacca6570f976bb5214f113d3c99bf80c7336f9ce4a15af88e782cb3b912162db7c94a93ef12ffed7db88dbb7f9eb9b4ffd36493551ab1aecabc6d1153c9e5ce62599cfe68a28470d974e6e1397a055175082a606916d10becc943e01c39c1f40cf784d016ab28bc8c3e483b06ea5abb6c7f1f55683b903071205ed0c8d0a7079b647fdd8f49784d74d969eded1ab4fea0c98515bad32fbb7587a13de9e64f7ffd0d7b7d3c358867d3ece1fd8e73df21402b0585a359503ae28d5e57aaa47918a70fc2fe2c73855a3baacb8acf8e87830f70b28737cd91d6b733681da009d0d7a69de93eff57cfa973a8156c81379bf470c83a1c64dbb05e3dd060d87575dcc3b0b40d75b06719ef8473ab7400748532e593bd84405390b50ca0ef514b7a75bc74d9632183a4de891a54b45813fd35c739402dc1321c43da131722dff4befd6cfcaaa73cfa8054623dd0c98361eb656e5d9dfd6ec5332fa323f973e1693645fb7d06843898b91c6473159e19ed185b373e935081774e0c133b9416abdff319667187a71dff53e0003fffe0d000000000000"
 	CM := "0000000028b52ffd4300c118533ce0017d1400642777770002a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc00020105e8d4a5100000004fe2a684e0e6c5e370ca0d89f5e2cb0da1e2ecd4028fa2d395fbca4e33f258050003fffe0d1082240709ab6152f66d2887c78f4f13d2a9fcea5aab7ac48e8099bcb8e107173ac06fa8fd6bc52ada96cef6ea8da9ed1cdfb9bafbb7b4e345c827f7ae64c2353fdf02b12f33cc261928ede939cb146533730a0fc4e2cabbe973e4cf90bdadfb6832218c3a5ac643ff812bf9968fa545ea3862e8c103762e0eef25c4969ddb1cf262e1678c55a525f1be99c3168fd0d9e5aa4058046a0dace30c0eacca6570f976bb5214f113d3c99bf80c7336f9ce4a15af88e782cb3b912162db7c94a93ef12ffed7db88dbb7f9eb9b4ffd36493551ab1aecabc6d1153c9e5ce62599cfe68a28470d974e6e1397a055175082a606916d10becc943e01c39c1f40cf784d016ab28bc8c3e483b06ea5abb6c7f1f55683b903071205ed0c8d0a7079b647fdd8f49784d74d969eded1ab4fea0c98515bad32fbb7587a13de9e64f7ffd0d7b7d3c358867d3ece1fd8e73df21402b0585a359503ae28d5e57aaa47918a70fc2fe2c73855a3baacb8acf8e87830f70b28737cd91d6b733681da009d0d7a69de93eff57cfa973a8156c81379bf470c83a1c64dbb05e3dd060d87575dcc3b0b40d75b06719ef8473ab7400748532e593bd84405390b50ca0ef514b7a75bc74d9632183a4de891a54b45813fd35c739402dc1321c43da131722dff4befd6cfcaaa73cfa8054623dd0c98361eb656e5d9dfd6ec5332fa323f973e1693645fb7d06843898b91c6473159e19ed185b373e935081774e0c133b9416abdff319667187a71dff53e000700216a889d55a52db4aa823095819b3bad3baf993d01"
 
@@ -30,7 +245,7 @@ func TestTransaction(t *testing.T) {
 	script := Script{OperatorCmp, OperatorSum, 13}
 	store := storeImpl{seed: seed, accounts: accounts}
 
-	ver := NewTransaction(XINAssetId).AsVersioned()
+	ver := NewTransactionV2(XINAssetId).AsVersioned()
 	assert.Equal("b2d01ebf49e4a16f405c72a51fc949554ec7bd7ad99d9581bd807cc83157f126", ver.PayloadHash().String())
 	ver.AddInput(genesisHash, 0)
 	ver.resetCache()
@@ -333,7 +548,7 @@ func TestTransactionV1(t *testing.T) {
 	script := Script{OperatorCmp, OperatorSum, 2}
 	store := storeImpl{seed: seed, accounts: accounts}
 
-	ver := NewTransaction(XINAssetId).AsVersioned()
+	ver := NewTransactionV2(XINAssetId).AsVersioned()
 	ver.Version = 1
 	assert.Equal("d2cf4d6e85d76512b29f173073be167423705e207f090f8cfc3e2b61fc32b6e2", ver.PayloadHash().String())
 	ver.AddInput(genesisHash, 0)

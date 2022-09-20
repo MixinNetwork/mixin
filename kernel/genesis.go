@@ -73,7 +73,7 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 			accounts = append(accounts, &d.Signer)
 		}
 
-		tx := common.NewTransaction(common.XINAssetId)
+		tx := common.NewTransactionV3(common.XINAssetId)
 		tx.Inputs = []*common.Input{{Genesis: networkId[:]}}
 		tx.AddOutputWithType(common.OutputTypeNodeAccept, accounts, script, pledgeAmount(0), seed)
 		tx.Extra = append(in.Signer.PublicSpendKey[:], in.Payee.PublicSpendKey[:]...)
@@ -155,17 +155,12 @@ func buildDomainSnapshot(networkId crypto.Hash, epoch uint64, domain common.Addr
 	for _, d := range gns.Nodes {
 		accounts = append(accounts, &d.Signer)
 	}
-	tx := common.NewTransaction(common.XINAssetId)
+	tx := common.NewTransactionV3(common.XINAssetId)
 	tx.Inputs = []*common.Input{{Genesis: networkId[:]}}
 	tx.AddOutputWithType(common.OutputTypeDomainAccept, accounts, script, common.NewInteger(50000), seed)
 	tx.Extra = make([]byte, len(domain.PublicSpendKey))
 	copy(tx.Extra, domain.PublicSpendKey[:])
 
-	signed := tx.AsVersioned()
-	if networkId.String() == config.MainnetId {
-		signed.Version = 1
-		signed, _ = common.UnmarshalVersionedTransaction(signed.Marshal())
-	}
 	nodeId := domain.Hash().ForNetwork(networkId)
 	snapshot := &common.Snapshot{
 		Version:     common.SnapshotVersionCommonEncoding,
@@ -173,8 +168,11 @@ func buildDomainSnapshot(networkId crypto.Hash, epoch uint64, domain common.Addr
 		RoundNumber: 0,
 		Timestamp:   epoch + 1,
 	}
+	signed := tx.AsVersioned()
 	if networkId.String() == config.MainnetId {
 		snapshot.Version = 0
+		signed.Version = 1
+		signed, _ = common.UnmarshalVersionedTransaction(signed.Marshal())
 	}
 	snapshot.AddSoleTransaction(signed.PayloadHash())
 	return &common.SnapshotWithTopologicalOrder{

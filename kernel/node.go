@@ -317,6 +317,13 @@ func (node *Node) SnapshotVersion() uint8 {
 	return common.SnapshotVersionMsgpackEncoding
 }
 
+func (node *Node) NewTransaction(assetId crypto.Hash) *common.Transaction {
+	if node.SnapshotVersion() < common.SnapshotVersionCommonEncoding {
+		return common.NewTransactionV2(assetId)
+	}
+	return common.NewTransactionV3(assetId)
+}
+
 func (node *Node) PingNeighborsFromConfig() error {
 	node.Peer = network.NewPeer(node, node.IdForNetwork, node.addr, node.custom.Network.GossipNeighbors)
 
