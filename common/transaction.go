@@ -330,7 +330,14 @@ func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [
 	return nil
 }
 
-func NewTransaction(asset crypto.Hash) *Transaction {
+func NewTransactionV3(asset crypto.Hash) *Transaction {
+	return &Transaction{
+		Version: TxVersionBlake3Hash,
+		Asset:   asset,
+	}
+}
+
+func NewTransactionV2(asset crypto.Hash) *Transaction {
 	return &Transaction{
 		Version: TxVersionCommonEncoding,
 		Asset:   asset,

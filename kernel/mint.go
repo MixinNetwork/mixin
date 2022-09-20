@@ -185,7 +185,7 @@ func (node *Node) buildMintTransaction(timestamp uint64, validateOnly bool) *com
 		return nil
 	}
 
-	tx := common.NewTransaction(common.XINAssetId)
+	tx := node.NewTransaction(common.XINAssetId)
 	tx.AddKernelNodeMintInput(uint64(batch), amount)
 	script := common.NewThresholdScript(1)
 	total := common.NewInteger(0)

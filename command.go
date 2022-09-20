@@ -285,7 +285,7 @@ func buildRawTransactionCmd(c *cli.Context) error {
 	isb, _ := json.Marshal(map[string]interface{}{"inputs": inputs})
 	json.Unmarshal(isb, &raw)
 
-	tx := common.NewTransaction(asset)
+	tx := common.NewTransactionV3(asset)
 	for _, in := range inputs {
 		tx.AddInput(in["hash"].(crypto.Hash), in["index"].(int))
 	}
@@ -325,7 +325,7 @@ func signTransactionCmd(c *cli.Context) error {
 		}
 	}
 
-	tx := common.NewTransaction(raw.Asset)
+	tx := common.NewTransactionV3(raw.Asset)
 	for _, in := range raw.Inputs {
 		if d := in.Deposit; d != nil {
 			tx.AddDepositInput(&common.DepositData{
@@ -442,7 +442,7 @@ func pledgeNodeCmd(c *cli.Context) error {
 
 	amount := common.NewIntegerFromString(c.String("amount"))
 
-	tx := common.NewTransaction(common.XINAssetId)
+	tx := common.NewTransactionV3(common.XINAssetId)
 	tx.AddInput(input, 0)
 	tx.AddOutputWithType(common.OutputTypeNodePledge, nil, common.Script{}, amount, seed)
 	tx.Extra = append(signer.PublicSpendKey[:], payee.PublicSpendKey[:]...)
@@ -519,7 +519,7 @@ func cancelNodeCmd(c *cli.Context) error {
 		return fmt.Errorf("invalid source and receiver %s %s", pig.String(), receiver.PublicSpendKey)
 	}
 
-	tx := common.NewTransaction(common.XINAssetId)
+	tx := common.NewTransactionV3(common.XINAssetId)
 	tx.AddInput(pledge.PayloadHash(), 0)
 	tx.AddOutputWithType(common.OutputTypeNodeCancel, nil, common.Script{}, pledge.Outputs[0].Amount.Div(100), seed)
 	tx.AddScriptOutput([]*common.Address{&receiver}, common.NewThresholdScript(1), pledge.Outputs[0].Amount.Sub(tx.Outputs[0].Amount), seed)

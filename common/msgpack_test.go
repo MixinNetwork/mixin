@@ -35,7 +35,7 @@ func TestMsgpack(t *testing.T) {
 		SpendKey: "87be1eeb3b72909b5447a1699af7538fc0a492222d7b8ab98187299adc4d1b0e",
 	}
 
-	tx := NewTransaction(crypto.NewHash([]byte(assetId)))
+	tx := NewTransactionV2(crypto.NewHash([]byte(assetId)))
 	hash, err := crypto.HashFromString(utxoHash)
 	assert.Nil(err)
 	tx.AddInput(hash, utxoIndex)
@@ -88,7 +88,7 @@ func TestMsgpackV1(t *testing.T) {
 		SpendKey: "87be1eeb3b72909b5447a1699af7538fc0a492222d7b8ab98187299adc4d1b0e",
 	}
 
-	tx := NewTransaction(crypto.NewHash([]byte(assetId)))
+	tx := NewTransactionV2(crypto.NewHash([]byte(assetId)))
 	tx.Version = 1
 	hash, err := crypto.HashFromString(utxoHash)
 	assert.Nil(err)

@@ -167,7 +167,7 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 		return nil, fmt.Errorf("invalid accept transaction extra %s %s %s", hex.EncodeToString(accept.Extra), signer, hex.EncodeToString(payee))
 	}
 
-	tx := common.NewTransaction(common.XINAssetId)
+	tx := node.NewTransaction(common.XINAssetId)
 	tx.AddInput(candi.Transaction, 0)
 	tx.Extra = accept.Extra
 	script := common.NewThresholdScript(1)
@@ -298,7 +298,7 @@ func (chain *Chain) buildNodeAcceptTransaction(timestamp uint64, s *common.Snaps
 		return nil, fmt.Errorf("invalid pledge transaction extra %s %s", hex.EncodeToString(pledge.Extra[:len(signer)]), signer)
 	}
 
-	tx := common.NewTransaction(common.XINAssetId)
+	tx := chain.node.NewTransaction(common.XINAssetId)
 	tx.AddInput(ci.Transaction, 0)
 	tx.AddOutputWithType(common.OutputTypeNodeAccept, nil, common.Script{}, pledge.Outputs[0].Amount, []byte{})
 	tx.Extra = pledge.Extra

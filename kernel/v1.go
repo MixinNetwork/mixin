@@ -26,7 +26,7 @@ func (node *Node) buildMintTransactionV1(timestamp uint64, validateOnly bool) *c
 		return nil
 	}
 
-	tx := common.NewTransaction(common.XINAssetId)
+	tx := common.NewTransactionV2(common.XINAssetId)
 	tx.AddKernelNodeMintInput(uint64(batch), amount)
 	script := common.NewThresholdScript(1)
 	total := common.NewInteger(0)
@@ -65,7 +65,7 @@ func (node *Node) legacyMintTransaction(timestamp uint64, batch int, amount comm
 	per := amount.Div(len(nodes))
 	diff := amount.Sub(per.Mul(len(nodes)))
 
-	tx := common.NewTransaction(common.XINAssetId)
+	tx := common.NewTransactionV2(common.XINAssetId)
 	tx.AddKernelNodeMintInput(uint64(batch), amount)
 	script := common.NewThresholdScript(1)
 	for _, n := range nodes {
