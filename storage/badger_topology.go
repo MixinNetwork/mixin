@@ -46,14 +46,13 @@ func readSnapshotWithTopo(txn *badger.Txn, hash crypto.Hash) (*common.SnapshotWi
 	if err != nil {
 		return nil, err
 	}
-	var snap common.SnapshotWithTopologicalOrder
-	err = common.DecompressMsgpackUnmarshal(v, &snap)
+	snap, err := common.DecompressUnmarshalVersionedSnapshot(v)
 	if err != nil {
 		return nil, err
 	}
 	snap.Hash = hash
 	snap.TopologicalOrder = graphTopologyOrder(topo)
-	return &snap, nil
+	return snap, nil
 }
 
 func (s *BadgerStore) ReadSnapshotWithTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, []*common.VersionedTransaction, error) {
@@ -105,14 +104,13 @@ func (s *BadgerStore) ReadSnapshotsSinceTopology(topologyOffset, count uint64) (
 		if err != nil {
 			return snapshots, err
 		}
-		var snap common.SnapshotWithTopologicalOrder
-		err = common.DecompressMsgpackUnmarshal(v, &snap)
+		snap, err := common.DecompressUnmarshalVersionedSnapshot(v)
 		if err != nil {
 			return snapshots, err
 		}
 		snap.Hash = snap.PayloadHash()
 		snap.TopologicalOrder = topology
-		snapshots = append(snapshots, &snap)
+		snapshots = append(snapshots, snap)
 	}
 
 	return snapshots, nil

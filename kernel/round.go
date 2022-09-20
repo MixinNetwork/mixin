@@ -100,7 +100,7 @@ func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*
 		return nil, err
 	}
 	for _, t := range topos {
-		s := &t.Snapshot
+		s := t.Snapshot
 		s.Hash = s.PayloadHash()
 		round.Snapshots = append(round.Snapshots, s)
 	}
@@ -118,7 +118,7 @@ func loadFinalRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash, n
 
 	snapshots := make([]*common.Snapshot, len(topos))
 	for i, t := range topos {
-		s := &t.Snapshot
+		s := t.Snapshot
 		s.Hash = s.PayloadHash()
 		snapshots[i] = s
 	}
@@ -239,13 +239,26 @@ func ComputeRoundHash(nodeId crypto.Hash, number uint64, snapshots []*common.Sna
 		panic(err)
 	}
 
+	var hash crypto.Hash
+	version := snapshots[0].Version
 	buf := binary.BigEndian.AppendUint64(nodeId[:], number)
-	hash := crypto.NewHash(buf)
+	if version < common.SnapshotVersionCommonEncoding {
+		hash = crypto.NewHash(buf)
+	} else {
+		hash = crypto.Blake3Hash(buf)
+	}
 	for _, s := range snapshots {
+		if s.Version != version {
+			panic(nodeId)
+		}
 		if s.Timestamp > end {
 			panic(nodeId)
 		}
-		hash = crypto.NewHash(append(hash[:], s.Hash[:]...))
+		if version < common.SnapshotVersionCommonEncoding {
+			hash = crypto.NewHash(append(hash[:], s.Hash[:]...))
+		} else {
+			hash = crypto.Blake3Hash(append(hash[:], s.Hash[:]...))
+		}
 	}
 	return start, end, hash
 }

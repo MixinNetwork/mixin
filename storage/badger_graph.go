@@ -79,13 +79,12 @@ func readSnapshotsForNodeRound(txn *badger.Txn, nodeId crypto.Hash, round uint64
 		if err != nil {
 			return snapshots, err
 		}
-		var s common.SnapshotWithTopologicalOrder
-		err = common.DecompressMsgpackUnmarshal(v, &s)
+		s, err := common.DecompressUnmarshalVersionedSnapshot(v)
 		if err != nil {
 			return snapshots, err
 		}
 		s.Hash = s.PayloadHash()
-		snapshots = append(snapshots, &s)
+		snapshots = append(snapshots, s)
 	}
 
 	sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].Timestamp < snapshots[j].Timestamp })
@@ -154,7 +153,7 @@ func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder, v
 	}
 
 	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction)
-	val := common.CompressMsgpackMarshalPanic(snap)
+	val := snap.VersionedCompressMarshal()
 	err = txn.Set(key, val)
 	if err != nil {
 		return err

@@ -33,18 +33,37 @@ func (enc *Encoder) Bytes() []byte {
 	return enc.buf.Bytes()
 }
 
-func (enc *Encoder) EncodeSnapshot(s *Snapshot) []byte {
+func (enc *Encoder) EncodeSnapshotWithTopo(s *SnapshotWithTopologicalOrder) []byte {
+	enc.encodeSnapshotPayload(s.Snapshot, true)
+	enc.WriteUint64(s.TopologicalOrder)
+	return enc.Bytes()
+}
+
+func (enc *Encoder) EncodeSnapshotPayload(s *Snapshot) []byte {
+	enc.encodeSnapshotPayload(s, false)
+	return enc.Bytes()
+}
+
+func (enc *Encoder) encodeSnapshotPayload(s *Snapshot, withSig bool) {
 	if s.Version < SnapshotVersionCommonEncoding {
 		panic(s)
 	}
-	if len(s.Transactions) != 1 { // FIXME
+	if len(s.Transactions) != 1 { // FIXME allow more than one transactions
 		panic(s)
+	}
+	if len(s.Signatures) != 0 {
+		panic(len(s.Signatures))
+	}
+	if !withSig && s.Signature != nil {
+		panic(s.Signature)
 	}
 
 	enc.Write(magic)
 	enc.Write([]byte{0x00, s.Version})
 	enc.Write(s.NodeId[:])
 	enc.WriteUint64(s.RoundNumber)
+
+	enc.WriteInt(2)
 	enc.Write(s.References.Self[:])
 	enc.Write(s.References.External[:])
 
@@ -58,7 +77,6 @@ func (enc *Encoder) EncodeSnapshot(s *Snapshot) []byte {
 
 	enc.WriteUint64(s.Timestamp)
 	enc.EncodeCosiSignature(s.Signature)
-	return enc.Bytes()
 }
 
 func (enc *Encoder) EncodeTransaction(signed *SignedTransaction) []byte {
@@ -247,8 +265,16 @@ func uint64ToBytes(d uint64) []byte {
 }
 
 func (enc *Encoder) EncodeCosiSignature(s *crypto.CosiSignature) {
-	enc.Write(s.Signature[:])
+	if s == nil {
+		enc.WriteUint64(0)
+		return
+	}
+
+	if s.Mask == 0 {
+		panic(s.Signature)
+	}
 	enc.WriteUint64(s.Mask)
+	enc.Write(s.Signature[:])
 }
 
 func (enc *Encoder) EncodeAggregatedSignature(js *AggregatedSignature) {

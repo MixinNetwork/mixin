@@ -113,7 +113,7 @@ func (chain *Chain) importSnapshot(s *common.SnapshotWithTopologicalOrder, tx *c
 	}
 
 	for {
-		err = chain.AppendFinalSnapshot(chain.node.IdForNetwork, &s.Snapshot)
+		err = chain.AppendFinalSnapshot(chain.node.IdForNetwork, s.Snapshot)
 		if err != nil {
 			time.Sleep(3 * time.Second)
 		} else {

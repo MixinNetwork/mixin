@@ -17,7 +17,7 @@ func NewDecoder(b []byte) *Decoder {
 	return &Decoder{buf: bytes.NewReader(b)}
 }
 
-func (dec *Decoder) DecodeSnapshot() (*Snapshot, error) {
+func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, error) {
 	b := make([]byte, 4)
 	err := dec.Read(b)
 	if err != nil {
@@ -41,16 +41,11 @@ func (dec *Decoder) DecodeSnapshot() (*Snapshot, error) {
 	}
 	s.RoundNumber = rn
 
-	var rl RoundLink
-	err = dec.Read(rl.Self[:])
+	rl, err := dec.ReadReferences()
 	if err != nil {
 		return nil, err
 	}
-	err = dec.Read(rl.External[:])
-	if err != nil {
-		return nil, err
-	}
-	s.References = &rl
+	s.References = rl
 
 	tl, err := dec.ReadInt()
 	if err != nil {
@@ -79,7 +74,21 @@ func (dec *Decoder) DecodeSnapshot() (*Snapshot, error) {
 		return nil, err
 	}
 	s.Signature = cs
-	return &s, nil
+
+	topo := SnapshotWithTopologicalOrder{Snapshot: &s}
+	if s.Signature != nil {
+		num, err := dec.ReadUint64()
+		if err != nil {
+			return nil, err
+		}
+		topo.TopologicalOrder = num
+	}
+
+	es, err := dec.buf.ReadByte()
+	if err != io.EOF || es != 0 {
+		return nil, fmt.Errorf("unexpected ending %d %v", es, err)
+	}
+	return &topo, nil
 }
 
 func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
@@ -435,17 +444,38 @@ func (dec *Decoder) ReadMagic() (bool, error) {
 	return false, fmt.Errorf("malformed %v", b)
 }
 
-func (dec *Decoder) ReadCosiSignature() (*crypto.CosiSignature, error) {
-	var s crypto.CosiSignature
-	err := dec.Read(s.Signature[:])
+func (dec *Decoder) ReadReferences() (*RoundLink, error) {
+	rc, err := dec.ReadInt()
 	if err != nil {
 		return nil, err
 	}
-	m, err := dec.ReadUint64()
+	if rc != 2 {
+		return nil, fmt.Errorf("invalid referces count %d", rc)
+	}
+	var rl RoundLink
+	err = dec.Read(rl.Self[:])
 	if err != nil {
+		return nil, err
+	}
+	err = dec.Read(rl.External[:])
+	if err != nil {
+		return nil, err
+	}
+	return &rl, nil
+}
+
+func (dec *Decoder) ReadCosiSignature() (*crypto.CosiSignature, error) {
+	var s crypto.CosiSignature
+	m, err := dec.ReadUint64()
+	if err != nil || m == 0 {
 		return nil, err
 	}
 	s.Mask = m
+
+	err = dec.Read(s.Signature[:])
+	if err != nil {
+		return nil, err
+	}
 	return &s, nil
 }
 
