@@ -69,7 +69,7 @@ func (s *BadgerStore) ReadSnapshotWithTransactionsSinceTopology(topologyOffset, 
 	defer txn.Discard()
 
 	for i, s := range snapshots {
-		tx, err := readTransaction(txn, s.Transaction)
+		tx, err := readTransaction(txn, s.SoleTransaction())
 		if err != nil {
 			return nil, nil, err
 		}
@@ -139,7 +139,7 @@ func (s *BadgerStore) TopologySequence() uint64 {
 
 func writeTopology(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder) error {
 	key := graphTopologyKey(snap.TopologicalOrder)
-	val := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction)
+	val := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.SoleTransaction())
 	_, err := txn.Get(key)
 	if err != badger.ErrKeyNotFound {
 		panic(err)

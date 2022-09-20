@@ -34,6 +34,9 @@ const (
 )
 
 type Custom struct {
+	Consensus struct {
+		SnapshotCommonEncodingMint int `toml:"snapshot-common-encoding-mint"`
+	} `toml:"consensus"`
 	Node struct {
 		Signer               crypto.Key `toml:"-"`
 		SignerStr            string     `toml:"signer-key"`

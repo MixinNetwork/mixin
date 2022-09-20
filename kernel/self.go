@@ -13,7 +13,7 @@ import (
 )
 
 func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool) (*common.VersionedTransaction, bool, error) {
-	tx, snap, err := node.persistStore.ReadTransaction(s.Transaction)
+	tx, snap, err := node.persistStore.ReadTransaction(s.SoleTransaction())
 	if err == nil && tx != nil {
 		err = node.validateKernelSnapshot(s, tx, finalized)
 	}
@@ -21,7 +21,7 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 		return tx, len(snap) > 0, err
 	}
 
-	tx, err = node.persistStore.CacheGetTransaction(s.Transaction)
+	tx, err = node.persistStore.CacheGetTransaction(s.SoleTransaction())
 	if err != nil || tx == nil {
 		return nil, false, err
 	}

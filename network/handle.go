@@ -314,7 +314,7 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage) {
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotConfirm %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
 			me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash)
 		case PeerMessageTypeSnapshotAnnouncement:
-			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotAnnouncement %s %s\n", peer.IdForNetwork, msg.Snapshot.Transaction)
+			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotAnnouncement %s %s\n", peer.IdForNetwork, msg.Snapshot.SoleTransaction())
 			me.handle.CosiQueueExternalAnnouncement(peer.IdForNetwork, msg.Snapshot, &msg.Commitment)
 		case PeerMessageTypeSnapshotCommitment:
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotCommitment %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
@@ -326,7 +326,7 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage) {
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotResponse %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
 			me.handle.CosiAggregateSelfResponses(peer.IdForNetwork, msg.SnapshotHash, &msg.Response)
 		case PeerMessageTypeSnapshotFinalization:
-			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotFinalization %s %s\n", peer.IdForNetwork, msg.Snapshot.Transaction)
+			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotFinalization %s %s\n", peer.IdForNetwork, msg.Snapshot.SoleTransaction())
 			me.handle.VerifyAndQueueAppendSnapshotFinalization(peer.IdForNetwork, msg.Snapshot)
 		}
 	}

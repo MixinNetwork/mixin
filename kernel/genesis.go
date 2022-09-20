@@ -80,7 +80,7 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 
 		nodeId := in.Signer.Hash().ForNetwork(networkId)
 		snapshot := &common.Snapshot{
-			Version:     common.SnapshotVersionMsgpackEncoding,
+			Version:     common.SnapshotVersionCommonEncoding,
 			NodeId:      nodeId,
 			RoundNumber: 0,
 			Timestamp:   epoch,
@@ -91,7 +91,7 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 			signed.Version = 1
 			signed, _ = common.UnmarshalVersionedTransaction(signed.Marshal())
 		}
-		snapshot.Transaction = signed.PayloadHash()
+		snapshot.AddSoleTransaction(signed.PayloadHash())
 		snapshot.Hash = snapshot.PayloadHash()
 		topo := &common.SnapshotWithTopologicalOrder{
 			Snapshot:         snapshot,
@@ -168,15 +168,15 @@ func buildDomainSnapshot(networkId crypto.Hash, epoch uint64, domain common.Addr
 	}
 	nodeId := domain.Hash().ForNetwork(networkId)
 	snapshot := &common.Snapshot{
-		Version:     common.SnapshotVersionMsgpackEncoding,
+		Version:     common.SnapshotVersionCommonEncoding,
 		NodeId:      nodeId,
-		Transaction: signed.PayloadHash(),
 		RoundNumber: 0,
 		Timestamp:   epoch + 1,
 	}
 	if networkId.String() == config.MainnetId {
 		snapshot.Version = 0
 	}
+	snapshot.AddSoleTransaction(signed.PayloadHash())
 	return &common.SnapshotWithTopologicalOrder{
 		Snapshot:         snapshot,
 		TopologicalOrder: uint64(len(gns.Nodes)),

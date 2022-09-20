@@ -46,7 +46,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 				"round":       s.RoundNumber,
 				"timestamp":   s.Timestamp,
 				"hash":        s.Hash,
-				"transaction": s.Transaction,
+				"transaction": s.SoleTransaction(),
 				"signature":   s.Signature,
 			}
 		}

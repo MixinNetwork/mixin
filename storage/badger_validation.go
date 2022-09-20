@@ -71,7 +71,7 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash, depth u
 		}
 		for _, s := range snapshots {
 			total += 1
-			item, err := txn.Get(graphTransactionKey(s.Transaction))
+			item, err := txn.Get(graphTransactionKey(s.SoleTransaction()))
 			if err != nil {
 				return total, invalid, err
 			}
@@ -83,11 +83,11 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash, depth u
 			if err != nil {
 				return total, invalid, err
 			}
-			if s.Transaction.String() != ver.PayloadHash().String() {
-				logger.Printf("MALFORMED TRANSACTION %s %s %#v\n", s.Transaction, ver.PayloadHash(), ver)
+			if s.SoleTransaction().String() != ver.PayloadHash().String() {
+				logger.Printf("MALFORMED TRANSACTION %s %s %#v\n", s.SoleTransaction(), ver.PayloadHash(), ver)
 				invalid += 1
 			}
-			item, err = txn.Get(graphFinalizationKey(s.Transaction))
+			item, err = txn.Get(graphFinalizationKey(s.SoleTransaction()))
 			if err != nil {
 				return total, invalid, err
 			}
@@ -103,7 +103,7 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash, depth u
 			if err != nil {
 				return total, invalid, err
 			}
-			if topo.Transaction.String() != s.Transaction.String() {
+			if topo.SoleTransaction().String() != s.SoleTransaction().String() {
 				logger.Printf("MALFORMED FINALIZATION %s %s\n", s.Hash, topo.Hash)
 				invalid += 1
 			}

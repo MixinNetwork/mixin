@@ -63,9 +63,13 @@ func (enc *Encoder) encodeSnapshotPayload(s *Snapshot, withSig bool) {
 	enc.Write(s.NodeId[:])
 	enc.WriteUint64(s.RoundNumber)
 
-	enc.WriteInt(2)
-	enc.Write(s.References.Self[:])
-	enc.Write(s.References.External[:])
+	if s.References == nil { // genesis
+		enc.WriteInt(0)
+	} else {
+		enc.WriteInt(2)
+		enc.Write(s.References.Self[:])
+		enc.Write(s.References.External[:])
+	}
 
 	enc.WriteInt(len(s.Transactions))
 	sort.Slice(s.Transactions, func(i, j int) bool {

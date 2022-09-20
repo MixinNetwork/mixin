@@ -359,12 +359,14 @@ func (chain *Chain) ConsensusKeys(round, timestamp uint64) ([]crypto.Hash, []*cr
 }
 
 func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool) {
-	if s.Version == 0 {
+	switch s.Version {
+	case 0:
 		return nil, chain.legacyVerifyFinalization(s.Timestamp, s.Signatures)
-	}
-	if s.Version != common.SnapshotVersionMsgpackEncoding || s.Signature == nil {
+	case common.SnapshotVersionMsgpackEncoding, common.SnapshotVersionCommonEncoding:
+	default:
 		return nil, false
 	}
+
 	cids, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	base := chain.node.ConsensusThreshold(s.Timestamp, true)
 	signers, finalized := chain.node.CacheVerifyCosi(s.Hash, s.Signature, cids, publics, base)

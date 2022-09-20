@@ -25,25 +25,25 @@ type RoundLink struct {
 }
 
 type DeprecatedSnapshot struct {
-	NodeId      crypto.Hash
-	Transaction crypto.Hash
-	References  *RoundLink
-	RoundNumber uint64
-	Timestamp   uint64
-	Signatures  []*crypto.Signature
+	NodeId            crypto.Hash
+	TransactionLegacy crypto.Hash `msgpack:"Transaction"`
+	References        *RoundLink
+	RoundNumber       uint64
+	Timestamp         uint64
+	Signatures        []*crypto.Signature
 }
 
 type Snapshot struct {
-	Version      uint8
-	NodeId       crypto.Hash
-	Transaction  crypto.Hash
-	References   *RoundLink
-	RoundNumber  uint64
-	Timestamp    uint64
-	Signatures   []*crypto.Signature   `msgpack:",omitempty"`
-	Signature    *crypto.CosiSignature `msgpack:",omitempty"`
-	Hash         crypto.Hash           `msgpack:"-"`
-	Transactions []crypto.Hash         `msgpack:"-"`
+	Version           uint8
+	NodeId            crypto.Hash
+	TransactionLegacy crypto.Hash `msgpack:"Transaction"`
+	References        *RoundLink
+	RoundNumber       uint64
+	Timestamp         uint64
+	Signatures        []*crypto.Signature   `msgpack:",omitempty"`
+	Signature         *crypto.CosiSignature `msgpack:",omitempty"`
+	Hash              crypto.Hash           `msgpack:"-"`
+	Transactions      []crypto.Hash         `msgpack:"-"`
 }
 
 type SnapshotWithTopologicalOrder struct {
@@ -63,6 +63,26 @@ func (m *RoundLink) Equal(n *RoundLink) bool {
 
 func (m *RoundLink) Copy() *RoundLink {
 	return &RoundLink{Self: m.Self, External: m.External}
+}
+
+func (s *Snapshot) SoleTransaction() crypto.Hash {
+	if s.Version < SnapshotVersionCommonEncoding {
+		return s.TransactionLegacy
+	}
+	if len(s.Transactions) != 1 {
+		panic(*s)
+	}
+	return s.Transactions[0]
+}
+
+func (s *Snapshot) AddSoleTransaction(tx crypto.Hash) {
+	if s.Version < SnapshotVersionCommonEncoding {
+		s.TransactionLegacy = tx
+	} else if len(s.Transactions) == 0 {
+		s.Transactions = []crypto.Hash{tx}
+	} else {
+		panic(s.Transactions[0])
+	}
 }
 
 func UnmarshalVersionedSnapshot(b []byte) (*SnapshotWithTopologicalOrder, error) {
@@ -105,21 +125,21 @@ func (s *Snapshot) VersionedPayload() []byte {
 	switch s.Version {
 	case 0:
 		p := DeprecatedSnapshot{
-			NodeId:      s.NodeId,
-			Transaction: s.Transaction,
-			References:  s.References,
-			RoundNumber: s.RoundNumber,
-			Timestamp:   s.Timestamp,
+			NodeId:            s.NodeId,
+			TransactionLegacy: s.TransactionLegacy,
+			References:        s.References,
+			RoundNumber:       s.RoundNumber,
+			Timestamp:         s.Timestamp,
 		}
 		return MsgpackMarshalPanic(p)
 	case SnapshotVersionMsgpackEncoding:
 		p := Snapshot{
-			Version:     s.Version,
-			NodeId:      s.NodeId,
-			Transaction: s.Transaction,
-			References:  s.References,
-			RoundNumber: s.RoundNumber,
-			Timestamp:   s.Timestamp,
+			Version:           s.Version,
+			NodeId:            s.NodeId,
+			TransactionLegacy: s.TransactionLegacy,
+			References:        s.References,
+			RoundNumber:       s.RoundNumber,
+			Timestamp:         s.Timestamp,
 		}
 		return MsgpackMarshalPanic(p)
 	case SnapshotVersionCommonEncoding:

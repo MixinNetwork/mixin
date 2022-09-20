@@ -29,6 +29,7 @@ type Node struct {
 
 	GraphTimestamp uint64
 	Epoch          uint64
+	LastMint       uint64
 
 	chains                     *chainsMap
 	allNodesSortedWithState    []*CNode
@@ -86,9 +87,15 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 
 	node.LoadNodeConfig()
 
-	err := node.LoadGenesis(dir)
+	mint, err := node.persistStore.ReadLastMintDistribution(common.MintGroupKernelNode)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ReadLastMintDistribution() => %v", err)
+	}
+	node.LastMint = mint.Batch
+
+	err = node.LoadGenesis(dir)
+	if err != nil {
+		return nil, fmt.Errorf("LoadGenesis(%s) => %v", dir, err)
 	}
 	node.TopoCounter = getTopologyCounter(persistStore)
 
@@ -96,7 +103,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 	start := clock.Now()
 	total, invalid, err := node.persistStore.ValidateGraphEntries(node.networkId, 10)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ValidateGraphEntries(%s) => %v", node.networkId, err)
 	} else if invalid > 0 {
 		return nil, fmt.Errorf("validate graph with %d/%d invalid entries", invalid, total)
 	}
@@ -104,12 +111,12 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 
 	err = node.LoadConsensusNodes()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("LoadConsensusNodes() => %v", err)
 	}
 
 	err = node.LoadAllChains(node.persistStore, node.networkId)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("LoadAllChains() => %v", err)
 	}
 
 	logger.Printf("Listen:\t%s\n", addr)
@@ -301,6 +308,13 @@ func (node *Node) LoadConsensusNodes() error {
 	node.acceptedNodeStateSequences = node.buildNodeStateSequences(cnodes, true)
 	node.chain = node.GetOrCreateChain(node.IdForNetwork)
 	return nil
+}
+
+func (node *Node) SnapshotVersion() uint8 {
+	if node.LastMint >= uint64(node.custom.Consensus.SnapshotCommonEncodingMint) {
+		return common.SnapshotVersionCommonEncoding
+	}
+	return common.SnapshotVersionMsgpackEncoding
 }
 
 func (node *Node) PingNeighborsFromConfig() error {

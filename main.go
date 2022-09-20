@@ -71,33 +71,6 @@ func main() {
 			},
 		},
 		{
-			Name:   "clone",
-			Usage:  "Clone a graph to initialize the kernel",
-			Action: cloneCmd,
-			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:    "dir",
-					Aliases: []string{"d"},
-					Usage:   "the kernel data directory",
-				},
-				&cli.StringFlag{
-					Name:    "src",
-					Aliases: []string{"s"},
-					Usage:   "the source graph directory to clone",
-				},
-				&cli.IntFlag{
-					Name:    "log",
-					Aliases: []string{"l"},
-					Value:   logger.INFO,
-					Usage:   "the log level",
-				},
-				&cli.StringFlag{
-					Name:  "filter",
-					Usage: "the RE2 regex pattern to filter log",
-				},
-			},
-		},
-		{
 			Name:   "setuptestnet",
 			Usage:  "Setup the test nodes and genesis",
 			Action: setupTestNetCmd,
@@ -559,46 +532,6 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-}
-
-func cloneCmd(c *cli.Context) error {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
-	logger.SetLevel(c.Int("log"))
-	err := logger.SetFilter(c.String("filter"))
-	if err != nil {
-		return err
-	}
-	custom, err := config.Initialize(c.String("dir") + "/config.toml")
-	if err != nil {
-		return err
-	}
-
-	cache, err := newCache(custom)
-	if err != nil {
-		return err
-	}
-
-	store, err := storage.NewBadgerStore(custom, c.String("dir"))
-	if err != nil {
-		return err
-	}
-	defer store.Close()
-
-	source, err := storage.NewBadgerStore(custom, c.String("src"))
-	if err != nil {
-		return err
-	}
-	defer source.Close()
-
-	node, err := kernel.SetupNode(custom, store, cache, ":12345", c.String("dir"))
-	if err != nil {
-		return err
-	}
-
-	go http.ListenAndServe(":9239", http.DefaultServeMux)
-
-	return node.Import(c.String("dir"), source)
 }
 
 func kernelCmd(c *cli.Context) error {

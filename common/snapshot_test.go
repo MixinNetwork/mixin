@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"testing"
 
 	"github.com/MixinNetwork/mixin/crypto"
@@ -150,4 +151,62 @@ func signLegacy(s *Snapshot, key crypto.Key) {
 		}
 	}
 	s.Signatures = append(s.Signatures, &sig)
+}
+
+func BenchmarkSnapshotMarshal(b *testing.B) {
+	s := &SnapshotWithTopologicalOrder{Snapshot: &Snapshot{Version: SnapshotVersionCommonEncoding}}
+	s.Transactions = []crypto.Hash{crypto.Blake3Hash([]byte("tx-test-id"))}
+
+	s.NodeId = crypto.NewHash([]byte("node-test-id"))
+	s.RoundNumber = 123
+
+	s.References = &RoundLink{
+		Self:     crypto.Blake3Hash([]byte("self-reference")),
+		External: crypto.Blake3Hash([]byte("external-reference")),
+	}
+
+	s.TopologicalOrder = 456
+
+	var sig crypto.CosiSignature
+	sig.Mask ^= (1 << uint64(0))
+	copy(sig.Signature[:], bytes.Repeat([]byte{1, 2, 3, 4}, 16))
+	s.Signature = &sig
+	benchmarkSnapshot(b, s)
+}
+
+func BenchmarkSnapshotMarshalLegacy(b *testing.B) {
+	s := &SnapshotWithTopologicalOrder{Snapshot: &Snapshot{Version: SnapshotVersionMsgpackEncoding}}
+	s.TransactionLegacy = crypto.Blake3Hash([]byte("tx-test-id"))
+
+	s.NodeId = crypto.NewHash([]byte("node-test-id"))
+	s.RoundNumber = 123
+
+	s.References = &RoundLink{
+		Self:     crypto.Blake3Hash([]byte("self-reference")),
+		External: crypto.Blake3Hash([]byte("external-reference")),
+	}
+
+	s.TopologicalOrder = 456
+
+	var sig crypto.CosiSignature
+	sig.Mask ^= (1 << uint64(0))
+	copy(sig.Signature[:], bytes.Repeat([]byte{1, 2, 3, 4}, 16))
+	s.Signature = &sig
+	benchmarkSnapshot(b, s)
+}
+
+func benchmarkSnapshot(b *testing.B, s *SnapshotWithTopologicalOrder) {
+	for _, n := range []int{1, 4, 16, 64, 256} {
+		b.Run(fmt.Sprint(n), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				buf := s.VersionedCompressMarshal()
+				s, err := DecompressUnmarshalVersionedSnapshot(buf)
+				if err != nil {
+					b.Fatal("unmarshal snapshot")
+				}
+				s.PayloadHash()
+			}
+		})
+	}
 }

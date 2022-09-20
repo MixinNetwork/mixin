@@ -107,21 +107,21 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder, s
 		if snap.RoundNumber > 0 && !snap.References.Equal(cache.References) {
 			panic("snapshot references assert error")
 		}
-		ver, err := readTransaction(txn, snap.Transaction)
+		ver, err := readTransaction(txn, snap.SoleTransaction())
 		if err != nil {
 			return err
 		}
 		if ver == nil {
 			panic("snapshot transaction not exist")
 		}
-		key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction)
+		key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.SoleTransaction())
 		_, err = txn.Get(key)
 		if err == nil {
 			panic("snapshot duplication")
 		} else if err != badger.ErrKeyNotFound {
 			return err
 		}
-		key = graphUniqueKey(snap.NodeId, snap.Transaction)
+		key = graphUniqueKey(snap.NodeId, snap.SoleTransaction())
 		_, err = txn.Get(key)
 		if err == nil {
 			panic("snapshot duplication")
@@ -131,7 +131,7 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder, s
 	}
 	// end assert
 
-	ver, err := readTransaction(txn, snap.Transaction)
+	ver, err := readTransaction(txn, snap.SoleTransaction())
 	if err != nil {
 		return err
 	}
@@ -152,14 +152,14 @@ func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder, v
 		return err
 	}
 
-	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.Transaction)
+	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.SoleTransaction())
 	val := snap.VersionedCompressMarshal()
 	err = txn.Set(key, val)
 	if err != nil {
 		return err
 	}
 
-	key = graphUniqueKey(snap.NodeId, snap.Transaction)
+	key = graphUniqueKey(snap.NodeId, snap.SoleTransaction())
 	err = txn.Set(key, []byte{})
 	if err != nil {
 		return err
