@@ -133,7 +133,7 @@ func getSnapshot(node *kernel.Node, store storage.Store, params []interface{}) (
 	if err != nil || snap == nil {
 		return nil, err
 	}
-	tx, _, err := store.ReadTransaction(snap.Transaction)
+	tx, _, err := store.ReadTransaction(snap.SoleTransaction())
 	if err != nil {
 		return nil, err
 	}
@@ -200,12 +200,12 @@ func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx
 	if tx != nil {
 		item["transaction"] = transactionToMap(tx)
 	} else {
-		item["transaction"] = s.Transaction
+		item["transaction"] = s.SoleTransaction()
 	}
 	if sig && s.Version == 0 {
 		item["signatures"] = s.Signatures
 	}
-	if sig && s.Version == common.SnapshotVersionMsgpackEncoding {
+	if sig && s.Version >= common.SnapshotVersionMsgpackEncoding {
 		item["signature"] = s.Signature
 	}
 	return item

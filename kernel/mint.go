@@ -236,11 +236,12 @@ func (node *Node) tryToMintKernelNode() error {
 	if err != nil {
 		return err
 	}
-	return node.chain.AppendSelfEmpty(&common.Snapshot{
-		Version:     common.SnapshotVersionMsgpackEncoding,
-		NodeId:      node.IdForNetwork,
-		Transaction: signed.PayloadHash(),
-	})
+	s := &common.Snapshot{
+		Version: node.SnapshotVersion(),
+		NodeId:  node.IdForNetwork,
+	}
+	s.AddSoleTransaction(signed.PayloadHash())
+	return node.chain.AppendSelfEmpty(s)
 }
 
 func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.VersionedTransaction) error {

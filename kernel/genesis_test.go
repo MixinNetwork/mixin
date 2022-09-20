@@ -50,7 +50,7 @@ func TestGenesis(t *testing.T) {
 		assert.Equal(g.RoundNumber, s.RoundNumber)
 		assert.Equal(g.Timestamp, s.Timestamp)
 		assert.Equal(g.TopologicalOrder, s.TopologicalOrder)
-		assert.Equal(g.Transaction.String(), s.Transaction.String())
+		assert.Equal(g.Transaction.String(), s.SoleTransaction().String())
 		assert.Equal(g.Version, s.Version)
 	}
 }

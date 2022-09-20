@@ -60,8 +60,8 @@ func (node *Node) TopoWrite(s *common.Snapshot, signers []crypto.Hash) *common.S
 	if node.TopoCounter.seq%100000 == 7 {
 		node.TopoCounter.filter = make(map[crypto.Hash]bool)
 	}
-	if !node.TopoCounter.filter[s.Transaction] {
-		node.TopoCounter.filter[s.Transaction] = true
+	if !node.TopoCounter.filter[s.SoleTransaction()] {
+		node.TopoCounter.filter[s.SoleTransaction()] = true
 		node.TopoCounter.count += 1
 	}
 

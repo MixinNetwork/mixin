@@ -76,13 +76,11 @@ func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, err
 	s.Signature = cs
 
 	topo := SnapshotWithTopologicalOrder{Snapshot: &s}
-	if s.Signature != nil {
-		num, err := dec.ReadUint64()
-		if err != nil {
-			return nil, err
-		}
-		topo.TopologicalOrder = num
-	}
+	num, err := dec.ReadUint64()
+	if err == io.EOF && num == 0 {
+		return &topo, nil
+	} // genesis no signature
+	topo.TopologicalOrder = num
 
 	es, err := dec.buf.ReadByte()
 	if err != io.EOF || es != 0 {
@@ -446,7 +444,7 @@ func (dec *Decoder) ReadMagic() (bool, error) {
 
 func (dec *Decoder) ReadReferences() (*RoundLink, error) {
 	rc, err := dec.ReadInt()
-	if err != nil {
+	if err != nil || rc == 0 {
 		return nil, err
 	}
 	if rc != 2 {

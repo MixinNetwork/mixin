@@ -200,11 +200,12 @@ func (node *Node) tryToSendRemoveTransaction() error {
 		return err
 	}
 	chain := node.GetOrCreateChain(node.IdForNetwork)
-	return chain.AppendSelfEmpty(&common.Snapshot{
-		Version:     common.SnapshotVersionMsgpackEncoding,
-		NodeId:      node.IdForNetwork,
-		Transaction: tx.PayloadHash(),
-	})
+	s := &common.Snapshot{
+		Version: chain.node.SnapshotVersion(),
+		NodeId:  node.IdForNetwork,
+	}
+	s.AddSoleTransaction(tx.PayloadHash())
+	return chain.AppendSelfEmpty(s)
 }
 
 func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
@@ -325,11 +326,12 @@ func (chain *Chain) tryToSendAcceptTransaction() error {
 	if err != nil {
 		return err
 	}
-	chain.AppendSelfEmpty(&common.Snapshot{
-		Version:     common.SnapshotVersionMsgpackEncoding,
-		NodeId:      chain.ChainId,
-		Transaction: ver.PayloadHash(),
-	})
+	s := &common.Snapshot{
+		Version: chain.node.SnapshotVersion(),
+		NodeId:  chain.ChainId,
+	}
+	s.AddSoleTransaction(ver.PayloadHash())
+	chain.AppendSelfEmpty(s)
 	logger.Println("tryToSendAcceptTransaction", ver.PayloadHash(), hex.EncodeToString(ver.Marshal()))
 	return nil
 }
@@ -356,6 +358,14 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 }
 
 func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.VersionedTransaction) error {
+	if tx.TransactionType() == common.TransactionTypeMint {
+		mint, err := node.persistStore.ReadLastMintDistribution(common.MintGroupKernelNode)
+		if err != nil {
+			return err
+		}
+		node.LastMint = mint.Batch
+		return nil
+	}
 	switch tx.TransactionType() {
 	case common.TransactionTypeNodePledge,
 		common.TransactionTypeNodeCancel,
