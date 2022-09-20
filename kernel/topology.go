@@ -41,7 +41,7 @@ type SnapshotWitness struct {
 }
 
 func (node *Node) WitnessSnapshot(s *common.SnapshotWithTopologicalOrder) *SnapshotWitness {
-	msg := crypto.NewHash(common.MsgpackMarshalPanic(s))
+	msg := crypto.Blake3Hash(s.VersionedMarshal())
 	sig := node.Signer.PrivateSpendKey.Sign(msg[:])
 	return &SnapshotWitness{
 		Signature: &sig,

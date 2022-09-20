@@ -202,6 +202,9 @@ func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx
 	} else {
 		item["transaction"] = s.SoleTransaction()
 	}
+	if s.Version >= common.SnapshotVersionCommonEncoding {
+		item["transactions"] = []interface{}{item["transaction"]}
+	}
 	if sig && s.Version == 0 {
 		item["signatures"] = s.Signatures
 	}
