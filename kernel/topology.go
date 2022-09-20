@@ -67,7 +67,7 @@ func (node *Node) TopoWrite(s *common.Snapshot, signers []crypto.Hash) *common.S
 
 	node.TopoCounter.seq += 1
 	topo := &common.SnapshotWithTopologicalOrder{
-		Snapshot:         *s,
+		Snapshot:         s,
 		TopologicalOrder: node.TopoCounter.seq,
 	}
 	err := node.persistStore.WriteSnapshot(topo, signers)

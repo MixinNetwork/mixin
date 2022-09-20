@@ -55,7 +55,7 @@ func getRoundByNumber(kn *kernel.Node, store storage.Store, params []interface{}
 	} else if len(snapshots) > 0 {
 		rawSnapshots := make([]*common.Snapshot, len(snapshots))
 		for i, s := range snapshots {
-			rawSnapshots[i] = &s.Snapshot
+			rawSnapshots[i] = s.Snapshot
 		}
 		start, end, hash = kernel.ComputeRoundHash(node, number, rawSnapshots)
 		round, err := store.ReadRound(hash)
@@ -109,7 +109,7 @@ func getRoundByHash(kn *kernel.Node, store storage.Store, params []interface{}) 
 	} else if len(snapshots) > 0 {
 		rawSnapshots := make([]*common.Snapshot, len(snapshots))
 		for i, s := range snapshots {
-			rawSnapshots[i] = &s.Snapshot
+			rawSnapshots[i] = s.Snapshot
 		}
 		s, e, h := kernel.ComputeRoundHash(round.NodeId, round.Number, rawSnapshots)
 		if h != hash {

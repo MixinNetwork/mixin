@@ -142,7 +142,7 @@ func buildGossipNeighborsMessage(neighbors []*Peer) []byte {
 }
 
 func buildSnapshotAnnouncementMessage(s *common.Snapshot, R crypto.Key) []byte {
-	data := common.MsgpackMarshalPanic(s)
+	data := s.VersionedMarshal()
 	data = append(R[:], data...)
 	return append([]byte{PeerMessageTypeSnapshotAnnouncement}, data...)
 }
@@ -176,7 +176,7 @@ func buildSnapshotResponseMessage(snap crypto.Hash, si *[32]byte) []byte {
 }
 
 func buildSnapshotFinalizationMessage(s *common.Snapshot) []byte {
-	data := common.MsgpackMarshalPanic(s)
+	data := s.VersionedMarshal()
 	return append([]byte{PeerMessageTypeSnapshotFinalization}, data...)
 }
 

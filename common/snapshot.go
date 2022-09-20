@@ -47,7 +47,7 @@ type Snapshot struct {
 }
 
 type SnapshotWithTopologicalOrder struct {
-	Snapshot
+	*Snapshot
 	TopologicalOrder uint64
 }
 
@@ -63,6 +63,42 @@ func (m *RoundLink) Equal(n *RoundLink) bool {
 
 func (m *RoundLink) Copy() *RoundLink {
 	return &RoundLink{Self: m.Self, External: m.External}
+}
+
+func UnmarshalVersionedSnapshot(b []byte) (*SnapshotWithTopologicalOrder, error) {
+	if len(b) > 512 {
+		return nil, fmt.Errorf("snapshot too large %d", len(b))
+	}
+	if checkTxVersion(b) < SnapshotVersionCommonEncoding {
+		var snap SnapshotWithTopologicalOrder
+		err := MsgpackUnmarshal(b, &snap)
+		return &snap, err
+	}
+	return NewDecoder(b).DecodeSnapshotWithTopo()
+}
+
+func DecompressUnmarshalVersionedSnapshot(b []byte) (*SnapshotWithTopologicalOrder, error) {
+	return UnmarshalVersionedSnapshot(Decompress(b))
+}
+
+func (s *SnapshotWithTopologicalOrder) VersionedCompressMarshal() []byte {
+	return Compress(s.VersionedMarshal())
+}
+
+func (s *SnapshotWithTopologicalOrder) VersionedMarshal() []byte {
+	switch s.Version {
+	case SnapshotVersionCommonEncoding:
+		return NewEncoder().EncodeSnapshotWithTopo(s)
+	case 0, SnapshotVersionMsgpackEncoding:
+		return MsgpackMarshalPanic(s)
+	default:
+		panic(s.Version)
+	}
+}
+
+func (s *Snapshot) VersionedMarshal() []byte {
+	topo := &SnapshotWithTopologicalOrder{Snapshot: s}
+	return topo.VersionedMarshal()
 }
 
 func (s *Snapshot) VersionedPayload() []byte {
@@ -95,7 +131,7 @@ func (s *Snapshot) VersionedPayload() []byte {
 			Transactions: s.Transactions,
 			Timestamp:    s.Timestamp,
 		}
-		return NewEncoder().EncodeSnapshot(p)
+		return NewEncoder().EncodeSnapshotPayload(p)
 	default:
 		panic(fmt.Errorf("invalid snapshot version %d", s.Version))
 	}
