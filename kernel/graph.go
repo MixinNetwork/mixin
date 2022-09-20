@@ -367,6 +367,10 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 		return nil, false
 	}
 
+	if s.Signature == nil { // only genesis transaction can be valid at this situation
+		return nil, false
+	}
+
 	cids, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	base := chain.node.ConsensusThreshold(s.Timestamp, true)
 	signers, finalized := chain.node.CacheVerifyCosi(s.Hash, s.Signature, cids, publics, base)

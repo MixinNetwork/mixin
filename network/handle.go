@@ -244,13 +244,14 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 			return nil, fmt.Errorf("invalid announcement message size %d", len(data[1:]))
 		}
 		copy(msg.Commitment[:], data[1:])
-		err := common.MsgpackUnmarshal(data[33:], &msg.Snapshot)
+		snap, err := common.UnmarshalVersionedSnapshot(data[33:])
 		if err != nil {
 			return nil, err
 		}
-		if msg.Snapshot == nil {
+		if snap == nil {
 			return nil, fmt.Errorf("invalid snapshot announcement message data")
 		}
+		msg.Snapshot = snap.Snapshot
 	case PeerMessageTypeSnapshotCommitment:
 		if len(data[1:]) != 65 {
 			return nil, fmt.Errorf("invalid commitment message size %d", len(data[1:]))
@@ -279,13 +280,14 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		copy(msg.SnapshotHash[:], data[1:])
 		copy(msg.Response[:], data[33:])
 	case PeerMessageTypeSnapshotFinalization:
-		err := common.MsgpackUnmarshal(data[1:], &msg.Snapshot)
+		snap, err := common.UnmarshalVersionedSnapshot(data[1:])
 		if err != nil {
 			return nil, err
 		}
-		if msg.Snapshot == nil {
+		if snap == nil {
 			return nil, fmt.Errorf("invalid snapshot finalization message data")
 		}
+		msg.Snapshot = snap.Snapshot
 	case PeerMessageTypeBundle:
 		msg.Data = data[1:]
 	}

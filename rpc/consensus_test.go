@@ -31,6 +31,14 @@ var (
 )
 
 func TestConsensus(t *testing.T) {
+	testConsensus(t, 0)
+}
+
+func TestConsensusLegacy(t *testing.T) {
+	testConsensus(t, 1234567)
+}
+
+func testConsensus(t *testing.T, snapVersionMint int) {
 	assert := assert.New(t)
 	kernel.TestMockReset()
 
@@ -57,6 +65,7 @@ func TestConsensus(t *testing.T) {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
 		custom, err := config.Initialize(dir + "/config.toml")
 		assert.Nil(err)
+		custom.Consensus.SnapshotCommonEncodingMint = snapVersionMint
 		cache := newCache(custom)
 		store, err := storage.NewBadgerStore(custom, dir)
 		assert.Nil(err)
@@ -195,7 +204,7 @@ func TestConsensus(t *testing.T) {
 	assert.True(gt.Timestamp.Before(epoch.Add(61 * time.Second)))
 	t.Logf("PLEDGE %s\n", input)
 
-	pn, pi, sv := testPledgeNewNode(t, nodes, accounts[0], gdata, plist, input, root)
+	pn, pi, sv := testPledgeNewNode(t, nodes, accounts[0], gdata, plist, input, root, snapVersionMint)
 	defer pi.Teardown()
 	defer sv.Close()
 	time.Sleep(3 * time.Second)
@@ -425,7 +434,9 @@ func testSendDummyTransaction(t *testing.T, nodes []*Node, domain common.Address
 	return hash["hash"]
 }
 
-const configDataTmpl = `[node]
+const configDataTmpl = `[consensus]
+snapshot-common-encoding-mint=0
+[node]
 signer-key = "%s"
 consensus-only = false
 memory-cache-size = 128
@@ -436,7 +447,7 @@ listener = "%s"
 peers = [%s]
 `
 
-func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genesisData []byte, plist, input, root string) (Node, *kernel.Node, *http.Server) {
+func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genesisData []byte, plist, input, root string, snapVersionMint int) (Node, *kernel.Node, *http.Server) {
 	assert := assert.New(t)
 	var signer, payee common.Address
 
@@ -480,6 +491,7 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 
 	custom, err := config.Initialize(dir + "/config.toml")
 	assert.Nil(err)
+	custom.Consensus.SnapshotCommonEncodingMint = snapVersionMint
 	cache := newCache(custom)
 	store, err := storage.NewBadgerStore(custom, dir)
 	assert.Nil(err)
@@ -715,13 +727,13 @@ func testVerifySnapshots(assert *assert.Assertions, nodes []*Node) (map[string]b
 		m, n := make(map[string]bool), make(map[string]bool)
 		for k := range a {
 			s[k] = true
-			t[a[k].Transaction.String()] = true
-			m[a[k].Transaction.String()] = true
+			t[a[k].SoleTransaction().String()] = true
+			m[a[k].SoleTransaction().String()] = true
 		}
 		for k := range b {
 			s[k] = true
-			t[b[k].Transaction.String()] = true
-			n[b[k].Transaction.String()] = true
+			t[b[k].SoleTransaction().String()] = true
+			n[b[k].SoleTransaction().String()] = true
 		}
 		assertKeyEqual(assert, a, b)
 		assert.Equal(len(a), len(b))
@@ -752,17 +764,42 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 		false,
 	})
 
-	var snapshots []*common.Snapshot
-	if err != nil {
-		panic(err)
+	var rss []*struct {
+		Version           uint8                 `json:"version"`
+		NodeId            crypto.Hash           `json:"node_id"`
+		References        *common.RoundLink     `json:"references"`
+		RoundNumber       uint64                `json:"round_number"`
+		Timestamp         uint64                `json:"timestamp"`
+		Signatures        []*crypto.Signature   `json:"signatures"`
+		Signature         *crypto.CosiSignature `json:"signature"`
+		Hash              crypto.Hash           `json:"hash"`
+		Transactions      []crypto.Hash         `json:"transactions"`
+		TransactionLegacy crypto.Hash           `json:"transaction"`
 	}
-	err = json.Unmarshal(data, &snapshots)
+	err = json.Unmarshal(data, &rss)
 	if err != nil {
 		panic(err)
 	}
 	filter := make(map[string]*common.Snapshot)
-	for _, s := range snapshots {
-		filter[s.Hash.String()] = s
+	snapshots := make([]*common.Snapshot, len(rss))
+	for i, s := range rss {
+		snapshots[i] = &common.Snapshot{
+			Version:     s.Version,
+			NodeId:      s.NodeId,
+			RoundNumber: s.RoundNumber,
+			References:  s.References,
+			Timestamp:   s.Timestamp,
+		}
+		switch s.Version {
+		case 0:
+			snapshots[i].Signatures = s.Signatures
+		case 1, 2:
+			snapshots[i].Signature = s.Signature
+		default:
+			panic(s.Version)
+		}
+		snapshots[i].AddSoleTransaction(s.TransactionLegacy)
+		filter[s.Hash.String()] = snapshots[i]
 	}
 	return filter
 }
