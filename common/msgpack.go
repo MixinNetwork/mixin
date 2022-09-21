@@ -29,12 +29,12 @@ var (
 	CompressionVersionLatest = CompressionVersionZero
 )
 
-func Compress(b []byte) []byte {
+func compress(b []byte) []byte {
 	b = zstdEncoder.EncodeAll(b, nil)
 	return append(CompressionVersionLatest, b...)
 }
 
-func Decompress(b []byte) []byte {
+func decompress(b []byte) []byte {
 	header := len(CompressionVersionLatest)
 	if len(b) < header*2 {
 		return nil
@@ -50,16 +50,16 @@ func Decompress(b []byte) []byte {
 	return b
 }
 
-func CompressMsgpackMarshalPanic(val interface{}) []byte {
-	payload := MsgpackMarshalPanic(val)
+func compressMsgpackMarshalPanic(val interface{}) []byte {
+	payload := msgpackMarshalPanic(val)
 	payload = zstdEncoder.EncodeAll(payload, nil)
 	return append(CompressionVersionLatest, payload...)
 }
 
-func DecompressMsgpackUnmarshal(data []byte, val interface{}) error {
+func decompressMsgpackUnmarshal(data []byte, val interface{}) error {
 	header := len(CompressionVersionLatest)
 	if len(data) < header*2 {
-		return MsgpackUnmarshal(data, val)
+		return msgpackUnmarshal(data, val)
 	}
 
 	version := data[:header]
@@ -68,12 +68,12 @@ func DecompressMsgpackUnmarshal(data []byte, val interface{}) error {
 		if err != nil {
 			return err
 		}
-		return MsgpackUnmarshal(payload, val)
+		return msgpackUnmarshal(payload, val)
 	}
-	return MsgpackUnmarshal(data, val)
+	return msgpackUnmarshal(data, val)
 }
 
-func MsgpackMarshalPanic(val interface{}) []byte {
+func msgpackMarshalPanic(val interface{}) []byte {
 	var buf bytes.Buffer
 	enc := msgpack.NewEncoder(&buf).UseCompactEncoding(true).SortMapKeys(true)
 	err := enc.Encode(val)
@@ -83,7 +83,7 @@ func MsgpackMarshalPanic(val interface{}) []byte {
 	return buf.Bytes()
 }
 
-func MsgpackUnmarshal(data []byte, val interface{}) error {
+func msgpackUnmarshal(data []byte, val interface{}) error {
 	err := msgpack.Unmarshal(data, val)
 	if err == nil {
 		return err

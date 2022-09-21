@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	MaximumEncodingInt = 0xFFFF
+	MinimumEncodingVersion = 0x1
+	MaximumEncodingInt     = 0xFFFF
 
 	AggregatedSignaturePrefix       = 0xFF01
 	AggregatedSignatureSparseMask   = byte(0x01)
@@ -27,6 +28,13 @@ type Encoder struct {
 
 func NewEncoder() *Encoder {
 	return &Encoder{buf: new(bytes.Buffer)}
+}
+
+func NewMinimumEncoder() *Encoder {
+	enc := NewEncoder()
+	enc.Write(magic)
+	enc.Write([]byte{0x00, MinimumEncodingVersion})
+	return enc
 }
 
 func (enc *Encoder) Bytes() []byte {
@@ -63,13 +71,7 @@ func (enc *Encoder) encodeSnapshotPayload(s *Snapshot, withSig bool) {
 	enc.Write(s.NodeId[:])
 	enc.WriteUint64(s.RoundNumber)
 
-	if s.References == nil { // genesis
-		enc.WriteInt(0)
-	} else {
-		enc.WriteInt(2)
-		enc.Write(s.References.Self[:])
-		enc.Write(s.References.External[:])
-	}
+	enc.EncodeReferences(s.References)
 
 	enc.WriteInt(len(s.Transactions))
 	sort.Slice(s.Transactions, func(i, j int) bool {
@@ -266,6 +268,16 @@ func uint64ToBytes(d uint64) []byte {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, d)
 	return b
+}
+
+func (enc *Encoder) EncodeReferences(r *RoundLink) {
+	if r == nil { // genesis
+		enc.WriteInt(0)
+	} else {
+		enc.WriteInt(2)
+		enc.Write(r.Self[:])
+		enc.Write(r.External[:])
+	}
 }
 
 func (enc *Encoder) EncodeCosiSignature(s *crypto.CosiSignature) {

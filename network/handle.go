@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -11,6 +12,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/ristretto"
+	"github.com/vmihailenco/msgpack/v4"
 )
 
 const (
@@ -137,7 +139,7 @@ func buildGossipNeighborsMessage(neighbors []*Peer) []byte {
 	for i, p := range neighbors {
 		rns[i] = p.Address
 	}
-	data := common.MsgpackMarshalPanic(rns)
+	data := marshalPeers(rns)
 	return append([]byte{PeerMessageTypeGossipNeighbors}, data...)
 }
 
@@ -194,7 +196,7 @@ func buildTransactionRequestMessage(tx crypto.Hash) []byte {
 }
 
 func buildGraphMessage(points []*SyncPoint) []byte {
-	data := common.MsgpackMarshalPanic(points)
+	data := marshalSyncPoints(points)
 	return append([]byte{PeerMessageTypeGraph}, data...)
 }
 
@@ -217,16 +219,18 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 	msg := &PeerMessage{Type: data[0]}
 	switch msg.Type {
 	case PeerMessageTypeGraph:
-		err := common.MsgpackUnmarshal(data[1:], &msg.Graph)
+		points, err := unmarshalSyncPoints(data[1:])
 		if err != nil {
 			return nil, err
 		}
+		msg.Graph = points
 	case PeerMessageTypePing:
 	case PeerMessageTypeGossipNeighbors:
-		err := common.MsgpackUnmarshal(data[1:], &msg.Neighbors)
+		neighbors, err := unmarshalPeers(data[:1])
 		if err != nil {
 			return nil, err
 		}
+		msg.Neighbors = neighbors
 	case PeerMessageTypeAuthentication:
 		msg.Data = data[1:]
 	case PeerMessageTypeSnapshotConfirm:
@@ -332,4 +336,111 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage) {
 			me.handle.VerifyAndQueueAppendSnapshotFinalization(peer.IdForNetwork, msg.Snapshot)
 		}
 	}
+}
+
+func marshalSyncPoints(points []*SyncPoint) []byte {
+	// FIXME remove this after all nodes upgraded
+	if time.Now().Year() < 2023 {
+		return msgpackMarshalPanic(points)
+	}
+
+	enc := common.NewMinimumEncoder()
+	enc.WriteInt(len(points))
+	for _, p := range points {
+		enc.Write(p.NodeId[:])
+		enc.WriteUint64(p.Number)
+		enc.Write(p.Hash[:])
+	}
+	return enc.Bytes()
+}
+
+func unmarshalSyncPoints(b []byte) ([]*SyncPoint, error) {
+	dec, err := common.NewMinimumDecoder(b)
+	if err != nil {
+		var points []*SyncPoint
+		err = msgpackUnmarshal(b, &points)
+		return points, err
+	}
+	count, err := dec.ReadInt()
+	if err != nil {
+		return nil, err
+	}
+	points := make([]*SyncPoint, count)
+	for i := range points {
+		var p SyncPoint
+		err = dec.Read(p.NodeId[:])
+		if err != nil {
+			return nil, err
+		}
+		num, err := dec.ReadUint64()
+		if err != nil {
+			return nil, err
+		}
+		p.Number = num
+		err = dec.Read(p.Hash[:])
+		if err != nil {
+			return nil, err
+		}
+		points[i] = &p
+	}
+	return points, nil
+}
+
+func marshalPeers(peers []string) []byte {
+	if time.Now().Year() < 2023 {
+		return msgpackMarshalPanic(peers)
+	}
+
+	enc := common.NewMinimumEncoder()
+	enc.WriteInt(len(peers))
+	for _, p := range peers {
+		enc.WriteInt(len(p))
+		enc.Write([]byte(p))
+	}
+	return enc.Bytes()
+}
+
+func unmarshalPeers(b []byte) ([]string, error) {
+	dec, err := common.NewMinimumDecoder(b)
+	if err != nil {
+		var peers []string
+		err = msgpackUnmarshal(b, &peers)
+		return peers, err
+	}
+	count, err := dec.ReadInt()
+	if err != nil {
+		return nil, err
+	}
+	peers := make([]string, count)
+	for i := range peers {
+		as, err := dec.ReadInt()
+		if err != nil {
+			return nil, err
+		}
+		addr := make([]byte, as)
+		err = dec.Read(addr)
+		if err != nil {
+			return nil, err
+		}
+		peers[i] = string(addr)
+	}
+	return peers, nil
+}
+
+func msgpackMarshalPanic(val interface{}) []byte {
+	var buf bytes.Buffer
+	enc := msgpack.NewEncoder(&buf).UseCompactEncoding(true).SortMapKeys(true)
+	err := enc.Encode(val)
+	if err != nil {
+		panic(fmt.Errorf("MsgpackMarshalPanic: %#v %s", val, err.Error()))
+	}
+	return buf.Bytes()
+}
+
+func msgpackUnmarshal(data []byte, val interface{}) error {
+	err := msgpack.Unmarshal(data, val)
+	if err == nil {
+		return err
+	}
+	return fmt.Errorf("MsgpackUnmarshal: %s %s", hex.EncodeToString(data), err.Error())
 }

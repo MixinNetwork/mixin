@@ -71,3 +71,68 @@ func (tx *Transaction) AddKernelNodeMintInput(batch uint64, amount Integer) {
 		},
 	})
 }
+
+func (m *MintDistribution) CompressMarshal() []byte {
+	return compress(m.Marshal())
+}
+
+func DecompressUnmarshalMintDistribution(b []byte) (*MintDistribution, error) {
+	d := decompress(b)
+	if d == nil {
+		d = b
+	}
+	return UnmarshalMintDistribution(d)
+}
+
+func (m *MintDistribution) Marshal() []byte {
+	enc := NewMinimumEncoder()
+	switch m.Group {
+	case MintGroupKernelNode:
+		enc.WriteUint16(0x1)
+	default:
+		panic(m.Group)
+	}
+	enc.WriteUint64(m.Batch)
+	enc.WriteInteger(m.Amount)
+	enc.Write(m.Transaction[:])
+	return enc.Bytes()
+}
+
+func UnmarshalMintDistribution(b []byte) (*MintDistribution, error) {
+	if len(b) < 16 {
+		return nil, fmt.Errorf("invalid mint distribution size %d", len(b))
+	}
+
+	var m MintDistribution
+	dec, err := NewMinimumDecoder(b)
+	if err != nil {
+		err := msgpackUnmarshal(b, &m)
+		return &m, err
+	}
+
+	group, err := dec.ReadUint16()
+	if err != nil {
+		return nil, err
+	}
+	switch group {
+	case 0x1:
+		m.Group = MintGroupKernelNode
+	default:
+		return nil, fmt.Errorf("invalid mint distribution group %d", group)
+	}
+
+	batch, err := dec.ReadUint64()
+	if err != nil {
+		return nil, err
+	}
+	m.Batch = batch
+
+	amount, err := dec.ReadInteger()
+	if err != nil {
+		return nil, err
+	}
+	m.Amount = amount
+
+	err = dec.Read(m.Transaction[:])
+	return &m, err
+}

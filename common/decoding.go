@@ -17,6 +17,17 @@ func NewDecoder(b []byte) *Decoder {
 	return &Decoder{buf: bytes.NewReader(b)}
 }
 
+func NewMinimumDecoder(b []byte) (*Decoder, error) {
+	if len(b) < 4 {
+		return nil, fmt.Errorf("invalid encoding version %x", b)
+	}
+	v := append(magic, 0, MinimumEncodingVersion)
+	if !bytes.Equal(v, b[:4]) {
+		return nil, fmt.Errorf("invalid encoding version %x", b)
+	}
+	return NewDecoder(b[4:]), nil
+}
+
 func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, error) {
 	b := make([]byte, 4)
 	err := dec.Read(b)

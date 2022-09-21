@@ -33,8 +33,7 @@ func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) 
 		if err != nil {
 			return nil, nil, err
 		}
-		var data common.MintDistribution
-		err = common.MsgpackUnmarshal(ival, &data)
+		data, err := common.DecompressUnmarshalMintDistribution(ival)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -57,7 +56,7 @@ func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) 
 		}
 
 		transactions = append(transactions, tx)
-		mints = append(mints, &data)
+		mints = append(mints, data)
 	}
 
 	return mints, transactions, nil
@@ -82,8 +81,7 @@ func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistri
 		if err != nil {
 			return nil, err
 		}
-		var data common.MintDistribution
-		err = common.MsgpackUnmarshal(ival, &data)
+		data, err := common.DecompressUnmarshalMintDistribution(ival)
 		if err != nil {
 			return nil, err
 		}
@@ -141,14 +139,12 @@ func readMintInput(txn *badger.Txn, mint *common.MintData) (*common.MintDistribu
 	if err != nil {
 		return nil, err
 	}
-	var dist common.MintDistribution
-	err = common.MsgpackUnmarshal(ival, &dist)
-	return &dist, err
+	return common.DecompressUnmarshalMintDistribution(ival)
 }
 
 func writeMintDistribution(txn *badger.Txn, mint *common.MintData, tx crypto.Hash) error {
 	key := graphMintKey(mint.Group, mint.Batch)
-	val := common.MsgpackMarshalPanic(mint.Distribute(tx))
+	val := mint.Distribute(tx).CompressMarshal()
 	return txn.Set(key, val)
 }
 

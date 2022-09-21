@@ -91,18 +91,22 @@ func UnmarshalVersionedSnapshot(b []byte) (*SnapshotWithTopologicalOrder, error)
 	}
 	if checkTxVersion(b) < SnapshotVersionCommonEncoding {
 		var snap SnapshotWithTopologicalOrder
-		err := MsgpackUnmarshal(b, &snap)
+		err := msgpackUnmarshal(b, &snap)
 		return &snap, err
 	}
 	return NewDecoder(b).DecodeSnapshotWithTopo()
 }
 
 func DecompressUnmarshalVersionedSnapshot(b []byte) (*SnapshotWithTopologicalOrder, error) {
-	return UnmarshalVersionedSnapshot(Decompress(b))
+	d := decompress(b)
+	if d == nil {
+		d = b
+	}
+	return UnmarshalVersionedSnapshot(d)
 }
 
 func (s *SnapshotWithTopologicalOrder) VersionedCompressMarshal() []byte {
-	return Compress(s.VersionedMarshal())
+	return compress(s.VersionedMarshal())
 }
 
 func (s *SnapshotWithTopologicalOrder) VersionedMarshal() []byte {
@@ -110,7 +114,7 @@ func (s *SnapshotWithTopologicalOrder) VersionedMarshal() []byte {
 	case SnapshotVersionCommonEncoding:
 		return NewEncoder().EncodeSnapshotWithTopo(s)
 	case 0, SnapshotVersionMsgpackEncoding:
-		return MsgpackMarshalPanic(s)
+		return msgpackMarshalPanic(s)
 	default:
 		panic(s.Version)
 	}
@@ -131,7 +135,7 @@ func (s *Snapshot) VersionedPayload() []byte {
 			RoundNumber:       s.RoundNumber,
 			Timestamp:         s.Timestamp,
 		}
-		return MsgpackMarshalPanic(p)
+		return msgpackMarshalPanic(p)
 	case SnapshotVersionMsgpackEncoding:
 		p := Snapshot{
 			Version:           s.Version,
@@ -141,7 +145,7 @@ func (s *Snapshot) VersionedPayload() []byte {
 			RoundNumber:       s.RoundNumber,
 			Timestamp:         s.Timestamp,
 		}
-		return MsgpackMarshalPanic(p)
+		return msgpackMarshalPanic(p)
 	case SnapshotVersionCommonEncoding:
 		p := &Snapshot{
 			Version:      s.Version,
@@ -173,4 +177,67 @@ func (tx *VersionedTransaction) LockInputs(locker UTXOLocker, fork bool) error {
 		return locker.LockDepositInput(tx.Inputs[0].Deposit, tx.PayloadHash(), fork)
 	}
 	return locker.LockUTXOs(tx.Inputs, tx.PayloadHash(), fork)
+}
+
+func (r *Round) CompressMarshal() []byte {
+	return compress(r.Marshal())
+}
+
+func DecompressUnmarshalRound(b []byte) (*Round, error) {
+	d := decompress(b)
+	if d == nil {
+		d = b
+	}
+	return UnmarshalRound(d)
+}
+
+func (r *Round) Marshal() []byte {
+	enc := NewMinimumEncoder()
+	enc.Write(r.Hash[:])
+	enc.Write(r.NodeId[:])
+	enc.WriteUint64(r.Number)
+	enc.WriteUint64(r.Timestamp)
+	enc.EncodeReferences(r.References)
+	return enc.Bytes()
+}
+
+func UnmarshalRound(b []byte) (*Round, error) {
+	if len(b) < 16 {
+		return nil, fmt.Errorf("invalid round size %d", len(b))
+	}
+
+	var r Round
+	dec, err := NewMinimumDecoder(b)
+	if err != nil {
+		err := msgpackUnmarshal(b, &r)
+		return &r, err
+	}
+
+	err = dec.Read(r.Hash[:])
+	if err != nil {
+		return nil, err
+	}
+
+	err = dec.Read(r.NodeId[:])
+	if err != nil {
+		return nil, err
+	}
+	num, err := dec.ReadUint64()
+	if err != nil {
+		return nil, err
+	}
+	r.Number = num
+
+	ts, err := dec.ReadUint64()
+	if err != nil {
+		return nil, err
+	}
+	r.Timestamp = ts
+
+	link, err := dec.ReadReferences()
+	if err != nil {
+		return nil, err
+	}
+	r.References = link
+	return &r, err
 }

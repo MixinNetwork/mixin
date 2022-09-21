@@ -110,7 +110,7 @@ func decompressUnmarshalVersionedTransaction(val []byte) (*VersionedTransaction,
 
 	b := val
 	if checkTxVersion(val) < TxVersionCommonEncoding {
-		b = Decompress(val)
+		b = decompress(val)
 	}
 	if checkTxVersion(b) < TxVersionCommonEncoding {
 		return decompressUnmarshalVersionedOne(val)
@@ -160,7 +160,7 @@ func (ver *VersionedTransaction) compressMarshal() []byte {
 	switch ver.Version {
 	case TxVersionCommonEncoding, TxVersionBlake3Hash:
 		b := ver.marshal()
-		return Compress(b)
+		return compress(b)
 	case 0, 1:
 		return compressMarshalV1(ver)
 	default:

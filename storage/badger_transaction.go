@@ -86,8 +86,7 @@ func (s *BadgerStore) WriteTransaction(ver *common.VersionedTransaction) error {
 			if err != nil {
 				panic(fmt.Errorf("UTXO check error %s", err.Error()))
 			}
-			var out common.UTXOWithLock
-			err = common.DecompressMsgpackUnmarshal(ival, &out)
+			out, err := common.DecompressUnmarshalUTXO(ival)
 			if err != nil {
 				panic(fmt.Errorf("UTXO check error %s", err.Error()))
 			}
@@ -175,7 +174,7 @@ func finalizeTransaction(txn *badger.Txn, ver *common.VersionedTransaction, snap
 	return nil
 }
 
-func writeUTXO(txn *badger.Txn, utxo *common.UTXO, extra []byte, timestamp uint64, genesis bool) error {
+func writeUTXO(txn *badger.Txn, utxo *common.UTXOWithLock, extra []byte, timestamp uint64, genesis bool) error {
 	for _, k := range utxo.Keys {
 		key := graphGhostKey(*k)
 
@@ -196,7 +195,7 @@ func writeUTXO(txn *badger.Txn, utxo *common.UTXO, extra []byte, timestamp uint6
 		}
 	}
 	key := graphUtxoKey(utxo.Hash, utxo.Index)
-	val := common.CompressMsgpackMarshalPanic(utxo)
+	val := utxo.CompressMarshal()
 	err := txn.Set(key, val)
 	if err != nil {
 		return err
