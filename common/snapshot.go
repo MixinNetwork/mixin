@@ -86,9 +86,6 @@ func (s *Snapshot) AddSoleTransaction(tx crypto.Hash) {
 }
 
 func UnmarshalVersionedSnapshot(b []byte) (*SnapshotWithTopologicalOrder, error) {
-	if len(b) > 512 {
-		return nil, fmt.Errorf("snapshot too large %d", len(b))
-	}
 	if checkTxVersion(b) < SnapshotVersionCommonEncoding {
 		var snap SnapshotWithTopologicalOrder
 		err := msgpackUnmarshal(b, &snap)
