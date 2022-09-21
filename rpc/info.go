@@ -25,13 +25,9 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	if err != nil {
 		return info, err
 	}
-	md, err := store.ReadLastMintDistribution(common.MintGroupKernelNode)
-	if err != nil {
-		return info, err
-	}
 	info["mint"] = map[string]interface{}{
 		"pool":   pool,
-		"batch":  md.Batch,
+		"batch":  node.LastMint,
 		"pledge": node.PledgeAmount(node.GraphTimestamp),
 	}
 	cacheMap, finalMap := node.LoadRoundGraph()
