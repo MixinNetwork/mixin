@@ -310,6 +310,7 @@ func (node *Node) LoadConsensusNodes() error {
 	return nil
 }
 
+// FIXME remove this after all nodes upgraded
 func (node *Node) SnapshotVersion() uint8 {
 	if node.LastMint >= uint64(node.custom.Consensus.SnapshotCommonEncodingMint) {
 		return common.SnapshotVersionCommonEncoding
