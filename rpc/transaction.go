@@ -191,6 +191,7 @@ func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx
 		"round":      s.RoundNumber,
 		"timestamp":  s.Timestamp,
 		"hash":       s.Hash,
+		"hex":        hex.EncodeToString(s.VersionedMarshal()),
 		"topology":   s.TopologicalOrder,
 		"witness": map[string]interface{}{
 			"signature": wn.Signature,

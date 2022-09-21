@@ -125,7 +125,7 @@ func (s *Snapshot) VersionedMarshal() []byte {
 	return topo.VersionedMarshal()
 }
 
-func (s *Snapshot) VersionedPayload() []byte {
+func (s *Snapshot) versionedPayload() []byte {
 	switch s.Version {
 	case 0:
 		p := DeprecatedSnapshot{
@@ -162,7 +162,7 @@ func (s *Snapshot) VersionedPayload() []byte {
 }
 
 func (s *Snapshot) PayloadHash() crypto.Hash {
-	p := s.VersionedPayload()
+	p := s.versionedPayload()
 	if s.Version < SnapshotVersionCommonEncoding {
 		return crypto.NewHash(p)
 	}

@@ -65,7 +65,9 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
 		custom, err := config.Initialize(dir + "/config.toml")
 		assert.Nil(err)
-		custom.Consensus.SnapshotCommonEncodingMint = snapVersionMint
+		if snapVersionMint == 0 {
+			custom.Consensus.SnapshotCommonEncodingMint = i % 3
+		}
 		cache := newCache(custom)
 		store, err := storage.NewBadgerStore(custom, dir)
 		assert.Nil(err)

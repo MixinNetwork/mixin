@@ -33,6 +33,10 @@ func TestUTXO(t *testing.T) {
 	assert.Equal("fffe02", utxo.Output.Script.String())
 	assert.Len(utxo.Output.Keys, 3)
 	assert.Equal(XINAssetId, utxo.Asset)
+
+	res, err := DecompressUnmarshalUTXO(utxo.CompressMarshal())
+	assert.Nil(err)
+	assert.Equal(msgpackMarshalPanic(res), msgpackMarshalPanic(utxo))
 }
 
 func TestUTXOLegacy(t *testing.T) {
