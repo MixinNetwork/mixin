@@ -226,7 +226,7 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		msg.Graph = points
 	case PeerMessageTypePing:
 	case PeerMessageTypeGossipNeighbors:
-		neighbors, err := unmarshalPeers(data[:1])
+		neighbors, err := unmarshalPeers(data[1:])
 		if err != nil {
 			return nil, err
 		}

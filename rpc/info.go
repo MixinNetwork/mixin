@@ -49,6 +49,9 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 				"transaction": s.SoleTransaction(),
 				"signature":   s.Signature,
 			}
+			if s.Version >= common.SnapshotVersionCommonEncoding {
+				sm[i]["transactions"] = []interface{}{sm[i]["transaction"]}
+			}
 		}
 		cacheGraph[n.String()] = map[string]interface{}{
 			"node":       r.NodeId.String(),

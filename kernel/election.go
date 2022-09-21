@@ -357,7 +357,7 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	return nil
 }
 
-func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.VersionedTransaction) error {
+func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	if tx.TransactionType() == common.TransactionTypeMint {
 		mint, err := node.persistStore.ReadLastMintDistribution(common.MintGroupKernelNode)
 		if err != nil {
@@ -374,7 +374,7 @@ func (node *Node) reloadConsensusNodesList(s *common.Snapshot, tx *common.Versio
 	default:
 		return nil
 	}
-	logger.Printf("reloadConsensusNodesList(%v, %v)\n", s, tx)
+	logger.Printf("reloadConsensusState(%v, %v)\n", s, tx)
 	err := node.LoadConsensusNodes()
 	if err != nil {
 		return err

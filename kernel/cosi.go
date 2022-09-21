@@ -550,7 +550,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse SendSnapshotFinalizationMessage(%s, %s) ERROR %s\n", id, m.SnapshotHash, err.Error())
 		}
 	}
-	return chain.node.reloadConsensusNodesList(s, cd.TX)
+	return chain.node.reloadConsensusState(s, cd.TX)
 }
 
 func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
@@ -606,7 +606,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 		if err != nil {
 			return err
 		}
-		return chain.node.reloadConsensusNodesList(s, tx)
+		return chain.node.reloadConsensusState(s, tx)
 	} else if chain.State == nil {
 		return nil
 	}
@@ -626,7 +626,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 	}
 	chain.AddSnapshot(final, cache, s, signers)
 	m.finalized = true
-	return chain.node.reloadConsensusNodesList(s, tx)
+	return chain.node.reloadConsensusState(s, tx)
 }
 
 func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot, commitment *crypto.Key) error {
