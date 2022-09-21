@@ -184,14 +184,12 @@ func readRound(txn *badger.Txn, hash crypto.Hash) (*common.Round, error) {
 		return nil, err
 	}
 
-	var out common.Round
-	err = common.MsgpackUnmarshal(ival, &out)
-	return &out, err
+	return common.DecompressUnmarshalRound(ival)
 }
 
 func writeRound(txn *badger.Txn, hash crypto.Hash, round *common.Round) error {
 	key := graphRoundKey(hash)
-	val := common.MsgpackMarshalPanic(round)
+	val := round.CompressMarshal()
 	return txn.Set(key, val)
 }
 

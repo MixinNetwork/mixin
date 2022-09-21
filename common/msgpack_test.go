@@ -21,7 +21,7 @@ func TestMsgpack(t *testing.T) {
 
 	charge := NewIntegerFromString(utxoAmount).Sub(NewIntegerFromString(amount))
 	assert.Equal("8273.00000000", charge.String())
-	err := MsgpackUnmarshal(MsgpackMarshalPanic(charge), &charge)
+	err := msgpackUnmarshal(msgpackMarshalPanic(charge), &charge)
 	assert.Nil(err)
 	assert.Equal("8273.00000000", charge.String())
 
@@ -44,7 +44,7 @@ func TestMsgpack(t *testing.T) {
 	traceId, err := uuid.FromString("e3aa9cb9-4a28-11e9-81dd-f23c91a6e1fc")
 	assert.Nil(err)
 	tx.Extra = traceId.Bytes()
-	msg := MsgpackMarshalPanic(tx)
+	msg := msgpackMarshalPanic(tx)
 	signed := &SignedTransaction{Transaction: *tx}
 	mask := parseKeyFromHex(utxoMask)
 	view := sender.Address().PrivateViewKey
@@ -53,12 +53,12 @@ func TestMsgpack(t *testing.T) {
 	sig := priv.Sign(msg)
 	sigs := map[uint16]*crypto.Signature{0: &sig}
 	signed.SignaturesMap = append(signed.SignaturesMap, sigs)
-	raw := MsgpackMarshalPanic(signed)
+	raw := msgpackMarshalPanic(signed)
 
 	assert.Len(hex.EncodeToString(raw), 772)
 
 	var dec SignedTransaction
-	err = MsgpackUnmarshal(raw, &dec)
+	err = msgpackUnmarshal(raw, &dec)
 	assert.Nil(err)
 }
 
@@ -74,7 +74,7 @@ func TestMsgpackV1(t *testing.T) {
 
 	charge := NewIntegerFromString(utxoAmount).Sub(NewIntegerFromString(amount))
 	assert.Equal("8273.00000000", charge.String())
-	err := MsgpackUnmarshal(MsgpackMarshalPanic(charge), &charge)
+	err := msgpackUnmarshal(msgpackMarshalPanic(charge), &charge)
 	assert.Nil(err)
 	assert.Equal("8273.00000000", charge.String())
 
@@ -98,7 +98,7 @@ func TestMsgpackV1(t *testing.T) {
 	traceId, err := uuid.FromString("e3aa9cb9-4a28-11e9-81dd-f23c91a6e1fc")
 	assert.Nil(err)
 	tx.Extra = traceId.Bytes()
-	msg := MsgpackMarshalPanic(tx)
+	msg := msgpackMarshalPanic(tx)
 	signed := &SignedTransactionV1{Transaction: *tx}
 	mask := parseKeyFromHex(utxoMask)
 	view := sender.Address().PrivateViewKey
@@ -106,12 +106,12 @@ func TestMsgpackV1(t *testing.T) {
 	priv := crypto.DeriveGhostPrivateKey(&mask, &view, &spend, uint64(utxoIndex))
 	sig := priv.Sign(msg)
 	signed.SignaturesSliceV1 = append(signed.SignaturesSliceV1, []*crypto.Signature{&sig})
-	raw := MsgpackMarshalPanic(signed)
+	raw := msgpackMarshalPanic(signed)
 
 	assert.Len(hex.EncodeToString(raw), 930)
 
 	var dec SignedTransactionV1
-	err = MsgpackUnmarshal(raw, &dec)
+	err = msgpackUnmarshal(raw, &dec)
 	assert.Nil(err)
 }
 

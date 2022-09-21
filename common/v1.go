@@ -16,7 +16,7 @@ type SignedTransactionV1 struct {
 }
 
 func (signed *SignedTransaction) SignRawV1(key crypto.Key) error {
-	msg := MsgpackMarshalPanic(signed.Transaction)
+	msg := msgpackMarshalPanic(signed.Transaction)
 
 	if len(signed.Inputs) != 1 {
 		return fmt.Errorf("invalid inputs count %d", len(signed.Inputs))
@@ -37,7 +37,7 @@ func (signed *SignedTransaction) SignRawV1(key crypto.Key) error {
 }
 
 func (signed *SignedTransaction) SignInputV1(reader UTXOKeysReader, index int, accounts []*Address) error {
-	msg := MsgpackMarshalPanic(signed.Transaction)
+	msg := msgpackMarshalPanic(signed.Transaction)
 
 	if len(accounts) == 0 {
 		return nil
@@ -360,7 +360,7 @@ func (tx *Transaction) validateNodeCancelV1(store DataStore, msg []byte, sigs []
 
 func decompressUnmarshalVersionedOne(val []byte) (*VersionedTransaction, error) {
 	var v1 SignedTransactionV1
-	err := DecompressMsgpackUnmarshal(val, &v1)
+	err := decompressMsgpackUnmarshal(val, &v1)
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +374,7 @@ func decompressUnmarshalVersionedOne(val []byte) (*VersionedTransaction, error) 
 
 	if ver.Version == 1 && len(ver.Inputs) == 1 && hex.EncodeToString(ver.Inputs[0].Genesis) == config.MainnetId {
 		var ght SignedGenesisHackTransaction
-		err := DecompressMsgpackUnmarshal(val, &ght)
+		err := decompressMsgpackUnmarshal(val, &ght)
 		if err != nil {
 			return nil, err
 		}
@@ -386,7 +386,7 @@ func decompressUnmarshalVersionedOne(val []byte) (*VersionedTransaction, error) 
 
 func unmarshalVersionedOne(val []byte) (*VersionedTransaction, error) {
 	var v1 SignedTransactionV1
-	err := MsgpackUnmarshal(val, &v1)
+	err := msgpackUnmarshal(val, &v1)
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +400,7 @@ func unmarshalVersionedOne(val []byte) (*VersionedTransaction, error) {
 
 	if ver.Version == 1 && len(ver.Inputs) == 1 && hex.EncodeToString(ver.Inputs[0].Genesis) == config.MainnetId {
 		var ght SignedGenesisHackTransaction
-		err := MsgpackUnmarshal(val, &ght)
+		err := msgpackUnmarshal(val, &ght)
 		if err != nil {
 			return nil, err
 		}
@@ -413,9 +413,9 @@ func unmarshalVersionedOne(val []byte) (*VersionedTransaction, error) {
 func compressMarshalV1(ver *VersionedTransaction) []byte {
 	switch ver.Version {
 	case 0:
-		return CompressMsgpackMarshalPanic(ver.BadGenesis)
+		return compressMsgpackMarshalPanic(ver.BadGenesis)
 	case 1:
-		val := CompressMsgpackMarshalPanic(SignedTransactionV1{
+		val := compressMsgpackMarshalPanic(SignedTransactionV1{
 			Transaction:       ver.Transaction,
 			SignaturesSliceV1: ver.SignaturesSliceV1,
 		})
@@ -435,9 +435,9 @@ func compressMarshalV1(ver *VersionedTransaction) []byte {
 func marshalV1(ver *VersionedTransaction) []byte {
 	switch ver.Version {
 	case 0:
-		return MsgpackMarshalPanic(ver.BadGenesis)
+		return msgpackMarshalPanic(ver.BadGenesis)
 	case 1:
-		val := MsgpackMarshalPanic(SignedTransactionV1{
+		val := msgpackMarshalPanic(SignedTransactionV1{
 			Transaction:       ver.Transaction,
 			SignaturesSliceV1: ver.SignaturesSliceV1,
 		})
@@ -457,9 +457,9 @@ func marshalV1(ver *VersionedTransaction) []byte {
 func payloadMarshalV1(ver *VersionedTransaction) []byte {
 	switch ver.Version {
 	case 0:
-		return MsgpackMarshalPanic(ver.BadGenesis.GenesisHackTransaction)
+		return msgpackMarshalPanic(ver.BadGenesis.GenesisHackTransaction)
 	case 1:
-		val := MsgpackMarshalPanic(ver.Transaction)
+		val := msgpackMarshalPanic(ver.Transaction)
 		if ver.Version == 1 && len(ver.Inputs) == 1 && hex.EncodeToString(ver.Inputs[0].Genesis) == config.MainnetId {
 			ver, err := unmarshalVersionedOne(val)
 			if err != nil {

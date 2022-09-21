@@ -80,7 +80,7 @@ func TestSnapshot(t *testing.T) {
 	assert.Equal(crypto.Blake3Hash(s.VersionedPayload()).String(), s.PayloadHash().String())
 	_, err = NewDecoder(s.VersionedCompressMarshal()).DecodeSnapshotWithTopo()
 	assert.NotNil(err)
-	s, err = NewDecoder(Decompress(s.VersionedCompressMarshal())).DecodeSnapshotWithTopo()
+	s, err = NewDecoder(decompress(s.VersionedCompressMarshal())).DecodeSnapshotWithTopo()
 	assert.Nil(err)
 	assert.Equal("0000000028b52ffd0300c118533c6d0500040a77770002088ca294310ed5529cf86b530c8d409d7cdef3c2e352ceeb3ff55b529431fdde007b0002b7342ffb374824d69674054486e71bb8b575a4d961b65ffff647a8e1696f579a0552038ee8ce7c8b0efba019a7c36e86f1b70069553bbb187cfd8e3ca5f14fb10001d694818d674f347b36b0efd75332eadfa73723cd0fb6152da778b91baf9719cc17168a60ce8798b100010102030400000000000001590300d965b57618a60c8e0c", hex.EncodeToString(s.VersionedCompressMarshal()))
 	assert.Equal("e2819adf40b6c92e0155bdb2ac721c6eb14e442633fd59fb7cb7fb03917d02f8", s.PayloadHash().String())

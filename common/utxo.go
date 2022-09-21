@@ -1,6 +1,8 @@
 package common
 
 import (
+	"fmt"
+
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
@@ -57,8 +59,8 @@ type DataStore interface {
 	DomainReader
 }
 
-func (tx *VersionedTransaction) UnspentOutputs() []*UTXO {
-	var utxos []*UTXO
+func (tx *VersionedTransaction) UnspentOutputs() []*UTXOWithLock {
+	var utxos []*UTXOWithLock
 	for i, out := range tx.Outputs {
 		switch out.Type {
 		case OutputTypeScript,
@@ -75,7 +77,7 @@ func (tx *VersionedTransaction) UnspentOutputs() []*UTXO {
 			panic(out.Type)
 		}
 
-		utxo := &UTXO{
+		utxo := UTXO{
 			Input: Input{
 				Hash:  tx.PayloadHash(),
 				Index: i,
@@ -89,7 +91,61 @@ func (tx *VersionedTransaction) UnspentOutputs() []*UTXO {
 			},
 			Asset: tx.Asset,
 		}
-		utxos = append(utxos, utxo)
+		utxos = append(utxos, &UTXOWithLock{UTXO: utxo})
 	}
 	return utxos
+}
+
+func (out *UTXOWithLock) CompressMarshal() []byte {
+	return compress(out.Marshal())
+}
+
+func DecompressUnmarshalUTXO(b []byte) (*UTXOWithLock, error) {
+	d := decompress(b)
+	if d == nil {
+		d = b
+	}
+	return UnmarshalUTXO(d)
+}
+
+func (out *UTXOWithLock) Marshal() []byte {
+	enc := NewMinimumEncoder()
+	enc.Write(out.Asset[:])
+	enc.EncodeInput(&out.Input)
+	enc.EncodeOutput(&out.Output)
+	enc.Write(out.LockHash[:])
+	return enc.Bytes()
+}
+
+func UnmarshalUTXO(b []byte) (*UTXOWithLock, error) {
+	if len(b) < 16 {
+		return nil, fmt.Errorf("invalid UTXO size %d", len(b))
+	}
+
+	var utxo UTXOWithLock
+	dec, err := NewMinimumDecoder(b)
+	if err != nil {
+		err := msgpackUnmarshal(b, &utxo)
+		return &utxo, err
+	}
+
+	err = dec.Read(utxo.Asset[:])
+	if err != nil {
+		return nil, err
+	}
+
+	in, err := dec.ReadInput()
+	if err != nil {
+		return nil, err
+	}
+	utxo.Input = *in
+
+	out, err := dec.ReadOutput()
+	if err != nil {
+		return nil, err
+	}
+	utxo.Output = *out
+
+	err = dec.Read(utxo.LockHash[:])
+	return &utxo, err
 }

@@ -71,17 +71,17 @@ func TestInteger(t *testing.T) {
 
 	m = NewInteger(8273)
 	assert.Equal("8273.00000000", m.String())
-	p = MsgpackMarshalPanic(m)
+	p = msgpackMarshalPanic(m)
 	assert.Equal("c70500c09eec3100", hex.EncodeToString(p))
-	err = MsgpackUnmarshal(p, &m)
+	err = msgpackUnmarshal(p, &m)
 	assert.Nil(err)
 	assert.Equal("8273.00000000", m.String())
 
 	m = NewIntegerFromString("0.00000192")
 	assert.Equal("0.00000192", m.String())
-	p = MsgpackMarshalPanic(m)
+	p = msgpackMarshalPanic(m)
 	assert.Equal("d400c0", hex.EncodeToString(p))
-	err = MsgpackUnmarshal(p, &m)
+	err = msgpackUnmarshal(p, &m)
 	assert.Nil(err)
 	assert.Equal("0.00000192", m.String())
 }
