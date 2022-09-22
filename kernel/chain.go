@@ -85,6 +85,9 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 	if err != nil {
 		panic(err)
 	}
+	if node.GetRemovedOrCancelledNode(chainId) != nil {
+		return chain
+	}
 
 	go chain.AggregateMintWork()
 	go chain.QueuePollSnapshots()
