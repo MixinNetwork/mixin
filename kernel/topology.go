@@ -77,24 +77,32 @@ func (node *Node) TopoWrite(s *common.Snapshot, signers []crypto.Hash) *common.S
 	return topo
 }
 
-func (topo *TopologicalSequence) TopoStats() {
-	durationSeconds := 60
-	for {
-		time.Sleep(time.Duration(durationSeconds) * time.Second)
-		topo.sps = float64(topo.seq-topo.point) / float64(durationSeconds)
-		topo.point = topo.seq
+func (topo *TopologicalSequence) TopoStats(node *Node) {
+	const durationSeconds = 60
 
-		topo.tps = float64(topo.count-topo.check) / float64(durationSeconds)
-		topo.check = topo.count
+	ticker := time.NewTicker(time.Duration(durationSeconds) * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-node.done:
+			return
+		case <-ticker.C:
+			topo.sps = float64(topo.seq-topo.point) / float64(durationSeconds)
+			topo.point = topo.seq
+
+			topo.tps = float64(topo.count-topo.check) / float64(durationSeconds)
+			topo.check = topo.count
+		}
 	}
 }
 
-func getTopologyCounter(store storage.Store) *TopologicalSequence {
+func (node *Node) getTopologyCounter(store storage.Store) *TopologicalSequence {
 	topo := &TopologicalSequence{
 		seq:    store.TopologySequence(),
 		filter: make(map[crypto.Hash]bool),
 	}
 	topo.point = topo.seq
-	go topo.TopoStats()
+	go topo.TopoStats(node)
 	return topo
 }

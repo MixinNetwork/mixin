@@ -97,7 +97,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 	if err != nil {
 		return nil, fmt.Errorf("LoadGenesis(%s) => %v", dir, err)
 	}
-	node.TopoCounter = getTopologyCounter(persistStore)
+	node.TopoCounter = node.getTopologyCounter(persistStore)
 
 	logger.Println("Validating graph entries...")
 	start := clock.Now()
