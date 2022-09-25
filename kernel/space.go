@@ -57,6 +57,9 @@ func (chain *Chain) AggregateRoundSpace() {
 			Round:    round,
 			Duration: nextTime - checkTime,
 		}
+		if space.Round == 0 {
+			space.Duration = 0
+		}
 
 		if space.Duration > uint64(config.CheckpointDuration) {
 			logger.Printf("AggregateRoundSpace(%s) => large gap %d:%d %d", chain.ChainId, batch, round, space.Duration)
