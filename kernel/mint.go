@@ -48,7 +48,6 @@ func (chain *Chain) AggregateMintWork() {
 	}
 	logger.Printf("AggregateMintWork(%s) begin with %d\n", chain.ChainId, round)
 
-	period := time.Duration(chain.node.custom.Node.KernelOprationPeriod) * time.Second
 	fork := uint64(SnapshotRoundDayLeapForkHack.UnixNano())
 	for chain.running {
 		if cs := chain.State; cs == nil {
@@ -87,7 +86,7 @@ func (chain *Chain) AggregateMintWork() {
 		if round < crn {
 			round = round + 1
 		} else {
-			time.Sleep(period)
+			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
 		}
 	}
 
