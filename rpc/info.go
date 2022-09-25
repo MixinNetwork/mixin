@@ -89,8 +89,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	for _, n := range list {
 		switch n.State {
 		case common.NodeStateAccepted, common.NodeStatePledging:
-			space := spaces[n.IdForNetwork]
-			nodes = append(nodes, map[string]interface{}{
+			node := map[string]interface{}{
 				"node":        n.IdForNetwork,
 				"signer":      n.Signer.String(),
 				"payee":       n.Payee.String(),
@@ -99,8 +98,11 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 				"transaction": n.Transaction.String(),
 				"aggregator":  offsets[n.IdForNetwork],
 				"works":       works[n.IdForNetwork],
-				"spaces":      [2]uint64{space.Batch, space.Round},
-			})
+			}
+			if space := spaces[n.IdForNetwork]; space != nil {
+				node["spaces"] = [2]uint64{space.Batch, space.Round}
+			}
+			nodes = append(nodes, node)
 		}
 	}
 	info["graph"] = map[string]interface{}{
