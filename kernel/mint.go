@@ -53,7 +53,7 @@ func (chain *Chain) AggregateMintWork() {
 	for chain.running {
 		if cs := chain.State; cs == nil {
 			logger.Printf("AggregateMintWork(%s) no state yet\n", chain.ChainId)
-			time.Sleep(period)
+			time.Sleep(time.Duration(chain.node.custom.Node.KernelOprationPeriod/2) * time.Second)
 			continue
 		}
 		crn := chain.State.CacheRound.Number
@@ -66,7 +66,7 @@ func (chain *Chain) AggregateMintWork() {
 			continue
 		}
 		if len(snapshots) == 0 {
-			time.Sleep(period)
+			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
 			continue
 		}
 		for chain.running {
