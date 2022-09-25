@@ -99,7 +99,7 @@ func (chain *Chain) readFinalRoundTimestamp(round uint64) (uint64, error) {
 		return 0, err
 	}
 	if r.Timestamp != start || r.Number != round {
-		panic(fmt.Errorf("malformed round attributes %d %d %d %d", round, start, r.Number, r.Timestamp))
+		panic(fmt.Errorf("readFinalRoundTimestamp(%s, %d) => malformed round attributes %d %d", chain.ChainId, round, start, r.Timestamp))
 	}
 	return r.Timestamp, nil
 }

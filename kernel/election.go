@@ -440,7 +440,7 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot, signers []crypt
 			External: external.Hash,
 		},
 	}
-	err = node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, cache.Timestamp)
+	err = node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 	if err != nil {
 		panic(err)
 	}
@@ -561,4 +561,37 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 
 	// FIXME the node operation lock threshold should be optimized on pledging period
 	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2)
+}
+
+func (node *Node) oneTimeHackToFixFirstRounds() {
+	ids := node.ReadAllNodesWithoutState()
+	for _, id := range ids {
+		snapshots, err := node.persistStore.ReadSnapshotsForNodeRound(id, 0)
+		if err != nil {
+			panic(err)
+		}
+		rawSnapshots := make([]*common.Snapshot, len(snapshots))
+		for i, s := range snapshots {
+			rawSnapshots[i] = s.Snapshot
+		}
+		start, _, hash := ComputeRoundHash(id, 0, rawSnapshots)
+		round, err := node.persistStore.ReadRound(hash)
+		if err != nil {
+			panic(err)
+		}
+		if round.NodeId != id || round.Number != 0 {
+			panic(fmt.Errorf("round malformed %s:%d:%d %s:%d:%d", id, 0, start, round.NodeId, round.Number, round.Timestamp))
+		}
+		if round.Timestamp != start && round.Timestamp != start+config.SnapshotRoundGap+1 {
+			panic(fmt.Errorf("round malformed %s:%d:%d %s:%d:%d", id, 0, start, round.NodeId, round.Number, round.Timestamp))
+		}
+		if round.Timestamp == start {
+			continue
+		}
+		round.Timestamp = start
+		err = node.persistStore.HackWriteFirstRoundTimestamp(round, snapshots)
+		if err != nil {
+			panic(err)
+		}
+	}
 }
