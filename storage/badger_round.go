@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 
@@ -119,7 +120,7 @@ func (s *BadgerStore) StartNewRound(node crypto.Hash, number uint64, references 
 	return txn.Commit()
 }
 
-func startNewRound(txn *badger.Txn, node crypto.Hash, number uint64, references *common.RoundLink, finalStart uint64) error {
+func startNewRound(txn *badger.Txn, node crypto.Hash, number uint64, references *common.RoundLink, selfPreviousStart uint64) error {
 	if number != 0 {
 		self, err := readRound(txn, node)
 		if err != nil {
@@ -134,7 +135,7 @@ func startNewRound(txn *badger.Txn, node crypto.Hash, number uint64, references 
 		if err != nil {
 			return err
 		}
-		self.Timestamp = finalStart
+		self.Timestamp = selfPreviousStart
 		err = writeRound(txn, references.Self, self)
 		if err != nil {
 			return err
@@ -185,6 +186,35 @@ func readRound(txn *badger.Txn, hash crypto.Hash) (*common.Round, error) {
 	}
 
 	return common.DecompressUnmarshalRound(ival)
+}
+
+// FIXME remove this
+func (s *BadgerStore) HackWriteFirstRoundTimestamp(round *common.Round, snapshots []*common.SnapshotWithTopologicalOrder) error {
+	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
+		os, _, oh := computeRoundHash(round.NodeId, round.Number, snapshots)
+		if os != round.Timestamp {
+			panic(round.NodeId)
+		}
+
+		old, err := readRound(txn, oh)
+		if err != nil {
+			return err
+		}
+		if old.Timestamp != round.Timestamp+config.SnapshotRoundGap+1 {
+			panic(round.NodeId)
+		}
+		old.Timestamp = round.Timestamp
+
+		ns, _, nh := computeRoundHash(round.NodeId, round.Number, snapshots)
+		if ns != os || nh != oh {
+			panic(round.NodeId)
+		}
+
+		if !bytes.Equal(old.CompressMarshal(), round.CompressMarshal()) {
+			panic(round.NodeId)
+		}
+		return writeRound(txn, nh, round)
+	})
 }
 
 func writeRound(txn *badger.Txn, hash crypto.Hash, round *common.Round) error {

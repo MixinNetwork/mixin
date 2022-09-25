@@ -53,4 +53,6 @@ type Store interface {
 
 	RemoveGraphEntries(prefix string) (int, error)
 	ValidateGraphEntries(networkId crypto.Hash, depth uint64) (int, int, error)
+
+	HackWriteFirstRoundTimestamp(round *common.Round, snapshots []*common.SnapshotWithTopologicalOrder) error
 }

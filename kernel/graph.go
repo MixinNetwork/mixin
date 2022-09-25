@@ -21,15 +21,15 @@ const (
 
 func (chain *Chain) startNewRoundAndPersist(cache *CacheRound, references *common.RoundLink, timestamp uint64, finalized bool) (*CacheRound, *FinalRound, bool, error) {
 	dummyExternal := cache.References.External
-	round, dummy, err := chain.validateNewRound(cache, references, timestamp, finalized)
+	final, dummy, err := chain.validateNewRound(cache, references, timestamp, finalized)
 	if err != nil {
 		return nil, nil, false, err
-	} else if round == nil {
+	} else if final == nil {
 		return nil, nil, false, nil
 	}
 	cache = &CacheRound{
 		NodeId:     chain.ChainId,
-		Number:     round.Number + 1,
+		Number:     final.Number + 1,
 		Timestamp:  timestamp,
 		References: references.Copy(),
 	}
@@ -37,12 +37,12 @@ func (chain *Chain) startNewRoundAndPersist(cache *CacheRound, references *commo
 		cache.References.External = dummyExternal
 	}
 
-	err = chain.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, round.Start)
+	err = chain.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 	if err != nil {
 		panic(err)
 	}
-	chain.assignNewGraphRound(round, cache)
-	return cache, round, dummy, nil
+	chain.assignNewGraphRound(final, cache)
+	return cache, final, dummy, nil
 }
 
 func (chain *Chain) validateNewRound(cache *CacheRound, references *common.RoundLink, timestamp uint64, finalized bool) (*FinalRound, bool, error) {
