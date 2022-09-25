@@ -355,21 +355,13 @@ func (node *Node) distributeMintByWorks(accepted []*CNode, base common.Integer, 
 		return mints, nil
 	}
 
-	works, err := node.persistStore.ListNodeWorks(cids, uint32(day))
+	thr := int(node.ConsensusThreshold(timestamp, false))
+	err := node.validateWorksAndSpacesAggregator(cids, thr, day)
 	if err != nil {
-		return nil, err
-	}
-	thr, agg := int(node.ConsensusThreshold(timestamp, false)), 0
-	for _, w := range works {
-		if w[0] > 0 {
-			agg += 1
-		}
-	}
-	if agg < thr {
-		return nil, fmt.Errorf("distributeMintByWorks not ready yet %d %d %d %d", day, len(mints), agg, thr)
+		return nil, fmt.Errorf("distributeMintByWorks not ready yet %d %v", day, err)
 	}
 
-	works, err = node.persistStore.ListNodeWorks(cids, uint32(day)-1)
+	works, err := node.persistStore.ListNodeWorks(cids, uint32(day)-1)
 	if err != nil {
 		return nil, err
 	}
@@ -425,4 +417,38 @@ func (node *Node) distributeMintByWorks(accepted []*CNode, base common.Integer, 
 		m.Work = rat.Product(base)
 	}
 	return mints, nil
+}
+
+func (node *Node) validateWorksAndSpacesAggregator(cids []crypto.Hash, thr int, day uint64) error {
+	worksAgg, spacesAgg := 0, 0
+
+	works, err := node.persistStore.ListNodeWorks(cids, uint32(day))
+	if err != nil {
+		return err
+	}
+	for _, w := range works {
+		if w[0] > 0 {
+			worksAgg += 1
+		}
+	}
+	if worksAgg < thr {
+		return fmt.Errorf("validateWorksAndSpacesAggregator works not ready yet %d %d %d %d", day, len(works), worksAgg, thr)
+	}
+
+	spaces, err := node.persistStore.ListAggregatedRoundSpaceCheckpoints(cids)
+	if err != nil {
+		return err
+	}
+	epoch := node.Epoch / (uint64(time.Hour) * 24)
+	batch := day - epoch
+	for _, s := range spaces {
+		if s.Batch == batch {
+			spacesAgg += 1
+		}
+	}
+	if spacesAgg < thr || worksAgg != spacesAgg {
+		return fmt.Errorf("validateWorksAndSpacesAggregator spaces not ready yet %d %d %d %d %d", batch, len(spaces), spacesAgg, worksAgg, thr)
+	}
+
+	return nil
 }
