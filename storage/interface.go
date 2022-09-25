@@ -50,6 +50,7 @@ type Store interface {
 	ReadRoundSpaceCheckpoint(nodeId crypto.Hash) (uint64, uint64, error)
 	WriteRoundSpaceAndState(space *common.RoundSpace) error
 	ListAggregatedRoundSpaceCheckpoints(cids []crypto.Hash) (map[crypto.Hash]*common.RoundSpace, error)
+	ReadNodeRoundSpacesForBatch(nodeId crypto.Hash, batch uint64) ([]*common.RoundSpace, error)
 
 	RemoveGraphEntries(prefix string) (int, error)
 	ValidateGraphEntries(networkId crypto.Hash, depth uint64) (int, int, error)

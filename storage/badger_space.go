@@ -30,7 +30,7 @@ func (s *BadgerStore) ListAggregatedRoundSpaceCheckpoints(cids []crypto.Hash) (m
 	return spaces, nil
 }
 
-func (s *BadgerStore) ReadNodeRoundSpaceSForBatch(nodeId crypto.Hash, batch uint64) ([]*common.RoundSpace, error) {
+func (s *BadgerStore) ReadNodeRoundSpacesForBatch(nodeId crypto.Hash, batch uint64) ([]*common.RoundSpace, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
