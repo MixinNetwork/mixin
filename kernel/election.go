@@ -570,7 +570,8 @@ func (node *Node) oneTimeHackToFixFirstRounds() {
 			// cancelled node
 			continue
 		}
-		if node.GetAcceptedOrPledgingNode(id).State == common.NodeStatePledging {
+		if pn := node.GetAcceptedOrPledgingNode(id); pn != nil && pn.State == common.NodeStatePledging {
+			// pledging node
 			continue
 		}
 
