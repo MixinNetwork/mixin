@@ -419,7 +419,7 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot, signers []crypt
 	if err := cache.validateSnapshot(s, true); err != nil {
 		panic("should never be here")
 	}
-	err := node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, cache.Timestamp)
+	err := node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -566,6 +566,14 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 func (node *Node) oneTimeHackToFixFirstRounds() {
 	ids := node.ReadAllNodesWithoutState()
 	for _, id := range ids {
+		if id.String() == "c7d0369e5e2a4c34665b1b52b60739ee9ba5580b5204560fcf83c1a69264fbb3" {
+			// cancelled node
+			continue
+		}
+		if node.GetAcceptedOrPledgingNode(id).State == common.NodeStatePledging {
+			continue
+		}
+
 		snapshots, err := node.persistStore.ReadSnapshotsForNodeRound(id, 0)
 		if err != nil {
 			panic(err)
