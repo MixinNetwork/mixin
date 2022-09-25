@@ -172,6 +172,20 @@ func TestMintWorks(t *testing.T) {
 		assert.Nil(err)
 	}
 
+	batch := (timestamp - node.Epoch) / (24 * uint64(time.Hour))
+	for i, id := range signers {
+		if i == 11 {
+			break
+		}
+		err = node.persistStore.WriteRoundSpaceAndState(&common.RoundSpace{
+			NodeId:   id,
+			Batch:    batch,
+			Round:    0,
+			Duration: 0,
+		})
+		assert.Nil(err)
+	}
+
 	accepted := make([]*CNode, len(signers))
 	for i, id := range signers {
 		accepted[i] = &CNode{IdForNetwork: id}
