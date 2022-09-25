@@ -92,6 +92,9 @@ func (s *BadgerStore) WriteRoundSpaceAndState(space *common.RoundSpace) error {
 		if err != nil || space.Duration == 0 {
 			return err
 		}
+		if space.Round == 0 {
+			panic(fmt.Errorf("WriteRoundSpaceAndState(%v) => first accepted round", space))
+		}
 
 		if space.Duration < uint64(config.CheckpointDuration) {
 			panic(fmt.Errorf("WriteRoundSpaceAndState(%v) => invalid space", space))

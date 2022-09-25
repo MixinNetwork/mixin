@@ -18,12 +18,11 @@ func (chain *Chain) AggregateRoundSpace() {
 		panic(err)
 	}
 	logger.Printf("AggregateRoundSpace(%s) begin with %d:%d\n", chain.ChainId, batch, round)
-	period := time.Duration(config.SnapshotRoundGap / 2)
 
 	for chain.running {
 		if cs := chain.State; cs == nil {
 			logger.Printf("AggregateRoundSpace(%s) no state yet\n", chain.ChainId)
-			time.Sleep(period)
+			time.Sleep(time.Duration(chain.node.custom.Node.KernelOprationPeriod/2) * time.Second)
 			continue
 		}
 		frn := chain.State.FinalRound.Number
@@ -31,7 +30,7 @@ func (chain *Chain) AggregateRoundSpace() {
 			panic(fmt.Errorf("AggregateRoundSpace(%s) waiting %d %d", chain.ChainId, frn, round))
 		}
 		if frn < round+1 {
-			time.Sleep(period)
+			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
 			continue
 		}
 
