@@ -47,6 +47,9 @@ type Store interface {
 	ReadWorkOffset(nodeId crypto.Hash) (uint64, error)
 	WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots []*common.SnapshotWork) error
 
+	ReadRoundSpaceCheckpoint(nodeId crypto.Hash) (uint64, uint64, error)
+	WriteRoundSpaceAndState(space *common.RoundSpace) error
+
 	RemoveGraphEntries(prefix string) (int, error)
 	ValidateGraphEntries(networkId crypto.Hash, depth uint64) (int, int, error)
 }

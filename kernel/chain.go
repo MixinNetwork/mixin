@@ -63,6 +63,7 @@ type Chain struct {
 	plc              chan struct{}
 	clc              chan struct{}
 	wlc              chan struct{}
+	slc              chan struct{}
 	running          bool
 }
 
@@ -78,6 +79,7 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 		plc:              make(chan struct{}),
 		clc:              make(chan struct{}),
 		wlc:              make(chan struct{}),
+		slc:              make(chan struct{}),
 		running:          true,
 	}
 
@@ -90,6 +92,7 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 	}
 
 	go chain.AggregateMintWork()
+	go chain.AggregateRoundSpace()
 	go chain.QueuePollSnapshots()
 	go chain.ConsumeFinalActions()
 	return chain
@@ -134,6 +137,7 @@ func (chain *Chain) Teardown() {
 	<-chain.clc
 	<-chain.plc
 	<-chain.wlc
+	<-chain.slc
 }
 
 func (chain *Chain) IsPledging() bool {
