@@ -111,7 +111,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	assert.Equal(transactionsCount, len(tl))
 	assert.Equal(transactionsCount, len(sl))
 	gt := testVerifyInfo(assert, nodes)
-	assert.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
+	assert.Truef(gt.Timestamp.Before(epoch.Add(7*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(7*time.Second))
 
 	genesisAmount := 10003.5 / float64(INPUTS)
 	domainAddress := accounts[0].String()

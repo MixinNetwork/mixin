@@ -2,7 +2,11 @@
 
 Semantic Versioning
 
-## v0.13 Insomniac Mosquitoes
+## v0.14 Armored Pseudoscorpions Sep 26, 2022
+
+Slashing rules enabled, with updated transaction and snapshot encoding.
+
+## v0.13 Insomniac Mosquitoes Aug 26, 2021
 
 Upgrades the storage format, and optimizes memory usage.
 
