@@ -11,6 +11,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/ristretto"
+	"github.com/vmihailenco/msgpack/v4"
 )
 
 const (
@@ -350,7 +351,9 @@ func marshalSyncPoints(points []*SyncPoint) []byte {
 func unmarshalSyncPoints(b []byte) ([]*SyncPoint, error) {
 	dec, err := common.NewMinimumDecoder(b)
 	if err != nil {
-		return nil, err
+		var points []*SyncPoint
+		err = msgpackUnmarshal(b, &points)
+		return points, err
 	}
 	count, err := dec.ReadInt()
 	if err != nil {
@@ -390,7 +393,9 @@ func marshalPeers(peers []string) []byte {
 func unmarshalPeers(b []byte) ([]string, error) {
 	dec, err := common.NewMinimumDecoder(b)
 	if err != nil {
-		return nil, err
+		var peers []string
+		err = msgpackUnmarshal(b, &peers)
+		return peers, err
 	}
 	count, err := dec.ReadInt()
 	if err != nil {
@@ -410,4 +415,13 @@ func unmarshalPeers(b []byte) ([]string, error) {
 		peers[i] = string(addr)
 	}
 	return peers, nil
+}
+
+// FIXME remove this after next release
+func msgpackUnmarshal(data []byte, val interface{}) error {
+	err := msgpack.Unmarshal(data, val)
+	if err == nil {
+		return err
+	}
+	return fmt.Errorf("MsgpackUnmarshal: %s %s", hex.EncodeToString(data), err.Error())
 }
