@@ -34,10 +34,6 @@ func TestConsensus(t *testing.T) {
 	testConsensus(t, 0)
 }
 
-func TestConsensusLegacy(t *testing.T) {
-	testConsensus(t, 1234567)
-}
-
 func testConsensus(t *testing.T, snapVersionMint int) {
 	assert := assert.New(t)
 	kernel.TestMockReset()
