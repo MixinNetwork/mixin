@@ -11,6 +11,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
+	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
 )
 
@@ -32,6 +33,8 @@ type FinalRound struct {
 
 func (node *Node) LoadAllChains(store storage.Store, networkId crypto.Hash) error {
 	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), false)
+	logger.Printf("node.LoadAllChains(%s) => %d", networkId, len(nodes))
+
 	for _, cn := range nodes {
 		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateCancelled {
 			continue

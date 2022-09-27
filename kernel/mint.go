@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
+	"github.com/dgraph-io/badger/v3"
 )
 
 const (
@@ -47,38 +49,49 @@ func (chain *Chain) AggregateMintWork() {
 	logger.Printf("AggregateMintWork(%s) begin with %d\n", chain.ChainId, round)
 
 	fork := uint64(SnapshotRoundDayLeapForkHack.UnixNano())
+	period := time.Duration(config.SnapshotRoundGap / 2)
+	if chain.node.GetRemovedOrCancelledNode(chain.ChainId) != nil {
+		period = time.Duration(chain.node.custom.Node.KernelOprationPeriod/2) * time.Second
+	}
 	for chain.running {
 		if cs := chain.State; cs == nil {
 			logger.Printf("AggregateMintWork(%s) no state yet\n", chain.ChainId)
 			time.Sleep(time.Duration(chain.node.custom.Node.KernelOprationPeriod/2) * time.Second)
 			continue
 		}
-		frn := chain.State.FinalRound.Number
-		if frn < round {
-			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
-			continue
+		crn := chain.State.CacheRound.Number
+		if crn < round {
+			panic(fmt.Errorf("AggregateMintWork(%s) waiting %d %d", chain.ChainId, crn, round))
 		}
-
 		snapshots, err := chain.persistStore.ReadSnapshotWorksForNodeRound(chain.ChainId, round)
 		if err != nil {
 			logger.Verbosef("AggregateMintWork(%s) ERROR ReadSnapshotsForNodeRound %s\n", chain.ChainId, err.Error())
-			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		if len(snapshots) == 0 {
-			panic(fmt.Errorf("AggregateMintWork(%s) empty round %d", chain.ChainId, round))
-		}
-		if chain.node.networkId.String() == config.MainnetId && snapshots[0].Timestamp < fork {
-			snapshots = nil
-		}
-
-		err = chain.persistStore.WriteRoundWork(chain.ChainId, round, snapshots)
-		if err != nil {
-			logger.Verbosef("AggregateMintWork(%s) ERROR WriteRoundWork %s\n", chain.ChainId, err.Error())
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(period)
 			continue
 		}
-		round = round + 1
+		for chain.running {
+			if chain.node.networkId.String() == config.MainnetId && snapshots[0].Timestamp < fork {
+				snapshots = nil
+			}
+			err = chain.persistStore.WriteRoundWork(chain.ChainId, round, snapshots)
+			if err == nil {
+				break
+			}
+			if errors.Is(err, badger.ErrConflict) {
+				logger.Verbosef("AggregateMintWork(%s) ERROR WriteRoundWork %s\n", chain.ChainId, err.Error())
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			panic(err)
+		}
+		if round < crn {
+			round = round + 1
+		} else {
+			time.Sleep(period)
+		}
 	}
 
 	logger.Printf("AggregateMintWork(%s) end with %d\n", chain.ChainId, round)

@@ -68,6 +68,8 @@ type Chain struct {
 }
 
 func (node *Node) buildChain(chainId crypto.Hash) *Chain {
+	logger.Printf("node.buildChain(%s)", chainId)
+
 	chain := &Chain{
 		node:             node,
 		ChainId:          chainId,
@@ -88,7 +90,10 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 		panic(err)
 	}
 	if node.GetRemovedOrCancelledNode(chainId) != nil {
-		return chain
+		// FIXME
+		// return chain
+		// this comment because we can't ensure the last round of a removed node yet
+		// thus will cause inconsistence when calculate mint works
 	}
 
 	go chain.AggregateMintWork()
