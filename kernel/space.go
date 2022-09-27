@@ -19,6 +19,10 @@ func (chain *Chain) AggregateRoundSpace() {
 	}
 	logger.Printf("AggregateRoundSpace(%s) begin with %d:%d\n", chain.ChainId, batch, round)
 
+	period := time.Duration(config.SnapshotRoundGap / 2)
+	if chain.node.GetRemovedOrCancelledNode(chain.ChainId) != nil {
+		period = time.Duration(chain.node.custom.Node.KernelOprationPeriod/2) * time.Second
+	}
 	for chain.running {
 		if cs := chain.State; cs == nil {
 			logger.Printf("AggregateRoundSpace(%s) no state yet\n", chain.ChainId)
@@ -30,7 +34,7 @@ func (chain *Chain) AggregateRoundSpace() {
 			panic(fmt.Errorf("AggregateRoundSpace(%s) waiting %d %d", chain.ChainId, frn, round))
 		}
 		if frn < round+1 {
-			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
+			time.Sleep(period)
 			continue
 		}
 
