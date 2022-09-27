@@ -1,7 +1,6 @@
 package network
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -12,7 +11,6 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/ristretto"
-	"github.com/vmihailenco/msgpack/v4"
 )
 
 const (
@@ -339,11 +337,6 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage) {
 }
 
 func marshalSyncPoints(points []*SyncPoint) []byte {
-	// FIXME remove this after all nodes upgraded
-	if time.Now().Year() < 2023 {
-		return msgpackMarshalPanic(points)
-	}
-
 	enc := common.NewMinimumEncoder()
 	enc.WriteInt(len(points))
 	for _, p := range points {
@@ -357,9 +350,7 @@ func marshalSyncPoints(points []*SyncPoint) []byte {
 func unmarshalSyncPoints(b []byte) ([]*SyncPoint, error) {
 	dec, err := common.NewMinimumDecoder(b)
 	if err != nil {
-		var points []*SyncPoint
-		err = msgpackUnmarshal(b, &points)
-		return points, err
+		return nil, err
 	}
 	count, err := dec.ReadInt()
 	if err != nil {
@@ -387,10 +378,6 @@ func unmarshalSyncPoints(b []byte) ([]*SyncPoint, error) {
 }
 
 func marshalPeers(peers []string) []byte {
-	if time.Now().Year() < 2023 {
-		return msgpackMarshalPanic(peers)
-	}
-
 	enc := common.NewMinimumEncoder()
 	enc.WriteInt(len(peers))
 	for _, p := range peers {
@@ -403,9 +390,7 @@ func marshalPeers(peers []string) []byte {
 func unmarshalPeers(b []byte) ([]string, error) {
 	dec, err := common.NewMinimumDecoder(b)
 	if err != nil {
-		var peers []string
-		err = msgpackUnmarshal(b, &peers)
-		return peers, err
+		return nil, err
 	}
 	count, err := dec.ReadInt()
 	if err != nil {
@@ -425,22 +410,4 @@ func unmarshalPeers(b []byte) ([]string, error) {
 		peers[i] = string(addr)
 	}
 	return peers, nil
-}
-
-func msgpackMarshalPanic(val interface{}) []byte {
-	var buf bytes.Buffer
-	enc := msgpack.NewEncoder(&buf).UseCompactEncoding(true).SortMapKeys(true)
-	err := enc.Encode(val)
-	if err != nil {
-		panic(fmt.Errorf("MsgpackMarshalPanic: %#v %s", val, err.Error()))
-	}
-	return buf.Bytes()
-}
-
-func msgpackUnmarshal(data []byte, val interface{}) error {
-	err := msgpack.Unmarshal(data, val)
-	if err == nil {
-		return err
-	}
-	return fmt.Errorf("MsgpackUnmarshal: %s %s", hex.EncodeToString(data), err.Error())
 }
