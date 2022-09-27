@@ -240,6 +240,7 @@ func (node *Node) tryToMintKernelNode() error {
 		NodeId:  node.IdForNetwork,
 	}
 	s.AddSoleTransaction(signed.PayloadHash())
+	logger.Println("tryToMintKernelNode", signed.PayloadHash(), hex.EncodeToString(signed.Marshal()))
 	return node.chain.AppendSelfEmpty(s)
 }
 

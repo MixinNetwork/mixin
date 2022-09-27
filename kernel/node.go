@@ -114,9 +114,6 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 		return nil, fmt.Errorf("LoadConsensusNodes() => %v", err)
 	}
 
-	// FIXME remove this
-	node.oneTimeHackToFixFirstRounds()
-
 	err = node.LoadAllChains(node.persistStore, node.networkId)
 	if err != nil {
 		return nil, fmt.Errorf("LoadAllChains() => %v", err)
