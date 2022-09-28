@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel/internal"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
@@ -107,6 +108,10 @@ func (chain *Chain) bootLoops() {
 		// FIXME the timestamp check is because we can't ensure the last
 		// round of a removed node yet thus will cause inconsistence when
 		// calculate mint works
+		return
+	}
+
+	if internal.MockRunAggregators() {
 		return
 	}
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel/internal"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/stretchr/testify/assert"
 )
@@ -61,6 +62,8 @@ func TestMintWorks(t *testing.T) {
 	root, err := os.MkdirTemp("", "mixin-mint-test")
 	assert.Nil(err)
 	defer os.RemoveAll(root)
+
+	internal.ToggleMockRunAggregators(true)
 
 	node := setupTestNode(assert, root)
 	assert.NotNil(node)
