@@ -635,7 +635,7 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 		logger.Verbosef("CosiQueueExternalAnnouncement(%s, %v) from malicious node\n", peerId, s)
 		return nil
 	}
-	chain := node.GetOrCreateChain(s.NodeId)
+	chain := node.getOrCreateChain(s.NodeId)
 
 	s.Hash = s.PayloadHash()
 	m := &CosiAction{
@@ -673,7 +673,7 @@ func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Has
 		logger.Verbosef("CosiQueueExternalChallenge(%s, %s) from malicious node\n", peerId, snap)
 		return nil
 	}
-	chain := node.GetOrCreateChain(peerId)
+	chain := node.getOrCreateChain(peerId)
 
 	m := &CosiAction{
 		PeerId:       peerId,
@@ -726,7 +726,7 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		node.Peer.SendTransactionRequestMessage(peerId, s.SoleTransaction())
 	}
 
-	chain := node.GetOrCreateChain(s.NodeId)
+	chain := node.getOrCreateChain(s.NodeId)
 	if _, finalized := chain.verifyFinalization(s); !finalized {
 		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d %t %v %v\n", peerId, s, node.ConsensusThreshold(s.Timestamp, true), chain.IsPledging(), chain.State, chain.ConsensusInfo)
 		return nil

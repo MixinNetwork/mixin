@@ -31,16 +31,16 @@ type FinalRound struct {
 	Hash   crypto.Hash
 }
 
-func (node *Node) LoadAllChains(store storage.Store, networkId crypto.Hash) error {
+func (node *Node) LoadAllChainsAndGraphTimestamp(store storage.Store, networkId crypto.Hash) error {
 	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), false)
-	logger.Printf("node.LoadAllChains(%s) => %d", networkId, len(nodes))
+	logger.Printf("node.LoadAllChainsAndGraphTimestamp(%s) => %d", networkId, len(nodes))
 
 	for _, cn := range nodes {
 		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateCancelled {
 			continue
 		}
 
-		chain := node.GetOrCreateChain(cn.IdForNetwork)
+		chain := node.getOrCreateChain(cn.IdForNetwork)
 		if chain.State == nil {
 			continue
 		}
@@ -48,6 +48,12 @@ func (node *Node) LoadAllChains(store storage.Store, networkId crypto.Hash) erro
 			node.GraphTimestamp = t
 		}
 	}
+
+	node.chains.RLock()
+	for _, chain := range node.chains.m {
+		chain.bootLoops()
+	}
+	node.chains.RUnlock()
 	return nil
 }
 

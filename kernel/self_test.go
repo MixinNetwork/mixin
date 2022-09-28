@@ -18,11 +18,11 @@ func TestDetermineBestRound(t *testing.T) {
 	node := setupTestNode(assert, root)
 	assert.NotNil(node)
 
-	chain := node.GetOrCreateChain(node.IdForNetwork)
+	chain := node.BootChain(node.IdForNetwork)
 	best := chain.determineBestRound(uint64(clock.Now().UnixNano()))
 	assert.Nil(best)
 
-	chain = node.GetOrCreateChain(node.genesisNodes[0])
+	chain = node.BootChain(node.genesisNodes[0])
 	best = chain.determineBestRound(uint64(clock.Now().UnixNano()))
 	assert.NotNil(best)
 }

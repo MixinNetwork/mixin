@@ -82,28 +82,38 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 		clc:              make(chan struct{}),
 		wlc:              make(chan struct{}),
 		slc:              make(chan struct{}),
-		running:          true,
+		running:          false,
 	}
 
 	err := chain.loadState()
 	if err != nil {
 		panic(err)
 	}
+	return chain
+}
 
-	rn := node.GetRemovedOrCancelledNode(chainId, node.GraphTimestamp)
+func (chain *Chain) bootLoops() {
+	chain.Lock()
+	defer chain.Unlock()
+
+	if chain.running {
+		return
+	}
+	chain.running = true
+
+	rn := chain.node.GetRemovedOrCancelledNode(chain.ChainId, chain.node.GraphTimestamp)
 	threshold := uint64(config.KernelNodeAcceptPeriodMaximum)
-	if rn != nil && rn.Timestamp+threshold < node.GraphTimestamp {
+	if rn != nil && rn.Timestamp+threshold < chain.node.GraphTimestamp {
 		// FIXME the timestamp check is because we can't ensure the last
 		// round of a removed node yet thus will cause inconsistence when
 		// calculate mint works
-		return chain
+		return
 	}
 
 	go chain.AggregateMintWork()
 	go chain.AggregateRoundSpace()
 	go chain.QueuePollSnapshots()
 	go chain.ConsumeFinalActions()
-	return chain
 }
 
 func (ab ActionBuffer) Offer(m *CosiAction) error {
@@ -425,7 +435,13 @@ func (chain *Chain) AppendSelfEmpty(s *common.Snapshot) error {
 	})
 }
 
-func (node *Node) GetOrCreateChain(id crypto.Hash) *Chain {
+func (node *Node) BootChain(id crypto.Hash) *Chain {
+	chain := node.getOrCreateChain(id)
+	chain.bootLoops()
+	return chain
+}
+
+func (node *Node) getOrCreateChain(id crypto.Hash) *Chain {
 	chain := node.getChain(id)
 	if chain != nil {
 		return chain
@@ -445,6 +461,7 @@ func (node *Node) GetOrCreateChain(id crypto.Hash) *Chain {
 func (node *Node) getChain(id crypto.Hash) *Chain {
 	node.chains.RLock()
 	defer node.chains.RUnlock()
+
 	return node.chains.m[id]
 }
 

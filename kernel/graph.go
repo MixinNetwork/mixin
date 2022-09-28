@@ -117,7 +117,7 @@ func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, ro
 	}
 
 	if strict {
-		ec := chain.node.GetOrCreateChain(external.NodeId)
+		ec := chain.node.getOrCreateChain(external.NodeId)
 		err := chain.checkReferenceSanity(ec, external, roundTime)
 		if err != nil {
 			return fmt.Errorf("external reference sanity %s", err)

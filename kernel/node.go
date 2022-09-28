@@ -114,11 +114,11 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 		return nil, fmt.Errorf("LoadConsensusNodes() => %v", err)
 	}
 
-	err = node.LoadAllChains(node.persistStore, node.networkId)
+	err = node.LoadAllChainsAndGraphTimestamp(node.persistStore, node.networkId)
 	if err != nil {
-		return nil, fmt.Errorf("LoadAllChains() => %v", err)
+		return nil, fmt.Errorf("LoadAllChainsAndGraphTimestamp() => %v", err)
 	}
-	node.chain = node.GetOrCreateChain(node.IdForNetwork)
+	node.chain = node.BootChain(node.IdForNetwork)
 
 	logger.Printf("Listen:\t%s\n", addr)
 	logger.Printf("Signer:\t%s\n", node.Signer.String())

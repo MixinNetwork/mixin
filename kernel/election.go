@@ -64,7 +64,7 @@ func (node *Node) ElectionLoop() {
 	ticker := time.NewTicker(time.Duration(node.custom.Node.KernelOprationPeriod) * time.Second)
 	defer ticker.Stop()
 
-	chain := node.GetOrCreateChain(node.IdForNetwork)
+	chain := node.BootChain(node.IdForNetwork)
 	for chain.State == nil {
 		select {
 		case <-node.done:
@@ -199,7 +199,7 @@ func (node *Node) tryToSendRemoveTransaction() error {
 	if err != nil {
 		return err
 	}
-	chain := node.GetOrCreateChain(node.IdForNetwork)
+	chain := node.getOrCreateChain(node.IdForNetwork)
 	s := &common.Snapshot{
 		Version: chain.node.SnapshotVersion(),
 		NodeId:  node.IdForNetwork,
@@ -345,7 +345,7 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid snapshot round %d", s.RoundNumber)
 	}
 
-	chain := node.GetOrCreateChain(s.NodeId)
+	chain := node.getOrCreateChain(s.NodeId)
 	ver, err := chain.buildNodeAcceptTransaction(timestamp, s, finalized)
 	if err != nil {
 		return err
@@ -380,11 +380,7 @@ func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedT
 		return err
 	}
 
-	chain := node.GetOrCreateChain(s.NodeId)
-	err = chain.loadState()
-	if err != nil {
-		return err
-	}
+	chain := node.BootChain(s.NodeId)
 	if chain.ConsensusInfo == nil {
 		panic("should never be here")
 	}
@@ -398,11 +394,7 @@ func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedT
 		return nil
 	}
 
-	chain = node.GetOrCreateChain(id)
-	err = chain.loadState()
-	if err != nil {
-		return err
-	}
+	chain = node.BootChain(id)
 	if chain.ConsensusInfo == nil {
 		panic("should never be here")
 	}
@@ -445,10 +437,7 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot, signers []crypt
 		panic(err)
 	}
 
-	chain := node.GetOrCreateChain(s.NodeId)
-	if err := chain.loadState(); err != nil {
-		return err
-	}
+	chain := node.BootChain(s.NodeId)
 	chain.StepForward()
 	chain.assignNewGraphRound(final, cache)
 	return nil
