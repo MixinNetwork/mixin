@@ -30,4 +30,4 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-latest' }}
         working-directory: .
         run: |
-          INPUT=10 go test ./...
+          INPUT=10 go test ./... -v
