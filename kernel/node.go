@@ -230,8 +230,8 @@ func (node *Node) GetAcceptedOrPledgingNode(id crypto.Hash) *CNode {
 	return nil
 }
 
-func (node *Node) GetRemovedOrCancelledNode(id crypto.Hash) *CNode {
-	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), false)
+func (node *Node) GetRemovedOrCancelledNode(id crypto.Hash, timestamp uint64) *CNode {
+	nodes := node.NodesListWithoutState(timestamp, false)
 	for _, cn := range nodes {
 		if cn.IdForNetwork == id && (cn.State == common.NodeStateRemoved || cn.State == common.NodeStateCancelled) {
 			return cn
