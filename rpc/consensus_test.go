@@ -61,10 +61,6 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
 		custom, err := config.Initialize(dir + "/config.toml")
 		assert.Nil(err)
-		custom.Consensus.SnapshotCommonEncodingMint = snapVersionMint
-		if snapVersionMint == 0 && !enableElection {
-			custom.Consensus.SnapshotCommonEncodingMint = i % 3
-		}
 		cache := newCache(custom)
 		store, err := storage.NewBadgerStore(custom, dir)
 		assert.Nil(err)
@@ -432,9 +428,7 @@ func testSendDummyTransactions(nodes []*Node, domain common.Address, inputs []*c
 	return outputs
 }
 
-const configDataTmpl = `[consensus]
-snapshot-common-encoding-mint=0
-[node]
+const configDataTmpl = `[node]
 signer-key = "%s"
 consensus-only = false
 memory-cache-size = 128
@@ -489,7 +483,6 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 
 	custom, err := config.Initialize(dir + "/config.toml")
 	assert.Nil(err)
-	custom.Consensus.SnapshotCommonEncodingMint = snapVersionMint
 	cache := newCache(custom)
 	store, err := storage.NewBadgerStore(custom, dir)
 	assert.Nil(err)

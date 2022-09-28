@@ -322,7 +322,11 @@ func (node *Node) LoadConsensusNodes() error {
 
 // FIXME remove this after all nodes upgraded
 func (node *Node) SnapshotVersion() uint8 {
-	if node.LastMint >= uint64(node.custom.Consensus.SnapshotCommonEncodingMint) {
+	if node.networkId.String() != config.MainnetId {
+		return common.SnapshotVersionCommonEncoding
+	}
+
+	if node.LastMint >= MainnetMintTransactionV3ForkBatch {
 		return common.SnapshotVersionCommonEncoding
 	}
 	return common.SnapshotVersionMsgpackEncoding

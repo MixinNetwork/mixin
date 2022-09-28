@@ -39,9 +39,6 @@ const (
 )
 
 type Custom struct {
-	Consensus struct {
-		SnapshotCommonEncodingMint int `toml:"snapshot-common-encoding-mint"`
-	} `toml:"consensus"`
 	Node struct {
 		Signer               crypto.Key `toml:"-"`
 		SignerStr            string     `toml:"signer-key"`
@@ -89,10 +86,6 @@ func Initialize(file string) (*Custom, error) {
 	}
 	if config.Node.CacheTTL == 0 {
 		config.Node.CacheTTL = 3600 * 2
-	}
-	if config.Consensus.SnapshotCommonEncodingMint == 0 {
-		// FIXME remove this after all nodes upgraded
-		config.Consensus.SnapshotCommonEncodingMint = 1500
 	}
 	return &config, nil
 }

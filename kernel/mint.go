@@ -20,6 +20,7 @@ const (
 	MainnetMintPeriodForkTimeEnd         = 18
 	MainnetMintWorkDistributionForkBatch = 729
 	MainnetMintTransactionV2ForkBatch    = 739
+	MainnetMintTransactionV3ForkBatch    = 1313
 )
 
 var (
