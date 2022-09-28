@@ -116,6 +116,17 @@ func (chain *Chain) bootLoops() {
 	go chain.ConsumeFinalActions()
 }
 
+func (chain *Chain) waitOrDone(wait time.Duration) {
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+
+	select {
+	case <-chain.node.done:
+		chain.running = false
+	case <-timer.C:
+	}
+}
+
 func (ab ActionBuffer) Offer(m *CosiAction) error {
 	select {
 	case ab <- m:

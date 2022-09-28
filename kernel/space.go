@@ -19,64 +19,60 @@ func (chain *Chain) AggregateRoundSpace() {
 	}
 	logger.Printf("AggregateRoundSpace(%s) begin with %d:%d\n", chain.ChainId, batch, round)
 
-	ticker := time.NewTicker(time.Duration(chain.node.custom.Node.KernelOprationPeriod/2) * time.Second)
-	defer ticker.Stop()
-
+	wait := time.Duration(chain.node.custom.Node.KernelOprationPeriod/2) * time.Second
 	for chain.running {
-		select {
-		case <-chain.node.done:
-		case <-ticker.C:
-			if cs := chain.State; cs == nil {
-				logger.Printf("AggregateRoundSpace(%s) no state yet\n", chain.ChainId)
-				continue
-			}
-			frn := chain.State.FinalRound.Number
-			if frn < round {
-				panic(fmt.Errorf("AggregateRoundSpace(%s) waiting %d %d", chain.ChainId, frn, round))
-			}
-			if frn < round+1 {
-				continue
-			}
-
-			nextTime, err := chain.readFinalRoundTimestamp(round + 1)
-			if err != nil {
-				logger.Verbosef("AggregateRoundSpace(%s) ERROR readFinalRoundTimestamp %d %v\n", chain.ChainId, round+1, err)
-				continue
-			}
-			checkTime, err := chain.readFinalRoundTimestamp(round)
-			if err != nil {
-				logger.Verbosef("AggregateRoundSpace(%s) ERROR readFinalRoundTimestamp %d %v\n", chain.ChainId, round, err)
-				continue
-			}
-
-			since := checkTime - chain.node.Epoch
-			batch := uint64(since/3600000000000) / 24
-			if batch > chain.node.LastMint+1 {
-				panic(batch)
-			}
-			space := &common.RoundSpace{
-				NodeId:   chain.ChainId,
-				Batch:    batch,
-				Round:    round,
-				Duration: nextTime - checkTime,
-			}
-			if space.Round == 0 {
-				space.Duration = 0
-			}
-
-			if space.Duration > uint64(config.CheckpointDuration) {
-				logger.Printf("AggregateRoundSpace(%s) => large gap %d:%d %d", chain.ChainId, batch, round, space.Duration)
-			} else {
-				space.Duration = 0
-			}
-
-			err = chain.persistStore.WriteRoundSpaceAndState(space)
-			if err != nil {
-				logger.Verbosef("AggregateRoundSpace(%s) ERROR WriteRoundSpaceAndState %d %v\n", chain.ChainId, round, err)
-				continue
-			}
-			round = round + 1
+		if cs := chain.State; cs == nil {
+			logger.Printf("AggregateRoundSpace(%s) no state yet\n", chain.ChainId)
+			chain.waitOrDone(wait)
+			continue
 		}
+		frn := chain.State.FinalRound.Number
+		if frn < round {
+			panic(fmt.Errorf("AggregateRoundSpace(%s) waiting %d %d", chain.ChainId, frn, round))
+		}
+		if frn < round+1 {
+			chain.waitOrDone(wait)
+			continue
+		}
+
+		nextTime, err := chain.readFinalRoundTimestamp(round + 1)
+		if err != nil {
+			logger.Verbosef("AggregateRoundSpace(%s) ERROR readFinalRoundTimestamp %d %v\n", chain.ChainId, round+1, err)
+			continue
+		}
+		checkTime, err := chain.readFinalRoundTimestamp(round)
+		if err != nil {
+			logger.Verbosef("AggregateRoundSpace(%s) ERROR readFinalRoundTimestamp %d %v\n", chain.ChainId, round, err)
+			continue
+		}
+
+		since := checkTime - chain.node.Epoch
+		batch := uint64(since/3600000000000) / 24
+		if batch > chain.node.LastMint+1 {
+			panic(batch)
+		}
+		space := &common.RoundSpace{
+			NodeId:   chain.ChainId,
+			Batch:    batch,
+			Round:    round,
+			Duration: nextTime - checkTime,
+		}
+		if space.Round == 0 {
+			space.Duration = 0
+		}
+
+		if space.Duration > uint64(config.CheckpointDuration) {
+			logger.Printf("AggregateRoundSpace(%s) => large gap %d:%d %d", chain.ChainId, batch, round, space.Duration)
+		} else {
+			space.Duration = 0
+		}
+
+		err = chain.persistStore.WriteRoundSpaceAndState(space)
+		if err != nil {
+			logger.Verbosef("AggregateRoundSpace(%s) ERROR WriteRoundSpaceAndState %d %v\n", chain.ChainId, round, err)
+			continue
+		}
+		round = round + 1
 	}
 
 	batch, round, err = chain.persistStore.ReadRoundSpaceCheckpoint(chain.ChainId)
