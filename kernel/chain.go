@@ -89,11 +89,14 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 	if err != nil {
 		panic(err)
 	}
-	if node.GetRemovedOrCancelledNode(chainId) != nil && chainId.String() != "8162a5b9f70201371a7bccb7047dc67282eb2c6adc499bd30396c5088a164792" {
+
+	rn := node.GetRemovedOrCancelledNode(chainId)
+	threshold := uint64(config.KernelNodeAcceptPeriodMaximum)
+	if rn != nil && rn.Timestamp+threshold < chain.node.GraphTimestamp {
+		// FIXME the timestamp check is because we can't ensure the last
+		// round of a removed node yet thus will cause inconsistence when
+		// calculate mint works
 		return chain
-		// FIXME
-		// this comment because we can't ensure the last round of a removed node yet
-		// thus will cause inconsistence when calculate mint works
 	}
 
 	go chain.AggregateMintWork()

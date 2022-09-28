@@ -2,5 +2,7 @@ package kernel
 
 const (
 	SlashReasonRoundSpace          = 0x1
-	SlashReasonInconsistentWitness = 0x2
+	SlashReasonLateAccept          = 0x2
+	SlashReasonLateRemove          = 0x3
+	SlashReasonInconsistentWitness = 0x4
 )
