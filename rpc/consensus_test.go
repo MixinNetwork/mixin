@@ -438,7 +438,7 @@ snapshot-common-encoding-mint=0
 signer-key = "%s"
 consensus-only = false
 memory-cache-size = 128
-kernel-operation-period = 1
+kernel-operation-period = 3
 cache-ttl = 3600
 [network]
 listener = "%s"

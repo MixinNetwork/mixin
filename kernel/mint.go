@@ -49,48 +49,49 @@ func (chain *Chain) AggregateMintWork() {
 	logger.Printf("AggregateMintWork(%s) begin with %d\n", chain.ChainId, round)
 
 	fork := uint64(SnapshotRoundDayLeapForkHack.UnixNano())
-	period := time.Duration(config.SnapshotRoundGap / 2)
-	if chain.node.GetRemovedOrCancelledNode(chain.ChainId) != nil {
-		period = time.Duration(chain.node.custom.Node.KernelOprationPeriod/2) * time.Second
-	}
+	ticker := time.NewTicker(time.Duration(chain.node.custom.Node.KernelOprationPeriod/2) * time.Second)
+	defer ticker.Stop()
+
 	for chain.running {
-		if cs := chain.State; cs == nil {
-			logger.Printf("AggregateMintWork(%s) no state yet\n", chain.ChainId)
-			time.Sleep(time.Duration(chain.node.custom.Node.KernelOprationPeriod/2) * time.Second)
-			continue
-		}
-		crn := chain.State.CacheRound.Number
-		if crn < round {
-			panic(fmt.Errorf("AggregateMintWork(%s) waiting %d %d", chain.ChainId, crn, round))
-		}
-		snapshots, err := chain.persistStore.ReadSnapshotWorksForNodeRound(chain.ChainId, round)
-		if err != nil {
-			logger.Verbosef("AggregateMintWork(%s) ERROR ReadSnapshotsForNodeRound %s\n", chain.ChainId, err.Error())
-			continue
-		}
-		if len(snapshots) == 0 {
-			time.Sleep(period)
-			continue
-		}
-		for chain.running {
-			if chain.node.networkId.String() == config.MainnetId && snapshots[0].Timestamp < fork {
-				snapshots = nil
-			}
-			err = chain.persistStore.WriteRoundWork(chain.ChainId, round, snapshots)
-			if err == nil {
-				break
-			}
-			if errors.Is(err, badger.ErrConflict) {
-				logger.Verbosef("AggregateMintWork(%s) ERROR WriteRoundWork %s\n", chain.ChainId, err.Error())
-				time.Sleep(100 * time.Millisecond)
+		select {
+		case <-chain.node.done:
+		case <-ticker.C:
+			if cs := chain.State; cs == nil {
+				logger.Printf("AggregateMintWork(%s) no state yet\n", chain.ChainId)
 				continue
 			}
-			panic(err)
-		}
-		if round < crn {
-			round = round + 1
-		} else {
-			time.Sleep(period)
+			// FIXME here continues to update the cache round mostly because no way to
+			// decide the last round of a removed node
+			crn := chain.State.CacheRound.Number
+			if crn < round {
+				panic(fmt.Errorf("AggregateMintWork(%s) waiting %d %d", chain.ChainId, crn, round))
+			}
+			snapshots, err := chain.persistStore.ReadSnapshotWorksForNodeRound(chain.ChainId, round)
+			if err != nil {
+				logger.Verbosef("AggregateMintWork(%s) ERROR ReadSnapshotsForNodeRound %s\n", chain.ChainId, err.Error())
+				continue
+			}
+			if len(snapshots) == 0 {
+				continue
+			}
+			for chain.running {
+				if chain.node.networkId.String() == config.MainnetId && snapshots[0].Timestamp < fork {
+					snapshots = nil
+				}
+				err = chain.persistStore.WriteRoundWork(chain.ChainId, round, snapshots)
+				if err == nil {
+					break
+				}
+				if errors.Is(err, badger.ErrConflict) {
+					logger.Verbosef("AggregateMintWork(%s) ERROR WriteRoundWork %s\n", chain.ChainId, err.Error())
+					time.Sleep(100 * time.Millisecond)
+					continue
+				}
+				panic(err)
+			}
+			if round < crn {
+				round = round + 1
+			}
 		}
 	}
 

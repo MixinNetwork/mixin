@@ -378,7 +378,9 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 		return signers, finalized
 	}
 
-	// FIXME remove this hack
+	// FIXME because some to be removed node can still make a signature, so remove this
+	// hack after the bug fixed. But this should be kept for old snapshots, only removed
+	// for new created snapshots.
 	nodes := chain.node.NodesListWithoutState(s.Timestamp, false)
 	rn := nodes[len(nodes)-1]
 	if rn.State != common.NodeStateRemoved {
