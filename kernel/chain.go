@@ -89,9 +89,9 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 	if err != nil {
 		panic(err)
 	}
-	if node.GetRemovedOrCancelledNode(chainId) != nil {
+	if node.GetRemovedOrCancelledNode(chainId) != nil && chainId.String() != "8162a5b9f70201371a7bccb7047dc67282eb2c6adc499bd30396c5088a164792" {
+		return chain
 		// FIXME
-		// return chain
 		// this comment because we can't ensure the last round of a removed node yet
 		// thus will cause inconsistence when calculate mint works
 	}
