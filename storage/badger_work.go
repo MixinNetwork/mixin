@@ -119,7 +119,7 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 			}
 			for id := range osm {
 				if !filter[id] {
-					panic(id)
+					panic(fmt.Errorf("WriteRoundWork missing snapshot %s %d %d %s", nodeId, off, round, id))
 				}
 			}
 		} else {
