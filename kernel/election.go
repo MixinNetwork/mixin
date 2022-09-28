@@ -381,6 +381,10 @@ func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedT
 	}
 
 	chain := node.BootChain(s.NodeId)
+	err = chain.loadState()
+	if err != nil {
+		return err
+	}
 	if chain.ConsensusInfo == nil {
 		panic("should never be here")
 	}
@@ -395,6 +399,10 @@ func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedT
 	}
 
 	chain = node.BootChain(id)
+	err = chain.loadState()
+	if err != nil {
+		return err
+	}
 	if chain.ConsensusInfo == nil {
 		panic("should never be here")
 	}
@@ -438,6 +446,10 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot, signers []crypt
 	}
 
 	chain := node.BootChain(s.NodeId)
+	err = chain.loadState()
+	if err != nil {
+		return err
+	}
 	chain.StepForward()
 	chain.assignNewGraphRound(final, cache)
 	return nil
