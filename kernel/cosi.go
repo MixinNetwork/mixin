@@ -202,6 +202,11 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		return fmt.Errorf("node is slow in catching up")
 	}
 
+	rn := chain.node.GetRemovingOrSlashingNode(m.PeerId)
+	if rn != nil {
+		return fmt.Errorf("peer node %s is removing or slashing", m.PeerId)
+	}
+
 	cn := chain.node.GetAcceptedOrPledgingNode(chain.ChainId)
 	if cn == nil {
 		return fmt.Errorf("chain node %s not found", chain.ChainId)
@@ -337,9 +342,6 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	} else if chain.State == nil {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v empty final round\n", m.PeerId, m.Snapshot)
 		return nil
-	} else if chain.node.GetRemovingOrSlashingNode(s.NodeId) != nil {
-		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement %s %v from removing or slashing node\n", m.PeerId, m.Snapshot)
-		return nil
 	} else {
 		cache, final := chain.StateCopy()
 		if s.RoundNumber < cache.Number {
@@ -394,11 +396,6 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 
 func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment %v\n", m)
-
-	if chain.node.GetRemovingOrSlashingNode(m.PeerId) != nil {
-		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment %v from removing or slashing node\n", m)
-		return nil
-	}
 
 	ann := chain.CosiAggregators[m.SnapshotHash]
 	s, cd := ann.Snapshot, m.data
