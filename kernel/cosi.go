@@ -20,6 +20,8 @@ const (
 	CosiActionExternalChallenge
 	CosiActionFinalization
 	CosiActionExternalCommitments
+	CosiActionSelfFullCommitment
+	CosiActionExternalFullChallenge
 )
 
 type CosiAction struct {
@@ -28,6 +30,7 @@ type CosiAction struct {
 	SnapshotHash crypto.Hash
 	Snapshot     *common.Snapshot
 	Commitment   *crypto.Key
+	Challenge    *crypto.Key
 	Signature    *crypto.CosiSignature
 	Response     *[32]byte
 	Transaction  *common.VersionedTransaction
@@ -45,11 +48,12 @@ type CosiChainData struct {
 }
 
 type CosiAggregator struct {
-	Snapshot    *common.Snapshot
-	Transaction *common.VersionedTransaction
-	WantTxs     map[crypto.Hash]bool
-	Commitments map[int]*crypto.Key
-	Responses   map[int]*[32]byte
+	Snapshot       *common.Snapshot
+	Transaction    *common.VersionedTransaction
+	WantTxs        map[crypto.Hash]bool
+	FullChallenges map[crypto.Hash]bool
+	Commitments    map[int]*crypto.Key
+	Responses      map[int]*[32]byte
 }
 
 type CosiVerifier struct {
@@ -93,14 +97,18 @@ func (chain *Chain) cosiHandleAction(m *CosiAction) error {
 	switch m.Action {
 	case CosiActionSelfEmpty:
 		return chain.cosiSendAnnouncement(m)
-	case CosiActionSelfCommitment:
+	case CosiActionSelfCommitment, CosiActionSelfFullCommitment:
 		return chain.cosiHandleCommitment(m)
 	case CosiActionSelfResponse:
 		return chain.cosiHandleResponse(m)
 	case CosiActionExternalAnnouncement:
 		return chain.cosiHandleAnnouncement(m)
 	case CosiActionExternalChallenge:
-		return chain.cosiHandleChallenge(m)
+		err := chain.cosiHandleChallenge(m)
+		return err
+	case CosiActionExternalFullChallenge:
+		err := chain.cosiHandleFullChallenge(m)
+		return err
 	}
 
 	return nil
@@ -129,7 +137,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		if a := chain.CosiAggregators[m.SnapshotHash]; a != nil {
 			s = a.Snapshot
 		}
-	case CosiActionExternalAnnouncement:
+	case CosiActionExternalAnnouncement, CosiActionExternalFullChallenge:
 		if chain.ChainId == chain.node.IdForNetwork {
 			return fmt.Errorf("external action announcement chain %s %s", chain.ChainId, chain.node.IdForNetwork)
 		}
@@ -316,12 +324,14 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 
 	s.Hash = s.PayloadHash()
 	agg := &CosiAggregator{
-		Snapshot:    s,
-		Transaction: cd.TX,
-		WantTxs:     make(map[crypto.Hash]bool),
-		Commitments: make(map[int]*crypto.Key),
-		Responses:   make(map[int]*[32]byte),
+		Snapshot:       s,
+		Transaction:    cd.TX,
+		WantTxs:        make(map[crypto.Hash]bool),
+		FullChallenges: make(map[crypto.Hash]bool),
+		Commitments:    make(map[int]*crypto.Key),
+		Responses:      make(map[int]*[32]byte),
 	}
+
 	v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
 	R := v.random.Public()
 	chain.CosiVerifiers[s.Hash] = v
@@ -331,10 +341,25 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	nodes := chain.node.NodesListWithoutState(s.Timestamp, true)
 	for _, cn := range nodes {
 		peerId := cn.IdForNetwork
-		err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R)
-		if err != nil {
-			logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement SendSnapshotAnnouncementMessage(%s, %s) ERROR %s\n", peerId, s.Hash, err.Error())
+		commitments := chain.CosiCommitments[peerId]
+		if len(commitments) == 0 {
+			err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R)
+			if err != nil {
+				logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement SendSnapshotAnnouncementMessage(%s, %s) ERROR %s\n", peerId, s.Hash, err.Error())
+			}
+			continue
 		}
+		commitment := commitments[0]
+		chain.CosiCommitments[peerId] = commitments[1:]
+		cam := &CosiAction{
+			PeerId:       peerId,
+			Action:       CosiActionSelfFullCommitment,
+			SnapshotHash: s.Hash,
+			Commitment:   commitment,
+			Snapshot:     s,
+			WantTx:       true,
+		}
+		chain.AppendCosiAction(cam)
 	}
 	return nil
 }
@@ -420,6 +445,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	}
 	ann.Commitments[cd.PN.ConsensusIndex] = m.Commitment
 	ann.WantTxs[m.PeerId] = m.WantTx
+	ann.FullChallenges[m.PeerId] = m.Action == CosiActionSelfFullCommitment
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment %v NOW %d %d\nn", m, len(ann.Commitments), base)
 	if len(ann.Commitments) < base {
 		return nil
@@ -444,7 +470,9 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	nodes := chain.node.NodesListWithoutState(s.Timestamp, true)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
-		if wantTx, found := ann.WantTxs[id]; !found {
+		if ann.FullChallenges[id] {
+			err = chain.node.Peer.SendFullChallengeMessage(id, s, ann.Commitments[cd.CN.ConsensusIndex], ann.Commitments[cn.ConsensusIndex], cd.TX)
+		} else if wantTx, found := ann.WantTxs[id]; !found {
 			continue
 		} else if wantTx {
 			err = chain.node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, cd.TX)
@@ -455,6 +483,83 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment SendTransactionChallengeMessage(%s, %s) ERROR %s\n", id, m.SnapshotHash, err.Error())
 		}
 	}
+	return nil
+}
+
+func (chain *Chain) cosiHandleFullChallenge(m *CosiAction) error {
+	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge %v\n", m)
+	if cm := chain.CosiRandoms[m.PeerId]; cm == nil || cm[*m.Challenge] == nil {
+		commitments := chain.CosiPrepareCommitments(m.PeerId)
+		err := chain.node.Peer.SendCommitmentsMessage(m.PeerId, commitments)
+		if err != nil {
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge SendCommitmentsMessage(%s, %d) ERROR %v\n", m.PeerId, len(commitments), err)
+		}
+		return err
+	}
+
+	r := chain.CosiRandoms[m.PeerId][*m.Challenge]
+	delete(chain.CosiRandoms[m.PeerId], *m.Challenge)
+
+	s := m.Snapshot
+	if chain.IsPledging() && s.RoundNumber == 0 {
+	} else if chain.State == nil {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge %s %v empty final round\n", m.PeerId, m.Snapshot)
+		return nil
+	} else {
+		cache, final := chain.StateCopy()
+		if s.RoundNumber < cache.Number {
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge %s %v expired %d %d\n", m.PeerId, m.Snapshot, s.RoundNumber, cache.Number)
+			return nil
+		}
+		if s.RoundNumber > cache.Number+1 {
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge %s %v in future %d %d\n", m.PeerId, m.Snapshot, s.RoundNumber, cache.Number)
+			return nil
+		}
+		if s.Timestamp <= final.Start+config.SnapshotRoundGap {
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge %s %v invalid timestamp %d %d\n", m.PeerId, m.Snapshot, s.Timestamp, final.Start+config.SnapshotRoundGap)
+			return nil
+		}
+		if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
+			err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References, s.Timestamp, true)
+			if err != nil {
+				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge %s %v updateEmptyHeadRoundAndPersist %v\n", m.PeerId, m.Snapshot, err)
+				return nil
+			}
+			chain.CosiRandoms[m.PeerId][*m.Challenge] = r
+			return chain.AppendCosiAction(m)
+		}
+		if s.RoundNumber == cache.Number+1 {
+			nc, nf, _, err := chain.startNewRoundAndPersist(cache, s.References, s.Timestamp, false)
+			if err != nil {
+				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge %s %v startNewRoundAndPersist %s\n", m.PeerId, m.Snapshot, err)
+				chain.CosiRandoms[m.PeerId][*m.Challenge] = r
+				return chain.AppendCosiAction(m)
+			} else if nf == nil {
+				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge %s %v startNewRoundAndPersist failed\n", m.PeerId, m.Snapshot)
+				return nil
+			}
+			cache, final = nc, nf
+			chain.CosiVerifiers = make(map[crypto.Hash]*CosiVerifier)
+		}
+
+		if err := cache.ValidateSnapshot(s); err != nil {
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge %s %v ValidateSnapshot %s\n", m.PeerId, m.Snapshot, err)
+			return nil
+		}
+	}
+
+	v := &CosiVerifier{Snapshot: s, Commitment: m.Commitment, random: r}
+	chain.CosiVerifiers[s.Hash] = v
+	chain.CosiVerifiers[s.SoleTransaction()] = v
+
+	ccm := &CosiAction{
+		PeerId:       m.PeerId,
+		Action:       CosiActionExternalChallenge,
+		SnapshotHash: s.Hash,
+		Signature:    m.Signature,
+		Transaction:  m.Transaction,
+	}
+	chain.AppendCosiAction(ccm)
 	return nil
 }
 
@@ -474,7 +579,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 		return nil
 	}
 	if !pub.VerifyWithChallenge(m.SnapshotHash[:], sig, challenge) {
-		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge %v VerifyWithChallenge ERROR\n", m)
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge %v VerifyWithChallenge ERROR %v %v\n", m, sig, challenge)
 		return nil
 	}
 
@@ -663,7 +768,9 @@ func (chain *Chain) CosiPrepareCommitments(peerId crypto.Hash) []*crypto.Key {
 
 	commitments := make([]*crypto.Key, 0)
 	for k := range cm {
-		commitments = append(commitments, &k)
+		var R crypto.Key
+		copy(R[:], k[:])
+		commitments = append(commitments, &R)
 	}
 	chain.CosiRandoms[peerId] = cm
 	return commitments
@@ -735,6 +842,29 @@ func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Has
 		PeerId:       peerId,
 		Action:       CosiActionExternalChallenge,
 		SnapshotHash: snap,
+		Signature:    cosi,
+		Transaction:  ver,
+	}
+	chain.AppendCosiAction(m)
+	return nil
+}
+
+func (node *Node) CosiQueueExternalFullChallenge(peerId crypto.Hash, s *common.Snapshot, commitment, challenge *crypto.Key, cosi *crypto.CosiSignature, ver *common.VersionedTransaction) error {
+	logger.Debugf("CosiQueueExternalFullChallenge(%s, %v)\n", peerId, s)
+	if node.GetAcceptedOrPledgingNode(peerId) == nil {
+		logger.Verbosef("CosiQueueExternalFullChallenge(%s, %v) from malicious node\n", peerId, s)
+		return nil
+	}
+	chain := node.getOrCreateChain(peerId)
+
+	s.Hash = s.PayloadHash()
+	m := &CosiAction{
+		PeerId:       peerId,
+		Action:       CosiActionExternalFullChallenge,
+		Snapshot:     s,
+		SnapshotHash: s.Hash,
+		Commitment:   commitment,
+		Challenge:    challenge,
 		Signature:    cosi,
 		Transaction:  ver,
 	}
