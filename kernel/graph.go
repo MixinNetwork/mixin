@@ -201,6 +201,9 @@ func (chain *Chain) determineBestRound(roundTime uint64) *FinalRound {
 		if id == chain.ChainId {
 			continue
 		}
+		if !chain.node.ConsensusReady(cn, roundTime) {
+			continue
+		}
 
 		ec, link := chain.node.chains.m[id], chain.State.RoundLinks[id]
 		history := historySinceRound(ec.State.RoundHistory, link)
