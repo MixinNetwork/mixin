@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/binary"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -9,8 +10,8 @@ import (
 )
 
 const (
-	cachePrefixTransactionQueue  = "TRANSACTIONQUEUE"
-	cachePrefixTransactionCache  = "TRANSACTIONCACHE"
+	cachePrefixTransactionQueue  = "CACHETRANSACTIONQUEUE"
+	cachePrefixTransactionCache  = "CACHETRANSACTIONPAYLOAD"
 	cachePrefixSnapshotNodeQueue = "SNAPSHOTNODEQUEUE"
 	cachePrefixSnapshotNodeMeta  = "SNAPSHOTNODEMETA"
 )
@@ -27,16 +28,18 @@ func (s *BadgerStore) CacheRetrieveTransactions(limit int) ([]*common.VersionedT
 
 		var processed [][]byte
 		var hash crypto.Hash
-		it.Seek(cacheTransactionQueueKey(hash))
+		it.Seek(cacheTransactionQueueKey(0, hash))
 		for ; len(txs) < limit && it.Valid(); it.Next() {
 			key := it.Item().KeyCopy(nil)
-			copy(hash[:], key[len(cachePrefixTransactionQueue):])
+			copy(hash[:], key[len(cachePrefixTransactionQueue)+8:])
 			ver, err := s.cacheReadTransaction(txn, hash)
 			if err != nil {
 				return err
 			}
-			txs = append(txs, ver)
 			processed = append(processed, key)
+			if ver != nil {
+				txs = append(txs, ver)
+			}
 		}
 
 		for _, k := range processed {
@@ -56,13 +59,8 @@ func (s *BadgerStore) CacheRemoveTransactions(hashes []crypto.Hash) error {
 	for {
 		err := s.cacheDB.Update(func(txn *badger.Txn) error {
 			for i := range hashes {
-				key := cacheTransactionQueueKey(hashes[i])
+				key := cacheTransactionCacheKey(hashes[i])
 				err := txn.Delete(key)
-				if err != nil {
-					return err
-				}
-				key = cacheTransactionCacheKey(hashes[i])
-				err = txn.Delete(key)
 				if err != nil {
 					return err
 				}
@@ -92,7 +90,7 @@ func (s *BadgerStore) CachePutTransaction(tx *common.VersionedTransaction) error
 		return err
 	}
 
-	key = cacheTransactionQueueKey(hash)
+	key = cacheTransactionQueueKey(uint64(time.Now().UnixNano()), hash)
 	etr = badger.NewEntry(key, []byte{}).WithTTL(time.Duration(s.custom.Node.CacheTTL) * time.Second)
 	err = txn.SetEntry(etr)
 	if err != nil {
@@ -128,6 +126,8 @@ func cacheTransactionCacheKey(hash crypto.Hash) []byte {
 	return append([]byte(cachePrefixTransactionCache), hash[:]...)
 }
 
-func cacheTransactionQueueKey(hash crypto.Hash) []byte {
-	return append([]byte(cachePrefixTransactionQueue), hash[:]...)
+func cacheTransactionQueueKey(ts uint64, hash crypto.Hash) []byte {
+	key := []byte(cachePrefixTransactionQueue)
+	key = binary.BigEndian.AppendUint64(key, ts)
+	return append(key, hash[:]...)
 }
