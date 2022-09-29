@@ -41,6 +41,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/terra"
 	"github.com/MixinNetwork/mixin/domains/tezos"
 	"github.com/MixinNetwork/mixin/domains/tron"
+	"github.com/MixinNetwork/mixin/domains/xdc"
 	"github.com/MixinNetwork/mixin/domains/zcash"
 )
 
@@ -161,6 +162,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return algorand.VerifyTransactionHash(deposit.TransactionHash)
 	case polygon.PolygonChainId:
 		return polygon.VerifyTransactionHash(deposit.TransactionHash)
+	case xdc.XDCChainId:
+		return xdc.VerifyTransactionHash(deposit.TransactionHash)
 	}
 	return fmt.Errorf("invalid deposit chain id %s", chainId)
 }

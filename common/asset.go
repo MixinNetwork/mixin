@@ -41,6 +41,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/terra"
 	"github.com/MixinNetwork/mixin/domains/tezos"
 	"github.com/MixinNetwork/mixin/domains/tron"
+	"github.com/MixinNetwork/mixin/domains/xdc"
 	"github.com/MixinNetwork/mixin/domains/zcash"
 )
 
@@ -135,6 +136,8 @@ func (a *Asset) Verify() error {
 		return algorand.VerifyAssetKey(a.AssetKey)
 	case polygon.PolygonChainId:
 		return polygon.VerifyAssetKey(a.AssetKey)
+	case xdc.XDCChainId:
+		return xdc.VerifyAssetKey(a.AssetKey)
 	default:
 		return fmt.Errorf("invalid chain id %s", a.ChainId)
 	}
@@ -218,6 +221,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return algorand.GenerateAssetId(a.AssetKey)
 	case polygon.PolygonChainId:
 		return polygon.GenerateAssetId(a.AssetKey)
+	case xdc.XDCChainId:
+		return xdc.GenerateAssetId(a.AssetKey)
 	default:
 		return crypto.Hash{}
 	}
@@ -301,6 +306,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return algorand.AlgorandChainId
 	case polygon.PolygonChainId:
 		return polygon.PolygonChainId
+	case xdc.XDCChainId:
+		return xdc.XDCChainId
 	}
 	return crypto.Hash{}
 }

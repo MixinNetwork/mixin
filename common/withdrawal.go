@@ -42,6 +42,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/terra"
 	"github.com/MixinNetwork/mixin/domains/tezos"
 	"github.com/MixinNetwork/mixin/domains/tron"
+	"github.com/MixinNetwork/mixin/domains/xdc"
 	"github.com/MixinNetwork/mixin/domains/zcash"
 )
 
@@ -176,6 +177,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return algorand.VerifyAddress(submit.Withdrawal.Address)
 	case polygon.PolygonChainId:
 		return polygon.VerifyAddress(submit.Withdrawal.Address)
+	case xdc.XDCChainId:
+		return xdc.VerifyAddress(submit.Withdrawal.Address)
 	}
 	return fmt.Errorf("invalid withdrawal chain id %s", chainId)
 }
