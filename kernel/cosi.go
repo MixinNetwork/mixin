@@ -487,23 +487,6 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	return nil
 }
 
-func (chain *Chain) cosiRetrieveRandom(snap crypto.Hash, peerId crypto.Hash, challenge *crypto.Key) *crypto.Key {
-	if chain.CosiRandomsCache[snap] != nil {
-		return chain.CosiRandomsCache[snap]
-	}
-	cm := chain.CosiRandoms[peerId]
-	if cm == nil {
-		return nil
-	}
-	r := cm[*challenge]
-	if r == nil {
-		return nil
-	}
-	chain.CosiRandomsCache[snap] = r
-	delete(chain.CosiRandoms[peerId], *challenge)
-	return r
-}
-
 func (chain *Chain) cosiHandleFullChallenge(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge %v\n", m)
 	r := chain.cosiRetrieveRandom(m.SnapshotHash, m.PeerId, m.Challenge)
@@ -773,6 +756,23 @@ func (chain *Chain) cosiAddCommitments(m *CosiAction) error {
 	}
 	chain.CosiCommitments[m.PeerId] = commitments
 	return nil
+}
+
+func (chain *Chain) cosiRetrieveRandom(snap crypto.Hash, peerId crypto.Hash, challenge *crypto.Key) *crypto.Key {
+	if chain.CosiRandomsCache[snap] != nil {
+		return chain.CosiRandomsCache[snap]
+	}
+	cm := chain.CosiRandoms[peerId]
+	if cm == nil {
+		return nil
+	}
+	r := cm[*challenge]
+	if r == nil {
+		return nil
+	}
+	chain.CosiRandomsCache[snap] = r
+	delete(chain.CosiRandoms[peerId], *challenge)
+	return r
 }
 
 func (chain *Chain) CosiPrepareCommitments(peerId crypto.Hash) []*crypto.Key {
