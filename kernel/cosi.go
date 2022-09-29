@@ -19,6 +19,7 @@ const (
 	CosiActionExternalAnnouncement
 	CosiActionExternalChallenge
 	CosiActionFinalization
+	CosiActionExternalCommitments
 )
 
 type CosiAction struct {
@@ -31,6 +32,7 @@ type CosiAction struct {
 	Response     *[32]byte
 	Transaction  *common.VersionedTransaction
 	WantTx       bool
+	Commitments  []*crypto.Key
 	finalized    bool
 	data         *CosiChainData
 }
@@ -79,6 +81,9 @@ func (chain *Chain) cosiHook(m *CosiAction) (bool, error) {
 func (chain *Chain) cosiHandleAction(m *CosiAction) error {
 	if m.Action == CosiActionFinalization {
 		return chain.cosiHandleFinalization(m)
+	}
+	if m.Action == CosiActionExternalCommitments {
+		return chain.cosiAddCommitments(m)
 	}
 	if err := chain.checkActionSanity(m); err != nil {
 		logger.Debugf("cosiHandleAction checkActionSanity %v ERROR %s\n", m, err)
@@ -389,7 +394,12 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	chain.CosiVerifiers[s.SoleTransaction()] = v
 	err := chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, r.Public(), cd.TX == nil)
 	if err != nil {
-		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendSnapshotCommitmentMessage(%s, %s) ERROR %s\n", s.NodeId, s.Hash, err.Error())
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendSnapshotCommitmentMessage(%s, %s) ERROR %v\n", s.NodeId, s.Hash, err)
+	}
+	commitments := chain.CosiPrepareCommitments(s.NodeId)
+	err = chain.node.Peer.SendCommitmentsMessage(s.NodeId, commitments)
+	if err != nil {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendCommitmentsMessage(%s, %d) ERROR %v\n", s.NodeId, len(commitments), err)
 	}
 	return nil
 }
@@ -632,6 +642,47 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 	chain.AddSnapshot(final, cache, s, signers)
 	m.finalized = true
 	return chain.node.reloadConsensusState(s, tx)
+}
+
+func (chain *Chain) cosiAddCommitments(m *CosiAction) error {
+	chain.CosiCommitments[m.PeerId] = m.Commitments
+	return nil
+}
+
+func (chain *Chain) CosiPrepareCommitments(peerId crypto.Hash) []*crypto.Key {
+	cm := chain.CosiRandoms[peerId]
+	if cm == nil {
+		cm = make(map[crypto.Key]*crypto.Key)
+	}
+
+	count := 256 - len(cm)
+	for i := 0; i < count; i++ {
+		r := crypto.CosiCommit(rand.Reader)
+		cm[r.Public()] = r
+	}
+
+	commitments := make([]*crypto.Key, 0)
+	for k := range cm {
+		commitments = append(commitments, &k)
+	}
+	chain.CosiRandoms[peerId] = cm
+	return commitments
+}
+
+func (node *Node) CosiQueueExternalCommitments(peerId crypto.Hash, commitments []*crypto.Key) error {
+	logger.Debugf("CosiQueueExternalCommitments(%s, %d)\n", peerId, len(commitments))
+	if node.GetAcceptedOrPledgingNode(peerId) == nil {
+		logger.Verbosef("CosiQueueExternalCommitments(%s, %d) from malicious node\n", peerId, len(commitments))
+		return nil
+	}
+
+	m := &CosiAction{
+		PeerId:      peerId,
+		Action:      CosiActionExternalCommitments,
+		Commitments: commitments,
+	}
+	node.chain.AppendCosiAction(m)
+	return nil
 }
 
 func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot, commitment *crypto.Key) error {

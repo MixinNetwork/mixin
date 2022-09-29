@@ -52,6 +52,9 @@ type Chain struct {
 
 	State *ChainState
 
+	CosiRandoms     map[crypto.Hash]map[crypto.Key]*crypto.Key
+	CosiCommitments map[crypto.Hash][]*crypto.Key
+
 	CosiAggregators map[crypto.Hash]*CosiAggregator
 	CosiVerifiers   map[crypto.Hash]*CosiVerifier
 	CachePool       ActionBuffer
@@ -74,6 +77,8 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 	chain := &Chain{
 		node:             node,
 		ChainId:          chainId,
+		CosiRandoms:      make(map[crypto.Hash]map[crypto.Key]*crypto.Key),
+		CosiCommitments:  make(map[crypto.Hash][]*crypto.Key),
 		CosiAggregators:  make(map[crypto.Hash]*CosiAggregator),
 		CosiVerifiers:    make(map[crypto.Hash]*CosiVerifier),
 		CachePool:        make(chan *CosiAction, CachePoolSnapshotsLimit),
@@ -418,7 +423,7 @@ func (chain *Chain) AppendCosiAction(m *CosiAction) error {
 		if chain.ChainId != chain.node.IdForNetwork {
 			panic("should never be here")
 		}
-	case CosiActionSelfCommitment, CosiActionSelfResponse:
+	case CosiActionSelfCommitment, CosiActionSelfResponse, CosiActionExternalCommitments:
 		if m.PeerId == chain.ChainId {
 			panic("should never be here")
 		}
