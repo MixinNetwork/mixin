@@ -1,7 +1,6 @@
 package kernel
 
 import (
-	"math/rand"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -25,7 +24,7 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 		return "", err
 	}
 	if old != nil {
-		return old.PayloadHash().String(), nil
+		return old.PayloadHash().String(), node.persistStore.CachePutTransaction(tx)
 	}
 
 	err = tx.Validate(node.persistStore, false)
@@ -48,21 +47,12 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 func (node *Node) LoopCacheQueue() error {
 	defer close(node.cqc)
 
-	offset, limit := crypto.Hash{}, 100
 	for {
-		period := time.Duration(config.SnapshotRoundGap)
-		if offset.HasValue() {
-			period = time.Millisecond * 300
-		}
-		timer := time.NewTimer(period)
-		select {
-		case <-node.done:
+		if node.waitOrDone(time.Duration(config.SnapshotRoundGap)) {
 			return nil
-		case <-timer.C:
 		}
 		caches, finals, _ := node.QueueState()
 		if caches > 1000 || finals > 500 {
-			timer.Stop()
 			continue
 		}
 
@@ -71,36 +61,33 @@ func (node *Node) LoopCacheQueue() error {
 			continue
 		}
 		var stale []crypto.Hash
-		txs, err := node.persistStore.CacheListTransactions(offset, limit)
+		txs, err := node.persistStore.CacheRetrieveTransactions(100)
 		for _, tx := range txs {
-			offset = tx.PayloadHash()
-			_, finalized, err := node.persistStore.ReadTransaction(offset)
+			hash := tx.PayloadHash()
+			_, finalized, err := node.persistStore.ReadTransaction(hash)
 			if err != nil {
-				logger.Printf("LoopCacheQueue ReadTransaction ERROR %s %s\n", offset, err)
+				logger.Printf("LoopCacheQueue ReadTransaction ERROR %s %s\n", hash, err)
 				continue
 			}
 			if len(finalized) > 0 {
-				stale = append(stale, offset)
+				stale = append(stale, hash)
 				continue
 			}
 			err = tx.Validate(node.persistStore, false)
 			if err != nil {
-				logger.Debugf("LoopCacheQueue Validate ERROR %s %s\n", offset, err)
+				logger.Debugf("LoopCacheQueue Validate ERROR %s %s\n", hash, err)
 				// FIXME not mark invalid tx as stale is to ensure final graph sync
-				// but we need some way to mitigate cache transaction DoS attach from nodes
+				// but we need some way to mitigate cache transaction DoS attack from nodes
 				continue
 			}
-			nbor := neighbors[rand.Intn(len(neighbors))]
-			node.SendTransactionToPeer(nbor.IdForNetwork, offset)
+			nbor := neighbors[int(time.Now().UnixNano())%len(neighbors)]
+			node.SendTransactionToPeer(nbor.IdForNetwork, hash)
 			s := &common.Snapshot{
 				Version: node.SnapshotVersion(),
 				NodeId:  node.IdForNetwork,
 			}
 			s.AddSoleTransaction(tx.PayloadHash())
 			node.chain.AppendSelfEmpty(s)
-		}
-		if len(txs) < limit {
-			offset = crypto.Hash{}
 		}
 		if err != nil {
 			logger.Printf("LoopCacheQueue CacheListTransactions ERROR %s\n", err)
@@ -109,8 +96,6 @@ func (node *Node) LoopCacheQueue() error {
 		if err != nil {
 			logger.Printf("LoopCacheQueue CacheRemoveTransactions ERROR %s\n", err)
 		}
-
-		timer.Stop()
 	}
 }
 

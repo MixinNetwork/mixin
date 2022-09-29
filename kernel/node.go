@@ -552,6 +552,18 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 	return updated >= threshold
 }
 
+func (node *Node) waitOrDone(wait time.Duration) bool {
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+
+	select {
+	case <-node.done:
+		return true
+	case <-timer.C:
+		return false
+	}
+}
+
 type syncMap struct {
 	mutex *sync.RWMutex
 	m     map[crypto.Hash]*network.SyncPoint

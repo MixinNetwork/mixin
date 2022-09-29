@@ -9,38 +9,46 @@ import (
 )
 
 const (
+	cachePrefixTransactionQueue  = "TRANSACTIONQUEUE"
 	cachePrefixTransactionCache  = "TRANSACTIONCACHE"
 	cachePrefixSnapshotNodeQueue = "SNAPSHOTNODEQUEUE"
 	cachePrefixSnapshotNodeMeta  = "SNAPSHOTNODEMETA"
 )
 
-func (s *BadgerStore) CacheListTransactions(offset crypto.Hash, limit int) ([]*common.VersionedTransaction, error) {
-	txn := s.cacheDB.NewTransaction(false)
-	defer txn.Discard()
-
-	prefix := []byte(cachePrefixTransactionCache)
-	opts := badger.DefaultIteratorOptions
-	opts.PrefetchValues = false
-	opts.Prefix = prefix
-	it := txn.NewIterator(opts)
-	defer it.Close()
-
+func (s *BadgerStore) CacheRetrieveTransactions(limit int) ([]*common.VersionedTransaction, error) {
 	var txs []*common.VersionedTransaction
-	it.Seek(cacheTransactionCacheKey(offset))
-	for ; len(txs) < limit && it.Valid(); it.Next() {
-		err := it.Item().Value(func(v []byte) error {
-			ver, err := common.DecompressUnmarshalVersionedTransaction(v)
+	err := s.cacheDB.Update(func(txn *badger.Txn) error {
+		prefix := []byte(cachePrefixTransactionQueue)
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		opts.Prefix = prefix
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		var processed [][]byte
+		var hash crypto.Hash
+		it.Seek(cacheTransactionQueueKey(hash))
+		for ; len(txs) < limit && it.Valid(); it.Next() {
+			key := it.Item().KeyCopy(nil)
+			copy(hash[:], key[len(cachePrefixTransactionQueue):])
+			ver, err := s.cacheReadTransaction(txn, hash)
 			if err != nil {
 				return err
 			}
 			txs = append(txs, ver)
-			return nil
-		})
-		if err != nil {
-			return nil, err
+			processed = append(processed, key)
 		}
-	}
-	return txs, nil
+
+		for _, k := range processed {
+			err := txn.Delete(k)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	return txs, err
 }
 
 func (s *BadgerStore) CacheRemoveTransactions(hashes []crypto.Hash) error {
@@ -48,8 +56,13 @@ func (s *BadgerStore) CacheRemoveTransactions(hashes []crypto.Hash) error {
 	for {
 		err := s.cacheDB.Update(func(txn *badger.Txn) error {
 			for i := range hashes {
-				key := cacheTransactionCacheKey(hashes[i])
+				key := cacheTransactionQueueKey(hashes[i])
 				err := txn.Delete(key)
+				if err != nil {
+					return err
+				}
+				key = cacheTransactionCacheKey(hashes[i])
+				err = txn.Delete(key)
 				if err != nil {
 					return err
 				}
@@ -70,13 +83,22 @@ func (s *BadgerStore) CachePutTransaction(tx *common.VersionedTransaction) error
 	txn := s.cacheDB.NewTransaction(true)
 	defer txn.Discard()
 
-	key := cacheTransactionCacheKey(tx.PayloadHash())
+	hash := tx.PayloadHash()
+	key := cacheTransactionCacheKey(hash)
 	val := tx.CompressMarshal()
-	etr := badger.NewEntry(key, val).WithTTL(time.Duration(s.custom.Node.CacheTTL) * time.Second * 8)
+	etr := badger.NewEntry(key, val).WithTTL(time.Duration(s.custom.Node.CacheTTL+60) * time.Second)
 	err := txn.SetEntry(etr)
 	if err != nil {
 		return err
 	}
+
+	key = cacheTransactionQueueKey(hash)
+	etr = badger.NewEntry(key, []byte{}).WithTTL(time.Duration(s.custom.Node.CacheTTL) * time.Second)
+	err = txn.SetEntry(etr)
+	if err != nil {
+		return err
+	}
+
 	return txn.Commit()
 }
 
@@ -84,7 +106,11 @@ func (s *BadgerStore) CacheGetTransaction(hash crypto.Hash) (*common.VersionedTr
 	txn := s.cacheDB.NewTransaction(false)
 	defer txn.Discard()
 
-	key := cacheTransactionCacheKey(hash)
+	return s.cacheReadTransaction(txn, hash)
+}
+
+func (s *BadgerStore) cacheReadTransaction(txn *badger.Txn, tx crypto.Hash) (*common.VersionedTransaction, error) {
+	key := cacheTransactionCacheKey(tx)
 	item, err := txn.Get(key)
 	if err == badger.ErrKeyNotFound {
 		return nil, nil
@@ -100,4 +126,8 @@ func (s *BadgerStore) CacheGetTransaction(hash crypto.Hash) (*common.VersionedTr
 
 func cacheTransactionCacheKey(hash crypto.Hash) []byte {
 	return append([]byte(cachePrefixTransactionCache), hash[:]...)
+}
+
+func cacheTransactionQueueKey(hash crypto.Hash) []byte {
+	return append([]byte(cachePrefixTransactionQueue), hash[:]...)
 }

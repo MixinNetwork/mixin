@@ -35,7 +35,7 @@ type Store interface {
 
 	CachePutTransaction(tx *common.VersionedTransaction) error
 	CacheGetTransaction(hash crypto.Hash) (*common.VersionedTransaction, error)
-	CacheListTransactions(offset crypto.Hash, limit int) ([]*common.VersionedTransaction, error)
+	CacheRetrieveTransactions(limit int) ([]*common.VersionedTransaction, error)
 	CacheRemoveTransactions([]crypto.Hash) error
 
 	ReadLastMintDistribution(group string) (*common.MintDistribution, error)
