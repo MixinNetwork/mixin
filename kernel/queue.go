@@ -6,6 +6,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 )
 
@@ -80,7 +81,7 @@ func (node *Node) LoopCacheQueue() error {
 				// but we need some way to mitigate cache transaction DoS attack from nodes
 				continue
 			}
-			nbor := neighbors[int(time.Now().UnixNano())%len(neighbors)]
+			nbor := neighbors[int(clock.Now().UnixNano())%len(neighbors)]
 			node.SendTransactionToPeer(nbor.IdForNetwork, hash)
 			s := &common.Snapshot{
 				Version: node.SnapshotVersion(),
@@ -105,7 +106,9 @@ func (node *Node) QueueState() (uint64, uint64, map[string][2]uint64) {
 
 	var caches, finals uint64
 	state := make(map[string][2]uint64)
-	for _, chain := range node.chains.m {
+	accepted := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
+	for _, cn := range accepted {
+		chain := node.chains.m[cn.IdForNetwork]
 		sa := [2]uint64{
 			uint64(len(chain.CachePool)),
 			uint64(len(chain.finalActionsRing)),

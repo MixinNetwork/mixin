@@ -9,7 +9,7 @@ import (
 )
 
 func (node *Node) Loop() error {
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(clock.Now().UnixNano())
 	err := node.PingNeighborsFromConfig()
 	if err != nil {
 		return err
