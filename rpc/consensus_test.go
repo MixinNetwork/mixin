@@ -117,28 +117,12 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 		deposits = append(deposits, &common.VersionedTransaction{SignedTransaction: *tx})
 	}
 
-	for _, d := range deposits[:INPUTS/2] {
-		id := testSendTransactionToNodes(t, nodes, hex.EncodeToString(d.Marshal()))
-		assert.Len(id, 75)
-	}
-	time.Sleep(3 * time.Second)
-	for _, d := range deposits[INPUTS/2:] {
-		id := testSendTransactionToNodes(t, nodes, hex.EncodeToString(d.Marshal()))
-		assert.Len(id, 75)
-	}
-	time.Sleep(3 * time.Second)
+	testSendTransactionsToNodesWithRetry(t, nodes, deposits[:INPUTS/2])
+	testSendTransactionsToNodesWithRetry(t, nodes, deposits[INPUTS/2:])
 	transactionsCount = transactionsCount + INPUTS
-
 	tl, _ = testVerifySnapshots(assert, nodes)
 	assert.Equal(transactionsCount, len(tl))
-	for i, d := range deposits {
-		if !tl[d.PayloadHash().String()] {
-			t.Logf("DEPOSIT MISSING %d %s\n", i, d.PayloadHash())
-			id, err := testSendTransaction(nodes[0].Host, hex.EncodeToString(d.Marshal()))
-			assert.Nil(err)
-			assert.Contains(id, d.PayloadHash().String())
-		}
-	}
+
 	gt = testVerifyInfo(assert, nodes)
 	assert.Truef(gt.Timestamp.Before(epoch.Add(7*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(7*time.Second))
 	hr := testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
@@ -159,28 +143,12 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	}
 	assert.Equal(INPUTS, len(utxos))
 
-	for _, tx := range utxos[:INPUTS/2] {
-		id := testSendTransactionToNodes(t, nodes, hex.EncodeToString(tx.Marshal()))
-		assert.Len(id, 75)
-	}
-	time.Sleep(3 * time.Second)
-	for _, tx := range utxos[INPUTS/2:] {
-		id := testSendTransactionToNodes(t, nodes, hex.EncodeToString(tx.Marshal()))
-		assert.Len(id, 75)
-	}
-	time.Sleep(3 * time.Second)
+	testSendTransactionsToNodesWithRetry(t, nodes, utxos[:INPUTS/2])
+	testSendTransactionsToNodesWithRetry(t, nodes, utxos[INPUTS/2:])
 	transactionsCount = transactionsCount + INPUTS
-
 	tl, _ = testVerifySnapshots(assert, nodes)
 	assert.Equal(transactionsCount, len(tl))
-	for i, tx := range utxos {
-		if !tl[tx.PayloadHash().String()] {
-			t.Logf("UTXO MISSING %d %s\n", i, tx.PayloadHash())
-			id, err := testSendTransaction(nodes[0].Host, hex.EncodeToString(tx.Marshal()))
-			assert.Nil(err)
-			assert.Contains(id, tx.PayloadHash().String())
-		}
-	}
+
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
 	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
@@ -479,8 +447,7 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw), snapVersionMint)
 	assert.Nil(err)
 	ver := common.VersionedTransaction{SignedTransaction: *tx}
-	id := testSendTransactionToNodes(t, nodes, hex.EncodeToString(ver.Marshal()))
-	assert.Len(id, 75)
+	testSendTransactionsToNodesWithRetry(t, nodes, []*common.VersionedTransaction{&ver})
 
 	custom, err := config.Initialize(dir + "/config.toml")
 	assert.Nil(err)
@@ -534,11 +501,43 @@ func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, ut
 	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw), snapVersionMint)
 	assert.Nil(err)
 	ver := common.VersionedTransaction{SignedTransaction: *tx}
-	input := testSendTransactionToNodes(t, nodes, hex.EncodeToString(ver.Marshal()))
-	assert.Len(input, 75)
-	var hash map[string]string
-	err = json.Unmarshal([]byte(input), &hash)
-	return hash["hash"], err
+	testSendTransactionsToNodesWithRetry(t, nodes, []*common.VersionedTransaction{&ver})
+	return ver.PayloadHash().String(), err
+}
+
+func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*common.VersionedTransaction) {
+	assert := assert.New(t)
+
+	var wg sync.WaitGroup
+	for _, ver := range vers {
+		wg.Add(1)
+		go func(ver *common.VersionedTransaction) {
+			node := nodes[int(time.Now().UnixNano())%len(nodes)].Host
+			id, _ := testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
+			assert.Len(id, 75)
+			defer wg.Done()
+		}(ver)
+	}
+	wg.Wait()
+	time.Sleep(3 * time.Second)
+
+	var missingTxs []*common.VersionedTransaction
+	for _, ver := range vers {
+		node := nodes[int(time.Now().UnixNano())%len(nodes)].Host
+		data, _ := callRPC(node, "gettransaction", []interface{}{ver.PayloadHash().String()})
+		var res map[string]string
+		json.Unmarshal([]byte(data), &res)
+		hash, _ := crypto.HashFromString(res["snapshot"])
+		if hash.HasValue() {
+			continue
+		}
+		t.Logf("TX MISSING %s\n", ver.PayloadHash())
+		missingTxs = append(missingTxs, ver)
+	}
+	if len(missingTxs) == 0 {
+		return
+	}
+	testSendTransactionsToNodesWithRetry(t, nodes, missingTxs)
 }
 
 func testSendTransactionToNodes(t *testing.T, nodes []*Node, raw string) string {
