@@ -91,7 +91,7 @@ func (node *Node) LoopCacheQueue() error {
 			node.chain.AppendSelfEmpty(s)
 		}
 		if err != nil {
-			logger.Printf("LoopCacheQueue CacheListTransactions ERROR %s\n", err)
+			logger.Printf("LoopCacheQueue CacheRetrieveTransactions ERROR %s\n", err)
 		}
 		err = node.persistStore.CacheRemoveTransactions(stale)
 		if err != nil {
