@@ -423,14 +423,14 @@ func (chain *Chain) AppendCosiAction(m *CosiAction) error {
 		if chain.ChainId != chain.node.IdForNetwork {
 			panic("should never be here")
 		}
-	case CosiActionSelfCommitment, CosiActionSelfResponse, CosiActionExternalCommitments:
+	case CosiActionSelfCommitment, CosiActionSelfResponse, CosiActionExternalCommitments, CosiActionSelfFullCommitment:
 		if m.PeerId == chain.ChainId {
 			panic("should never be here")
 		}
 		if chain.ChainId != chain.node.IdForNetwork {
 			panic("should never be here")
 		}
-	case CosiActionExternalAnnouncement, CosiActionExternalChallenge:
+	case CosiActionExternalAnnouncement, CosiActionExternalChallenge, CosiActionExternalFullChallenge:
 		if m.PeerId != chain.ChainId {
 			panic("should never be here")
 		}
