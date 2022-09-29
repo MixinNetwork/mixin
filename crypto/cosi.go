@@ -190,7 +190,7 @@ func (c *CosiSignature) FullVerify(publics []*Key, threshold int, message []byte
 	}
 	A, err := c.aggregatePublicKey(publics)
 	if err != nil {
-		return fmt.Errorf("cosi.FullVerify aggregatePublicKey %s", err.Error())
+		return fmt.Errorf("cosi.FullVerify aggregatePublicKey %v", err)
 	}
 	if !A.Verify(message, c.Signature) {
 		return fmt.Errorf("cosi.FullVerify signature verify failed")

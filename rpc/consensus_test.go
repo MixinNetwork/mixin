@@ -212,7 +212,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 		dummyInputs[i] = &common.Input{Hash: hash, Index: i}
 	}
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 3; i++ {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount, snapVersionMint)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
@@ -224,11 +224,12 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	assert.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
 
 	pn, pi, sv := testPledgeNewNode(t, nodes, accounts[0], gdata, plist, input, root, snapVersionMint)
+	t.Logf("PLEDGE %s\n", pn.Signer)
 	transactionsCount = transactionsCount + 1
 	defer pi.Teardown()
 	defer sv.Close()
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 5; i++ {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount, snapVersionMint)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
