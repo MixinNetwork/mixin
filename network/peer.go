@@ -65,7 +65,7 @@ func (me *Peer) PingNeighbor(addr string) error {
 		for !me.closing {
 			err := me.pingPeerStream(addr)
 			if err != nil {
-				logger.Verbosef("PingNeighbor error %s\n", err.Error())
+				logger.Verbosef("PingNeighbor error %v\n", err)
 			}
 		}
 	}()
@@ -206,13 +206,13 @@ func (me *Peer) ListenNeighbors() error {
 	for !me.closing {
 		c, err := me.transport.Accept(me.ctx)
 		if err != nil {
-			logger.Verbosef("accept error %s\n", err.Error())
+			logger.Verbosef("accept error %v\n", err)
 			continue
 		}
 		go func(c Client) {
 			err := me.acceptNeighborConnection(c)
 			if err != nil {
-				logger.Debugf("accept neighbor %s error %s\n", c.RemoteAddr().String(), err.Error())
+				logger.Debugf("accept neighbor %s error %v\n", c.RemoteAddr().String(), err)
 			}
 		}(c)
 	}
@@ -228,7 +228,7 @@ func (me *Peer) openPeerStreamLoop(p *Peer) {
 	for !me.closing && !p.closing {
 		msg, err := me.openPeerStream(p, resend)
 		if err != nil {
-			logger.Verbosef("neighbor open stream %s error %s\n", p.Address, err.Error())
+			logger.Verbosef("neighbor open stream %s error %v\n", p.Address, err)
 		}
 		resend = msg
 		time.Sleep(1 * time.Second)
@@ -362,7 +362,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 
 	peer, err := me.authenticateNeighbor(client)
 	if err != nil {
-		return fmt.Errorf("peer authentication error %s", err.Error())
+		return fmt.Errorf("peer authentication error %v", err)
 	}
 
 	go me.handlePeerMessage(peer, receive)
@@ -370,11 +370,11 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 	for {
 		tm, err := client.Receive()
 		if err != nil {
-			return fmt.Errorf("client.Receive %s %s", peer.IdForNetwork, err.Error())
+			return fmt.Errorf("client.Receive %s %v", peer.IdForNetwork, err)
 		}
 		msg, err := parseNetworkMessage(tm.Version, tm.Data)
 		if err != nil {
-			return fmt.Errorf("parseNetworkMessage %s %s", peer.IdForNetwork, err.Error())
+			return fmt.Errorf("parseNetworkMessage %s %v", peer.IdForNetwork, err)
 		}
 
 		if msg.Type != PeerMessageTypeBundle {
@@ -392,7 +392,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 			}
 			elm, err := parseNetworkMessage(tm.Version, data[4:4+size])
 			if err != nil {
-				return fmt.Errorf("parseNetworkMessage %s %s", peer.IdForNetwork, err.Error())
+				return fmt.Errorf("parseNetworkMessage %s %v", peer.IdForNetwork, err)
 			}
 			if elm.Type == PeerMessageTypeBundle {
 				return fmt.Errorf("parseNetworkMessage %s invalid bundle element type", peer.IdForNetwork)
@@ -434,7 +434,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 
 		peer, err = me.AddNeighbor(id, addr)
 		if err != nil {
-			auth <- fmt.Errorf("peer authentication add neighbor failed %s", err.Error())
+			auth <- fmt.Errorf("peer authentication add neighbor failed %v", err)
 		} else {
 			auth <- nil
 		}
@@ -444,7 +444,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 	case err := <-auth:
 		if err != nil {
 			client.Close()
-			return nil, fmt.Errorf("peer authentication failed %s", err.Error())
+			return nil, fmt.Errorf("peer authentication failed %v", err)
 		}
 	case <-time.After(3 * time.Second):
 		client.Close()

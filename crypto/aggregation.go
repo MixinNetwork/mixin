@@ -26,7 +26,7 @@ func aggregatePublicKey(publics []*Key, signers []int) (*Key, error) {
 func AggregateVerify(sig *Signature, publics []*Key, signers []int, message []byte) error {
 	A, err := aggregatePublicKey(publics, signers)
 	if err != nil {
-		return fmt.Errorf("AggregateVerify aggregatePublicKey %s", err.Error())
+		return fmt.Errorf("AggregateVerify aggregatePublicKey %v", err)
 	}
 	if !A.Verify(message, *sig) {
 		return fmt.Errorf("AggregateVerify signature verify failed")

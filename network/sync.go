@@ -157,7 +157,7 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 		}
 		off, err := me.compareRoundGraphAndGetTopologicalOffset(p, me.handle.BuildGraph(), g)
 		if err != nil {
-			logger.Printf("network.sync compareRoundGraphAndGetTopologicalOffset %s error %s\n", p.IdForNetwork, err.Error())
+			logger.Printf("network.sync compareRoundGraphAndGetTopologicalOffset %s error %v\n", p.IdForNetwork, err)
 		}
 		if off > 0 {
 			offset = off

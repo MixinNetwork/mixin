@@ -345,7 +345,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		if len(commitments) == 0 {
 			err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R)
 			if err != nil {
-				logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement SendSnapshotAnnouncementMessage(%s, %s) ERROR %s\n", peerId, s.Hash, err.Error())
+				logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement SendSnapshotAnnouncementMessage(%s, %s) ERROR %v\n", peerId, s.Hash, err)
 			}
 			continue
 		}
@@ -480,7 +480,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 			err = chain.node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, nil)
 		}
 		if err != nil {
-			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment SendTransactionChallengeMessage(%s, %s) ERROR %s\n", id, m.SnapshotHash, err.Error())
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleCommitment SendTransactionChallengeMessage(%s, %s) ERROR %v\n", id, m.SnapshotHash, err)
 		}
 	}
 	return nil
@@ -489,6 +489,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 func (chain *Chain) cosiHandleFullChallenge(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge %v\n", m)
 	if cm := chain.CosiRandoms[m.PeerId]; cm == nil || cm[*m.Challenge] == nil {
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge challenge commitment missing %v\n", m)
 		commitments := chain.CosiPrepareCommitments(m.PeerId)
 		err := chain.node.Peer.SendCommitmentsMessage(m.PeerId, commitments)
 		if err != nil {
@@ -591,7 +592,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	}
 	err = chain.node.Peer.SendSnapshotResponseMessage(m.PeerId, m.SnapshotHash, response)
 	if err != nil {
-		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge SendSnapshotResponseMessage(%s, %s) ERROR %s\n", m.PeerId, m.SnapshotHash, err.Error())
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleChallenge SendSnapshotResponseMessage(%s, %s) ERROR %v\n", m.PeerId, m.SnapshotHash, err)
 	}
 	return nil
 }
@@ -662,12 +663,12 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		if agg.Responses[cn.ConsensusIndex] == nil {
 			err := chain.node.SendTransactionToPeer(id, s.SoleTransaction())
 			if err != nil {
-				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse SendTransactionToPeer(%s, %s) ERROR %s\n", id, m.SnapshotHash, err.Error())
+				logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse SendTransactionToPeer(%s, %s) ERROR %v\n", id, m.SnapshotHash, err)
 			}
 		}
 		err := chain.node.Peer.SendSnapshotFinalizationMessage(id, s)
 		if err != nil {
-			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse SendSnapshotFinalizationMessage(%s, %s) ERROR %s\n", id, m.SnapshotHash, err.Error())
+			logger.Verbosef("CosiLoop cosiHandleAction cosiHandleResponse SendSnapshotFinalizationMessage(%s, %s) ERROR %v\n", id, m.SnapshotHash, err)
 		}
 	}
 	return chain.node.reloadConsensusState(s, cd.TX)
@@ -713,7 +714,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 
 	tx, _, err := chain.node.validateSnapshotTransaction(s, true)
 	if err != nil {
-		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %s\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp, true), err.Error())
+		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %v\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp, true), err)
 		return nil
 	} else if tx == nil {
 		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %s\n", m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp, true), "tx empty")
@@ -741,7 +742,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 	}
 
 	if err := cache.ValidateSnapshot(s); err != nil {
-		logger.Verbosef("ERROR cosiHandleFinalization ValidateSnapshot %s %v %s\n", m.PeerId, s, err.Error())
+		logger.Verbosef("ERROR cosiHandleFinalization ValidateSnapshot %s %v %v\n", m.PeerId, s, err)
 		return nil
 	}
 	chain.AddSnapshot(final, cache, s, signers)
