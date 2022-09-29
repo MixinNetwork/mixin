@@ -26,6 +26,7 @@ const (
 	PeerMessageTypeTransactionChallenge = 12 // leader send bitmask Z and aggregated R to peer
 	PeerMessageTypeSnapshotResponse     = 13 // peer generate A from nodes and Z, send response si = ri + H(R || A || M)ai to leader
 	PeerMessageTypeSnapshotFinalization = 14 // leader generate A, verify si B = ri B + H(R || A || M)ai B = Ri + H(R || A || M)Ai, then finalize based on threshold
+	PeerMessageTypeCommitments          = 15
 
 	PeerMessageTypeBundle          = 100
 	PeerMessageTypeGossipNeighbors = 101
@@ -43,6 +44,7 @@ type PeerMessage struct {
 	Commitment      crypto.Key
 	Response        [32]byte
 	WantTx          bool
+	Commitments     []*crypto.Key
 	Graph           []*SyncPoint
 	Data            []byte
 	Neighbors       []string
@@ -65,6 +67,15 @@ type SyncHandle interface {
 	CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, ver *common.VersionedTransaction) error
 	CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Hash, response *[32]byte) error
 	VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error
+	CosiQueueExternalCommitments(peerId crypto.Hash, commitments []*crypto.Key) error
+}
+
+func (me *Peer) SendCommitmentsMessage(idForNetwork crypto.Hash, commitments []*crypto.Key) error {
+	data := buildCommitmentsMessage(commitments)
+	hash := crypto.Blake3Hash(data)
+	key := append(idForNetwork[:], 'C', 'R')
+	key = append(key, hash[:]...)
+	return me.sendHighToPeer(idForNetwork, key, data)
 }
 
 func (me *Peer) SendSnapshotAnnouncementMessage(idForNetwork crypto.Hash, s *common.Snapshot, R crypto.Key) error {
@@ -198,6 +209,18 @@ func buildGraphMessage(points []*SyncPoint) []byte {
 	return append([]byte{PeerMessageTypeGraph}, data...)
 }
 
+func buildCommitmentsMessage(commitments []*crypto.Key) []byte {
+	if len(commitments) > 1024 {
+		panic(len(commitments))
+	}
+	data := []byte{PeerMessageTypeCommitments}
+	data = binary.BigEndian.AppendUint16(data, uint16(len(commitments)))
+	for _, k := range commitments {
+		data = append(data, k[:]...)
+	}
+	return data
+}
+
 func buildBundleMessage(msgs []*ChanMsg) []byte {
 	data := []byte{PeerMessageTypeBundle}
 	for _, m := range msgs {
@@ -216,6 +239,22 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 	}
 	msg := &PeerMessage{Type: data[0]}
 	switch msg.Type {
+	case PeerMessageTypeCommitments:
+		if len(data) < 3 {
+			return nil, fmt.Errorf("invalid commitments message size %d", len(data))
+		}
+		count := binary.BigEndian.Uint16(data[1:3])
+		if count > 1024 {
+			return nil, fmt.Errorf("too much commitments %d", count)
+		}
+		if len(data[3:]) != int(count)*32 {
+			return nil, fmt.Errorf("malformed commitments message %d %d", count, len(data[3:]))
+		}
+		for i := uint16(0); i < count; i++ {
+			var key crypto.Key
+			copy(key[:], data[3+32*i:])
+			msg.Commitments = append(msg.Commitments, &key)
+		}
 	case PeerMessageTypeGraph:
 		points, err := unmarshalSyncPoints(data[1:])
 		if err != nil {
@@ -304,6 +343,9 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage) {
 			if me.gossipNeighbors {
 				me.handle.UpdateNeighbors(msg.Neighbors)
 			}
+		case PeerMessageTypeCommitments:
+			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeCommitments %s %d\n", peer.IdForNetwork, len(msg.Commitments))
+			me.handle.CosiQueueExternalCommitments(peer.IdForNetwork, msg.Commitments)
 		case PeerMessageTypeGraph:
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeGraph %s\n", peer.IdForNetwork)
 			me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.Graph)
