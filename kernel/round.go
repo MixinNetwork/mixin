@@ -34,10 +34,6 @@ type FinalRound struct {
 func (node *Node) LoadAllChainsAndGraphTimestamp(store storage.Store, networkId crypto.Hash) error {
 	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), false)
 	for _, cn := range nodes {
-		if cn.State == common.NodeStatePledging || cn.State == common.NodeStateCancelled {
-			continue
-		}
-
 		chain := node.getOrCreateChain(cn.IdForNetwork)
 		if chain.State == nil {
 			continue
