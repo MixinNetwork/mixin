@@ -185,6 +185,12 @@ func reduceHistory(rounds []*FinalRound) []*FinalRound {
 	return newRounds
 }
 
+// the external round to be referenced should be as latest as possible,
+// this makes the graph stable. and to make the graph grow faster, it's
+// recommended to reference a round about ten minutes agao.
+//
+// it's also important to reference the first accepted node round even if
+// it's not consensus ready yet, because it's part of the graph.
 func (chain *Chain) determineBestRound(roundTime uint64) *FinalRound {
 	chain.node.chains.RLock()
 	defer chain.node.chains.RUnlock()
@@ -199,9 +205,6 @@ func (chain *Chain) determineBestRound(roundTime uint64) *FinalRound {
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
 		if id == chain.ChainId {
-			continue
-		}
-		if !chain.node.ConsensusReady(cn, roundTime) {
 			continue
 		}
 
