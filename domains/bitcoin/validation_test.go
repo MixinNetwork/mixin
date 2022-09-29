@@ -16,6 +16,7 @@ func TestValidation(t *testing.T) {
 	tx := "c5945a8571fc84cd6850b26b5771d76311ed56957a04e993927de07b83f07c91"
 	addrLeg := "1zgmvYi5x1wy3hUh7AjKgpcVgpA8Lj9FA"
 	addrSeg := "bc1qxenlll5m5zyp778j8jd6arkn99h956zkcye93n"
+	addrTaproot := "bc1paardr2nczq0rx5rqpfwnvpzm497zvux64y0f7wjgcs7xuuuh2nnqwr2d5c"
 	addrCash := "qptz5xa5dd670f453grrplt6d4llaxlm05qmwktdc5"
 
 	assert.Nil(VerifyAssetKey(btc))
@@ -23,12 +24,14 @@ func TestValidation(t *testing.T) {
 	assert.NotNil(VerifyAssetKey(tx))
 	assert.NotNil(VerifyAssetKey(addrLeg))
 	assert.NotNil(VerifyAssetKey(addrSeg))
+	assert.NotNil(VerifyAssetKey(addrTaproot))
 	assert.NotNil(VerifyAssetKey(addrCash))
 	assert.NotNil(VerifyAssetKey(strings.ToUpper(btc)))
 	assert.NotNil(VerifyAssetKey(strings.ToUpper(usdt)))
 
 	assert.Nil(VerifyAddress(addrLeg))
 	assert.Nil(VerifyAddress(addrSeg))
+	assert.Nil(VerifyAddress(addrTaproot))
 	assert.NotNil(VerifyAddress(btc))
 	assert.NotNil(VerifyAddress(usdt))
 	assert.NotNil(VerifyAddress(addrCash))
@@ -40,6 +43,7 @@ func TestValidation(t *testing.T) {
 	assert.NotNil(VerifyTransactionHash(btc))
 	assert.NotNil(VerifyTransactionHash(addrLeg))
 	assert.NotNil(VerifyTransactionHash(addrSeg))
+	assert.NotNil(VerifyTransactionHash(addrTaproot))
 	assert.NotNil(VerifyTransactionHash("0x" + tx))
 	assert.NotNil(VerifyTransactionHash(strings.ToUpper(tx)))
 
