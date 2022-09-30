@@ -104,11 +104,9 @@ func (chain *Chain) cosiHandleAction(m *CosiAction) error {
 	case CosiActionExternalAnnouncement:
 		return chain.cosiHandleAnnouncement(m)
 	case CosiActionExternalChallenge:
-		err := chain.cosiHandleChallenge(m)
-		return err
+		return chain.cosiHandleChallenge(m)
 	case CosiActionExternalFullChallenge:
-		err := chain.cosiHandleFullChallenge(m)
-		return err
+		return chain.cosiHandleFullChallenge(m)
 	}
 
 	return nil
@@ -350,7 +348,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 			continue
 		}
 		commitment := commitments[0]
-		chain.CosiCommitmentsCache[*commitment] = commitment
+		chain.CosiCommitmentsUsed[*commitment] = commitment
 		chain.CosiCommitments[peerId] = commitments[1:]
 		cam := &CosiAction{
 			PeerId:       peerId,
@@ -745,7 +743,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 func (chain *Chain) cosiAddCommitments(m *CosiAction) error {
 	var commitments []*crypto.Key
 	for _, k := range m.Commitments {
-		if chain.CosiCommitmentsCache[*k] == nil {
+		if chain.CosiCommitmentsUsed[*k] == nil {
 			commitments = append(commitments, k)
 		}
 	}
@@ -754,7 +752,7 @@ func (chain *Chain) cosiAddCommitments(m *CosiAction) error {
 }
 
 func (chain *Chain) cosiRetrieveRandom(snap crypto.Hash, peerId crypto.Hash, challenge *crypto.Key) *crypto.Key {
-	r := chain.CosiCommitmentsCache[crypto.Key(snap)]
+	r := chain.CosiCommitmentsUsed[crypto.Key(snap)]
 	if r != nil && r.Public() == *challenge {
 		return r
 	}
@@ -766,7 +764,7 @@ func (chain *Chain) cosiRetrieveRandom(snap crypto.Hash, peerId crypto.Hash, cha
 	if r == nil {
 		return nil
 	}
-	chain.CosiCommitmentsCache[crypto.Key(snap)] = r
+	chain.CosiCommitmentsUsed[crypto.Key(snap)] = r
 	delete(chain.CosiRandoms[peerId], *challenge)
 	return r
 }
