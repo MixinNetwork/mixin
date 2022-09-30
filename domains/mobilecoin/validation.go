@@ -32,7 +32,7 @@ func VerifyAssetKey(assetKey string) error {
 }
 
 func VerifyAddress(address string) error {
-	am, err := account.DecodeAccount(address)
+	am, err := account.DecodeB58Code(address)
 	if err != nil {
 		return err
 	}
