@@ -17,9 +17,9 @@ func TestValidation(t *testing.T) {
 	addr2 := "d9V5WDNZxa7fNRw24JwaqDpCrRnKjpsGcN2CpLJNJZQjt7Vhwsmm2w2CoY4g2u7vy5HFxL5S8uGUUogApWteXdgrd3GnowaFUWU1HefMdGK7fdhWEcznR9SacnddL2KA3NmEzgDRoqqwHzTv8cPXo5udtRAy4Q4xYsPTmXkcZTH212SNXudQwA6KfwUqS3aKvJFMLcr1iUmfupMikwVYcfboJ6i3gejGhua5BVX1GRhL2BRWMHhnRCThqicQAy"
 
 	assert.Nil(VerifyAssetKey(mob))
-	assert.NotNil(VerifyAssetKey("0"))
-	assert.Nil(VerifyAssetKey("1"))
-	assert.NotNil(VerifyAssetKey("2"))
+	assert.NotNil(VerifyAssetKey("MCIP0025:0"))
+	assert.Nil(VerifyAssetKey("MCIP0025:1"))
+	assert.NotNil(VerifyAssetKey("MCIP0025:2"))
 	assert.NotNil(VerifyAssetKey(tx))
 	assert.NotNil(VerifyAssetKey(addr))
 	assert.NotNil(VerifyAssetKey(strings.ToUpper(mob)))
@@ -34,7 +34,7 @@ func TestValidation(t *testing.T) {
 	assert.NotNil(VerifyTransactionHash(strings.ToUpper(tx)))
 
 	assert.Equal(crypto.NewHash([]byte("eea900a8-b327-488c-8d8d-1428702fe240")), GenerateAssetId(mob))
-	assert.Equal("c0a78f2daee3e49f8cf1bdeb5144688629ce98486400869371f415d19571ea9c", GenerateAssetId("1").String())
+	assert.Equal("099fb16c3f8523bcb77c1e6c2bdb96f114611993e70b610dc1f5cfb3f273cbb1", GenerateAssetId("MCIP0025:1").String())
 	assert.Equal(crypto.NewHash([]byte("eea900a8-b327-488c-8d8d-1428702fe240")), MobileCoinChainId)
 	assert.Equal(crypto.NewHash([]byte(MobileCoinChainBase)), MobileCoinChainId)
 }

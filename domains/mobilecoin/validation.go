@@ -24,7 +24,7 @@ func VerifyAssetKey(assetKey string) error {
 	switch assetKey {
 	case MobileCoinChainBase:
 		return nil
-	case "1":
+	case "MCIP0025:1":
 		return nil
 	default:
 		return fmt.Errorf("invalid mobilecoin asset key %s", assetKey)
@@ -70,7 +70,7 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 	switch assetKey {
 	case MobileCoinChainBase:
 		return MobileCoinChainId
-	case "1":
+	case "MCIP0025:1":
 		return ethereum.BuildChainAssetId(MobileCoinChainBase, assetKey)
 	default:
 		panic(assetKey)
