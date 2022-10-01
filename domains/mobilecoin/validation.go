@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/domains/ethereum"
 	account "github.com/jadeydi/mobilecoin-account"
 )
 
@@ -20,14 +21,18 @@ func init() {
 }
 
 func VerifyAssetKey(assetKey string) error {
-	if assetKey == MobileCoinChainBase {
+	switch assetKey {
+	case MobileCoinChainBase:
 		return nil
+	case "MCIP0025:1":
+		return nil
+	default:
+		return fmt.Errorf("invalid mobilecoin asset key %s", assetKey)
 	}
-	return fmt.Errorf("invalid mobilecoin asset key %s", assetKey)
 }
 
 func VerifyAddress(address string) error {
-	am, err := account.DecodeAccount(address)
+	am, err := account.DecodeB58Code(address)
 	if err != nil {
 		return err
 	}
@@ -65,6 +70,8 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 	switch assetKey {
 	case MobileCoinChainBase:
 		return MobileCoinChainId
+	case "MCIP0025:1":
+		return ethereum.BuildChainAssetId(MobileCoinChainBase, assetKey)
 	default:
 		panic(assetKey)
 	}
