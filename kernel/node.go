@@ -320,7 +320,6 @@ func (node *Node) LoadConsensusNodes() error {
 	return nil
 }
 
-// FIXME remove this after all nodes upgraded
 func (node *Node) SnapshotVersion() uint8 {
 	if node.networkId.String() != config.MainnetId {
 		return common.SnapshotVersionCommonEncoding
@@ -332,6 +331,7 @@ func (node *Node) SnapshotVersion() uint8 {
 	return common.SnapshotVersionMsgpackEncoding
 }
 
+// this is needed to handle mainnet transaction version upgrading fork
 func (node *Node) NewTransaction(assetId crypto.Hash) *common.Transaction {
 	if node.SnapshotVersion() < common.SnapshotVersionCommonEncoding {
 		return common.NewTransactionV2(assetId)

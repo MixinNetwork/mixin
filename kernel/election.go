@@ -201,7 +201,7 @@ func (node *Node) tryToSendRemoveTransaction() error {
 	}
 	chain := node.getOrCreateChain(node.IdForNetwork)
 	s := &common.Snapshot{
-		Version: chain.node.SnapshotVersion(),
+		Version: common.SnapshotVersionCommonEncoding,
 		NodeId:  node.IdForNetwork,
 	}
 	s.AddSoleTransaction(tx.PayloadHash())
@@ -327,7 +327,7 @@ func (chain *Chain) tryToSendAcceptTransaction() error {
 		return err
 	}
 	s := &common.Snapshot{
-		Version: chain.node.SnapshotVersion(),
+		Version: common.SnapshotVersionCommonEncoding,
 		NodeId:  chain.ChainId,
 	}
 	s.AddSoleTransaction(ver.PayloadHash())

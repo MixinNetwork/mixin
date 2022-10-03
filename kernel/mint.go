@@ -241,7 +241,7 @@ func (node *Node) tryToMintKernelNode() error {
 		return err
 	}
 	s := &common.Snapshot{
-		Version: node.SnapshotVersion(),
+		Version: common.SnapshotVersionCommonEncoding,
 		NodeId:  node.IdForNetwork,
 	}
 	s.AddSoleTransaction(signed.PayloadHash())

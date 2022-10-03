@@ -37,7 +37,7 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 		return "", err
 	}
 	s := &common.Snapshot{
-		Version: node.SnapshotVersion(),
+		Version: common.SnapshotVersionCommonEncoding,
 		NodeId:  node.IdForNetwork,
 	}
 	s.AddSoleTransaction(tx.PayloadHash())
@@ -84,7 +84,7 @@ func (node *Node) LoopCacheQueue() error {
 			nbor := neighbors[int(clock.Now().UnixNano())%len(neighbors)]
 			node.SendTransactionToPeer(nbor.IdForNetwork, hash)
 			s := &common.Snapshot{
-				Version: node.SnapshotVersion(),
+				Version: common.SnapshotVersionCommonEncoding,
 				NodeId:  node.IdForNetwork,
 			}
 			s.AddSoleTransaction(tx.PayloadHash())
@@ -129,7 +129,7 @@ func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 		panic("should never be here")
 	}
 	ns := &common.Snapshot{
-		Version: chain.node.SnapshotVersion(),
+		Version: common.SnapshotVersionCommonEncoding,
 		NodeId:  s.NodeId,
 	}
 	ns.AddSoleTransaction(s.SoleTransaction())
