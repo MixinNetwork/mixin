@@ -12,7 +12,7 @@ import (
 	"github.com/MixinNetwork/mixin/storage"
 )
 
-func getCacheTransaction(store storage.Store, params []interface{}) (map[string]interface{}, error) {
+func getCacheTransaction(store storage.Store, params []any) (map[string]any, error) {
 	if len(params) != 1 {
 		return nil, errors.New("invalid params count")
 	}
@@ -29,7 +29,7 @@ func getCacheTransaction(store storage.Store, params []interface{}) (map[string]
 	return data, nil
 }
 
-func queueTransaction(node *kernel.Node, params []interface{}) (string, error) {
+func queueTransaction(node *kernel.Node, params []any) (string, error) {
 	if len(params) != 1 {
 		return "", errors.New("invalid params count")
 	}
@@ -44,7 +44,7 @@ func queueTransaction(node *kernel.Node, params []interface{}) (string, error) {
 	return node.QueueTransaction(ver)
 }
 
-func getTransaction(store storage.Store, params []interface{}) (map[string]interface{}, error) {
+func getTransaction(store storage.Store, params []any) (map[string]any, error) {
 	if len(params) != 1 {
 		return nil, errors.New("invalid params count")
 	}
@@ -64,7 +64,7 @@ func getTransaction(store storage.Store, params []interface{}) (map[string]inter
 	return data, nil
 }
 
-func getUTXO(store storage.Store, params []interface{}) (map[string]interface{}, error) {
+func getUTXO(store storage.Store, params []any) (map[string]any, error) {
 	if len(params) != 2 {
 		return nil, errors.New("invalid params count")
 	}
@@ -81,7 +81,7 @@ func getUTXO(store storage.Store, params []interface{}) (map[string]interface{},
 		return nil, err
 	}
 
-	output := map[string]interface{}{
+	output := map[string]any{
 		"type":   utxo.Type,
 		"hash":   hash,
 		"index":  index,
@@ -102,7 +102,7 @@ func getUTXO(store storage.Store, params []interface{}) (map[string]interface{},
 	return output, nil
 }
 
-func getGhostKey(store storage.Store, params []interface{}) (map[string]interface{}, error) {
+func getGhostKey(store storage.Store, params []any) (map[string]any, error) {
 	if len(params) != 1 {
 		return nil, errors.New("invalid params count")
 	}
@@ -114,14 +114,14 @@ func getGhostKey(store storage.Store, params []interface{}) (map[string]interfac
 	if err != nil {
 		return nil, err
 	}
-	res := map[string]interface{}{"transaction": nil}
+	res := map[string]any{"transaction": nil}
 	if by != nil {
 		res["transaction"] = by.String()
 	}
 	return res, nil
 }
 
-func getSnapshot(node *kernel.Node, store storage.Store, params []interface{}) (map[string]interface{}, error) {
+func getSnapshot(node *kernel.Node, store storage.Store, params []any) (map[string]any, error) {
 	if len(params) != 1 {
 		return nil, errors.New("invalid params count")
 	}
@@ -140,7 +140,7 @@ func getSnapshot(node *kernel.Node, store storage.Store, params []interface{}) (
 	return snapshotToMap(node, snap, tx, true), nil
 }
 
-func listSnapshots(node *kernel.Node, store storage.Store, params []interface{}) ([]map[string]interface{}, error) {
+func listSnapshots(node *kernel.Node, store storage.Store, params []any) ([]map[string]any, error) {
 	if len(params) != 4 {
 		return nil, errors.New("invalid params count")
 	}
@@ -169,9 +169,9 @@ func listSnapshots(node *kernel.Node, store storage.Store, params []interface{})
 	return snapshotsToMap(node, snapshots, nil, sig), err
 }
 
-func snapshotsToMap(node *kernel.Node, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.VersionedTransaction, sig bool) []map[string]interface{} {
+func snapshotsToMap(node *kernel.Node, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.VersionedTransaction, sig bool) []map[string]any {
 	tx := len(transactions) == len(snapshots)
-	result := make([]map[string]interface{}, len(snapshots))
+	result := make([]map[string]any, len(snapshots))
 	for i, s := range snapshots {
 		if tx {
 			result[i] = snapshotToMap(node, s, transactions[i], sig)
@@ -182,9 +182,9 @@ func snapshotsToMap(node *kernel.Node, snapshots []*common.SnapshotWithTopologic
 	return result
 }
 
-func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx *common.VersionedTransaction, sig bool) map[string]interface{} {
+func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx *common.VersionedTransaction, sig bool) map[string]any {
 	wn := node.WitnessSnapshot(s)
-	item := map[string]interface{}{
+	item := map[string]any{
 		"version":    s.Version,
 		"node":       s.NodeId,
 		"references": roundLinkToMap(s.References),
@@ -193,7 +193,7 @@ func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx
 		"hash":       s.Hash,
 		"hex":        hex.EncodeToString(s.VersionedMarshal()),
 		"topology":   s.TopologicalOrder,
-		"witness": map[string]interface{}{
+		"witness": map[string]any{
 			"signature": wn.Signature,
 			"timestamp": wn.Timestamp,
 		},
@@ -204,7 +204,7 @@ func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx
 		item["transaction"] = s.SoleTransaction()
 	}
 	if s.Version >= common.SnapshotVersionCommonEncoding {
-		item["transactions"] = []interface{}{item["transaction"]}
+		item["transactions"] = []any{item["transaction"]}
 	}
 	if sig && s.Version == 0 {
 		item["signatures"] = s.Signatures
@@ -215,32 +215,32 @@ func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx
 	return item
 }
 
-func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {
-	var inputs []map[string]interface{}
+func transactionToMap(tx *common.VersionedTransaction) map[string]any {
+	var inputs []map[string]any
 	for _, in := range tx.Inputs {
 		if in.Hash.HasValue() {
-			inputs = append(inputs, map[string]interface{}{
+			inputs = append(inputs, map[string]any{
 				"hash":  in.Hash,
 				"index": in.Index,
 			})
 		} else if len(in.Genesis) > 0 {
-			inputs = append(inputs, map[string]interface{}{
+			inputs = append(inputs, map[string]any{
 				"genesis": hex.EncodeToString(in.Genesis),
 			})
 		} else if in.Deposit != nil {
-			inputs = append(inputs, map[string]interface{}{
+			inputs = append(inputs, map[string]any{
 				"deposit": in.Deposit,
 			})
 		} else if in.Mint != nil {
-			inputs = append(inputs, map[string]interface{}{
+			inputs = append(inputs, map[string]any{
 				"mint": in.Mint,
 			})
 		}
 	}
 
-	var outputs []map[string]interface{}
+	var outputs []map[string]any
 	for _, out := range tx.Outputs {
-		output := map[string]interface{}{
+		output := map[string]any{
 			"type":   out.Type,
 			"amount": out.Amount,
 		}
@@ -254,7 +254,7 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {
 			output["mask"] = out.Mask
 		}
 		if w := out.Withdrawal; w != nil {
-			output["withdrawal"] = map[string]interface{}{
+			output["withdrawal"] = map[string]any{
 				"chain":     w.Chain,
 				"asset_key": w.AssetKey,
 				"address":   w.Address,
@@ -264,7 +264,7 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {
 		outputs = append(outputs, output)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"version": tx.Version,
 		"asset":   tx.Asset,
 		"inputs":  inputs,

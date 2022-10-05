@@ -37,27 +37,27 @@ func SetFilter(pattern string) error {
 	return nil
 }
 
-func Println(v ...interface{}) {
+func Println(v ...any) {
 	if level >= INFO {
 		log.Println(v...)
 	}
 }
 
-func Printf(format string, v ...interface{}) {
+func Printf(format string, v ...any) {
 	if level >= INFO {
 		log.Printf(format, v...)
 	}
 }
 
-func Verbosef(format string, v ...interface{}) {
+func Verbosef(format string, v ...any) {
 	printfAtLevel(VERBOSE, format, v...)
 }
 
-func Debugf(format string, v ...interface{}) {
+func Debugf(format string, v ...any) {
 	printfAtLevel(DEBUG, format, v...)
 }
 
-func printfAtLevel(l int, format string, v ...interface{}) {
+func printfAtLevel(l int, format string, v ...any) {
 	if level < l {
 		return
 	}
@@ -68,7 +68,7 @@ func printfAtLevel(l int, format string, v ...interface{}) {
 	log.Print(out)
 }
 
-func filterOutput(format string, v ...interface{}) string {
+func filterOutput(format string, v ...any) string {
 	out := fmt.Sprintf(format, v...)
 	if filter == nil || filter.MatchString(out) {
 		return out

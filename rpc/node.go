@@ -10,7 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/storage"
 )
 
-func listAllNodes(store storage.Store, node *kernel.Node, params []interface{}) ([]map[string]interface{}, error) {
+func listAllNodes(store storage.Store, node *kernel.Node, params []any) ([]map[string]any, error) {
 	if len(params) != 2 {
 		return nil, errors.New("invalid params count")
 	}
@@ -26,9 +26,9 @@ func listAllNodes(store storage.Store, node *kernel.Node, params []interface{}) 
 		threshold = uint64(time.Now().UnixNano())
 	}
 	nodes := store.ReadAllNodes(threshold, state)
-	result := make([]map[string]interface{}, len(nodes))
+	result := make([]map[string]any, len(nodes))
 	for i, n := range nodes {
-		item := map[string]interface{}{
+		item := map[string]any{
 			"id":          n.IdForNetwork(node.NetworkId()),
 			"signer":      n.Signer,
 			"payee":       n.Payee,

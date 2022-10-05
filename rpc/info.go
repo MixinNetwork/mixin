@@ -12,8 +12,8 @@ import (
 	"github.com/MixinNetwork/mixin/storage"
 )
 
-func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, error) {
-	info := map[string]interface{}{
+func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
+	info := map[string]any{
 		"network":   node.NetworkId(),
 		"node":      node.IdForNetwork,
 		"version":   config.BuildVersion,
@@ -25,17 +25,17 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	if err != nil {
 		return info, err
 	}
-	info["mint"] = map[string]interface{}{
+	info["mint"] = map[string]any{
 		"pool":   pool,
 		"batch":  node.LastMint,
 		"pledge": node.PledgeAmount(node.GraphTimestamp),
 	}
 	cacheMap, finalMap := node.LoadRoundGraph()
-	cacheGraph := make(map[string]interface{})
+	cacheGraph := make(map[string]any)
 	for n, r := range cacheMap {
-		sm := make([]map[string]interface{}, len(r.Snapshots))
+		sm := make([]map[string]any, len(r.Snapshots))
 		for i, s := range r.Snapshots {
-			sm[i] = map[string]interface{}{
+			sm[i] = map[string]any{
 				"version":     s.Version,
 				"node":        s.NodeId,
 				"references":  roundLinkToMap(s.References),
@@ -46,10 +46,10 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 				"signature":   s.Signature,
 			}
 			if s.Version >= common.SnapshotVersionCommonEncoding {
-				sm[i]["transactions"] = []interface{}{sm[i]["transaction"]}
+				sm[i]["transactions"] = []any{sm[i]["transaction"]}
 			}
 		}
-		cacheGraph[n.String()] = map[string]interface{}{
+		cacheGraph[n.String()] = map[string]any{
 			"node":       r.NodeId.String(),
 			"round":      r.Number,
 			"timestamp":  r.Timestamp,
@@ -57,9 +57,9 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 			"references": roundLinkToMap(r.References),
 		}
 	}
-	finalGraph := make(map[string]interface{})
+	finalGraph := make(map[string]any)
 	for n, r := range finalMap {
-		finalGraph[n.String()] = map[string]interface{}{
+		finalGraph[n.String()] = map[string]any{
 			"node":  r.NodeId.String(),
 			"round": r.Number,
 			"start": r.Start,
@@ -69,7 +69,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	}
 
 	cids := make([]crypto.Hash, 0)
-	nodes := make([]map[string]interface{}, 0)
+	nodes := make([]map[string]any, 0)
 	list := node.NodesListWithoutState(node.GraphTimestamp, false)
 	for _, n := range list {
 		switch n.State {
@@ -89,7 +89,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	for _, n := range list {
 		switch n.State {
 		case common.NodeStateAccepted, common.NodeStatePledging:
-			node := map[string]interface{}{
+			node := map[string]any{
 				"node":        n.IdForNetwork,
 				"signer":      n.Signer.String(),
 				"payee":       n.Payee.String(),
@@ -105,7 +105,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 			nodes = append(nodes, node)
 		}
 	}
-	info["graph"] = map[string]interface{}{
+	info["graph"] = map[string]any{
 		"consensus": nodes,
 		"cache":     cacheGraph,
 		"final":     finalGraph,
@@ -114,7 +114,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 		"tps":       node.TPS(),
 	}
 	caches, finals, state := node.QueueState()
-	info["queue"] = map[string]interface{}{
+	info["queue"] = map[string]any{
 		"finals": finals,
 		"caches": caches,
 		"state":  state,
@@ -122,7 +122,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]interface{}, er
 	return info, nil
 }
 
-func dumpGraphHead(node *kernel.Node, params []interface{}) (interface{}, error) {
+func dumpGraphHead(node *kernel.Node, params []any) (any, error) {
 	rounds := node.BuildGraph()
 	sort.Slice(rounds, func(i, j int) bool { return fmt.Sprint(rounds[i].NodeId) < fmt.Sprint(rounds[j].NodeId) })
 	return rounds, nil

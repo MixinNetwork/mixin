@@ -10,7 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/storage"
 )
 
-func listMintWorks(node *kernel.Node, params []interface{}) (map[string]interface{}, error) {
+func listMintWorks(node *kernel.Node, params []any) (map[string]any, error) {
 	if len(params) != 1 {
 		return nil, errors.New("invalid params count")
 	}
@@ -23,14 +23,14 @@ func listMintWorks(node *kernel.Node, params []interface{}) (map[string]interfac
 	if err != nil {
 		return nil, err
 	}
-	wm := make(map[string]interface{})
+	wm := make(map[string]any)
 	for id, w := range works {
 		wm[id.String()] = w
 	}
 	return wm, nil
 }
 
-func listMintDistributions(store storage.Store, params []interface{}) ([]map[string]interface{}, error) {
+func listMintDistributions(store storage.Store, params []any) ([]map[string]any, error) {
 	if len(params) != 3 {
 		return nil, errors.New("invalid params count")
 	}
@@ -51,11 +51,11 @@ func listMintDistributions(store storage.Store, params []interface{}) ([]map[str
 	return mintsToMap(mints, transactions, tx), err
 }
 
-func mintsToMap(mints []*common.MintDistribution, transactions []*common.VersionedTransaction, tx bool) []map[string]interface{} {
+func mintsToMap(mints []*common.MintDistribution, transactions []*common.VersionedTransaction, tx bool) []map[string]any {
 	tx = tx && len(transactions) == len(mints)
-	result := make([]map[string]interface{}, len(mints))
+	result := make([]map[string]any, len(mints))
 	for i, m := range mints {
-		item := map[string]interface{}{
+		item := map[string]any{
 			"group":  m.Group,
 			"batch":  m.Batch,
 			"amount": m.Amount,

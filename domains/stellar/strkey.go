@@ -227,7 +227,7 @@ func decodeString(src string) ([]byte, error) {
 }
 
 // IsValidEd25519PublicKey validates a stellar public key
-func IsValidEd25519PublicKey(i interface{}) bool {
+func IsValidEd25519PublicKey(i any) bool {
 	enc, ok := i.(string)
 
 	if !ok {
@@ -240,7 +240,7 @@ func IsValidEd25519PublicKey(i interface{}) bool {
 }
 
 // IsValidEd25519SecretSeed validates a stellar secret key
-func IsValidEd25519SecretSeed(i interface{}) bool {
+func IsValidEd25519SecretSeed(i any) bool {
 	enc, ok := i.(string)
 
 	if !ok {

@@ -11,7 +11,7 @@ import (
 	"github.com/MixinNetwork/mixin/storage"
 )
 
-func getRoundLink(store storage.Store, params []interface{}) (uint64, error) {
+func getRoundLink(store storage.Store, params []any) (uint64, error) {
 	if len(params) != 2 {
 		return 0, errors.New("invalid params count")
 	}
@@ -26,7 +26,7 @@ func getRoundLink(store storage.Store, params []interface{}) (uint64, error) {
 	return store.ReadLink(from, to)
 }
 
-func getRoundByNumber(kn *kernel.Node, store storage.Store, params []interface{}) (map[string]interface{}, error) {
+func getRoundByNumber(kn *kernel.Node, store storage.Store, params []any) (map[string]any, error) {
 	if len(params) != 2 {
 		return nil, errors.New("invalid params count")
 	}
@@ -72,7 +72,7 @@ func getRoundByNumber(kn *kernel.Node, store storage.Store, params []interface{}
 	} else {
 		return nil, fmt.Errorf("round not found")
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"node":       node,
 		"hash":       hash,
 		"start":      start,
@@ -83,7 +83,7 @@ func getRoundByNumber(kn *kernel.Node, store storage.Store, params []interface{}
 	}, nil
 }
 
-func getRoundByHash(kn *kernel.Node, store storage.Store, params []interface{}) (map[string]interface{}, error) {
+func getRoundByHash(kn *kernel.Node, store storage.Store, params []any) (map[string]any, error) {
 	if len(params) != 1 {
 		return nil, errors.New("invalid params count")
 	}
@@ -119,7 +119,7 @@ func getRoundByHash(kn *kernel.Node, store storage.Store, params []interface{}) 
 	} else {
 		return nil, fmt.Errorf("round malformed %s:%d", round.NodeId, round.Number)
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"node":       round.NodeId,
 		"hash":       hash,
 		"start":      start,
@@ -130,11 +130,11 @@ func getRoundByHash(kn *kernel.Node, store storage.Store, params []interface{}) 
 	}, nil
 }
 
-func roundLinkToMap(r *common.RoundLink) map[string]interface{} {
+func roundLinkToMap(r *common.RoundLink) map[string]any {
 	if r == nil {
 		return nil
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"self":     r.Self.String(),
 		"external": r.External.String(),
 	}

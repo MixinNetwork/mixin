@@ -28,7 +28,7 @@ func roundUp(v uint64) uint64 {
 
 type node struct {
 	position uint64
-	data     interface{}
+	data     any
 }
 
 // RingBuffer is a MPMC buffer that achieves thread safety with CAS operations
@@ -70,11 +70,11 @@ func (rb *RingBuffer) Reset() {
 // Offer adds the provided item to the queue if there is space.  If the queue
 // is full, this call will return false.  An error will be returned if the
 // queue is disposed.
-func (rb *RingBuffer) Offer(item interface{}) (bool, error) {
+func (rb *RingBuffer) Offer(item any) (bool, error) {
 	return rb.put(item, true)
 }
 
-func (rb *RingBuffer) put(item interface{}, offer bool) (bool, error) {
+func (rb *RingBuffer) put(item any, offer bool) (bool, error) {
 	var n *node
 	pos := atomic.LoadUint64(&rb.queue)
 L:
@@ -110,7 +110,7 @@ L:
 // to the queue, Dispose is called on the queue, or the timeout is reached. An
 // error will be returned if the queue is disposed or a timeout occurs. A
 // non-positive timeout will block indefinitely.
-func (rb *RingBuffer) Poll(block bool) (interface{}, error) {
+func (rb *RingBuffer) Poll(block bool) (any, error) {
 	var (
 		n   *node
 		pos = atomic.LoadUint64(&rb.dequeue)

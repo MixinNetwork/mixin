@@ -344,7 +344,7 @@ func testSendDummyTransactionsWithRetry(t *testing.T, nodes []*Node, domain comm
 	var missingInputs []*common.Input
 	var missingNodes []*Node
 	for i, in := range outputs {
-		data, _ := callRPC(nodes[i].Host, "gettransaction", []interface{}{in.Hash.String()})
+		data, _ := callRPC(nodes[i].Host, "gettransaction", []any{in.Hash.String()})
 		var res map[string]string
 		json.Unmarshal([]byte(data), &res)
 		hash, _ := crypto.HashFromString(res["snapshot"])
@@ -368,14 +368,14 @@ func testSendDummyTransactions(nodes []*Node, domain common.Address, inputs []*c
 	for i, node := range nodes {
 		wg.Add(1)
 		go func(i int, node *Node) {
-			raw, _ := json.Marshal(map[string]interface{}{
+			raw, _ := json.Marshal(map[string]any{
 				"version": 2,
 				"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
-				"inputs": []map[string]interface{}{{
+				"inputs": []map[string]any{{
 					"hash":  inputs[i].Hash.String(),
 					"index": inputs[i].Index,
 				}},
-				"outputs": []map[string]interface{}{{
+				"outputs": []map[string]any{{
 					"type":     0,
 					"amount":   amount,
 					"script":   "fffe01",
@@ -431,14 +431,14 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 		panic(err)
 	}
 
-	raw, _ := json.Marshal(map[string]interface{}{
+	raw, _ := json.Marshal(map[string]any{
 		"version": 2,
 		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
-		"inputs": []map[string]interface{}{{
+		"inputs": []map[string]any{{
 			"hash":  input,
 			"index": NODES,
 		}},
-		"outputs": []map[string]interface{}{{
+		"outputs": []map[string]any{{
 			"type":   common.OutputTypeNodePledge,
 			"amount": "10000",
 		}},
@@ -470,29 +470,29 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 
 func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, utxos []*common.VersionedTransaction, snapVersionMint int) (string, error) {
 	assert := assert.New(t)
-	inputs := []map[string]interface{}{}
+	inputs := []map[string]any{}
 	for _, tx := range utxos {
-		inputs = append(inputs, map[string]interface{}{
+		inputs = append(inputs, map[string]any{
 			"hash":  tx.PayloadHash().String(),
 			"index": 0,
 		})
 	}
-	outputs := []map[string]interface{}{}
+	outputs := []map[string]any{}
 	for i := 0; i < NODES; i++ {
-		outputs = append(outputs, map[string]interface{}{
+		outputs = append(outputs, map[string]any{
 			"type":     0,
 			"amount":   common.NewIntegerFromString("3.5").Div(NODES),
 			"script":   "fffe01",
 			"accounts": []string{domain.String()},
 		})
 	}
-	outputs = append(outputs, map[string]interface{}{
+	outputs = append(outputs, map[string]any{
 		"type":     0,
 		"amount":   "10000",
 		"script":   "fffe01",
 		"accounts": []string{domain.String()},
 	})
-	raw, _ := json.Marshal(map[string]interface{}{
+	raw, _ := json.Marshal(map[string]any{
 		"version": 2,
 		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
 		"inputs":  inputs,
@@ -524,7 +524,7 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 	var missingTxs []*common.VersionedTransaction
 	for _, ver := range vers {
 		node := nodes[int(time.Now().UnixNano())%len(nodes)].Host
-		data, _ := callRPC(node, "gettransaction", []interface{}{ver.PayloadHash().String()})
+		data, _ := callRPC(node, "gettransaction", []any{ver.PayloadHash().String()})
 		var res map[string]string
 		json.Unmarshal([]byte(data), &res)
 		hash, _ := crypto.HashFromString(res["snapshot"])
@@ -568,7 +568,7 @@ func testSendTransactionToNodes(t *testing.T, nodes []*Node, raw string) string 
 }
 
 func testSendTransaction(node, raw string) (string, error) {
-	data, err := callRPC(node, "sendrawtransaction", []interface{}{
+	data, err := callRPC(node, "sendrawtransaction", []any{
 		raw,
 	})
 	return string(data), err
@@ -613,7 +613,7 @@ func setupTestNet(root string) ([]common.Address, []common.Address, []byte, stri
 			"balance": "10000",
 		})
 	}
-	genesis := map[string]interface{}{
+	genesis := map[string]any{
 		"epoch": 1551312000,
 		"nodes": inputs,
 		"domains": []map[string]string{
@@ -755,7 +755,7 @@ func assertKeyEqual(assert *assert.Assertions, a, b map[string]*common.Snapshot)
 }
 
 func testListSnapshots(node string) map[string]*common.Snapshot {
-	data, err := callRPC(node, "listsnapshots", []interface{}{
+	data, err := callRPC(node, "listsnapshots", []any{
 		0,
 		100000,
 		false,
@@ -811,7 +811,7 @@ type Node struct {
 }
 
 func testListNodes(node string) []*Node {
-	data, err := callRPC(node, "listallnodes", []interface{}{0, false})
+	data, err := callRPC(node, "listallnodes", []any{0, false})
 	if err != nil {
 		panic(err)
 	}
@@ -830,7 +830,7 @@ type HeadRound struct {
 }
 
 func testDumpGraphHead(node string, id crypto.Hash) *HeadRound {
-	data, err := callRPC(node, "dumpgraphhead", []interface{}{})
+	data, err := callRPC(node, "dumpgraphhead", []any{})
 	if err != nil {
 		panic(err)
 	}
@@ -853,7 +853,7 @@ type Info struct {
 }
 
 func testGetGraphInfo(node string) Info {
-	data, err := callRPC(node, "getinfo", []interface{}{})
+	data, err := callRPC(node, "getinfo", []any{})
 	if err != nil {
 		panic(err)
 	}
@@ -879,12 +879,12 @@ func testGetGraphInfo(node string) Info {
 
 var httpClient *http.Client
 
-func callRPC(node, method string, params []interface{}) ([]byte, error) {
+func callRPC(node, method string, params []any) ([]byte, error) {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
 
-	body, err := json.Marshal(map[string]interface{}{
+	body, err := json.Marshal(map[string]any{
 		"method": method,
 		"params": params,
 	})
@@ -905,8 +905,8 @@ func callRPC(node, method string, params []interface{}) ([]byte, error) {
 	defer resp.Body.Close()
 
 	var result struct {
-		Data  interface{} `json:"data"`
-		Error interface{} `json:"error"`
+		Data  any `json:"data"`
+		Error any `json:"error"`
 	}
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
@@ -957,7 +957,7 @@ func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKe
 		}
 	}
 
-	data, err := callRPC(raw.Node, "getutxo", []interface{}{hash.String(), index})
+	data, err := callRPC(raw.Node, "getutxo", []any{hash.String(), index})
 	if err != nil {
 		return nil, err
 	}

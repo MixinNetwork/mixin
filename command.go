@@ -240,7 +240,7 @@ func buildRawTransactionCmd(c *cli.Context) error {
 		return err
 	}
 
-	inputs := make([]map[string]interface{}, 0)
+	inputs := make([]map[string]any, 0)
 	for _, in := range strings.Split(c.String("inputs"), ",") {
 		parts := strings.Split(in, ":")
 		if len(parts) != 2 {
@@ -254,13 +254,13 @@ func buildRawTransactionCmd(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		inputs = append(inputs, map[string]interface{}{
+		inputs = append(inputs, map[string]any{
 			"hash":  hash,
 			"index": int(index),
 		})
 	}
 
-	outputs := make([]map[string]interface{}, 0)
+	outputs := make([]map[string]any, 0)
 	for _, out := range strings.Split(c.String("outputs"), ",") {
 		parts := strings.Split(out, ":")
 		if len(parts) != 2 {
@@ -274,7 +274,7 @@ func buildRawTransactionCmd(c *cli.Context) error {
 		if amount.Sign() == 0 {
 			return fmt.Errorf("invalid output %s", out)
 		}
-		outputs = append(outputs, map[string]interface{}{
+		outputs = append(outputs, map[string]any{
 			"accounts": []*common.Address{&addr},
 			"amount":   amount,
 		})
@@ -282,7 +282,7 @@ func buildRawTransactionCmd(c *cli.Context) error {
 
 	var raw signerInput
 	raw.Node = c.String("node")
-	isb, _ := json.Marshal(map[string]interface{}{"inputs": inputs})
+	isb, _ := json.Marshal(map[string]any{"inputs": inputs})
 	json.Unmarshal(isb, &raw)
 
 	tx := common.NewTransactionV3(asset)
@@ -390,7 +390,7 @@ func signTransactionCmd(c *cli.Context) error {
 }
 
 func sendTransactionCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "sendrawtransaction", []interface{}{
+	data, err := callRPC(c.String("node"), "sendrawtransaction", []any{
 		c.String("raw"),
 	}, c.Bool("time"))
 	if err == nil {
@@ -578,7 +578,7 @@ func decodePledgeNodeCmd(c *cli.Context) error {
 }
 
 func getRoundLinkCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "getroundlink", []interface{}{
+	data, err := callRPC(c.String("node"), "getroundlink", []any{
 		c.String("from"),
 		c.String("to"),
 	}, c.Bool("time"))
@@ -589,7 +589,7 @@ func getRoundLinkCmd(c *cli.Context) error {
 }
 
 func getRoundByNumberCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "getroundbynumber", []interface{}{
+	data, err := callRPC(c.String("node"), "getroundbynumber", []any{
 		c.String("id"),
 		c.Uint64("number"),
 	}, c.Bool("time"))
@@ -600,7 +600,7 @@ func getRoundByNumberCmd(c *cli.Context) error {
 }
 
 func getRoundByHashCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "getroundbyhash", []interface{}{
+	data, err := callRPC(c.String("node"), "getroundbyhash", []any{
 		c.String("hash"),
 	}, c.Bool("time"))
 	if err == nil {
@@ -610,7 +610,7 @@ func getRoundByHashCmd(c *cli.Context) error {
 }
 
 func listSnapshotsCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "listsnapshots", []interface{}{
+	data, err := callRPC(c.String("node"), "listsnapshots", []any{
 		c.Uint64("since"),
 		c.Uint64("count"),
 		c.Bool("sig"),
@@ -623,7 +623,7 @@ func listSnapshotsCmd(c *cli.Context) error {
 }
 
 func getSnapshotCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "getsnapshot", []interface{}{
+	data, err := callRPC(c.String("node"), "getsnapshot", []any{
 		c.String("hash"),
 	}, c.Bool("time"))
 	if err == nil {
@@ -633,7 +633,7 @@ func getSnapshotCmd(c *cli.Context) error {
 }
 
 func getTransactionCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "gettransaction", []interface{}{
+	data, err := callRPC(c.String("node"), "gettransaction", []any{
 		c.String("hash"),
 	}, c.Bool("time"))
 	if err == nil {
@@ -643,7 +643,7 @@ func getTransactionCmd(c *cli.Context) error {
 }
 
 func getCacheTransactionCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "getcachetransaction", []interface{}{
+	data, err := callRPC(c.String("node"), "getcachetransaction", []any{
 		c.String("hash"),
 	}, c.Bool("time"))
 	if err == nil {
@@ -653,7 +653,7 @@ func getCacheTransactionCmd(c *cli.Context) error {
 }
 
 func getUTXOCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "getutxo", []interface{}{
+	data, err := callRPC(c.String("node"), "getutxo", []any{
 		c.String("hash"),
 		c.Uint64("index"),
 	}, c.Bool("time"))
@@ -664,7 +664,7 @@ func getUTXOCmd(c *cli.Context) error {
 }
 
 func getKeyCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "getkey", []interface{}{
+	data, err := callRPC(c.String("node"), "getkey", []any{
 		c.String("key"),
 	}, c.Bool("time"))
 	if err == nil {
@@ -674,7 +674,7 @@ func getKeyCmd(c *cli.Context) error {
 }
 
 func listMintWorksCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "listmintworks", []interface{}{
+	data, err := callRPC(c.String("node"), "listmintworks", []any{
 		c.Uint64("since"),
 	}, c.Bool("time"))
 	if err == nil {
@@ -684,7 +684,7 @@ func listMintWorksCmd(c *cli.Context) error {
 }
 
 func listMintDistributionsCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "listmintdistributions", []interface{}{
+	data, err := callRPC(c.String("node"), "listmintdistributions", []any{
 		c.Uint64("since"),
 		c.Uint64("count"),
 		c.Bool("tx"),
@@ -696,7 +696,7 @@ func listMintDistributionsCmd(c *cli.Context) error {
 }
 
 func listAllNodesCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "listallnodes", []interface{}{
+	data, err := callRPC(c.String("node"), "listallnodes", []any{
 		c.Uint64("threshold"),
 		c.Bool("state"),
 	}, c.Bool("time"))
@@ -707,7 +707,7 @@ func listAllNodesCmd(c *cli.Context) error {
 }
 
 func getInfoCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "getinfo", []interface{}{}, c.Bool("time"))
+	data, err := callRPC(c.String("node"), "getinfo", []any{}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
@@ -715,7 +715,7 @@ func getInfoCmd(c *cli.Context) error {
 }
 
 func dumpGraphHeadCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "dumpgraphhead", []interface{}{}, c.Bool("time"))
+	data, err := callRPC(c.String("node"), "dumpgraphhead", []any{}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
@@ -749,7 +749,7 @@ func setupTestNetCmd(c *cli.Context) error {
 			"balance": "10000",
 		})
 	}
-	genesis := map[string]interface{}{
+	genesis := map[string]any{
 		"epoch": time.Now().Unix(),
 		"nodes": inputs,
 		"domains": []map[string]string{
@@ -806,12 +806,12 @@ peers = [%s]
 
 var httpClient *http.Client
 
-func callRPC(node, method string, params []interface{}, pt bool) ([]byte, error) {
+func callRPC(node, method string, params []any, pt bool) ([]byte, error) {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 60 * time.Second}
 	}
 
-	body, err := json.Marshal(map[string]interface{}{
+	body, err := json.Marshal(map[string]any{
 		"method": method,
 		"params": params,
 	})
@@ -838,8 +838,8 @@ func callRPC(node, method string, params []interface{}, pt bool) ([]byte, error)
 
 	var result struct {
 		Runtime string      `json:"runtime"`
-		Data    interface{} `json:"data"`
-		Error   interface{} `json:"error"`
+		Data    any `json:"data"`
+		Error   any `json:"error"`
 	}
 	dec := json.NewDecoder(resp.Body)
 	dec.UseNumber()
@@ -895,7 +895,7 @@ func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKe
 		}
 	}
 
-	data, err := callRPC(raw.Node, "getutxo", []interface{}{hash.String(), index}, false)
+	data, err := callRPC(raw.Node, "getutxo", []any{hash.String(), index}, false)
 	if err != nil {
 		return nil, err
 	}
@@ -920,32 +920,32 @@ func (raw signerInput) ReadLastMintDistribution(group string) (*common.MintDistr
 	return nil, nil
 }
 
-func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {
-	var inputs []map[string]interface{}
+func transactionToMap(tx *common.VersionedTransaction) map[string]any {
+	var inputs []map[string]any
 	for _, in := range tx.Inputs {
 		if in.Hash.HasValue() {
-			inputs = append(inputs, map[string]interface{}{
+			inputs = append(inputs, map[string]any{
 				"hash":  in.Hash,
 				"index": in.Index,
 			})
 		} else if len(in.Genesis) > 0 {
-			inputs = append(inputs, map[string]interface{}{
+			inputs = append(inputs, map[string]any{
 				"genesis": hex.EncodeToString(in.Genesis),
 			})
 		} else if in.Deposit != nil {
-			inputs = append(inputs, map[string]interface{}{
+			inputs = append(inputs, map[string]any{
 				"deposit": in.Deposit,
 			})
 		} else if in.Mint != nil {
-			inputs = append(inputs, map[string]interface{}{
+			inputs = append(inputs, map[string]any{
 				"mint": in.Mint,
 			})
 		}
 	}
 
-	var outputs []map[string]interface{}
+	var outputs []map[string]any
 	for _, out := range tx.Outputs {
-		output := map[string]interface{}{
+		output := map[string]any{
 			"type":   out.Type,
 			"amount": out.Amount,
 		}
@@ -959,7 +959,7 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {
 			output["mask"] = out.Mask
 		}
 		if w := out.Withdrawal; w != nil {
-			output["withdrawal"] = map[string]interface{}{
+			output["withdrawal"] = map[string]any{
 				"chain":     w.Chain,
 				"asset_key": w.AssetKey,
 				"address":   w.Address,
@@ -969,7 +969,7 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {
 		outputs = append(outputs, output)
 	}
 
-	tm := map[string]interface{}{
+	tm := map[string]any{
 		"version": tx.Version,
 		"asset":   tx.Asset,
 		"inputs":  inputs,
@@ -978,7 +978,7 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]interface{} {
 		"hash":    tx.PayloadHash(),
 	}
 	if as := tx.AggregatedSignature; as != nil {
-		tm["aggregated"] = map[string]interface{}{
+		tm["aggregated"] = map[string]any{
 			"signers":   as.Signers,
 			"signature": as.Signature,
 		}
