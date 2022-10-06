@@ -61,14 +61,14 @@ func (chain *Chain) validateNewRound(cache *CacheRound, references *common.Round
 	if err != nil {
 		return nil, false, err
 	}
-	if !external.Hash.HasValue() || external.Hash != references.External {
-		panic(references.External)
-	}
 	if external == nil && finalized {
 		return final, true, nil
 	}
 	if external == nil {
 		return nil, false, fmt.Errorf("external round %s not collected yet", references.External)
+	}
+	if !external.Hash.HasValue() || external.Hash != references.External {
+		panic(references.External)
 	}
 	err = chain.updateExternal(final, external, timestamp, !finalized)
 	if err != nil {
