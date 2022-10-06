@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/MixinNetwork/mixin/config"
+	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -23,6 +24,11 @@ func TestBadger(t *testing.T) {
 
 	seq := store.TopologySequence()
 	assert.Equal(uint64(0), seq)
+
+	err = store.snapshotsDB.Update(func(txn *badger.Txn) error {
+		return txn.Delete([]byte("key-not-found"))
+	})
+	assert.Nil(err)
 
 	err = store.Close()
 	assert.Nil(err)

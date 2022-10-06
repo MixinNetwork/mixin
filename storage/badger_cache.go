@@ -11,6 +11,7 @@ import (
 
 const (
 	cachePrefixTransactionQueue  = "CACHETRANSACTIONQUEUE"
+	cachePrefixTransactionOrder  = "CACHETRANSACTIONORDER"
 	cachePrefixTransactionCache  = "CACHETRANSACTIONPAYLOAD"
 	cachePrefixSnapshotNodeQueue = "SNAPSHOTNODEQUEUE"
 	cachePrefixSnapshotNodeMeta  = "SNAPSHOTNODEMETA"
@@ -28,15 +29,21 @@ func (s *BadgerStore) CacheRetrieveTransactions(limit int) ([]*common.VersionedT
 
 		var processed [][]byte
 		var hash crypto.Hash
+		filter := make(map[crypto.Hash]bool)
 		it.Seek(cacheTransactionQueueKey(0, hash))
 		for ; len(txs) < limit && it.Valid(); it.Next() {
 			key := it.Item().KeyCopy(nil)
 			copy(hash[:], key[len(cachePrefixTransactionQueue)+8:])
+			processed = append(processed, key)
+			processed = append(processed, cacheTransactionOrderKey(hash))
+			if filter[hash] {
+				continue
+			}
+			filter[hash] = true
 			ver, err := s.cacheReadTransaction(txn, hash)
 			if err != nil {
 				return err
 			}
-			processed = append(processed, key)
 			if ver != nil {
 				txs = append(txs, ver)
 			}
@@ -64,6 +71,11 @@ func (s *BadgerStore) CacheRemoveTransactions(hashes []crypto.Hash) error {
 				if err != nil {
 					return err
 				}
+				key = cacheTransactionOrderKey(hashes[i])
+				err = txn.Delete(key)
+				if err != nil {
+					return err
+				}
 				if i == batch {
 					break
 				}
@@ -82,10 +94,21 @@ func (s *BadgerStore) CachePutTransaction(tx *common.VersionedTransaction) error
 	defer txn.Discard()
 
 	hash := tx.PayloadHash()
-	key := cacheTransactionCacheKey(hash)
+	key := cacheTransactionOrderKey(hash)
+	_, err := txn.Get(key)
+	if err == nil {
+		return nil
+	}
+	etr := badger.NewEntry(key, []byte{}).WithTTL(time.Duration(s.custom.Node.CacheTTL) * time.Second)
+	err = txn.SetEntry(etr)
+	if err != nil {
+		return err
+	}
+
+	key = cacheTransactionCacheKey(hash)
 	val := tx.CompressMarshal()
-	etr := badger.NewEntry(key, val).WithTTL(time.Duration(s.custom.Node.CacheTTL+60) * time.Second)
-	err := txn.SetEntry(etr)
+	etr = badger.NewEntry(key, val).WithTTL(time.Duration(s.custom.Node.CacheTTL+60) * time.Second)
+	err = txn.SetEntry(etr)
 	if err != nil {
 		return err
 	}
@@ -130,4 +153,8 @@ func cacheTransactionQueueKey(ts uint64, hash crypto.Hash) []byte {
 	key := []byte(cachePrefixTransactionQueue)
 	key = binary.BigEndian.AppendUint64(key, ts)
 	return append(key, hash[:]...)
+}
+
+func cacheTransactionOrderKey(hash crypto.Hash) []byte {
+	return append([]byte(cachePrefixTransactionOrder), hash[:]...)
 }
