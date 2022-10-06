@@ -20,7 +20,7 @@ require (
 	github.com/vmihailenco/msgpack/v4 v4.3.12
 	github.com/zeebo/blake3 v0.2.3
 	go.dedis.ch/kyber/v3 v3.0.14
-	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be
+	golang.org/x/crypto v0.0.0-20221005025214-4161e89ecf1b
 )
 
 require (
