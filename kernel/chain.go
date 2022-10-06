@@ -55,7 +55,7 @@ type Chain struct {
 	CosiRandoms        map[crypto.Key]*crypto.Key
 	UsedRandoms        map[crypto.Hash]*crypto.Key
 	CosiCommitments    map[crypto.Hash][]*crypto.Key
-	UsedCommitements   map[crypto.Key]bool
+	UsedCommitments   map[crypto.Key]bool
 	ComitmentsSentTime time.Time
 
 	CosiAggregators map[crypto.Hash]*CosiAggregator
@@ -83,7 +83,7 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 		CosiRandoms:      make(map[crypto.Key]*crypto.Key),
 		UsedRandoms:      make(map[crypto.Hash]*crypto.Key),
 		CosiCommitments:  make(map[crypto.Hash][]*crypto.Key),
-		UsedCommitements: make(map[crypto.Key]bool),
+		UsedCommitments: make(map[crypto.Key]bool),
 		CosiAggregators:  make(map[crypto.Hash]*CosiAggregator),
 		CosiVerifiers:    make(map[crypto.Hash]*CosiVerifier),
 		CachePool:        make(chan *CosiAction, CachePoolSnapshotsLimit),

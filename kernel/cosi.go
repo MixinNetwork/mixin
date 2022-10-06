@@ -753,7 +753,7 @@ func (chain *Chain) cosiPopCommitment(peerId crypto.Hash) *crypto.Key {
 	}
 	commitment := commitments[0]
 	chain.CosiCommitments[peerId] = commitments[1:]
-	chain.UsedCommitements[*commitment] = true
+	chain.UsedCommitments[*commitment] = true
 	return commitment
 }
 
@@ -766,7 +766,7 @@ func (chain *Chain) cosiAddCommitments(m *CosiAction) error {
 	}
 	var commitments []*crypto.Key
 	for _, k := range m.Commitments {
-		if !chain.UsedCommitements[*k] {
+		if !chain.UsedCommitments[*k] {
 			commitments = append(commitments, k)
 		}
 	}
