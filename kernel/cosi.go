@@ -162,7 +162,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		}
 		m.random = chain.cosiRetrieveRandom(m.SnapshotHash, m.PeerId, m.Challenge)
 		if m.random == nil {
-			err := chain.cosiPrepareRandomsAndSendCommitments(m.PeerId, true)
+			err := chain.cosiPrepareRandomsAndSendCommitments(m.PeerId)
 			return fmt.Errorf("no match random for the commitment %v %v", m, err)
 		}
 		ov := chain.CosiVerifiers[s.SoleTransaction()]
@@ -440,7 +440,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	if err != nil {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendSnapshotCommitmentMessage(%s, %s) ERROR %v\n", s.NodeId, s.Hash, err)
 	}
-	err = chain.cosiPrepareRandomsAndSendCommitments(s.NodeId, false)
+	err = chain.cosiPrepareRandomsAndSendCommitments(s.NodeId)
 	if err != nil {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendCommitmentsMessage(%s) ERROR %v\n", s.NodeId, err)
 	}
@@ -816,16 +816,13 @@ func (chain *Chain) cosiRetrieveRandom(snap crypto.Hash, peerId crypto.Hash, cha
 	return r
 }
 
-func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash, clear bool) error {
+func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) error {
 	const maximum = 512
 	if chain.ChainId == chain.node.IdForNetwork {
 		panic(chain.ChainId)
 	}
 	if chain.ChainId != peerId {
 		panic(peerId)
-	}
-	if chain.CosiRandoms == nil {
-		chain.CosiRandoms = make(map[crypto.Key]*crypto.Key)
 	}
 
 	last := chain.ComitmentsSentTime.Add(time.Duration(config.SnapshotRoundGap) * 10)
@@ -843,6 +840,9 @@ func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash, cle
 		cm[k] = r
 	}
 
+	if chain.CosiRandoms == nil {
+		chain.CosiRandoms = make(map[crypto.Key]*crypto.Key)
+	}
 	for _, r := range cm {
 		chain.CosiRandoms[r.Public()] = r
 	}
