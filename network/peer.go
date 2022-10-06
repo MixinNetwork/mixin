@@ -21,8 +21,8 @@ type Peer struct {
 	IdForNetwork crypto.Hash
 	Address      string
 
-	sendingMetric   *MetricPool
-	receivingMetric *MetricPool
+	sentMetric     *MetricPool
+	receivedMetric *MetricPool
 
 	ctx             context.Context
 	snapshotsCaches *confirmMap
@@ -132,8 +132,8 @@ func (p *Peer) disconnect() {
 
 func (me *Peer) Metric() map[string]*MetricPool {
 	return map[string]*MetricPool{
-		"sending":   me.sendingMetric,
-		"receiving": me.receivingMetric,
+		"sent":     me.sentMetric,
+		"received": me.receivedMetric,
 	}
 }
 
@@ -149,8 +149,8 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNei
 		normalRing:      util.NewRingBuffer(1024),
 		syncRing:        util.NewRingBuffer(1024),
 		handle:          handle,
-		sendingMetric:   &MetricPool{enabled: enableMetric},
-		receivingMetric: &MetricPool{enabled: enableMetric},
+		sentMetric:      &MetricPool{enabled: enableMetric},
+		receivedMetric:  &MetricPool{enabled: enableMetric},
 		ops:             make(chan struct{}),
 		stn:             make(chan struct{}),
 	}
@@ -264,6 +264,7 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	if err != nil {
 		return nil, err
 	}
+	me.sentMetric.handle(PeerMessageTypeAuthentication)
 	logger.Verbosef("AUTH PEER STREAM %s\n", p.Address)
 
 	if resend != nil && !me.snapshotsCaches.contains(resend.key, time.Minute) {
@@ -353,6 +354,7 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 				key := crypto.NewHash(data)
 				return &ChanMsg{key[:], data}, err
 			}
+			me.sentMetric.handle(PeerMessageTypeBundle)
 			for _, msg := range msgs {
 				if msg.key != nil {
 					me.snapshotsCaches.store(msg.key, time.Now())
@@ -388,7 +390,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		if err != nil {
 			return fmt.Errorf("parseNetworkMessage %s %v", peer.IdForNetwork, err)
 		}
-		me.receivingMetric.handle(msg.Type)
+		me.receivedMetric.handle(msg.Type)
 
 		if msg.Type != PeerMessageTypeBundle {
 			select {
@@ -411,7 +413,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 			if elm.Type == PeerMessageTypeBundle {
 				return fmt.Errorf("parseNetworkMessage %s invalid bundle element type", peer.IdForNetwork)
 			}
-			me.receivingMetric.handle(elm.Type)
+			me.receivedMetric.handle(elm.Type)
 			select {
 			case receive <- elm:
 			default:
@@ -440,6 +442,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			auth <- fmt.Errorf("peer authentication invalid message type %d", msg.Type)
 			return
 		}
+		me.receivedMetric.handle(PeerMessageTypeAuthentication)
 
 		id, addr, err := me.handle.Authenticate(msg.Data)
 		if err != nil {
@@ -480,7 +483,7 @@ func (me *Peer) sendHighToPeer(idForNetwork crypto.Hash, typ byte, key, data []b
 		return nil
 	}
 
-	me.sendingMetric.handle(typ)
+	me.sentMetric.handle(typ)
 	success, _ := peer.highRing.Offer(&ChanMsg{key, data})
 	if !success {
 		return fmt.Errorf("peer send high timeout")
@@ -502,7 +505,7 @@ func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.
 		return nil
 	}
 
-	me.sendingMetric.handle(typ)
+	me.sentMetric.handle(typ)
 	success, _ := peer.normalRing.Offer(&ChanMsg{key, data})
 	if !success {
 		return fmt.Errorf("peer send normal timeout")

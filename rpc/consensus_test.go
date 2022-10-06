@@ -409,6 +409,7 @@ kernel-operation-period = 3
 cache-ttl = 3600
 [network]
 listener = "%s"
+metric = true
 peers = [%s]
 `
 

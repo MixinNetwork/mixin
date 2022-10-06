@@ -408,7 +408,7 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage) {
 		case PeerMessageTypeGraph:
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeGraph %s\n", peer.IdForNetwork)
 			me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.Graph)
-			me.sendingMetric.handle(PeerMessageTypeGraph)
+			me.sentMetric.handle(PeerMessageTypeGraph)
 			peer.syncRing.Offer(msg.Graph)
 		case PeerMessageTypeTransactionRequest:
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionRequest %s %s\n", peer.IdForNetwork, msg.TransactionHash)
