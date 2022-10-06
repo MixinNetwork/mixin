@@ -54,6 +54,7 @@ func (node *Node) LoopCacheQueue() error {
 		}
 		caches, finals, _ := node.QueueState()
 		if caches > 1000 || finals > 500 {
+			logger.Printf("LoopCacheQueue QueueState too big %d %d\n", caches, finals)
 			continue
 		}
 
@@ -62,9 +63,14 @@ func (node *Node) LoopCacheQueue() error {
 			continue
 		}
 		var stale []crypto.Hash
+		filter := make(map[crypto.Hash]bool)
 		txs, err := node.persistStore.CacheRetrieveTransactions(100)
 		for _, tx := range txs {
 			hash := tx.PayloadHash()
+			if filter[hash] {
+				continue
+			}
+			filter[hash] = true
 			_, finalized, err := node.persistStore.ReadTransaction(hash)
 			if err != nil {
 				logger.Printf("LoopCacheQueue ReadTransaction ERROR %s %s\n", hash, err)
