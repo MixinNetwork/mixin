@@ -30,12 +30,13 @@ type CosiAction struct {
 	SnapshotHash crypto.Hash
 	Snapshot     *common.Snapshot
 	Commitment   *crypto.Key
-	Challenge    *crypto.Key
 	Signature    *crypto.CosiSignature
 	Response     *[32]byte
 	Transaction  *common.VersionedTransaction
 	WantTx       bool
 	Commitments  []*crypto.Key
+	Challenge    *crypto.Key
+	random       *crypto.Key
 	finalized    bool
 	data         *CosiChainData
 }
@@ -158,6 +159,14 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		}
 		if v := chain.CosiVerifiers[m.SnapshotHash]; v != nil {
 			s = v.Snapshot
+		}
+	}
+
+	if m.Challenge != nil && m.Action == CosiActionExternalFullChallenge {
+		m.random = chain.cosiRetrieveRandom(m.SnapshotHash, m.PeerId, m.Challenge)
+		if m.random == nil {
+			err := chain.cosiPrepareRandomsAndSendCommitments(m.PeerId, true)
+			return fmt.Errorf("no match random for the commitment %v %v", m, err)
 		}
 	}
 
@@ -420,7 +429,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	if err != nil {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendSnapshotCommitmentMessage(%s, %s) ERROR %v\n", s.NodeId, s.Hash, err)
 	}
-	err = chain.cosiPrepareRandomsAndSendCommitments(s.NodeId)
+	err = chain.cosiPrepareRandomsAndSendCommitments(s.NodeId, false)
 	if err != nil {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendCommitmentsMessage(%s) ERROR %v\n", s.NodeId, err)
 	}
@@ -486,11 +495,8 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 
 func (chain *Chain) cosiHandleFullChallenge(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge %v\n", m)
-	r := chain.cosiRetrieveRandom(m.SnapshotHash, m.PeerId, m.Challenge)
-	if r == nil {
-		err := chain.cosiPrepareRandomsAndSendCommitments(m.PeerId)
-		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge CosiPrepareAndSendCommitments %v %v\n", m, err)
-		return err
+	if m.random == nil {
+		panic(m.SnapshotHash)
 	}
 
 	s := m.Snapshot
@@ -539,7 +545,7 @@ func (chain *Chain) cosiHandleFullChallenge(m *CosiAction) error {
 		}
 	}
 
-	v := &CosiVerifier{Snapshot: s, Commitment: m.Commitment, random: r}
+	v := &CosiVerifier{Snapshot: s, Commitment: m.Commitment, random: m.random}
 	chain.CosiVerifiers[s.Hash] = v
 	chain.CosiVerifiers[s.SoleTransaction()] = v
 
@@ -770,6 +776,7 @@ func (chain *Chain) cosiAddCommitments(m *CosiAction) error {
 			commitments = append(commitments, k)
 		}
 	}
+	logger.Verbosef("cosiAddCommitments(%s, %d) => %d %d", m.PeerId, len(m.Commitments), len(commitments), len(chain.UsedCommitments))
 	chain.CosiCommitments[m.PeerId] = commitments
 	return nil
 }
@@ -798,7 +805,7 @@ func (chain *Chain) cosiRetrieveRandom(snap crypto.Hash, peerId crypto.Hash, cha
 	return r
 }
 
-func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) error {
+func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash, clear bool) error {
 	const maximum = 512
 	if chain.ChainId == chain.node.IdForNetwork {
 		panic(chain.ChainId)
@@ -807,11 +814,11 @@ func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) err
 		panic(peerId)
 	}
 	cm := chain.CosiRandoms
-	if cm == nil {
+	if cm == nil || clear {
 		cm = make(map[crypto.Key]*crypto.Key)
 	}
 
-	last := chain.ComitmentsSentTime.Add(time.Duration(config.SnapshotRoundGap))
+	last := chain.ComitmentsSentTime.Add(time.Duration(config.SnapshotRoundGap) * 10)
 	if last.After(clock.Now()) && len(cm) > maximum/2 {
 		return nil
 	}
