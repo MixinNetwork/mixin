@@ -289,11 +289,13 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 		msgs, size := []*ChanMsg{}, 0
 		select {
 		case <-graphTicker.C:
+			me.sentMetric.handle(PeerMessageTypeGraph)
 			msg := buildGraphMessage(me.handle.BuildGraph())
 			msgs = append(msgs, &ChanMsg{nil, msg})
 			size = size + len(msg)
 		case <-gossipNeighborsTicker.C:
 			if me.gossipNeighbors {
+				me.sentMetric.handle(PeerMessageTypeGossipNeighbors)
 				msg := buildGossipNeighborsMessage(me.neighbors.Slice())
 				msgs = append(msgs, &ChanMsg{nil, msg})
 				size = size + len(msg)
