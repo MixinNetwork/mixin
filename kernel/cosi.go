@@ -136,7 +136,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		if a := chain.CosiAggregators[m.SnapshotHash]; a != nil {
 			s = a.Snapshot
 		}
-	case CosiActionExternalAnnouncement, CosiActionExternalFullChallenge:
+	case CosiActionExternalAnnouncement:
 		if chain.ChainId == chain.node.IdForNetwork {
 			return fmt.Errorf("external action announcement chain %s %s", chain.ChainId, chain.node.IdForNetwork)
 		}
@@ -145,6 +145,25 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		}
 		if s.Signature != nil || s.Timestamp == 0 {
 			return fmt.Errorf("only empty snapshot with timestamp can be announced")
+		}
+		ov := chain.CosiVerifiers[s.SoleTransaction()]
+		if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber && s.Timestamp < ov.Snapshot.Timestamp+config.SnapshotRoundGap {
+			return fmt.Errorf("a transaction %s only in one round %d of one chain %s", s.SoleTransaction(), s.RoundNumber, chain.ChainId)
+		}
+	case CosiActionExternalFullChallenge:
+		if chain.ChainId == chain.node.IdForNetwork {
+			return fmt.Errorf("external action announcement chain %s %s", chain.ChainId, chain.node.IdForNetwork)
+		}
+		if chain.ChainId != m.PeerId {
+			return fmt.Errorf("external action announcement peer %s %s", chain.ChainId, m.PeerId)
+		}
+		if s.Signature != nil || s.Timestamp == 0 || m.Challenge == nil {
+			return fmt.Errorf("only empty snapshot with timestamp and challenge can be fully challenged")
+		}
+		m.random = chain.cosiRetrieveRandom(m.SnapshotHash, m.PeerId, m.Challenge)
+		if m.random == nil {
+			err := chain.cosiPrepareRandomsAndSendCommitments(m.PeerId, true)
+			return fmt.Errorf("no match random for the commitment %v %v", m, err)
 		}
 		ov := chain.CosiVerifiers[s.SoleTransaction()]
 		if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber && s.Timestamp < ov.Snapshot.Timestamp+config.SnapshotRoundGap {
@@ -159,14 +178,6 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		}
 		if v := chain.CosiVerifiers[m.SnapshotHash]; v != nil {
 			s = v.Snapshot
-		}
-	}
-
-	if m.Challenge != nil && m.Action == CosiActionExternalFullChallenge {
-		m.random = chain.cosiRetrieveRandom(m.SnapshotHash, m.PeerId, m.Challenge)
-		if m.random == nil {
-			err := chain.cosiPrepareRandomsAndSendCommitments(m.PeerId, true)
-			return fmt.Errorf("no match random for the commitment %v %v", m, err)
 		}
 	}
 
