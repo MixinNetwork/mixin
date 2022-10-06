@@ -340,7 +340,8 @@ func (node *Node) NewTransaction(assetId crypto.Hash) *common.Transaction {
 }
 
 func (node *Node) PingNeighborsFromConfig() error {
-	node.Peer = network.NewPeer(node, node.IdForNetwork, node.addr, node.custom.Network.GossipNeighbors)
+	gossip, metric := node.custom.Network.GossipNeighbors, node.custom.Network.Metric
+	node.Peer = network.NewPeer(node, node.IdForNetwork, node.addr, gossip, metric)
 
 	for _, s := range node.custom.Network.Peers {
 		if s == node.Listener {

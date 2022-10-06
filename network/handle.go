@@ -78,7 +78,7 @@ func (me *Peer) SendCommitmentsMessage(idForNetwork crypto.Hash, commitments []*
 	hash := crypto.Blake3Hash(data)
 	key := append(idForNetwork[:], 'C', 'R')
 	key = append(key, hash[:]...)
-	return me.sendHighToPeer(idForNetwork, key, data)
+	return me.sendHighToPeer(idForNetwork, PeerMessageTypeCommitments, key, data)
 }
 
 func (me *Peer) SendSnapshotAnnouncementMessage(idForNetwork crypto.Hash, s *common.Snapshot, R crypto.Key) error {
@@ -124,20 +124,20 @@ func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *com
 func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash) error {
 	key := append(idForNetwork[:], snap[:]...)
 	key = append(key, 'S', 'N', 'A', 'P', PeerMessageTypeSnapshotConfirm)
-	return me.sendHighToPeer(idForNetwork, key, buildSnapshotConfirmMessage(snap))
+	return me.sendHighToPeer(idForNetwork, PeerMessageTypeSnapshotConfirm, key, buildSnapshotConfirmMessage(snap))
 }
 
 func (me *Peer) SendTransactionRequestMessage(idForNetwork crypto.Hash, tx crypto.Hash) error {
 	key := append(idForNetwork[:], tx[:]...)
 	key = append(key, 'T', 'X', PeerMessageTypeTransactionRequest)
-	return me.sendHighToPeer(idForNetwork, key, buildTransactionRequestMessage(tx))
+	return me.sendHighToPeer(idForNetwork, PeerMessageTypeTransactionRequest, key, buildTransactionRequestMessage(tx))
 }
 
 func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, ver *common.VersionedTransaction) error {
 	tx := ver.PayloadHash()
 	key := append(idForNetwork[:], tx[:]...)
 	key = append(key, 'T', 'X', PeerMessageTypeTransaction)
-	return me.sendHighToPeer(idForNetwork, key, buildTransactionMessage(ver))
+	return me.sendHighToPeer(idForNetwork, PeerMessageTypeTransaction, key, buildTransactionMessage(ver))
 }
 
 func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash) {
@@ -408,6 +408,7 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage) {
 		case PeerMessageTypeGraph:
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeGraph %s\n", peer.IdForNetwork)
 			me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.Graph)
+			me.sendingMetric.handle(PeerMessageTypeGraph)
 			peer.syncRing.Offer(msg.Graph)
 		case PeerMessageTypeTransactionRequest:
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionRequest %s %s\n", peer.IdForNetwork, msg.TransactionHash)

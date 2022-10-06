@@ -320,6 +320,10 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 		assert.Equal("REMOVED", all[NODES].State)
 	}
 	t.Logf("REMOVE TEST DONE AT %s\n", time.Now())
+
+	for _, node := range instances {
+		t.Log(node.IdForNetwork, node.Peer.Metric())
+	}
 }
 
 func testRemoveNode(nodes []*Node, r common.Address) []*Node {

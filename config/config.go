@@ -53,6 +53,7 @@ type Custom struct {
 	Network struct {
 		Listener        string   `toml:"listener"`
 		GossipNeighbors bool     `toml:"gossip-neighbors"`
+		Metric          bool     `toml:"metric"`
 		Peers           []string `toml:"peers"`
 	} `toml:"network"`
 	RPC struct {

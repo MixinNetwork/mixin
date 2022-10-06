@@ -119,6 +119,9 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
 		"caches": caches,
 		"state":  state,
 	}
+	info["metric"] = map[string]any{
+		"transport": node.Peer.Metric(),
+	}
 	return info, nil
 }
 

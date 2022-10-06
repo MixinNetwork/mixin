@@ -21,6 +21,9 @@ type Peer struct {
 	IdForNetwork crypto.Hash
 	Address      string
 
+	sendingMetric   *MetricPool
+	receivingMetric *MetricPool
+
 	ctx             context.Context
 	snapshotsCaches *confirmMap
 	neighbors       *neighborMap
@@ -41,7 +44,7 @@ type SyncPoint struct {
 	NodeId crypto.Hash `json:"node"`
 	Number uint64      `json:"round"`
 	Hash   crypto.Hash `json:"hash"`
-	Pool   any `json:"pool" msgpack:"-"`
+	Pool   any         `json:"pool" msgpack:"-"`
 }
 
 type ChanMsg struct {
@@ -107,7 +110,7 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) (*Peer, error
 		old.disconnect()
 	}
 
-	peer := NewPeer(nil, idForNetwork, addr, false)
+	peer := NewPeer(nil, idForNetwork, addr, false, false)
 	me.neighbors.Set(idForNetwork, peer)
 	go me.openPeerStreamLoop(peer)
 	go me.syncToNeighborLoop(peer)
@@ -127,7 +130,14 @@ func (p *Peer) disconnect() {
 	<-p.stn
 }
 
-func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNeighbors bool) *Peer {
+func (me *Peer) Metric() map[string]*MetricPool {
+	return map[string]*MetricPool{
+		"sending":   me.sendingMetric,
+		"receiving": me.receivingMetric,
+	}
+}
+
+func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNeighbors, enableMetric bool) *Peer {
 	peer := &Peer{
 		IdForNetwork:    idForNetwork,
 		Address:         addr,
@@ -139,6 +149,8 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNei
 		normalRing:      util.NewRingBuffer(1024),
 		syncRing:        util.NewRingBuffer(1024),
 		handle:          handle,
+		sendingMetric:   &MetricPool{enabled: enableMetric},
+		receivingMetric: &MetricPool{enabled: enableMetric},
 		ops:             make(chan struct{}),
 		stn:             make(chan struct{}),
 	}
@@ -376,6 +388,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		if err != nil {
 			return fmt.Errorf("parseNetworkMessage %s %v", peer.IdForNetwork, err)
 		}
+		me.receivingMetric.handle(msg.Type)
 
 		if msg.Type != PeerMessageTypeBundle {
 			select {
@@ -383,6 +396,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 			default:
 				return fmt.Errorf("peer receive timeout %s", peer.IdForNetwork)
 			}
+			continue
 		}
 
 		for data := msg.Data; len(data) > 4; {
@@ -397,6 +411,7 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 			if elm.Type == PeerMessageTypeBundle {
 				return fmt.Errorf("parseNetworkMessage %s invalid bundle element type", peer.IdForNetwork)
 			}
+			me.receivingMetric.handle(elm.Type)
 			select {
 			case receive <- elm:
 			default:
@@ -453,7 +468,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 	return peer, nil
 }
 
-func (me *Peer) sendHighToPeer(idForNetwork crypto.Hash, key, data []byte) error {
+func (me *Peer) sendHighToPeer(idForNetwork crypto.Hash, typ byte, key, data []byte) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
 	}
@@ -465,6 +480,7 @@ func (me *Peer) sendHighToPeer(idForNetwork crypto.Hash, key, data []byte) error
 		return nil
 	}
 
+	me.sendingMetric.handle(typ)
 	success, _ := peer.highRing.Offer(&ChanMsg{key, data})
 	if !success {
 		return fmt.Errorf("peer send high timeout")
@@ -486,6 +502,7 @@ func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.
 		return nil
 	}
 
+	me.sendingMetric.handle(typ)
 	success, _ := peer.normalRing.Offer(&ChanMsg{key, data})
 	if !success {
 		return fmt.Errorf("peer send normal timeout")

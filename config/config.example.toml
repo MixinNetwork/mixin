@@ -22,6 +22,8 @@ listener = "mixin-node.example.com:7239"
 # whether to gossip known neighbors to neighbors, and to connect neighbors gossiped
 # by neighbors
 gossip-neighbors = true
+# metric different message types sent and received
+metric = false
 # the nodes list
 peers = [
   "mixin-node-01.b1.run:7239",
