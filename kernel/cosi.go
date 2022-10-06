@@ -810,12 +810,8 @@ func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) ([]
 	if cm == nil {
 		cm = make(map[crypto.Key]*crypto.Key)
 	}
-	remaining := len(cm)
-	if remaining > maximum/2 {
-		return nil, nil
-	}
 
-	for i := 0; i < maximum-remaining; i++ {
+	for count := maximum - len(cm); count > 0; count-- {
 		r := crypto.CosiCommit(rand.Reader)
 		cm[r.Public()] = r
 	}
