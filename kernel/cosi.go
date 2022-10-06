@@ -420,9 +420,9 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	if err != nil {
 		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendSnapshotCommitmentMessage(%s, %s) ERROR %v\n", s.NodeId, s.Hash, err)
 	}
-	commitments, err := chain.cosiPrepareRandomsAndSendCommitments(s.NodeId)
+	err = chain.cosiPrepareRandomsAndSendCommitments(s.NodeId)
 	if err != nil {
-		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendCommitmentsMessage(%s, %d) ERROR %v\n", s.NodeId, len(commitments), err)
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleAnnouncement SendCommitmentsMessage(%s) ERROR %v\n", s.NodeId, err)
 	}
 	return nil
 }
@@ -488,8 +488,8 @@ func (chain *Chain) cosiHandleFullChallenge(m *CosiAction) error {
 	logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge %v\n", m)
 	r := chain.cosiRetrieveRandom(m.SnapshotHash, m.PeerId, m.Challenge)
 	if r == nil {
-		commitments, err := chain.cosiPrepareRandomsAndSendCommitments(m.PeerId)
-		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge CosiPrepareAndSendCommitments %v %d %v\n", m, len(commitments), err)
+		err := chain.cosiPrepareRandomsAndSendCommitments(m.PeerId)
+		logger.Verbosef("CosiLoop cosiHandleAction cosiHandleFullChallenge CosiPrepareAndSendCommitments %v %v\n", m, err)
 		return err
 	}
 
@@ -798,7 +798,7 @@ func (chain *Chain) cosiRetrieveRandom(snap crypto.Hash, peerId crypto.Hash, cha
 	return r
 }
 
-func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) ([]*crypto.Key, error) {
+func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) error {
 	const maximum = 512
 	if chain.ChainId == chain.node.IdForNetwork {
 		panic(chain.ChainId)
@@ -809,6 +809,11 @@ func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) ([]
 	cm := chain.CosiRandoms
 	if cm == nil {
 		cm = make(map[crypto.Key]*crypto.Key)
+	}
+
+	last := chain.ComitmentsSentTime.Add(time.Duration(config.SnapshotRoundGap))
+	if last.After(clock.Now()) && len(cm) > maximum/2 {
+		return nil
 	}
 
 	for count := maximum - len(cm); count > 0; count-- {
@@ -823,8 +828,8 @@ func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) ([]
 		commitments = append(commitments, &R)
 	}
 	chain.CosiRandoms = cm
-	err := chain.node.Peer.SendCommitmentsMessage(peerId, commitments)
-	return commitments, err
+	chain.ComitmentsSentTime = clock.Now()
+	return chain.node.Peer.SendCommitmentsMessage(peerId, commitments)
 }
 
 func (node *Node) CosiQueueExternalCommitments(peerId crypto.Hash, commitments []*crypto.Key) error {
