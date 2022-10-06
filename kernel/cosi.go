@@ -799,6 +799,7 @@ func (chain *Chain) cosiRetrieveRandom(snap crypto.Hash, peerId crypto.Hash, cha
 }
 
 func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) ([]*crypto.Key, error) {
+	const maximum = 512
 	if chain.ChainId == chain.node.IdForNetwork {
 		panic(chain.ChainId)
 	}
@@ -810,11 +811,11 @@ func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) ([]
 		cm = make(map[crypto.Key]*crypto.Key)
 	}
 	remaining := len(cm)
-	if remaining > 256 {
+	if remaining > maximum/2 {
 		return nil, nil
 	}
 
-	for i := 0; i < 512-remaining; i++ {
+	for i := 0; i < maximum-remaining; i++ {
 		r := crypto.CosiCommit(rand.Reader)
 		cm[r.Public()] = r
 	}

@@ -61,6 +61,9 @@ func (chain *Chain) validateNewRound(cache *CacheRound, references *common.Round
 	if err != nil {
 		return nil, false, err
 	}
+	if !external.Hash.HasValue() || external.Hash != references.External {
+		panic(references.External)
+	}
 	if external == nil && finalized {
 		return final, true, nil
 	}
@@ -85,6 +88,9 @@ func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, final *FinalRo
 	external, err := chain.persistStore.ReadRound(references.External)
 	if err != nil || external == nil {
 		return fmt.Errorf("round references external not ready yet %v %v", external, err)
+	}
+	if !external.Hash.HasValue() || external.Hash != references.External {
+		panic(references.External)
 	}
 
 	err = chain.updateExternal(final, external, timestamp, strict)
@@ -125,7 +131,7 @@ func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, ro
 		threshold := external.Timestamp + config.SnapshotSyncRoundThreshold*config.SnapshotRoundGap*64
 		best := chain.determineBestRound(roundTime)
 		if best != nil && threshold < best.Start {
-			return fmt.Errorf("external reference %s too early %s:%d %f", external.Hash, best.NodeId, best.Number, time.Duration(best.Start-threshold).Seconds())
+			return fmt.Errorf("external reference %v too early %v %f", *external, *best, time.Duration(best.Start-threshold).Seconds())
 		}
 	}
 

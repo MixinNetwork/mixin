@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/badger/v3"
 )
 
@@ -94,6 +95,7 @@ func readSnapshotsForNodeRound(txn *badger.Txn, nodeId crypto.Hash, round uint64
 }
 
 func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder, signers []crypto.Hash) error {
+	logger.Debugf("BadgerStore.WriteSnapshot(%v)", snap.Snapshot)
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 

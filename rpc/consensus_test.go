@@ -76,7 +76,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 		instances = append(instances, node)
 		host := fmt.Sprintf("127.0.0.1:180%02d", i+1)
 		nodes = append(nodes, &Node{Signer: node.Signer, Host: host})
-		t.Logf("NODES#%d %s\n", i, node.IdForNetwork)
+		t.Logf("NODES#%d %s %s\n", i, node.IdForNetwork, host)
 
 		server := NewServer(custom, store, node, 18000+i+1)
 		defer server.Close()
@@ -355,7 +355,11 @@ func testSendDummyTransactionsWithRetry(t *testing.T, nodes []*Node, domain comm
 		if hash.HasValue() {
 			continue
 		}
-		t.Logf("DUMMY UTXO MISSING %s\n", inputs[i].Hash)
+		t.Logf("DUMMY UTXO %s PENDING IN %s AT %s\n", inputs[i].Hash, nodes[i].Host, time.Now())
+		hash, _ = crypto.HashFromString(res["hash"])
+		if !hash.HasValue() {
+			t.Logf("DUMMY UTXO %s MISSING IN %s AT %s\n", inputs[i].Hash, nodes[i].Host, time.Now())
+		}
 		missingInputs = append(missingInputs, inputs[i])
 		missingNodes = append(missingNodes, nodes[i])
 	}
@@ -518,7 +522,8 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 		wg.Add(1)
 		go func(ver *common.VersionedTransaction) {
 			node := nodes[int(time.Now().UnixNano())%len(nodes)].Host
-			id, _ := testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
+			id, err := testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
+			assert.Nil(err)
 			assert.Len(id, 75)
 			defer wg.Done()
 		}(ver)

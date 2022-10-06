@@ -13,12 +13,14 @@ import (
 func (s *BadgerStore) ReadLink(from, to crypto.Hash) (uint64, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
+
 	return readLink(txn, from, to)
 }
 
 func (s *BadgerStore) ReadRound(hash crypto.Hash) (*common.Round, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
+
 	return readRound(txn, hash)
 }
 
@@ -135,6 +137,7 @@ func startNewRound(txn *badger.Txn, node crypto.Hash, number uint64, references 
 			return err
 		}
 		self.Timestamp = selfPreviousStart
+		self.Hash = references.Self
 		err = writeRound(txn, references.Self, self)
 		if err != nil {
 			return err
@@ -184,7 +187,14 @@ func readRound(txn *badger.Txn, hash crypto.Hash) (*common.Round, error) {
 		return nil, err
 	}
 
-	return common.DecompressUnmarshalRound(ival)
+	round, err := common.DecompressUnmarshalRound(ival)
+	if err != nil || round.Hash.HasValue() {
+		return round, err
+	}
+
+	// FIXME because old code forgot to write the hash
+	round.Hash = hash
+	return round, nil
 }
 
 func writeRound(txn *badger.Txn, hash crypto.Hash, round *common.Round) error {

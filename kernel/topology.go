@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
+	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
 )
 
@@ -50,6 +51,7 @@ func (node *Node) WitnessSnapshot(s *common.SnapshotWithTopologicalOrder) *Snaps
 }
 
 func (node *Node) TopoWrite(s *common.Snapshot, signers []crypto.Hash) *common.SnapshotWithTopologicalOrder {
+	logger.Debugf("node.TopoWrite(%v)\n", s)
 	node.TopoCounter.Lock()
 	defer node.TopoCounter.Unlock()
 
