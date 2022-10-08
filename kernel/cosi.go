@@ -135,7 +135,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		if s.Signature != nil || s.Timestamp != 0 {
 			return fmt.Errorf("only empty snapshot can be announced")
 		}
-	case CosiActionSelfCommitment, CosiActionSelfResponse:
+	case CosiActionSelfCommitment, CosiActionSelfFullCommitment, CosiActionSelfResponse:
 		if chain.ChainId != chain.node.IdForNetwork {
 			return fmt.Errorf("self action aggregation chain %s %s", chain.ChainId, chain.node.IdForNetwork)
 		}
@@ -377,9 +377,6 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 			if err != nil {
 				logger.Verbosef("CosiLoop cosiHandleAction cosiSendAnnouncement SendSnapshotAnnouncementMessage(%s, %s) ERROR %v\n", peerId, s.Hash, err)
 			}
-			continue
-		}
-		if rn := chain.node.GetRemovingOrSlashingNode(peerId); rn != nil {
 			continue
 		}
 		cam := &CosiAction{
@@ -792,6 +789,9 @@ func (chain *Chain) cosiAddCommitments(m *CosiAction) error {
 	}
 	if chain.ChainId == m.PeerId {
 		panic(m.PeerId)
+	}
+	if rn := chain.node.GetRemovingOrSlashingNode(m.PeerId); rn != nil {
+		return nil
 	}
 	var commitments []*crypto.Key
 	for _, k := range m.Commitments {
