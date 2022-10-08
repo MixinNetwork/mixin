@@ -379,6 +379,9 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 			}
 			continue
 		}
+		if rn := chain.node.GetRemovingOrSlashingNode(peerId); rn != nil {
+			continue
+		}
 		cam := &CosiAction{
 			PeerId:       peerId,
 			Action:       CosiActionSelfFullCommitment,
