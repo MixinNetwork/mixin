@@ -64,7 +64,10 @@ type CosiVerifier struct {
 }
 
 func (node *Node) cosiAcceptedNodesList(ts uint64) []*CNode {
-	nodes := node.NodesListWithoutState(ts, true)
+	var nodes []*CNode
+	for _, n := range node.NodesListWithoutState(ts, true) {
+		nodes = append(nodes, n)
+	}
 	for i := range nodes {
 		j := int(ts % uint64(i+1))
 		nodes[i], nodes[j] = nodes[j], nodes[i]
