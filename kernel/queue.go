@@ -87,8 +87,10 @@ func (node *Node) LoopCacheQueue() error {
 				// but we need some way to mitigate cache transaction DoS attack from nodes
 				continue
 			}
+
 			nbor := neighbors[int(clock.Now().UnixNano())%len(neighbors)]
 			node.SendTransactionToPeer(nbor.IdForNetwork, hash)
+
 			s := &common.Snapshot{
 				Version: common.SnapshotVersionCommonEncoding,
 				NodeId:  node.IdForNetwork,

@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -198,10 +197,9 @@ func (me *Peer) ListenNeighbors() error {
 
 		for !me.closing {
 			me.gossipRound.Clear()
-			rand.Seed(time.Now().UnixNano())
 			neighbors := me.neighbors.Slice()
 			for i := range neighbors {
-				j := rand.Intn(i + 1)
+				j := int(time.Now().UnixNano() % int64(i+1))
 				neighbors[i], neighbors[j] = neighbors[j], neighbors[i]
 			}
 			if len(neighbors) > config.GossipSize {

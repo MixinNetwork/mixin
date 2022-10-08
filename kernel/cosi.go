@@ -63,6 +63,15 @@ type CosiVerifier struct {
 	random     *crypto.Key
 }
 
+func (node *Node) cosiAcceptedNodesList(ts uint64) []*CNode {
+	nodes := node.NodesListWithoutState(ts, true)
+	for i := range nodes {
+		j := int(ts % uint64(i+1))
+		nodes[i], nodes[j] = nodes[j], nodes[i]
+	}
+	return nodes
+}
+
 func (chain *Chain) cosiHook(m *CosiAction) (bool, error) {
 	logger.Debugf("cosiHook(%s) %v\n", chain.ChainId, m)
 	if !chain.running {
@@ -356,7 +365,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	chain.CosiVerifiers[s.SoleTransaction()] = v
 	agg.Commitments[cd.CN.ConsensusIndex] = &R
 	chain.CosiAggregators[s.Hash] = agg
-	nodes := chain.node.NodesListWithoutState(s.Timestamp, true)
+	nodes := chain.node.cosiAcceptedNodesList(s.Timestamp)
 	for _, cn := range nodes {
 		peerId := cn.IdForNetwork
 		if peerId == chain.ChainId {
@@ -485,7 +494,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	ann.Responses[cd.CN.ConsensusIndex] = response
 	copy(cosi.Signature[32:], response[:])
 
-	nodes := chain.node.NodesListWithoutState(s.Timestamp, true)
+	nodes := chain.node.cosiAcceptedNodesList(s.Timestamp)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
 		if ann.FullChallenges[id] {
@@ -664,7 +673,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		chain.AddSnapshot(final, cache, s, signers)
 	}
 
-	nodes := chain.node.NodesListWithoutState(s.Timestamp, true)
+	nodes := chain.node.cosiAcceptedNodesList(s.Timestamp)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
 		if agg.Responses[cn.ConsensusIndex] == nil {
