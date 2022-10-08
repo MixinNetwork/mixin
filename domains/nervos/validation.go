@@ -34,28 +34,28 @@ func VerifyAddress(address string) error {
 	}
 	prefix, payload, err := DecodeAddress(address)
 	if err != nil {
-		return fmt.Errorf("invalid nervos address %s %s", address, err)
+		return fmt.Errorf("invalid nervos address %s %v", address, err)
 	}
 	if prefix != PrefixMainNet {
-		return fmt.Errorf("invalid nervos address %s", address)
+		return fmt.Errorf("invalid nervos address prefix %s", address)
 	}
 	if len(payload) <= 1 {
-		return fmt.Errorf("invalid nervos address %s", address)
+		return fmt.Errorf("invalid nervos address payload length %s", address)
 	}
-	if payload[1] != CodeHashIndexSingle && payload[1] != CodeHashIndexAnyoneCanPay && payload[1] != 155 {
-		return fmt.Errorf("invalid nervos address %s", address)
+	if payload[1] != CodeHashIndexSingle && payload[1] != CodeHashIndexAnyoneCanPay && payload[1] != 155 && payload[1] != 147 {
+		return fmt.Errorf("invalid nervos address payload[1] %s", address)
 	}
 	ckbAddress, err := EncodeAddress(payload)
 	if err != nil {
-		return fmt.Errorf("invalid nervos address %s %s", address, err)
+		return fmt.Errorf("invalid nervos address encode %s %s", address, err)
 	}
 	if address != ckbAddress {
 		ckbAddress, err = EncodeBech32mAddress(payload)
 		if err != nil {
-			return fmt.Errorf("invalid nervos address %s %s", address, err)
+			return fmt.Errorf("invalid nervos address bech32m %s %s", address, err)
 		}
 		if ckbAddress != address {
-			return fmt.Errorf("invalid nervos address %s", address)
+			return fmt.Errorf("invalid nervos address verify %s", address)
 		}
 	}
 	return nil
@@ -132,7 +132,7 @@ func DecodeAddress(address string) (prefix string, payload []byte, err error) {
 	if err != nil {
 		return "", nil, err
 	}
-	if payload[0] != 0x00 && payload[0] != 0x01 {
+	if payload[0] != 0x00 && payload[0] != 0x01 && payload[0] != 0x04 {
 		return "", nil, errors.New("unknown address format type")
 	}
 	return prefix, payload, nil
