@@ -16,6 +16,7 @@ func TestValidation(t *testing.T) {
 	addrMain := "ckb1qyqt8csrd4yg4el5etgkvt8rmdg923t8yagswneqnr"
 	addrMain1 := "ckb1qypgyg7qdhpkv7wuuutaw0ujx9ty837rtewsu2q6lk"
 	addrMain2 := "ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqd8j5pnrmedx62duaqtzwyuglprklwuxts88lh7h"
+	addrMain3 := "ckb1qjfhdsa4syv599s2s3nfrctwga70g0tu07n9gpnun9ydlngf5vsnwq6le2u89fdsq4kdseycs4p9mycf699w0dcrtl9tsu49kqzkekrynzz5yhvnp8g54eahkzvfk2"
 
 	assert.Nil(VerifyAssetKey(ckb))
 	assert.NotNil(VerifyAssetKey(tx))
@@ -25,6 +26,7 @@ func TestValidation(t *testing.T) {
 	assert.Nil(VerifyAddress(addrMain))
 	assert.Nil(VerifyAddress(addrMain1))
 	assert.Nil(VerifyAddress(addrMain2))
+	assert.Nil(VerifyAddress(addrMain3))
 	assert.NotNil(VerifyAddress(ckb))
 	assert.NotNil(VerifyAddress(addrMain[1:]))
 	assert.NotNil(VerifyAddress(strings.ToUpper(addrMain)))
