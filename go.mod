@@ -16,7 +16,7 @@ require (
 	github.com/pelletier/go-toml v1.9.5
 	github.com/shopspring/decimal v1.3.1
 	github.com/stretchr/testify v1.8.0
-	github.com/urfave/cli/v2 v2.17.1
+	github.com/urfave/cli/v2 v2.19.1
 	github.com/vmihailenco/msgpack/v4 v4.3.12
 	github.com/zeebo/blake3 v0.2.3
 	go.dedis.ch/kyber/v3 v3.0.14
