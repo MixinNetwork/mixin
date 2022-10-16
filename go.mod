@@ -6,21 +6,21 @@ replace github.com/vmihailenco/msgpack/v4 => github.com/MixinNetwork/msgpack/v4 
 
 require (
 	filippo.io/edwards25519 v1.0.0
-	github.com/dgraph-io/badger/v3 v3.2103.2
-	github.com/dgraph-io/ristretto v0.1.0
+	github.com/dgraph-io/badger/v3 v3.2103.3
+	github.com/dgraph-io/ristretto v0.1.1
 	github.com/gofrs/uuid v4.3.0+incompatible
 	github.com/jadeydi/mobilecoin-account v1.3.1
 	github.com/klauspost/compress v1.15.11
-	github.com/lucas-clemente/quic-go v0.29.1
+	github.com/lucas-clemente/quic-go v0.29.2
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/pelletier/go-toml v1.9.5
 	github.com/shopspring/decimal v1.3.1
 	github.com/stretchr/testify v1.8.0
-	github.com/urfave/cli/v2 v2.19.1
+	github.com/urfave/cli/v2 v2.20.2
 	github.com/vmihailenco/msgpack/v4 v4.3.12
 	github.com/zeebo/blake3 v0.2.3
 	go.dedis.ch/kyber/v3 v3.0.14
-	golang.org/x/crypto v0.0.0-20221005025214-4161e89ecf1b
+	golang.org/x/crypto v0.0.0-20221012134737-56aed061732a
 )
 
 require (
@@ -42,8 +42,8 @@ require (
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/flatbuffers v1.12.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
-	github.com/marten-seemann/qtls-go1-18 v0.1.2 // indirect
-	github.com/marten-seemann/qtls-go1-19 v0.1.0 // indirect
+	github.com/marten-seemann/qtls-go1-18 v0.1.3 // indirect
+	github.com/marten-seemann/qtls-go1-19 v0.1.1 // indirect
 	github.com/nwaples/rardecode v1.1.3 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/onsi/ginkgo v1.16.4 // indirect
@@ -60,7 +60,7 @@ require (
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
 	golang.org/x/net v0.0.0-20220919232410-f2f64ebce3c1 // indirect
-	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8 // indirect
+	golang.org/x/sys v0.0.0-20221010170243-090e33056c14 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
