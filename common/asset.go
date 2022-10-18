@@ -6,6 +6,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/akash"
 	"github.com/MixinNetwork/mixin/domains/algorand"
+	"github.com/MixinNetwork/mixin/domains/aptos"
 	"github.com/MixinNetwork/mixin/domains/arweave"
 	"github.com/MixinNetwork/mixin/domains/avalanche"
 	"github.com/MixinNetwork/mixin/domains/bch"
@@ -120,6 +121,8 @@ func (a *Asset) Verify() error {
 		return cosmos.VerifyAssetKey(a.AssetKey)
 	case starcoin.StarcoinChainId:
 		return starcoin.VerifyAssetKey(a.AssetKey)
+	case aptos.AptosChainId:
+		return aptos.VerifyAssetKey(a.AssetKey)
 	case avalanche.AvalancheChainId:
 		return avalanche.VerifyAssetKey(a.AssetKey)
 	case binance.BinanceChainId:
@@ -205,6 +208,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return cosmos.GenerateAssetId(a.AssetKey)
 	case starcoin.StarcoinChainId:
 		return starcoin.GenerateAssetId(a.AssetKey)
+	case aptos.AptosChainId:
+		return aptos.GenerateAssetId(a.AssetKey)
 	case avalanche.AvalancheChainId:
 		return avalanche.GenerateAssetId(a.AssetKey)
 	case binance.BinanceChainId:
@@ -290,6 +295,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return cosmos.CosmosChainId
 	case starcoin.StarcoinChainId:
 		return starcoin.StarcoinChainId
+	case aptos.AptosChainId:
+		return aptos.AptosChainId
 	case avalanche.AvalancheChainId:
 		return avalanche.AvalancheChainId
 	case binance.BinanceChainId:

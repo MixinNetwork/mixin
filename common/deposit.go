@@ -6,6 +6,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/akash"
 	"github.com/MixinNetwork/mixin/domains/algorand"
+	"github.com/MixinNetwork/mixin/domains/aptos"
 	"github.com/MixinNetwork/mixin/domains/arweave"
 	"github.com/MixinNetwork/mixin/domains/avalanche"
 	"github.com/MixinNetwork/mixin/domains/bch"
@@ -146,6 +147,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return cosmos.VerifyTransactionHash(deposit.TransactionHash)
 	case starcoin.StarcoinChainId:
 		return starcoin.VerifyTransactionHash(deposit.TransactionHash)
+	case aptos.AptosChainId:
+		return aptos.VerifyTransactionHash(deposit.TransactionHash)
 	case avalanche.AvalancheChainId:
 		return avalanche.VerifyTransactionHash(deposit.TransactionHash)
 	case binance.BinanceChainId:

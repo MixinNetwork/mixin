@@ -60,7 +60,7 @@ func VerifyTransactionHash(hash string) error {
 		return fmt.Errorf("invalid starcoin transaction hash %s", hash)
 	}
 	if len(h) != 32 {
-		return fmt.Errorf("invalid cosmos transaction hash %s", hash)
+		return fmt.Errorf("invalid starcoin transaction hash %s", hash)
 	}
 	return nil
 }
