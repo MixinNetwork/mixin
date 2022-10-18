@@ -76,3 +76,13 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 		panic(assetKey)
 	}
 }
+
+func DecideFeeId(assetKey string) crypto.Hash {
+	switch assetKey {
+	case MobileCoinChainBase:
+	case "MCIP0025:1":
+	default:
+		panic(assetKey)
+	}
+	return GenerateAssetId(assetKey)
+}

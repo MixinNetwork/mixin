@@ -285,7 +285,7 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 	case tron.TronChainId:
 		return tron.TronChainId
 	case mobilecoin.MobileCoinChainId:
-		return mobilecoin.GenerateAssetId(a.AssetKey)
+		return mobilecoin.DecideFeeId(a.AssetKey)
 	case cosmos.CosmosChainId:
 		return cosmos.CosmosChainId
 	case starcoin.StarcoinChainId:
