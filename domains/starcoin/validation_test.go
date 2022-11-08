@@ -14,6 +14,7 @@ func TestValidation(t *testing.T) {
 	stc := "0x00000000000000000000000000000001::STC::STC"
 	tx := "0xa1dc5ccb8c7ebcb557c3514ed851a23e07c3311faf20b95cba8a0f5d1648ff11"
 	addrMain := "0x7a86a44a5c5ed4827402dd09db4a2353"
+	addrMain2 := "0x4Fa4Dec4e347c19FB88f25F9fFa9D103"
 
 	assert.Nil(VerifyAssetKey(stc))
 	assert.NotNil(VerifyAssetKey(tx))
@@ -21,6 +22,7 @@ func TestValidation(t *testing.T) {
 	assert.NotNil(VerifyAssetKey(strings.ToUpper(stc)))
 
 	assert.Nil(VerifyAddress(addrMain))
+	assert.Nil(VerifyAddress(addrMain2))
 	assert.NotNil(VerifyAddress(stc))
 	assert.NotNil(VerifyAddress(addrMain[1:]))
 	assert.NotNil(VerifyAddress(strings.ToUpper(addrMain)))

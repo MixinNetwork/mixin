@@ -41,8 +41,7 @@ func VerifyAddress(address string) error {
 	if len(a) != 16 {
 		return fmt.Errorf("invalid starcoin address %s", address)
 	}
-	addr := fmt.Sprintf("0x%s", hex.EncodeToString(a))
-	if addr != address {
+	if !strings.EqualFold(hex.EncodeToString(a), address[2:]) {
 		return fmt.Errorf("invalid starcoin address %s", address)
 	}
 	return nil
