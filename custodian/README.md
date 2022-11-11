@@ -49,3 +49,9 @@ custodian <---> private proxy <---> kernel and mm
 2. Never deploy this on public servers.
 3. Never connect this to public Mixin Kernel nodes.
 4. May use the Mixin Messenger API as a trust source to verify the custodian list.
+
+## Self Custodian
+
+Besides the general domain custodian, any people _P_ can make a self custodian request to have part of the key to custody some money in a DKG address owned by the kernel, domain and _P_ together. This self custodian will be charged for creation and any transactions.
+
+The self custodian is simply a normal UTXO, and the asset locked in the self custodian DKG address. This UTXO can be transferred freely in the same self custodian, and is not allowed to be moved to another self custodian. This UTXO must be released from the DKG address to the domain custodian before it is allowed to be transformed to a general kernel UTXO.
