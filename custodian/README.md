@@ -52,6 +52,8 @@ custodian <---> private proxy <---> kernel and mm
 
 ## Self Custodian
 
-Besides the general domain custodian, any people _P_ can make a self custodian request to have part of the key to custody some money in a DKG address owned by the kernel, domain and _P_ together. This self custodian will be charged for creation and any transactions.
+Besides the general domain custodian, any people _P_ can make a self custodian request to have part of the key to custody some money in a custodian address owned by the kernel, domain and _P_ together as a 2/3 multisig. This self custodian will be charged for creation and any transactions.
 
-The self custodian is simply a normal UTXO, and the asset locked in the self custodian DKG address. This UTXO can be transferred freely in the same self custodian, and is not allowed to be moved to another self custodian. This UTXO must be released from the DKG address to the domain custodian before it is allowed to be transformed to a general kernel UTXO.
+The self custodian is simply a normal UTXO, and the asset locked in the self custodian multisig address. This UTXO can be transferred freely in the same self custodian, and is not allowed to be moved to another self custodian. This UTXO must be released from the multisig address to the domain custodian before it is allowed to be transformed to a general kernel UTXO.
+
+The self custodian should provide a single key, this key can be generated from anywhere, and are suggested to use the same domain custodian DKG process to generate this key.
