@@ -7,7 +7,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
-	account "github.com/jadeydi/mobilecoin-account"
+	account "github.com/MixinNetwork/mobilecoin-account"
 )
 
 var (
