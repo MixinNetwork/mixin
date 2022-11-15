@@ -36,7 +36,7 @@ func (s *BadgerStore) ReadSnapshotWorksForNodeRound(nodeId crypto.Hash, round ui
 	snapshots := make([]*common.SnapshotWork, 0)
 	for it.Seek(key); it.Valid(); it.Next() {
 		item := it.Item()
-		var s common.SnapshotWork
+		s := &common.SnapshotWork{}
 		err := item.Value(func(v []byte) error {
 			copy(s.Hash[:], v)
 			for i := 32; i < len(v); i += 32 {
@@ -51,7 +51,7 @@ func (s *BadgerStore) ReadSnapshotWorksForNodeRound(nodeId crypto.Hash, round ui
 		}
 		ts := item.Key()[len(key)-8:]
 		s.Timestamp = binary.BigEndian.Uint64(ts)
-		snapshots = append(snapshots, &s)
+		snapshots = append(snapshots, s)
 	}
 
 	return snapshots, nil

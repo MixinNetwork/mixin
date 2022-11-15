@@ -122,13 +122,14 @@ func UnmarshalUTXO(b []byte) (*UTXOWithLock, error) {
 		return nil, fmt.Errorf("invalid UTXO size %d", len(b))
 	}
 
-	var utxo UTXOWithLock
 	dec, err := NewMinimumDecoder(b)
 	if err != nil {
+		var utxo UTXOWithLock
 		err := msgpackUnmarshal(b, &utxo)
 		return &utxo, err
 	}
 
+	utxo := &UTXOWithLock{}
 	err = dec.Read(utxo.Asset[:])
 	if err != nil {
 		return nil, err
@@ -147,5 +148,5 @@ func UnmarshalUTXO(b []byte) (*UTXOWithLock, error) {
 	utxo.Output = *out
 
 	err = dec.Read(utxo.LockHash[:])
-	return &utxo, err
+	return utxo, err
 }

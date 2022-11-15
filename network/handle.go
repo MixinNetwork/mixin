@@ -462,7 +462,7 @@ func unmarshalSyncPoints(b []byte) ([]*SyncPoint, error) {
 	}
 	points := make([]*SyncPoint, count)
 	for i := range points {
-		var p SyncPoint
+		p := &SyncPoint{}
 		err = dec.Read(p.NodeId[:])
 		if err != nil {
 			return nil, err
@@ -476,7 +476,7 @@ func unmarshalSyncPoints(b []byte) ([]*SyncPoint, error) {
 		if err != nil {
 			return nil, err
 		}
-		points[i] = &p
+		points[i] = p
 	}
 	return points, nil
 }

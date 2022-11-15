@@ -30,7 +30,7 @@ func CosiCommit(randReader io.Reader) *Key {
 }
 
 func CosiAggregateCommitment(randoms map[int]*Key) (*CosiSignature, error) {
-	cosi := CosiSignature{commitments: make(map[int]*Key)}
+	cosi := &CosiSignature{commitments: make(map[int]*Key)}
 	P := edwards25519.NewIdentityPoint()
 	for i, R := range randoms {
 		p, err := edwards25519.NewIdentityPoint().SetBytes(R[:])
@@ -45,7 +45,7 @@ func CosiAggregateCommitment(randoms map[int]*Key) (*CosiSignature, error) {
 		cosi.commitments[i] = R
 	}
 	copy(cosi.Signature[:32], P.Bytes())
-	return &cosi, nil
+	return cosi, nil
 }
 
 func (c *CosiSignature) AggregateResponse(publics []*Key, responses map[int]*[32]byte, message []byte, strict bool) error {

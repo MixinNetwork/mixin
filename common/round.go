@@ -54,11 +54,11 @@ func UnmarshalRound(b []byte) (*Round, error) {
 		return nil, fmt.Errorf("invalid round size %d", len(b))
 	}
 
-	var r Round
+	r := &Round{}
 	dec, err := NewMinimumDecoder(b)
 	if err != nil {
 		err := msgpackUnmarshal(b, &r)
-		return &r, err
+		return r, err
 	}
 
 	err = dec.Read(r.Hash[:])
@@ -87,5 +87,5 @@ func UnmarshalRound(b []byte) (*Round, error) {
 		return nil, err
 	}
 	r.References = link
-	return &r, err
+	return r, err
 }

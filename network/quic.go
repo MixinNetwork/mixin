@@ -126,7 +126,7 @@ func (c *QuicClient) Receive() (*TransportMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	var m TransportMessage
+	m := &TransportMessage{}
 	header := make([]byte, TransportMessageHeaderSize)
 	s, err := c.receive.Read(header)
 	if err != nil {
@@ -164,7 +164,7 @@ func (c *QuicClient) Receive() (*TransportMessage, error) {
 		m.Data, err = c.zstdUnzipper.DecodeAll(m.Data, nil)
 	}
 
-	return &m, err
+	return m, err
 }
 
 func (c *QuicClient) Send(data []byte) error {

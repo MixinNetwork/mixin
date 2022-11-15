@@ -39,8 +39,7 @@ func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, err
 		return nil, fmt.Errorf("invalid version %v", b)
 	}
 
-	var s Snapshot
-	s.Version = version
+	s := &Snapshot{Version: version}
 
 	err = dec.Read(s.NodeId[:])
 	if err != nil {
@@ -86,10 +85,10 @@ func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, err
 	}
 	s.Signature = cs
 
-	topo := SnapshotWithTopologicalOrder{Snapshot: &s}
+	topo := &SnapshotWithTopologicalOrder{Snapshot: s}
 	num, err := dec.ReadUint64()
 	if err == io.EOF && num == 0 {
-		return &topo, nil
+		return topo, nil
 	} // genesis no signature
 	topo.TopologicalOrder = num
 
@@ -97,7 +96,7 @@ func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, err
 	if err != io.EOF || es != 0 {
 		return nil, fmt.Errorf("unexpected ending %d %v", es, err)
 	}
-	return &topo, nil
+	return topo, nil
 }
 
 func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
@@ -111,7 +110,7 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 		return nil, fmt.Errorf("invalid version %v", b)
 	}
 
-	var tx SignedTransaction
+	tx := &SignedTransaction{}
 	tx.Version = version
 
 	err = dec.Read(tx.Asset[:])
@@ -182,11 +181,11 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 	if err != io.EOF || es != 0 {
 		return nil, fmt.Errorf("unexpected ending %d %v", es, err)
 	}
-	return &tx, nil
+	return tx, nil
 }
 
 func (dec *Decoder) ReadInput() (*Input, error) {
-	var in Input
+	in := &Input{}
 	err := dec.Read(in.Hash[:])
 	if err != nil {
 		return nil, err
@@ -208,7 +207,7 @@ func (dec *Decoder) ReadInput() (*Input, error) {
 	if err != nil {
 		return nil, err
 	} else if hd {
-		var d DepositData
+		d := &DepositData{}
 		err = dec.Read(d.Chain[:])
 		if err != nil {
 			return nil, err
@@ -237,14 +236,14 @@ func (dec *Decoder) ReadInput() (*Input, error) {
 			return nil, err
 		}
 		d.Amount = amt
-		in.Deposit = &d
+		in.Deposit = d
 	}
 
 	hm, err := dec.ReadMagic()
 	if err != nil {
 		return nil, err
 	} else if hm {
-		var m MintData
+		m := &MintData{}
 		gb, err := dec.ReadBytes()
 		if err != nil {
 			return nil, err
@@ -262,14 +261,14 @@ func (dec *Decoder) ReadInput() (*Input, error) {
 			return nil, err
 		}
 		m.Amount = amt
-		in.Mint = &m
+		in.Mint = m
 	}
 
-	return &in, nil
+	return in, nil
 }
 
 func (dec *Decoder) ReadOutput() (*Output, error) {
-	var o Output
+	o := &Output{}
 
 	var t [2]byte
 	err := dec.Read(t[:])
@@ -315,7 +314,7 @@ func (dec *Decoder) ReadOutput() (*Output, error) {
 	if err != nil {
 		return nil, err
 	} else if hw {
-		var w WithdrawalData
+		w := &WithdrawalData{}
 		err := dec.Read(w.Chain[:])
 		if err != nil {
 			return nil, err
@@ -339,10 +338,10 @@ func (dec *Decoder) ReadOutput() (*Output, error) {
 		}
 		w.Tag = string(tb)
 
-		o.Withdrawal = &w
+		o.Withdrawal = w
 	}
 
-	return &o, nil
+	return o, nil
 }
 
 func (dec *Decoder) ReadSignatures() (map[uint16]*crypto.Signature, error) {
@@ -461,7 +460,7 @@ func (dec *Decoder) ReadReferences() (*RoundLink, error) {
 	if rc != 2 {
 		return nil, fmt.Errorf("invalid referces count %d", rc)
 	}
-	var rl RoundLink
+	rl := &RoundLink{}
 	err = dec.Read(rl.Self[:])
 	if err != nil {
 		return nil, err
@@ -470,11 +469,11 @@ func (dec *Decoder) ReadReferences() (*RoundLink, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &rl, nil
+	return rl, nil
 }
 
 func (dec *Decoder) ReadCosiSignature() (*crypto.CosiSignature, error) {
-	var s crypto.CosiSignature
+	s := &crypto.CosiSignature{}
 	m, err := dec.ReadUint64()
 	if err != nil || m == 0 {
 		return nil, err
@@ -485,11 +484,11 @@ func (dec *Decoder) ReadCosiSignature() (*crypto.CosiSignature, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &s, nil
+	return s, nil
 }
 
 func (dec *Decoder) ReadAggregatedSignature() (*AggregatedSignature, error) {
-	var js AggregatedSignature
+	js := &AggregatedSignature{}
 	err := dec.Read(js.Signature[:])
 	if err != nil {
 		return nil, err
@@ -528,5 +527,5 @@ func (dec *Decoder) ReadAggregatedSignature() (*AggregatedSignature, error) {
 	default:
 		return nil, fmt.Errorf("invalid mask type %d", typ)
 	}
-	return &js, nil
+	return js, nil
 }
