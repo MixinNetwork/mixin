@@ -6,21 +6,21 @@ replace github.com/vmihailenco/msgpack/v4 => github.com/MixinNetwork/msgpack/v4 
 
 require (
 	filippo.io/edwards25519 v1.0.0
-	github.com/MixinNetwork/mobilecoin-account v0.0.1
+	github.com/MixinNetwork/mobilecoin-account v0.0.2
 	github.com/dgraph-io/badger/v3 v3.2103.4
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/gofrs/uuid v4.3.1+incompatible
 	github.com/klauspost/compress v1.15.12
-	github.com/lucas-clemente/quic-go v0.30.0
+	github.com/lucas-clemente/quic-go v0.31.0
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/pelletier/go-toml v1.9.5
 	github.com/shopspring/decimal v1.3.1
 	github.com/stretchr/testify v1.8.1
-	github.com/urfave/cli/v2 v2.23.5
+	github.com/urfave/cli/v2 v2.23.6
 	github.com/vmihailenco/msgpack/v4 v4.3.12
 	github.com/zeebo/blake3 v0.2.3
-	go.dedis.ch/kyber/v3 v3.0.14
-	golang.org/x/crypto v0.2.0
+	go.dedis.ch/kyber/v3 v3.1.0
+	golang.org/x/crypto v0.3.0
 )
 
 require (
