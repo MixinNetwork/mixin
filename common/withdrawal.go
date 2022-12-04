@@ -13,6 +13,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/bch"
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
+	"github.com/MixinNetwork/mixin/domains/bsc"
 	"github.com/MixinNetwork/mixin/domains/bsv"
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dash"
@@ -168,6 +169,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return avalanche.VerifyAddress(submit.Withdrawal.Address)
 	case binance.BinanceChainId:
 		return binance.VerifyAddress(submit.Withdrawal.Address)
+	case bsc.BinanceSmartChainId:
+		return bsc.VerifyAddress(submit.Withdrawal.Address)
 	case akash.AkashChainId:
 		return akash.VerifyAddress(submit.Withdrawal.Address)
 	case terra.TerraChainId:

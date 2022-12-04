@@ -12,6 +12,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/bch"
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
+	"github.com/MixinNetwork/mixin/domains/bsc"
 	"github.com/MixinNetwork/mixin/domains/bsv"
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dash"
@@ -153,6 +154,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return avalanche.VerifyTransactionHash(deposit.TransactionHash)
 	case binance.BinanceChainId:
 		return binance.VerifyTransactionHash(deposit.TransactionHash)
+	case bsc.BinanceSmartChainId:
+		return bsc.VerifyTransactionHash(deposit.TransactionHash)
 	case akash.AkashChainId:
 		return akash.VerifyTransactionHash(deposit.TransactionHash)
 	case terra.TerraChainId:

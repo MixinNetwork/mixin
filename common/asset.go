@@ -12,6 +12,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/bch"
 	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
+	"github.com/MixinNetwork/mixin/domains/bsc"
 	"github.com/MixinNetwork/mixin/domains/bsv"
 	"github.com/MixinNetwork/mixin/domains/cosmos"
 	"github.com/MixinNetwork/mixin/domains/dash"
@@ -127,6 +128,8 @@ func (a *Asset) Verify() error {
 		return avalanche.VerifyAssetKey(a.AssetKey)
 	case binance.BinanceChainId:
 		return binance.VerifyAssetKey(a.AssetKey)
+	case bsc.BinanceSmartChainId:
+		return bsc.VerifyAssetKey(a.AssetKey)
 	case akash.AkashChainId:
 		return akash.VerifyAssetKey(a.AssetKey)
 	case terra.TerraChainId:
@@ -214,6 +217,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return avalanche.GenerateAssetId(a.AssetKey)
 	case binance.BinanceChainId:
 		return binance.GenerateAssetId(a.AssetKey)
+	case bsc.BinanceSmartChainId:
+		return bsc.GenerateAssetId(a.AssetKey)
 	case akash.AkashChainId:
 		return akash.GenerateAssetId(a.AssetKey)
 	case terra.TerraChainId:
@@ -301,6 +306,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return avalanche.AvalancheChainId
 	case binance.BinanceChainId:
 		return binance.BinanceChainId
+	case bsc.BinanceSmartChainId:
+		return bsc.BinanceSmartChainId
 	case akash.AkashChainId:
 		return akash.AkashChainId
 	case terra.TerraChainId:
