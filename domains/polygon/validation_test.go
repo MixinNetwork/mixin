@@ -45,6 +45,6 @@ func TestValidation(t *testing.T) {
 
 	assert.Equal(crypto.NewHash([]byte("9189a528-c3a5-36cb-8e08-feb81e7cb9cb")), GenerateAssetId(tusd))
 	assert.Equal(crypto.NewHash([]byte("80b65786-7c75-3523-bc03-fb25378eae41")), GenerateAssetId(usdc))
-	assert.Equal(crypto.NewHash([]byte("b7938396-3f94-4e0a-9179-d3440718156f")), GenerateAssetId("0x0000000000000000000000000000000000001010"))
+	assert.Equal(crypto.NewHash([]byte("b7938396-3f94-4e0a-9179-d3440718156f")), GenerateAssetId("0x0000000000000000000000000000000000000000"))
 	assert.Equal(crypto.NewHash([]byte("b7938396-3f94-4e0a-9179-d3440718156f")), PolygonChainId)
 }
