@@ -33,6 +33,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/namecoin"
 	"github.com/MixinNetwork/mixin/domains/near"
 	"github.com/MixinNetwork/mixin/domains/nervos"
+	"github.com/MixinNetwork/mixin/domains/optimism"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/polygon"
 	"github.com/MixinNetwork/mixin/domains/ravencoin"
@@ -171,6 +172,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return binance.VerifyAddress(submit.Withdrawal.Address)
 	case bsc.BinanceSmartChainId:
 		return bsc.VerifyAddress(submit.Withdrawal.Address)
+	case optimism.OptimismChainId:
+		return optimism.VerifyAddress(submit.Withdrawal.Address)
 	case akash.AkashChainId:
 		return akash.VerifyAddress(submit.Withdrawal.Address)
 	case terra.TerraChainId:

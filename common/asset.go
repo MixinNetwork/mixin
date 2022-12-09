@@ -32,6 +32,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/namecoin"
 	"github.com/MixinNetwork/mixin/domains/near"
 	"github.com/MixinNetwork/mixin/domains/nervos"
+	"github.com/MixinNetwork/mixin/domains/optimism"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/polygon"
 	"github.com/MixinNetwork/mixin/domains/ravencoin"
@@ -130,6 +131,8 @@ func (a *Asset) Verify() error {
 		return binance.VerifyAssetKey(a.AssetKey)
 	case bsc.BinanceSmartChainId:
 		return bsc.VerifyAssetKey(a.AssetKey)
+	case optimism.OptimismChainId:
+		return optimism.VerifyAssetKey(a.AssetKey)
 	case akash.AkashChainId:
 		return akash.VerifyAssetKey(a.AssetKey)
 	case terra.TerraChainId:
@@ -219,6 +222,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return binance.GenerateAssetId(a.AssetKey)
 	case bsc.BinanceSmartChainId:
 		return bsc.GenerateAssetId(a.AssetKey)
+	case optimism.OptimismChainId:
+		return optimism.GenerateAssetId(a.AssetKey)
 	case akash.AkashChainId:
 		return akash.GenerateAssetId(a.AssetKey)
 	case terra.TerraChainId:
@@ -308,6 +313,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return binance.BinanceChainId
 	case bsc.BinanceSmartChainId:
 		return bsc.BinanceSmartChainId
+	case optimism.OptimismChainId:
+		return optimism.OptimismChainId
 	case akash.AkashChainId:
 		return akash.AkashChainId
 	case terra.TerraChainId:

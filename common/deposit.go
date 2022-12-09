@@ -32,6 +32,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/namecoin"
 	"github.com/MixinNetwork/mixin/domains/near"
 	"github.com/MixinNetwork/mixin/domains/nervos"
+	"github.com/MixinNetwork/mixin/domains/optimism"
 	"github.com/MixinNetwork/mixin/domains/polkadot"
 	"github.com/MixinNetwork/mixin/domains/polygon"
 	"github.com/MixinNetwork/mixin/domains/ravencoin"
@@ -156,6 +157,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return binance.VerifyTransactionHash(deposit.TransactionHash)
 	case bsc.BinanceSmartChainId:
 		return bsc.VerifyTransactionHash(deposit.TransactionHash)
+	case optimism.OptimismChainId:
+		return optimism.VerifyTransactionHash(deposit.TransactionHash)
 	case akash.AkashChainId:
 		return akash.VerifyTransactionHash(deposit.TransactionHash)
 	case terra.TerraChainId:
