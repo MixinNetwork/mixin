@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/akash"
 	"github.com/MixinNetwork/mixin/domains/algorand"
 	"github.com/MixinNetwork/mixin/domains/aptos"
+	"github.com/MixinNetwork/mixin/domains/arbitrum"
 	"github.com/MixinNetwork/mixin/domains/arweave"
 	"github.com/MixinNetwork/mixin/domains/avalanche"
 	"github.com/MixinNetwork/mixin/domains/bch"
@@ -174,6 +175,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return bsc.VerifyAddress(submit.Withdrawal.Address)
 	case optimism.OptimismChainId:
 		return optimism.VerifyAddress(submit.Withdrawal.Address)
+	case arbitrum.ArbitrumChainId:
+		return arbitrum.VerifyAddress(submit.Withdrawal.Address)
 	case akash.AkashChainId:
 		return akash.VerifyAddress(submit.Withdrawal.Address)
 	case terra.TerraChainId:
