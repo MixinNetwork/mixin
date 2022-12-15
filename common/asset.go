@@ -43,6 +43,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/stellar"
 	"github.com/MixinNetwork/mixin/domains/terra"
 	"github.com/MixinNetwork/mixin/domains/tezos"
+	"github.com/MixinNetwork/mixin/domains/ton"
 	"github.com/MixinNetwork/mixin/domains/tron"
 	"github.com/MixinNetwork/mixin/domains/xdc"
 	"github.com/MixinNetwork/mixin/domains/zcash"
@@ -117,6 +118,8 @@ func (a *Asset) Verify() error {
 		return eos.VerifyAssetKey(a.AssetKey)
 	case tron.TronChainId:
 		return tron.VerifyAssetKey(a.AssetKey)
+	case ton.TonChainId:
+		return ton.VerifyAssetKey(a.AssetKey)
 	case mobilecoin.MobileCoinChainId:
 		return mobilecoin.VerifyAssetKey(a.AssetKey)
 	case cosmos.CosmosChainId:
@@ -208,6 +211,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return eos.GenerateAssetId(a.AssetKey)
 	case tron.TronChainId:
 		return tron.GenerateAssetId(a.AssetKey)
+	case ton.TonChainId:
+		return ton.GenerateAssetId(a.AssetKey)
 	case mobilecoin.MobileCoinChainId:
 		return mobilecoin.GenerateAssetId(a.AssetKey)
 	case cosmos.CosmosChainId:
@@ -299,6 +304,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return eos.EOSChainId
 	case tron.TronChainId:
 		return tron.TronChainId
+	case ton.TonChainId:
+		return ton.TonChainId
 	case mobilecoin.MobileCoinChainId:
 		return mobilecoin.DecideFeeId(a.AssetKey)
 	case cosmos.CosmosChainId:
