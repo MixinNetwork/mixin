@@ -44,6 +44,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/stellar"
 	"github.com/MixinNetwork/mixin/domains/terra"
 	"github.com/MixinNetwork/mixin/domains/tezos"
+	"github.com/MixinNetwork/mixin/domains/ton"
 	"github.com/MixinNetwork/mixin/domains/tron"
 	"github.com/MixinNetwork/mixin/domains/xdc"
 	"github.com/MixinNetwork/mixin/domains/zcash"
@@ -144,6 +145,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return eos.VerifyTransactionHash(deposit.TransactionHash)
 	case tron.TronChainId:
 		return tron.VerifyTransactionHash(deposit.TransactionHash)
+	case ton.TonChainId:
+		return ton.VerifyTransactionHash(deposit.TransactionHash)
 	case mobilecoin.MobileCoinChainId:
 		return mobilecoin.VerifyTransactionHash(deposit.TransactionHash)
 	case cosmos.CosmosChainId:
