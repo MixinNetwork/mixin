@@ -424,6 +424,10 @@ func (dec *Decoder) ReadInteger() (Integer, error) {
 	return d, nil
 }
 
+func (dec *Decoder) ReadByte() (byte, error) {
+	return dec.buf.ReadByte()
+}
+
 func (dec *Decoder) ReadBytes() ([]byte, error) {
 	l, err := dec.ReadInt()
 	if err != nil {
