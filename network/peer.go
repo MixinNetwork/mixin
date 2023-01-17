@@ -22,6 +22,7 @@ type Peer struct {
 
 	sentMetric     *MetricPool
 	receivedMetric *MetricPool
+	mu             sync.RWMutex
 
 	ctx             context.Context
 	snapshotsCaches *confirmMap
@@ -64,7 +65,7 @@ func (me *Peer) PingNeighbor(addr string) error {
 	me.pingFilter.Set(key, &Peer{})
 
 	go func() {
-		for !me.closing {
+		for !me.isClosing() {
 			err := me.pingPeerStream(addr)
 			if err != nil {
 				logger.Verbosef("PingNeighbor error %v\n", err)
@@ -121,7 +122,10 @@ func (me *Peer) Neighbors() []*Peer {
 }
 
 func (p *Peer) disconnect() {
+	p.mu.Lock()
 	p.closing = true
+	p.mu.Unlock()
+
 	p.highRing.Dispose()
 	p.normalRing.Dispose()
 	p.syncRing.Dispose()
@@ -130,10 +134,18 @@ func (p *Peer) disconnect() {
 }
 
 func (me *Peer) Metric() map[string]*MetricPool {
+	// FIXME MetricPool is a small struct; it's probably better to copy a MetricPool type rather than using mutex
+	me.mu.RLock()
+	defer me.mu.RUnlock()
+
+	sentMetric := *me.sentMetric
+	receivedMetric := *me.receivedMetric
+
 	return map[string]*MetricPool{
-		"sent":     me.sentMetric,
-		"received": me.receivedMetric,
+		"sent":     &sentMetric,
+		"received": &receivedMetric,
 	}
+
 }
 
 func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNeighbors, enableMetric bool) *Peer {
@@ -161,7 +173,10 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNei
 }
 
 func (me *Peer) Teardown() {
+	me.mu.Lock()
 	me.closing = true
+	me.mu.Unlock()
+
 	me.transport.Close()
 	me.highRing.Dispose()
 	me.normalRing.Dispose()
@@ -195,7 +210,7 @@ func (me *Peer) ListenNeighbors() error {
 		ticker := time.NewTicker(time.Duration(config.SnapshotRoundGap))
 		defer ticker.Stop()
 
-		for !me.closing {
+		for !me.isClosing() {
 			me.gossipRound.Clear()
 			neighbors := me.neighbors.Slice()
 			for i := range neighbors {
@@ -213,7 +228,7 @@ func (me *Peer) ListenNeighbors() error {
 		}
 	}()
 
-	for !me.closing {
+	for !me.isClosing() {
 		c, err := me.transport.Accept(me.ctx)
 		if err != nil {
 			logger.Verbosef("accept error %v\n", err)
@@ -235,7 +250,7 @@ func (me *Peer) openPeerStreamLoop(p *Peer) {
 	defer close(p.ops)
 
 	var resend *ChanMsg
-	for !me.closing && !p.closing {
+	for !me.isClosing() && !p.isClosing() {
 		msg, err := me.openPeerStream(p, resend)
 		if err != nil {
 			logger.Verbosef("neighbor open stream %s error %v\n", p.Address, err)
@@ -262,7 +277,13 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	if err != nil {
 		return nil, err
 	}
-	me.sentMetric.handle(PeerMessageTypeAuthentication)
+
+	if me.sentMetric.enabled {
+		me.mu.Lock()
+		me.sentMetric.handle(PeerMessageTypeAuthentication)
+		me.mu.Unlock()
+	}
+
 	logger.Verbosef("AUTH PEER STREAM %s\n", p.Address)
 
 	if resend != nil && !me.snapshotsCaches.contains(resend.key, time.Minute) {
@@ -283,17 +304,27 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	gossipNeighborsTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap * 100))
 	defer gossipNeighborsTicker.Stop()
 
-	for !me.closing && !p.closing {
+	for !me.isClosing() && !p.isClosing() {
 		msgs, size := []*ChanMsg{}, 0
 		select {
 		case <-graphTicker.C:
-			me.sentMetric.handle(PeerMessageTypeGraph)
+			if me.sentMetric.enabled {
+				me.mu.Lock()
+				me.sentMetric.handle(PeerMessageTypeGraph)
+				me.mu.Unlock()
+			}
+
 			msg := buildGraphMessage(me.handle.BuildGraph())
 			msgs = append(msgs, &ChanMsg{nil, msg})
 			size = size + len(msg)
 		case <-gossipNeighborsTicker.C:
 			if me.gossipNeighbors {
-				me.sentMetric.handle(PeerMessageTypeGossipNeighbors)
+				if me.sentMetric.enabled {
+					me.mu.Lock()
+					me.sentMetric.handle(PeerMessageTypeGossipNeighbors)
+					me.mu.Unlock()
+				}
+
 				msg := buildGossipNeighborsMessage(me.neighbors.Slice())
 				msgs = append(msgs, &ChanMsg{nil, msg})
 				size = size + len(msg)
@@ -354,7 +385,13 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 				key := crypto.NewHash(data)
 				return &ChanMsg{key[:], data}, err
 			}
-			me.sentMetric.handle(PeerMessageTypeBundle)
+
+			if me.sentMetric.enabled {
+				me.mu.Lock()
+				me.sentMetric.handle(PeerMessageTypeBundle)
+				me.mu.Unlock()
+			}
+
 			for _, msg := range msgs {
 				if msg.key != nil {
 					me.snapshotsCaches.store(msg.key, time.Now())
@@ -390,7 +427,12 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 		if err != nil {
 			return fmt.Errorf("parseNetworkMessage %s %v", peer.IdForNetwork, err)
 		}
-		me.receivedMetric.handle(msg.Type)
+
+		if me.receivedMetric.enabled {
+			me.mu.Lock()
+			me.receivedMetric.handle(msg.Type)
+			me.mu.Unlock()
+		}
 
 		if msg.Type != PeerMessageTypeBundle {
 			select {
@@ -413,7 +455,13 @@ func (me *Peer) acceptNeighborConnection(client Client) error {
 			if elm.Type == PeerMessageTypeBundle {
 				return fmt.Errorf("parseNetworkMessage %s invalid bundle element type", peer.IdForNetwork)
 			}
-			me.receivedMetric.handle(elm.Type)
+
+			if me.receivedMetric.enabled {
+				me.mu.Lock()
+				me.receivedMetric.handle(elm.Type)
+				me.mu.Unlock()
+			}
+
 			select {
 			case receive <- elm:
 			default:
@@ -442,7 +490,12 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			auth <- fmt.Errorf("peer authentication invalid message type %d", msg.Type)
 			return
 		}
-		me.receivedMetric.handle(PeerMessageTypeAuthentication)
+
+		if me.receivedMetric.enabled {
+			me.mu.Lock()
+			me.receivedMetric.handle(PeerMessageTypeAuthentication)
+			me.mu.Unlock()
+		}
 
 		id, addr, err := me.handle.Authenticate(msg.Data)
 		if err != nil {
@@ -483,7 +536,12 @@ func (me *Peer) sendHighToPeer(idForNetwork crypto.Hash, typ byte, key, data []b
 		return nil
 	}
 
-	me.sentMetric.handle(typ)
+	if me.sentMetric.enabled {
+		me.mu.Lock()
+		me.sentMetric.handle(typ)
+		me.mu.Unlock()
+	}
+
 	success, _ := peer.highRing.Offer(&ChanMsg{key, data})
 	if !success {
 		return fmt.Errorf("peer send high timeout")
@@ -505,7 +563,12 @@ func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.
 		return nil
 	}
 
-	me.sentMetric.handle(typ)
+	if me.sentMetric.enabled {
+		me.mu.Lock()
+		me.sentMetric.handle(typ)
+		me.mu.Unlock()
+	}
+
 	success, _ := peer.normalRing.Offer(&ChanMsg{key, data})
 	if !success {
 		return fmt.Errorf("peer send normal timeout")

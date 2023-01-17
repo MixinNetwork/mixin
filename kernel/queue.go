@@ -117,17 +117,22 @@ func (node *Node) QueueState() (uint64, uint64, map[string][2]uint64) {
 	accepted := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
 	for _, cn := range accepted {
 		chain := node.chains.m[cn.IdForNetwork]
+
+		chain.RLock()
 		sa := [2]uint64{
 			uint64(len(chain.CachePool)),
 			uint64(len(chain.finalActionsRing)),
 		}
 		round := chain.FinalPool[chain.FinalIndex]
 		if round != nil {
+			round.mu.RLock()
 			sa[1] = sa[1] + uint64(round.Size)
+			round.mu.RUnlock()
 		}
 		caches = caches + sa[0]
 		finals = finals + sa[1]
 		state[chain.ChainId.String()] = sa
+		chain.RUnlock()
 	}
 	return caches, finals, state
 }

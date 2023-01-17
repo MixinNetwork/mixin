@@ -105,7 +105,7 @@ func (me *Peer) syncHeadRoundToRemote(local, remote map[crypto.Hash]*SyncPoint, 
 func (me *Peer) syncToNeighborLoop(p *Peer) {
 	defer close(p.stn)
 
-	for !me.closing && !p.closing {
+	for !me.isClosing() && !p.isClosing() {
 		graph, offset := me.getSyncPointOffset(p)
 		logger.Verbosef("network.sync syncToNeighborLoop getSyncPointOffset %s %d %v\n", p.IdForNetwork, offset, graph != nil)
 
@@ -113,7 +113,7 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 			continue
 		}
 
-		for !me.closing && !p.closing && offset > 0 {
+		for !me.isClosing() && !p.isClosing() && offset > 0 {
 			off, err := me.syncToNeighborSince(graph, p, offset)
 			if err != nil {
 				logger.Verbosef("network.sync syncToNeighborLoop syncToNeighborSince %s %d DONE with %s", p.IdForNetwork, offset, err)
@@ -136,12 +136,19 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 	}
 }
 
+func (me *Peer) isClosing() bool {
+	me.mu.Lock()
+	defer me.mu.Unlock()
+
+	return me.closing
+}
+
 func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64) {
 	var offset uint64
 	var graph map[crypto.Hash]*SyncPoint
 
 	startAt := time.Now()
-	for !me.closing && !p.closing {
+	for !me.isClosing() && !p.isClosing() {
 		item, err := p.syncRing.Poll(false)
 		if err != nil {
 			break

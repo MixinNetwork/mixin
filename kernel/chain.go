@@ -25,6 +25,7 @@ type PeerSnapshot struct {
 	peers     []crypto.Hash
 	filter    map[crypto.Hash]bool
 	finalized bool
+	mu        sync.RWMutex
 }
 
 type ChainRound struct {
@@ -33,6 +34,7 @@ type ChainRound struct {
 	Timestamp uint64
 	Snapshots [FinalPoolRoundSizeLimit]*PeerSnapshot
 	index     map[crypto.Hash]int
+	mu        sync.RWMutex
 }
 
 type ChainState struct {
@@ -40,6 +42,7 @@ type ChainState struct {
 	FinalRound   *FinalRound
 	RoundHistory []*FinalRound
 	RoundLinks   map[crypto.Hash]uint64
+	mu           sync.RWMutex
 }
 
 type ActionBuffer chan *CosiAction
@@ -55,7 +58,7 @@ type Chain struct {
 	CosiRandoms        map[crypto.Key]*crypto.Key
 	UsedRandoms        map[crypto.Hash]*crypto.Key
 	CosiCommitments    map[crypto.Hash][]*crypto.Key
-	UsedCommitments   map[crypto.Key]bool
+	UsedCommitments    map[crypto.Key]bool
 	ComitmentsSentTime time.Time
 
 	CosiAggregators map[crypto.Hash]*CosiAggregator
@@ -83,7 +86,7 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 		CosiRandoms:      make(map[crypto.Key]*crypto.Key),
 		UsedRandoms:      make(map[crypto.Hash]*crypto.Key),
 		CosiCommitments:  make(map[crypto.Hash][]*crypto.Key),
-		UsedCommitments: make(map[crypto.Key]bool),
+		UsedCommitments:  make(map[crypto.Key]bool),
 		CosiAggregators:  make(map[crypto.Hash]*CosiAggregator),
 		CosiVerifiers:    make(map[crypto.Hash]*CosiVerifier),
 		CachePool:        make(chan *CosiAction, CachePoolSnapshotsLimit),
@@ -104,13 +107,13 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 }
 
 func (chain *Chain) bootLoops() {
-	chain.Lock()
-	defer chain.Unlock()
-
-	if chain.running {
+	if chain.isRunning() {
 		return
 	}
+
+	chain.Lock()
 	chain.running = true
+	chain.Unlock()
 
 	rn := chain.node.GetRemovedOrCancelledNode(chain.ChainId, chain.node.GraphTimestamp)
 	threshold := uint64(config.KernelNodeAcceptPeriodMaximum)
@@ -131,13 +134,22 @@ func (chain *Chain) bootLoops() {
 	go chain.ConsumeFinalActions()
 }
 
+func (chain *Chain) isRunning() bool {
+	chain.RLock()
+	defer chain.RUnlock()
+
+	return chain.running
+}
+
 func (chain *Chain) waitOrDone(wait time.Duration) {
 	timer := time.NewTimer(wait)
 	defer timer.Stop()
 
 	select {
 	case <-chain.node.done:
+		chain.Lock()
 		chain.running = false
+		chain.Unlock()
 	case <-timer.C:
 	}
 }
@@ -177,7 +189,10 @@ func (chain *Chain) loadIdentity() *CNode {
 }
 
 func (chain *Chain) Teardown() {
+	chain.Lock()
 	chain.running = false
+	chain.Unlock()
+
 	<-chain.clc
 	<-chain.plc
 	<-chain.wlc
@@ -237,30 +252,52 @@ func (chain *Chain) QueuePollSnapshots() {
 	logger.Printf("QueuePollSnapshots(%s)\n", chain.ChainId)
 	defer close(chain.plc)
 
-	for chain.running {
+	for chain.isRunning() {
 		final, cache, stale := 0, 0, false
 		for i := 0; i < 2; i++ {
-			index := (chain.FinalIndex + i) % FinalPoolSlotsLimit
+			chain.RLock()
+			finalIndex := chain.FinalIndex
+			index := (finalIndex + i) % FinalPoolSlotsLimit
 			round := chain.FinalPool[index]
+			cs := chain.State
+			chain.RUnlock()
+
 			if round == nil {
-				logger.Debugf("QueuePollSnapshots final round empty %s %d %d\n", chain.ChainId, chain.FinalIndex, index)
+				logger.Debugf("QueuePollSnapshots final round empty %s %d %d\n", chain.ChainId, finalIndex, index)
 				continue
 			}
-			if cs := chain.State; cs != nil && (round.Number < cs.CacheRound.Number || round.Number > cs.CacheRound.Number+1) {
-				logger.Debugf("QueuePollSnapshots final round number bad %s %d %d %d\n", chain.ChainId, chain.FinalIndex, cs.CacheRound.Number, round.Number)
+
+			// round.mu.RLock()
+			roundNumber := round.Number
+			// round.mu.Unlock()
+
+			if cs != nil && (roundNumber < cs.CacheRound.Number || roundNumber > cs.CacheRound.Number+1) {
+				logger.Debugf("QueuePollSnapshots final round number bad %s %d %d %d\n", chain.ChainId, finalIndex, cs.CacheRound.Number, roundNumber)
 				continue
 			}
-			if round.Timestamp > chain.node.GraphTimestamp+uint64(config.KernelNodeAcceptPeriodMaximum) {
+
+			chain.node.mu.Lock()
+			timestamp := chain.node.GraphTimestamp
+			chain.node.mu.Unlock()
+
+			round.mu.RLock()
+			if round.Timestamp > timestamp+uint64(config.KernelNodeAcceptPeriodMaximum) {
 				stale = true
 			}
-			logger.Debugf("QueuePollSnapshots final round good %s %d %d %d\n", chain.ChainId, chain.FinalIndex, round.Number, round.Size)
+			logger.Debugf("QueuePollSnapshots final round good %s %d %d %d\n", chain.ChainId, finalIndex, roundNumber, round.Size)
 			for j := 0; j < round.Size; j++ {
 				ps := round.Snapshots[j]
-				logger.Debugf("QueuePollSnapshots final snapshot %s %d %s %t %d\n", chain.ChainId, chain.FinalIndex, ps.Snapshot.Hash, ps.finalized, len(ps.peers))
+
+				ps.mu.RLock()
+				peers := make([]crypto.Hash, len(ps.peers))
+				copy(peers, ps.peers)
+				ps.mu.RUnlock()
+
+				logger.Debugf("QueuePollSnapshots final snapshot %s %d %s %t %d\n", chain.ChainId, finalIndex, ps.Snapshot.Hash, ps.finalized, len(peers))
 				if ps.finalized {
 					continue
 				}
-				for _, pid := range ps.peers {
+				for _, pid := range peers {
 					finalized, err := chain.cosiHook(&CosiAction{
 						PeerId:   pid,
 						Action:   CosiActionFinalization,
@@ -279,7 +316,8 @@ func (chain *Chain) QueuePollSnapshots() {
 					break
 				}
 			}
-			logger.Debugf("QueuePollSnapshots final round done %s %d %d %d\n", chain.ChainId, chain.FinalIndex, round.Number, round.Size)
+			logger.Debugf("QueuePollSnapshots final round done %s %d %d %d\n", chain.ChainId, finalIndex, roundNumber, round.Size)
+			round.mu.RUnlock()
 		}
 
 		logger.Debugf("QueuePollSnapshots cache pool begin %s when final %d %d\n", chain.ChainId, chain.FinalIndex, chain.FinalCount)
@@ -314,22 +352,26 @@ func (chain *Chain) QueuePollSnapshots() {
 
 func (chain *Chain) StepForward() {
 	logger.Debugf("graph chain StepForward(%d, %d)\n", chain.FinalIndex, chain.FinalCount)
+
+	// TODO data race
+	chain.Lock()
 	chain.FinalIndex = (chain.FinalIndex + 1) % FinalPoolSlotsLimit
 	chain.FinalCount = chain.FinalCount + 1
+	chain.Unlock()
 }
 
 func (chain *Chain) ConsumeFinalActions() {
 	logger.Printf("ConsumeFinalActions(%s)\n", chain.ChainId)
 	defer close(chain.clc)
 
-	for chain.running {
+	for chain.isRunning() {
 		ps := chain.finalActionsRing.Poll()
 		if ps == nil {
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		logger.Debugf("ConsumeFinalActions(%s) %s\n", chain.ChainId, ps.Snapshot.Hash)
-		for chain.running {
+		for chain.isRunning() {
 			retry, err := chain.appendFinalSnapshot(ps.PeerId, ps.Snapshot)
 			if err != nil {
 				panic(err)
@@ -346,7 +388,10 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 	logger.Debugf("appendFinalSnapshot(%s, %s)\n", peerId, s.Hash)
 	start, fi := uint64(0), chain.FinalIndex
 	if chain.State != nil {
+		chain.State.mu.RLock()
 		start = chain.State.CacheRound.Number
+		chain.State.mu.RUnlock()
+
 		pr := chain.FinalPool[fi]
 		if pr == nil || pr.Number == start || pr.Number+FinalPoolSlotsLimit == start {
 			logger.Debugf("appendFinalSnapshot(%s, %s) cache and index match %d\n", peerId, s.Hash, start)
@@ -374,10 +419,12 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 			Size:      0,
 		}
 	} else if round.Number != s.RoundNumber {
+		round.mu.Lock()
 		round.Number = s.RoundNumber
 		round.Timestamp = s.Timestamp
 		round.index = make(map[crypto.Hash]int)
 		round.Size = 0
+		round.mu.Unlock()
 	}
 	if round.Size == FinalPoolRoundSizeLimit {
 		return false, fmt.Errorf("appendFinalSnapshot(%s, %s) round snapshots full %s:%d", peerId, s.Hash, s.NodeId, s.RoundNumber)
@@ -390,20 +437,33 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 			filter:   map[crypto.Hash]bool{peerId: true},
 		}
 		round.index[s.Hash] = round.Size
+		round.mu.Lock()
 		round.Size = round.Size + 1
+		round.mu.Unlock()
+
 	} else {
 		ps := round.Snapshots[index]
 		if len(ps.filter) < 3 && !ps.filter[peerId] {
+			ps.mu.Lock()
 			ps.filter[peerId] = true
 			ps.peers = append(ps.peers, peerId)
+			ps.mu.Unlock()
 		}
 	}
+
+	chain.Lock()
 	chain.FinalPool[offset] = round
+	chain.Unlock()
+
 	return false, nil
 }
 
 func (chain *Chain) AppendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) error {
 	logger.Debugf("AppendFinalSnapshot(%s, %s)\n", peerId, s.Hash)
+
+	chain.State.mu.RLock()
+	defer chain.State.mu.RUnlock()
+
 	if s.NodeId != chain.ChainId {
 		panic("final queue malformed")
 	}

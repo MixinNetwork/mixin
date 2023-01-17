@@ -20,13 +20,21 @@ func (chain *Chain) AggregateRoundSpace() {
 	logger.Printf("AggregateRoundSpace(%s) begin with %d:%d\n", chain.ChainId, batch, round)
 
 	wait := time.Duration(chain.node.custom.Node.KernelOprationPeriod/2) * time.Second
-	for chain.running {
-		if cs := chain.State; cs == nil {
+	for chain.isRunning() {
+		chain.RLock()
+		cs := chain.State
+		chain.RUnlock()
+
+		if cs == nil {
 			logger.Printf("AggregateRoundSpace(%s) no state yet\n", chain.ChainId)
 			chain.waitOrDone(wait)
 			continue
 		}
+
+		chain.State.mu.RLock()
 		frn := chain.State.FinalRound.Number
+		chain.State.mu.RUnlock()
+
 		if frn < round {
 			panic(fmt.Errorf("AggregateRoundSpace(%s) waiting %d %d", chain.ChainId, frn, round))
 		}

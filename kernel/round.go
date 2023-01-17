@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -21,6 +22,7 @@ type CacheRound struct {
 	Timestamp  uint64
 	References *common.RoundLink
 	Snapshots  []*common.Snapshot `msgpack:"-"`
+	mu         sync.RWMutex
 }
 
 type FinalRound struct {
@@ -29,6 +31,7 @@ type FinalRound struct {
 	Start  uint64
 	End    uint64
 	Hash   crypto.Hash
+	mu     sync.RWMutex
 }
 
 func (node *Node) LoadAllChainsAndGraphTimestamp(store storage.Store, networkId crypto.Hash) error {
@@ -44,11 +47,9 @@ func (node *Node) LoadAllChainsAndGraphTimestamp(store storage.Store, networkId 
 	}
 	logger.Printf("node.LoadAllChainsAndGraphTimestamp(%s) => %d %d", networkId, len(nodes), node.GraphTimestamp)
 
-	node.chains.RLock()
 	for _, chain := range node.chains.m {
 		chain.bootLoops()
 	}
-	node.chains.RUnlock()
 	return nil
 }
 
@@ -220,7 +221,9 @@ func (c *CacheRound) validateSnapshot(s *common.Snapshot, add bool) error {
 		}
 	}
 	if add {
+		c.mu.Lock()
 		c.Snapshots = append(c.Snapshots, s)
+		c.mu.Unlock()
 	}
 	return nil
 }

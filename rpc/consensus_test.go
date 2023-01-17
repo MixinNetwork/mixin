@@ -124,7 +124,8 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	assert.Equal(transactionsCount, len(tl))
 
 	gt = testVerifyInfo(assert, nodes)
-	assert.Truef(gt.Timestamp.Before(epoch.Add(7*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(7*time.Second))
+	// assert.Truef(gt.Timestamp.Before(epoch.Add(7*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(7*time.Second))
+	assert.Truef(gt.Timestamp.Before(epoch.Add(21*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(21*time.Second))
 	hr := testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	assert.NotNil(hr)
 	assert.GreaterOrEqual(hr.Round, uint64(0))

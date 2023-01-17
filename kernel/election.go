@@ -185,7 +185,11 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 }
 
 func (node *Node) tryToSendRemoveTransaction() error {
-	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, node.GraphTimestamp, nil)
+	node.mu.RLock()
+	timestamp := node.GraphTimestamp
+	node.mu.RUnlock()
+
+	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, timestamp, nil)
 	if err != nil {
 		return err
 	}

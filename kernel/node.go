@@ -26,6 +26,7 @@ type Node struct {
 	TopoCounter   *TopologicalSequence
 	SyncPoints    *syncMap
 	SyncPointsMap map[crypto.Hash]*network.SyncPoint
+	mu            sync.RWMutex
 
 	GraphTimestamp uint64
 	Epoch          uint64
@@ -387,14 +388,28 @@ func (node *Node) BuildGraph() []*network.SyncPoint {
 		if chain.State == nil {
 			continue
 		}
+
+		chain.State.mu.RLock()
 		f := chain.State.FinalRound
+		chain.State.mu.RUnlock()
+
+		f.mu.RLock()
+		fHash := f.Hash
+		fNumber := f.Number
+		f.mu.RUnlock()
+
+		chain.RLock()
+		finalIndex := chain.FinalIndex
+		finalCount := chain.FinalCount
+		chain.RUnlock()
+
 		points = append(points, &network.SyncPoint{
 			NodeId: chain.ChainId,
-			Hash:   f.Hash,
-			Number: f.Number,
+			Hash:   fHash,
+			Number: fNumber,
 			Pool: map[string]int{
-				"index": chain.FinalIndex,
-				"count": chain.FinalCount,
+				"index": finalIndex,
+				"count": finalCount,
 			},
 		})
 	}
@@ -480,10 +495,16 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoin
 			node.SyncPoints.Set(peerId, p)
 		}
 	}
+
+	node.mu.Lock()
 	node.SyncPointsMap = node.SyncPoints.Map()
+	node.mu.Unlock()
 }
 
 func (node *Node) CheckBroadcastedToPeers() bool {
+	node.mu.RLock()
+	defer node.mu.RUnlock()
+
 	spm := node.SyncPointsMap
 	if len(spm) == 0 || node.chain.State == nil {
 		return false
@@ -505,14 +526,20 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 }
 
 func (node *Node) CheckCatchUpWithPeers() bool {
+	node.mu.RLock()
+	defer node.mu.RUnlock()
+
 	spm := node.SyncPointsMap
 	if len(spm) == 0 || node.chain.State == nil {
 		return false
 	}
 
 	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()), false)
+
+	node.chain.State.mu.RLock()
 	cache, updated := node.chain.State.CacheRound, 1
 	final := node.chain.State.FinalRound.Number
+	node.chain.State.mu.RUnlock()
 
 	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
 	for _, cn := range nodes {

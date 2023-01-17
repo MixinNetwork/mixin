@@ -77,7 +77,7 @@ func (node *Node) cosiAcceptedNodesList(ts uint64) []*CNode {
 
 func (chain *Chain) cosiHook(m *CosiAction) (bool, error) {
 	logger.Debugf("cosiHook(%s) %v\n", chain.ChainId, m)
-	if !chain.running {
+	if !chain.isRunning() {
 		return false, nil
 	}
 	err := chain.cosiHandleAction(m)
@@ -236,7 +236,12 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		if s.Timestamp > uint64(clock.Now().UnixNano())+threshold {
 			return fmt.Errorf("future snapshot timestamp %d", s.Timestamp)
 		}
-		if s.Timestamp+threshold*2 < chain.node.GraphTimestamp {
+
+		chain.node.mu.RLock()
+		timestamp := chain.node.GraphTimestamp
+		chain.node.mu.RUnlock()
+
+		if s.Timestamp+threshold*2 < timestamp {
 			return fmt.Errorf("past snapshot timestamp %d", s.Timestamp)
 		}
 	}

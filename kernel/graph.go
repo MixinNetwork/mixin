@@ -153,11 +153,16 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 		panic(fmt.Errorf("should never be here %s %s", final.NodeId, cache.NodeId))
 	}
 
+	chain.State.mu.Lock()
 	chain.State.CacheRound = cache
 	chain.State.FinalRound = final
+	chain.State.mu.Unlock()
+
+	chain.node.mu.Lock()
 	if final.End > chain.node.GraphTimestamp {
 		chain.node.GraphTimestamp = final.End
 	}
+	chain.node.mu.Unlock()
 
 	rounds := chain.State.RoundHistory
 	if n := rounds[len(rounds)-1].Number; n == final.Number {
@@ -169,7 +174,10 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 
 	chain.StepForward()
 	rounds = append(rounds, final.Copy())
+
+	chain.State.mu.Lock()
 	chain.State.RoundHistory = reduceHistory(rounds)
+	chain.State.mu.Unlock()
 }
 
 func reduceHistory(rounds []*FinalRound) []*FinalRound {
@@ -215,7 +223,11 @@ func (chain *Chain) determineBestRound(roundTime uint64) *FinalRound {
 		}
 
 		ec, link := chain.node.chains.m[id], chain.State.RoundLinks[id]
+
+		ec.State.mu.RLock()
 		history := historySinceRound(ec.State.RoundHistory, link)
+		ec.State.mu.RUnlock()
+
 		if len(history) == 0 {
 			continue
 		}
@@ -242,13 +254,24 @@ func (chain *Chain) checkReferenceSanity(ec *Chain, external *common.Round, roun
 		return fmt.Errorf("external hint round too early yet not genesis %d", external.Number)
 	}
 
+	// FIXME need a better way to synchronize access
+	ec.State.mu.Lock()
+	defer ec.State.mu.Unlock()
+
+	ec.State.FinalRound.mu.RLock()
+	ec.State.CacheRound.mu.RLock()
+
 	cr, fr := ec.State.CacheRound, ec.State.FinalRound
+
 	if now := uint64(clock.Now().UnixNano()); fr.Start > now {
 		return fmt.Errorf("external hint round timestamp too future %d %d", fr.Start, clock.Now().UnixNano())
 	}
 	if len(cr.Snapshots) == 0 && cr.Number == external.Number+1 && external.Number > 0 {
 		return fmt.Errorf("external hint round without extra final yet %d", external.Number)
 	}
+
+	ec.State.CacheRound.mu.RUnlock()
+	ec.State.FinalRound.mu.RUnlock()
 	return nil
 }
 

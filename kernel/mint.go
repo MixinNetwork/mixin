@@ -52,7 +52,7 @@ func (chain *Chain) AggregateMintWork() {
 	fork := uint64(SnapshotRoundDayLeapForkHack.UnixNano())
 	wait := time.Duration(chain.node.custom.Node.KernelOprationPeriod/2) * time.Second
 
-	for chain.running {
+	for chain.isRunning() {
 		if cs := chain.State; cs == nil {
 			logger.Printf("AggregateMintWork(%s) no state yet\n", chain.ChainId)
 			chain.waitOrDone(wait)
@@ -60,7 +60,10 @@ func (chain *Chain) AggregateMintWork() {
 		}
 		// FIXME here continues to update the cache round mostly because no way to
 		// decide the last round of a removed node
+		chain.State.mu.RLock()
 		crn := chain.State.CacheRound.Number
+		chain.State.mu.RUnlock()
+
 		if crn < round {
 			panic(fmt.Errorf("AggregateMintWork(%s) waiting %d %d", chain.ChainId, crn, round))
 		}
@@ -73,7 +76,7 @@ func (chain *Chain) AggregateMintWork() {
 			chain.waitOrDone(wait)
 			continue
 		}
-		for chain.running {
+		for chain.isRunning() {
 			if chain.node.networkId.String() == config.MainnetId && snapshots[0].Timestamp < fork {
 				snapshots = nil
 			}
@@ -216,7 +219,11 @@ func (node *Node) buildMintTransaction(timestamp uint64, validateOnly bool) *com
 }
 
 func (node *Node) tryToMintKernelNode() error {
-	signed := node.buildMintTransaction(node.GraphTimestamp, false)
+	node.mu.Lock()
+	timestamp := node.GraphTimestamp
+	node.mu.Unlock()
+
+	signed := node.buildMintTransaction(timestamp, false)
 	if signed == nil {
 		return nil
 	}
