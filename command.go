@@ -714,6 +714,14 @@ func getInfoCmd(c *cli.Context) error {
 	return err
 }
 
+func getPeersCmd(c *cli.Context) error {
+	data, err := callRPC(fmt.Sprintf("127.0.0.1:%d", c.Int("port")), "getpeers", []any{}, c.Bool("time"))
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
+
 func dumpGraphHeadCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "dumpgraphhead", []any{}, c.Bool("time"))
 	if err == nil {
@@ -837,9 +845,9 @@ func callRPC(node, method string, params []any, pt bool) ([]byte, error) {
 	defer resp.Body.Close()
 
 	var result struct {
-		Runtime string      `json:"runtime"`
-		Data    any `json:"data"`
-		Error   any `json:"error"`
+		Runtime string `json:"runtime"`
+		Data    any    `json:"data"`
+		Error   any    `json:"error"`
 	}
 	dec := json.NewDecoder(resp.Body)
 	dec.UseNumber()

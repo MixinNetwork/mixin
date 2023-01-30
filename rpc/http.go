@@ -18,9 +18,9 @@ type RPC struct {
 }
 
 type Call struct {
-	Id     string        `json:"id"`
-	Method string        `json:"method"`
-	Params []any `json:"params"`
+	Id     string `json:"id"`
+	Method string `json:"method"`
+	Params []any  `json:"params"`
 }
 
 func handlePanic(w http.ResponseWriter, r *http.Request) {
@@ -92,6 +92,9 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			renderer.RenderData(info)
 		}
+	case "getpeers":
+		data := peerNeighbors(impl.Node.Peer.Neighbors())
+		renderer.RenderData(data)
 	case "dumpgraphhead":
 		data, err := dumpGraphHead(impl.Node, call.Params)
 		if err != nil {
