@@ -715,7 +715,7 @@ func getInfoCmd(c *cli.Context) error {
 }
 
 func getPeersCmd(c *cli.Context) error {
-	data, err := callRPC(fmt.Sprintf("127.0.0.1:%d", c.Int("port")), "getpeers", []any{}, c.Bool("time"))
+	data, err := callRPC(c.String("node"), "getpeers", []any{}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/MixinNetwork/mixin/config"
@@ -93,8 +94,12 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			renderer.RenderData(info)
 		}
 	case "getpeers":
-		data := peerNeighbors(impl.Node.Peer.Neighbors())
-		renderer.RenderData(data)
+		if strings.HasPrefix(r.RemoteAddr, "127.0.0.1:") {
+			data := peerNeighbors(impl.Node.Peer.Neighbors())
+			renderer.RenderData(data)
+		}
+		renderer.RenderData("Limited request, can be request in local only.")
+		return
 	case "dumpgraphhead":
 		data, err := dumpGraphHead(impl.Node, call.Params)
 		if err != nil {
