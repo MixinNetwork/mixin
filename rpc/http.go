@@ -93,12 +93,12 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			renderer.RenderData(info)
 		}
-	case "getpeers":
+	case "listpeers":
+		var peers []map[string]any
 		if strings.HasPrefix(r.RemoteAddr, "127.0.0.1:") {
-			data := peerNeighbors(impl.Node.Peer.Neighbors())
-			renderer.RenderData(data)
+			peers = peerNeighbors(impl.Node.Peer.Neighbors())
 		}
-		renderer.RenderData("Limited request, can be request in local only.")
+		renderer.RenderData(peers)
 		return
 	case "dumpgraphhead":
 		data, err := dumpGraphHead(impl.Node, call.Params)
