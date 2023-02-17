@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/MixinNetwork/mixin/config"
@@ -18,9 +19,9 @@ type RPC struct {
 }
 
 type Call struct {
-	Id     string        `json:"id"`
-	Method string        `json:"method"`
-	Params []any `json:"params"`
+	Id     string `json:"id"`
+	Method string `json:"method"`
+	Params []any  `json:"params"`
 }
 
 func handlePanic(w http.ResponseWriter, r *http.Request) {
@@ -92,6 +93,13 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			renderer.RenderData(info)
 		}
+	case "getpeers":
+		if strings.HasPrefix(r.RemoteAddr, "127.0.0.1:") {
+			data := peerNeighbors(impl.Node.Peer.Neighbors())
+			renderer.RenderData(data)
+		}
+		renderer.RenderData("Limited request, can be request in local only.")
+		return
 	case "dumpgraphhead":
 		data, err := dumpGraphHead(impl.Node, call.Params)
 		if err != nil {

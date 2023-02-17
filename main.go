@@ -523,6 +523,11 @@ func main() {
 			Action: getInfoCmd,
 		},
 		{
+			Name:   "getpeers",
+			Usage:  "Get peer's neighbors",
+			Action: getPeersCmd,
+		},
+		{
 			Name:   "dumpgraphhead",
 			Usage:  "Dump the graph head",
 			Action: dumpGraphHeadCmd,
