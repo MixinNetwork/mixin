@@ -3,6 +3,7 @@ package rpc
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"time"
 
@@ -43,6 +44,7 @@ func listAllNodes(store storage.Store, node *kernel.Node, params []any) ([]map[s
 }
 
 func peerNeighbors(peers []*network.Peer) []map[string]any {
+	sort.Slice(peers, func(i, j int) bool { return peers[i].IdForNetwork.String() < peers[j].IdForNetwork.String() })
 	data := make([]map[string]any, 0)
 	for _, p := range peers {
 		data = append(data, map[string]any{

@@ -94,7 +94,7 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			renderer.RenderData(info)
 		}
 	case "listpeers":
-		var peers []map[string]any
+		peers := make([]map[string]any, 0)
 		if strings.HasPrefix(r.RemoteAddr, "127.0.0.1:") {
 			peers = peerNeighbors(impl.Node.Peer.Neighbors())
 		}
