@@ -15,7 +15,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/klauspost/compress/zstd"
-	"github.com/lucas-clemente/quic-go"
+	"github.com/quic-go/quic-go"
 )
 
 // /etc/sysctl.conf
