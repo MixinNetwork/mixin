@@ -523,9 +523,9 @@ func main() {
 			Action: getInfoCmd,
 		},
 		{
-			Name:   "getpeers",
-			Usage:  "Get peer's neighbors",
-			Action: getPeersCmd,
+			Name:   "listpeers",
+			Usage:  "List all the connected peers",
+			Action: listPeersCmd,
 		},
 		{
 			Name:   "dumpgraphhead",

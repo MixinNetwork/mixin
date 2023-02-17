@@ -714,8 +714,8 @@ func getInfoCmd(c *cli.Context) error {
 	return err
 }
 
-func getPeersCmd(c *cli.Context) error {
-	data, err := callRPC(c.String("node"), "getpeers", []any{}, c.Bool("time"))
+func listPeersCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "listpeers", []any{}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
