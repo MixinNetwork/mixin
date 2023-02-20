@@ -1,0 +1,32 @@
+Descargar e instalar
+Descargue e instale Go rápidamente con los pasos que se describen aquí.
+
+Para otro contenido sobre la instalación, podría estar interesado en:
+
+Administrar las instalaciones de Go : cómo instalar y desinstalar varias versiones.
+Instalación de Go desde la fuente : cómo consultar las fuentes, compilarlas en su propia máquina y ejecutarlas.
+Descargar (1.20.1)
+¿No ves tu sistema operativo aquí? Pruebe una de las otras descargas .
+
+Ir a la instalación
+Seleccione la pestaña para el sistema operativo de su computadora a continuación, luego siga sus instrucciones de instalación.
+
+linux Mac ventanas
+Elimine cualquier instalación anterior de Go eliminando la carpeta /usr/local/go (si existe), luego extraiga el archivo que acaba de descargar en /usr/local, creando un nuevo árbol de Go en /usr/local/go:
+$ rm -rf /usr/local/ir && tar -C /usr/local -xzf ir1.20.1.linux-amd64.tar.gz
+
+(Es posible que deba ejecutar el comando como root o a través de sudo).
+
+No descomprima el archivo en un árbol /usr/local/go existente. Se sabe que esto produce instalaciones Go rotas.
+
+Agregue /usr/local/go/bin a la PATHvariable de entorno.
+Puede hacerlo agregando la siguiente línea a su $HOME/.profile o /etc/profile (para una instalación en todo el sistema):
+
+exportar RUTA=$RUTA:/usr/local/ir/bin
+
+Nota: Es posible que los cambios realizados en un archivo de perfil no se apliquen hasta la próxima vez que inicie sesión en su computadora. Para aplicar los cambios de inmediato, simplemente ejecute los comandos de shell directamente o ejecútelos desde el perfil usando un comando como source $HOME/.profile.
+
+Verifique que haya instalado Go abriendo un símbolo del sistema y escribiendo el siguiente comando:
+$ ir a la versión
+
+Confirme que el comando imprime la versión instalada de Go.
