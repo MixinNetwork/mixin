@@ -7,6 +7,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/akash"
 	"github.com/MixinNetwork/mixin/domains/algorand"
 	"github.com/MixinNetwork/mixin/domains/aptos"
+	"github.com/MixinNetwork/mixin/domains/arbitrum"
 	"github.com/MixinNetwork/mixin/domains/arweave"
 	"github.com/MixinNetwork/mixin/domains/avalanche"
 	"github.com/MixinNetwork/mixin/domains/bch"
@@ -137,6 +138,8 @@ func (a *Asset) Verify() error {
 		return bsc.VerifyAssetKey(a.AssetKey)
 	case optimism.OptimismChainId:
 		return optimism.VerifyAssetKey(a.AssetKey)
+	case arbitrum.ArbitrumChainId:
+		return arbitrum.VerifyAssetKey(a.AssetKey)
 	case akash.AkashChainId:
 		return akash.VerifyAssetKey(a.AssetKey)
 	case terra.TerraChainId:
@@ -232,6 +235,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return bsc.GenerateAssetId(a.AssetKey)
 	case optimism.OptimismChainId:
 		return optimism.GenerateAssetId(a.AssetKey)
+	case arbitrum.ArbitrumChainId:
+		return arbitrum.GenerateAssetId(a.AssetKey)
 	case akash.AkashChainId:
 		return akash.GenerateAssetId(a.AssetKey)
 	case terra.TerraChainId:
@@ -327,6 +332,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return bsc.BinanceSmartChainId
 	case optimism.OptimismChainId:
 		return optimism.OptimismChainId
+	case arbitrum.ArbitrumChainId:
+		return arbitrum.ArbitrumChainId
 	case akash.AkashChainId:
 		return akash.AkashChainId
 	case terra.TerraChainId:
