@@ -30,6 +30,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/litecoin"
 	"github.com/MixinNetwork/mixin/domains/mobilecoin"
 	"github.com/MixinNetwork/mixin/domains/monero"
+	"github.com/MixinNetwork/mixin/domains/mvm"
 	"github.com/MixinNetwork/mixin/domains/namecoin"
 	"github.com/MixinNetwork/mixin/domains/near"
 	"github.com/MixinNetwork/mixin/domains/nervos"
@@ -189,6 +190,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return algorand.VerifyAddress(submit.Withdrawal.Address)
 	case polygon.PolygonChainId:
 		return polygon.VerifyAddress(submit.Withdrawal.Address)
+	case mvm.MVMChainId:
+		return mvm.VerifyAddress(submit.Withdrawal.Address)
 	case xdc.XDCChainId:
 		return xdc.VerifyAddress(submit.Withdrawal.Address)
 	}

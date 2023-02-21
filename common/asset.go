@@ -29,6 +29,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/litecoin"
 	"github.com/MixinNetwork/mixin/domains/mobilecoin"
 	"github.com/MixinNetwork/mixin/domains/monero"
+	"github.com/MixinNetwork/mixin/domains/mvm"
 	"github.com/MixinNetwork/mixin/domains/namecoin"
 	"github.com/MixinNetwork/mixin/domains/near"
 	"github.com/MixinNetwork/mixin/domains/nervos"
@@ -148,6 +149,8 @@ func (a *Asset) Verify() error {
 		return algorand.VerifyAssetKey(a.AssetKey)
 	case polygon.PolygonChainId:
 		return polygon.VerifyAssetKey(a.AssetKey)
+	case mvm.MVMChainId:
+		return mvm.VerifyAssetKey(a.AssetKey)
 	case xdc.XDCChainId:
 		return xdc.VerifyAssetKey(a.AssetKey)
 	default:
@@ -241,6 +244,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return algorand.GenerateAssetId(a.AssetKey)
 	case polygon.PolygonChainId:
 		return polygon.GenerateAssetId(a.AssetKey)
+	case mvm.MVMChainId:
+		return mvm.GenerateAssetId(a.AssetKey)
 	case xdc.XDCChainId:
 		return xdc.GenerateAssetId(a.AssetKey)
 	default:
@@ -334,6 +339,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return algorand.AlgorandChainId
 	case polygon.PolygonChainId:
 		return polygon.PolygonChainId
+	case mvm.MVMChainId:
+		return mvm.MVMChainId
 	case xdc.XDCChainId:
 		return xdc.XDCChainId
 	}

@@ -29,6 +29,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/litecoin"
 	"github.com/MixinNetwork/mixin/domains/mobilecoin"
 	"github.com/MixinNetwork/mixin/domains/monero"
+	"github.com/MixinNetwork/mixin/domains/mvm"
 	"github.com/MixinNetwork/mixin/domains/namecoin"
 	"github.com/MixinNetwork/mixin/domains/near"
 	"github.com/MixinNetwork/mixin/domains/nervos"
@@ -174,6 +175,8 @@ func (tx *Transaction) verifyDepositFormat() error {
 		return algorand.VerifyTransactionHash(deposit.TransactionHash)
 	case polygon.PolygonChainId:
 		return polygon.VerifyTransactionHash(deposit.TransactionHash)
+	case mvm.MVMChainId:
+		return mvm.VerifyTransactionHash(deposit.TransactionHash)
 	case xdc.XDCChainId:
 		return xdc.VerifyTransactionHash(deposit.TransactionHash)
 	}
