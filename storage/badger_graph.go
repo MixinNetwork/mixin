@@ -31,7 +31,7 @@ const (
 	graphPrefixWorkSnapshot    = "WORKSNAPSHOT"
 	graphPrefixSpaceCheckpoint = "SPACECHECKPOINT"
 	graphPrefixSpaceQueue      = "SPACEQUEUE"
-	graphPrefixAssetSum        = "ASSETSUM"
+	graphPrefixAssetTotal      = "ASSETTOTAL"
 )
 
 func (s *BadgerStore) RemoveGraphEntries(prefix string) (int, error) {

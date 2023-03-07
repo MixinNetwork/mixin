@@ -6,8 +6,8 @@ import (
 	"github.com/dgraph-io/badger/v3"
 )
 
-func readAssetSum(txn *badger.Txn, hash crypto.Hash) (common.Integer, error) {
-	key := graphAssetSumKey(hash)
+func readTotalInAsset(txn *badger.Txn, hash crypto.Hash) (common.Integer, error) {
+	key := graphAssetTotalKey(hash)
 	item, err := txn.Get(key)
 	if err == badger.ErrKeyNotFound {
 		return common.Zero, nil
@@ -19,7 +19,7 @@ func readAssetSum(txn *badger.Txn, hash crypto.Hash) (common.Integer, error) {
 	return common.NewIntegerFromString(string(val)), nil
 }
 
-func writeAssetSum(txn *badger.Txn, ver *common.VersionedTransaction) error {
+func writeTotalInAsset(txn *badger.Txn, ver *common.VersionedTransaction) error {
 	amount := common.Zero
 	switch ver.TransactionType() {
 	case common.TransactionTypeWithdrawalSubmit:
@@ -29,15 +29,15 @@ func writeAssetSum(txn *badger.Txn, ver *common.VersionedTransaction) error {
 	default:
 		return nil
 	}
-	sum, err := readAssetSum(txn, ver.Asset)
+	sum, err := readTotalInAsset(txn, ver.Asset)
 	if err != nil {
 		return err
 	}
 	sum = sum.Add(amount)
-	key := graphAssetSumKey(ver.Asset)
+	key := graphAssetTotalKey(ver.Asset)
 	return txn.Set(key, []byte(sum.String()))
 }
 
-func graphAssetSumKey(hash crypto.Hash) []byte {
-	return append([]byte(graphPrefixAssetSum), hash[:]...)
+func graphAssetTotalKey(hash crypto.Hash) []byte {
+	return append([]byte(graphPrefixAssetTotal), hash[:]...)
 }

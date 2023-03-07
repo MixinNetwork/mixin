@@ -97,7 +97,7 @@ func (s *BadgerStore) WriteTransaction(ver *common.VersionedTransaction) error {
 	}
 	// assert end
 
-	err := writeAssetSum(txn, ver)
+	err := writeTotalInAsset(txn, ver)
 	if err != nil {
 		return err
 	}
