@@ -1,6 +1,7 @@
 package bitcoin
 
 import (
+	"encoding/hex"
 	"strings"
 	"testing"
 
@@ -38,6 +39,11 @@ func TestValidation(t *testing.T) {
 	assert.NotNil(VerifyAddress(addrLeg[1:]))
 	assert.NotNil(VerifyAddress(strings.ToUpper(addrLeg)))
 	assert.NotNil(VerifyAddress(strings.ToUpper(addrCash)))
+
+	invalidAddr := "bc0100"
+	assert.NotNil(VerifyAddress(invalidAddr))
+	ib, _ := hex.DecodeString(invalidAddr)
+	assert.NotNil(VerifyAddress(string(ib)))
 
 	assert.Nil(VerifyTransactionHash(tx))
 	assert.NotNil(VerifyTransactionHash(btc))
