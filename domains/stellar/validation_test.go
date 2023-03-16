@@ -14,6 +14,7 @@ func TestValidation(t *testing.T) {
 	xlm := "56e63c06-b506-4ec5-885a-4a5ac17b83c1"
 	tx := "fa01f7b2391eac01662316f1611be34611c28bd4746026f69b89ad86e9b9f581"
 	addrMain := "GD77JOIFC622O5HXU446VIKGR5A5HMSTAUKO2FSN5CIVWPHXDBGIAG7Y"
+	addrMain1 := "MD77JOIFC622O5HXU446VIKGR5A5HMSTAUKO2FSN5CIVWPHXDBGIAAAAAAAAAAAAADCO2"
 
 	assert.Nil(VerifyAssetKey(xlm))
 	assert.NotNil(VerifyAssetKey(tx))
@@ -21,6 +22,7 @@ func TestValidation(t *testing.T) {
 	assert.NotNil(VerifyAssetKey(strings.ToUpper(xlm)))
 
 	assert.Nil(VerifyAddress(addrMain))
+	assert.Nil(VerifyAddress(addrMain1))
 	assert.NotNil(VerifyAddress(xlm))
 	assert.NotNil(VerifyAddress(addrMain[1:]))
 	assert.NotNil(VerifyAddress(strings.ToLower(addrMain)))
