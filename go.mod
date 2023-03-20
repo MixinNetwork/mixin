@@ -13,6 +13,7 @@ require (
 	github.com/klauspost/compress v1.16.3
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/pelletier/go-toml v1.9.5
+	github.com/pkg/errors v0.9.1
 	github.com/quic-go/quic-go v0.33.0
 	github.com/shopspring/decimal v1.3.1
 	github.com/stretchr/testify v1.8.2
@@ -45,10 +46,9 @@ require (
 	github.com/nwaples/rardecode v1.1.3 // indirect
 	github.com/onsi/ginkgo/v2 v2.9.1 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/quic-go/qtls-go1-19 v0.2.1 // indirect
-	github.com/quic-go/qtls-go1-20 v0.1.1 // indirect
+	github.com/quic-go/qtls-go1-19 v0.3.0 // indirect
+	github.com/quic-go/qtls-go1-20 v0.2.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/vmihailenco/tagparser v0.1.2 // indirect
