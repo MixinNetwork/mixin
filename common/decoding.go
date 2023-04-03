@@ -155,16 +155,17 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 			}
 			tx.References = append(tx.References, r)
 		}
-		l, err := dec.ReadUint32()
+		el, err := dec.ReadUint32()
 		if err != nil {
 			return nil, err
 		}
-		if l > 0 {
-			b := make([]byte, l)
+		if el > 0 {
+			b := make([]byte, el)
 			err = dec.Read(b)
 			if err != nil {
 				return nil, err
 			}
+			tx.Extra = b
 		}
 	} else {
 		eb, err := dec.ReadBytes()
