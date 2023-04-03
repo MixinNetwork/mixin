@@ -118,12 +118,12 @@ func (tx *SignedTransaction) getExtraLimit() int {
 	if out.Amount.Cmp(step) < 0 {
 		return ExtraSizeGeneralLimit
 	}
-	cells := int(out.Amount.Mod(step).Int64())
+	cells := out.Amount.Count(step)
 	limit := cells * ExtraSizeStorageStep
 	if limit > ExtraSizeStorageCapacity {
 		return ExtraSizeStorageCapacity
 	}
-	return limit
+	return int(limit)
 }
 
 func validateScriptTransaction(inputs map[string]*UTXO) error {

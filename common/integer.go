@@ -84,23 +84,19 @@ func (x Integer) Div(y int) (v Integer) {
 	return
 }
 
-func (x Integer) Mod(y Integer) (v Integer) {
-	if x.Sign() <= 0 || y.Sign() <= 0 {
+func (x Integer) Count(y Integer) uint64 {
+	if x.Sign() <= 0 || y.Sign() <= 0 || x.Cmp(y) < 0 {
 		panic(fmt.Sprint(x, y))
 	}
-	v.i.Mod(&x.i, &y.i)
-	return
+	c := new(big.Int).Div(&x.i, &y.i)
+	if !c.IsUint64() {
+		panic(fmt.Sprint(x, y))
+	}
+	return c.Uint64()
 }
 
 func (x Integer) Cmp(y Integer) int {
 	return x.i.Cmp(&y.i)
-}
-
-func (x Integer) Int64() int64 {
-	if !x.i.IsInt64() {
-		panic(fmt.Sprint(x))
-	}
-	return x.i.Int64()
 }
 
 func (x Integer) Sign() int {
