@@ -51,7 +51,7 @@ func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, err
 	}
 	s.RoundNumber = rn
 
-	rl, err := dec.ReadReferences()
+	rl, err := dec.ReadRoundReferences()
 	if err != nil {
 		return nil, err
 	}
@@ -142,11 +142,37 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 		tx.Outputs = append(tx.Outputs, o)
 	}
 
-	eb, err := dec.ReadBytes()
-	if err != nil {
-		return nil, err
+	if tx.Version >= TxVersionReferences {
+		rl, err := dec.ReadInt()
+		if err != nil {
+			return nil, err
+		}
+		for ; rl > 0; rl -= 1 {
+			var r crypto.Hash
+			err := dec.Read(r[:])
+			if err != nil {
+				return nil, err
+			}
+			tx.References = append(tx.References, r)
+		}
+		l, err := dec.ReadUint32()
+		if err != nil {
+			return nil, err
+		}
+		if l > 0 {
+			b := make([]byte, l)
+			err = dec.Read(b)
+			if err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		eb, err := dec.ReadBytes()
+		if err != nil {
+			return nil, err
+		}
+		tx.Extra = eb
 	}
-	tx.Extra = eb
 
 	sl, err := dec.ReadInt()
 	if err != nil {
@@ -399,6 +425,16 @@ func (dec *Decoder) ReadUint16() (uint16, error) {
 	return d, nil
 }
 
+func (dec *Decoder) ReadUint32() (uint32, error) {
+	var b [4]byte
+	err := dec.Read(b[:])
+	if err != nil {
+		return 0, err
+	}
+	d := binary.BigEndian.Uint32(b[:])
+	return d, nil
+}
+
 func (dec *Decoder) ReadUint64() (uint64, error) {
 	var b [8]byte
 	err := dec.Read(b[:])
@@ -456,7 +492,7 @@ func (dec *Decoder) ReadMagic() (bool, error) {
 	return false, fmt.Errorf("malformed %v", b)
 }
 
-func (dec *Decoder) ReadReferences() (*RoundLink, error) {
+func (dec *Decoder) ReadRoundReferences() (*RoundLink, error) {
 	rc, err := dec.ReadInt()
 	if err != nil || rc == 0 {
 		return nil, err

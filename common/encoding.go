@@ -71,7 +71,7 @@ func (enc *Encoder) encodeSnapshotPayload(s *Snapshot, withSig bool) {
 	enc.Write(s.NodeId[:])
 	enc.WriteUint64(s.RoundNumber)
 
-	enc.EncodeReferences(s.References)
+	enc.EncodeRoundReferences(s.References)
 
 	enc.WriteInt(len(s.Transactions))
 	sort.Slice(s.Transactions, func(i, j int) bool {
@@ -109,9 +109,24 @@ func (enc *Encoder) EncodeTransaction(signed *SignedTransaction) []byte {
 		enc.EncodeOutput(out)
 	}
 
-	el := len(signed.Extra)
-	enc.WriteInt(el)
-	enc.Write(signed.Extra)
+	if signed.Version >= TxVersionReferences {
+		rl := len(signed.References)
+		enc.WriteInt(rl)
+		for _, r := range signed.References {
+			enc.Write(r[:])
+		}
+
+		el := len(signed.Extra)
+		if el > ExtraSizeStorageCapacity {
+			panic(el)
+		}
+		enc.WriteUint32(uint32(el))
+		enc.Write(signed.Extra)
+	} else {
+		el := len(signed.Extra)
+		enc.WriteInt(el)
+		enc.Write(signed.Extra)
+	}
 
 	if signed.AggregatedSignature != nil {
 		enc.EncodeAggregatedSignature(signed.AggregatedSignature)
@@ -247,6 +262,11 @@ func (enc *Encoder) WriteUint16(d uint16) {
 	enc.Write(b)
 }
 
+func (enc *Encoder) WriteUint32(d uint32) {
+	b := uint32ToBytes(d)
+	enc.Write(b)
+}
+
 func (enc *Encoder) WriteUint64(d uint64) {
 	b := uint64ToBytes(d)
 	enc.Write(b)
@@ -264,13 +284,19 @@ func uint16ToBytes(d uint16) []byte {
 	return b
 }
 
+func uint32ToBytes(d uint32) []byte {
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, d)
+	return b
+}
+
 func uint64ToBytes(d uint64) []byte {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, d)
 	return b
 }
 
-func (enc *Encoder) EncodeReferences(r *RoundLink) {
+func (enc *Encoder) EncodeRoundReferences(r *RoundLink) {
 	if r == nil { // genesis
 		enc.WriteInt(0)
 	} else {
