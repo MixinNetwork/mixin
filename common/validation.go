@@ -48,6 +48,10 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 		}
 	}
 
+	err := validateReferences(store, tx)
+	if err != nil {
+		return err
+	}
 	inputsFilter, inputAmount, err := validateInputs(store, tx, msg, ver.PayloadHash(), txType, fork)
 	if err != nil {
 		return err
@@ -126,6 +130,19 @@ func validateScriptTransaction(inputs map[string]*UTXO) error {
 	for _, in := range inputs {
 		if in.Type != OutputTypeScript && in.Type != OutputTypeNodeRemove {
 			return fmt.Errorf("invalid utxo type %d", in.Type)
+		}
+	}
+	return nil
+}
+
+func validateReferences(store UTXOLockReader, tx *SignedTransaction) error {
+	for _, r := range tx.References {
+		utxo, err := store.ReadUTXOLock(r, 0)
+		if err != nil {
+			return err
+		}
+		if utxo == nil {
+			return fmt.Errorf("reference not found %s", r.String())
 		}
 	}
 	return nil

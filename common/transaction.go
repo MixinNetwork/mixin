@@ -71,17 +71,12 @@ type Output struct {
 	Mask   crypto.Key
 }
 
-type PureReference struct {
-	Hash  crypto.Hash
-	Index int
-}
-
 type Transaction struct {
 	Version    uint8
 	Asset      crypto.Hash
 	Inputs     []*Input
 	Outputs    []*Output
-	References []*PureReference `msgpack:"-"`
+	References []crypto.Hash `msgpack:"-"`
 	Extra      []byte
 }
 

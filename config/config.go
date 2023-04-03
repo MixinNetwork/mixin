@@ -22,7 +22,7 @@ const (
 	CheckpointDuration        = 10 * time.Minute
 	CheckpointPunishmentGrade = 7
 
-	TransactionMaximumSize = 1024 * 1024
+	TransactionMaximumSize = 1024 * 1024 * 4
 	WithdrawalClaimFee     = "0.0001"
 	GossipSize             = 3
 
