@@ -31,7 +31,7 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	if len(tx.Inputs) > SliceCountLimit || len(tx.Outputs) > SliceCountLimit {
 		return fmt.Errorf("invalid tx inputs or outputs %d %d", len(tx.Inputs), len(tx.Outputs))
 	}
-	if len(tx.Extra) > ExtraSizeLimit {
+	if len(tx.Extra) > tx.getExtraLimit() {
 		return fmt.Errorf("invalid extra size %d", len(tx.Extra))
 	}
 	if len(msg) > config.TransactionMaximumSize {
@@ -88,6 +88,38 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 		return fmt.Errorf("invalid transaction type %d", txType)
 	}
 	return fmt.Errorf("invalid transaction type %d", txType)
+}
+
+func (tx *SignedTransaction) getExtraLimit() int {
+	if tx.Version < TxVersionReferences {
+		return ExtraSizeGeneralLimit
+	}
+	if tx.Asset != XINAssetId {
+		return ExtraSizeGeneralLimit
+	}
+	if len(tx.Outputs) < 1 {
+		return ExtraSizeGeneralLimit
+	}
+	out := tx.Outputs[0]
+	if len(out.Keys) != 1 {
+		return ExtraSizeGeneralLimit
+	}
+	if out.Type != OutputTypeScript {
+		return ExtraSizeGeneralLimit
+	}
+	if out.Script.String() != "fffe40" {
+		return ExtraSizeGeneralLimit
+	}
+	step := NewIntegerFromString("0.001")
+	if out.Amount.Cmp(step) < 0 {
+		return ExtraSizeGeneralLimit
+	}
+	cells := int(out.Amount.Mod(step).Int64())
+	limit := cells * ExtraSizeStorageStep
+	if limit > ExtraSizeStorageCapacity {
+		return ExtraSizeStorageCapacity
+	}
+	return limit
 }
 
 func validateScriptTransaction(inputs map[string]*UTXO) error {

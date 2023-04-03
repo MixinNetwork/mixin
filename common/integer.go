@@ -84,8 +84,23 @@ func (x Integer) Div(y int) (v Integer) {
 	return
 }
 
+func (x Integer) Mod(y Integer) (v Integer) {
+	if x.Sign() <= 0 || y.Sign() <= 0 {
+		panic(fmt.Sprint(x, y))
+	}
+	v.i.Mod(&x.i, &y.i)
+	return
+}
+
 func (x Integer) Cmp(y Integer) int {
 	return x.i.Cmp(&y.i)
+}
+
+func (x Integer) Int64() int64 {
+	if !x.i.IsInt64() {
+		panic(fmt.Sprint(x))
+	}
+	return x.i.Int64()
 }
 
 func (x Integer) Sign() int {

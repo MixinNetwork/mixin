@@ -15,8 +15,10 @@ const (
 	TxVersionBlake3Hash     = 0x03
 	TxVersionCommonEncoding = 0x02
 
-	ExtraSizeLimit  = 256
-	SliceCountLimit = 256
+	ExtraSizeGeneralLimit    = 256
+	ExtraSizeStorageStep     = 1024
+	ExtraSizeStorageCapacity = 1024 * 1024 * 4
+	SliceCountLimit          = 256
 
 	OutputTypeScript              = 0x00
 	OutputTypeWithdrawalSubmit    = 0xa1
