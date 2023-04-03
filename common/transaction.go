@@ -11,6 +11,7 @@ import (
 )
 
 const (
+	TxVersionReferences     = 0x04
 	TxVersionBlake3Hash     = 0x03
 	TxVersionCommonEncoding = 0x02
 
@@ -68,12 +69,18 @@ type Output struct {
 	Mask   crypto.Key
 }
 
+type PureReference struct {
+	Hash  crypto.Hash
+	Index int
+}
+
 type Transaction struct {
-	Version uint8
-	Asset   crypto.Hash
-	Inputs  []*Input
-	Outputs []*Output
-	Extra   []byte
+	Version    uint8
+	Asset      crypto.Hash
+	Inputs     []*Input
+	Outputs    []*Output
+	References []*PureReference `msgpack:"-"`
+	Extra      []byte
 }
 
 type SignedTransaction struct {
@@ -328,6 +335,13 @@ func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [
 	copy(as.Signature[32:], S.Bytes())
 	signed.AggregatedSignature = as
 	return nil
+}
+
+func NewTransactionV4(asset crypto.Hash) *Transaction {
+	return &Transaction{
+		Version: TxVersionReferences,
+		Asset:   asset,
+	}
 }
 
 func NewTransactionV3(asset crypto.Hash) *Transaction {
