@@ -28,8 +28,8 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	if len(tx.Inputs) < 1 || len(tx.Outputs) < 1 {
 		return fmt.Errorf("invalid tx inputs or outputs %d %d", len(tx.Inputs), len(tx.Outputs))
 	}
-	if len(tx.Inputs) > SliceCountLimit || len(tx.Outputs) > SliceCountLimit {
-		return fmt.Errorf("invalid tx inputs or outputs %d %d", len(tx.Inputs), len(tx.Outputs))
+	if len(tx.Inputs) > SliceCountLimit || len(tx.Outputs) > SliceCountLimit || len(tx.References) > SliceCountLimit {
+		return fmt.Errorf("invalid tx inputs or outputs %d %d %d", len(tx.Inputs), len(tx.Outputs), len(tx.References))
 	}
 	if len(tx.Extra) > tx.getExtraLimit() {
 		return fmt.Errorf("invalid extra size %d", len(tx.Extra))
@@ -114,7 +114,7 @@ func (tx *SignedTransaction) getExtraLimit() int {
 	if out.Script.String() != "fffe40" {
 		return ExtraSizeGeneralLimit
 	}
-	step := NewIntegerFromString("0.001")
+	step := NewIntegerFromString(ExtraStoragePriceStep)
 	if out.Amount.Cmp(step) < 0 {
 		return ExtraSizeGeneralLimit
 	}
@@ -136,6 +136,10 @@ func validateScriptTransaction(inputs map[string]*UTXO) error {
 }
 
 func validateReferences(store UTXOLockReader, tx *SignedTransaction) error {
+	if len(tx.References) > ReferencesCountLimit {
+		return fmt.Errorf("too many references %d", len(tx.References))
+	}
+
 	for _, r := range tx.References {
 		utxo, err := store.ReadUTXOLock(r, 0)
 		if err != nil {
@@ -145,6 +149,7 @@ func validateReferences(store UTXOLockReader, tx *SignedTransaction) error {
 			return fmt.Errorf("reference not found %s", r.String())
 		}
 	}
+
 	return nil
 }
 

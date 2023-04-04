@@ -18,7 +18,9 @@ const (
 	ExtraSizeGeneralLimit    = 256
 	ExtraSizeStorageStep     = 1024
 	ExtraSizeStorageCapacity = 1024 * 1024 * 4
+	ExtraStoragePriceStep    = "0.001"
 	SliceCountLimit          = 256
+	ReferencesCountLimit     = 2
 
 	OutputTypeScript              = 0x00
 	OutputTypeWithdrawalSubmit    = 0xa1

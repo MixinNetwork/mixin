@@ -223,6 +223,26 @@ func TestTransactionReferences(t *testing.T) {
 	assert.Equal(pm, ver.Marshal())
 	err = ver.Validate(store, false)
 	assert.Nil(err)
+
+	assert.Len(ver.References, 0)
+	assert.Len(ver.PayloadMarshal(), 740)
+	ver, _ = DecompressUnmarshalVersionedTransaction(pm)
+	ver.References = []crypto.Hash{ver.Inputs[0].Hash}
+	assert.Len(ver.PayloadMarshal(), 772)
+	assert.Len(ver.AggregatedSignature.Signers, 3)
+	err = ver.Validate(store, false)
+	assert.NotNil(err)
+	ver.AggregatedSignature = nil
+	err = ver.AggregateSign(store, aas, seed)
+	assert.Nil(err)
+	assert.Len(ver.AggregatedSignature.Signers, 3)
+	err = ver.Validate(store, false)
+	assert.Nil(err)
+	pm = ver.Marshal()
+	assert.Len(pm, 842)
+	ver, _ = DecompressUnmarshalVersionedTransaction(pm)
+	assert.Len(ver.References, 1)
+	assert.Equal(ver.Inputs[0].Hash, ver.References[0])
 }
 
 func TestTransactionBlake3Hash(t *testing.T) {
