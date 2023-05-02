@@ -43,6 +43,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/solana"
 	"github.com/MixinNetwork/mixin/domains/starcoin"
 	"github.com/MixinNetwork/mixin/domains/stellar"
+	"github.com/MixinNetwork/mixin/domains/sui"
 	"github.com/MixinNetwork/mixin/domains/terra"
 	"github.com/MixinNetwork/mixin/domains/tezos"
 	"github.com/MixinNetwork/mixin/domains/ton"
@@ -130,6 +131,8 @@ func (a *Asset) Verify() error {
 		return starcoin.VerifyAssetKey(a.AssetKey)
 	case aptos.AptosChainId:
 		return aptos.VerifyAssetKey(a.AssetKey)
+	case sui.SuiChainId:
+		return sui.VerifyAssetKey(a.AssetKey)
 	case avalanche.AvalancheChainId:
 		return avalanche.VerifyAssetKey(a.AssetKey)
 	case binance.BinanceChainId:
@@ -227,6 +230,8 @@ func (a *Asset) AssetId() crypto.Hash {
 		return starcoin.GenerateAssetId(a.AssetKey)
 	case aptos.AptosChainId:
 		return aptos.GenerateAssetId(a.AssetKey)
+	case sui.SuiChainId:
+		return sui.GenerateAssetId(a.AssetKey)
 	case avalanche.AvalancheChainId:
 		return avalanche.GenerateAssetId(a.AssetKey)
 	case binance.BinanceChainId:
@@ -324,6 +329,8 @@ func (a *Asset) FeeAssetId() crypto.Hash {
 		return starcoin.StarcoinChainId
 	case aptos.AptosChainId:
 		return aptos.AptosChainId
+	case sui.SuiChainId:
+		return sui.SuiChainId
 	case avalanche.AvalancheChainId:
 		return avalanche.AvalancheChainId
 	case binance.BinanceChainId:

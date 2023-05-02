@@ -44,6 +44,7 @@ import (
 	"github.com/MixinNetwork/mixin/domains/solana"
 	"github.com/MixinNetwork/mixin/domains/starcoin"
 	"github.com/MixinNetwork/mixin/domains/stellar"
+	"github.com/MixinNetwork/mixin/domains/sui"
 	"github.com/MixinNetwork/mixin/domains/terra"
 	"github.com/MixinNetwork/mixin/domains/tezos"
 	"github.com/MixinNetwork/mixin/domains/ton"
@@ -171,6 +172,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 		return starcoin.VerifyAddress(submit.Withdrawal.Address)
 	case aptos.AptosChainId:
 		return aptos.VerifyAddress(submit.Withdrawal.Address)
+	case sui.SuiChainId:
+		return sui.VerifyAddress(submit.Withdrawal.Address)
 	case avalanche.AvalancheChainId:
 		return avalanche.VerifyAddress(submit.Withdrawal.Address)
 	case binance.BinanceChainId:
