@@ -1,12 +1,12 @@
 package sui
 
 import (
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/util/base58"
 )
 
 var (
@@ -50,14 +50,11 @@ func VerifyAddress(address string) error {
 }
 
 func VerifyTransactionHash(hash string) error {
-	h, err := base64.StdEncoding.DecodeString(hash)
-	if err != nil {
-		return fmt.Errorf("invalid sui transaction hash %s %s", hash, err.Error())
-	}
-	if len(h) != 33 {
+	h := base58.Decode(hash)
+	if len(h) != 32 {
 		return fmt.Errorf("invalid sui transaction hash %s", hash)
 	}
-	if base64.StdEncoding.EncodeToString(h) != hash {
+	if base58.Encode(h) != hash {
 		return fmt.Errorf("invalid sui transaction hash encode %s", hash)
 	}
 	return nil
