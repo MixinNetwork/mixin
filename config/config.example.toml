@@ -35,6 +35,7 @@ peers = [
   "mixin-node0.exinpool.com:7239",
   "mixin-node1.exinpool.com:7239",
   "mixin-node2.exinpool.com:7239",
+  "mixin-node3.exinpool.com:7239",
   "35.188.242.130:7239",
   "34.139.30.28:7239",
   "34.23.166.169:7239",
