@@ -5,6 +5,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"golang.org/x/exp/slices"
 )
 
 func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
@@ -56,7 +57,7 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	if err != nil {
 		return err
 	}
-	outputAmount, err := tx.validateOutputs(store)
+	outputAmount, err := tx.validateOutputs(store, fork)
 	if err != nil {
 		return err
 	}
@@ -223,7 +224,7 @@ func validateInputs(store UTXOLockReader, tx *SignedTransaction, msg []byte, has
 	return inputsFilter, inputAmount, nil
 }
 
-func (tx *Transaction) validateOutputs(store GhostChecker) (Integer, error) {
+func (tx *Transaction) validateOutputs(store GhostChecker, fork bool) (Integer, error) {
 	outputAmount := NewInteger(0)
 	outputsFilter := make(map[crypto.Key]bool)
 	for _, o := range tx.Outputs {
@@ -251,7 +252,15 @@ func (tx *Transaction) validateOutputs(store GhostChecker) (Integer, error) {
 			if err != nil {
 				return outputAmount, err
 			} else if by != nil {
-				return outputAmount, fmt.Errorf("invalid output key %s", k.String())
+				if fork && slices.Contains([]string{
+					"c63b6373652def5999c1d951fcb8f064db67b7d18565847b921b21639e15dddd",
+					"60deaf2471bb0b6481efe9080d8852b020ab2941e7faae21989d2404f34284ee",
+					"a558b1efbe27eb6a6f902fd97d4b7e2e3099e6edde1fe6e8e41204e0685fe426",
+				}, by.String()) {
+					// FIXME the same hotfix for some transactions in store/badger_transaction.go writeUTXO
+				} else {
+					return outputAmount, fmt.Errorf("invalid output key %s", k.String())
+				}
 			}
 		}
 
