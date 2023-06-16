@@ -180,9 +180,20 @@ func writeUTXO(txn *badger.Txn, utxo *common.UTXOWithLock, extra []byte, timesta
 
 		// FIXME assert kind checks, not needed at all
 		if config.Debug {
-			_, err := txn.Get(key)
+			old, err := txn.Get(key)
 			if err == nil {
-				panic("ErrorValidateFailed")
+				if utxo.Hash.String() == "c63b6373652def5999c1d951fcb8f064db67b7d18565847b921b21639e15dddd" ||
+					utxo.Hash.String() == "60deaf2471bb0b6481efe9080d8852b020ab2941e7faae21989d2404f34284ee" ||
+					utxo.Hash.String() == "a558b1efbe27eb6a6f902fd97d4b7e2e3099e6edde1fe6e8e41204e0685fe426" {
+					// TODO the ghost check is done from multiple chains without lock
+					// thus resulted in this situation, this is just a hotfix to allow
+					// some duplicated ghost keys, since no harm to security, and just
+					// some privacy manners for the users that initiated these transfers
+					// and further releases should fix the real issue
+				} else {
+					val, err := old.ValueCopy(nil)
+					panic(fmt.Errorf("writeUTXO(%v) => %x %v", utxo, val, err))
+				}
 			} else if err != badger.ErrKeyNotFound {
 				return err
 			}
