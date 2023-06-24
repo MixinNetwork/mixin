@@ -11,6 +11,8 @@ func readTotalInAsset(txn *badger.Txn, hash crypto.Hash) (common.Integer, error)
 	item, err := txn.Get(key)
 	if err == badger.ErrKeyNotFound {
 		return common.Zero, nil
+	} else if err != nil {
+		return common.Zero, err
 	}
 	val, err := item.ValueCopy(nil)
 	if err != nil {
@@ -25,7 +27,7 @@ func writeTotalInAsset(txn *badger.Txn, ver *common.VersionedTransaction) error 
 	case common.TransactionTypeWithdrawalSubmit:
 		amount = amount.Sub(ver.Outputs[0].Amount)
 	case common.TransactionTypeDeposit:
-		amount = amount.Add(ver.Outputs[0].Amount)
+		amount = amount.Add(ver.DepositData().Amount)
 	default:
 		return nil
 	}
