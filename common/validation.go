@@ -5,6 +5,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"golang.org/x/exp/slices"
 )
 
 func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
@@ -12,11 +13,14 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	msg := ver.PayloadMarshal()
 	txType := tx.TransactionType()
 
+	if tx.Version < TxVersionReferences && len(tx.References) > 0 {
+		panic(tx.Version)
+	}
 	if ver.Version < TxVersionCommonEncoding {
 		return ver.validateV1(store, fork)
 	}
 
-	if ver.Version != TxVersionBlake3Hash && ver.Version != TxVersionCommonEncoding {
+	if ver.Version != TxVersionReferences && ver.Version != TxVersionBlake3Hash && ver.Version != TxVersionCommonEncoding {
 		return fmt.Errorf("invalid tx version %d %d", ver.Version, tx.Version)
 	}
 	if txType == TransactionTypeUnknown {
@@ -25,10 +29,10 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	if len(tx.Inputs) < 1 || len(tx.Outputs) < 1 {
 		return fmt.Errorf("invalid tx inputs or outputs %d %d", len(tx.Inputs), len(tx.Outputs))
 	}
-	if len(tx.Inputs) > SliceCountLimit || len(tx.Outputs) > SliceCountLimit {
-		return fmt.Errorf("invalid tx inputs or outputs %d %d", len(tx.Inputs), len(tx.Outputs))
+	if len(tx.Inputs) > SliceCountLimit || len(tx.Outputs) > SliceCountLimit || len(tx.References) > SliceCountLimit {
+		return fmt.Errorf("invalid tx inputs or outputs %d %d %d", len(tx.Inputs), len(tx.Outputs), len(tx.References))
 	}
-	if len(tx.Extra) > ExtraSizeLimit {
+	if len(tx.Extra) > tx.getExtraLimit() {
 		return fmt.Errorf("invalid extra size %d", len(tx.Extra))
 	}
 	if len(msg) > config.TransactionMaximumSize {
@@ -45,11 +49,15 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 		}
 	}
 
+	err := validateReferences(store, tx)
+	if err != nil {
+		return err
+	}
 	inputsFilter, inputAmount, err := validateInputs(store, tx, msg, ver.PayloadHash(), txType, fork)
 	if err != nil {
 		return err
 	}
-	outputAmount, err := tx.validateOutputs(store)
+	outputAmount, err := tx.validateOutputs(store, fork)
 	if err != nil {
 		return err
 	}
@@ -87,12 +95,62 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	return fmt.Errorf("invalid transaction type %d", txType)
 }
 
+func (tx *SignedTransaction) getExtraLimit() int {
+	if tx.Version < TxVersionReferences {
+		return ExtraSizeGeneralLimit
+	}
+	if tx.Asset != XINAssetId {
+		return ExtraSizeGeneralLimit
+	}
+	if len(tx.Outputs) < 1 {
+		return ExtraSizeGeneralLimit
+	}
+	out := tx.Outputs[0]
+	if len(out.Keys) != 1 {
+		return ExtraSizeGeneralLimit
+	}
+	if out.Type != OutputTypeScript {
+		return ExtraSizeGeneralLimit
+	}
+	if out.Script.String() != "fffe40" {
+		return ExtraSizeGeneralLimit
+	}
+	step := NewIntegerFromString(ExtraStoragePriceStep)
+	if out.Amount.Cmp(step) < 0 {
+		return ExtraSizeGeneralLimit
+	}
+	cells := out.Amount.Count(step)
+	limit := cells * ExtraSizeStorageStep
+	if limit > ExtraSizeStorageCapacity {
+		return ExtraSizeStorageCapacity
+	}
+	return int(limit)
+}
+
 func validateScriptTransaction(inputs map[string]*UTXO) error {
 	for _, in := range inputs {
 		if in.Type != OutputTypeScript && in.Type != OutputTypeNodeRemove {
 			return fmt.Errorf("invalid utxo type %d", in.Type)
 		}
 	}
+	return nil
+}
+
+func validateReferences(store UTXOLockReader, tx *SignedTransaction) error {
+	if len(tx.References) > ReferencesCountLimit {
+		return fmt.Errorf("too many references %d", len(tx.References))
+	}
+
+	for _, r := range tx.References {
+		utxo, err := store.ReadUTXOLock(r, 0)
+		if err != nil {
+			return err
+		}
+		if utxo == nil {
+			return fmt.Errorf("reference not found %s", r.String())
+		}
+	}
+
 	return nil
 }
 
@@ -166,7 +224,7 @@ func validateInputs(store UTXOLockReader, tx *SignedTransaction, msg []byte, has
 	return inputsFilter, inputAmount, nil
 }
 
-func (tx *Transaction) validateOutputs(store GhostChecker) (Integer, error) {
+func (tx *Transaction) validateOutputs(store GhostChecker, fork bool) (Integer, error) {
 	outputAmount := NewInteger(0)
 	outputsFilter := make(map[crypto.Key]bool)
 	for _, o := range tx.Outputs {
@@ -194,7 +252,15 @@ func (tx *Transaction) validateOutputs(store GhostChecker) (Integer, error) {
 			if err != nil {
 				return outputAmount, err
 			} else if by != nil {
-				return outputAmount, fmt.Errorf("invalid output key %s", k.String())
+				if fork && slices.Contains([]string{
+					"c63b6373652def5999c1d951fcb8f064db67b7d18565847b921b21639e15dddd",
+					"60deaf2471bb0b6481efe9080d8852b020ab2941e7faae21989d2404f34284ee",
+					"a558b1efbe27eb6a6f902fd97d4b7e2e3099e6edde1fe6e8e41204e0685fe426",
+				}, by.String()) {
+					// FIXME the same hotfix for some transactions in store/badger_transaction.go writeUTXO
+				} else {
+					return outputAmount, fmt.Errorf("invalid output key %s", k.String())
+				}
 			}
 		}
 

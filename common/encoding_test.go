@@ -8,6 +8,31 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestIntEncoding(t *testing.T) {
+	assert := assert.New(t)
+
+	enc := NewEncoder()
+	enc.WriteUint16(12)
+	enc.WriteUint32(64)
+	enc.WriteUint64(66667777)
+	enc.WriteInt(129)
+	assert.Equal("000c000000400000000003f945010081", hex.EncodeToString(enc.Bytes()))
+
+	dec := NewDecoder(enc.Bytes())
+	u16, err := dec.ReadUint16()
+	assert.Nil(err)
+	assert.Equal(uint16(12), u16)
+	u32, err := dec.ReadUint32()
+	assert.Nil(err)
+	assert.Equal(uint32(64), u32)
+	u64, err := dec.ReadUint64()
+	assert.Nil(err)
+	assert.Equal(uint64(66667777), u64)
+	i, err := dec.ReadInt()
+	assert.Nil(err)
+	assert.Equal(129, i)
+}
+
 func TestEncoding(t *testing.T) {
 	assert := assert.New(t)
 
@@ -29,6 +54,12 @@ func TestEncoding(t *testing.T) {
 
 	enc = hex.EncodeToString(signed.AsVersioned().PayloadMarshal())
 	assert.Equal(raw, enc)
+
+	raw = "77770004a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc0001c19d51beba90c20ff538a32ab262ce6e32e59f03b5bfe6d8e6fe2b2544ba43b60000000000000000000100a40005e8d4a510000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040cf0926f381bb17668ef4b4eab6243d4b437ae6d2372623b74f41a5597277495556515cbc346d8b639386c1e22239d032bb6f09f8b6f2ea5a3a19b41fe0bdd1de0000"
+	val, _ = hex.DecodeString(raw)
+	signed, err = NewDecoder(val).DecodeTransaction()
+	assert.Nil(err)
+	assert.Equal("cf0926f381bb17668ef4b4eab6243d4b437ae6d2372623b74f41a5597277495556515cbc346d8b639386c1e22239d032bb6f09f8b6f2ea5a3a19b41fe0bdd1de", hex.EncodeToString(signed.Extra))
 }
 
 func TestAggregatedSignatureEncoding(t *testing.T) {

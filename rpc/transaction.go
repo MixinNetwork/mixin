@@ -264,7 +264,7 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]any {
 		outputs = append(outputs, output)
 	}
 
-	return map[string]any{
+	tm := map[string]any{
 		"version": tx.Version,
 		"asset":   tx.Asset,
 		"inputs":  inputs,
@@ -272,4 +272,8 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]any {
 		"extra":   hex.EncodeToString(tx.Extra),
 		"hash":    tx.PayloadHash(),
 	}
+	if tx.Version >= common.TxVersionReferences {
+		tm["references"] = tx.References
+	}
+	return tm
 }

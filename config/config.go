@@ -10,7 +10,7 @@ import (
 
 const (
 	Debug        = true
-	BuildVersion = "v0.14.20-BUILD_VERSION"
+	BuildVersion = "v0.15.1-BUILD_VERSION"
 
 	MainnetId = "6430225c42bb015b4da03102fa962e4f4ef3969e03e04345db229f8377ef7997"
 
@@ -22,7 +22,7 @@ const (
 	CheckpointDuration        = 10 * time.Minute
 	CheckpointPunishmentGrade = 7
 
-	TransactionMaximumSize = 1024 * 1024
+	TransactionMaximumSize = 1024 * 1024 * 4
 	WithdrawalClaimFee     = "0.0001"
 	GossipSize             = 3
 

@@ -84,6 +84,17 @@ func (x Integer) Div(y int) (v Integer) {
 	return
 }
 
+func (x Integer) Count(y Integer) uint64 {
+	if x.Sign() <= 0 || y.Sign() <= 0 || x.Cmp(y) < 0 {
+		panic(fmt.Sprint(x, y))
+	}
+	c := new(big.Int).Div(&x.i, &y.i)
+	if !c.IsUint64() {
+		panic(fmt.Sprint(x, y))
+	}
+	return c.Uint64()
+}
+
 func (x Integer) Cmp(y Integer) int {
 	return x.i.Cmp(&y.i)
 }

@@ -93,7 +93,7 @@ func (ver *VersionedTransaction) validateV1(store DataStore, fork bool) error {
 	if len(tx.Inputs) != len(tx.SignaturesSliceV1) && txType != TransactionTypeNodeAccept && txType != TransactionTypeNodeRemove {
 		return fmt.Errorf("invalid tx signature number %d %d %d", len(tx.Inputs), len(tx.SignaturesSliceV1), txType)
 	}
-	if len(tx.Extra) > ExtraSizeLimit {
+	if len(tx.Extra) > tx.getExtraLimit() {
 		return fmt.Errorf("invalid extra size %d", len(tx.Extra))
 	}
 	if len(ver.Marshal()) > config.TransactionMaximumSize {
@@ -104,7 +104,7 @@ func (ver *VersionedTransaction) validateV1(store DataStore, fork bool) error {
 	if err != nil {
 		return err
 	}
-	outputAmount, err := tx.validateOutputs(store)
+	outputAmount, err := tx.validateOutputs(store, fork)
 	if err != nil {
 		return err
 	}

@@ -2,6 +2,10 @@
 
 Semantic Versioning
 
+## v0.15 Swift Goliath Beetles Apr 4, 2023
+
+Transaction version 4 with pure transaction references and large storage extra.
+
 ## v0.14 Armored Pseudoscorpions Sep 26, 2022
 
 Slashing rules enabled, with updated transaction and snapshot encoding.

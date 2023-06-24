@@ -672,9 +672,12 @@ func testSignTransaction(node string, account common.Address, rawStr string, sna
 	}
 	raw.Node = node
 
-	tx := common.NewTransactionV2(raw.Asset)
-	if snapVersionMint < 1 && time.Now().UnixNano()%2 == 1 {
-		tx = common.NewTransactionV3(raw.Asset)
+	tx := common.NewTransactionV3(raw.Asset)
+	if snapVersionMint < 1 && time.Now().UnixNano()%3 == 1 {
+		tx = common.NewTransactionV2(raw.Asset)
+	}
+	if snapVersionMint < 1 && time.Now().UnixNano()%3 == 2 {
+		tx = common.NewTransactionV4(raw.Asset)
 	}
 	for _, in := range raw.Inputs {
 		if d := in.Deposit; d != nil {

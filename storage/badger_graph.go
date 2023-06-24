@@ -97,6 +97,9 @@ func readSnapshotsForNodeRound(txn *badger.Txn, nodeId crypto.Hash, round uint64
 
 func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder, signers []crypto.Hash) error {
 	logger.Debugf("BadgerStore.WriteSnapshot(%v)", snap.Snapshot)
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 

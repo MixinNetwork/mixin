@@ -63,6 +63,9 @@ func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) 
 }
 
 func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistribution, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -105,6 +108,9 @@ func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistri
 }
 
 func (s *BadgerStore) LockMintInput(mint *common.MintData, tx crypto.Hash, fork bool) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		dist, err := readMintInput(txn, mint)
 		if err == badger.ErrKeyNotFound {

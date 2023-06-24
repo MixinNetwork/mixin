@@ -128,13 +128,15 @@ func checkTxVersion(val []byte) uint8 {
 	if len(val) < 4 {
 		return 0
 	}
-	v := append(magic, 0, TxVersionBlake3Hash)
-	if bytes.Equal(v, val[:4]) {
-		return TxVersionBlake3Hash
-	}
-	v = append(magic, 0, TxVersionCommonEncoding)
-	if bytes.Equal(v, val[:4]) {
-		return TxVersionCommonEncoding
+	for _, i := range []byte{
+		TxVersionReferences,
+		TxVersionBlake3Hash,
+		TxVersionCommonEncoding,
+	} {
+		v := append(magic, 0, i)
+		if bytes.Equal(v, val[:4]) {
+			return i
+		}
 	}
 	return 0
 }
@@ -158,7 +160,7 @@ func unmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
 
 func (ver *VersionedTransaction) compressMarshal() []byte {
 	switch ver.Version {
-	case TxVersionCommonEncoding, TxVersionBlake3Hash:
+	case TxVersionCommonEncoding, TxVersionBlake3Hash, TxVersionReferences:
 		b := ver.marshal()
 		return compress(b)
 	case 0, 1:
@@ -170,7 +172,7 @@ func (ver *VersionedTransaction) compressMarshal() []byte {
 
 func (ver *VersionedTransaction) marshal() []byte {
 	switch ver.Version {
-	case TxVersionCommonEncoding, TxVersionBlake3Hash:
+	case TxVersionCommonEncoding, TxVersionBlake3Hash, TxVersionReferences:
 		return NewEncoder().EncodeTransaction(&ver.SignedTransaction)
 	case 0, 1:
 		return marshalV1(ver)
@@ -181,7 +183,7 @@ func (ver *VersionedTransaction) marshal() []byte {
 
 func (ver *VersionedTransaction) payloadMarshal() []byte {
 	switch ver.Version {
-	case TxVersionCommonEncoding, TxVersionBlake3Hash:
+	case TxVersionCommonEncoding, TxVersionBlake3Hash, TxVersionReferences:
 		signed := &SignedTransaction{Transaction: ver.Transaction}
 		return NewEncoder().EncodeTransaction(signed)
 	case 0, 1:

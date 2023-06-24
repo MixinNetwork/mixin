@@ -45,7 +45,7 @@ func (r *Round) Marshal() []byte {
 	enc.Write(r.NodeId[:])
 	enc.WriteUint64(r.Number)
 	enc.WriteUint64(r.Timestamp)
-	enc.EncodeReferences(r.References)
+	enc.EncodeRoundReferences(r.References)
 	return enc.Bytes()
 }
 
@@ -82,7 +82,7 @@ func UnmarshalRound(b []byte) (*Round, error) {
 	}
 	r.Timestamp = ts
 
-	link, err := dec.ReadReferences()
+	link, err := dec.ReadRoundReferences()
 	if err != nil {
 		return nil, err
 	}

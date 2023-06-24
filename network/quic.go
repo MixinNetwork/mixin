@@ -41,7 +41,7 @@ type QuicClient struct {
 type QuicTransport struct {
 	addr     string
 	tls      *tls.Config
-	listener quic.Listener
+	listener *quic.Listener
 }
 
 func NewQuicServer(addr string) (*QuicTransport, error) {
@@ -63,7 +63,7 @@ func NewQuicClient(addr string) (*QuicTransport, error) {
 }
 
 func (t *QuicTransport) Dial(ctx context.Context) (Client, error) {
-	sess, err := quic.DialAddr(t.addr, t.tls, &quic.Config{
+	sess, err := quic.DialAddr(ctx, t.addr, t.tls, &quic.Config{
 		MaxIncomingStreams:   MaxIncomingStreams,
 		HandshakeIdleTimeout: HandshakeTimeout,
 		MaxIdleTimeout:       IdleTimeout,

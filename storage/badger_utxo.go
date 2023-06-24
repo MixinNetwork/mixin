@@ -9,7 +9,10 @@ import (
 )
 
 func (s *BadgerStore) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKeys, error) {
-	utxo, err := s.ReadUTXOLock(hash, index)
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	utxo, err := s.readUTXOLock(txn, hash, index)
 	if err != nil {
 		return nil, err
 	}
@@ -20,8 +23,16 @@ func (s *BadgerStore) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKey
 }
 
 func (s *BadgerStore) ReadUTXOLock(hash crypto.Hash, index int) (*common.UTXOWithLock, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
+
+	return s.readUTXOLock(txn, hash, index)
+}
+
+func (s *BadgerStore) readUTXOLock(txn *badger.Txn, hash crypto.Hash, index int) (*common.UTXOWithLock, error) {
 
 	key := graphUtxoKey(hash, index)
 	item, err := txn.Get(key)
@@ -40,6 +51,9 @@ func (s *BadgerStore) ReadUTXOLock(hash crypto.Hash, index int) (*common.UTXOWit
 }
 
 func (s *BadgerStore) LockUTXOs(inputs []*common.Input, tx crypto.Hash, fork bool) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		for _, in := range inputs {
 			err := lockUTXO(txn, in.Hash, in.Index, tx, fork)
@@ -81,6 +95,9 @@ func lockUTXO(txn *badger.Txn, hash crypto.Hash, index int, tx crypto.Hash, fork
 }
 
 func (s *BadgerStore) CheckGhost(key crypto.Key) (*crypto.Hash, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
