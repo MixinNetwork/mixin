@@ -22,22 +22,22 @@ func readTotalInAsset(txn *badger.Txn, hash crypto.Hash) (common.Integer, error)
 }
 
 func writeTotalInAsset(txn *badger.Txn, ver *common.VersionedTransaction) error {
-	amount := common.Zero
-	switch ver.TransactionType() {
-	case common.TransactionTypeWithdrawalSubmit:
-		amount = amount.Sub(ver.Outputs[0].Amount)
-	case common.TransactionTypeDeposit:
-		amount = amount.Add(ver.DepositData().Amount)
-	default:
-		return nil
-	}
-	sum, err := readTotalInAsset(txn, ver.Asset)
+	total, err := readTotalInAsset(txn, ver.Asset)
 	if err != nil {
 		return err
 	}
-	sum = sum.Add(amount)
+
+	switch ver.TransactionType() {
+	case common.TransactionTypeWithdrawalSubmit:
+		total = total.Sub(ver.Outputs[0].Amount)
+	case common.TransactionTypeDeposit:
+		total = total.Add(ver.DepositData().Amount)
+	default:
+		return nil
+	}
+
 	key := graphAssetTotalKey(ver.Asset)
-	return txn.Set(key, []byte(sum.String()))
+	return txn.Set(key, []byte(total.String()))
 }
 
 func graphAssetTotalKey(hash crypto.Hash) []byte {
