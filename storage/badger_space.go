@@ -8,7 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v4"
 )
 
 func (s *BadgerStore) ListAggregatedRoundSpaceCheckpoints(cids []crypto.Hash) (map[crypto.Hash]*common.RoundSpace, error) {

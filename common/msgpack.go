@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/klauspost/compress/zstd"
-	"github.com/vmihailenco/msgpack/v4"
+	"github.com/MixinNetwork/msgpack/v4"
 )
 
 //go:embed data/zstd.dic

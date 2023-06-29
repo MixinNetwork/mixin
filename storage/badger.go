@@ -6,8 +6,8 @@ import (
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/dgraph-io/badger/v3"
-	"github.com/dgraph-io/badger/v3/options"
+	"github.com/dgraph-io/badger/v4"
+	"github.com/dgraph-io/badger/v4/options"
 )
 
 type BadgerStore struct {
