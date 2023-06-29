@@ -63,12 +63,12 @@ type CosiVerifier struct {
 	random     *crypto.Key
 }
 
-func (node *Node) cosiAcceptedNodesList(ts uint64) []*CNode {
+func (node *Node) cosiAcceptedNodesListShuffle(ts uint64) []*CNode {
 	var nodes []*CNode
 	for _, n := range node.NodesListWithoutState(ts, true) {
 		nodes = append(nodes, n)
 	}
-	for i := range nodes {
+	for i := len(nodes) - 1; i > 0; i-- {
 		j := int(ts % uint64(i+1))
 		nodes[i], nodes[j] = nodes[j], nodes[i]
 	}
@@ -368,7 +368,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	chain.CosiVerifiers[s.SoleTransaction()] = v
 	agg.Commitments[cd.CN.ConsensusIndex] = &R
 	chain.CosiAggregators[s.Hash] = agg
-	nodes := chain.node.cosiAcceptedNodesList(s.Timestamp)
+	nodes := chain.node.cosiAcceptedNodesListShuffle(s.Timestamp)
 	for _, cn := range nodes {
 		peerId := cn.IdForNetwork
 		if peerId == chain.ChainId {
@@ -497,7 +497,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	ann.Responses[cd.CN.ConsensusIndex] = response
 	copy(cosi.Signature[32:], response[:])
 
-	nodes := chain.node.cosiAcceptedNodesList(s.Timestamp)
+	nodes := chain.node.cosiAcceptedNodesListShuffle(s.Timestamp)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
 		if ann.FullChallenges[id] {
@@ -676,7 +676,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		chain.AddSnapshot(final, cache, s, signers)
 	}
 
-	nodes := chain.node.cosiAcceptedNodesList(s.Timestamp)
+	nodes := chain.node.cosiAcceptedNodesListShuffle(s.Timestamp)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
 		if agg.Responses[cn.ConsensusIndex] == nil {
