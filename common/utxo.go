@@ -71,7 +71,9 @@ func (tx *VersionedTransaction) UnspentOutputs() []*UTXOWithLock {
 			OutputTypeDomainAccept,
 			OutputTypeWithdrawalFuel,
 			OutputTypeWithdrawalClaim:
-		case OutputTypeWithdrawalSubmit:
+		case OutputTypeWithdrawalSubmit,
+			OutputTypeCustodianUpdateNodes,
+			OutputTypeCustodianSlashNodes:
 			continue
 		default:
 			panic(out.Type)

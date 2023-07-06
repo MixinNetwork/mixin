@@ -22,36 +22,36 @@ const (
 	SliceCountLimit          = 256
 	ReferencesCountLimit     = 2
 
-	OutputTypeScript              = 0x00
-	OutputTypeWithdrawalSubmit    = 0xa1
-	OutputTypeWithdrawalFuel      = 0xa2
-	OutputTypeNodePledge          = 0xa3
-	OutputTypeNodeAccept          = 0xa4
-	outputTypeNodeResign          = 0xa5
-	OutputTypeNodeRemove          = 0xa6
-	OutputTypeDomainAccept        = 0xa7
-	OutputTypeDomainRemove        = 0xa8
-	OutputTypeWithdrawalClaim     = 0xa9
-	OutputTypeNodeCancel          = 0xaa
-	OutputTypeCustodianEvolution  = 0xb1
-	OutputTypeCustodianMigration  = 0xb2
-	OutputTypeCustodianDeposit    = 0xb3
-	OutputTypeCustodianWithdrawal = 0xb4
+	OutputTypeScript               = 0x00
+	OutputTypeWithdrawalSubmit     = 0xa1
+	OutputTypeWithdrawalFuel       = 0xa2
+	OutputTypeNodePledge           = 0xa3
+	OutputTypeNodeAccept           = 0xa4
+	outputTypeNodeResign           = 0xa5
+	OutputTypeNodeRemove           = 0xa6
+	OutputTypeDomainAccept         = 0xa7
+	OutputTypeDomainRemove         = 0xa8
+	OutputTypeWithdrawalClaim      = 0xa9
+	OutputTypeNodeCancel           = 0xaa
+	OutputTypeCustodianUpdateNodes = 0xb1
+	OutputTypeCustodianSlashNodes  = 0xb2
 
-	TransactionTypeScript           = 0x00
-	TransactionTypeMint             = 0x01
-	TransactionTypeDeposit          = 0x02
-	TransactionTypeWithdrawalSubmit = 0x03
-	TransactionTypeWithdrawalFuel   = 0x04
-	TransactionTypeWithdrawalClaim  = 0x05
-	TransactionTypeNodePledge       = 0x06
-	TransactionTypeNodeAccept       = 0x07
-	transactionTypeNodeResign       = 0x08
-	TransactionTypeNodeRemove       = 0x09
-	TransactionTypeDomainAccept     = 0x10
-	TransactionTypeDomainRemove     = 0x11
-	TransactionTypeNodeCancel       = 0x12
-	TransactionTypeUnknown          = 0xff
+	TransactionTypeScript               = 0x00
+	TransactionTypeMint                 = 0x01
+	TransactionTypeDeposit              = 0x02
+	TransactionTypeWithdrawalSubmit     = 0x03
+	TransactionTypeWithdrawalFuel       = 0x04
+	TransactionTypeWithdrawalClaim      = 0x05
+	TransactionTypeNodePledge           = 0x06
+	TransactionTypeNodeAccept           = 0x07
+	transactionTypeNodeResign           = 0x08
+	TransactionTypeNodeRemove           = 0x09
+	TransactionTypeDomainAccept         = 0x10
+	TransactionTypeDomainRemove         = 0x11
+	TransactionTypeNodeCancel           = 0x12
+	TransactionTypeCustodianUpdateNodes = 0x13
+	TransactionTypeCustodianSlashNodes  = 0x14
+	TransactionTypeUnknown              = 0xff
 )
 
 type Input struct {
@@ -143,6 +143,10 @@ func (tx *SignedTransaction) TransactionType() uint8 {
 			return TransactionTypeNodeAccept
 		case OutputTypeNodeRemove:
 			return TransactionTypeNodeRemove
+		case OutputTypeCustodianUpdateNodes:
+			return TransactionTypeCustodianUpdateNodes
+		case OutputTypeCustodianSlashNodes:
+			return TransactionTypeCustodianSlashNodes
 		case OutputTypeDomainAccept:
 			return TransactionTypeDomainAccept
 		case OutputTypeDomainRemove:

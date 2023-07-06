@@ -109,10 +109,23 @@ func (node *Node) MintLoop() {
 		case <-node.done:
 			return
 		case <-ticker.C:
-			err := node.tryToMintKernelNode()
-			logger.Println(node.IdForNetwork, "tryToMintKernelNode", err)
+			ca, err := node.persistStore.ReadCustodianAccount()
+			if err != nil {
+				panic(err)
+			}
+			if ca == nil {
+				err := node.tryToMintKernelNodeLegacy()
+				logger.Println(node.IdForNetwork, "tryToMintKernelNodeLegacy", err)
+			} else {
+				err = node.tryToMintUniversal()
+				logger.Println(node.IdForNetwork, "tryToMintKernelUniversal", err)
+			}
 		}
 	}
+}
+
+func (node *Node) tryToMintUniversal() error {
+	panic(0)
 }
 
 func (node *Node) PoolSize() (common.Integer, error) {
@@ -215,7 +228,7 @@ func (node *Node) buildMintTransaction(timestamp uint64, validateOnly bool) *com
 	return tx.AsVersioned()
 }
 
-func (node *Node) tryToMintKernelNode() error {
+func (node *Node) tryToMintKernelNodeLegacy() error {
 	signed := node.buildMintTransaction(node.GraphTimestamp, false)
 	if signed == nil {
 		return nil
@@ -245,7 +258,7 @@ func (node *Node) tryToMintKernelNode() error {
 		NodeId:  node.IdForNetwork,
 	}
 	s.AddSoleTransaction(signed.PayloadHash())
-	logger.Println("tryToMintKernelNode", signed.PayloadHash(), hex.EncodeToString(signed.Marshal()))
+	logger.Println("tryToMintKernelNodeLegacy", signed.PayloadHash(), hex.EncodeToString(signed.Marshal()))
 	return node.chain.AppendSelfEmpty(s)
 }
 
