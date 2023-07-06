@@ -116,7 +116,7 @@ func (node *Node) MintLoop() {
 }
 
 func (node *Node) PoolSize() (common.Integer, error) {
-	dist, err := node.persistStore.ReadLastMintDistribution(common.MintGroupKernelNode)
+	dist, err := node.persistStore.ReadLastMintDistribution(common.MintGroupUniversal)
 	if err != nil {
 		return common.Zero, err
 	}
@@ -296,7 +296,7 @@ func (node *Node) checkMintPossibility(timestamp uint64, validateOnly bool) (int
 	light := total.Div(10)
 	full := light.Mul(9)
 
-	dist, err := node.persistStore.ReadLastMintDistribution(common.MintGroupKernelNode)
+	dist, err := node.persistStore.ReadLastMintDistribution(common.MintGroupUniversal)
 	if err != nil {
 		logger.Verbosef("ReadLastMintDistribution ERROR %s\n", err)
 		return 0, common.Zero

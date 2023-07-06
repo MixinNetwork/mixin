@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	MintGroupKernelNode = "KERNELNODE"
+	MintGroupUniversal = "UNIVERSAL"
 )
 
 type MintData struct {
@@ -42,7 +42,7 @@ func (tx *VersionedTransaction) validateMint(store DataStore) error {
 	}
 
 	mint := tx.Inputs[0].Mint
-	if mint.Group != MintGroupKernelNode {
+	if mint.Group != MintGroupUniversal {
 		return fmt.Errorf("invalid mint group %s", mint.Group)
 	}
 
@@ -65,7 +65,7 @@ func (tx *VersionedTransaction) validateMint(store DataStore) error {
 func (tx *Transaction) AddKernelNodeMintInput(batch uint64, amount Integer) {
 	tx.Inputs = append(tx.Inputs, &Input{
 		Mint: &MintData{
-			Group:  MintGroupKernelNode,
+			Group:  MintGroupUniversal,
 			Batch:  batch,
 			Amount: amount,
 		},
@@ -87,7 +87,7 @@ func DecompressUnmarshalMintDistribution(b []byte) (*MintDistribution, error) {
 func (m *MintDistribution) Marshal() []byte {
 	enc := NewMinimumEncoder()
 	switch m.Group {
-	case MintGroupKernelNode:
+	case MintGroupUniversal:
 		enc.WriteUint16(0x1)
 	default:
 		panic(m.Group)
@@ -116,7 +116,7 @@ func UnmarshalMintDistribution(b []byte) (*MintDistribution, error) {
 	}
 	switch group {
 	case 0x1:
-		m.Group = MintGroupKernelNode
+		m.Group = MintGroupUniversal
 	default:
 		return nil, fmt.Errorf("invalid mint distribution group %d", group)
 	}

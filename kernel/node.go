@@ -87,7 +87,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 
 	node.LoadNodeConfig()
 
-	mint, err := node.persistStore.ReadLastMintDistribution(common.MintGroupKernelNode)
+	mint, err := node.persistStore.ReadLastMintDistribution(common.MintGroupUniversal)
 	if err != nil {
 		return nil, fmt.Errorf("ReadLastMintDistribution() => %v", err)
 	}
