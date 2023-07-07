@@ -109,7 +109,7 @@ func (node *Node) MintLoop() {
 		case <-node.done:
 			return
 		case <-ticker.C:
-			ca, err := node.persistStore.ReadCustodianAccount()
+			ca, _, err := node.persistStore.ReadCustodianAccount()
 			if err != nil {
 				panic(err)
 			}

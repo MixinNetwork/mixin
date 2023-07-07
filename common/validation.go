@@ -113,10 +113,14 @@ func (tx *SignedTransaction) getExtraLimit() int {
 	if len(out.Keys) != 1 {
 		return ExtraSizeGeneralLimit
 	}
-	if out.Type != OutputTypeScript {
+	if out.Script.String() != "fffe40" {
 		return ExtraSizeGeneralLimit
 	}
-	if out.Script.String() != "fffe40" {
+	switch out.Type {
+	case OutputTypeScript:
+	case OutputTypeCustodianUpdateNodes:
+		return ExtraSizeStorageCapacity
+	default:
 		return ExtraSizeGeneralLimit
 	}
 	step := NewIntegerFromString(ExtraStoragePriceStep)

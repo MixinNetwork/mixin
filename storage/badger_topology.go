@@ -117,8 +117,6 @@ func (s *BadgerStore) ReadSnapshotsSinceTopology(topologyOffset, count uint64) (
 }
 
 func (s *BadgerStore) TopologySequence() uint64 {
-	var sequence uint64
-
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -132,9 +130,9 @@ func (s *BadgerStore) TopologySequence() uint64 {
 	it.Seek(graphTopologyKey(^uint64(0)))
 	if it.ValidForPrefix([]byte(graphPrefixTopology)) {
 		key := it.Item().KeyCopy(nil)
-		sequence = graphTopologyOrder(key)
+		return graphTopologyOrder(key)
 	}
-	return sequence
+	return 0
 }
 
 func writeTopology(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder) error {
