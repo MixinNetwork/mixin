@@ -39,7 +39,10 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	kernel.TestMockReset()
 
 	level, _ := strconv.ParseInt(os.Getenv("LOG"), 10, 64)
-	enableElection, _ := strconv.ParseBool(os.Getenv("ELECTION"))
+	enableElection, err := strconv.ParseBool(os.Getenv("ELECTION"))
+	if err != nil {
+		enableElection = true
+	}
 	inputs, _ := strconv.ParseInt(os.Getenv("INPUT"), 10, 64)
 	logger.SetLevel(int(level))
 	if inputs > 0 {
