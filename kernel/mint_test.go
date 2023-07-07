@@ -39,11 +39,21 @@ func TestPledgeAmount(t *testing.T) {
 func TestPoolSize(t *testing.T) {
 	assert := assert.New(t)
 
-	assert.Equal(common.NewInteger(500000), poolSize(0))
-	assert.Equal(common.NewIntegerFromString("498767.12328830"), poolSize(10))
-	assert.Equal(common.NewInteger(500000), poolSize(0))
-	assert.Equal(common.NewIntegerFromString("455000"), poolSize(365))
-	assert.Equal(common.NewIntegerFromString("454889.04109592"), poolSize(366))
+	assert.Equal(common.NewInteger(500000), poolSizeUniversal(0))
+	assert.Equal(common.NewIntegerFromString("498630.13698640"), poolSizeUniversal(10))
+	assert.Equal(common.NewInteger(500000), poolSizeUniversal(0))
+	assert.Equal(common.NewIntegerFromString("450000"), poolSizeUniversal(365))
+	assert.Equal(common.NewIntegerFromString("449876.71232877"), poolSizeUniversal(366))
+}
+
+func TestPoolSizeLegacy(t *testing.T) {
+	assert := assert.New(t)
+
+	assert.Equal(common.NewInteger(500000), poolSizeLegacy(0))
+	assert.Equal(common.NewIntegerFromString("498767.12328830"), poolSizeLegacy(10))
+	assert.Equal(common.NewInteger(500000), poolSizeLegacy(0))
+	assert.Equal(common.NewIntegerFromString("455000"), poolSizeLegacy(365))
+	assert.Equal(common.NewIntegerFromString("454889.04109592"), poolSizeLegacy(366))
 }
 
 func TestMintWorks(t *testing.T) {
@@ -183,7 +193,7 @@ func TestMintWorks(t *testing.T) {
 	for i, id := range signers {
 		accepted[i] = &CNode{IdForNetwork: id}
 	}
-	mints, err := node.distributeMintByWorks(accepted, common.NewInteger(10000), timestamp)
+	mints, err := node.distributeKernelMintByWorks(accepted, common.NewInteger(10000), timestamp)
 	assert.Nil(err)
 	assert.Len(mints, 16)
 	total := common.NewInteger(0)

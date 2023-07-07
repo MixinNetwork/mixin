@@ -10,7 +10,7 @@ import (
 )
 
 func (node *Node) buildMintTransactionV1(timestamp uint64, validateOnly bool) *common.VersionedTransaction {
-	batch, amount := node.checkMintPossibility(timestamp, validateOnly)
+	batch, amount := node.checkLegacyMintPossibility(timestamp, validateOnly)
 	if amount.Sign() <= 0 || batch <= 0 {
 		return nil
 	}
@@ -20,7 +20,7 @@ func (node *Node) buildMintTransactionV1(timestamp uint64, validateOnly bool) *c
 	}
 
 	accepted := node.NodesListWithoutState(timestamp, true)
-	mints, err := node.distributeMintByWorks(accepted, amount, timestamp)
+	mints, err := node.distributeKernelMintByWorks(accepted, amount, timestamp)
 	if err != nil {
 		logger.Printf("buildMintTransaction ERROR %s\n", err.Error())
 		return nil

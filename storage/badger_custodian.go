@@ -7,14 +7,14 @@ import (
 	"github.com/dgraph-io/badger/v4"
 )
 
-func (s *BadgerStore) ReadCustodianAccount() (*common.Address, uint64, error) {
+func (s *BadgerStore) ReadCustodianAccount(ts uint64) (*common.Address, uint64, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	return s.readCustodianAccount(txn)
+	return s.readCustodianAccount(txn, ts)
 }
 
-func (s *BadgerStore) readCustodianAccount(txn *badger.Txn) (*common.Address, uint64, error) {
+func (s *BadgerStore) readCustodianAccount(txn *badger.Txn, ts uint64) (*common.Address, uint64, error) {
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = true
 	opts.Reverse = true
@@ -22,7 +22,7 @@ func (s *BadgerStore) readCustodianAccount(txn *badger.Txn) (*common.Address, ui
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
-	it.Seek(graphCustodianAccountKey(^uint64(0)))
+	it.Seek(graphCustodianAccountKey(ts))
 	if it.ValidForPrefix([]byte(graphPrefixCustodianAccount)) {
 		key := it.Item().KeyCopy(nil)
 		ts := graphCustodianAccountTimestamp(key)
@@ -38,7 +38,7 @@ func (s *BadgerStore) readCustodianAccount(txn *badger.Txn) (*common.Address, ui
 }
 
 func (s *BadgerStore) writeCustodianNodes(txn *badger.Txn, snap *common.Snapshot, custodian *common.Address, nodes []*common.CustodianNode) error {
-	old, ts, err := s.readCustodianAccount(txn)
+	old, ts, err := s.readCustodianAccount(txn, snap.Timestamp)
 	if err != nil {
 		return err
 	}
