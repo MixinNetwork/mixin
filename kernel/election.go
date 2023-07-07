@@ -359,7 +359,7 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 
 func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	if tx.TransactionType() == common.TransactionTypeMint {
-		mint, err := node.persistStore.ReadLastMintDistribution(common.MintGroupUniversal)
+		mint, err := node.persistStore.ReadLastMintDistribution()
 		if err != nil {
 			return err
 		}

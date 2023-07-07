@@ -29,7 +29,7 @@ type UTXOKeysReader interface {
 type UTXOLockReader interface {
 	ReadUTXOLock(hash crypto.Hash, index int) (*UTXOWithLock, error)
 	CheckDepositInput(deposit *DepositData, tx crypto.Hash) error
-	ReadLastMintDistribution(group string) (*MintDistribution, error)
+	ReadLastMintDistribution() (*MintDistribution, error)
 }
 
 type UTXOLocker interface {

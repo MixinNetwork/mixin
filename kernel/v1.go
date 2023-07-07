@@ -27,7 +27,7 @@ func (node *Node) buildMintTransactionV1(timestamp uint64, validateOnly bool) *c
 	}
 
 	tx := common.NewTransactionV2(common.XINAssetId)
-	tx.AddKernelNodeMintInput(uint64(batch), amount)
+	tx.AddKernelNodeMintInputLegacy(uint64(batch), amount)
 	script := common.NewThresholdScript(1)
 	total := common.NewInteger(0)
 	for _, m := range mints {
@@ -66,7 +66,7 @@ func (node *Node) legacyMintTransaction(timestamp uint64, batch int, amount comm
 	diff := amount.Sub(per.Mul(len(nodes)))
 
 	tx := common.NewTransactionV2(common.XINAssetId)
-	tx.AddKernelNodeMintInput(uint64(batch), amount)
+	tx.AddKernelNodeMintInputLegacy(uint64(batch), amount)
 	script := common.NewThresholdScript(1)
 	for _, n := range nodes {
 		in := fmt.Sprintf("MINTKERNELNODE%d", batch)

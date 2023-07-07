@@ -116,7 +116,32 @@ func TestCommonDataEncoding(t *testing.T) {
 
 	mint := &MintDistribution{
 		MintData: MintData{
-			Group:  MintGroupUniversal,
+			Group:  mintGroupUniversal,
+			Batch:  123,
+			Amount: NewIntegerFromString("3.14159"),
+		},
+		Transaction: crypto.Blake3Hash([]byte("mint-test")),
+	}
+
+	enc := mint.Marshal()
+	assert.Equal("777700010000000000000000007b000412b9af98eea889c227076f8c62106b59a478e043c0030392f3be0f5d714ed27953cb2668", hex.EncodeToString(enc))
+	enc = mint.CompressMarshal()
+	assert.Equal("0000000028b52ffd0300c118533ca10100777700010000000000000000007b000412b9af98eea889c227076f8c62106b59a478e043c0030392f3be0f5d714ed27953cb2668", hex.EncodeToString(enc))
+	res, err := DecompressUnmarshalMintDistribution(enc)
+	assert.Nil(err)
+	assert.Equal(mintGroupUniversal, res.Group)
+	assert.Equal(uint64(123), res.Batch)
+	assert.Equal("3.14159000", res.Amount.String())
+	assert.Equal("eea889c227076f8c62106b59a478e043c0030392f3be0f5d714ed27953cb2668", res.Transaction.String())
+	assert.Equal(msgpackMarshalPanic(res), msgpackMarshalPanic(mint))
+}
+
+func TestCommonDataEncodingLegacy(t *testing.T) {
+	assert := assert.New(t)
+
+	mint := &MintDistribution{
+		MintData: MintData{
+			Group:  mintGroupKernelNodeLegacy,
 			Batch:  123,
 			Amount: NewIntegerFromString("3.14159"),
 		},
@@ -129,7 +154,7 @@ func TestCommonDataEncoding(t *testing.T) {
 	assert.Equal("0000000028b52ffd0300c118533ca10100777700010001000000000000007b000412b9af98eea889c227076f8c62106b59a478e043c0030392f3be0f5d714ed27953cb2668", hex.EncodeToString(enc))
 	res, err := DecompressUnmarshalMintDistribution(enc)
 	assert.Nil(err)
-	assert.Equal(MintGroupUniversal, res.Group)
+	assert.Equal(mintGroupKernelNodeLegacy, res.Group)
 	assert.Equal(uint64(123), res.Batch)
 	assert.Equal("3.14159000", res.Amount.String())
 	assert.Equal("eea889c227076f8c62106b59a478e043c0030392f3be0f5d714ed27953cb2668", res.Transaction.String())

@@ -749,7 +749,7 @@ func (store storeImpl) LockDepositInput(deposit *DepositData, tx crypto.Hash, fo
 	return nil
 }
 
-func (store storeImpl) ReadLastMintDistribution(group string) (*MintDistribution, error) {
+func (store storeImpl) ReadLastMintDistribution() (*MintDistribution, error) {
 	return nil, nil
 }
 

@@ -129,7 +129,7 @@ func (node *Node) tryToMintUniversal() error {
 }
 
 func (node *Node) PoolSize() (common.Integer, error) {
-	dist, err := node.persistStore.ReadLastMintDistribution(common.MintGroupUniversal)
+	dist, err := node.persistStore.ReadLastMintDistribution()
 	if err != nil {
 		return common.Zero, err
 	}
@@ -203,7 +203,7 @@ func (node *Node) buildMintTransaction(timestamp uint64, validateOnly bool) *com
 	}
 
 	tx := node.NewTransaction(common.XINAssetId)
-	tx.AddKernelNodeMintInput(uint64(batch), amount)
+	tx.AddKernelNodeMintInputLegacy(uint64(batch), amount)
 	script := common.NewThresholdScript(1)
 	total := common.NewInteger(0)
 	for _, m := range mints {
@@ -309,7 +309,7 @@ func (node *Node) checkMintPossibility(timestamp uint64, validateOnly bool) (int
 	light := total.Div(10)
 	full := light.Mul(9)
 
-	dist, err := node.persistStore.ReadLastMintDistribution(common.MintGroupUniversal)
+	dist, err := node.persistStore.ReadLastMintDistribution()
 	if err != nil {
 		logger.Verbosef("ReadLastMintDistribution ERROR %s\n", err)
 		return 0, common.Zero

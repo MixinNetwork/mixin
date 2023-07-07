@@ -9,7 +9,7 @@ import (
 	"github.com/dgraph-io/badger/v4"
 )
 
-func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) ([]*common.MintDistribution, []*common.VersionedTransaction, error) {
+func (s *BadgerStore) ReadMintDistributions(offset, count uint64) ([]*common.MintDistribution, []*common.VersionedTransaction, error) {
 	if count > 500 {
 		return nil, nil, fmt.Errorf("count %d too large, the maximum is 500", count)
 	}
@@ -21,11 +21,11 @@ func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) 
 	defer txn.Discard()
 
 	opts := badger.DefaultIteratorOptions
-	opts.Prefix = []byte(graphPrefixMint + group)
+	opts.Prefix = []byte(graphPrefixMint)
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
-	it.Seek(graphMintKey(group, offset))
+	it.Seek(graphMintKey(offset))
 	for ; it.Valid() && uint64(len(mints)) < count; it.Next() {
 		item := it.Item()
 		key := item.KeyCopy(nil)
@@ -37,7 +37,7 @@ func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) 
 		if err != nil {
 			return nil, nil, err
 		}
-		if data.Batch != graphMintBatch(key, group) {
+		if data.Batch != graphMintBatch(key) {
 			panic("malformed mint data")
 		}
 
@@ -62,7 +62,7 @@ func (s *BadgerStore) ReadMintDistributions(group string, offset, count uint64) 
 	return mints, transactions, nil
 }
 
-func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistribution, error) {
+func (s *BadgerStore) ReadLastMintDistribution() (*common.MintDistribution, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -71,12 +71,11 @@ func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistri
 
 	opts := badger.DefaultIteratorOptions
 	opts.Reverse = true
-	opts.Prefix = []byte(graphPrefixMint + group)
+	opts.Prefix = []byte(graphPrefixMint)
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
-	dist := &common.MintDistribution{}
-	it.Seek(graphMintKey(group, ^uint64(0)))
+	it.Seek(graphMintKey(^uint64(0)))
 	for ; it.Valid(); it.Next() {
 		item := it.Item()
 		key := item.KeyCopy(nil)
@@ -88,7 +87,7 @@ func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistri
 		if err != nil {
 			return nil, err
 		}
-		if data.Batch != graphMintBatch(key, group) {
+		if data.Batch != graphMintBatch(key) {
 			panic("malformed mint data")
 		}
 		_, err = txn.Get(graphFinalizationKey(data.Transaction))
@@ -97,14 +96,10 @@ func (s *BadgerStore) ReadLastMintDistribution(group string) (*common.MintDistri
 		} else if err != nil {
 			return nil, err
 		}
-
-		dist.Group = group
-		dist.Batch = graphMintBatch(key, group)
-		dist.Transaction = data.Transaction
-		dist.Amount = data.Amount
-		break
+		return data, nil
 	}
-	return dist, nil
+
+	return &common.MintDistribution{}, nil
 }
 
 func (s *BadgerStore) LockMintInput(mint *common.MintData, tx crypto.Hash, fork bool) error {
@@ -136,7 +131,7 @@ func (s *BadgerStore) LockMintInput(mint *common.MintData, tx crypto.Hash, fork 
 }
 
 func readMintInput(txn *badger.Txn, mint *common.MintData) (*common.MintDistribution, error) {
-	key := graphMintKey(mint.Group, mint.Batch)
+	key := graphMintKey(mint.Batch)
 	item, err := txn.Get(key)
 	if err != nil {
 		return nil, err
@@ -149,17 +144,17 @@ func readMintInput(txn *badger.Txn, mint *common.MintData) (*common.MintDistribu
 }
 
 func writeMintDistribution(txn *badger.Txn, mint *common.MintData, tx crypto.Hash) error {
-	key := graphMintKey(mint.Group, mint.Batch)
+	key := graphMintKey(mint.Batch)
 	val := mint.Distribute(tx).CompressMarshal()
 	return txn.Set(key, val)
 }
 
-func graphMintKey(group string, batch uint64) []byte {
-	key := binary.BigEndian.AppendUint64([]byte(group), batch)
-	return append([]byte(graphPrefixMint), key...)
+func graphMintKey(batch uint64) []byte {
+	key := []byte(graphPrefixMint)
+	return binary.BigEndian.AppendUint64(key, batch)
 }
 
-func graphMintBatch(key []byte, group string) uint64 {
-	batch := key[len(graphPrefixMint)+len(group):]
+func graphMintBatch(key []byte) uint64 {
+	batch := key[len(graphPrefixMint):]
 	return binary.BigEndian.Uint64(batch)
 }
