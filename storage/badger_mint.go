@@ -26,7 +26,7 @@ func (s *BadgerStore) ReadMintDistributions(offset, count uint64) ([]*common.Min
 	defer it.Close()
 
 	it.Seek(graphMintKey(offset))
-	for ; it.Valid() && uint64(len(mints)) < count; it.Next() {
+	for ; it.ValidForPrefix(opts.Prefix) && uint64(len(mints)) < count; it.Next() {
 		item := it.Item()
 		key := item.KeyCopy(nil)
 		ival, err := item.ValueCopy(nil)
