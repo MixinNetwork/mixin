@@ -359,9 +359,12 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 
 func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	if tx.TransactionType() == common.TransactionTypeMint {
-		mint, err := node.persistStore.ReadLastMintDistribution()
+		mint, err := node.persistStore.ReadLastMintDistribution(s.Timestamp)
 		if err != nil {
 			return err
+		}
+		if mint.Batch < node.LastMint {
+			panic(node.LastMint)
 		}
 		node.LastMint = mint.Batch
 		return nil

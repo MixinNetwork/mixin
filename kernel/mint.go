@@ -222,7 +222,7 @@ func (node *Node) tryToSlashLegacyLightPool(batch uint64, amount common.Integer,
 }
 
 func (node *Node) PoolSize() (common.Integer, error) {
-	dist, err := node.persistStore.ReadLastMintDistribution()
+	dist, err := node.persistStore.ReadLastMintDistribution(uint64(clock.Now().UnixNano()))
 	if err != nil {
 		return common.Zero, err
 	}
@@ -429,7 +429,7 @@ func (node *Node) checkUniversalMintPossibility(timestamp uint64, validateOnly b
 	pool = pool.Div(MintYearShares)
 	total := pool.Div(MintYearBatches)
 
-	dist, err := node.persistStore.ReadLastMintDistribution()
+	dist, err := node.persistStore.ReadLastMintDistribution(timestamp)
 	if err != nil {
 		logger.Verbosef("ReadLastMintDistribution ERROR %s\n", err)
 		return 0, common.Zero
@@ -480,7 +480,7 @@ func (node *Node) checkLegacyMintPossibility(timestamp uint64, validateOnly bool
 	light := total.Div(10)
 	full := light.Mul(9)
 
-	dist, err := node.persistStore.ReadLastMintDistribution()
+	dist, err := node.persistStore.ReadLastMintDistribution(timestamp)
 	if err != nil {
 		logger.Verbosef("ReadLastMintDistribution ERROR %s\n", err)
 		return 0, common.Zero

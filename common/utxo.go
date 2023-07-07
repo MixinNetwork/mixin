@@ -22,43 +22,6 @@ type UTXOKeys struct {
 	Keys []*crypto.Key
 }
 
-type UTXOKeysReader interface {
-	ReadUTXOKeys(hash crypto.Hash, index int) (*UTXOKeys, error)
-}
-
-type UTXOLockReader interface {
-	ReadUTXOLock(hash crypto.Hash, index int) (*UTXOWithLock, error)
-	CheckDepositInput(deposit *DepositData, tx crypto.Hash) error
-	ReadLastMintDistribution() (*MintDistribution, error)
-}
-
-type UTXOLocker interface {
-	LockUTXOs(inputs []*Input, tx crypto.Hash, fork bool) error
-	LockDepositInput(deposit *DepositData, tx crypto.Hash, fork bool) error
-	LockMintInput(mint *MintData, tx crypto.Hash, fork bool) error
-}
-
-type GhostChecker interface {
-	CheckGhost(key crypto.Key) (*crypto.Hash, error)
-}
-
-type NodeReader interface {
-	ReadAllNodes(offset uint64, withState bool) []*Node
-	ReadTransaction(hash crypto.Hash) (*VersionedTransaction, string, error)
-}
-
-type DomainReader interface {
-	ReadDomains() []*Domain
-}
-
-type DataStore interface {
-	UTXOLockReader
-	UTXOLocker
-	GhostChecker
-	NodeReader
-	DomainReader
-}
-
 func (tx *VersionedTransaction) UnspentOutputs() []*UTXOWithLock {
 	var utxos []*UTXOWithLock
 	for i, out := range tx.Outputs {

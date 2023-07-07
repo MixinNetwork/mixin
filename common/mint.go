@@ -50,7 +50,7 @@ func (tx *VersionedTransaction) validateMint(store DataStore) error {
 		return fmt.Errorf("invalid mint group %s", mint.Group)
 	}
 
-	dist, err := store.ReadLastMintDistribution()
+	dist, err := store.ReadLastMintDistribution(^uint64(0))
 	if err != nil {
 		return err
 	}

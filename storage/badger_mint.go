@@ -62,7 +62,7 @@ func (s *BadgerStore) ReadMintDistributions(offset, count uint64) ([]*common.Min
 	return mints, transactions, nil
 }
 
-func (s *BadgerStore) ReadLastMintDistribution() (*common.MintDistribution, error) {
+func (s *BadgerStore) ReadLastMintDistribution(ts uint64) (*common.MintDistribution, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -75,7 +75,7 @@ func (s *BadgerStore) ReadLastMintDistribution() (*common.MintDistribution, erro
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
-	it.Seek(graphMintKey(^uint64(0)))
+	it.Seek(graphMintKey(ts))
 	for ; it.Valid(); it.Next() {
 		item := it.Item()
 		key := item.KeyCopy(nil)

@@ -87,7 +87,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 
 	node.LoadNodeConfig()
 
-	mint, err := node.persistStore.ReadLastMintDistribution()
+	mint, err := node.persistStore.ReadLastMintDistribution(uint64(clock.Now().UnixNano()))
 	if err != nil {
 		return nil, fmt.Errorf("ReadLastMintDistribution() => %v", err)
 	}
