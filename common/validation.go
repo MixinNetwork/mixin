@@ -13,16 +13,23 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	msg := ver.PayloadMarshal()
 	txType := tx.TransactionType()
 
-	if tx.Version < TxVersionReferences && len(tx.References) > 0 {
-		panic(tx.Version)
-	}
 	if ver.Version < TxVersionCommonEncoding {
+		if !fork {
+			return fmt.Errorf("unsupported version for new transaction %d", ver.Version)
+		}
 		return ver.validateV1(store, fork)
 	}
-
-	if ver.Version != TxVersionReferences && ver.Version != TxVersionBlake3Hash && ver.Version != TxVersionCommonEncoding {
-		return fmt.Errorf("invalid tx version %d %d", ver.Version, tx.Version)
+	if ver.Version < TxVersionReferences && len(ver.References) > 0 {
+		return fmt.Errorf("%d transaction references not supported on this version %d", len(ver.References), ver.Version)
 	}
+	switch ver.Version {
+	case TxVersionReferences:
+	case TxVersionBlake3Hash:
+	case TxVersionCommonEncoding:
+	default:
+		return fmt.Errorf("invalid tx version %d", ver.Version)
+	}
+
 	if txType == TransactionTypeUnknown {
 		return fmt.Errorf("invalid tx type %d", txType)
 	}

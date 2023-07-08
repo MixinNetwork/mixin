@@ -58,8 +58,10 @@ func (chain *Chain) AggregateMintWork() {
 			chain.waitOrDone(wait)
 			continue
 		}
-		// FIXME here continues to update the cache round mostly because no way to
-		// decide the last round of a removed node
+		// FIXME Here continues to update the cache round mostly because no way to
+		// decide the last round of a removed node. The fix is to penalize the late
+		// spending of a node remove output, i.e. the node remove output must be
+		// used as soon as possible.
 		crn := chain.State.CacheRound.Number
 		if crn < round {
 			panic(fmt.Errorf("AggregateMintWork(%s) waiting %d %d", chain.ChainId, crn, round))
@@ -193,6 +195,7 @@ func (node *Node) buildUniversalMintTransaction(custodian *common.Address, times
 	}
 
 	node.tryToSlashLegacyLightPool(uint64(batch), amount, tx)
+
 	// TODO use real light mint account when light node online
 	light := amount.Sub(total)
 	addr := common.NewAddressFromSeed(make([]byte, 64))

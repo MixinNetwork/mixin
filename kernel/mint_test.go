@@ -56,6 +56,9 @@ func TestPoolSizeLegacy(t *testing.T) {
 	assert.Equal(common.NewIntegerFromString("454889.04109592"), poolSizeLegacy(366))
 }
 
+func TestUniversalMintTransaction(t *testing.T) {
+}
+
 func TestMintWorks(t *testing.T) {
 	assert := assert.New(t)
 

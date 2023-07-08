@@ -834,6 +834,9 @@ func TestTransactionV1(t *testing.T) {
 	}
 	err = ver.Validate(store, false)
 	assert.NotNil(err)
+	assert.Contains(err.Error(), "unsupported version for new transaction 1")
+	err = ver.Validate(store, true)
+	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid tx signature number")
 
 	ver.SignaturesSliceV1 = nil
@@ -842,6 +845,9 @@ func TestTransactionV1(t *testing.T) {
 		assert.Nil(err)
 	}
 	err = ver.Validate(store, false)
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "unsupported version for new transaction 1")
+	err = ver.Validate(store, true)
 	assert.Nil(err)
 
 	outputs := ver.ViewGhostKey(&accounts[1].PrivateViewKey)

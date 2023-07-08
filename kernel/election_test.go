@@ -30,7 +30,7 @@ func TestNodeRemovePossibility(t *testing.T) {
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid node remove hour")
 
-	now, err = time.Parse(time.RFC3339, "2020-02-09T17:00:00Z")
+	now, err = time.Parse(time.RFC3339, "2021-03-10T17:00:00Z")
 	assert.Nil(err)
 	candi, err = node.checkRemovePossibility(node.IdForNetwork, uint64(now.UnixNano()), nil)
 	assert.Nil(err)
@@ -40,8 +40,8 @@ func TestNodeRemovePossibility(t *testing.T) {
 	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, uint64(now.UnixNano()), nil)
 	assert.Nil(err)
 	assert.NotNil(tx)
-	assert.Equal("d5af53561d99eb52af2b98b57d3fb0cc8ae4c6449ec6c89d8427201051a947a2", tx.PayloadHash().String())
-	assert.Equal(uint8(1), tx.Version)
+	assert.Equal("31d7f3defd976c9d74b3df86790c648f740e2a6c8b643298011d7dca9dc43279", tx.PayloadHash().String())
+	assert.Equal(uint8(2), tx.Version)
 	assert.Equal(common.XINAssetId, tx.Asset)
 	assert.Equal(pledgeAmount(0), tx.Outputs[0].Amount)
 	assert.Equal("fffe01", tx.Outputs[0].Script.String())
@@ -49,7 +49,7 @@ func TestNodeRemovePossibility(t *testing.T) {
 	assert.Equal(uint8(common.TransactionTypeNodeRemove), tx.TransactionType())
 	assert.Len(tx.Outputs[0].Keys, 1)
 
-	err = tx.SignInputV1(node.persistStore, 0, []*common.Address{&node.Signer})
+	err = tx.SignInput(node.persistStore, 0, []*common.Address{&node.Signer})
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid key for the input")
 	err = tx.Validate(node.persistStore, false)
