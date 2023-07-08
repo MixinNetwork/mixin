@@ -33,6 +33,7 @@ type Store interface {
 	WriteSnapshot(*common.SnapshotWithTopologicalOrder, []crypto.Hash) error
 	ReadDomains() []*common.Domain
 	ReadCustodianAccount(ts uint64) (*common.Address, uint64, error)
+	ReadCustodianNodes(ts uint64) ([]*common.CustodianNode, error)
 
 	CachePutTransaction(tx *common.VersionedTransaction) error
 	CacheGetTransaction(hash crypto.Hash) (*common.VersionedTransaction, error)

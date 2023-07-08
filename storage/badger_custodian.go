@@ -14,6 +14,10 @@ func (s *BadgerStore) ReadCustodianAccount(ts uint64) (*common.Address, uint64, 
 	return s.readCustodianAccount(txn, ts)
 }
 
+func (s *BadgerStore) ReadCustodianNodes(ts uint64) ([]*common.CustodianNode, error) {
+	panic(0)
+}
+
 func (s *BadgerStore) readCustodianAccount(txn *badger.Txn, ts uint64) (*common.Address, uint64, error) {
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = true

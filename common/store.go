@@ -31,10 +31,16 @@ type DomainReader interface {
 	ReadDomains() []*Domain
 }
 
+type CustodianReader interface {
+	ReadCustodianAccount(ts uint64) (*Address, uint64, error)
+	ReadCustodianNodes(ts uint64) ([]*CustodianNode, error)
+}
+
 type DataStore interface {
 	UTXOLockReader
 	UTXOLocker
 	GhostChecker
 	NodeReader
 	DomainReader
+	CustodianReader
 }

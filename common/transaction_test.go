@@ -757,6 +757,14 @@ func (store storeImpl) LockMintInput(mint *MintData, tx crypto.Hash, fork bool) 
 	return nil
 }
 
+func (store storeImpl) ReadCustodianAccount(ts uint64) (*Address, uint64, error) {
+	return nil, 0, nil
+}
+
+func (store storeImpl) ReadCustodianNodes(ts uint64) ([]*CustodianNode, error) {
+	return nil, nil
+}
+
 func randomAccount() Address {
 	seed := make([]byte, 64)
 	rand.Read(seed)
