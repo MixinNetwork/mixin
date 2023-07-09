@@ -32,8 +32,7 @@ type DomainReader interface {
 }
 
 type CustodianReader interface {
-	ReadCustodianAccount(ts uint64) (*Address, uint64, error)
-	ReadCustodianNodes(ts uint64) ([]*CustodianNode, error)
+	ReadCustodian(ts uint64) (*Address, []*CustodianNode, uint64, error)
 }
 
 type DataStore interface {

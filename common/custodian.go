@@ -22,8 +22,21 @@ type CustodianNode struct {
 	Extra     []byte
 }
 
-func (ci *CustodianNode) validate() error {
-	panic(0)
+func (cn *CustodianNode) validate() error {
+	if cn.Payee.PublicSpendKey == cn.Custodian.PublicSpendKey {
+		return fmt.Errorf("invalid custodian or payee keys %x", cn.Extra)
+	}
+
+	var payeeSig, custodianSig crypto.Signature
+	copy(payeeSig[:], cn.Extra[225:289])
+	copy(custodianSig[:], cn.Extra[289:custodianNodeExtraSize])
+	if !cn.Payee.PublicSpendKey.Verify(cn.Extra[:161], payeeSig) {
+		return fmt.Errorf("invalid custodian update payee signature %x", cn.Extra)
+	}
+	if !cn.Custodian.PublicSpendKey.Verify(cn.Extra[:161], custodianSig) {
+		return fmt.Errorf("invalid custodian update custodian signature %x", cn.Extra)
+	}
+	return nil
 }
 
 func (tx *Transaction) parseCustodianUpdateNodesExtra() (*Address, []*CustodianNode, *crypto.Signature, error) {
@@ -54,9 +67,6 @@ func (tx *Transaction) parseCustodianUpdateNodesExtra() (*Address, []*CustodianN
 		copy(cn.Payee.PublicSpendKey[:], extra[65:97])
 		copy(cn.Payee.PublicViewKey[:], extra[97:129])
 		copy(cn.Extra, extra[:custodianNodeExtraSize])
-		if cn.Payee.PublicSpendKey == cn.Custodian.PublicSpendKey {
-			return nil, nil, nil, fmt.Errorf("invalid custodian or payee keys %x", tx.Extra)
-		}
 		if uniqueKeys[cn.Payee.PublicSpendKey] || uniqueKeys[cn.Custodian.PublicSpendKey] {
 			return nil, nil, nil, fmt.Errorf("duplicate custodian or payee keys %x", tx.Extra)
 		}
@@ -64,15 +74,9 @@ func (tx *Transaction) parseCustodianUpdateNodesExtra() (*Address, []*CustodianN
 		uniqueKeys[cn.Payee.PublicViewKey] = true
 		uniqueKeys[cn.Custodian.PublicSpendKey] = true
 		uniqueKeys[cn.Custodian.PublicViewKey] = true
-
-		var payeeSig, custodianSig crypto.Signature
-		copy(payeeSig[:], extra[225:289])
-		copy(custodianSig[:], extra[289:custodianNodeExtraSize])
-		if !cn.Payee.PublicSpendKey.Verify(extra[:161], payeeSig) {
-			return nil, nil, nil, fmt.Errorf("invalid custodian update payee signature %x", tx.Extra)
-		}
-		if !cn.Custodian.PublicSpendKey.Verify(extra[:161], custodianSig) {
-			return nil, nil, nil, fmt.Errorf("invalid custodian update custodian signature %x", tx.Extra)
+		err := cn.validate()
+		if err != nil {
+			return nil, nil, nil, err
 		}
 		nodes[i] = &cn
 	}
@@ -118,7 +122,7 @@ func (tx *Transaction) validateCustodianUpdateNodes(store DataStore) error {
 	}
 
 	now := uint64(time.Now().UnixNano())
-	prevCustodian, _, err := store.ReadCustodianAccount(now)
+	prevCustodian, prevNodes, _, err := store.ReadCustodian(now)
 	if err != nil {
 		return err
 	}
@@ -135,10 +139,6 @@ func (tx *Transaction) validateCustodianUpdateNodes(store DataStore) error {
 
 	if custodian.String() != prevCustodian.String() {
 		return nil
-	}
-	prevNodes, err := store.ReadCustodianNodes(now)
-	if err != nil {
-		return err
 	}
 	var prevExtra []byte
 	for _, n := range prevNodes {

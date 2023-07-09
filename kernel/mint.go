@@ -111,7 +111,7 @@ func (node *Node) MintLoop() {
 		case <-node.done:
 			return
 		case <-ticker.C:
-			ca, _, err := node.persistStore.ReadCustodianAccount(node.GraphTimestamp)
+			ca, _, _, err := node.persistStore.ReadCustodian(node.GraphTimestamp)
 			if err != nil {
 				panic(err)
 			}
@@ -385,7 +385,7 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 	}
 
 	var signed *common.VersionedTransaction
-	ca, _, err := node.persistStore.ReadCustodianAccount(snap.Timestamp)
+	ca, _, _, err := node.persistStore.ReadCustodian(snap.Timestamp)
 	if err != nil {
 		panic(err)
 	}
