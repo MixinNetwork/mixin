@@ -577,6 +577,37 @@ func decodePledgeNodeCmd(c *cli.Context) error {
 	return nil
 }
 
+func encodeCustodianExtraCmd(c *cli.Context) error {
+	signerSpend, err := crypto.KeyFromString(c.String("signer"))
+	if err != nil {
+		return err
+	}
+	payeeSpend, err := crypto.KeyFromString(c.String("payee"))
+	if err != nil {
+		return err
+	}
+	custodianSpend, err := crypto.KeyFromString(c.String("custodian"))
+	if err != nil {
+		return err
+	}
+	networkId, err := crypto.HashFromString(c.String("network"))
+	if err != nil {
+		return err
+	}
+
+	custodian := &common.Address{
+		PublicSpendKey: custodianSpend.Public(),
+		PublicViewKey:  custodianSpend.Public().DeterministicHashDerive().Public(),
+	}
+	payee := &common.Address{
+		PublicSpendKey: payeeSpend.Public(),
+		PublicViewKey:  payeeSpend.Public().DeterministicHashDerive().Public(),
+	}
+	extra := common.EncodeCustodianNode(custodian, payee, &signerSpend, &payeeSpend, &custodianSpend, networkId)
+	fmt.Printf("%x\n", extra)
+	return nil
+}
+
 func getRoundLinkCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getroundlink", []any{
 		c.String("from"),

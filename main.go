@@ -329,6 +329,30 @@ func main() {
 			},
 		},
 		{
+			Name:   "encodecustodianextra",
+			Usage:  "Encode the custodian node transaction extra",
+			Action: encodeCustodianExtraCmd,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "signer",
+					Usage: "the private spend key of the kernel signer",
+				},
+				&cli.StringFlag{
+					Name:  "payee",
+					Usage: "the private spend key of the kernel payee",
+				},
+				&cli.StringFlag{
+					Name:  "custodian",
+					Usage: "the private spend key of the custodian node",
+				},
+				&cli.StringFlag{
+					Name:  "network",
+					Usage: "the network id",
+					Value: config.MainnetId,
+				},
+			},
+		},
+		{
 			Name:   "getroundlink",
 			Usage:  "Get the latest link between two nodes",
 			Action: getRoundLinkCmd,
