@@ -152,9 +152,6 @@ func (tx *Transaction) validateCustodianUpdateNodes(store DataStore) error {
 	if len(custodianNodes) < custodianNodesMinimumCount {
 		return fmt.Errorf("invalid custodian nodes count %d", len(custodianNodes))
 	}
-	if out.Amount.Cmp(NewInteger(custodianNodePrice).Mul(len(custodianNodes))) != 0 {
-		return fmt.Errorf("invalid custodian nodes update price %v", out)
-	}
 
 	now := uint64(time.Now().UnixNano())
 	prevCustodian, prevNodes, _, err := store.ReadCustodian(now)
@@ -172,14 +169,25 @@ func (tx *Transaction) validateCustodianUpdateNodes(store DataStore) error {
 		return fmt.Errorf("invalid custodian update approval signature %x", tx.Extra)
 	}
 
+	filter := make(map[string]string)
+	for _, n := range prevNodes {
+		filter[n.Custodian.String()] = n.Payee.String()
+	}
+	total, price := Zero, NewInteger(custodianNodePrice)
+	for _, n := range custodianNodes {
+		if filter[n.Custodian.String()] != n.Payee.String() {
+			total = total.Add(price)
+		}
+		delete(filter, n.Custodian.String())
+	}
+	if out.Amount.Cmp(total) < 0 {
+		return fmt.Errorf("invalid custodian nodes update price %v", out)
+	}
+
 	if custodian.String() != prevCustodian.String() {
 		return nil
 	}
-	var prevExtra []byte
-	for _, n := range prevNodes {
-		prevExtra = append(prevExtra, n.Extra...)
-	}
-	if !bytes.Equal(prevExtra, tx.Extra[64:len(tx.Extra)-64]) {
+	if len(filter) != 0 || len(prevNodes) != len(custodianNodes) {
 		return fmt.Errorf("custodian account and nodes mismatch %x", tx.Extra)
 	}
 	return nil
