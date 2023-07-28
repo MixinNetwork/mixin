@@ -18,8 +18,8 @@ type UTXOLocker interface {
 	LockMintInput(mint *MintData, tx crypto.Hash, fork bool) error
 }
 
-type GhostChecker interface {
-	CheckGhost(key crypto.Key) (*crypto.Hash, error)
+type GhostLocker interface {
+	LockGhostKeys(keys []*crypto.Key, tx crypto.Hash, fork bool) error
 }
 
 type NodeReader interface {
@@ -38,7 +38,7 @@ type CustodianReader interface {
 type DataStore interface {
 	UTXOLockReader
 	UTXOLocker
-	GhostChecker
+	GhostLocker
 	NodeReader
 	DomainReader
 	CustodianReader

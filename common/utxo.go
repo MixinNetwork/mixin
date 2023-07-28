@@ -24,6 +24,7 @@ type UTXOKeys struct {
 
 func (tx *VersionedTransaction) UnspentOutputs() []*UTXOWithLock {
 	var utxos []*UTXOWithLock
+	hash := tx.PayloadHash()
 	for i, out := range tx.Outputs {
 		switch out.Type {
 		case OutputTypeScript,
@@ -44,7 +45,7 @@ func (tx *VersionedTransaction) UnspentOutputs() []*UTXOWithLock {
 
 		utxo := UTXO{
 			Input: Input{
-				Hash:  tx.PayloadHash(),
+				Hash:  hash,
 				Index: i,
 			},
 			Output: Output{

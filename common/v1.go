@@ -104,7 +104,7 @@ func (ver *VersionedTransaction) validateV1(store DataStore, fork bool) error {
 	if err != nil {
 		return err
 	}
-	outputAmount, err := tx.validateOutputs(store, fork)
+	outputAmount, err := tx.validateOutputs(store, ver.PayloadHash(), fork)
 	if err != nil {
 		return err
 	}

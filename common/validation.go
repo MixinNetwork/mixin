@@ -5,7 +5,6 @@ import (
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-	"golang.org/x/exp/slices"
 )
 
 func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
@@ -60,11 +59,11 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	if err != nil {
 		return err
 	}
-	inputsFilter, inputAmount, err := validateInputs(store, tx, msg, ver.PayloadHash(), txType, fork)
+	inputsFilter, inputAmount, err := tx.validateInputs(store, msg, ver.PayloadHash(), txType, fork)
 	if err != nil {
 		return err
 	}
-	outputAmount, err := tx.validateOutputs(store, fork)
+	outputAmount, err := tx.validateOutputs(store, ver.PayloadHash(), fork)
 	if err != nil {
 		return err
 	}
@@ -169,7 +168,7 @@ func validateReferences(store UTXOLockReader, tx *SignedTransaction) error {
 	return nil
 }
 
-func validateInputs(store UTXOLockReader, tx *SignedTransaction, msg []byte, hash crypto.Hash, txType uint8, fork bool) (map[string]*UTXO, Integer, error) {
+func (tx *SignedTransaction) validateInputs(store UTXOLockReader, msg []byte, hash crypto.Hash, txType uint8, fork bool) (map[string]*UTXO, Integer, error) {
 	inputAmount := NewInteger(0)
 	inputsFilter := make(map[string]*UTXO)
 	allKeys := make([]*crypto.Key, 0)
@@ -239,9 +238,10 @@ func validateInputs(store UTXOLockReader, tx *SignedTransaction, msg []byte, has
 	return inputsFilter, inputAmount, nil
 }
 
-func (tx *Transaction) validateOutputs(store GhostChecker, fork bool) (Integer, error) {
+func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, fork bool) (Integer, error) {
 	outputAmount := NewInteger(0)
-	outputsFilter := make(map[crypto.Key]bool)
+	ghostKeysFilter := make(map[crypto.Key]bool)
+	ghostKeys := make([]*crypto.Key, 0)
 	for _, o := range tx.Outputs {
 		if len(o.Keys) > SliceCountLimit {
 			return outputAmount, fmt.Errorf("invalid output keys count %d", len(o.Keys))
@@ -256,27 +256,14 @@ func (tx *Transaction) validateOutputs(store GhostChecker, fork bool) (Integer, 
 		}
 
 		for _, k := range o.Keys {
-			if outputsFilter[*k] {
+			if ghostKeysFilter[*k] {
 				return outputAmount, fmt.Errorf("invalid output key %s", k.String())
 			}
-			outputsFilter[*k] = true
+			ghostKeysFilter[*k] = true
 			if !k.CheckKey() {
 				return outputAmount, fmt.Errorf("invalid output key format %s", k.String())
 			}
-			by, err := store.CheckGhost(*k)
-			if err != nil {
-				return outputAmount, err
-			} else if by != nil {
-				if fork && slices.Contains([]string{
-					"c63b6373652def5999c1d951fcb8f064db67b7d18565847b921b21639e15dddd",
-					"60deaf2471bb0b6481efe9080d8852b020ab2941e7faae21989d2404f34284ee",
-					"a558b1efbe27eb6a6f902fd97d4b7e2e3099e6edde1fe6e8e41204e0685fe426",
-				}, by.String()) {
-					// FIXME the same hotfix for some transactions in store/badger_transaction.go writeUTXO
-				} else {
-					return outputAmount, fmt.Errorf("invalid output key %s", k.String())
-				}
-			}
+			ghostKeys = append(ghostKeys, k)
 		}
 
 		switch o.Type {
@@ -308,6 +295,11 @@ func (tx *Transaction) validateOutputs(store GhostChecker, fork bool) (Integer, 
 			}
 		}
 		outputAmount = outputAmount.Add(o.Amount)
+	}
+
+	err := store.LockGhostKeys(ghostKeys, hash, fork)
+	if err != nil {
+		return Zero, err
 	}
 	return outputAmount, nil
 }

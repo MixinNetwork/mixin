@@ -110,7 +110,7 @@ func getGhostKey(store storage.Store, params []any) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	by, err := store.CheckGhost(key)
+	by, err := store.ReadGhostKeyLock(key)
 	if err != nil {
 		return nil, err
 	}
