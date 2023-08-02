@@ -4,11 +4,11 @@ import (
 	"testing"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUTXO(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	genesisHash := crypto.Hash{}
 	script := Script{OperatorCmp, OperatorSum, 2}
@@ -24,23 +24,23 @@ func TestUTXO(t *testing.T) {
 	tx.AddRandomScriptOutput(accounts, script, NewInteger(20000))
 
 	utxos := tx.UnspentOutputs()
-	assert.Len(utxos, 1)
+	require.Len(utxos, 1)
 	utxo := utxos[0]
-	assert.Equal(tx.PayloadHash(), utxo.Input.Hash)
-	assert.Equal(0, utxo.Input.Index)
-	assert.Equal(uint8(OutputTypeScript), utxo.Output.Type)
-	assert.Equal("20000.00000000", utxo.Output.Amount.String())
-	assert.Equal("fffe02", utxo.Output.Script.String())
-	assert.Len(utxo.Output.Keys, 3)
-	assert.Equal(XINAssetId, utxo.Asset)
+	require.Equal(tx.PayloadHash(), utxo.Input.Hash)
+	require.Equal(0, utxo.Input.Index)
+	require.Equal(uint8(OutputTypeScript), utxo.Output.Type)
+	require.Equal("20000.00000000", utxo.Output.Amount.String())
+	require.Equal("fffe02", utxo.Output.Script.String())
+	require.Len(utxo.Output.Keys, 3)
+	require.Equal(XINAssetId, utxo.Asset)
 
 	res, err := DecompressUnmarshalUTXO(utxo.CompressMarshal())
-	assert.Nil(err)
-	assert.Equal(msgpackMarshalPanic(res), msgpackMarshalPanic(utxo))
+	require.Nil(err)
+	require.Equal(msgpackMarshalPanic(res), msgpackMarshalPanic(utxo))
 }
 
 func TestUTXOLegacy(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	genesisHash := crypto.Hash{}
 	script := Script{OperatorCmp, OperatorSum, 2}
@@ -56,13 +56,13 @@ func TestUTXOLegacy(t *testing.T) {
 	tx.AddRandomScriptOutput(accounts, script, NewInteger(20000))
 
 	utxos := tx.UnspentOutputs()
-	assert.Len(utxos, 1)
+	require.Len(utxos, 1)
 	utxo := utxos[0]
-	assert.Equal(tx.PayloadHash(), utxo.Input.Hash)
-	assert.Equal(0, utxo.Input.Index)
-	assert.Equal(uint8(OutputTypeScript), utxo.Output.Type)
-	assert.Equal("20000.00000000", utxo.Output.Amount.String())
-	assert.Equal("fffe02", utxo.Output.Script.String())
-	assert.Len(utxo.Output.Keys, 3)
-	assert.Equal(XINAssetId, utxo.Asset)
+	require.Equal(tx.PayloadHash(), utxo.Input.Hash)
+	require.Equal(0, utxo.Input.Index)
+	require.Equal(uint8(OutputTypeScript), utxo.Output.Type)
+	require.Equal("20000.00000000", utxo.Output.Amount.String())
+	require.Equal("fffe02", utxo.Output.Script.String())
+	require.Len(utxo.Output.Keys, 3)
+	require.Equal(XINAssetId, utxo.Asset)
 }

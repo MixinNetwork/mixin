@@ -8,50 +8,50 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenesis(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	root, err := os.MkdirTemp("", "mixin-genesis-test")
-	assert.Nil(err)
+	require.Nil(err)
 	defer os.RemoveAll(root)
 
-	node := setupTestNode(assert, root)
-	assert.NotNil(node)
+	node := setupTestNode(require, root)
+	require.NotNil(node)
 
 	now, err := time.Parse(time.RFC3339, "2019-02-28T00:00:00Z")
-	assert.Nil(err)
-	assert.Equal(uint64(now.UnixNano()), node.Epoch)
+	require.Nil(err)
+	require.Equal(uint64(now.UnixNano()), node.Epoch)
 
-	assert.Equal("6430225c42bb015b4da03102fa962e4f4ef3969e03e04345db229f8377ef7997", node.networkId.String())
+	require.Equal("6430225c42bb015b4da03102fa962e4f4ef3969e03e04345db229f8377ef7997", node.networkId.String())
 	nodes := node.NodesListWithoutState(uint64(now.UnixNano())+1, false)
-	assert.Len(nodes, 15)
+	require.Len(nodes, 15)
 	for i, n := range nodes {
-		assert.Equal(node.Epoch, n.Timestamp)
-		assert.Equal(common.NodeStateAccepted, n.State)
-		assert.Equal(genesisNodes[i], n.IdForNetwork.String())
+		require.Equal(node.Epoch, n.Timestamp)
+		require.Equal(common.NodeStateAccepted, n.State)
+		require.Equal(genesisNodes[i], n.IdForNetwork.String())
 	}
 
 	snapshots, err := node.persistStore.ReadSnapshotsSinceTopology(0, 100)
-	assert.Nil(err)
-	assert.Len(snapshots, 16)
+	require.Nil(err)
+	require.Len(snapshots, 16)
 
 	var genesisSnapshots []*SnapshotJSON
 	err = json.Unmarshal([]byte(genesisSnapshotsData), &genesisSnapshots)
-	assert.Nil(err)
+	require.Nil(err)
 	for i, s := range snapshots {
 		g := genesisSnapshots[i]
-		assert.Equal(g.Hash.String(), s.Hash.String())
-		assert.Equal(g.NodeId, s.NodeId)
-		assert.Nil(g.References)
-		assert.Nil(s.References)
-		assert.Equal(g.RoundNumber, s.RoundNumber)
-		assert.Equal(g.Timestamp, s.Timestamp)
-		assert.Equal(g.TopologicalOrder, s.TopologicalOrder)
-		assert.Equal(g.Transaction.String(), s.SoleTransaction().String())
-		assert.Equal(g.Version, s.Version)
+		require.Equal(g.Hash.String(), s.Hash.String())
+		require.Equal(g.NodeId, s.NodeId)
+		require.Nil(g.References)
+		require.Nil(s.References)
+		require.Equal(g.RoundNumber, s.RoundNumber)
+		require.Equal(g.Timestamp, s.Timestamp)
+		require.Equal(g.TopologicalOrder, s.TopologicalOrder)
+		require.Equal(g.Transaction.String(), s.SoleTransaction().String())
+		require.Equal(g.Version, s.Version)
 	}
 }
 

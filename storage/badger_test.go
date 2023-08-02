@@ -6,30 +6,30 @@ import (
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/dgraph-io/badger/v4"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBadger(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	custom, err := config.Initialize("../config/config.example.toml")
-	assert.Nil(err)
+	require.Nil(err)
 
 	root, err := os.MkdirTemp("", "mixin-badger-test")
-	assert.Nil(err)
+	require.Nil(err)
 	defer os.RemoveAll(root)
 
 	store, err := NewBadgerStore(custom, root)
-	assert.Nil(err)
-	assert.NotNil(store)
+	require.Nil(err)
+	require.NotNil(store)
 
 	seq := store.TopologySequence()
-	assert.Equal(uint64(0), seq)
+	require.Equal(uint64(0), seq)
 
 	err = store.snapshotsDB.Update(func(txn *badger.Txn) error {
 		return txn.Delete([]byte("key-not-found"))
 	})
-	assert.Nil(err)
+	require.Nil(err)
 
 	err = store.Close()
-	assert.Nil(err)
+	require.Nil(err)
 }

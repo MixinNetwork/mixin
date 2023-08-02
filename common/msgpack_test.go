@@ -6,11 +6,11 @@ import (
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/gofrs/uuid"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMsgpack(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	amount := "20"
 	assetId := "965e5c6e-434c-3fa9-b780-c50f43cd955c"
@@ -20,10 +20,10 @@ func TestMsgpack(t *testing.T) {
 	utxoAmount := "8293"
 
 	charge := NewIntegerFromString(utxoAmount).Sub(NewIntegerFromString(amount))
-	assert.Equal("8273.00000000", charge.String())
+	require.Equal("8273.00000000", charge.String())
 	err := msgpackUnmarshal(msgpackMarshalPanic(charge), &charge)
-	assert.Nil(err)
-	assert.Equal("8273.00000000", charge.String())
+	require.Nil(err)
+	require.Equal("8273.00000000", charge.String())
 
 	receiver := &MixinKey{
 		ViewKey:  "981ec8403e35b3feb829a7734b8cf56a1229bb344f59fa2766453aa17e931f02",
@@ -37,12 +37,12 @@ func TestMsgpack(t *testing.T) {
 
 	tx := NewTransactionV2(crypto.NewHash([]byte(assetId)))
 	hash, err := crypto.HashFromString(utxoHash)
-	assert.Nil(err)
+	require.Nil(err)
 	tx.AddInput(hash, utxoIndex)
 	tx.AddRandomScriptOutput([]*Address{receiver.Address()}, NewThresholdScript(1), NewIntegerFromString(amount))
 	tx.AddRandomScriptOutput([]*Address{sender.Address()}, NewThresholdScript(1), charge)
 	traceId, err := uuid.FromString("e3aa9cb9-4a28-11e9-81dd-f23c91a6e1fc")
-	assert.Nil(err)
+	require.Nil(err)
 	tx.Extra = traceId.Bytes()
 	msg := msgpackMarshalPanic(tx)
 	signed := &SignedTransaction{Transaction: *tx}
@@ -55,15 +55,15 @@ func TestMsgpack(t *testing.T) {
 	signed.SignaturesMap = append(signed.SignaturesMap, sigs)
 	raw := msgpackMarshalPanic(signed)
 
-	assert.Len(hex.EncodeToString(raw), 772)
+	require.Len(hex.EncodeToString(raw), 772)
 
 	var dec SignedTransaction
 	err = msgpackUnmarshal(raw, &dec)
-	assert.Nil(err)
+	require.Nil(err)
 }
 
 func TestMsgpackV1(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	amount := "20"
 	assetId := "965e5c6e-434c-3fa9-b780-c50f43cd955c"
@@ -73,10 +73,10 @@ func TestMsgpackV1(t *testing.T) {
 	utxoAmount := "8293"
 
 	charge := NewIntegerFromString(utxoAmount).Sub(NewIntegerFromString(amount))
-	assert.Equal("8273.00000000", charge.String())
+	require.Equal("8273.00000000", charge.String())
 	err := msgpackUnmarshal(msgpackMarshalPanic(charge), &charge)
-	assert.Nil(err)
-	assert.Equal("8273.00000000", charge.String())
+	require.Nil(err)
+	require.Equal("8273.00000000", charge.String())
 
 	receiver := &MixinKey{
 		ViewKey:  "981ec8403e35b3feb829a7734b8cf56a1229bb344f59fa2766453aa17e931f02",
@@ -91,12 +91,12 @@ func TestMsgpackV1(t *testing.T) {
 	tx := NewTransactionV2(crypto.NewHash([]byte(assetId)))
 	tx.Version = 1
 	hash, err := crypto.HashFromString(utxoHash)
-	assert.Nil(err)
+	require.Nil(err)
 	tx.AddInput(hash, utxoIndex)
 	tx.AddRandomScriptOutput([]*Address{receiver.Address()}, NewThresholdScript(1), NewIntegerFromString(amount))
 	tx.AddRandomScriptOutput([]*Address{sender.Address()}, NewThresholdScript(1), charge)
 	traceId, err := uuid.FromString("e3aa9cb9-4a28-11e9-81dd-f23c91a6e1fc")
-	assert.Nil(err)
+	require.Nil(err)
 	tx.Extra = traceId.Bytes()
 	msg := msgpackMarshalPanic(tx)
 	signed := &SignedTransactionV1{Transaction: *tx}
@@ -108,11 +108,11 @@ func TestMsgpackV1(t *testing.T) {
 	signed.SignaturesSliceV1 = append(signed.SignaturesSliceV1, []*crypto.Signature{&sig})
 	raw := msgpackMarshalPanic(signed)
 
-	assert.Len(hex.EncodeToString(raw), 930)
+	require.Len(hex.EncodeToString(raw), 930)
 
 	var dec SignedTransactionV1
 	err = msgpackUnmarshal(raw, &dec)
-	assert.Nil(err)
+	require.Nil(err)
 }
 
 type MixinKey struct {

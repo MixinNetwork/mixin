@@ -7,11 +7,11 @@ import (
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDeposit(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	accounts := make([]*Address, 0)
 	for i := 0; i < 16; i++ {
@@ -52,8 +52,8 @@ func TestDeposit(t *testing.T) {
 	msg := ver.PayloadMarshal()
 	signed := &ver.SignedTransaction
 	err := signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.NotNil(err)
-	assert.True(strings.Contains(err.Error(), "invalid inputs"))
+	require.NotNil(err)
+	require.True(strings.Contains(err.Error(), "invalid inputs"))
 
 	tx.AddDepositInput(&DepositData{
 		Chain:           ethereum.EthereumChainId,
@@ -73,8 +73,8 @@ func TestDeposit(t *testing.T) {
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.NotNil(err)
-	assert.True(strings.Contains(err.Error(), "invalid inputs"))
+	require.NotNil(err)
+	require.True(strings.Contains(err.Error(), "invalid inputs"))
 
 	tx = NewTransactionV3(assetID)
 	tx.AddDepositInput(&DepositData{
@@ -88,8 +88,8 @@ func TestDeposit(t *testing.T) {
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.NotNil(err)
-	assert.True(strings.Contains(err.Error(), "invalid outputs"))
+	require.NotNil(err)
+	require.True(strings.Contains(err.Error(), "invalid outputs"))
 
 	tx = NewTransactionV3(assetID)
 	tx.AddDepositInput(&DepositData{
@@ -109,8 +109,8 @@ func TestDeposit(t *testing.T) {
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.NotNil(err)
-	assert.True(strings.Contains(err.Error(), "invalid outputs"))
+	require.NotNil(err)
+	require.True(strings.Contains(err.Error(), "invalid outputs"))
 
 	tx = NewTransactionV3(assetID)
 	tx.AddDepositInput(&DepositData{
@@ -126,12 +126,12 @@ func TestDeposit(t *testing.T) {
 	ver = tx.AsVersioned()
 	domain := parseKeyFromHex(sender.SpendKey)
 	err = ver.SignRaw(domain)
-	assert.Nil(err)
+	require.Nil(err)
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.NotNil(err)
-	assert.True(strings.Contains(err.Error(), "invalid domain signature for deposit"))
+	require.NotNil(err)
+	require.True(strings.Contains(err.Error(), "invalid domain signature for deposit"))
 
 	tx = NewTransactionV3(assetID)
 	tx.AddDepositInput(&DepositData{
@@ -147,11 +147,11 @@ func TestDeposit(t *testing.T) {
 	ver = tx.AsVersioned()
 	domain = parseKeyFromHex(receiver.SpendKey)
 	err = ver.SignRaw(domain)
-	assert.Nil(err)
+	require.Nil(err)
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.Nil(err)
+	require.Nil(err)
 
 	tx = NewTransactionV3(assetID)
 	tx.AddDepositInput(&DepositData{
@@ -167,11 +167,11 @@ func TestDeposit(t *testing.T) {
 	ver = tx.AsVersioned()
 	domain = parseKeyFromHex(receiver.SpendKey)
 	err = ver.SignRaw(domain)
-	assert.Nil(err)
+	require.Nil(err)
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.Nil(err)
+	require.Nil(err)
 
 	tx = NewTransactionV3(assetID)
 	tx.AddDepositInput(&DepositData{
@@ -187,25 +187,25 @@ func TestDeposit(t *testing.T) {
 	ver = tx.AsVersioned()
 	domain = parseKeyFromHex(receiver.SpendKey)
 	err = ver.SignRaw(domain)
-	assert.Nil(err)
+	require.Nil(err)
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.Nil(err)
+	require.Nil(err)
 
 	pm := ver.Marshal()
 	ver, err = DecompressUnmarshalVersionedTransaction(pm)
-	assert.Nil(err)
-	assert.Equal(1, len(ver.SignaturesMap))
-	assert.Equal(1, len(ver.SignaturesMap[0]))
+	require.Nil(err)
+	require.Equal(1, len(ver.SignaturesMap))
+	require.Equal(1, len(ver.SignaturesMap[0]))
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.Nil(err)
+	require.Nil(err)
 }
 
 func TestDepositLegacy(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	accounts := make([]*Address, 0)
 	for i := 0; i < 16; i++ {
@@ -246,8 +246,8 @@ func TestDepositLegacy(t *testing.T) {
 	msg := ver.PayloadMarshal()
 	signed := &ver.SignedTransaction
 	err := signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.NotNil(err)
-	assert.True(strings.Contains(err.Error(), "invalid inputs"))
+	require.NotNil(err)
+	require.True(strings.Contains(err.Error(), "invalid inputs"))
 
 	tx.AddDepositInput(&DepositData{
 		Chain:           ethereum.EthereumChainId,
@@ -267,8 +267,8 @@ func TestDepositLegacy(t *testing.T) {
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.NotNil(err)
-	assert.True(strings.Contains(err.Error(), "invalid inputs"))
+	require.NotNil(err)
+	require.True(strings.Contains(err.Error(), "invalid inputs"))
 
 	tx = NewTransactionV2(assetID)
 	tx.AddDepositInput(&DepositData{
@@ -282,8 +282,8 @@ func TestDepositLegacy(t *testing.T) {
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.NotNil(err)
-	assert.True(strings.Contains(err.Error(), "invalid outputs"))
+	require.NotNil(err)
+	require.True(strings.Contains(err.Error(), "invalid outputs"))
 
 	tx = NewTransactionV2(assetID)
 	tx.AddDepositInput(&DepositData{
@@ -303,8 +303,8 @@ func TestDepositLegacy(t *testing.T) {
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.NotNil(err)
-	assert.True(strings.Contains(err.Error(), "invalid outputs"))
+	require.NotNil(err)
+	require.True(strings.Contains(err.Error(), "invalid outputs"))
 
 	tx = NewTransactionV2(assetID)
 	tx.AddDepositInput(&DepositData{
@@ -320,12 +320,12 @@ func TestDepositLegacy(t *testing.T) {
 	ver = tx.AsVersioned()
 	domain := parseKeyFromHex(sender.SpendKey)
 	err = ver.SignRaw(domain)
-	assert.Nil(err)
+	require.Nil(err)
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.NotNil(err)
-	assert.True(strings.Contains(err.Error(), "invalid domain signature for deposit"))
+	require.NotNil(err)
+	require.True(strings.Contains(err.Error(), "invalid domain signature for deposit"))
 
 	tx = NewTransactionV2(assetID)
 	tx.AddDepositInput(&DepositData{
@@ -341,11 +341,11 @@ func TestDepositLegacy(t *testing.T) {
 	ver = tx.AsVersioned()
 	domain = parseKeyFromHex(receiver.SpendKey)
 	err = ver.SignRaw(domain)
-	assert.Nil(err)
+	require.Nil(err)
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.Nil(err)
+	require.Nil(err)
 
 	tx = NewTransactionV2(assetID)
 	tx.AddDepositInput(&DepositData{
@@ -361,11 +361,11 @@ func TestDepositLegacy(t *testing.T) {
 	ver = tx.AsVersioned()
 	domain = parseKeyFromHex(receiver.SpendKey)
 	err = ver.SignRaw(domain)
-	assert.Nil(err)
+	require.Nil(err)
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.Nil(err)
+	require.Nil(err)
 
 	tx = NewTransactionV2(assetID)
 	tx.AddDepositInput(&DepositData{
@@ -381,19 +381,19 @@ func TestDepositLegacy(t *testing.T) {
 	ver = tx.AsVersioned()
 	domain = parseKeyFromHex(receiver.SpendKey)
 	err = ver.SignRaw(domain)
-	assert.Nil(err)
+	require.Nil(err)
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.Nil(err)
+	require.Nil(err)
 
 	pm := ver.Marshal()
 	ver, err = DecompressUnmarshalVersionedTransaction(pm)
-	assert.Nil(err)
-	assert.Equal(1, len(ver.SignaturesMap))
-	assert.Equal(1, len(ver.SignaturesMap[0]))
+	require.Nil(err)
+	require.Equal(1, len(ver.SignaturesMap))
+	require.Equal(1, len(ver.SignaturesMap[0]))
 	msg = ver.PayloadMarshal()
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
-	assert.Nil(err)
+	require.Nil(err)
 }

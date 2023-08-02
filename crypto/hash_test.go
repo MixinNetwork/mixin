@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHash(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	seed := make([]byte, 64)
 	for i := 0; i < len(seed); i++ {
@@ -16,23 +16,23 @@ func TestHash(t *testing.T) {
 	}
 
 	h := NewHash(seed)
-	assert.Equal("9323516a9ed2b789339472e38673fd74e8e802efbb94b0b9454f0188ccb70358", h.String())
+	require.Equal("9323516a9ed2b789339472e38673fd74e8e802efbb94b0b9454f0188ccb70358", h.String())
 	h, err := HashFromString("9323516a9ed2b789339472e38673fd74e8e802efbb94b0b9454f0188ccb70358")
-	assert.Nil(err)
-	assert.Equal("9323516a9ed2b789339472e38673fd74e8e802efbb94b0b9454f0188ccb70358", h.String())
+	require.Nil(err)
+	require.Equal("9323516a9ed2b789339472e38673fd74e8e802efbb94b0b9454f0188ccb70358", h.String())
 
 	j, err := h.MarshalJSON()
-	assert.Nil(err)
-	assert.Equal("\"9323516a9ed2b789339472e38673fd74e8e802efbb94b0b9454f0188ccb70358\"", string(j))
+	require.Nil(err)
+	require.Equal("\"9323516a9ed2b789339472e38673fd74e8e802efbb94b0b9454f0188ccb70358\"", string(j))
 	err = h.UnmarshalJSON(j)
-	assert.Nil(err)
-	assert.Equal("9323516a9ed2b789339472e38673fd74e8e802efbb94b0b9454f0188ccb70358", h.String())
+	require.Nil(err)
+	require.Equal("9323516a9ed2b789339472e38673fd74e8e802efbb94b0b9454f0188ccb70358", h.String())
 
 	h, err = HashFromString("9323516a9ed2b789339472e38673fd74e8e802efbb94b0b9454f0188ccb70357")
-	assert.Nil(err)
-	assert.Equal("9323516a9ed2b789339472e38673fd74e8e802efbb94b0b9454f0188ccb70357", h.String())
+	require.Nil(err)
+	require.Equal("9323516a9ed2b789339472e38673fd74e8e802efbb94b0b9454f0188ccb70357", h.String())
 	h, err = HashFromString("9323516a9ed2b789339472e38673fd74e8e802efbb94b0b9454f0188ccb7035")
-	assert.NotNil(err)
+	require.NotNil(err)
 }
 
 func BenchmarkHash(b *testing.B) {

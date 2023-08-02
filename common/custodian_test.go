@@ -11,7 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCustodian(t *testing.T) {
+func TestCustodianUpdateNodes(t *testing.T) {
+}
+
+func TestCustodianParseNode(t *testing.T) {
 	require := require.New(t)
 
 	msg := "AXjpmilx5N4AV7TfZYPGJ880VjHctV76u1mGhVF9l9obUUv5TNnZbEC4beqfAS2e0RAGMQeM3o6i5KdZgl0sh3h7zwSeoiwoeh45wPxN0t96wibGBO3aTkBKpwRaOM6QpXoom3wIdG8o1Bquqv05SrNaOZSxD6EFlFR99loc9lTr_xnpMHU4RsZ2w0AELVVHAhtdWb4xgfRxt_18My1hNnJrIxUfmf4SYq_01tB8RE-GTC1pk7jqwQ6y5KjI3neGqL9xGCDa8FJPQOLkmCNSCWqdGRVEHGUD-Irj4oAt2OgOD4C2hPhgghT-Q7QBHEbXbhg7WFavLCO7PWK9eiE7c79DaZUw51-08tF2nh9RC5sK4AeqkbaiZ47efzbHrQ1kCxgH0Ra85_kSGwPW_sVvTeMRYKaE3oxT4UKeZAeqpb5XfsY2Zl-X9zqvYkAfZuSsRilcKu3pDgOolHWNcB3NjgM"

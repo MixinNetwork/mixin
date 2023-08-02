@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidation(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	assetKey := "uluna"
 	assetUsdKey := "uusd"
@@ -17,25 +17,25 @@ func TestValidation(t *testing.T) {
 	tx := "99a2a8bcd5da27cc910649f03259c8446a76d6345973be3922026c3dee9bcb1f"
 	addrMain := "terra158n5uhvygpz5ttunfuaqh0l2ly5vhl72fy7d8q"
 
-	assert.Nil(VerifyAssetKey(assetKey))
-	assert.Nil(VerifyAssetKey(assetUsdKey))
-	assert.Nil(VerifyAssetKey(anc))
-	assert.Nil(VerifyAssetKey(addrMain))
-	assert.NotNil(VerifyAssetKey(tx))
+	require.Nil(VerifyAssetKey(assetKey))
+	require.Nil(VerifyAssetKey(assetUsdKey))
+	require.Nil(VerifyAssetKey(anc))
+	require.Nil(VerifyAssetKey(addrMain))
+	require.NotNil(VerifyAssetKey(tx))
 
-	assert.Nil(VerifyAddress(addrMain))
-	assert.NotNil(VerifyAddress(assetKey))
-	assert.NotNil(VerifyAddress(assetUsdKey))
-	assert.NotNil(VerifyAddress(addrMain[1:]))
-	assert.NotNil(VerifyAddress(strings.ToUpper(addrMain)))
+	require.Nil(VerifyAddress(addrMain))
+	require.NotNil(VerifyAddress(assetKey))
+	require.NotNil(VerifyAddress(assetUsdKey))
+	require.NotNil(VerifyAddress(addrMain[1:]))
+	require.NotNil(VerifyAddress(strings.ToUpper(addrMain)))
 
-	assert.Nil(VerifyTransactionHash(tx))
-	assert.NotNil(VerifyTransactionHash(assetKey))
-	assert.NotNil(VerifyTransactionHash(addrMain))
-	assert.NotNil(VerifyTransactionHash("0x" + tx))
-	assert.NotNil(VerifyTransactionHash(strings.ToUpper(tx)))
+	require.Nil(VerifyTransactionHash(tx))
+	require.NotNil(VerifyTransactionHash(assetKey))
+	require.NotNil(VerifyTransactionHash(addrMain))
+	require.NotNil(VerifyTransactionHash("0x" + tx))
+	require.NotNil(VerifyTransactionHash(strings.ToUpper(tx)))
 
-	assert.Equal(crypto.NewHash([]byte("eb5bb26d-bfda-4e63-bf1d-a462b78343b7")), GenerateAssetId(assetKey))
-	assert.Equal(crypto.NewHash([]byte("cd54d4a2-6b64-3fe2-a1bc-16bb26deb2a3")), GenerateAssetId(anc))
-	assert.Equal(crypto.NewHash([]byte(TerraChainBase)), TerraChainId)
+	require.Equal(crypto.NewHash([]byte("eb5bb26d-bfda-4e63-bf1d-a462b78343b7")), GenerateAssetId(assetKey))
+	require.Equal(crypto.NewHash([]byte("cd54d4a2-6b64-3fe2-a1bc-16bb26deb2a3")), GenerateAssetId(anc))
+	require.Equal(crypto.NewHash([]byte(TerraChainBase)), TerraChainId)
 }

@@ -185,8 +185,8 @@ func (node *Node) buildUniversalMintTransaction(custodian *common.Address, times
 
 	safe := amount.Div(10).Mul(4)
 	if custodian == nil {
-		addr := common.NewAddressFromSeed(make([]byte, 64))
-		custodian = &addr
+		domains := node.persistStore.ReadDomains()
+		custodian = &domains[0].Account
 	}
 	in := fmt.Sprintf("MINTCUSTODIANACCOUNT%d", batch)
 	si := crypto.NewHash([]byte(custodian.String() + in))

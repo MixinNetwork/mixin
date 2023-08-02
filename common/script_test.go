@@ -3,46 +3,46 @@ package common
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestScript(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	s := Script([]byte{})
 	err := s.Validate(0)
-	assert.NotNil(err)
+	require.NotNil(err)
 
 	s = Script([]byte{OperatorSum, OperatorSum, 0})
 	err = s.Validate(0)
-	assert.NotNil(err)
+	require.NotNil(err)
 
 	s = Script([]byte{OperatorCmp, OperatorCmp, 0})
 	err = s.Validate(0)
-	assert.NotNil(err)
+	require.NotNil(err)
 
 	s = Script([]byte{OperatorCmp, OperatorSum, 0})
 	err = s.Validate(0)
-	assert.Nil(err)
+	require.Nil(err)
 	s = Script([]byte{OperatorCmp, OperatorSum, 0})
 	err = s.Validate(1)
-	assert.Nil(err)
+	require.Nil(err)
 	s = Script([]byte{OperatorCmp, OperatorSum, 1})
 	err = s.Validate(0)
-	assert.NotNil(err)
+	require.NotNil(err)
 	s = Script([]byte{OperatorCmp, OperatorSum, 1})
 	err = s.Validate(1)
-	assert.Nil(err)
+	require.Nil(err)
 	s = Script([]byte{OperatorCmp, OperatorSum, 1})
 	err = s.Validate(2)
-	assert.Nil(err)
+	require.Nil(err)
 
 	j, err := s.MarshalJSON()
-	assert.Nil(err)
-	assert.Equal("\"fffe01\"", string(j))
+	require.Nil(err)
+	require.Equal("\"fffe01\"", string(j))
 	err = s.UnmarshalJSON(j)
-	assert.Nil(err)
+	require.Nil(err)
 	err = s.Validate(1)
-	assert.Nil(err)
-	assert.Equal("fffe01", s.String())
+	require.Nil(err)
+	require.Equal("fffe01", s.String())
 }

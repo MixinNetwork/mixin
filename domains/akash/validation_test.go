@@ -5,33 +5,33 @@ import (
 	"testing"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidation(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	assetKey := "uakt"
 	tx := "e2adef1954f5eee1bd9f4defa7080b6b61a8b9de650120ba9722ab8674e6f38a"
 	addrMain := "akash1f9su26yet620lndeyzmun5x5sk6wfslv4xxtgt"
 
-	assert.Nil(VerifyAssetKey(assetKey))
-	assert.NotNil(VerifyAssetKey(tx))
-	assert.NotNil(VerifyAssetKey(addrMain))
-	assert.NotNil(VerifyAssetKey(strings.ToUpper(assetKey)))
+	require.Nil(VerifyAssetKey(assetKey))
+	require.NotNil(VerifyAssetKey(tx))
+	require.NotNil(VerifyAssetKey(addrMain))
+	require.NotNil(VerifyAssetKey(strings.ToUpper(assetKey)))
 
-	assert.Nil(VerifyAddress(addrMain))
-	assert.NotNil(VerifyAddress(assetKey))
-	assert.NotNil(VerifyAddress(addrMain[1:]))
-	assert.NotNil(VerifyAddress(strings.ToUpper(addrMain)))
+	require.Nil(VerifyAddress(addrMain))
+	require.NotNil(VerifyAddress(assetKey))
+	require.NotNil(VerifyAddress(addrMain[1:]))
+	require.NotNil(VerifyAddress(strings.ToUpper(addrMain)))
 
-	assert.Nil(VerifyTransactionHash(tx))
-	assert.NotNil(VerifyTransactionHash(assetKey))
-	assert.NotNil(VerifyTransactionHash(addrMain))
-	assert.NotNil(VerifyTransactionHash("0x" + tx))
-	assert.NotNil(VerifyTransactionHash(strings.ToUpper(tx)))
+	require.Nil(VerifyTransactionHash(tx))
+	require.NotNil(VerifyTransactionHash(assetKey))
+	require.NotNil(VerifyTransactionHash(addrMain))
+	require.NotNil(VerifyTransactionHash("0x" + tx))
+	require.NotNil(VerifyTransactionHash(strings.ToUpper(tx)))
 
-	assert.Equal(crypto.NewHash([]byte("9c612618-ca59-4583-af34-be9482f5002d")), GenerateAssetId(assetKey))
-	assert.Equal(crypto.NewHash([]byte("9c612618-ca59-4583-af34-be9482f5002d")), AkashChainId)
-	assert.Equal(crypto.NewHash([]byte(AkashChainBase)), AkashChainId)
+	require.Equal(crypto.NewHash([]byte("9c612618-ca59-4583-af34-be9482f5002d")), GenerateAssetId(assetKey))
+	require.Equal(crypto.NewHash([]byte("9c612618-ca59-4583-af34-be9482f5002d")), AkashChainId)
+	require.Equal(crypto.NewHash([]byte(AkashChainBase)), AkashChainId)
 }
