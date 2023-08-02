@@ -57,6 +57,11 @@ func TestPoolSizeLegacy(t *testing.T) {
 }
 
 func TestUniversalMintTransaction(t *testing.T) {
+	assert := assert.New(t)
+
+	root, err := os.MkdirTemp("", "mixin-mint-test")
+	assert.Nil(err)
+	defer os.RemoveAll(root)
 }
 
 func TestMintWorks(t *testing.T) {

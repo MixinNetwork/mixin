@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/dgraph-io/badger/v4"
@@ -11,22 +12,36 @@ func (s *BadgerStore) ReadCustodian(ts uint64) (*common.Address, []*common.Custo
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	account, at, err := s.readCustodianAccount(txn, ts)
-	if err != nil {
+	account, nodesVal, at, err := s.readCustodianAccount(txn, ts)
+	if err != nil || account == nil {
 		return nil, nil, 0, err
 	}
-	nodes, err := s.readCustodianNodes(txn, ts)
+	nodes, err := s.parseCustodianNodes(nodesVal)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 	return account, nodes, at, nil
 }
 
-func (s *BadgerStore) readCustodianNodes(txn *badger.Txn, ts uint64) ([]*common.CustodianNode, error) {
-	return nil, nil
+func (s *BadgerStore) parseCustodianNodes(val []byte) ([]*common.CustodianNode, error) {
+	count := int(val[0])
+	size := len(val[1:]) / count
+	if size*count != len(val)-1 {
+		panic(hex.EncodeToString(val))
+	}
+	nodes := make([]*common.CustodianNode, count)
+	for i := 0; i < int(val[0]); i++ {
+		extra := val[1+i*size : 1+(i+1)*size]
+		node, err := common.ParseCustodianNode(extra)
+		if err != nil {
+			return nil, err
+		}
+		nodes[i] = node
+	}
+	return nodes, nil
 }
 
-func (s *BadgerStore) readCustodianAccount(txn *badger.Txn, ts uint64) (*common.Address, uint64, error) {
+func (s *BadgerStore) readCustodianAccount(txn *badger.Txn, ts uint64) (*common.Address, []byte, uint64, error) {
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = true
 	opts.Reverse = true
@@ -40,17 +55,22 @@ func (s *BadgerStore) readCustodianAccount(txn *badger.Txn, ts uint64) (*common.
 		ts := graphCustodianAccountTimestamp(key)
 		val, err := it.Item().ValueCopy(nil)
 		if err != nil {
-			return nil, 0, err
+			return nil, nil, 0, err
 		}
-		addr, err := common.NewAddressFromString(string(val))
-		return &addr, ts, err
+		if len(val) < 65 {
+			panic(len(val))
+		}
+		var account common.Address
+		copy(account.PublicSpendKey[:], val[:32])
+		copy(account.PublicSpendKey[:], val[32:64])
+		return &account, val[64:], ts, nil
 	}
 
-	return nil, 0, nil
+	return nil, nil, 0, nil
 }
 
 func (s *BadgerStore) writeCustodianNodes(txn *badger.Txn, snap *common.Snapshot, custodian *common.Address, nodes []*common.CustodianNode) error {
-	old, ts, err := s.readCustodianAccount(txn, snap.Timestamp)
+	old, _, ts, err := s.readCustodianAccount(txn, snap.Timestamp)
 	if err != nil {
 		return err
 	}
@@ -70,7 +90,16 @@ func (s *BadgerStore) writeCustodianNodes(txn *badger.Txn, snap *common.Snapshot
 	}
 
 	key := graphCustodianUpdateKey(snap.Timestamp)
-	err = txn.Set(key, []byte(custodian.String()))
+	val := append(custodian.PublicSpendKey[:], custodian.PublicViewKey[:]...)
+	if len(nodes) > 50 {
+		panic(len(nodes))
+	}
+	val = append(val, byte(len(nodes)))
+	for _, n := range nodes {
+		val = append(val, n.Extra...)
+	}
+
+	err = txn.Set(key, val)
 	if err != nil {
 		return err
 	}

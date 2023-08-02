@@ -208,7 +208,7 @@ func (node *Node) buildUniversalMintTransaction(custodian *common.Address, times
 }
 
 func (node *Node) tryToSlashLegacyLightPool(batch uint64, amount common.Integer, tx *common.Transaction) {
-	if batch < 2 {
+	if batch < MainnetMintTransactionV3ForkBatch {
 		return
 	}
 	mints, _, _ := node.persistStore.ReadMintDistributions(batch-1, 1)

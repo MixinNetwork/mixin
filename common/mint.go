@@ -54,14 +54,14 @@ func (tx *VersionedTransaction) validateMint(store DataStore) error {
 	if err != nil {
 		return err
 	}
-	if mint.Batch > dist.Batch {
-		return nil
-	}
 	if mint.Batch < dist.Batch {
 		return fmt.Errorf("backward mint batch %d %d", dist.Batch, mint.Batch)
 	}
 	if dist.Group == mintGroupUniversal && mint.Group == mintGroupKernelNodeLegacy {
 		return fmt.Errorf("backward mint group %s %s", dist.Group, mint.Group)
+	}
+	if mint.Batch > dist.Batch {
+		return nil
 	}
 	if dist.Transaction != tx.PayloadHash() || dist.Amount.Cmp(mint.Amount) != 0 {
 		return fmt.Errorf("invalid mint lock %s %s", dist.Transaction.String(), tx.PayloadHash().String())

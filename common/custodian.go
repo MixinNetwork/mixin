@@ -173,6 +173,9 @@ func (tx *Transaction) validateCustodianUpdateNodes(store DataStore) error {
 	for _, n := range prevNodes {
 		filter[n.Custodian.String()] = n.Payee.String()
 	}
+	if len(filter) != len(prevNodes) {
+		panic(prevCustodian.String())
+	}
 	total, price := Zero, NewInteger(custodianNodePrice)
 	for _, n := range custodianNodes {
 		if filter[n.Custodian.String()] != n.Payee.String() {
