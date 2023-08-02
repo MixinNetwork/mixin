@@ -97,5 +97,6 @@ func setupTestNode(require *require.Assertions, dir string) *Node {
 	require.NotNil(store)
 	node, err := SetupNode(custom, store, cache, ":7239", dir)
 	require.Nil(err)
+	require.Equal(config.MainnetId, node.networkId.String())
 	return node
 }

@@ -199,6 +199,7 @@ func (node *Node) buildUniversalMintTransaction(custodian *common.Address, times
 	}
 
 	node.tryToSlashLegacyLightPool(uint64(batch), amount, tx)
+	amount = tx.Inputs[0].Mint.Amount
 
 	// TODO use real light mint account when light node online
 	light := amount.Sub(total)

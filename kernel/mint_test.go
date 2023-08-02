@@ -10,6 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
+	"github.com/MixinNetwork/mixin/logger"
 	"github.com/stretchr/testify/require"
 )
 
@@ -58,10 +59,138 @@ func TestPoolSizeLegacy(t *testing.T) {
 
 func TestUniversalMintTransaction(t *testing.T) {
 	require := require.New(t)
+	logger.SetLevel(0)
 
 	root, err := os.MkdirTemp("", "mixin-mint-test")
 	require.Nil(err)
 	defer os.RemoveAll(root)
+
+	internal.ToggleMockRunAggregators(true)
+	node := setupTestNode(require, root)
+	require.NotNil(node)
+
+	snaps, err := node.persistStore.ReadSnapshotsSinceTopology(0, 100)
+	require.Nil(err)
+	require.Len(snaps, 16)
+	node.IdForNetwork = snaps[0].NodeId
+
+	addr := "XINYneY2gomSHxkYF62pxbNdwcdhcayxJRAeyUanJR611q5NWg4QebfFhEF3Me8qCHR8g8tD6QHPHD8naZnnn3GdRrhhiuxi"
+	custodian, _ := common.NewAddressFromString(addr)
+
+	tx := common.NewTransactionV3(common.XINAssetId)
+	amount := common.NewIntegerFromString("80.88904107")
+	tx.AddKernelNodeMintInputLegacy(uint64(1616), amount)
+	tx.AddScriptOutput([]*common.Address{&custodian}, common.NewThresholdScript(1), amount, make([]byte, 64))
+	versioned := tx.AsVersioned()
+	err = versioned.LockInputs(node.persistStore, false)
+	require.Nil(err)
+	err = node.persistStore.WriteTransaction(versioned)
+	require.Nil(err)
+
+	timestamp := uint64(1690959614703979550)
+	clock.MockDiff(time.Unix(0, int64(timestamp)).Sub(clock.Now()))
+	snap := &common.Snapshot{
+		Version:     common.SnapshotVersionCommonEncoding,
+		NodeId:      node.IdForNetwork,
+		RoundNumber: 1,
+		Timestamp:   timestamp,
+		Signature:   &crypto.CosiSignature{Mask: 1},
+	}
+	snap.AddSoleTransaction(versioned.PayloadHash())
+	cache, err := loadHeadRoundForNode(node.persistStore, node.IdForNetwork)
+	require.Nil(err)
+	require.NotNil(cache)
+	snap.References = &common.RoundLink{
+		Self:     cache.References.Self,
+		External: cache.References.External,
+	}
+	snap.Hash = snap.PayloadHash()
+	node.TopoWrite(snap, []crypto.Hash{snap.NodeId})
+
+	signers := node.genesisNodes
+	clock.MockDiff(time.Hour)
+	timestamp = uint64(clock.Now().UnixNano())
+	for i := 0; i < 2; i++ {
+		snapshots := testBuildMintSnapshots(signers, 0, timestamp)
+		err = node.persistStore.WriteRoundWork(node.IdForNetwork, 0, snapshots)
+		require.Nil(err)
+		for i := 1; i < 11; i++ {
+			err = node.persistStore.WriteRoundWork(signers[i], 0, snapshots)
+			require.Nil(err)
+		}
+
+		day := uint32(snapshots[0].Timestamp / uint64(time.Hour*24))
+		works, err := node.persistStore.ListNodeWorks(signers, day)
+		require.Nil(err)
+		require.Len(works, 15)
+	}
+
+	batch := (timestamp - node.Epoch) / (24 * uint64(time.Hour))
+	for i, id := range signers {
+		if i == 11 {
+			break
+		}
+		err = node.persistStore.WriteRoundSpaceAndState(&common.RoundSpace{
+			NodeId:   id,
+			Batch:    batch,
+			Round:    0,
+			Duration: 0,
+		})
+		require.Nil(err)
+	}
+	clock.MockDiff(time.Hour * 23)
+	timestamp = uint64(clock.Now().UnixNano())
+	for i := 0; i < 2; i++ {
+		snapshots := testBuildMintSnapshots(signers, 1, timestamp)
+		err = node.persistStore.WriteRoundWork(node.IdForNetwork, 1, snapshots)
+		require.Nil(err)
+		for i := 1; i < 11; i++ {
+			err = node.persistStore.WriteRoundWork(signers[i], 1, snapshots)
+			require.Nil(err)
+		}
+
+		day := uint32(snapshots[0].Timestamp / uint64(time.Hour*24))
+		works, err := node.persistStore.ListNodeWorks(signers, day)
+		require.Nil(err)
+		require.Len(works, 15)
+	}
+
+	batch = (timestamp - node.Epoch) / (24 * uint64(time.Hour))
+	for i, id := range signers {
+		if i == 11 {
+			break
+		}
+		err = node.persistStore.WriteRoundSpaceAndState(&common.RoundSpace{
+			NodeId:   id,
+			Batch:    batch,
+			Round:    1,
+			Duration: 0,
+		})
+		require.Nil(err)
+	}
+
+	timestamp = uint64(clock.Now().UnixNano())
+	versioned = node.buildUniversalMintTransaction(&custodian, timestamp, false)
+	require.NotNil(versioned)
+	amount = common.NewIntegerFromString("18686.95342732")
+	mint := versioned.Inputs[0].Mint
+	require.Equal(uint64(1617), mint.Batch)
+	require.Equal("UNIVERSAL", mint.Group)
+	require.Equal(amount, mint.Amount)
+	require.Len(versioned.Outputs, len(signers)+2)
+	var kernel, safe, light common.Integer
+	for i, o := range versioned.Outputs {
+		if i == len(signers) {
+			safe = o.Amount
+		} else if i == len(signers)+1 {
+			light = o.Amount
+		} else {
+			kernel = kernel.Add(o.Amount)
+		}
+	}
+	require.Equal(common.NewIntegerFromString("44.93835604"), kernel)
+	require.Equal(common.NewIntegerFromString("35.95068492"), safe)
+	require.Equal(common.NewIntegerFromString("18606.06438636"), light)
 }
 
 func TestMintWorks(t *testing.T) {
