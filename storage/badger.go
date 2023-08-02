@@ -58,7 +58,7 @@ func openDB(dir string, sync bool, custom *config.Custom) (*badger.DB, error) {
 		return nil, err
 	}
 
-	if custom.Storage.ValueLogGC {
+	if custom != nil && custom.Storage.ValueLogGC {
 		go func() {
 			for {
 				lsm, vlog := db.Size()

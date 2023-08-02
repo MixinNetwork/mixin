@@ -32,6 +32,7 @@ type DomainReader interface {
 }
 
 type CustodianReader interface {
+	DomainReader
 	ReadCustodian(ts uint64) (*Address, []*CustodianNode, uint64, error)
 }
 

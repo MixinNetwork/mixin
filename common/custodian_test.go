@@ -1,10 +1,13 @@
 package common
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"sort"
 	"testing"
+	"time"
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -12,6 +15,105 @@ import (
 )
 
 func TestCustodianUpdateNodes(t *testing.T) {
+	require := require.New(t)
+
+	tx := NewTransactionV4(XINAssetId)
+	require.NotNil(tx)
+
+	domain := testBuildAddress(require)
+	store := &testCustodianStore{}
+
+	count := 42
+	custodian := testBuildAddress(require)
+	tx.Extra = append(tx.Extra, custodian.PublicSpendKey[:]...)
+	tx.Extra = append(tx.Extra, custodian.PublicViewKey[:]...)
+
+	mainnet, _ := crypto.HashFromString(config.MainnetId)
+	nodes := make([]*CustodianNode, count)
+	for i := 0; i < count; i++ {
+		signer := testBuildAddress(require)
+		payee := testBuildAddress(require)
+		custodian := testBuildAddress(require)
+		extra := EncodeCustodianNode(&custodian, &payee, &signer.PrivateSpendKey, &payee.PrivateSpendKey, &custodian.PrivateSpendKey, mainnet)
+		nodes[i] = &CustodianNode{custodian, payee, extra}
+		tx.Extra = append(tx.Extra, extra...)
+	}
+
+	sig := domain.PrivateSpendKey.Sign(tx.Extra)
+	tx.Extra = append(tx.Extra, sig[:]...)
+
+	err := tx.validateCustodianUpdateNodes(store)
+	require.NotNil(err)
+	require.Contains(err.Error(), "outputs count")
+
+	random := testBuildAddress(require)
+	amount := NewInteger(100).Mul(count - 1)
+	tx.AddScriptOutput([]*Address{&random}, NewThresholdScript(Operator64), amount, make([]byte, 64))
+	err = tx.validateCustodianUpdateNodes(store)
+	require.NotNil(err)
+	require.Contains(err.Error(), "output type")
+
+	tx.Outputs[0].Type = OutputTypeCustodianUpdateNodes
+	err = tx.validateCustodianUpdateNodes(store)
+	require.NotNil(err)
+	require.Contains(err.Error(), "sort order")
+
+	sortedExtra := custodian.PublicSpendKey[:]
+	sortedExtra = append(sortedExtra, custodian.PublicViewKey[:]...)
+	sort.Slice(nodes, func(i, j int) bool {
+		return bytes.Compare(nodes[i].Custodian.PublicSpendKey[:], nodes[j].Custodian.PublicSpendKey[:]) < 0
+	})
+	for _, n := range nodes {
+		sortedExtra = append(sortedExtra, n.Extra...)
+	}
+	sig = domain.PrivateSpendKey.Sign(sortedExtra)
+	tx.Extra = append(sortedExtra, sig[:]...)
+	err = tx.validateCustodianUpdateNodes(store)
+	require.NotNil(err)
+	require.Contains(err.Error(), "domains count")
+
+	store.domain = &custodian
+	err = tx.validateCustodianUpdateNodes(store)
+	require.NotNil(err)
+	require.Contains(err.Error(), "approval signature")
+
+	store.domain = &domain
+	err = tx.validateCustodianUpdateNodes(store)
+	require.NotNil(err)
+	require.Contains(err.Error(), "update price")
+
+	tx.Outputs[0].Amount = NewInteger(100).Mul(count)
+	err = tx.validateCustodianUpdateNodes(store)
+	require.Nil(err)
+
+	prevCustodian, prevNodes, prevTime, err := store.ReadCustodian(uint64(time.Now().UnixNano()))
+	require.Nil(err)
+	require.Nil(prevCustodian)
+	require.Len(prevNodes, 0)
+	require.Equal(uint64(0), prevTime)
+
+	timestamp := uint64(time.Now().UnixNano())
+	store.custodianUpdateNodesTimestamp = timestamp
+	store.custodianUpdateNodesExtra = tx.Extra
+
+	prevCustodian, prevNodes, prevTime, err = store.ReadCustodian(uint64(time.Now().UnixNano()))
+	require.Nil(err)
+	require.Equal(custodian.String(), prevCustodian.String())
+	require.Len(prevNodes, count)
+	require.Equal(timestamp, prevTime)
+
+	err = tx.validateCustodianUpdateNodes(store)
+	require.NotNil(err)
+	require.Contains(err.Error(), "approval signature")
+	tx.Extra = tx.Extra[:len(tx.Extra)-64]
+	sig = custodian.PrivateSpendKey.Sign(tx.Extra)
+	tx.Extra = append(tx.Extra, sig[:]...)
+	err = tx.validateCustodianUpdateNodes(store)
+	require.Nil(err)
+
+	tx.Outputs[0].Amount = NewInteger(1)
+	err = tx.validateCustodianUpdateNodes(store)
+	require.Nil(err)
 }
 
 func TestCustodianParseNode(t *testing.T) {
@@ -41,6 +143,27 @@ func TestCustodianParseNode(t *testing.T) {
 	require.Equal(extra, cn.Extra)
 	require.Contains(hex.EncodeToString(extra), hex.EncodeToString(nodeId[:]))
 	require.Nil(cn.validate())
+}
+
+type testCustodianStore struct {
+	domain                        *Address
+	custodianUpdateNodesExtra     []byte
+	custodianUpdateNodesTimestamp uint64
+}
+
+func (s *testCustodianStore) ReadDomains() []*Domain {
+	if s.domain == nil {
+		return nil
+	}
+	return []*Domain{{Account: *s.domain}}
+}
+
+func (s *testCustodianStore) ReadCustodian(ts uint64) (*Address, []*CustodianNode, uint64, error) {
+	if s.custodianUpdateNodesExtra == nil {
+		return nil, nil, 0, nil
+	}
+	custodian, nodes, _, err := parseCustodianUpdateNodesExtra(s.custodianUpdateNodesExtra)
+	return custodian, nodes, s.custodianUpdateNodesTimestamp, err
 }
 
 func testBuildAddress(require *require.Assertions) Address {

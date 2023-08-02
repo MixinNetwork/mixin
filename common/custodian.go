@@ -130,7 +130,10 @@ func parseCustodianUpdateNodesExtra(extra []byte) (*Address, []*CustodianNode, *
 	return &custodian, nodes, &prevCustodianSig, nil
 }
 
-func (tx *Transaction) validateCustodianUpdateNodes(store DataStore) error {
+func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error {
+	if tx.Version < TxVersionReferences {
+		return fmt.Errorf("invalid custodian update version %d", tx.Version)
+	}
 	if tx.Asset != XINAssetId {
 		return fmt.Errorf("invalid custodian update asset %s", tx.Asset.String())
 	}
