@@ -76,7 +76,7 @@ func (chain *Chain) AggregateMintWork() {
 			continue
 		}
 		for chain.running {
-			if chain.node.networkId.String() == config.MainnetId && snapshots[0].Timestamp < fork {
+			if chain.node.isMainnet() && snapshots[0].Timestamp < fork {
 				snapshots = nil
 			}
 			err = chain.persistStore.WriteRoundWork(chain.ChainId, round, snapshots)
@@ -115,7 +115,7 @@ func (node *Node) MintLoop() {
 			if err != nil {
 				panic(err)
 			}
-			if ca == nil {
+			if ca == nil && node.isMainnet() {
 				err := node.tryToMintKernelNodeLegacy()
 				logger.Println(node.IdForNetwork, "tryToMintKernelNodeLegacy", err)
 			} else {
@@ -184,6 +184,10 @@ func (node *Node) buildUniversalMintTransaction(custodian *common.Address, times
 	}
 
 	safe := amount.Div(10).Mul(4)
+	if custodian == nil {
+		addr := common.NewAddressFromSeed(make([]byte, 64))
+		custodian = &addr
+	}
 	in := fmt.Sprintf("MINTCUSTODIANACCOUNT%d", batch)
 	si := crypto.NewHash([]byte(custodian.String() + in))
 	seed := append(si[:], si[:]...)
@@ -208,7 +212,7 @@ func (node *Node) buildUniversalMintTransaction(custodian *common.Address, times
 }
 
 func (node *Node) tryToSlashLegacyLightPool(batch uint64, amount common.Integer, tx *common.Transaction) {
-	if batch < MainnetMintTransactionV3ForkBatch {
+	if !node.isMainnet() || batch < MainnetMintTransactionV3ForkBatch {
 		return
 	}
 	mints, _, _ := node.persistStore.ReadMintDistributions(batch-1, 1)
@@ -295,7 +299,7 @@ func (node *Node) buildLegacyKerneNodeMintTransaction(timestamp uint64, validate
 	}
 
 	// TODO mint works should calculate according to finalized previous round, new fork required
-	if raw := TransactionMintWorkHacks[batch]; raw != "" && node.networkId.String() == config.MainnetId {
+	if raw := TransactionMintWorkHacks[batch]; raw != "" && node.isMainnet() {
 		rt, err := hex.DecodeString(raw)
 		if err != nil {
 			panic(raw)
@@ -307,7 +311,7 @@ func (node *Node) buildLegacyKerneNodeMintTransaction(timestamp uint64, validate
 		return ver
 	}
 
-	if node.networkId.String() == config.MainnetId && batch < MainnetMintTransactionV2ForkBatch {
+	if node.isMainnet() && batch < MainnetMintTransactionV2ForkBatch {
 		return node.buildMintTransactionV1(timestamp, validateOnly)
 	}
 
@@ -389,15 +393,15 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 	if err != nil {
 		panic(err)
 	}
-	if ca == nil {
+	if ca == nil && node.isMainnet() {
 		signed = node.buildLegacyKerneNodeMintTransaction(timestamp, true)
 		if signed == nil {
-			return fmt.Errorf("no mint available at %d", timestamp)
+			return fmt.Errorf("no legacy mint available at %d", timestamp)
 		}
 	} else {
 		signed = node.buildUniversalMintTransaction(ca, timestamp, true)
 		if signed == nil {
-			return fmt.Errorf("no mint available at %d", timestamp)
+			return fmt.Errorf("no universal mint available at %d", timestamp)
 		}
 	}
 
@@ -466,7 +470,7 @@ func (node *Node) checkLegacyMintPossibility(timestamp uint64, validateOnly bool
 		return 0, common.Zero
 	}
 	kmb, kme := config.KernelMintTimeBegin, config.KernelMintTimeEnd
-	if node.networkId.String() == config.MainnetId && batch < MainnetMintPeriodForkBatch {
+	if node.isMainnet() && batch < MainnetMintPeriodForkBatch {
 		kmb = MainnetMintPeriodForkTimeBegin
 		kme = MainnetMintPeriodForkTimeEnd
 	}

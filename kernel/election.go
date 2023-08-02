@@ -178,7 +178,7 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 
 	ver := tx.AsVersioned()
 	fork := uint64(ElectionTransactionV2ForkHack.UnixNano())
-	if node.networkId.String() == config.MainnetId && timestamp < fork {
+	if node.isMainnet() && timestamp < fork {
 		ver.Version = 1
 	}
 	return ver, nil
@@ -209,7 +209,7 @@ func (node *Node) tryToSendRemoveTransaction() error {
 }
 
 func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
-	if node.networkId.String() == config.MainnetId && MainnetRollingRemovalForkTransactionMap[tx.PayloadHash().String()] {
+	if node.isMainnet() && MainnetRollingRemovalForkTransactionMap[tx.PayloadHash().String()] {
 		return nil
 	}
 	timestamp := s.Timestamp
@@ -305,7 +305,7 @@ func (chain *Chain) buildNodeAcceptTransaction(timestamp uint64, s *common.Snaps
 
 	ver := tx.AsVersioned()
 	fork := uint64(ElectionTransactionV2ForkHack.UnixNano())
-	if chain.node.networkId.String() == config.MainnetId && timestamp < fork {
+	if chain.node.isMainnet() && timestamp < fork {
 		ver.Version = 1
 	}
 	return ver, nil

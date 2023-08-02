@@ -188,6 +188,9 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
 
+	mints := testListMintDistributions(nodes[0].Host)
+	assert.Len(mints, 0)
+
 	kernel.TestMockDiff((config.KernelMintTimeBegin + 24) * time.Hour)
 	tl, _ = testVerifySnapshots(assert, nodes)
 	assert.Equal(transactionsCount, len(tl))
@@ -205,17 +208,53 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
 
+	mints = testListMintDistributions(nodes[0].Host)
+	assert.Len(mints, 1)
+	tx := mints[0]
+	assert.Len(tx.Inputs, 1)
+	mint := tx.Inputs[0].Mint
+	daily := common.NewIntegerFromString("136.98630136")
+	assert.Equal("UNIVERSAL", mint.Group)
+	assert.Equal(uint64(1), mint.Batch)
+	assert.Equal(daily, mint.Amount)
+	assert.Len(tx.Outputs, NODES+2)
+	total := common.Zero
+	for i, o := range tx.Outputs {
+		if i < NODES {
+			total = total.Add(o.Amount)
+			assert.Equal("fffe01", o.Script.String())
+			assert.Equal(uint8(common.OutputTypeScript), o.Type)
+			assert.Len(o.Keys, 1)
+		} else if i == NODES {
+			assert.Equal("fffe01", o.Script.String())
+			assert.Equal(daily.Div(10).Mul(4), o.Amount)
+			assert.Equal(uint8(common.OutputTypeScript), o.Type)
+			assert.Len(o.Keys, 1)
+		} else if i == NODES+1 {
+			custodian := daily.Div(10).Mul(4)
+			total = total.Add(custodian)
+			light := daily.Sub(total)
+			assert.Equal("fffe40", o.Script.String())
+			assert.Equal(light, o.Amount)
+			assert.Equal(uint8(common.OutputTypeScript), o.Type)
+			assert.Len(o.Keys, 1)
+		}
+	}
+
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(assert, nodes)
 	assert.Equal(transactionsCount, len(tl))
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.After(epoch.Add((config.KernelMintTimeBegin + 24) * time.Hour)))
-	assert.Equal("499876.71232883", gt.PoolSize.String())
+	assert.Equal("499863.01369864", gt.PoolSize.String())
 	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	assert.NotNil(hr)
 	assert.Greater(hr.Round, uint64(0))
 	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork)
 	assert.Nil(hr)
+
+	mints = testListMintDistributions(nodes[0].Host)
+	assert.Len(mints, 1)
 
 	all = testListNodes(nodes[0].Host)
 	assert.Len(all, NODES+1)
@@ -261,7 +300,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	assert.Equal(transactionsCount, len(tl))
 	gt = testVerifyInfo(assert, nodes)
 	assert.True(gt.Timestamp.After(epoch.Add((config.KernelMintTimeBegin + 24) * time.Hour)))
-	assert.Equal("499876.71232883", gt.PoolSize.String())
+	assert.Equal("499863.01369864", gt.PoolSize.String())
 	t.Logf("ACCEPT TEST DONE AT %s\n", time.Now())
 
 	kernel.TestMockDiff(24 * time.Hour)
@@ -891,6 +930,62 @@ func testGetGraphInfo(node string) Info {
 		Timestamp: t,
 		PoolSize:  info.Mint.PoolSize,
 	}
+}
+
+func testListMintDistributions(node string) []*common.Transaction {
+	data, err := callRPC(node, "listmintdistributions", []any{
+		0,
+		10,
+		false,
+	})
+
+	var mints []*struct {
+		Group       string `json:"group"`
+		Batch       int    `json:"batch"`
+		Amount      string `json:"amount"`
+		Transaction string `json:"transaction"`
+	}
+	err = json.Unmarshal(data, &mints)
+	if err != nil {
+		panic(err)
+	}
+
+	txs := make([]*common.Transaction, len(mints))
+	for i, m := range mints {
+		data, err := callRPC(node, "gettransaction", []any{m.Transaction})
+		if err != nil {
+			panic(err)
+		}
+		var tx struct {
+			Inputs []*struct {
+				Mint *common.MintData `json:"mint"`
+			}
+			Outputs []*struct {
+				Type   uint8          `json:"type"`
+				Amount common.Integer `json:"amount"`
+				Keys   []*crypto.Key  `json:"keys"`
+				Script common.Script  `json:"script"`
+			}
+		}
+		err = json.Unmarshal(data, &tx)
+		if err != nil {
+			panic(err)
+		}
+		ctx := &common.Transaction{}
+		for _, in := range tx.Inputs {
+			ctx.Inputs = append(ctx.Inputs, &common.Input{Mint: in.Mint})
+		}
+		for _, out := range tx.Outputs {
+			ctx.Outputs = append(ctx.Outputs, &common.Output{
+				Type:   out.Type,
+				Amount: out.Amount,
+				Keys:   out.Keys,
+				Script: out.Script,
+			})
+		}
+		txs[i] = ctx
+	}
+	return txs
 }
 
 var httpClient *http.Client

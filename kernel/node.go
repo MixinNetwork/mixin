@@ -85,7 +85,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 		cqc:             make(chan struct{}),
 	}
 
-	node.LoadNodeConfig()
+	node.loadNodeConfig()
 
 	mint, err := node.persistStore.ReadLastMintDistribution(uint64(clock.Now().UnixNano()))
 	if err != nil {
@@ -128,7 +128,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 	return node, nil
 }
 
-func (node *Node) LoadNodeConfig() {
+func (node *Node) loadNodeConfig() {
 	var addr common.Address
 	addr.PrivateSpendKey = node.custom.Node.Signer
 	addr.PublicSpendKey = addr.PrivateSpendKey.Public()
@@ -136,6 +136,10 @@ func (node *Node) LoadNodeConfig() {
 	addr.PublicViewKey = addr.PrivateViewKey.Public()
 	node.Signer = addr
 	node.Listener = node.custom.Network.Listener
+}
+
+func (node *Node) isMainnet() bool {
+	return node.networkId.String() == config.MainnetId
 }
 
 func (node *Node) buildNodeStateSequences(allNodesSortedWithState []*CNode, acceptedOnly bool) []*NodeStateSequence {
@@ -321,7 +325,7 @@ func (node *Node) LoadConsensusNodes() error {
 }
 
 func (node *Node) SnapshotVersion() uint8 {
-	if node.networkId.String() != config.MainnetId {
+	if !node.isMainnet() {
 		return common.SnapshotVersionCommonEncoding
 	}
 
