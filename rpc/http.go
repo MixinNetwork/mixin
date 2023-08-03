@@ -156,6 +156,13 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			renderer.RenderData(snapshots)
 		}
+	case "listcustodianupdates":
+		curs, err := getCustodianHistory(impl.Store, call.Params)
+		if err != nil {
+			renderer.RenderError(err)
+		} else {
+			renderer.RenderData(curs)
+		}
 	case "listmintworks":
 		works, err := listMintWorks(impl.Node, call.Params)
 		if err != nil {

@@ -111,23 +111,23 @@ func (node *Node) MintLoop() {
 		case <-node.done:
 			return
 		case <-ticker.C:
-			ca, _, _, err := node.persistStore.ReadCustodian(node.GraphTimestamp)
+			cur, err := node.persistStore.ReadCustodian(node.GraphTimestamp)
 			if err != nil {
 				panic(err)
 			}
-			if ca == nil && node.isMainnet() {
+			if cur == nil && node.isMainnet() {
 				err := node.tryToMintKernelNodeLegacy()
 				logger.Println(node.IdForNetwork, "tryToMintKernelNodeLegacy", err)
 			} else {
-				err = node.tryToMintUniversal(ca)
+				err = node.tryToMintUniversal(cur)
 				logger.Println(node.IdForNetwork, "tryToMintKernelUniversal", err)
 			}
 		}
 	}
 }
 
-func (node *Node) tryToMintUniversal(custodian *common.Address) error {
-	signed := node.buildUniversalMintTransaction(custodian, node.GraphTimestamp, false)
+func (node *Node) tryToMintUniversal(custodianRequest *common.CustodianUpdateRequest) error {
+	signed := node.buildUniversalMintTransaction(custodianRequest, node.GraphTimestamp, false)
 	if signed == nil {
 		return nil
 	}
@@ -153,7 +153,7 @@ func (node *Node) tryToMintUniversal(custodian *common.Address) error {
 	return node.chain.AppendSelfEmpty(s)
 }
 
-func (node *Node) buildUniversalMintTransaction(custodian *common.Address, timestamp uint64, validateOnly bool) *common.VersionedTransaction {
+func (node *Node) buildUniversalMintTransaction(custodianRequest *common.CustodianUpdateRequest, timestamp uint64, validateOnly bool) *common.VersionedTransaction {
 	batch, amount := node.checkUniversalMintPossibility(timestamp, validateOnly)
 	if amount.Sign() <= 0 || batch <= 0 {
 		return nil
@@ -184,9 +184,10 @@ func (node *Node) buildUniversalMintTransaction(custodian *common.Address, times
 	}
 
 	safe := amount.Div(10).Mul(4)
-	if custodian == nil {
-		domains := node.persistStore.ReadDomains()
-		custodian = &domains[0].Account
+	domains := node.persistStore.ReadDomains()
+	custodian := &domains[0].Account
+	if custodianRequest != nil {
+		custodian = custodianRequest.Custodian
 	}
 	in := fmt.Sprintf("MINTCUSTODIANACCOUNT%d", batch)
 	si := crypto.NewHash([]byte(custodian.String() + in))
@@ -390,17 +391,17 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 	}
 
 	var signed *common.VersionedTransaction
-	ca, _, _, err := node.persistStore.ReadCustodian(snap.Timestamp)
+	cur, err := node.persistStore.ReadCustodian(snap.Timestamp)
 	if err != nil {
 		panic(err)
 	}
-	if ca == nil && node.isMainnet() {
+	if cur == nil && node.isMainnet() {
 		signed = node.buildLegacyKerneNodeMintTransaction(timestamp, true)
 		if signed == nil {
 			return fmt.Errorf("no legacy mint available at %d", timestamp)
 		}
 	} else {
-		signed = node.buildUniversalMintTransaction(ca, timestamp, true)
+		signed = node.buildUniversalMintTransaction(cur, timestamp, true)
 		if signed == nil {
 			return fmt.Errorf("no universal mint available at %d", timestamp)
 		}

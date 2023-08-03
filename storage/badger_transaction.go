@@ -204,6 +204,8 @@ func writeUTXO(txn *badger.Txn, utxo *common.UTXOWithLock, extra []byte, timesta
 		return writeNodeRemove(txn, signer, payee, utxo.Hash, timestamp)
 	case common.OutputTypeDomainAccept:
 		return writeDomainAccept(txn, signer, utxo.Hash, timestamp)
+	case common.OutputTypeCustodianUpdateNodes:
+		return writeCustodianNodes(txn, timestamp, utxo, extra)
 	}
 
 	return nil

@@ -757,8 +757,8 @@ func (store storeImpl) LockMintInput(mint *MintData, tx crypto.Hash, fork bool) 
 	return nil
 }
 
-func (store storeImpl) ReadCustodian(ts uint64) (*Address, []*CustodianNode, uint64, error) {
-	return nil, nil, 0, nil
+func (store storeImpl) ReadCustodian(ts uint64) (*CustodianUpdateRequest, error) {
+	return nil, nil
 }
 
 func randomAccount() Address {

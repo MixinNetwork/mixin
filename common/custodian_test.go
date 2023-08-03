@@ -86,21 +86,20 @@ func TestCustodianUpdateNodes(t *testing.T) {
 	err = tx.validateCustodianUpdateNodes(store)
 	require.Nil(err)
 
-	prevCustodian, prevNodes, prevTime, err := store.ReadCustodian(uint64(time.Now().UnixNano()))
+	prev, err := store.ReadCustodian(uint64(time.Now().UnixNano()))
 	require.Nil(err)
-	require.Nil(prevCustodian)
-	require.Len(prevNodes, 0)
-	require.Equal(uint64(0), prevTime)
+	require.Nil(prev)
 
 	timestamp := uint64(time.Now().UnixNano())
 	store.custodianUpdateNodesTimestamp = timestamp
 	store.custodianUpdateNodesExtra = tx.Extra
 
-	prevCustodian, prevNodes, prevTime, err = store.ReadCustodian(uint64(time.Now().UnixNano()))
+	prev, err = store.ReadCustodian(uint64(time.Now().UnixNano()))
 	require.Nil(err)
-	require.Equal(custodian.String(), prevCustodian.String())
-	require.Len(prevNodes, count)
-	require.Equal(timestamp, prevTime)
+	require.NotNil(prev)
+	require.Equal(custodian.String(), prev.Custodian.String())
+	require.Len(prev.Nodes, count)
+	require.Equal(timestamp, prev.Timestamp)
 
 	err = tx.validateCustodianUpdateNodes(store)
 	require.NotNil(err)
@@ -158,12 +157,16 @@ func (s *testCustodianStore) ReadDomains() []*Domain {
 	return []*Domain{{Account: *s.domain}}
 }
 
-func (s *testCustodianStore) ReadCustodian(ts uint64) (*Address, []*CustodianNode, uint64, error) {
+func (s *testCustodianStore) ReadCustodian(ts uint64) (*CustodianUpdateRequest, error) {
 	if s.custodianUpdateNodesExtra == nil {
-		return nil, nil, 0, nil
+		return nil, nil
 	}
-	custodian, nodes, _, err := parseCustodianUpdateNodesExtra(s.custodianUpdateNodesExtra)
-	return custodian, nodes, s.custodianUpdateNodesTimestamp, err
+	custodian, nodes, _, err := ParseCustodianUpdateNodesExtra(s.custodianUpdateNodesExtra)
+	return &CustodianUpdateRequest{
+		Custodian: custodian,
+		Nodes:     nodes,
+		Timestamp: s.custodianUpdateNodesTimestamp,
+	}, err
 }
 
 func testBuildAddress(require *require.Assertions) Address {

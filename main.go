@@ -489,6 +489,12 @@ func main() {
 			},
 		},
 		{
+			Name:   "listcustodianupdates",
+			Usage:  "List all custodian updates",
+			Action: listCustodianUpdatesCmd,
+			Flags:  []cli.Flag{},
+		},
+		{
 			Name:   "listmintworks",
 			Usage:  "List mint works",
 			Action: listMintWorksCmd,

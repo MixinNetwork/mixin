@@ -151,7 +151,8 @@ func TestUniversalMintTransaction(t *testing.T) {
 	}
 
 	timestamp = uint64(clock.Now().UnixNano())
-	versioned = node.buildUniversalMintTransaction(&custodian, timestamp, false)
+	cur := &common.CustodianUpdateRequest{Custodian: &custodian}
+	versioned = node.buildUniversalMintTransaction(cur, timestamp, false)
 	require.NotNil(versioned)
 	amount = common.NewIntegerFromString("18686.95342732")
 	mint := versioned.Inputs[0].Mint
@@ -163,10 +164,13 @@ func TestUniversalMintTransaction(t *testing.T) {
 	for i, o := range versioned.Outputs {
 		if i == len(signers) {
 			safe = o.Amount
+			require.Equal("fffe01", o.Script.String())
 		} else if i == len(signers)+1 {
 			light = o.Amount
+			require.Equal("fffe40", o.Script.String())
 		} else {
 			kernel = kernel.Add(o.Amount)
+			require.Equal("fffe01", o.Script.String())
 		}
 	}
 	require.Equal(common.NewIntegerFromString("44.93835604"), kernel)

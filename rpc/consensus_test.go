@@ -159,7 +159,8 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	require.Greater(hr.Round, uint64(0))
 	t.Logf("INPUT TEST DONE AT %s\n", time.Now())
 
-	testCustodianUpdateNodes(require)
+	testCustodianUpdateNodes(t, nodes, accounts, payees)
+	transactionsCount = transactionsCount + 2
 	t.Logf("CUSTODIAN TEST DONE AT %s\n", time.Now())
 
 	if !enableElection {
@@ -176,7 +177,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
 	gt = testVerifyInfo(require, nodes)
-	require.True(gt.Timestamp.Before(epoch.Add(61 * time.Second)))
+	require.Less(gt.Timestamp, epoch.Add(31*time.Second))
 	t.Logf("PLEDGE %s\n", input)
 
 	dummyAmount := common.NewIntegerFromString("3.5").Div(NODES).String()
@@ -198,7 +199,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
 	gt = testVerifyInfo(require, nodes)
-	require.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
+	require.Less(gt.Timestamp, epoch.Add(61*time.Second))
 
 	pn, pi, sv := testPledgeNewNode(t, nodes, accounts[0], gdata, plist, input, root, snapVersionMint)
 	t.Logf("PLEDGE %s\n", pn.Signer)
@@ -217,7 +218,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
 	gt = testVerifyInfo(require, nodes)
-	require.True(gt.Timestamp.After(epoch.Add((config.KernelMintTimeBegin + 24) * time.Hour)))
+	require.Greater(gt.Timestamp, epoch.Add((config.KernelMintTimeBegin+24)*time.Hour))
 	require.Equal("499863.01369864", gt.PoolSize.String())
 	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
@@ -271,7 +272,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
 	gt = testVerifyInfo(require, nodes)
-	require.True(gt.Timestamp.After(epoch.Add((config.KernelMintTimeBegin + 24) * time.Hour)))
+	require.Greater(gt.Timestamp, epoch.Add((config.KernelMintTimeBegin+24)*time.Hour))
 	require.Equal("499863.01369864", gt.PoolSize.String())
 	t.Logf("ACCEPT TEST DONE AT %s\n", time.Now())
 
@@ -341,7 +342,105 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 
 }
 
-func testCustodianUpdateNodes(require *require.Assertions) {
+func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []common.Address) {
+	require := require.New(t)
+	tx := common.NewTransactionV4(common.XINAssetId)
+	require.NotNil(tx)
+
+	domain := signers[0]
+
+	seed := make([]byte, 64)
+	rand.Read(seed)
+	count := len(signers)
+	custodian := common.NewAddressFromSeed(seed)
+	tx.Extra = append(tx.Extra, custodian.PublicSpendKey[:]...)
+	tx.Extra = append(tx.Extra, custodian.PublicViewKey[:]...)
+
+	mainnet, _ := crypto.HashFromString(config.MainnetId)
+	custodianNodes := make([]*common.CustodianNode, count)
+	for i := 0; i < count; i++ {
+		signer := signers[i]
+		payee := payees[i]
+		seed := make([]byte, 64)
+		rand.Read(seed)
+		custodian := common.NewAddressFromSeed(seed)
+		extra := common.EncodeCustodianNode(&custodian, &payee, &signer.PrivateSpendKey, &payee.PrivateSpendKey, &custodian.PrivateSpendKey, mainnet)
+		custodianNodes[i] = &common.CustodianNode{Custodian: custodian, Payee: payee, Extra: extra}
+		tx.Extra = append(tx.Extra, extra...)
+	}
+
+	sig := domain.PrivateSpendKey.Sign(tx.Extra)
+	tx.Extra = append(tx.Extra, sig[:]...)
+
+	amount := common.NewInteger(100).Mul(count)
+	tx.AddScriptOutput([]*common.Address{&custodian}, common.NewThresholdScript(common.Operator64), amount, make([]byte, 64))
+	tx.Outputs[0].Type = common.OutputTypeCustodianUpdateNodes
+
+	sortedExtra := append(custodian.PublicSpendKey[:], custodian.PublicViewKey[:]...)
+	sort.Slice(custodianNodes, func(i, j int) bool {
+		return bytes.Compare(custodianNodes[i].Custodian.PublicSpendKey[:], custodianNodes[j].Custodian.PublicSpendKey[:]) < 0
+	})
+	for _, n := range custodianNodes {
+		sortedExtra = append(sortedExtra, n.Extra...)
+	}
+	sig = domain.PrivateSpendKey.Sign(sortedExtra)
+	tx.Extra = append(sortedExtra, sig[:]...)
+
+	dpm, _ := strconv.ParseFloat(amount.String(), 64)
+	raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, 10000, dpm, dpm, domain.String())
+	rand.Seed(time.Now().UnixNano())
+	deposit, err := testSignTransaction(nodes[0].Host, domain, raw, 0)
+	require.Nil(err)
+	require.NotNil(deposit)
+	deposits := []*common.VersionedTransaction{{SignedTransaction: *deposit}}
+	testSendTransactionsToNodesWithRetry(t, nodes, deposits)
+
+	inputs := []map[string]any{{
+		"hash":  deposit.AsVersioned().PayloadHash(),
+		"index": 0,
+	}}
+	out := tx.Outputs[0]
+	outputs := []map[string]any{{
+		"type":     out.Type,
+		"amount":   out.Amount,
+		"script":   out.Script.String(),
+		"accounts": []string{domain.String()},
+	}}
+	rb, _ := json.Marshal(map[string]any{
+		"version": tx.Version,
+		"asset":   tx.Asset,
+		"inputs":  inputs,
+		"outputs": outputs,
+		"extra":   hex.EncodeToString(tx.Extra),
+	})
+	signed, err := testSignTransaction(nodes[0].Host, domain, string(rb), 0)
+	require.Nil(err)
+	require.NotNil(signed)
+
+	updates := []*common.VersionedTransaction{{SignedTransaction: *signed}}
+	testSendTransactionsToNodesWithRetry(t, nodes, updates)
+
+	raw = hex.EncodeToString(signed.AsVersioned().Marshal())
+	id, err := testSendTransaction(nodes[0].Host, raw)
+	require.Nil(err)
+	require.Len(id, 75)
+	var res map[string]string
+	json.Unmarshal([]byte(id), &res)
+	hash, _ := crypto.HashFromString(res["hash"])
+	require.True(hash.HasValue())
+
+	data, err := callRPC(nodes[0].Host, "listcustodianupdates", []any{})
+	require.Nil(err)
+	var curs []*struct {
+		Custodian   string `json:"custodian"`
+		Timestamp   uint64 `json:"timestamp"`
+		Transaction string `json:"transaction"`
+	}
+	err = json.Unmarshal(data, &curs)
+	require.Nil(err)
+	require.Len(curs, 1)
+	require.Equal(hash.String(), curs[0].Transaction)
+	require.Equal(custodian.String(), curs[0].Custodian)
 }
 
 func testCheckMintDistributions(require *require.Assertions, node string) {
@@ -603,33 +702,6 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 	testSendTransactionsToNodesWithRetry(t, nodes, missingTxs)
 }
 
-func testSendTransactionToNodes(t *testing.T, nodes []*Node, raw string) string {
-	require := require.New(t)
-
-	rand.Seed(time.Now().UnixNano())
-	for n := len(nodes); n > 0; n-- {
-		ri := rand.Intn(n)
-		nodes[n-1], nodes[ri] = nodes[ri], nodes[n-1]
-	}
-	wg, dup := &sync.WaitGroup{}, 3
-	start := rand.Intn(len(nodes) - dup)
-
-	var txHash string
-	for i := start; i < len(nodes) && i != start+dup; i++ {
-		wg.Add(1)
-		go func(n string, raw string) {
-			defer wg.Done()
-			id, err := testSendTransaction(n, raw)
-			require.Nil(err)
-			require.Len(id, 75)
-			txHash = id
-		}(nodes[i].Host, raw)
-	}
-	wg.Wait()
-
-	return txHash
-}
-
 func testSendTransaction(node, raw string) (string, error) {
 	data, err := callRPC(node, "sendrawtransaction", []any{
 		raw,
@@ -729,7 +801,7 @@ func testSignTransaction(node string, account common.Address, rawStr string, sna
 	if snapVersionMint < 1 && time.Now().UnixNano()%3 == 1 {
 		tx = common.NewTransactionV2(raw.Asset)
 	}
-	if snapVersionMint < 1 && time.Now().UnixNano()%3 == 2 {
+	if len(raw.Extra) > 1024 || snapVersionMint < 1 && time.Now().UnixNano()%3 == 2 {
 		tx = common.NewTransactionV4(raw.Asset)
 	}
 	for _, in := range raw.Inputs {
