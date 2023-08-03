@@ -108,65 +108,46 @@ func TestUniversalMintTransaction(t *testing.T) {
 	node.TopoWrite(snap, []crypto.Hash{snap.NodeId})
 
 	signers := node.genesisNodes
-	clock.MockDiff(time.Hour)
-	timestamp = uint64(clock.Now().UnixNano())
-	for i := 0; i < 2; i++ {
-		snapshots := testBuildMintSnapshots(signers, 0, timestamp)
-		err = node.persistStore.WriteRoundWork(node.IdForNetwork, 0, snapshots)
-		require.Nil(err)
-		for i := 1; i < 11; i++ {
-			err = node.persistStore.WriteRoundWork(signers[i], 0, snapshots)
+	for _, tr := range []struct {
+		diff  time.Duration
+		round uint64
+	}{{
+		diff:  time.Hour,
+		round: 0,
+	}, {
+		diff:  time.Hour * 23,
+		round: 1,
+	}} {
+		clock.MockDiff(tr.diff)
+		timestamp = uint64(clock.Now().UnixNano())
+		for i := 0; i < 2; i++ {
+			snapshots := testBuildMintSnapshots(signers, tr.round, timestamp)
+			err = node.persistStore.WriteRoundWork(node.IdForNetwork, tr.round, snapshots)
+			require.Nil(err)
+			for i := 1; i < 11; i++ {
+				err = node.persistStore.WriteRoundWork(signers[i], tr.round, snapshots)
+				require.Nil(err)
+			}
+
+			day := uint32(snapshots[0].Timestamp / uint64(time.Hour*24))
+			works, err := node.persistStore.ListNodeWorks(signers, day)
+			require.Nil(err)
+			require.Len(works, len(signers))
+		}
+
+		batch := (timestamp - node.Epoch) / (24 * uint64(time.Hour))
+		for i, id := range signers {
+			if i == 11 {
+				break
+			}
+			err = node.persistStore.WriteRoundSpaceAndState(&common.RoundSpace{
+				NodeId:   id,
+				Batch:    batch,
+				Round:    tr.round,
+				Duration: 0,
+			})
 			require.Nil(err)
 		}
-
-		day := uint32(snapshots[0].Timestamp / uint64(time.Hour*24))
-		works, err := node.persistStore.ListNodeWorks(signers, day)
-		require.Nil(err)
-		require.Len(works, 15)
-	}
-
-	batch := (timestamp - node.Epoch) / (24 * uint64(time.Hour))
-	for i, id := range signers {
-		if i == 11 {
-			break
-		}
-		err = node.persistStore.WriteRoundSpaceAndState(&common.RoundSpace{
-			NodeId:   id,
-			Batch:    batch,
-			Round:    0,
-			Duration: 0,
-		})
-		require.Nil(err)
-	}
-	clock.MockDiff(time.Hour * 23)
-	timestamp = uint64(clock.Now().UnixNano())
-	for i := 0; i < 2; i++ {
-		snapshots := testBuildMintSnapshots(signers, 1, timestamp)
-		err = node.persistStore.WriteRoundWork(node.IdForNetwork, 1, snapshots)
-		require.Nil(err)
-		for i := 1; i < 11; i++ {
-			err = node.persistStore.WriteRoundWork(signers[i], 1, snapshots)
-			require.Nil(err)
-		}
-
-		day := uint32(snapshots[0].Timestamp / uint64(time.Hour*24))
-		works, err := node.persistStore.ListNodeWorks(signers, day)
-		require.Nil(err)
-		require.Len(works, 15)
-	}
-
-	batch = (timestamp - node.Epoch) / (24 * uint64(time.Hour))
-	for i, id := range signers {
-		if i == 11 {
-			break
-		}
-		err = node.persistStore.WriteRoundSpaceAndState(&common.RoundSpace{
-			NodeId:   id,
-			Batch:    batch,
-			Round:    1,
-			Duration: 0,
-		})
-		require.Nil(err)
 	}
 
 	timestamp = uint64(clock.Now().UnixNano())
