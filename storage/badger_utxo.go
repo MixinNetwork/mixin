@@ -115,7 +115,12 @@ func (s *BadgerStore) LockGhostKeys(keys []*crypto.Key, tx crypto.Hash, fork boo
 	defer s.mutex.RUnlock()
 
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
+		filter := make(map[crypto.Key]bool)
 		for _, ghost := range keys {
+			if filter[*ghost] {
+				return fmt.Errorf("duplicated ghost key %s", ghost.String())
+			}
+			filter[*ghost] = true
 			err := lockGhostKey(txn, ghost, tx, fork)
 			if err != nil {
 				return err

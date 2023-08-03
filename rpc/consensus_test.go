@@ -159,6 +159,9 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	require.Greater(hr.Round, uint64(0))
 	t.Logf("INPUT TEST DONE AT %s\n", time.Now())
 
+	testCustodianUpdateNodes(require)
+	t.Logf("CUSTODIAN TEST DONE AT %s\n", time.Now())
+
 	if !enableElection {
 		return
 	}
@@ -208,38 +211,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
 
-	mints = testListMintDistributions(nodes[0].Host)
-	require.Len(mints, 1)
-	tx := mints[0]
-	require.Len(tx.Inputs, 1)
-	mint := tx.Inputs[0].Mint
-	daily := common.NewIntegerFromString("136.98630136")
-	require.Equal("UNIVERSAL", mint.Group)
-	require.Equal(uint64(1), mint.Batch)
-	require.Equal(daily, mint.Amount)
-	require.Len(tx.Outputs, NODES+2)
-	total := common.Zero
-	for i, o := range tx.Outputs {
-		if i < NODES {
-			total = total.Add(o.Amount)
-			require.Equal("fffe01", o.Script.String())
-			require.Equal(uint8(common.OutputTypeScript), o.Type)
-			require.Len(o.Keys, 1)
-		} else if i == NODES {
-			require.Equal("fffe01", o.Script.String())
-			require.Equal(daily.Div(10).Mul(4), o.Amount)
-			require.Equal(uint8(common.OutputTypeScript), o.Type)
-			require.Len(o.Keys, 1)
-		} else if i == NODES+1 {
-			custodian := daily.Div(10).Mul(4)
-			total = total.Add(custodian)
-			light := daily.Sub(total)
-			require.Equal("fffe40", o.Script.String())
-			require.Equal(light, o.Amount)
-			require.Equal(uint8(common.OutputTypeScript), o.Type)
-			require.Len(o.Keys, 1)
-		}
-	}
+	testCheckMintDistributions(require, nodes[0].Host)
 
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes)
@@ -365,6 +337,45 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 
 	for _, node := range instances {
 		t.Log(node.IdForNetwork, node.Peer.Metric())
+	}
+
+}
+
+func testCustodianUpdateNodes(require *require.Assertions) {
+}
+
+func testCheckMintDistributions(require *require.Assertions, node string) {
+	mints := testListMintDistributions(node)
+	require.Len(mints, 1)
+	tx := mints[0]
+	require.Len(tx.Inputs, 1)
+	mint := tx.Inputs[0].Mint
+	daily := common.NewIntegerFromString("136.98630136")
+	require.Equal("UNIVERSAL", mint.Group)
+	require.Equal(uint64(1), mint.Batch)
+	require.Equal(daily, mint.Amount)
+	require.Len(tx.Outputs, NODES+2)
+	total := common.Zero
+	for i, o := range tx.Outputs {
+		if i < NODES {
+			total = total.Add(o.Amount)
+			require.Equal("fffe01", o.Script.String())
+			require.Equal(uint8(common.OutputTypeScript), o.Type)
+			require.Len(o.Keys, 1)
+		} else if i == NODES {
+			require.Equal("fffe01", o.Script.String())
+			require.Equal(daily.Div(10).Mul(4), o.Amount)
+			require.Equal(uint8(common.OutputTypeScript), o.Type)
+			require.Len(o.Keys, 1)
+		} else if i == NODES+1 {
+			custodian := daily.Div(10).Mul(4)
+			total = total.Add(custodian)
+			light := daily.Sub(total)
+			require.Equal("fffe40", o.Script.String())
+			require.Equal(light, o.Amount)
+			require.Equal(uint8(common.OutputTypeScript), o.Type)
+			require.Len(o.Keys, 1)
+		}
 	}
 }
 
