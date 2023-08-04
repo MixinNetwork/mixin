@@ -195,6 +195,9 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	mints := testListMintDistributions(nodes[0].Host)
 	require.Len(mints, 0)
 
+	logger.SetLevel(logger.ERROR)
+	logger.SetFilter("(?i)mint")
+
 	kernel.TestMockDiff((config.KernelMintTimeBegin + 24) * time.Hour)
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))

@@ -391,7 +391,7 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 	}
 
 	var signed *common.VersionedTransaction
-	cur, err := node.persistStore.ReadCustodian(snap.Timestamp)
+	cur, err := node.persistStore.ReadCustodian(timestamp)
 	if err != nil {
 		panic(err)
 	}
