@@ -13,7 +13,8 @@ const (
 	custodianNodeExtraSize     = 353
 	custodianNodeActionUpdate  = 1
 	custodianNodesMinimumCount = 7
-	custodianNodePrice         = 100
+	custodianNodeNewPrice      = 100
+	custodianNodeUpdatePrice   = 1
 )
 
 type CustodianUpdateRequest struct {
@@ -191,10 +192,15 @@ func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error
 	if len(filter) != len(prev.Nodes) {
 		panic(prev.Custodian.String())
 	}
-	total, price := Zero, NewInteger(custodianNodePrice)
+	total := Zero
+	newPrice := NewInteger(custodianNodeNewPrice)
+	udpatePrice := NewInteger(custodianNodeUpdatePrice)
 	for _, n := range curs.Nodes {
-		if filter[n.Custodian.String()] != n.Payee.String() {
-			total = total.Add(price)
+		old, found := filter[n.Custodian.String()]
+		if !found {
+			total = total.Add(newPrice)
+		} else if old != n.Payee.String() {
+			total = total.Add(udpatePrice)
 		}
 		delete(filter, n.Custodian.String())
 	}
