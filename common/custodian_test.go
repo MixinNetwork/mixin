@@ -161,12 +161,12 @@ func (s *testCustodianStore) ReadCustodian(ts uint64) (*CustodianUpdateRequest, 
 	if s.custodianUpdateNodesExtra == nil {
 		return nil, nil
 	}
-	custodian, nodes, _, err := ParseCustodianUpdateNodesExtra(s.custodianUpdateNodesExtra)
-	return &CustodianUpdateRequest{
-		Custodian: custodian,
-		Nodes:     nodes,
-		Timestamp: s.custodianUpdateNodesTimestamp,
-	}, err
+	cur, err := ParseCustodianUpdateNodesExtra(s.custodianUpdateNodesExtra)
+	if err != nil {
+		return nil, err
+	}
+	cur.Timestamp = s.custodianUpdateNodesTimestamp
+	return cur, nil
 }
 
 func testBuildAddress(require *require.Assertions) Address {

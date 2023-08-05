@@ -2,7 +2,6 @@ package storage
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -25,7 +24,7 @@ func (s *BadgerStore) ListCustodianUpdates() ([]*common.CustodianUpdateRequest, 
 	var curs []*common.CustodianUpdateRequest
 	it.Seek(graphCustodianUpdateKey(0))
 	for ; it.ValidForPrefix([]byte(graphPrefixCustodianUpdate)); it.Next() {
-		cur, err := parseCustodianUpdateItem(it)
+		cur, err := parseCustodianUpdateItem(txn, it)
 		if err != nil {
 			return nil, err
 		}
@@ -41,24 +40,6 @@ func (s *BadgerStore) ReadCustodian(ts uint64) (*common.CustodianUpdateRequest, 
 	return readCustodianAccount(txn, ts)
 }
 
-func parseCustodianNodes(val []byte) ([]*common.CustodianNode, error) {
-	count := int(val[0])
-	size := len(val[1:]) / count
-	if size*count != len(val)-1 {
-		panic(hex.EncodeToString(val))
-	}
-	nodes := make([]*common.CustodianNode, count)
-	for i := 0; i < int(val[0]); i++ {
-		extra := val[1+i*size : 1+(i+1)*size]
-		node, err := common.ParseCustodianNode(extra)
-		if err != nil {
-			return nil, err
-		}
-		nodes[i] = node
-	}
-	return nodes, nil
-}
-
 func readCustodianAccount(txn *badger.Txn, ts uint64) (*common.CustodianUpdateRequest, error) {
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = true
@@ -70,73 +51,63 @@ func readCustodianAccount(txn *badger.Txn, ts uint64) (*common.CustodianUpdateRe
 
 	it.Seek(graphCustodianUpdateKey(ts))
 	if it.ValidForPrefix([]byte(graphPrefixCustodianUpdate)) {
-		return parseCustodianUpdateItem(it)
+		return parseCustodianUpdateItem(txn, it)
 	}
 
 	return nil, nil
 }
 
-func parseCustodianUpdateItem(it *badger.Iterator) (*common.CustodianUpdateRequest, error) {
+func parseCustodianUpdateItem(txn *badger.Txn, it *badger.Iterator) (*common.CustodianUpdateRequest, error) {
 	key := it.Item().KeyCopy(nil)
 	ts := graphCustodianAccountTimestamp(key)
 	val, err := it.Item().ValueCopy(nil)
 	if err != nil {
 		return nil, err
 	}
-	if len(val) < 97 {
+	if len(val) != 32 {
 		panic(len(val))
 	}
 
-	nodes, err := parseCustodianNodes(val[96:])
+	var hash crypto.Hash
+	copy(hash[:], val)
+	tx, err := readTransaction(txn, hash)
 	if err != nil {
 		return nil, err
 	}
-
-	var hash crypto.Hash
-	copy(hash[:], val[:32])
-	var account common.Address
-	copy(account.PublicSpendKey[:], val[32:64])
-	copy(account.PublicViewKey[:], val[64:96])
-	return &common.CustodianUpdateRequest{
-		Custodian:   &account,
-		Nodes:       nodes,
-		Transaction: hash,
-		Timestamp:   ts,
-	}, nil
+	cur, err := common.ParseCustodianUpdateNodesExtra(tx.Extra)
+	if err != nil {
+		return nil, err
+	}
+	cur.Transaction = hash
+	cur.Timestamp = ts
+	return cur, nil
 }
 
 func writeCustodianNodes(txn *badger.Txn, snapTime uint64, utxo *common.UTXOWithLock, extra []byte) error {
-	custodian, nodes, _, err := common.ParseCustodianUpdateNodesExtra(extra)
+	now, err := common.ParseCustodianUpdateNodesExtra(extra)
 	if err != nil {
 		panic(fmt.Errorf("common.ParseCustodianUpdateNodesExtra(%x) => %v", extra, err))
 	}
-	cur, err := readCustodianAccount(txn, snapTime)
+	if len(now.Nodes) > 50 {
+		panic(len(now.Nodes))
+	}
+	prev, err := readCustodianAccount(txn, snapTime)
 	if err != nil {
 		return err
 	}
 	switch {
-	case cur == nil:
-	case cur.Timestamp > snapTime:
+	case prev == nil:
+	case prev.Timestamp > snapTime:
 		panic(utxo.Hash.String())
-	case cur.Timestamp == snapTime && custodian.String() == cur.Custodian.String():
+	case prev.Timestamp == snapTime && now.Custodian.String() == prev.Custodian.String():
 		return nil
-	case cur.Timestamp == snapTime && custodian.String() != cur.Custodian.String():
+	case prev.Timestamp == snapTime && now.Custodian.String() != prev.Custodian.String():
 		panic(utxo.Hash.String())
-	case cur.Timestamp < snapTime:
+	case prev.Timestamp < snapTime:
 	}
 
 	key := graphCustodianUpdateKey(snapTime)
-	val := append(utxo.Hash[:], custodian.PublicSpendKey[:]...)
-	val = append(val, custodian.PublicViewKey[:]...)
-	if len(nodes) > 50 {
-		panic(len(nodes))
-	}
-	val = append(val, byte(len(nodes)))
-	for _, n := range nodes {
-		val = append(val, n.Extra...)
-	}
-
-	return txn.Set(key, val)
+	return txn.Set(key, utxo.Hash[:])
 }
 
 func graphCustodianUpdateKey(ts uint64) []byte {

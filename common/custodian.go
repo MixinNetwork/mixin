@@ -19,6 +19,7 @@ const (
 type CustodianUpdateRequest struct {
 	Custodian   *Address
 	Nodes       []*CustodianNode
+	Signature   *crypto.Signature
 	Transaction crypto.Hash
 	Timestamp   uint64
 }
@@ -86,9 +87,9 @@ func ParseCustodianNode(extra []byte) (*CustodianNode, error) {
 	return &cn, nil
 }
 
-func ParseCustodianUpdateNodesExtra(extra []byte) (*Address, []*CustodianNode, *crypto.Signature, error) {
+func ParseCustodianUpdateNodesExtra(extra []byte) (*CustodianUpdateRequest, error) {
 	if len(extra) < 64+custodianNodeExtraSize*custodianNodesMinimumCount+64 {
-		return nil, nil, nil, fmt.Errorf("invalid custodian update extra %x", extra)
+		return nil, fmt.Errorf("invalid custodian update extra %x", extra)
 	}
 	var custodian Address
 	copy(custodian.PublicSpendKey[:], extra[:32])
@@ -99,7 +100,7 @@ func ParseCustodianUpdateNodesExtra(extra []byte) (*Address, []*CustodianNode, *
 	// 1 || custodian (Address) || payee (Address) || node id (Hash) || signerSig || payeeSig || custodianSig
 	nodesExtra := extra[64 : len(extra)-64]
 	if len(nodesExtra)%custodianNodeExtraSize != 0 {
-		return nil, nil, nil, fmt.Errorf("invalid custodian update extra %x", extra)
+		return nil, fmt.Errorf("invalid custodian update extra %x", extra)
 	}
 	nodes := make([]*CustodianNode, len(nodesExtra)/custodianNodeExtraSize)
 	uniqueKeys := make(map[crypto.Key]bool)
@@ -107,10 +108,10 @@ func ParseCustodianUpdateNodesExtra(extra []byte) (*Address, []*CustodianNode, *
 		cne := nodesExtra[i*custodianNodeExtraSize : (i+1)*custodianNodeExtraSize]
 		cn, err := ParseCustodianNode(cne)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		if uniqueKeys[cn.Payee.PublicSpendKey] || uniqueKeys[cn.Custodian.PublicSpendKey] {
-			return nil, nil, nil, fmt.Errorf("duplicate custodian or payee keys %x", cne)
+			return nil, fmt.Errorf("duplicate custodian or payee keys %x", cne)
 		}
 		uniqueKeys[cn.Payee.PublicSpendKey] = true
 		uniqueKeys[cn.Payee.PublicViewKey] = true
@@ -118,7 +119,7 @@ func ParseCustodianUpdateNodesExtra(extra []byte) (*Address, []*CustodianNode, *
 		uniqueKeys[cn.Custodian.PublicViewKey] = true
 		err = cn.validate()
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		nodes[i] = cn
 	}
@@ -131,10 +132,14 @@ func ParseCustodianUpdateNodesExtra(extra []byte) (*Address, []*CustodianNode, *
 		sortedExtra = append(sortedExtra, n.Extra...)
 	}
 	if !bytes.Equal(nodesExtra, sortedExtra) {
-		return nil, nil, nil, fmt.Errorf("invalid custodian nodes extra sort order %x", extra)
+		return nil, fmt.Errorf("invalid custodian nodes extra sort order %x", extra)
 	}
 
-	return &custodian, nodes, &prevCustodianSig, nil
+	return &CustodianUpdateRequest{
+		Custodian: &custodian,
+		Nodes:     nodes,
+		Signature: &prevCustodianSig,
+	}, nil
 }
 
 func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error {
@@ -155,12 +160,12 @@ func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error
 		return fmt.Errorf("invalid custodian update output receiver %v", out)
 	}
 
-	custodian, custodianNodes, prevCustodianSig, err := ParseCustodianUpdateNodesExtra(tx.Extra)
+	curs, err := ParseCustodianUpdateNodesExtra(tx.Extra)
 	if err != nil {
 		return err
 	}
-	if len(custodianNodes) < custodianNodesMinimumCount {
-		return fmt.Errorf("invalid custodian nodes count %d", len(custodianNodes))
+	if len(curs.Nodes) < custodianNodesMinimumCount {
+		return fmt.Errorf("invalid custodian nodes count %d", len(curs.Nodes))
 	}
 
 	now := uint64(time.Now().UnixNano())
@@ -175,7 +180,7 @@ func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error
 		}
 		prev = &CustodianUpdateRequest{Custodian: &domains[0].Account}
 	}
-	if !prev.Custodian.PublicSpendKey.Verify(tx.Extra[:len(tx.Extra)-64], *prevCustodianSig) {
+	if !prev.Custodian.PublicSpendKey.Verify(tx.Extra[:len(tx.Extra)-64], *curs.Signature) {
 		return fmt.Errorf("invalid custodian update approval signature %x", tx.Extra)
 	}
 
@@ -187,7 +192,7 @@ func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error
 		panic(prev.Custodian.String())
 	}
 	total, price := Zero, NewInteger(custodianNodePrice)
-	for _, n := range custodianNodes {
+	for _, n := range curs.Nodes {
 		if filter[n.Custodian.String()] != n.Payee.String() {
 			total = total.Add(price)
 		}
@@ -197,10 +202,10 @@ func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error
 		return fmt.Errorf("invalid custodian nodes update price %v", out)
 	}
 
-	if custodian.String() != prev.Custodian.String() {
+	if curs.Custodian.String() != prev.Custodian.String() {
 		return nil
 	}
-	if len(filter) != 0 || len(prev.Nodes) != len(custodianNodes) {
+	if len(filter) != 0 || len(prev.Nodes) != len(curs.Nodes) {
 		return fmt.Errorf("custodian account and nodes mismatch %x", tx.Extra)
 	}
 	return nil

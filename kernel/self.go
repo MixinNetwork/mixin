@@ -94,6 +94,14 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 			logger.Verbosef("validateNodeRemoveSnapshot ERROR %v %s %s\n", s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
 			return err
 		}
+	case common.TransactionTypeCustodianUpdateNodes:
+		err := node.validateCustodianUpdateNodes(s, tx, finalized)
+		if err != nil {
+			logger.Verbosef("validateCustodianUpdateNodes ERROR %v %s %s\n", s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
+			return err
+		}
+	case common.TransactionTypeCustodianSlashNodes:
+		return fmt.Errorf("not implemented %v", tx)
 	}
 	if s.NodeId != node.IdForNetwork && s.RoundNumber == 0 && tx.TransactionType() != common.TransactionTypeNodeAccept {
 		return fmt.Errorf("invalid initial transaction type %d", tx.TransactionType())
