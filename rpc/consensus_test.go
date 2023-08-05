@@ -159,7 +159,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	require.Greater(hr.Round, uint64(0))
 	t.Logf("INPUT TEST DONE AT %s\n", time.Now())
 
-	testCustodianUpdateNodes(t, nodes, accounts, payees)
+	testCustodianUpdateNodes(t, nodes, accounts, payees, instances[0].NetworkId())
 	transactionsCount = transactionsCount + 2
 	t.Logf("CUSTODIAN TEST DONE AT %s\n", time.Now())
 
@@ -345,7 +345,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 
 }
 
-func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []common.Address) {
+func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []common.Address, networkId crypto.Hash) {
 	require := require.New(t)
 	tx := common.NewTransactionV4(common.XINAssetId)
 	require.NotNil(tx)
@@ -359,7 +359,6 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 	tx.Extra = append(tx.Extra, custodian.PublicSpendKey[:]...)
 	tx.Extra = append(tx.Extra, custodian.PublicViewKey[:]...)
 
-	mainnet, _ := crypto.HashFromString(config.MainnetId)
 	custodianNodes := make([]*common.CustodianNode, count)
 	for i := 0; i < count; i++ {
 		signer := signers[i]
@@ -367,7 +366,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 		seed := make([]byte, 64)
 		rand.Read(seed)
 		custodian := common.NewAddressFromSeed(seed)
-		extra := common.EncodeCustodianNode(&custodian, &payee, &signer.PrivateSpendKey, &payee.PrivateSpendKey, &custodian.PrivateSpendKey, mainnet)
+		extra := common.EncodeCustodianNode(&custodian, &payee, &signer.PrivateSpendKey, &payee.PrivateSpendKey, &custodian.PrivateSpendKey, networkId)
 		custodianNodes[i] = &common.CustodianNode{Custodian: custodian, Payee: payee, Extra: extra}
 		tx.Extra = append(tx.Extra, extra...)
 	}

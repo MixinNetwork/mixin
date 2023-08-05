@@ -5,6 +5,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 )
 
@@ -53,15 +54,26 @@ func (node *Node) validateCustodianUpdateNodes(s *common.Snapshot, tx *common.Ve
 	}
 
 	all := node.persistStore.ReadAllNodes(timestamp, false)
-	filter := make(map[string]bool)
+	filter := make(map[crypto.Hash]*common.Node)
 	for _, n := range all {
-		filter[n.Payee.String()] = true
+		filter[n.IdForNetwork(node.networkId)] = n
 	}
 	for _, n := range curs.Nodes {
-		if filter[n.Payee.String()] {
-			continue
+		var id crypto.Hash
+		copy(id[:], n.Extra[129:161])
+		cn := filter[id]
+		if cn == nil {
+			return fmt.Errorf("invalid custodian node id %x", n.Extra)
 		}
-		return fmt.Errorf("invalid custodian node %v", n)
+		if cn.Payee.String() != n.Payee.String() {
+			return fmt.Errorf("invalid custodian node payee %x", n.Extra)
+		}
+		msg := n.Extra[:161]
+		var sig crypto.Signature
+		copy(sig[:], n.Extra[161:225])
+		if !cn.Signer.PublicSpendKey.Verify(msg, sig) {
+			return fmt.Errorf("invalid custodian update signer signature %x", n.Extra)
+		}
 	}
 	return nil
 }
