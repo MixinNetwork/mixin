@@ -208,6 +208,8 @@ func (tx *SignedTransaction) validateDeposit(store DataStore, msg []byte, payloa
 	if sig == nil {
 		return fmt.Errorf("invalid domain signature index for deposit")
 	}
+	// FIXME change this to custodian only when available
+	// domain key will be used as observer for the safe network
 	for _, d := range store.ReadDomains() {
 		if d.Account.PublicSpendKey.Verify(msg, *sig) {
 			valid = true

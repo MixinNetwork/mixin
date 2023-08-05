@@ -85,6 +85,10 @@ func ParseCustodianNode(extra []byte) (*CustodianNode, error) {
 	copy(cn.Custodian.PublicViewKey[:], extra[33:65])
 	copy(cn.Payee.PublicSpendKey[:], extra[65:97])
 	copy(cn.Payee.PublicViewKey[:], extra[97:129])
+	err := cn.validate()
+	if err != nil {
+		return nil, err
+	}
 	return &cn, nil
 }
 
@@ -118,10 +122,6 @@ func ParseCustodianUpdateNodesExtra(extra []byte) (*CustodianUpdateRequest, erro
 		uniqueKeys[cn.Payee.PublicViewKey] = true
 		uniqueKeys[cn.Custodian.PublicSpendKey] = true
 		uniqueKeys[cn.Custodian.PublicViewKey] = true
-		err = cn.validate()
-		if err != nil {
-			return nil, err
-		}
 		nodes[i] = cn
 	}
 

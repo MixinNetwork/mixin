@@ -7,6 +7,7 @@ import (
 	"github.com/dgraph-io/badger/v4"
 )
 
+// FIXME remove this in the future
 func (s *BadgerStore) OneTimeFixMintPrefix() error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()

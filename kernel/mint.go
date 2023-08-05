@@ -62,6 +62,10 @@ func (chain *Chain) AggregateMintWork() {
 		// decide the last round of a removed node. The fix is to penalize the late
 		// spending of a node remove output, i.e. the node remove output must be
 		// used as soon as possible.
+		// A better fix is to init some transaction that references the node removal
+		// all automatically from kernel.
+		// Another fix is to utilize the light node to reference the node removal
+		// and incentivize the first light nodes that do this.
 		crn := chain.State.CacheRound.Number
 		if crn < round {
 			panic(fmt.Errorf("AggregateMintWork(%s) waiting %d %d", chain.ChainId, crn, round))
@@ -199,7 +203,7 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 		panic(fmt.Errorf("buildUniversalMintTransaction %s %s", amount, total))
 	}
 
-	node.tryToSlashLegacyLightPool(uint64(batch), amount, tx)
+	node.tryToSlashLegacyLightPool(uint64(batch), tx)
 	amount = tx.Inputs[0].Mint.Amount
 
 	// TODO use real light mint account when light node online
@@ -213,25 +217,25 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 	return tx.AsVersioned()
 }
 
-func (node *Node) tryToSlashLegacyLightPool(batch uint64, amount common.Integer, tx *common.Transaction) {
+func (node *Node) tryToSlashLegacyLightPool(batch uint64, tx *common.Transaction) {
 	if !node.isMainnet() || batch < MainnetMintTransactionV3ForkBatch {
 		return
 	}
+	mint := tx.Inputs[0].Mint
 	mints, _, _ := node.persistStore.ReadMintDistributions(batch-1, 1)
 	if mints[0].Batch+1 != batch {
 		panic(fmt.Errorf("tryToSlashLegacyLightPool %v %d", mints[0], batch))
 	}
-	if mints[0].Group == tx.Inputs[0].Mint.Group {
+	if mints[0].Group == mint.Group {
 		return
 	}
 	old := int(mints[0].Batch)
 	lightSlash := poolSizeLegacy(old).Sub(poolSizeUniversal(old))
-	amount = amount.Add(lightSlash)
-	tx.Inputs[0].Mint.Amount = amount
+	mint.Amount = mint.Amount.Add(lightSlash)
 }
 
 func (node *Node) PoolSize() (common.Integer, error) {
-	dist, err := node.persistStore.ReadLastMintDistribution(uint64(clock.Now().UnixNano()))
+	dist, err := node.persistStore.ReadLastMintDistribution(^uint64(0))
 	if err != nil {
 		return common.Zero, err
 	}
@@ -393,7 +397,7 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 	var signed *common.VersionedTransaction
 	cur, err := node.persistStore.ReadCustodian(timestamp)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	if cur == nil && node.isMainnet() {
 		signed = node.buildLegacyKerneNodeMintTransaction(timestamp, true)
@@ -438,7 +442,7 @@ func (node *Node) checkUniversalMintPossibility(timestamp uint64, validateOnly b
 	pool = pool.Div(MintYearShares)
 	total := pool.Div(MintYearBatches)
 
-	dist, err := node.persistStore.ReadLastMintDistribution(timestamp)
+	dist, err := node.persistStore.ReadLastMintDistribution(^uint64(0))
 	if err != nil {
 		logger.Verbosef("ReadLastMintDistribution ERROR %s\n", err)
 		return 0, common.Zero
@@ -489,7 +493,7 @@ func (node *Node) checkLegacyMintPossibility(timestamp uint64, validateOnly bool
 	light := total.Div(10)
 	full := light.Mul(9)
 
-	dist, err := node.persistStore.ReadLastMintDistribution(timestamp)
+	dist, err := node.persistStore.ReadLastMintDistribution(^uint64(0))
 	if err != nil {
 		logger.Verbosef("ReadLastMintDistribution ERROR %s\n", err)
 		return 0, common.Zero

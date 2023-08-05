@@ -963,10 +963,6 @@ func (raw signerInput) CheckDepositInput(deposit *common.DepositData, tx crypto.
 	return nil
 }
 
-func (raw signerInput) ReadLastMintDistribution(group string) (*common.MintDistribution, error) {
-	return nil, nil
-}
-
 func transactionToMap(tx *common.VersionedTransaction) map[string]any {
 	var inputs []map[string]any
 	for _, in := range tx.Inputs {

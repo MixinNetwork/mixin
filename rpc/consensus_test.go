@@ -356,8 +356,6 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 	rand.Read(seed)
 	count := len(signers)
 	custodian := common.NewAddressFromSeed(seed)
-	tx.Extra = append(tx.Extra, custodian.PublicSpendKey[:]...)
-	tx.Extra = append(tx.Extra, custodian.PublicViewKey[:]...)
 
 	custodianNodes := make([]*common.CustodianNode, count)
 	for i := 0; i < count; i++ {
@@ -368,11 +366,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 		custodian := common.NewAddressFromSeed(seed)
 		extra := common.EncodeCustodianNode(&custodian, &payee, &signer.PrivateSpendKey, &payee.PrivateSpendKey, &custodian.PrivateSpendKey, networkId)
 		custodianNodes[i] = &common.CustodianNode{Custodian: custodian, Payee: payee, Extra: extra}
-		tx.Extra = append(tx.Extra, extra...)
 	}
-
-	sig := domain.PrivateSpendKey.Sign(tx.Extra)
-	tx.Extra = append(tx.Extra, sig[:]...)
 
 	amount := common.NewInteger(100).Mul(count)
 	tx.AddScriptOutput([]*common.Address{&custodian}, common.NewThresholdScript(common.Operator64), amount, make([]byte, 64))
@@ -385,11 +379,10 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 	for _, n := range custodianNodes {
 		sortedExtra = append(sortedExtra, n.Extra...)
 	}
-	sig = domain.PrivateSpendKey.Sign(sortedExtra)
+	sig := domain.PrivateSpendKey.Sign(sortedExtra)
 	tx.Extra = append(sortedExtra, sig[:]...)
 
-	dpm, _ := strconv.ParseFloat(amount.String(), 64)
-	raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, 10000, dpm, dpm, domain.String())
+	raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%s"}}],"outputs":[{"type":0,"amount":"%s","script":"fffe01","accounts":["%s"]}]}`, 10000, amount.String(), amount.String(), domain.String())
 	rand.Seed(time.Now().UnixNano())
 	deposit, err := testSignTransaction(nodes[0].Host, domain, raw, 0)
 	require.Nil(err)
@@ -1172,10 +1165,6 @@ func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKe
 
 func (raw signerInput) CheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
 	return nil
-}
-
-func (raw signerInput) ReadLastMintDistribution(group string) (*common.MintDistribution, error) {
-	return nil, nil
 }
 
 func newCache(conf *config.Custom) *ristretto.Cache {

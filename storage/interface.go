@@ -41,7 +41,7 @@ type Store interface {
 	CacheRetrieveTransactions(limit int) ([]*common.VersionedTransaction, error)
 	CacheRemoveTransactions([]crypto.Hash) error
 
-	ReadLastMintDistribution(ts uint64) (*common.MintDistribution, error)
+	ReadLastMintDistribution(batch uint64) (*common.MintDistribution, error)
 	LockMintInput(mint *common.MintData, tx crypto.Hash, fork bool) error
 	ReadMintDistributions(offset, count uint64) ([]*common.MintDistribution, []*common.VersionedTransaction, error)
 	ReadSnapshotWorksForNodeRound(nodeId crypto.Hash, round uint64) ([]*common.SnapshotWork, error)
