@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -604,7 +605,8 @@ func encodeCustodianExtraCmd(c *cli.Context) error {
 		PublicViewKey:  payeeSpend.Public().DeterministicHashDerive().Public(),
 	}
 	extra := common.EncodeCustodianNode(custodian, payee, &signerSpend, &payeeSpend, &custodianSpend, networkId)
-	fmt.Printf("%x\n", extra)
+	fmt.Printf("HEX: %x\n", extra)
+	fmt.Printf("BASE64: %s\n", base64.RawURLEncoding.EncodeToString(extra))
 	return nil
 }
 
