@@ -1,7 +1,7 @@
 filippo.io/edwards25519 v1.0.0 h1:0wAIcmJUqRdI8IJ/3eGi5/HwXZWPujYXXlkrQogz0Ek=
 filippo.io/edwards25519 v1.0.0/go.mod h1:N1IkdkCkiLB6tki+MYJoSx2JTY9NUlxZE7eHn5EwJns=
-github.com/MixinNetwork/badger/v4 v4.2.0-F1 h1:C8K6AYHsfqTPv7eSiSv4wl1awrW2dgkM6EQU8Sbwq7w=
-github.com/MixinNetwork/badger/v4 v4.2.0-F1/go.mod h1:eoudq8Vt4sWtlqwVp9XZ1Keww3/rjYZHoffiMV4IEuY=
+github.com/MixinNetwork/badger/v4 v4.2.0-F2 h1:IstmPUvq8dZlAZsZXtWq0+s9qgnT/JbR6jznGCSbILY=
+github.com/MixinNetwork/badger/v4 v4.2.0-F2/go.mod h1:ODHiWhM4HqRcEYmanhjUeCHeFw3YZB5tjU09SZ+TISg=
 github.com/MixinNetwork/mobilecoin-account v0.0.4 h1:6fLWejLmECGCO21i+XNY9M6NPZnj1zhphltaD8Pt7EI=
 github.com/MixinNetwork/mobilecoin-account v0.0.4/go.mod h1:JHoiRZrhE0hHSHMh5s4ReGPHXfsQHpPGO4bcL4CXy4k=
 github.com/MixinNetwork/msgpack/v4 v4.4.0 h1:IsMyKqr5sSRqifQXQCJ9z5StjY4ubVA8scbVqpAzoR8=
