@@ -2,7 +2,7 @@ module github.com/MixinNetwork/mixin
 
 go 1.21
 
-replace github.com/dgraph-io/badger/v4 => github.com/MixinNetwork/badger/v4 v4.2.0-F2
+replace github.com/dgraph-io/badger/v4 => github.com/MixinNetwork/badger/v4 v4.2.0-F1
 
 require (
 	filippo.io/edwards25519 v1.0.0

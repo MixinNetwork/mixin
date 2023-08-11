@@ -51,6 +51,8 @@ func openDB(dir string, sync bool, custom *config.Custom) (*badger.DB, error) {
 	opts = opts.WithMetricsEnabled(false)
 	opts = opts.WithLoggingLevel(badger.WARNING)
 	opts = opts.WithLevelSizeMultiplier(16) // FIXME badger panic on compaction
+	opts = opts.WithBaseLevelSize(16 << 20)
+	opts = opts.WithMaxLevels(13)
 	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
