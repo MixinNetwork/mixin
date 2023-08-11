@@ -24,9 +24,6 @@ func (s *BadgerStore) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKey
 }
 
 func (s *BadgerStore) ReadUTXOLock(hash crypto.Hash, index int) (*common.UTXOWithLock, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -51,9 +48,6 @@ func (s *BadgerStore) readUTXOLock(txn *badger.Txn, hash crypto.Hash, index int)
 }
 
 func (s *BadgerStore) LockUTXOs(inputs []*common.Input, tx crypto.Hash, fork bool) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		for _, in := range inputs {
 			err := lockUTXO(txn, in.Hash, in.Index, tx, fork)
@@ -111,9 +105,6 @@ func (s *BadgerStore) ReadGhostKeyLock(key crypto.Key) (*crypto.Hash, error) {
 }
 
 func (s *BadgerStore) LockGhostKeys(keys []*crypto.Key, tx crypto.Hash, fork bool) error {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		filter := make(map[crypto.Key]bool)
 		for _, ghost := range keys {

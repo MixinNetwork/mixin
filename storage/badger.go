@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/config"
@@ -14,7 +13,6 @@ type BadgerStore struct {
 	custom      *config.Custom
 	snapshotsDB *badger.DB
 	cacheDB     *badger.DB
-	mutex       *sync.RWMutex
 	closing     bool
 }
 
@@ -31,7 +29,6 @@ func NewBadgerStore(custom *config.Custom, dir string) (*BadgerStore, error) {
 		custom:      custom,
 		snapshotsDB: snapshotsDB,
 		cacheDB:     cacheDB,
-		mutex:       new(sync.RWMutex),
 		closing:     false,
 	}, nil
 }

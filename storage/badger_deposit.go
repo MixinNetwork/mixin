@@ -11,9 +11,6 @@ import (
 )
 
 func (s *BadgerStore) CheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -30,9 +27,6 @@ func (s *BadgerStore) CheckDepositInput(deposit *common.DepositData, tx crypto.H
 }
 
 func (s *BadgerStore) LockDepositInput(deposit *common.DepositData, tx crypto.Hash, fork bool) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		ival, err := readDepositInput(txn, deposit)
 		if err == badger.ErrKeyNotFound {
