@@ -21,7 +21,7 @@ require (
 	github.com/zeebo/blake3 v0.2.3
 	go.dedis.ch/kyber/v3 v3.1.0
 	golang.org/x/crypto v0.12.0
-	golang.org/x/exp v0.0.0-20230809150735-7b3493d9a819
+	golang.org/x/exp v0.0.0-20230811145659-89c5cff77bcb
 )
 
 require (
