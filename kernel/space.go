@@ -49,7 +49,9 @@ func (chain *Chain) AggregateRoundSpace() {
 		since := checkTime - chain.node.Epoch
 		batch := uint64(since/3600000000000) / 24
 		if batch > chain.node.LastMint+1 {
-			panic(batch)
+			logger.Verbosef("AggregateRoundSpace(%s) ERROR batch future %d %d %s", batch, chain.node.LastMint, time.Unix(0, int64(checkTime)))
+			chain.waitOrDone(wait)
+			continue
 		}
 		space := &common.RoundSpace{
 			NodeId:   chain.ChainId,
