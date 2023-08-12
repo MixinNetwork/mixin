@@ -48,7 +48,8 @@ type Custom struct {
 		CacheTTL             int        `toml:"cache-ttl"`
 	} `toml:"node"`
 	Storage struct {
-		ValueLogGC bool `toml:"value-log-gc"`
+		ValueLogGC          bool `toml:"value-log-gc"`
+		MaxCompactionLevels int  `toml:"max-compaction-levels"`
 	} `toml:"storage"`
 	Network struct {
 		Listener        string   `toml:"listener"`

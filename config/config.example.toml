@@ -12,8 +12,10 @@ memory-cache-size = 4096
 cache-ttl = 7200
 
 [storage]
-# enable value log gc will reduce disk storage usage
+# enable badger value log gc will reduce disk storage usage
 value-log-gc = true
+# compaction level should be increased when data too big can badger panic
+max-compaction-levels = 7
 
 [network]
 # the public endpoint to receive peer packets, may be a proxy or load balancer

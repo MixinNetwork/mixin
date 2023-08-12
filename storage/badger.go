@@ -62,6 +62,10 @@ func openDB(dir string, sync bool, custom *config.Custom) (*badger.DB, error) {
 	opts = opts.WithBaseLevelSize(16 << 20)
 	opts = opts.WithLevelSizeMultiplier(16)
 	opts = opts.WithMaxLevels(7)
+	if custom != nil && custom.Storage.MaxCompactionLevels > 0 {
+		opts = opts.WithMaxLevels(custom.Storage.MaxCompactionLevels)
+	}
+
 	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
