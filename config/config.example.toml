@@ -14,7 +14,9 @@ cache-ttl = 7200
 [storage]
 # enable badger value log gc will reduce disk storage usage
 value-log-gc = true
-# compaction level should be increased when data too big can badger panic
+# max levels should be increased when data too big and badger panic
+# increase the level to 8 when data grows big to execeed 16TB
+# the max levels can not be decreased once up, so be cautious
 max-compaction-levels = 7
 
 [network]

@@ -18,6 +18,9 @@ func TestConfig(t *testing.T) {
 	require.Equal(4096, custom.Node.MemoryCacheSize)
 	require.Equal(7200, custom.Node.CacheTTL)
 
+	require.Equal(true, custom.Storage.ValueLogGC)
+	require.Equal(7, custom.Storage.MaxCompactionLevels)
+
 	require.Equal("mixin-node.example.com:7239", custom.Network.Listener)
 	require.Len(custom.Network.Peers, 26)
 	require.Equal("lehigh-2.hotot.org:7239", custom.Network.Peers[25])
