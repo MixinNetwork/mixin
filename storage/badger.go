@@ -50,9 +50,14 @@ func openDB(dir string, sync bool, custom *config.Custom) (*badger.DB, error) {
 	opts = opts.WithIndexCacheSize(0)
 	opts = opts.WithMetricsEnabled(false)
 	opts = opts.WithLoggingLevel(badger.WARNING)
-	opts = opts.WithLevelSizeMultiplier(16) // FIXME badger panic on compaction
-	opts = opts.WithBaseLevelSize(16 << 20)
-	opts = opts.WithMaxLevels(13)
+
+	// these three options control the maximum database size
+	// for level up to max levels: sum(base * (multiplier ** level))
+	// increase the level when data grows big to 10TB next time
+	// the drawback is huge memory usage increases
+	opts = opts.WithBaseLevelSize(10 << 20)
+	opts = opts.WithLevelSizeMultiplier(10)
+	opts = opts.WithMaxLevels(8)
 	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err

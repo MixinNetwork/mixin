@@ -2,7 +2,7 @@ module github.com/MixinNetwork/mixin
 
 go 1.21
 
-replace github.com/dgraph-io/badger/v4 => github.com/MixinNetwork/badger/v4 v4.2.0-F2
+replace github.com/dgraph-io/badger/v4 => github.com/MixinNetwork/badger/v4 v4.2.0-F1
 
 require (
 	filippo.io/edwards25519 v1.0.0
@@ -38,7 +38,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/flatbuffers v23.5.26+incompatible // indirect
-	github.com/google/pprof v0.0.0-20230808223545-4887780b67fb // indirect
+	github.com/google/pprof v0.0.0-20230811205829-9131a7e9cc17 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/onsi/ginkgo/v2 v2.11.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
