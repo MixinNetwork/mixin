@@ -37,19 +37,21 @@ func (chain *Chain) AggregateRoundSpace() {
 
 		nextTime, err := chain.readFinalRoundTimestamp(round + 1)
 		if err != nil {
-			logger.Verbosef("AggregateRoundSpace(%s) ERROR readFinalRoundTimestamp %d %v\n", chain.ChainId, round+1, err)
+			logger.Verbosef("AggregateRoundSpace(%s) ERROR readFinalRoundTimestamp %d %v\n",
+				chain.ChainId, round+1, err)
 			continue
 		}
 		checkTime, err := chain.readFinalRoundTimestamp(round)
 		if err != nil {
-			logger.Verbosef("AggregateRoundSpace(%s) ERROR readFinalRoundTimestamp %d %v\n", chain.ChainId, round, err)
+			logger.Verbosef("AggregateRoundSpace(%s) ERROR readFinalRoundTimestamp %d %v\n",
+				chain.ChainId, round, err)
 			continue
 		}
 
 		since := checkTime - chain.node.Epoch
 		batch := uint64(since/3600000000000) / 24
 		if batch > chain.node.LastMint+1 {
-			logger.Verbosef("AggregateRoundSpace(%s) ERROR batch future %d %d %s\n",
+			logger.Printf("AggregateRoundSpace(%s) ERROR batch future %d %d %s\n",
 				chain.ChainId, batch, chain.node.LastMint, time.Unix(0, int64(checkTime)))
 			chain.waitOrDone(wait)
 			continue
