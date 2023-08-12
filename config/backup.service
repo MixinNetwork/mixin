@@ -5,7 +5,7 @@ After=network.target
 [Service]
 User=one
 Type=simple
-ExecStart=/user/bin/mnm run '/home/one/bin/snapshots.sh'
+ExecStart=/usr/bin/mnm run '/home/one/bin/snapshots.sh'
 Restart=on-failure
 LimitNOFILE=65536
 
