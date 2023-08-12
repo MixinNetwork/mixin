@@ -447,7 +447,8 @@ func (node *Node) checkUniversalMintPossibility(timestamp uint64, validateOnly b
 		logger.Verbosef("ReadLastMintDistribution ERROR %s\n", err)
 		return 0, common.Zero
 	}
-	logger.Verbosef("checkUniversalMintPossibility OLD %s %s %d %s %d\n", pool, total, batch, dist.Amount, dist.Batch)
+	logger.Verbosef("checkUniversalMintPossibility OLD %s %s %d %s %d\n",
+		pool, total, batch, dist.Amount, dist.Batch)
 
 	if batch < int(dist.Batch) {
 		return 0, common.Zero
@@ -460,7 +461,8 @@ func (node *Node) checkUniversalMintPossibility(timestamp uint64, validateOnly b
 	}
 
 	amount := total.Mul(batch - int(dist.Batch))
-	logger.Verbosef("checkUniversalMintPossibility NEW %s %s %s %d %s %d\n", pool, total, amount, batch, dist.Amount, dist.Batch)
+	logger.Verbosef("checkUniversalMintPossibility NEW %s %s %s %d %s %d\n",
+		pool, total, amount, batch, dist.Amount, dist.Batch)
 	return batch, amount
 }
 
@@ -498,7 +500,8 @@ func (node *Node) checkLegacyMintPossibility(timestamp uint64, validateOnly bool
 		logger.Verbosef("ReadLastMintDistribution ERROR %s\n", err)
 		return 0, common.Zero
 	}
-	logger.Verbosef("checkMintPossibility OLD %s %s %s %s %d %s %d\n", pool, total, light, full, batch, dist.Amount, dist.Batch)
+	logger.Verbosef("checkMintPossibility OLD %s %s %s %s %d %s %d\n",
+		pool, total, light, full, batch, dist.Amount, dist.Batch)
 
 	if batch < int(dist.Batch) {
 		return 0, common.Zero
@@ -511,7 +514,8 @@ func (node *Node) checkLegacyMintPossibility(timestamp uint64, validateOnly bool
 	}
 
 	amount := full.Mul(batch - int(dist.Batch))
-	logger.Verbosef("checkMintPossibility NEW %s %s %s %s %s %d %s %d\n", pool, total, light, full, amount, batch, dist.Amount, dist.Batch)
+	logger.Verbosef("checkMintPossibility NEW %s %s %s %s %s %d %s %d\n",
+		pool, total, light, full, amount, batch, dist.Amount, dist.Batch)
 	return batch, amount
 }
 
@@ -592,13 +596,15 @@ func (node *Node) distributeKernelMintByWorks(accepted []*CNode, base common.Int
 		total = total.Add(m.Work)
 	}
 	if valid < thr {
-		return nil, fmt.Errorf("distributeKernelMintByWorks not valid %d %d %d %d", day, len(mints), thr, valid)
+		return nil, fmt.Errorf("distributeKernelMintByWorks not valid %d %d %d %d",
+			day, len(mints), thr, valid)
 	}
 
 	total = total.Sub(min).Sub(max)
 	avg := total.Div(valid - 2)
 	if avg.Sign() == 0 {
-		return nil, fmt.Errorf("distributeKernelMintByWorks not valid %d %d %d %d", day, len(mints), thr, valid)
+		return nil, fmt.Errorf("distributeKernelMintByWorks not valid %d %d %d %d",
+			day, len(mints), thr, valid)
 	}
 
 	total = common.NewInteger(0)
@@ -634,7 +640,8 @@ func (node *Node) validateWorksAndSpacesAggregator(cids []crypto.Hash, thr int, 
 		}
 	}
 	if worksAgg < thr {
-		return fmt.Errorf("validateWorksAndSpacesAggregator works not ready yet %d %d %d %d", day, len(works), worksAgg, thr)
+		return fmt.Errorf("validateWorksAndSpacesAggregator works not ready yet %d %d %d %d",
+			day, len(works), worksAgg, thr)
 	}
 
 	spaces, err := node.persistStore.ListAggregatedRoundSpaceCheckpoints(cids)
@@ -649,7 +656,8 @@ func (node *Node) validateWorksAndSpacesAggregator(cids []crypto.Hash, thr int, 
 		}
 	}
 	if spacesAgg < thr || worksAgg != spacesAgg {
-		return fmt.Errorf("validateWorksAndSpacesAggregator spaces not ready yet %d %d %d %d %d", batch, len(spaces), spacesAgg, worksAgg, thr)
+		return fmt.Errorf("validateWorksAndSpacesAggregator spaces not ready yet %d %d %d %d %d",
+			batch, len(spaces), spacesAgg, worksAgg, thr)
 	}
 
 	return nil

@@ -112,14 +112,16 @@ func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, ro
 		return fmt.Errorf("external reference self %s", final.NodeId)
 	}
 	if external.Number < chain.State.RoundLinks[external.NodeId] {
-		return fmt.Errorf("external reference back link %d %d", external.Number, chain.State.RoundLinks[external.NodeId])
+		return fmt.Errorf("external reference back link %d %d",
+			external.Number, chain.State.RoundLinks[external.NodeId])
 	}
 	link, err := chain.persistStore.ReadLink(final.NodeId, external.NodeId)
 	if err != nil {
 		return err
 	}
 	if link != chain.State.RoundLinks[external.NodeId] {
-		panic(fmt.Errorf("should never be here %s=>%s %d %d", chain.ChainId, external.NodeId, link, chain.State.RoundLinks[external.NodeId]))
+		panic(fmt.Errorf("should never be here %s=>%s %d %d",
+			chain.ChainId, external.NodeId, link, chain.State.RoundLinks[external.NodeId]))
 	}
 
 	if strict {
@@ -131,7 +133,8 @@ func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, ro
 		threshold := external.Timestamp + config.SnapshotSyncRoundThreshold*config.SnapshotRoundGap*64
 		best := chain.determineBestRound(roundTime)
 		if best != nil && threshold < best.Start {
-			return fmt.Errorf("external reference %v too early %v %f", *external, *best, time.Duration(best.Start-threshold).Seconds())
+			return fmt.Errorf("external reference %v too early %v %f",
+				*external, *best, time.Duration(best.Start-threshold).Seconds())
 		}
 	}
 
@@ -236,18 +239,22 @@ func (chain *Chain) determineBestRound(roundTime uint64) *FinalRound {
 
 func (chain *Chain) checkReferenceSanity(ec *Chain, external *common.Round, roundTime uint64) error {
 	if external.Timestamp > roundTime {
-		return fmt.Errorf("external reference later than snapshot time %f", time.Duration(external.Timestamp-roundTime).Seconds())
+		return fmt.Errorf("external reference later than snapshot time %f",
+			time.Duration(external.Timestamp-roundTime).Seconds())
 	}
 	if !chain.node.genesisNodesMap[external.NodeId] && external.Number < 7+config.SnapshotReferenceThreshold {
-		return fmt.Errorf("external hint round too early yet not genesis %d", external.Number)
+		return fmt.Errorf("external hint round too early yet not genesis %d",
+			external.Number)
 	}
 
 	cr, fr := ec.State.CacheRound, ec.State.FinalRound
 	if now := uint64(clock.Now().UnixNano()); fr.Start > now {
-		return fmt.Errorf("external hint round timestamp too future %d %d", fr.Start, clock.Now().UnixNano())
+		return fmt.Errorf("external hint round timestamp too future %d %d",
+			fr.Start, clock.Now().UnixNano())
 	}
 	if len(cr.Snapshots) == 0 && cr.Number == external.Number+1 && external.Number > 0 {
-		return fmt.Errorf("external hint round without extra final yet %d", external.Number)
+		return fmt.Errorf("external hint round without extra final yet %d",
+			external.Number)
 	}
 	return nil
 }

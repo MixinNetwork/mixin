@@ -39,7 +39,8 @@ func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snaps
 			}
 		}
 
-		if chain.IsPledging() && s.RoundNumber == 0 && chain.node.CacheVerify(s.Hash, *sig, chain.ConsensusInfo.Signer.PublicSpendKey) {
+		if chain.IsPledging() && s.RoundNumber == 0 &&
+			chain.node.CacheVerify(s.Hash, *sig, chain.ConsensusInfo.Signer.PublicSpendKey) {
 			sigs = append(sigs, sig)
 			signersMap[chain.ChainId] = true
 		}
@@ -47,13 +48,15 @@ func (chain *Chain) legacyAppendFinalization(peerId crypto.Hash, s *common.Snaps
 	}
 
 	if len(sigs) != len(s.Signatures) {
-		logger.Verbosef("ERROR legacyVerifyFinalization some node not accepted yet %s %v %d %d %d\n", peerId, s, chain.node.ConsensusThreshold(s.Timestamp, true), len(s.Signatures), len(sigs))
+		logger.Verbosef("ERROR legacyVerifyFinalization some node not accepted yet %s %v %d %d %d\n",
+			peerId, s, chain.node.ConsensusThreshold(s.Timestamp, true), len(s.Signatures), len(sigs))
 		return nil
 	}
 	s.Signatures = sigs
 
 	if !chain.legacyVerifyFinalization(s.Timestamp, s.Signatures) {
-		logger.Verbosef("ERROR RE legacyVerifyFinalization %s %v %d\n", peerId, s, chain.node.ConsensusThreshold(s.Timestamp, true))
+		logger.Verbosef("ERROR RE legacyVerifyFinalization %s %v %d\n",
+			peerId, s, chain.node.ConsensusThreshold(s.Timestamp, true))
 		return nil
 	}
 

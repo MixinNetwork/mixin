@@ -116,7 +116,8 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64, old *co
 		}
 		elapse := time.Duration(now - cn.Timestamp)
 		if elapse < config.KernelNodePledgePeriodMinimum {
-			return nil, fmt.Errorf("invalid period %d %d %d %d", config.KernelNodePledgePeriodMinimum, elapse, now, cn.Timestamp)
+			return nil, fmt.Errorf("invalid period %d %d %d %d",
+				config.KernelNodePledgePeriodMinimum, elapse, now, cn.Timestamp)
 		}
 		switch cn.State {
 		case common.NodeStateAccepted:
@@ -164,7 +165,8 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 		return nil, fmt.Errorf("invalid accept transaction extra %s", hex.EncodeToString(accept.Extra))
 	}
 	if !bytes.Equal(append(signer[:], payee...), accept.Extra) {
-		return nil, fmt.Errorf("invalid accept transaction extra %s %s %s", hex.EncodeToString(accept.Extra), signer, hex.EncodeToString(payee))
+		return nil, fmt.Errorf("invalid accept transaction extra %s %s %s",
+			hex.EncodeToString(accept.Extra), signer, hex.EncodeToString(payee))
 	}
 
 	tx := node.NewTransaction(common.XINAssetId)
@@ -292,10 +294,12 @@ func (chain *Chain) buildNodeAcceptTransaction(timestamp uint64, s *common.Snaps
 	}
 	signer := ci.Signer.PublicSpendKey
 	if len(pledge.Extra) != len(signer)*2 {
-		return nil, fmt.Errorf("invalid pledge transaction extra %s", hex.EncodeToString(pledge.Extra))
+		return nil, fmt.Errorf("invalid pledge transaction extra %s",
+			hex.EncodeToString(pledge.Extra))
 	}
 	if !bytes.Equal(signer[:], pledge.Extra[:len(signer)]) {
-		return nil, fmt.Errorf("invalid pledge transaction extra %s %s", hex.EncodeToString(pledge.Extra[:len(signer)]), signer)
+		return nil, fmt.Errorf("invalid pledge transaction extra %s %s",
+			hex.EncodeToString(pledge.Extra[:len(signer)]), signer)
 	}
 
 	tx := chain.node.NewTransaction(common.XINAssetId)
@@ -509,7 +513,8 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		if elapse < config.KernelNodePledgePeriodMinimum {
 			return fmt.Errorf("invalid pledge period %d %d", config.KernelNodePledgePeriodMinimum, elapse)
 		}
-		if cn.State != common.NodeStateAccepted && cn.State != common.NodeStateCancelled && cn.State != common.NodeStateRemoved {
+		if cn.State != common.NodeStateAccepted && cn.State != common.NodeStateCancelled &&
+			cn.State != common.NodeStateRemoved {
 			return fmt.Errorf("invalid node pending state %s %s", cn.Signer, cn.State)
 		}
 		if cn.Signer.PublicSpendKey.String() == signerSpend.String() {

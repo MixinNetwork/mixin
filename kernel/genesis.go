@@ -210,23 +210,28 @@ func readGenesis(path string) (*Genesis, error) {
 		}
 		privateView := in.Signer.PublicSpendKey.DeterministicHashDerive()
 		if privateView.Public() != in.Signer.PublicViewKey {
-			return nil, fmt.Errorf("invalid node key format %s %s", privateView.Public().String(), in.Signer.PublicViewKey.String())
+			return nil, fmt.Errorf("invalid node key format %s %s",
+				privateView.Public().String(), in.Signer.PublicViewKey.String())
 		}
 		privateView = in.Payee.PublicSpendKey.DeterministicHashDerive()
 		if privateView.Public() != in.Payee.PublicViewKey {
-			return nil, fmt.Errorf("invalid node key format %s %s", privateView.Public().String(), in.Payee.PublicViewKey.String())
+			return nil, fmt.Errorf("invalid node key format %s %s",
+				privateView.Public().String(), in.Payee.PublicViewKey.String())
 		}
 	}
 
 	if len(gns.Domains) != 1 {
-		return nil, fmt.Errorf("invalid genesis domain inputs count %d", len(gns.Domains))
+		return nil, fmt.Errorf("invalid genesis domain inputs count %d",
+			len(gns.Domains))
 	}
 	domain := gns.Domains[0]
 	if domain.Signer.String() != gns.Nodes[0].Signer.String() {
-		return nil, fmt.Errorf("invalid genesis domain input account %s %s", domain.Signer.String(), gns.Nodes[0].Signer.String())
+		return nil, fmt.Errorf("invalid genesis domain input account %s %s",
+			domain.Signer.String(), gns.Nodes[0].Signer.String())
 	}
 	if domain.Balance.Cmp(common.NewInteger(50000)) != 0 {
-		return nil, fmt.Errorf("invalid genesis domain input amount %s", domain.Balance.String())
+		return nil, fmt.Errorf("invalid genesis domain input amount %s",
+			domain.Balance.String())
 	}
 	return &gns, nil
 }

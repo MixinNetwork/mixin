@@ -49,7 +49,8 @@ func (chain *Chain) AggregateRoundSpace() {
 		since := checkTime - chain.node.Epoch
 		batch := uint64(since/3600000000000) / 24
 		if batch > chain.node.LastMint+1 {
-			logger.Verbosef("AggregateRoundSpace(%s) ERROR batch future %d %d %s", batch, chain.node.LastMint, time.Unix(0, int64(checkTime)))
+			logger.Verbosef("AggregateRoundSpace(%s) ERROR batch future %d %d %s\n",
+				chain.ChainId, batch, chain.node.LastMint, time.Unix(0, int64(checkTime)))
 			chain.waitOrDone(wait)
 			continue
 		}
@@ -64,7 +65,7 @@ func (chain *Chain) AggregateRoundSpace() {
 		}
 
 		if space.Duration > uint64(config.CheckpointDuration) {
-			logger.Printf("AggregateRoundSpace(%s) => large gap %d:%d %d", chain.ChainId, batch, round, space.Duration)
+			logger.Printf("AggregateRoundSpace(%s) => large gap %d:%d %d\n", chain.ChainId, batch, round, space.Duration)
 		} else {
 			space.Duration = 0
 		}
@@ -104,7 +105,8 @@ func (chain *Chain) readFinalRoundTimestamp(round uint64) (uint64, error) {
 		return 0, err
 	}
 	if r.Timestamp != start || r.Number != round {
-		panic(fmt.Errorf("readFinalRoundTimestamp(%s, %d) => malformed round attributes %d %d", chain.ChainId, round, start, r.Timestamp))
+		panic(fmt.Errorf("readFinalRoundTimestamp(%s, %d) => malformed round attributes %d %d",
+			chain.ChainId, round, start, r.Timestamp))
 	}
 	return r.Timestamp, nil
 }

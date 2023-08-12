@@ -542,11 +542,13 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 			return false
 		}
 		if cf.Hash != remote.Hash {
-			logger.Verbosef("CheckCatchUpWithPeers local(%s) != remote(%s)\n", cf.Hash, remote.Hash)
+			logger.Verbosef("CheckCatchUpWithPeers local(%s) != remote(%s)\n",
+				cf.Hash, remote.Hash)
 			return false
 		}
 		if now := uint64(clock.Now().UnixNano()); cf.Start+config.SnapshotRoundGap*100 > now {
-			logger.Verbosef("CheckCatchUpWithPeers local start(%d)+%d > now(%d)\n", cf.Start, config.SnapshotRoundGap*100, now)
+			logger.Verbosef("CheckCatchUpWithPeers local start(%d)+%d > now(%d)\n",
+				cf.Start, config.SnapshotRoundGap*100, now)
 			return false
 		}
 	}

@@ -19,7 +19,8 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 		return ver.validateV1(store, fork)
 	}
 	if ver.Version < TxVersionReferences && len(ver.References) > 0 {
-		return fmt.Errorf("%d transaction references not supported on this version %d", len(ver.References), ver.Version)
+		return fmt.Errorf("%d transaction references not supported on this version %d",
+			len(ver.References), ver.Version)
 	}
 	switch ver.Version {
 	case TxVersionReferences:
@@ -33,10 +34,13 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 		return fmt.Errorf("invalid tx type %d", txType)
 	}
 	if len(tx.Inputs) < 1 || len(tx.Outputs) < 1 {
-		return fmt.Errorf("invalid tx inputs or outputs %d %d", len(tx.Inputs), len(tx.Outputs))
+		return fmt.Errorf("invalid tx inputs or outputs %d %d",
+			len(tx.Inputs), len(tx.Outputs))
 	}
-	if len(tx.Inputs) > SliceCountLimit || len(tx.Outputs) > SliceCountLimit || len(tx.References) > SliceCountLimit {
-		return fmt.Errorf("invalid tx inputs or outputs %d %d %d", len(tx.Inputs), len(tx.Outputs), len(tx.References))
+	if len(tx.Inputs) > SliceCountLimit || len(tx.Outputs) > SliceCountLimit ||
+		len(tx.References) > SliceCountLimit {
+		return fmt.Errorf("invalid tx inputs or outputs %d %d %d",
+			len(tx.Inputs), len(tx.Outputs), len(tx.References))
 	}
 	if len(tx.Extra) > tx.getExtraLimit() {
 		return fmt.Errorf("invalid extra size %d", len(tx.Extra))
@@ -50,8 +54,10 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 			return fmt.Errorf("invalid signatures map %d", len(tx.SignaturesMap))
 		}
 	} else {
-		if len(tx.Inputs) != len(tx.SignaturesMap) && txType != TransactionTypeNodeAccept && txType != TransactionTypeNodeRemove {
-			return fmt.Errorf("invalid tx signature number %d %d %d", len(tx.Inputs), len(tx.SignaturesMap), txType)
+		if len(tx.Inputs) != len(tx.SignaturesMap) && txType != TransactionTypeNodeAccept &&
+			txType != TransactionTypeNodeRemove {
+			return fmt.Errorf("invalid tx signature number %d %d %d",
+				len(tx.Inputs), len(tx.SignaturesMap), txType)
 		}
 	}
 
@@ -193,14 +199,17 @@ func (tx *SignedTransaction) validateInputs(store UTXOLockReader, msg []byte, ha
 			return inputsFilter, inputAmount, err
 		}
 		if utxo == nil {
-			return inputsFilter, inputAmount, fmt.Errorf("input not found %s:%d", in.Hash.String(), in.Index)
+			err := fmt.Errorf("input not found %s:%d", in.Hash.String(), in.Index)
+			return inputsFilter, inputAmount, err
 		}
 		if utxo.Asset != tx.Asset {
-			return inputsFilter, inputAmount, fmt.Errorf("invalid input asset %s %s", utxo.Asset.String(), tx.Asset.String())
+			err := fmt.Errorf("invalid input asset %s %s", utxo.Asset.String(), tx.Asset.String())
+			return inputsFilter, inputAmount, err
 		}
 		if utxo.LockHash.HasValue() && utxo.LockHash != hash {
 			if !fork {
-				return inputsFilter, inputAmount, fmt.Errorf("input locked for transaction %s", utxo.LockHash)
+				err := fmt.Errorf("input locked for transaction %s", utxo.LockHash)
+				return inputsFilter, inputAmount, err
 			}
 		}
 
@@ -217,12 +226,14 @@ func (tx *SignedTransaction) validateInputs(store UTXOLockReader, msg []byte, ha
 		return inputsFilter, inputAmount, nil
 	}
 	if len(keySigs) < len(tx.Inputs) {
-		return inputsFilter, inputAmount, fmt.Errorf("batch verification not ready %d %d", len(tx.Inputs), len(keySigs))
+		err := fmt.Errorf("batch verification not ready %d %d", len(tx.Inputs), len(keySigs))
+		return inputsFilter, inputAmount, err
 	}
 	if as := tx.AggregatedSignature; as != nil {
 		err := crypto.AggregateVerify(&as.Signature, allKeys, as.Signers, msg)
 		if err != nil {
-			return inputsFilter, inputAmount, fmt.Errorf("aggregate verification failure %s", err)
+			err := fmt.Errorf("aggregate verification failure %s", err)
+			return inputsFilter, inputAmount, err
 		}
 	} else {
 		var keys []*crypto.Key
@@ -232,7 +243,8 @@ func (tx *SignedTransaction) validateInputs(store UTXOLockReader, msg []byte, ha
 			sigs = append(sigs, s)
 		}
 		if !crypto.BatchVerify(msg, keys, sigs) {
-			return inputsFilter, inputAmount, fmt.Errorf("batch verification failure %d %d", len(keys), len(sigs))
+			err := fmt.Errorf("batch verification failure %d %d", len(keys), len(sigs))
+			return inputsFilter, inputAmount, err
 		}
 	}
 	return inputsFilter, inputAmount, nil
@@ -244,10 +256,12 @@ func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, fork
 	ghostKeys := make([]*crypto.Key, 0)
 	for _, o := range tx.Outputs {
 		if len(o.Keys) > SliceCountLimit {
-			return outputAmount, fmt.Errorf("invalid output keys count %d", len(o.Keys))
+			err := fmt.Errorf("invalid output keys count %d", len(o.Keys))
+			return outputAmount, err
 		}
 		if o.Amount.Sign() <= 0 {
-			return outputAmount, fmt.Errorf("invalid output amount %s", o.Amount.String())
+			err := fmt.Errorf("invalid output amount %s", o.Amount.String())
+			return outputAmount, err
 		}
 
 		if o.Withdrawal != nil {
@@ -257,11 +271,13 @@ func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, fork
 
 		for _, k := range o.Keys {
 			if ghostKeysFilter[*k] {
-				return outputAmount, fmt.Errorf("invalid output key %s", k.String())
+				err := fmt.Errorf("invalid output key %s", k.String())
+				return outputAmount, err
 			}
 			ghostKeysFilter[*k] = true
 			if !k.CheckKey() {
-				return outputAmount, fmt.Errorf("invalid output key format %s", k.String())
+				err := fmt.Errorf("invalid output key format %s", k.String())
+				return outputAmount, err
 			}
 			ghostKeys = append(ghostKeys, k)
 		}
@@ -274,13 +290,16 @@ func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, fork
 			OutputTypeNodeCancel,
 			OutputTypeNodeAccept:
 			if len(o.Keys) != 0 {
-				return outputAmount, fmt.Errorf("invalid output keys count %d for kernel multisig transaction", len(o.Keys))
+				err := fmt.Errorf("invalid output keys count %d for kernel multisig transaction", len(o.Keys))
+				return outputAmount, err
 			}
 			if len(o.Script) != 0 {
-				return outputAmount, fmt.Errorf("invalid output script %s for kernel multisig transaction", o.Script)
+				err := fmt.Errorf("invalid output script %s for kernel multisig transaction", o.Script)
+				return outputAmount, err
 			}
 			if o.Mask.HasValue() {
-				return outputAmount, fmt.Errorf("invalid output empty mask %s for kernel multisig transaction", o.Mask)
+				err := fmt.Errorf("invalid output empty mask %s for kernel multisig transaction", o.Mask)
+				return outputAmount, err
 			}
 		default:
 			err := o.Script.VerifyFormat()
@@ -288,10 +307,12 @@ func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, fork
 				return outputAmount, err
 			}
 			if !o.Mask.HasValue() {
-				return outputAmount, fmt.Errorf("invalid script output empty mask %s", o.Mask)
+				err := fmt.Errorf("invalid script output empty mask %s", o.Mask)
+				return outputAmount, err
 			}
 			if o.Withdrawal != nil {
-				return outputAmount, fmt.Errorf("invalid script output with withdrawal %s", o.Withdrawal.Address)
+				err := fmt.Errorf("invalid script output with withdrawal %s", o.Withdrawal.Address)
+				return outputAmount, err
 			}
 		}
 		outputAmount = outputAmount.Add(o.Amount)
