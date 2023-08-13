@@ -58,19 +58,14 @@ func (me *Peer) PingNeighbor(addr string) error {
 		return fmt.Errorf("invalid address %s %d %s", addr, a.Port, a.IP)
 	}
 	key := crypto.NewHash([]byte(addr))
-	if me.pingFilter.Get(key) != nil {
-		return nil
-	}
-	me.pingFilter.Set(key, &Peer{})
-
-	go func() {
+	me.pingFilter.RunOnce(key, &Peer{}, func() {
 		for !me.closing {
 			err := me.pingPeerStream(addr)
 			if err != nil {
 				logger.Verbosef("PingNeighbor error %v\n", err)
 			}
 		}
-	}()
+	})
 	return nil
 }
 
@@ -102,6 +97,7 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) (*Peer, error
 	} else if a.Port < 80 || a.IP == nil {
 		return nil, fmt.Errorf("invalid address %s %d %s", addr, a.Port, a.IP)
 	}
+
 	old := me.neighbors.Get(idForNetwork)
 	if old != nil && old.Address == addr {
 		return old, nil
@@ -572,4 +568,15 @@ func (m *neighborMap) Clear() {
 	for id := range m.m {
 		delete(m.m, id)
 	}
+}
+
+func (m *neighborMap) RunOnce(key crypto.Hash, v *Peer, f func()) {
+	m.Lock()
+	defer m.Unlock()
+
+	if m.m[key] != nil {
+		return
+	}
+	m.m[key] = v
+	go f()
 }
