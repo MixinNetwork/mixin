@@ -1032,5 +1032,8 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]any {
 	} else if tx.SignaturesSliceV1 != nil {
 		tm["signatures"] = tx.SignaturesSliceV1
 	}
+	if tx.Version >= common.TxVersionReferences {
+		tm["references"] = tx.References
+	}
 	return tm
 }
