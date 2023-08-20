@@ -536,6 +536,19 @@ func (node *Node) ListMintWorks(batch uint64) (map[crypto.Hash][2]uint64, error)
 	return works, err
 }
 
+func (node *Node) ListRoundSpaces(cids []crypto.Hash, day uint64) (map[crypto.Hash][]*common.RoundSpace, error) {
+	epoch := node.Epoch / (uint64(time.Hour) * 24)
+	spaces := make(map[crypto.Hash][]*common.RoundSpace)
+	for _, id := range cids {
+		ns, err := node.persistStore.ReadNodeRoundSpacesForBatch(id, day-epoch)
+		if err != nil {
+			return nil, err
+		}
+		spaces[id] = ns
+	}
+	return spaces, nil
+}
+
 // a = average work
 // for x > 7a, y = 2a
 // for 7a > x > a, y = 1/6x + 5/6a
@@ -571,10 +584,20 @@ func (node *Node) distributeKernelMintByWorks(accepted []*CNode, base common.Int
 	if err != nil {
 		return nil, err
 	}
+	spaces, err := node.ListRoundSpaces(cids, day-1)
+	if err != nil {
+		return nil, err
+	}
 
 	var valid int
-	var min, max, total common.Integer
+	var minW, maxW, totalW common.Integer
 	for _, m := range mints {
+		ns := spaces[m.IdForNetwork]
+		if len(ns) > 0 {
+			// TODO use this for universal mint distributions
+			logger.Printf("node spaces %s %d %d\n", m.IdForNetwork, ns[0].Batch, len(ns))
+		}
+
 		w := works[m.IdForNetwork]
 		m.Work = common.NewInteger(w[0]).Mul(120).Div(100)
 		sign := common.NewInteger(w[1])
@@ -585,29 +608,29 @@ func (node *Node) distributeKernelMintByWorks(accepted []*CNode, base common.Int
 			continue
 		}
 		valid += 1
-		if min.Sign() == 0 {
-			min = m.Work
-		} else if m.Work.Cmp(min) < 0 {
-			min = m.Work
+		if minW.Sign() == 0 {
+			minW = m.Work
+		} else if m.Work.Cmp(minW) < 0 {
+			minW = m.Work
 		}
-		if m.Work.Cmp(max) > 0 {
-			max = m.Work
+		if m.Work.Cmp(maxW) > 0 {
+			maxW = m.Work
 		}
-		total = total.Add(m.Work)
+		totalW = totalW.Add(m.Work)
 	}
 	if valid < thr {
 		return nil, fmt.Errorf("distributeKernelMintByWorks not valid %d %d %d %d",
 			day, len(mints), thr, valid)
 	}
 
-	total = total.Sub(min).Sub(max)
-	avg := total.Div(valid - 2)
+	totalW = totalW.Sub(minW).Sub(maxW)
+	avg := totalW.Div(valid - 2)
 	if avg.Sign() == 0 {
 		return nil, fmt.Errorf("distributeKernelMintByWorks not valid %d %d %d %d",
 			day, len(mints), thr, valid)
 	}
 
-	total = common.NewInteger(0)
+	totalW = common.NewInteger(0)
 	upper, lower := avg.Mul(7), avg.Div(7)
 	for _, m := range mints {
 		if m.Work.Cmp(upper) >= 0 {
@@ -617,11 +640,11 @@ func (node *Node) distributeKernelMintByWorks(accepted []*CNode, base common.Int
 		} else if m.Work.Cmp(lower) <= 0 {
 			m.Work = avg.Div(7)
 		}
-		total = total.Add(m.Work)
+		totalW = totalW.Add(m.Work)
 	}
 
 	for _, m := range mints {
-		rat := m.Work.Ration(total)
+		rat := m.Work.Ration(totalW)
 		m.Work = rat.Product(base)
 	}
 	return mints, nil
@@ -651,7 +674,7 @@ func (node *Node) validateWorksAndSpacesAggregator(cids []crypto.Hash, thr int, 
 	epoch := node.Epoch / (uint64(time.Hour) * 24)
 	batch := day - epoch
 	for _, s := range spaces {
-		if s.Batch == batch {
+		if s.Batch >= batch {
 			spacesAgg += 1
 		}
 	}
