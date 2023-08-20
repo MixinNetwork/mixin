@@ -122,7 +122,7 @@ github.com/pmezard/go-difflib/difflib
 # github.com/quic-go/qtls-go1-20 v0.3.2
 ## explicit; go 1.20
 github.com/quic-go/qtls-go1-20
-# github.com/quic-go/quic-go v0.37.5
+# github.com/quic-go/quic-go v0.37.6
 ## explicit; go 1.20
 github.com/quic-go/quic-go
 github.com/quic-go/quic-go/internal/ackhandler

@@ -14,7 +14,7 @@ require (
 	github.com/klauspost/compress v1.16.7
 	github.com/pelletier/go-toml v1.9.5
 	github.com/pkg/errors v0.9.1
-	github.com/quic-go/quic-go v0.37.5
+	github.com/quic-go/quic-go v0.37.6
 	github.com/shopspring/decimal v1.3.1
 	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli/v2 v2.25.7
