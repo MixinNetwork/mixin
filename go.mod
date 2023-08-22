@@ -10,7 +10,7 @@ require (
 	github.com/MixinNetwork/msgpack/v4 v4.4.0
 	github.com/dgraph-io/badger/v4 v4.2.0
 	github.com/dgraph-io/ristretto v0.1.1
-	github.com/gofrs/uuid v4.4.0+incompatible
+	github.com/gofrs/uuid/v5 v5.0.0
 	github.com/klauspost/compress v1.16.7
 	github.com/pelletier/go-toml v1.9.5
 	github.com/pkg/errors v0.9.1
