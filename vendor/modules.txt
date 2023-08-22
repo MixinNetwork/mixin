@@ -48,9 +48,9 @@ github.com/dustin/go-humanize
 # github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572
 ## explicit; go 1.13
 github.com/go-task/slim-sprig
-# github.com/gofrs/uuid v4.4.0+incompatible
-## explicit
-github.com/gofrs/uuid
+# github.com/gofrs/uuid/v5 v5.0.0
+## explicit; go 1.19
+github.com/gofrs/uuid/v5
 # github.com/gogo/protobuf v1.3.2
 ## explicit; go 1.15
 github.com/gogo/protobuf/proto

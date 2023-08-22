@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/gofrs/uuid"
+	"github.com/gofrs/uuid/v5"
 	"golang.org/x/crypto/sha3"
 )
 

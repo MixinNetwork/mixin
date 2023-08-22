@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/gofrs/uuid"
+	"github.com/gofrs/uuid/v5"
 	"github.com/stretchr/testify/require"
 )
 
