@@ -59,12 +59,8 @@ func (me *Peer) PingNeighbor(addr string) error {
 	}
 	key := crypto.NewHash([]byte(addr))
 	me.pingFilter.RunOnce(key, &Peer{}, func() {
-		for !me.closing {
-			err := me.pingPeerStream(addr)
-			if err != nil {
-				logger.Verbosef("PingNeighbor error %v\n", err)
-			}
-		}
+		err := me.pingPeerStream(addr)
+		logger.Verbosef("pingPeerStream(%s) => %v\n", addr, err)
 	})
 	return nil
 }
