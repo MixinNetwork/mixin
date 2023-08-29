@@ -2,11 +2,11 @@ package storage
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/dgraph-io/badger/v4"
-	"golang.org/x/exp/slices"
 )
 
 func (s *BadgerStore) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKeys, error) {
