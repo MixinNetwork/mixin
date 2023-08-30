@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -882,8 +883,8 @@ func requireKeyEqual(require *require.Assertions, a, b map[string]*common.Snapsh
 	for k := range b {
 		bs = append(bs, k)
 	}
-	sort.Slice(as, func(i, j int) bool { return as[i] < as[j] })
-	sort.Slice(bs, func(i, j int) bool { return bs[i] < bs[j] })
+	slices.Sort(as)
+	slices.Sort(bs)
 	require.True(strings.Join(as, "") == strings.Join(bs, ""))
 }
 
