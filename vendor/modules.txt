@@ -77,7 +77,7 @@ github.com/golang/snappy
 # github.com/google/flatbuffers v23.5.26+incompatible
 ## explicit
 github.com/google/flatbuffers/go
-# github.com/google/pprof v0.0.0-20230821062121-407c9e7a662f
+# github.com/google/pprof v0.0.0-20230901174712-0191c66da455
 ## explicit; go 1.19
 github.com/google/pprof/profile
 # github.com/klauspost/compress v1.16.7
@@ -221,14 +221,14 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 golang.org/x/net/trace
-# golang.org/x/sys v0.11.0
+# golang.org/x/sys v0.12.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.12.0
+# golang.org/x/text v0.13.0
 ## explicit; go 1.17
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
