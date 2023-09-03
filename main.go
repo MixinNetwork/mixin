@@ -571,9 +571,13 @@ func main() {
 
 func kernelCmd(c *cli.Context) error {
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	err := os.Setenv("QUIC_GO_DISABLE_GSO", "true")
+	if err != nil {
+		return err
+	}
 
 	logger.SetLevel(c.Int("log"))
-	err := logger.SetFilter(c.String("filter"))
+	err = logger.SetFilter(c.String("filter"))
 	if err != nil {
 		return err
 	}
