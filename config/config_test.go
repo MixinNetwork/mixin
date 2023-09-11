@@ -22,7 +22,7 @@ func TestConfig(t *testing.T) {
 	require.Equal(7, custom.Storage.MaxCompactionLevels)
 
 	require.Equal("mixin-node.example.com:7239", custom.Network.Listener)
-	require.Len(custom.Network.Peers, 26)
-	require.Equal("lehigh-2.hotot.org:7239", custom.Network.Peers[25])
+	require.Len(custom.Network.Peers, 27)
+	require.Equal("lehigh-2.hotot.org:7239", custom.Network.Peers[26])
 	require.Equal(false, custom.RPC.Runtime)
 }
