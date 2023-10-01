@@ -106,7 +106,7 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 		return nil, err
 	}
 	version := checkTxVersion(b)
-	if version < TxVersionCommonEncoding {
+	if version < TxVersionHashSignature {
 		return nil, fmt.Errorf("invalid version %v", b)
 	}
 
@@ -142,37 +142,29 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 		tx.Outputs = append(tx.Outputs, o)
 	}
 
-	if tx.Version >= TxVersionReferences {
-		rl, err := dec.ReadInt()
+	rl, err := dec.ReadInt()
+	if err != nil {
+		return nil, err
+	}
+	for ; rl > 0; rl -= 1 {
+		var r crypto.Hash
+		err := dec.Read(r[:])
 		if err != nil {
 			return nil, err
 		}
-		for ; rl > 0; rl -= 1 {
-			var r crypto.Hash
-			err := dec.Read(r[:])
-			if err != nil {
-				return nil, err
-			}
-			tx.References = append(tx.References, r)
-		}
-		el, err := dec.ReadUint32()
+		tx.References = append(tx.References, r)
+	}
+	el, err := dec.ReadUint32()
+	if err != nil {
+		return nil, err
+	}
+	if el > 0 {
+		b := make([]byte, el)
+		err = dec.Read(b)
 		if err != nil {
 			return nil, err
 		}
-		if el > 0 {
-			b := make([]byte, el)
-			err = dec.Read(b)
-			if err != nil {
-				return nil, err
-			}
-			tx.Extra = b
-		}
-	} else {
-		eb, err := dec.ReadBytes()
-		if err != nil {
-			return nil, err
-		}
-		tx.Extra = eb
+		tx.Extra = b
 	}
 
 	sl, err := dec.ReadInt()

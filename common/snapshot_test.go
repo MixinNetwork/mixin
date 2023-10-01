@@ -2,7 +2,6 @@ package common
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"testing"
@@ -33,7 +32,7 @@ func TestSnapshot(t *testing.T) {
 	require.Equal("0552038ee8ce7c8b0efba019a7c36e86f1b70069553bbb187cfd8e3ca5f14fb1", s.References.External.String())
 	require.Equal("d694818d674f347b36b0efd75332eadfa73723cd0fb6152da778b91baf9719cc", s.Transactions[0].String())
 
-	s.NodeId = crypto.NewHash([]byte("node-test-id"))
+	s.NodeId = crypto.Blake3Hash([]byte("node-test-id"))
 	s.RoundNumber = uint64(123)
 	s.Timestamp = 1663669260746463409
 	require.Len(s.versionedPayload(), 160)
@@ -98,87 +97,11 @@ func TestSnapshot(t *testing.T) {
 	require.Equal(uint64(345), s.TopologicalOrder)
 }
 
-func TestSnapshotLegacy(t *testing.T) {
-	require := require.New(t)
-
-	accounts := make([]*Address, 0)
-	for i := 0; i < 3; i++ {
-		a := randomAccount()
-		accounts = append(accounts, &a)
-	}
-
-	s := &Snapshot{Version: SnapshotVersionMsgpackEncoding}
-	require.Len(s.versionedPayload(), 133)
-	require.Equal("da2c8a9f34d14ba24a4a09dfacf9506396c48a7705152f082b5795860dad89cf", s.PayloadHash().String())
-
-	s = &Snapshot{}
-	require.Len(s.Signatures, 0)
-	require.Len(s.versionedPayload(), 136)
-	require.Equal("fb08f9901437365528fdca2ad2e6cea782793d82286f152d6c147e41ec078074", s.PayloadHash().String())
-
-	seed := make([]byte, 64)
-	rand.Read(seed)
-	key := crypto.NewKeyFromSeed(seed)
-	signLegacy(s, key)
-	key2 := crypto.NewKeyFromSeed(s.Signatures[0][:])
-	require.Len(s.Signatures, 1)
-	require.Len(s.versionedPayload(), 136)
-	require.False(checkSignatureLegacy(s, key2.Public()))
-	require.True(checkSignatureLegacy(s, key.Public()))
-	signLegacy(s, key)
-	require.Len(s.Signatures, 1)
-	require.Len(s.versionedPayload(), 136)
-	require.False(checkSignatureLegacy(s, key2.Public()))
-	require.True(checkSignatureLegacy(s, key.Public()))
-}
-
-func checkSignatureLegacy(s *Snapshot, pub crypto.Key) bool {
-	msg := s.PayloadHash()
-	for _, sig := range s.Signatures {
-		if pub.Verify(msg[:], *sig) {
-			return true
-		}
-	}
-	return false
-}
-
-func signLegacy(s *Snapshot, key crypto.Key) {
-	msg := s.PayloadHash()
-	sig := key.Sign(msg[:])
-	for _, o := range s.Signatures {
-		if o.String() == sig.String() {
-			return
-		}
-	}
-	s.Signatures = append(s.Signatures, &sig)
-}
-
 func BenchmarkSnapshotMarshal(b *testing.B) {
 	s := &SnapshotWithTopologicalOrder{Snapshot: &Snapshot{Version: SnapshotVersionCommonEncoding}}
 	s.Transactions = []crypto.Hash{crypto.Blake3Hash([]byte("tx-test-id"))}
 
-	s.NodeId = crypto.NewHash([]byte("node-test-id"))
-	s.RoundNumber = 123
-
-	s.References = &RoundLink{
-		Self:     crypto.Blake3Hash([]byte("self-reference")),
-		External: crypto.Blake3Hash([]byte("external-reference")),
-	}
-
-	s.TopologicalOrder = 456
-
-	var sig crypto.CosiSignature
-	sig.Mask ^= (1 << uint64(0))
-	copy(sig.Signature[:], bytes.Repeat([]byte{1, 2, 3, 4}, 16))
-	s.Signature = &sig
-	benchmarkSnapshot(b, s)
-}
-
-func BenchmarkSnapshotMarshalLegacy(b *testing.B) {
-	s := &SnapshotWithTopologicalOrder{Snapshot: &Snapshot{Version: SnapshotVersionMsgpackEncoding}}
-	s.TransactionLegacy = crypto.Blake3Hash([]byte("tx-test-id"))
-
-	s.NodeId = crypto.NewHash([]byte("node-test-id"))
+	s.NodeId = crypto.Blake3Hash([]byte("node-test-id"))
 	s.RoundNumber = 123
 
 	s.References = &RoundLink{

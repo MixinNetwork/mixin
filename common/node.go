@@ -62,7 +62,7 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 	return nil
 }
 
-func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs []map[uint16]*crypto.Signature) error {
+func (tx *Transaction) validateNodeCancel(store DataStore, payloadHash crypto.Hash, sigs []map[uint16]*crypto.Signature) error {
 	if tx.Asset != XINAssetId {
 		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
 	}
@@ -156,7 +156,7 @@ func (tx *Transaction) validateNodeCancel(store DataStore, msg []byte, sigs []ma
 	if !bytes.Equal(pledgeSpend[:], targetSpend[:]) {
 		return fmt.Errorf("invalid pledge and cancel target %s %s", pledgeSpend, targetSpend)
 	}
-	if !pi.Keys[0].Verify(msg, *sigs[0][0]) {
+	if !pi.Keys[0].Verify(payloadHash, *sigs[0][0]) {
 		return fmt.Errorf("invalid cancel signature %s", sigs[0][0])
 	}
 	return nil

@@ -208,6 +208,6 @@ func graphRoundKey(hash crypto.Hash) []byte {
 }
 
 func graphLinkKey(from, to crypto.Hash) []byte {
-	link := crypto.NewHash(append(from[:], to[:]...))
+	link := crypto.Blake3Hash(append(from[:], to[:]...))
 	return append([]byte(graphPrefixLink), link[:]...)
 }

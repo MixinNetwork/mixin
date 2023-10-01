@@ -53,8 +53,8 @@ func TestValidation(t *testing.T) {
 	require.NotNil(VerifyTransactionHash("0x" + tx))
 	require.NotNil(VerifyTransactionHash(strings.ToUpper(tx)))
 
-	require.Equal(crypto.NewHash([]byte("c6d0c728-2624-429b-8e0d-d9d19b6592fa")), GenerateAssetId(btc))
-	require.Equal(crypto.NewHash([]byte("815b0b1a-2764-3736-8faa-42d694fa620a")), GenerateAssetId(usdt))
-	require.Equal(crypto.NewHash([]byte("c6d0c728-2624-429b-8e0d-d9d19b6592fa")), BitcoinChainId)
-	require.Equal(crypto.NewHash([]byte("815b0b1a-2764-3736-8faa-42d694fa620a")), BitcoinOmniUSDTId)
+	require.Equal(crypto.Sha256Hash([]byte("c6d0c728-2624-429b-8e0d-d9d19b6592fa")), GenerateAssetId(btc))
+	require.Equal(crypto.Sha256Hash([]byte("815b0b1a-2764-3736-8faa-42d694fa620a")), GenerateAssetId(usdt))
+	require.Equal(crypto.Sha256Hash([]byte("c6d0c728-2624-429b-8e0d-d9d19b6592fa")), BitcoinChainId)
+	require.Equal(crypto.Sha256Hash([]byte("815b0b1a-2764-3736-8faa-42d694fa620a")), BitcoinOmniUSDTId)
 }

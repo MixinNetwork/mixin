@@ -509,7 +509,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	v := chain.CosiVerifiers[m.SnapshotHash]
 	priv := chain.node.Signer.PrivateSpendKey
 	_, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
-	response, err := cosi.Response(&priv, v.random, publics, m.SnapshotHash[:])
+	response, err := cosi.Response(&priv, v.random, publics, m.SnapshotHash)
 	if err != nil {
 		return err
 	}
@@ -622,19 +622,19 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	copy(sig[32:], m.Signature.Signature[32:])
 	pub := cd.CN.Signer.PublicSpendKey
 	_, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
-	challenge, err := m.Signature.Challenge(publics, m.SnapshotHash[:])
+	challenge, err := m.Signature.Challenge(publics, m.SnapshotHash)
 	if err != nil {
 		logger.Verbosef("cosiHandleChallenge %v Challenge ERROR %s\n", m, err)
 		return nil
 	}
-	if !pub.VerifyWithChallenge(m.SnapshotHash[:], sig, challenge) {
+	if !pub.VerifyWithChallenge(sig, challenge) {
 		logger.Verbosef("cosiHandleChallenge %v VerifyWithChallenge ERROR %v %v\n",
 			m, sig, challenge)
 		return nil
 	}
 
 	priv := chain.node.Signer.PrivateSpendKey
-	response, err := m.Signature.Response(&priv, v.random, publics, m.SnapshotHash[:])
+	response, err := m.Signature.Response(&priv, v.random, publics, m.SnapshotHash)
 	if err != nil {
 		logger.Verbosef("cosiHandleChallenge %v Response ERROR %s\n", m, err)
 		return err
@@ -669,13 +669,13 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	logger.Verbosef("cosiHandleResponse %v ENOUGH\n", m)
 
 	cids, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
-	err := s.Signature.VerifyResponse(publics, cd.PN.ConsensusIndex, m.Response, m.SnapshotHash[:])
+	err := s.Signature.VerifyResponse(publics, cd.PN.ConsensusIndex, m.Response, m.SnapshotHash)
 	if err != nil {
 		logger.Verbosef("cosiHandleResponse %v RESPONSE ERROR %s\n", m, err)
 		return nil
 	}
 
-	s.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash[:], false)
+	s.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash, false)
 	signers, finalized := chain.node.CacheVerifyCosi(m.SnapshotHash, s.Signature, cids, publics, base)
 	if !finalized {
 		logger.Verbosef("cosiHandleResponse %v AGGREGATE ERROR\n", m)
@@ -1055,15 +1055,6 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d %t %v %v\n",
 			peerId, s, node.ConsensusThreshold(s.Timestamp, true), chain.IsPledging(), chain.State, chain.ConsensusInfo)
 		return nil
-	}
-
-	if s.Version == 0 {
-		err := chain.legacyAppendFinalization(peerId, s)
-		if err != nil {
-			logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) legacyAppendFinalization error %s\n",
-				peerId, s.Hash, err)
-		}
-		return err
 	}
 
 	err = chain.AppendFinalSnapshot(peerId, s)

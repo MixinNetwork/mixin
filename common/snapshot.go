@@ -1,36 +1,26 @@
 package common
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
 const (
-	SnapshotVersionMsgpackEncoding = 1
-	SnapshotVersionCommonEncoding  = 2
+	SnapshotVersionCommonEncoding = 2
 )
 
-type DeprecatedSnapshot struct {
-	NodeId            crypto.Hash
-	TransactionLegacy crypto.Hash `msgpack:"Transaction"`
-	References        *RoundLink
-	RoundNumber       uint64
-	Timestamp         uint64
-	Signatures        []*crypto.Signature
-}
-
 type Snapshot struct {
-	Version           uint8
-	NodeId            crypto.Hash
-	TransactionLegacy crypto.Hash `msgpack:"Transaction"`
-	References        *RoundLink
-	RoundNumber       uint64
-	Timestamp         uint64
-	Signatures        []*crypto.Signature   `msgpack:",omitempty"`
-	Signature         *crypto.CosiSignature `msgpack:",omitempty"`
-	Hash              crypto.Hash           `msgpack:"-"`
-	Transactions      []crypto.Hash         `msgpack:"-"`
+	Version      uint8
+	NodeId       crypto.Hash
+	References   *RoundLink
+	RoundNumber  uint64
+	Timestamp    uint64
+	Signatures   []*crypto.Signature   `msgpack:",omitempty"`
+	Signature    *crypto.CosiSignature `msgpack:",omitempty"`
+	Hash         crypto.Hash           `msgpack:"-"`
+	Transactions []crypto.Hash         `msgpack:"-"`
 }
 
 type SnapshotWithTopologicalOrder struct {
@@ -46,7 +36,7 @@ type SnapshotWork struct {
 
 func (s *Snapshot) SoleTransaction() crypto.Hash {
 	if s.Version < SnapshotVersionCommonEncoding {
-		return s.TransactionLegacy
+		panic(s.Version)
 	}
 	if len(s.Transactions) != 1 {
 		panic(*s)
@@ -56,7 +46,7 @@ func (s *Snapshot) SoleTransaction() crypto.Hash {
 
 func (s *Snapshot) AddSoleTransaction(tx crypto.Hash) {
 	if s.Version < SnapshotVersionCommonEncoding {
-		s.TransactionLegacy = tx
+		panic(s.Version)
 	} else if len(s.Transactions) == 0 {
 		s.Transactions = []crypto.Hash{tx}
 	} else {
@@ -66,9 +56,7 @@ func (s *Snapshot) AddSoleTransaction(tx crypto.Hash) {
 
 func UnmarshalVersionedSnapshot(b []byte) (*SnapshotWithTopologicalOrder, error) {
 	if checkTxVersion(b) < SnapshotVersionCommonEncoding {
-		var snap SnapshotWithTopologicalOrder
-		err := msgpackUnmarshal(b, &snap)
-		return &snap, err
+		panic(hex.EncodeToString(b))
 	}
 	return NewDecoder(b).DecodeSnapshotWithTopo()
 }
@@ -89,8 +77,6 @@ func (s *SnapshotWithTopologicalOrder) VersionedMarshal() []byte {
 	switch s.Version {
 	case SnapshotVersionCommonEncoding:
 		return NewEncoder().EncodeSnapshotWithTopo(s)
-	case 0, SnapshotVersionMsgpackEncoding:
-		return msgpackMarshalPanic(s)
 	default:
 		panic(s.Version)
 	}
@@ -103,25 +89,6 @@ func (s *Snapshot) VersionedMarshal() []byte {
 
 func (s *Snapshot) versionedPayload() []byte {
 	switch s.Version {
-	case 0:
-		p := DeprecatedSnapshot{
-			NodeId:            s.NodeId,
-			TransactionLegacy: s.TransactionLegacy,
-			References:        s.References,
-			RoundNumber:       s.RoundNumber,
-			Timestamp:         s.Timestamp,
-		}
-		return msgpackMarshalPanic(p)
-	case SnapshotVersionMsgpackEncoding:
-		p := Snapshot{
-			Version:           s.Version,
-			NodeId:            s.NodeId,
-			TransactionLegacy: s.TransactionLegacy,
-			References:        s.References,
-			RoundNumber:       s.RoundNumber,
-			Timestamp:         s.Timestamp,
-		}
-		return msgpackMarshalPanic(p)
 	case SnapshotVersionCommonEncoding:
 		p := &Snapshot{
 			Version:      s.Version,
@@ -140,7 +107,7 @@ func (s *Snapshot) versionedPayload() []byte {
 func (s *Snapshot) PayloadHash() crypto.Hash {
 	p := s.versionedPayload()
 	if s.Version < SnapshotVersionCommonEncoding {
-		return crypto.NewHash(p)
+		panic(s.Version)
 	}
 	return crypto.Blake3Hash(p)
 }

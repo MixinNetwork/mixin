@@ -57,7 +57,7 @@ func (me *Peer) PingNeighbor(addr string) error {
 	} else if a.Port < 80 || a.IP == nil {
 		return fmt.Errorf("invalid address %s %d %s", addr, a.Port, a.IP)
 	}
-	key := crypto.NewHash([]byte(addr))
+	key := crypto.Blake3Hash([]byte(addr))
 	me.pingFilter.RunOnce(key, &Peer{}, func() {
 		for !me.closing {
 			// FIXME this loop is essential to prevent peer loss
@@ -349,7 +349,7 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 			data := buildBundleMessage(msgs)
 			err := client.Send(data)
 			if err != nil {
-				key := crypto.NewHash(data)
+				key := crypto.Blake3Hash(data)
 				return &ChanMsg{key[:], data}, err
 			}
 			me.sentMetric.handle(PeerMessageTypeBundle)

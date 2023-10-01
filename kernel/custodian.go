@@ -49,7 +49,8 @@ func (node *Node) validateCustodianUpdateNodes(s *common.Snapshot, tx *common.Ve
 		}
 		prev = &common.CustodianUpdateRequest{Custodian: &domains[0].Account}
 	}
-	if !prev.Custodian.PublicSpendKey.Verify(tx.Extra[:len(tx.Extra)-64], *curs.Signature) {
+	eh := crypto.Blake3Hash(tx.Extra[:len(tx.Extra)-64])
+	if !prev.Custodian.PublicSpendKey.Verify(eh, *curs.Signature) {
 		return fmt.Errorf("invalid custodian update approval signature %x", tx.Extra)
 	}
 
@@ -68,10 +69,10 @@ func (node *Node) validateCustodianUpdateNodes(s *common.Snapshot, tx *common.Ve
 		if cn.Payee.String() != n.Payee.String() {
 			return fmt.Errorf("invalid custodian node payee %x", n.Extra)
 		}
-		msg := n.Extra[:161]
 		var sig crypto.Signature
 		copy(sig[:], n.Extra[161:225])
-		if !cn.Signer.PublicSpendKey.Verify(msg, sig) {
+		eh := crypto.Blake3Hash(n.Extra[:161])
+		if !cn.Signer.PublicSpendKey.Verify(eh, sig) {
 			return fmt.Errorf("invalid custodian update signer signature %x", n.Extra)
 		}
 	}

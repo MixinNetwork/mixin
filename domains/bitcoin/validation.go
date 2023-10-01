@@ -19,8 +19,8 @@ var (
 )
 
 func init() {
-	BitcoinChainId = crypto.NewHash([]byte(BitcoinChainAssetKey))
-	BitcoinOmniUSDTId = crypto.NewHash([]byte(BitcoinOmniUSDTAssetKey))
+	BitcoinChainId = crypto.Sha256Hash([]byte(BitcoinChainAssetKey))
+	BitcoinOmniUSDTId = crypto.Sha256Hash([]byte(BitcoinOmniUSDTAssetKey))
 }
 
 func VerifyAssetKey(assetKey string) error {

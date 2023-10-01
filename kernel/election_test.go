@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const mainnetId = "6430225c42bb015b4da03102fa962e4f4ef3969e03e04345db229f8377ef7997"
+
 func TestNodeRemovePossibility(t *testing.T) {
 	require := require.New(t)
 
@@ -97,6 +99,6 @@ func setupTestNode(require *require.Assertions, dir string) *Node {
 	require.NotNil(store)
 	node, err := SetupNode(custom, store, cache, ":7239", dir)
 	require.Nil(err)
-	require.Equal(config.MainnetId, node.networkId.String())
+	require.Equal(mainnetId, node.networkId.String())
 	return node
 }

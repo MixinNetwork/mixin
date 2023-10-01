@@ -36,13 +36,14 @@ func (cn *CustodianNode) validate() error {
 		return fmt.Errorf("invalid custodian or payee keys %x", cn.Extra)
 	}
 
+	eh := crypto.Blake3Hash(cn.Extra[:161])
 	var payeeSig, custodianSig crypto.Signature
 	copy(payeeSig[:], cn.Extra[225:289])
 	copy(custodianSig[:], cn.Extra[289:custodianNodeExtraSize])
-	if !cn.Payee.PublicSpendKey.Verify(cn.Extra[:161], payeeSig) {
+	if !cn.Payee.PublicSpendKey.Verify(eh, payeeSig) {
 		return fmt.Errorf("invalid custodian update payee signature %x", cn.Extra)
 	}
-	if !cn.Custodian.PublicSpendKey.Verify(cn.Extra[:161], custodianSig) {
+	if !cn.Custodian.PublicSpendKey.Verify(eh, custodianSig) {
 		return fmt.Errorf("invalid custodian update custodian signature %x", cn.Extra)
 	}
 	return nil
@@ -62,9 +63,10 @@ func EncodeCustodianNode(custodian, payee *Address, signerSpend, payeeSpend, cus
 	extra = append(extra, payee.PublicViewKey[:]...)
 	extra = append(extra, nodeId[:]...)
 
-	signerSig := signerSpend.Sign(extra)
-	payeeSig := payeeSpend.Sign(extra)
-	custodianSig := custodianSpend.Sign(extra)
+	eh := crypto.Blake3Hash(extra)
+	signerSig := signerSpend.Sign(eh)
+	payeeSig := payeeSpend.Sign(eh)
+	custodianSig := custodianSpend.Sign(eh)
 	extra = append(extra, signerSig[:]...)
 	extra = append(extra, payeeSig[:]...)
 	extra = append(extra, custodianSig[:]...)
@@ -144,7 +146,7 @@ func ParseCustodianUpdateNodesExtra(extra []byte) (*CustodianUpdateRequest, erro
 }
 
 func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error {
-	if tx.Version < TxVersionReferences {
+	if tx.Version < TxVersionHashSignature {
 		return fmt.Errorf("invalid custodian update version %d", tx.Version)
 	}
 	if tx.Asset != XINAssetId {
@@ -181,7 +183,8 @@ func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error
 		}
 		prev = &CustodianUpdateRequest{Custodian: &domains[0].Account}
 	}
-	if !prev.Custodian.PublicSpendKey.Verify(tx.Extra[:len(tx.Extra)-64], *curs.Signature) {
+	eh := crypto.Blake3Hash(tx.Extra[:len(tx.Extra)-64])
+	if !prev.Custodian.PublicSpendKey.Verify(eh, *curs.Signature) {
 		return fmt.Errorf("invalid custodian update approval signature %x", tx.Extra)
 	}
 

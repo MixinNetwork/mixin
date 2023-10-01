@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
-	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
@@ -39,7 +38,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 		return err
 	}
 	node.Epoch = uint64(time.Unix(gns.Epoch, 0).UnixNano())
-	node.networkId = crypto.NewHash(data)
+	node.networkId = crypto.Blake3Hash(data)
 	node.IdForNetwork = node.Signer.Hash().ForNetwork(node.networkId)
 	for _, in := range gns.Nodes {
 		id := in.Signer.Hash().ForNetwork(node.networkId)
@@ -65,7 +64,7 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 	var transactions []*common.VersionedTransaction
 	cacheRounds := make(map[crypto.Hash]*CacheRound)
 	for i, in := range gns.Nodes {
-		si := crypto.NewHash([]byte(in.Signer.String() + "NODEACCEPT"))
+		si := crypto.Blake3Hash([]byte(in.Signer.String() + "NODEACCEPT"))
 		seed := append(si[:], si[:]...)
 		script := common.NewThresholdScript(uint8(len(gns.Nodes)*2/3 + 1))
 		accounts := []*common.Address{}
@@ -73,7 +72,7 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 			accounts = append(accounts, &d.Signer)
 		}
 
-		tx := common.NewTransactionV3(common.XINAssetId)
+		tx := common.NewTransactionV5(common.XINAssetId)
 		tx.Inputs = []*common.Input{{Genesis: networkId[:]}}
 		tx.AddOutputWithType(common.OutputTypeNodeAccept, accounts, script, pledgeAmount(0), seed)
 		tx.Extra = append(in.Signer.PublicSpendKey[:], in.Payee.PublicSpendKey[:]...)
@@ -86,11 +85,6 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 			Timestamp:   epoch,
 		}
 		signed := tx.AsVersioned()
-		if networkId.String() == config.MainnetId {
-			snapshot.Version = 0
-			signed.Version = 1
-			signed, _ = common.UnmarshalVersionedTransaction(signed.Marshal())
-		}
 		snapshot.AddSoleTransaction(signed.PayloadHash())
 		snapshot.Hash = snapshot.PayloadHash()
 		topo := &common.SnapshotWithTopologicalOrder{
@@ -148,14 +142,14 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 }
 
 func buildDomainSnapshot(networkId crypto.Hash, epoch uint64, domain common.Address, gns *Genesis) (*common.SnapshotWithTopologicalOrder, *common.VersionedTransaction) {
-	si := crypto.NewHash([]byte(domain.String() + "DOMAINACCEPT"))
+	si := crypto.Blake3Hash([]byte(domain.String() + "DOMAINACCEPT"))
 	seed := append(si[:], si[:]...)
 	script := common.NewThresholdScript(uint8(len(gns.Nodes)*2/3 + 1))
 	accounts := []*common.Address{}
 	for _, d := range gns.Nodes {
 		accounts = append(accounts, &d.Signer)
 	}
-	tx := common.NewTransactionV3(common.XINAssetId)
+	tx := common.NewTransactionV5(common.XINAssetId)
 	tx.Inputs = []*common.Input{{Genesis: networkId[:]}}
 	tx.AddOutputWithType(common.OutputTypeDomainAccept, accounts, script, common.NewInteger(50000), seed)
 	tx.Extra = make([]byte, len(domain.PublicSpendKey))
@@ -169,11 +163,6 @@ func buildDomainSnapshot(networkId crypto.Hash, epoch uint64, domain common.Addr
 		Timestamp:   epoch + 1,
 	}
 	signed := tx.AsVersioned()
-	if networkId.String() == config.MainnetId {
-		snapshot.Version = 0
-		signed.Version = 1
-		signed, _ = common.UnmarshalVersionedTransaction(signed.Marshal())
-	}
 	snapshot.AddSoleTransaction(signed.PayloadHash())
 	return &common.SnapshotWithTopologicalOrder{
 		Snapshot:         snapshot,

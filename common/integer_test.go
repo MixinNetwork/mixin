@@ -71,17 +71,7 @@ func TestInteger(t *testing.T) {
 
 	m = NewInteger(8273)
 	require.Equal("8273.00000000", m.String())
-	p = msgpackMarshalPanic(m)
-	require.Equal("c70500c09eec3100", hex.EncodeToString(p))
-	err = msgpackUnmarshal(p, &m)
-	require.Nil(err)
-	require.Equal("8273.00000000", m.String())
 
 	m = NewIntegerFromString("0.00000192")
-	require.Equal("0.00000192", m.String())
-	p = msgpackMarshalPanic(m)
-	require.Equal("d400c0", hex.EncodeToString(p))
-	err = msgpackUnmarshal(p, &m)
-	require.Nil(err)
 	require.Equal("0.00000192", m.String())
 }

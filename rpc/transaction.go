@@ -206,10 +206,7 @@ func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx
 	if s.Version >= common.SnapshotVersionCommonEncoding {
 		item["transactions"] = []any{item["transaction"]}
 	}
-	if sig && s.Version == 0 {
-		item["signatures"] = s.Signatures
-	}
-	if sig && s.Version >= common.SnapshotVersionMsgpackEncoding {
+	if sig && s.Version >= common.SnapshotVersionCommonEncoding {
 		item["signature"] = s.Signature
 	}
 	return item
@@ -265,15 +262,13 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]any {
 	}
 
 	tm := map[string]any{
-		"version": tx.Version,
-		"asset":   tx.Asset,
-		"inputs":  inputs,
-		"outputs": outputs,
-		"extra":   hex.EncodeToString(tx.Extra),
-		"hash":    tx.PayloadHash(),
-	}
-	if tx.Version >= common.TxVersionReferences {
-		tm["references"] = tx.References
+		"version":    tx.Version,
+		"asset":      tx.Asset,
+		"inputs":     inputs,
+		"outputs":    outputs,
+		"extra":      hex.EncodeToString(tx.Extra),
+		"hash":       tx.PayloadHash(),
+		"references": tx.References,
 	}
 	return tm
 }

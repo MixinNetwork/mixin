@@ -47,16 +47,6 @@ func TestPoolSize(t *testing.T) {
 	require.Equal(common.NewIntegerFromString("449876.71232877"), poolSizeUniversal(366))
 }
 
-func TestPoolSizeLegacy(t *testing.T) {
-	require := require.New(t)
-
-	require.Equal(common.NewInteger(500000), poolSizeLegacy(0))
-	require.Equal(common.NewIntegerFromString("498767.12328830"), poolSizeLegacy(10))
-	require.Equal(common.NewInteger(500000), poolSizeLegacy(0))
-	require.Equal(common.NewIntegerFromString("455000"), poolSizeLegacy(365))
-	require.Equal(common.NewIntegerFromString("454889.04109592"), poolSizeLegacy(366))
-}
-
 func TestUniversalMintTransaction(t *testing.T) {
 	require := require.New(t)
 	logger.SetLevel(0)
@@ -77,9 +67,9 @@ func TestUniversalMintTransaction(t *testing.T) {
 	addr := "XINYneY2gomSHxkYF62pxbNdwcdhcayxJRAeyUanJR611q5NWg4QebfFhEF3Me8qCHR8g8tD6QHPHD8naZnnn3GdRrhhiuxi"
 	custodian, _ := common.NewAddressFromString(addr)
 
-	tx := common.NewTransactionV3(common.XINAssetId)
+	tx := common.NewTransactionV5(common.XINAssetId)
 	amount := common.NewIntegerFromString("80.88904107")
-	tx.AddKernelNodeMintInputLegacy(uint64(1616), amount)
+	tx.AddUniversalMintInput(uint64(1616), amount)
 	tx.AddScriptOutput([]*common.Address{&custodian}, common.NewThresholdScript(1), amount, make([]byte, 64))
 	versioned := tx.AsVersioned()
 	err = versioned.LockInputs(node.persistStore, false)
@@ -340,7 +330,7 @@ func testBuildMintSnapshots(signers []crypto.Hash, round, timestamp uint64) []*c
 		hash := []byte(fmt.Sprintf("MW%d%d%d", round, timestamp, i))
 		s := common.SnapshotWork{
 			Timestamp: timestamp,
-			Hash:      crypto.NewHash(hash),
+			Hash:      crypto.Blake3Hash(hash),
 			Signers:   signers,
 		}
 		snapshots[i] = &s

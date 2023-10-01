@@ -348,7 +348,6 @@ func main() {
 				&cli.StringFlag{
 					Name:  "network",
 					Usage: "the network id",
-					Value: config.MainnetId,
 				},
 			},
 		},

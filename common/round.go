@@ -57,8 +57,7 @@ func UnmarshalRound(b []byte) (*Round, error) {
 	r := &Round{}
 	dec, err := NewMinimumDecoder(b)
 	if err != nil {
-		err := msgpackUnmarshal(b, &r)
-		return r, err
+		return nil, err
 	}
 
 	err = dec.Read(r.Hash[:])

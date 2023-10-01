@@ -11,9 +11,7 @@ import (
 )
 
 const (
-	TxVersionReferences     = 0x04
-	TxVersionBlake3Hash     = 0x03
-	TxVersionCommonEncoding = 0x02
+	TxVersionHashSignature = 0x05
 
 	ExtraSizeGeneralLimit    = 256
 	ExtraSizeStorageStep     = 1024
@@ -86,7 +84,6 @@ type SignedTransaction struct {
 	Transaction
 	AggregatedSignature *AggregatedSignature           `msgpack:"-"`
 	SignaturesMap       []map[uint16]*crypto.Signature `msgpack:"-"`
-	SignaturesSliceV1   [][]*crypto.Signature          `msgpack:"-"`
 }
 
 func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {
@@ -162,7 +159,7 @@ func (tx *SignedTransaction) TransactionType() uint8 {
 }
 
 func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []*Address) error {
-	msg := signed.AsVersioned().PayloadMarshal()
+	msg := signed.AsVersioned().PayloadHash()
 
 	if len(accounts) == 0 {
 		return nil
@@ -188,7 +185,6 @@ func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []*Address) error
 }
 
 func (signed *SignedTransaction) SignInput(reader UTXOKeysReader, index int, accounts []*Address) error {
-	msg := signed.AsVersioned().PayloadMarshal()
 
 	if len(accounts) == 0 {
 		return nil
@@ -215,6 +211,7 @@ func (signed *SignedTransaction) SignInput(reader UTXOKeysReader, index int, acc
 	}
 
 	sigs := make(map[uint16]*crypto.Signature)
+	msg := signed.AsVersioned().PayloadHash()
 	for _, acc := range accounts {
 		priv := crypto.DeriveGhostPrivateKey(&utxo.Mask, &acc.PrivateViewKey, &acc.PrivateSpendKey, uint64(in.Index))
 		i, found := keysFilter[priv.Public().String()]
@@ -229,7 +226,7 @@ func (signed *SignedTransaction) SignInput(reader UTXOKeysReader, index int, acc
 }
 
 func (signed *SignedTransaction) SignRaw(key crypto.Key) error {
-	msg := signed.AsVersioned().PayloadMarshal()
+	msg := signed.AsVersioned().PayloadHash()
 
 	if len(signed.Inputs) != 1 {
 		return fmt.Errorf("invalid inputs count %d", len(signed.Inputs))
@@ -288,7 +285,7 @@ func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [
 	A := edwards25519.NewIdentityPoint()
 	for _, m := range signers {
 		buf := binary.BigEndian.AppendUint16(seed, uint16(m))
-		s := crypto.NewHash(buf)
+		s := crypto.Blake3Hash(buf)
 		r := crypto.NewKeyFromSeed(append(s[:], s[:]...))
 		randoms = append(randoms, &r)
 		R := r.Public()
@@ -340,23 +337,9 @@ func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [
 	return nil
 }
 
-func NewTransactionV4(asset crypto.Hash) *Transaction {
+func NewTransactionV5(asset crypto.Hash) *Transaction {
 	return &Transaction{
-		Version: TxVersionReferences,
-		Asset:   asset,
-	}
-}
-
-func NewTransactionV3(asset crypto.Hash) *Transaction {
-	return &Transaction{
-		Version: TxVersionBlake3Hash,
-		Asset:   asset,
-	}
-}
-
-func NewTransactionV2(asset crypto.Hash) *Transaction {
-	return &Transaction{
-		Version: TxVersionCommonEncoding,
+		Version: TxVersionHashSignature,
 		Asset:   asset,
 	}
 }

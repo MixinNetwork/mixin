@@ -9,23 +9,10 @@ import (
 
 func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	tx := &ver.SignedTransaction
-	msg := ver.PayloadMarshal()
 	txType := tx.TransactionType()
 
-	if ver.Version < TxVersionCommonEncoding {
-		if !fork {
-			return fmt.Errorf("unsupported version for new transaction %d", ver.Version)
-		}
-		return ver.validateV1(store, fork)
-	}
-	if ver.Version < TxVersionReferences && len(ver.References) > 0 {
-		return fmt.Errorf("%d transaction references not supported on this version %d",
-			len(ver.References), ver.Version)
-	}
 	switch ver.Version {
-	case TxVersionReferences:
-	case TxVersionBlake3Hash:
-	case TxVersionCommonEncoding:
+	case TxVersionHashSignature:
 	default:
 		return fmt.Errorf("invalid tx version %d", ver.Version)
 	}
@@ -45,8 +32,8 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	if len(tx.Extra) > tx.getExtraLimit() {
 		return fmt.Errorf("invalid extra size %d", len(tx.Extra))
 	}
-	if len(msg) > config.TransactionMaximumSize {
-		return fmt.Errorf("invalid transaction size %d", len(msg))
+	if len(ver.PayloadMarshal()) > config.TransactionMaximumSize {
+		return fmt.Errorf("invalid transaction size %d", len(ver.PayloadMarshal()))
 	}
 
 	if tx.AggregatedSignature != nil {
@@ -65,7 +52,7 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	if err != nil {
 		return err
 	}
-	inputsFilter, inputAmount, err := tx.validateInputs(store, msg, ver.PayloadHash(), txType, fork)
+	inputsFilter, inputAmount, err := tx.validateInputs(store, ver.PayloadHash(), txType, fork)
 	if err != nil {
 		return err
 	}
@@ -84,17 +71,17 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	case TransactionTypeMint:
 		return ver.validateMint(store)
 	case TransactionTypeDeposit:
-		return tx.validateDeposit(store, msg, ver.PayloadHash(), ver.SignaturesMap)
+		return tx.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap)
 	case TransactionTypeWithdrawalSubmit:
 		return tx.validateWithdrawalSubmit(inputsFilter)
 	case TransactionTypeWithdrawalFuel:
 		return tx.validateWithdrawalFuel(store, inputsFilter)
 	case TransactionTypeWithdrawalClaim:
-		return tx.validateWithdrawalClaim(store, inputsFilter, msg)
+		return tx.validateWithdrawalClaim(store, inputsFilter)
 	case TransactionTypeNodePledge:
 		return tx.validateNodePledge(store, inputsFilter)
 	case TransactionTypeNodeCancel:
-		return tx.validateNodeCancel(store, msg, ver.SignaturesMap)
+		return tx.validateNodeCancel(store, ver.PayloadHash(), ver.SignaturesMap)
 	case TransactionTypeNodeAccept:
 		return tx.validateNodeAccept(store)
 	case TransactionTypeNodeRemove:
@@ -112,8 +99,8 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 }
 
 func (tx *SignedTransaction) getExtraLimit() int {
-	if tx.Version < TxVersionReferences {
-		return ExtraSizeGeneralLimit
+	if tx.Version < TxVersionHashSignature {
+		panic(tx.Version)
 	}
 	if tx.Asset != XINAssetId {
 		return ExtraSizeGeneralLimit
@@ -174,7 +161,7 @@ func validateReferences(store UTXOLockReader, tx *SignedTransaction) error {
 	return nil
 }
 
-func (tx *SignedTransaction) validateInputs(store UTXOLockReader, msg []byte, hash crypto.Hash, txType uint8, fork bool) (map[string]*UTXO, Integer, error) {
+func (tx *SignedTransaction) validateInputs(store UTXOLockReader, hash crypto.Hash, txType uint8, fork bool) (map[string]*UTXO, Integer, error) {
 	inputAmount := NewInteger(0)
 	inputsFilter := make(map[string]*UTXO)
 	allKeys := make([]*crypto.Key, 0)
@@ -213,7 +200,7 @@ func (tx *SignedTransaction) validateInputs(store UTXOLockReader, msg []byte, ha
 			}
 		}
 
-		err = validateUTXO(i, &utxo.UTXO, tx.SignaturesMap, tx.AggregatedSignature, msg, txType, keySigs, len(allKeys))
+		err = validateUTXO(i, &utxo.UTXO, tx.SignaturesMap, tx.AggregatedSignature, hash, txType, keySigs, len(allKeys))
 		if err != nil {
 			return inputsFilter, inputAmount, err
 		}
@@ -230,7 +217,7 @@ func (tx *SignedTransaction) validateInputs(store UTXOLockReader, msg []byte, ha
 		return inputsFilter, inputAmount, err
 	}
 	if as := tx.AggregatedSignature; as != nil {
-		err := crypto.AggregateVerify(&as.Signature, allKeys, as.Signers, msg)
+		err := crypto.AggregateVerify(&as.Signature, allKeys, as.Signers, hash)
 		if err != nil {
 			err := fmt.Errorf("aggregate verification failure %s", err)
 			return inputsFilter, inputAmount, err
@@ -242,7 +229,7 @@ func (tx *SignedTransaction) validateInputs(store UTXOLockReader, msg []byte, ha
 			keys = append(keys, k)
 			sigs = append(sigs, s)
 		}
-		if !crypto.BatchVerify(msg, keys, sigs) {
+		if !crypto.BatchVerify(hash, keys, sigs) {
 			err := fmt.Errorf("batch verification failure %d %d", len(keys), len(sigs))
 			return inputsFilter, inputAmount, err
 		}
@@ -325,7 +312,7 @@ func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, fork
 	return outputAmount, nil
 }
 
-func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, as *AggregatedSignature, msg []byte, txType uint8, keySigs map[*crypto.Key]*crypto.Signature, offset int) error {
+func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, as *AggregatedSignature, msg crypto.Hash, txType uint8, keySigs map[*crypto.Key]*crypto.Signature, offset int) error {
 	switch utxo.Type {
 	case OutputTypeScript, OutputTypeNodeRemove:
 		if as != nil {

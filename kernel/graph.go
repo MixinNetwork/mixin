@@ -275,7 +275,7 @@ func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto
 	if found {
 		return value.(byte) == byte(1)
 	}
-	valid := pub.Verify(snap[:], sig)
+	valid := pub.Verify(snap, sig)
 	if valid {
 		node.cacheStore.Set(key, byte(1), 1)
 	} else {
@@ -323,7 +323,7 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, c
 		return signers, len(signers) == len(sig.Keys())
 	}
 
-	err := sig.FullVerify(publics, threshold, snap[:])
+	err := sig.FullVerify(publics, threshold, snap)
 	if err != nil {
 		logger.Verbosef("CacheVerifyCosi(%s, %d, %d) ERROR %s\n", snap, len(publics), threshold, err.Error())
 		node.cacheStore.Set(key, []byte{0}, 1)
@@ -379,9 +379,7 @@ func (chain *Chain) ConsensusKeys(round, timestamp uint64) ([]crypto.Hash, []*cr
 
 func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool) {
 	switch s.Version {
-	case 0:
-		return nil, chain.legacyVerifyFinalization(s.Timestamp, s.Signatures)
-	case common.SnapshotVersionMsgpackEncoding, common.SnapshotVersionCommonEncoding:
+	case common.SnapshotVersionCommonEncoding:
 	default:
 		return nil, false
 	}
@@ -415,8 +413,4 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 	cids = append(rs, cids...)
 	publics = append(rk, publics...)
 	return chain.node.CacheVerifyCosi(s.Hash, s.Signature, cids, publics, base)
-}
-
-func (chain *Chain) legacyVerifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {
-	return len(sigs) >= chain.node.ConsensusThreshold(timestamp, true)
 }

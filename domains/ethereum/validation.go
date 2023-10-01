@@ -19,7 +19,7 @@ var (
 
 func init() {
 	EthereumChainBase = "43d61dcd-e413-450d-80b8-101d5e903357"
-	EthereumChainId = crypto.NewHash([]byte(EthereumChainBase))
+	EthereumChainId = crypto.Sha256Hash([]byte(EthereumChainBase))
 }
 
 func VerifyAssetKey(assetKey string) error {
@@ -113,7 +113,7 @@ func BuildChainAssetId(base, asset string) crypto.Hash {
 	if err != nil {
 		panic(hex.EncodeToString(sum))
 	}
-	return crypto.NewHash([]byte(id.String()))
+	return crypto.Sha256Hash([]byte(id.String()))
 }
 
 const (

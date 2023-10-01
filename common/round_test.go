@@ -12,13 +12,13 @@ func TestRound(t *testing.T) {
 	require := require.New(t)
 
 	round := &Round{
-		Hash:      crypto.NewHash([]byte("hello-round-hash")),
-		NodeId:    crypto.NewHash([]byte("hello-round-node")),
+		Hash:      crypto.Blake3Hash([]byte("hello-round-hash")),
+		NodeId:    crypto.Blake3Hash([]byte("hello-round-node")),
 		Number:    123,
 		Timestamp: 456,
 		References: &RoundLink{
-			Self:     crypto.NewHash([]byte("self-link")),
-			External: crypto.NewHash([]byte("external-link")),
+			Self:     crypto.Blake3Hash([]byte("self-link")),
+			External: crypto.Blake3Hash([]byte("external-link")),
 		},
 	}
 

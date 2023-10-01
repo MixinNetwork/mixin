@@ -149,13 +149,8 @@ func computeRoundHash(nodeId crypto.Hash, number uint64, snapshots []*common.Sna
 		}
 	}
 
-	var hash crypto.Hash
 	buf := binary.BigEndian.AppendUint64(nodeId[:], number)
-	if version < common.SnapshotVersionCommonEncoding {
-		hash = crypto.NewHash(buf)
-	} else {
-		hash = crypto.Blake3Hash(buf)
-	}
+	hash := crypto.Blake3Hash(buf)
 	for _, s := range snapshots {
 		if s.Version > version {
 			panic(nodeId)
@@ -163,11 +158,7 @@ func computeRoundHash(nodeId crypto.Hash, number uint64, snapshots []*common.Sna
 		if s.Timestamp > end {
 			panic(nodeId)
 		}
-		if version < common.SnapshotVersionCommonEncoding {
-			hash = crypto.NewHash(append(hash[:], s.Hash[:]...))
-		} else {
-			hash = crypto.Blake3Hash(append(hash[:], s.Hash[:]...))
-		}
+		hash = crypto.Blake3Hash(append(hash[:], s.Hash[:]...))
 	}
 	return start, end, hash
 }

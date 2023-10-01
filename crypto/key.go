@@ -57,7 +57,7 @@ func (k Key) HasValue() bool {
 }
 
 func (k Key) DeterministicHashDerive() Key {
-	seed := NewHash(k[:])
+	seed := Blake3Hash(k[:])
 	return NewKeyFromSeed(append(seed[:], seed[:]...))
 }
 
@@ -84,18 +84,18 @@ func HashScalar(k *edwards25519.Point, outputIndex uint64) *edwards25519.Scalar 
 	var buf bytes.Buffer
 	buf.Write(k.Bytes())
 	buf.Write(tmp)
-	hash := NewHash(buf.Bytes())
+	hash := Blake3Hash(buf.Bytes())
 	copy(src[:32], hash[:])
-	hash = NewHash(hash[:])
+	hash = Blake3Hash(hash[:])
 	copy(src[32:], hash[:])
 	s, err := edwards25519.NewScalar().SetUniformBytes(src[:])
 	if err != nil {
 		panic(err)
 	}
 
-	hash = NewHash(s.Bytes())
+	hash = Blake3Hash(s.Bytes())
 	copy(src[:32], hash[:])
-	hash = NewHash(hash[:])
+	hash = Blake3Hash(hash[:])
 	copy(src[32:], hash[:])
 	x, err := edwards25519.NewScalar().SetUniformBytes(src[:])
 	if err != nil {

@@ -138,10 +138,6 @@ func (node *Node) loadNodeConfig() {
 	node.Listener = node.custom.Network.Listener
 }
 
-func (node *Node) isMainnet() bool {
-	return node.networkId.String() == config.MainnetId
-}
-
 func (node *Node) buildNodeStateSequences(allNodesSortedWithState []*CNode, acceptedOnly bool) []*NodeStateSequence {
 	nodeStateSequences := make([]*NodeStateSequence, len(allNodesSortedWithState))
 	for i, n := range allNodesSortedWithState {
@@ -325,22 +321,12 @@ func (node *Node) LoadConsensusNodes() error {
 }
 
 func (node *Node) SnapshotVersion() uint8 {
-	if !node.isMainnet() {
-		return common.SnapshotVersionCommonEncoding
-	}
-
-	if node.LastMint >= MainnetMintTransactionV3ForkBatch {
-		return common.SnapshotVersionCommonEncoding
-	}
-	return common.SnapshotVersionMsgpackEncoding
+	return common.SnapshotVersionCommonEncoding
 }
 
 // this is needed to handle mainnet transaction version upgrading fork
 func (node *Node) NewTransaction(assetId crypto.Hash) *common.Transaction {
-	if node.SnapshotVersion() < common.SnapshotVersionCommonEncoding {
-		return common.NewTransactionV2(assetId)
-	}
-	return common.NewTransactionV3(assetId)
+	return common.NewTransactionV5(assetId)
 }
 
 func (node *Node) PingNeighborsFromConfig() error {
@@ -409,7 +395,8 @@ func (node *Node) BuildAuthenticationMessage() []byte {
 	data := make([]byte, 8)
 	binary.BigEndian.PutUint64(data, uint64(clock.Now().Unix()))
 	data = append(data, node.Signer.PublicSpendKey[:]...)
-	sig := node.Signer.PrivateSpendKey.Sign(data)
+	dh := crypto.Blake3Hash(data)
+	sig := node.Signer.PrivateSpendKey.Sign(dh)
 	data = append(data, sig[:]...)
 	return append(data, []byte(node.Listener)...)
 }
@@ -441,7 +428,8 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 
 	var sig crypto.Signature
 	copy(sig[:], msg[40:40+len(sig)])
-	if !signer.PublicSpendKey.Verify(msg[:40], sig) {
+	mh := crypto.Blake3Hash(msg[:40])
+	if !signer.PublicSpendKey.Verify(mh, sig) {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
 	}
 

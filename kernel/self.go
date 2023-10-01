@@ -27,11 +27,7 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 
 	err = tx.Validate(node.persistStore, finalized)
 	if err != nil {
-		if node.isMainnet() && transactionForkHackCheck(tx.PayloadHash()) {
-			logger.Printf("transaction fork hack %s\n", tx.PayloadHash())
-		} else {
-			return nil, false, err
-		}
+		return nil, false, err
 	}
 	err = node.validateKernelSnapshot(s, tx, finalized)
 	if err != nil {

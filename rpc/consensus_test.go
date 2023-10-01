@@ -348,7 +348,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 
 func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []common.Address, networkId crypto.Hash) {
 	require := require.New(t)
-	tx := common.NewTransactionV4(common.XINAssetId)
+	tx := common.NewTransactionV5(common.XINAssetId)
 	require.NotNil(tx)
 
 	domain := signers[0]
@@ -380,7 +380,8 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 	for _, n := range custodianNodes {
 		sortedExtra = append(sortedExtra, n.Extra...)
 	}
-	sig := domain.PrivateSpendKey.Sign(sortedExtra)
+	sh := crypto.Blake3Hash(sortedExtra)
+	sig := domain.PrivateSpendKey.Sign(sh)
 	tx.Extra = append(sortedExtra, sig[:]...)
 
 	raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%s"}}],"outputs":[{"type":0,"amount":"%s","script":"fffe01","accounts":["%s"]}]}`, 10000, amount.String(), amount.String(), domain.String())
@@ -793,13 +794,7 @@ func testSignTransaction(node string, account common.Address, rawStr string, sna
 	}
 	raw.Node = node
 
-	tx := common.NewTransactionV3(raw.Asset)
-	if snapVersionMint < 1 && time.Now().UnixNano()%3 == 1 {
-		tx = common.NewTransactionV2(raw.Asset)
-	}
-	if len(raw.Extra) > 1024 || snapVersionMint < 1 && time.Now().UnixNano()%3 == 2 {
-		tx = common.NewTransactionV4(raw.Asset)
-	}
+	tx := common.NewTransactionV5(raw.Asset)
 	for _, in := range raw.Inputs {
 		if d := in.Deposit; d != nil {
 			tx.AddDepositInput(&common.DepositData{
@@ -818,7 +813,7 @@ func testSignTransaction(node string, account common.Address, rawStr string, sna
 		if out.Mask.HasValue() {
 			panic("not here")
 		}
-		hash := crypto.NewHash([]byte(rawStr))
+		hash := crypto.Blake3Hash([]byte(rawStr))
 		seed := append(hash[:], hash[:]...)
 		tx.AddOutputWithType(out.Type, out.Accounts, out.Script, out.Amount, seed)
 	}
@@ -897,16 +892,15 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 	})
 
 	var rss []*struct {
-		Version           uint8                 `json:"version"`
-		NodeId            crypto.Hash           `json:"node_id"`
-		References        *common.RoundLink     `json:"references"`
-		RoundNumber       uint64                `json:"round_number"`
-		Timestamp         uint64                `json:"timestamp"`
-		Signatures        []*crypto.Signature   `json:"signatures"`
-		Signature         *crypto.CosiSignature `json:"signature"`
-		Hash              crypto.Hash           `json:"hash"`
-		Transactions      []crypto.Hash         `json:"transactions"`
-		TransactionLegacy crypto.Hash           `json:"transaction"`
+		Version      uint8                 `json:"version"`
+		NodeId       crypto.Hash           `json:"node_id"`
+		References   *common.RoundLink     `json:"references"`
+		RoundNumber  uint64                `json:"round_number"`
+		Timestamp    uint64                `json:"timestamp"`
+		Signatures   []*crypto.Signature   `json:"signatures"`
+		Signature    *crypto.CosiSignature `json:"signature"`
+		Hash         crypto.Hash           `json:"hash"`
+		Transactions []crypto.Hash         `json:"transactions"`
 	}
 	err = json.Unmarshal(data, &rss)
 	if err != nil {
@@ -930,7 +924,6 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 		default:
 			panic(s.Version)
 		}
-		snapshots[i].AddSoleTransaction(s.TransactionLegacy)
 		filter[s.Hash.String()] = snapshots[i]
 	}
 	return filter

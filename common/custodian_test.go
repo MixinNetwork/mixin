@@ -9,15 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/stretchr/testify/require"
 )
 
+const mainnetId = "6430225c42bb015b4da03102fa962e4f4ef3969e03e04345db229f8377ef7997"
+
 func TestCustodianUpdateNodes(t *testing.T) {
 	require := require.New(t)
 
-	tx := NewTransactionV4(XINAssetId)
+	tx := NewTransactionV5(XINAssetId)
 	require.NotNil(tx)
 
 	domain := testBuildAddress(require)
@@ -28,7 +29,7 @@ func TestCustodianUpdateNodes(t *testing.T) {
 	tx.Extra = append(tx.Extra, custodian.PublicSpendKey[:]...)
 	tx.Extra = append(tx.Extra, custodian.PublicViewKey[:]...)
 
-	mainnet, _ := crypto.HashFromString(config.MainnetId)
+	mainnet, _ := crypto.HashFromString(mainnetId)
 	nodes := make([]*CustodianNode, count)
 	for i := 0; i < count; i++ {
 		signer := testBuildAddress(require)
@@ -39,7 +40,8 @@ func TestCustodianUpdateNodes(t *testing.T) {
 		tx.Extra = append(tx.Extra, extra...)
 	}
 
-	sig := domain.PrivateSpendKey.Sign(tx.Extra)
+	eh := crypto.Blake3Hash(tx.Extra)
+	sig := domain.PrivateSpendKey.Sign(eh)
 	tx.Extra = append(tx.Extra, sig[:]...)
 
 	err := tx.validateCustodianUpdateNodes(store)
@@ -66,7 +68,8 @@ func TestCustodianUpdateNodes(t *testing.T) {
 	for _, n := range nodes {
 		sortedExtra = append(sortedExtra, n.Extra...)
 	}
-	sig = domain.PrivateSpendKey.Sign(sortedExtra)
+	eh = crypto.Blake3Hash(sortedExtra)
+	sig = domain.PrivateSpendKey.Sign(eh)
 	tx.Extra = append(sortedExtra, sig[:]...)
 	err = tx.validateCustodianUpdateNodes(store)
 	require.NotNil(err)
@@ -105,7 +108,8 @@ func TestCustodianUpdateNodes(t *testing.T) {
 	require.NotNil(err)
 	require.Contains(err.Error(), "approval signature")
 	tx.Extra = tx.Extra[:len(tx.Extra)-64]
-	sig = custodian.PrivateSpendKey.Sign(tx.Extra)
+	eh = crypto.Blake3Hash(tx.Extra)
+	sig = custodian.PrivateSpendKey.Sign(eh)
 	tx.Extra = append(tx.Extra, sig[:]...)
 	err = tx.validateCustodianUpdateNodes(store)
 	require.Nil(err)
@@ -128,7 +132,7 @@ func TestCustodianParseNode(t *testing.T) {
 	require.Equal(extra, cn.Extra)
 	require.Nil(cn.validate())
 
-	mainnet, _ := crypto.HashFromString(config.MainnetId)
+	mainnet, _ := crypto.HashFromString(mainnetId)
 	payee := testBuildAddress(require)
 	signer := testBuildAddress(require)
 	custodian := testBuildAddress(require)
