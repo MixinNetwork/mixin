@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -155,19 +156,17 @@ func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[strin
 		return fmt.Errorf("invalid withdrawal submit data")
 	}
 
+	custodian, err := store.ReadCustodian(uint64(time.Now().UnixNano()))
+	if err != nil {
+		return err
+	}
 	var domainValid bool
-	for _, d := range store.ReadDomains() {
-		domainValid = true
-		view := d.Account.PublicSpendKey.DeterministicHashDerive()
-		for _, utxo := range inputs {
-			for _, key := range utxo.Keys {
-				ghost := crypto.ViewGhostOutputKey(key, &view, &utxo.Mask, uint64(utxo.Index))
-				valid := *ghost == d.Account.PublicSpendKey
-				domainValid = domainValid && valid
-			}
-		}
-		if domainValid {
-			break
+	view := custodian.Custodian.PublicSpendKey.DeterministicHashDerive()
+	for _, utxo := range inputs {
+		for _, key := range utxo.Keys {
+			ghost := crypto.ViewGhostOutputKey(key, &view, &utxo.Mask, uint64(utxo.Index))
+			valid := *ghost == custodian.Custodian.PublicSpendKey
+			domainValid = domainValid && valid
 		}
 	}
 	if !domainValid {

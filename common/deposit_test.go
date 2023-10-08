@@ -41,11 +41,6 @@ func TestDeposit(t *testing.T) {
 	store := storeImpl{
 		seed:     seed,
 		accounts: accounts,
-		domains: []*Domain{
-			{
-				Account: *receiver.Address(),
-			},
-		},
 	}
 
 	tx := NewTransactionV5(assetID)

@@ -21,10 +21,7 @@ type Genesis struct {
 		Payee   common.Address `json:"payee"`
 		Balance common.Integer `json:"balance"`
 	} `json:"nodes"`
-	Domains []*struct {
-		Signer  common.Address `json:"signer"`
-		Balance common.Integer `json:"balance"`
-	} `json:"domains"`
+	Custodian common.Address `json:"custodian"`
 }
 
 func (node *Node) LoadGenesis(configDir string) error {
@@ -100,12 +97,7 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 		}
 	}
 
-	domain := gns.Domains[0]
-	if in := gns.Nodes[0]; domain.Signer.String() != in.Signer.String() {
-		err := fmt.Errorf("invalid genesis domain input account %s %s", domain.Signer.String(), in.Signer.String())
-		return nil, nil, nil, err
-	}
-	topo, signed := buildDomainSnapshot(networkId, epoch, domain.Signer, gns)
+	topo, signed := buildCustodianSnapshot(networkId, epoch, gns.Custodian, gns)
 	snapshots = append(snapshots, topo)
 	transactions = append(transactions, signed)
 	snap := topo.Snapshot
@@ -141,33 +133,8 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 	return rounds, snapshots, transactions, nil
 }
 
-func buildDomainSnapshot(networkId crypto.Hash, epoch uint64, domain common.Address, gns *Genesis) (*common.SnapshotWithTopologicalOrder, *common.VersionedTransaction) {
-	si := crypto.Blake3Hash([]byte(domain.String() + "DOMAINACCEPT"))
-	seed := append(si[:], si[:]...)
-	script := common.NewThresholdScript(uint8(len(gns.Nodes)*2/3 + 1))
-	accounts := []*common.Address{}
-	for _, d := range gns.Nodes {
-		accounts = append(accounts, &d.Signer)
-	}
-	tx := common.NewTransactionV5(common.XINAssetId)
-	tx.Inputs = []*common.Input{{Genesis: networkId[:]}}
-	tx.AddOutputWithType(common.OutputTypeDomainAccept, accounts, script, common.NewInteger(50000), seed)
-	tx.Extra = make([]byte, len(domain.PublicSpendKey))
-	copy(tx.Extra, domain.PublicSpendKey[:])
-
-	nodeId := domain.Hash().ForNetwork(networkId)
-	snapshot := &common.Snapshot{
-		Version:     common.SnapshotVersionCommonEncoding,
-		NodeId:      nodeId,
-		RoundNumber: 0,
-		Timestamp:   epoch + 1,
-	}
-	signed := tx.AsVersioned()
-	snapshot.AddSoleTransaction(signed.PayloadHash())
-	return &common.SnapshotWithTopologicalOrder{
-		Snapshot:         snapshot,
-		TopologicalOrder: uint64(len(gns.Nodes)),
-	}, signed
+func buildCustodianSnapshot(networkId crypto.Hash, epoch uint64, domain common.Address, gns *Genesis) (*common.SnapshotWithTopologicalOrder, *common.VersionedTransaction) {
+	panic(0)
 }
 
 func readGenesis(path string) (*Genesis, error) {
@@ -209,18 +176,6 @@ func readGenesis(path string) (*Genesis, error) {
 		}
 	}
 
-	if len(gns.Domains) != 1 {
-		return nil, fmt.Errorf("invalid genesis domain inputs count %d",
-			len(gns.Domains))
-	}
-	domain := gns.Domains[0]
-	if domain.Signer.String() != gns.Nodes[0].Signer.String() {
-		return nil, fmt.Errorf("invalid genesis domain input account %s %s",
-			domain.Signer.String(), gns.Nodes[0].Signer.String())
-	}
-	if domain.Balance.Cmp(common.NewInteger(50000)) != 0 {
-		return nil, fmt.Errorf("invalid genesis domain input amount %s",
-			domain.Balance.String())
-	}
+	panic("check gns.Custodian")
 	return &gns, nil
 }

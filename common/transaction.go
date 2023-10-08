@@ -27,8 +27,6 @@ const (
 	OutputTypeNodeAccept           = 0xa4
 	outputTypeNodeResign           = 0xa5
 	OutputTypeNodeRemove           = 0xa6
-	OutputTypeDomainAccept         = 0xa7
-	OutputTypeDomainRemove         = 0xa8
 	OutputTypeWithdrawalClaim      = 0xa9
 	OutputTypeNodeCancel           = 0xaa
 	OutputTypeCustodianUpdateNodes = 0xb1
@@ -44,8 +42,6 @@ const (
 	TransactionTypeNodeAccept           = 0x07
 	transactionTypeNodeResign           = 0x08
 	TransactionTypeNodeRemove           = 0x09
-	TransactionTypeDomainAccept         = 0x10
-	TransactionTypeDomainRemove         = 0x11
 	TransactionTypeNodeCancel           = 0x12
 	TransactionTypeCustodianUpdateNodes = 0x13
 	TransactionTypeCustodianSlashNodes  = 0x14
@@ -64,7 +60,7 @@ type Output struct {
 	Type       uint8
 	Amount     Integer
 	Keys       []*crypto.Key
-	Withdrawal *WithdrawalData `msgpack:",omitempty"`
+	Withdrawal *WithdrawalData
 
 	// OutputTypeScript fields
 	Script Script
@@ -76,14 +72,14 @@ type Transaction struct {
 	Asset      crypto.Hash
 	Inputs     []*Input
 	Outputs    []*Output
-	References []crypto.Hash `msgpack:"-"`
+	References []crypto.Hash
 	Extra      []byte
 }
 
 type SignedTransaction struct {
 	Transaction
-	AggregatedSignature *AggregatedSignature           `msgpack:"-"`
-	SignaturesMap       []map[uint16]*crypto.Signature `msgpack:"-"`
+	AggregatedSignature *AggregatedSignature
+	SignaturesMap       []map[uint16]*crypto.Signature
 }
 
 func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {
@@ -144,10 +140,6 @@ func (tx *SignedTransaction) TransactionType() uint8 {
 			return TransactionTypeCustodianUpdateNodes
 		case OutputTypeCustodianSlashNodes:
 			return TransactionTypeCustodianSlashNodes
-		case OutputTypeDomainAccept:
-			return TransactionTypeDomainAccept
-		case OutputTypeDomainRemove:
-			return TransactionTypeDomainRemove
 		}
 		isScript = isScript && out.Type == OutputTypeScript
 	}

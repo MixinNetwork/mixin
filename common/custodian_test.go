@@ -154,13 +154,6 @@ type testCustodianStore struct {
 	custodianUpdateNodesTimestamp uint64
 }
 
-func (s *testCustodianStore) ReadDomains() []*Domain {
-	if s.domain == nil {
-		return nil
-	}
-	return []*Domain{{Account: *s.domain}}
-}
-
 func (s *testCustodianStore) ReadCustodian(ts uint64) (*CustodianUpdateRequest, error) {
 	if s.custodianUpdateNodesExtra == nil {
 		return nil, nil

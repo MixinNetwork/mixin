@@ -17,10 +17,9 @@ type Snapshot struct {
 	References   *RoundLink
 	RoundNumber  uint64
 	Timestamp    uint64
-	Signatures   []*crypto.Signature   `msgpack:",omitempty"`
-	Signature    *crypto.CosiSignature `msgpack:",omitempty"`
-	Hash         crypto.Hash           `msgpack:"-"`
-	Transactions []crypto.Hash         `msgpack:"-"`
+	Signature    *crypto.CosiSignature
+	Hash         crypto.Hash
+	Transactions []crypto.Hash
 }
 
 type SnapshotWithTopologicalOrder struct {

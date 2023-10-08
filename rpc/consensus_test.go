@@ -917,9 +917,7 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 			Timestamp:   s.Timestamp,
 		}
 		switch s.Version {
-		case 0:
-			snapshots[i].Signatures = s.Signatures
-		case 1, 2:
+		case 2:
 			snapshots[i].Signature = s.Signature
 		default:
 			panic(s.Version)

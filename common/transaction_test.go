@@ -247,7 +247,6 @@ func TestTransactionReferences(t *testing.T) {
 type storeImpl struct {
 	seed     []byte
 	accounts []*Address
-	domains  []*Domain
 }
 
 func (store storeImpl) ReadUTXOKeys(hash crypto.Hash, index int) (*UTXOKeys, error) {
@@ -296,10 +295,6 @@ func (store storeImpl) LockGhostKeys(keys []*crypto.Key, tx crypto.Hash, fork bo
 
 func (store storeImpl) LockUTXOs(inputs []*Input, tx crypto.Hash, fork bool) error {
 	return nil
-}
-
-func (store storeImpl) ReadDomains() []*Domain {
-	return store.domains
 }
 
 func (store storeImpl) ReadAllNodes(_ uint64, _ bool) []*Node {

@@ -43,11 +43,7 @@ func (node *Node) validateCustodianUpdateNodes(s *common.Snapshot, tx *common.Ve
 		return err
 	}
 	if prev == nil {
-		domains := node.persistStore.ReadDomains()
-		if len(domains) != 1 {
-			return fmt.Errorf("invalid domains count %d", len(domains))
-		}
-		prev = &common.CustodianUpdateRequest{Custodian: &domains[0].Account}
+		panic("FIXME genesis check")
 	}
 	eh := crypto.Blake3Hash(tx.Extra[:len(tx.Extra)-64])
 	if !prev.Custodian.PublicSpendKey.Verify(eh, *curs.Signature) {

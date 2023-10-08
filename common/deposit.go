@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
@@ -75,18 +76,17 @@ func (tx *SignedTransaction) validateDeposit(store DataStore, payloadHash crypto
 		return err
 	}
 
-	sig, valid := sigs[0][0], false
+	sig := sigs[0][0]
 	if sig == nil {
 		return fmt.Errorf("invalid domain signature index for deposit")
 	}
 	// FIXME change this to custodian only when available
 	// domain key will be used as observer for the safe network
-	for _, d := range store.ReadDomains() {
-		if d.Account.PublicSpendKey.Verify(payloadHash, *sig) {
-			valid = true
-		}
+	custodian, err := store.ReadCustodian(uint64(time.Now().UnixNano()))
+	if err != nil {
+		return err
 	}
-	if !valid {
+	if !custodian.Custodian.PublicSpendKey.Verify(payloadHash, *sig) {
 		return fmt.Errorf("invalid domain signature for deposit")
 	}
 

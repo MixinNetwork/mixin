@@ -170,11 +170,7 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 	}
 
 	safe := amount.Div(10).Mul(4)
-	domains := node.persistStore.ReadDomains()
-	custodian := &domains[0].Account
-	if custodianRequest != nil {
-		custodian = custodianRequest.Custodian
-	}
+	custodian := custodianRequest.Custodian
 	in := fmt.Sprintf("MINTCUSTODIANACCOUNT%d", batch)
 	si := crypto.Blake3Hash([]byte(custodian.String() + in))
 	seed := append(si[:], si[:]...)
