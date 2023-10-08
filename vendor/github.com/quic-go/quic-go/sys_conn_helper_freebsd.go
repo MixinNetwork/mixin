@@ -14,8 +14,6 @@ const (
 	ipv4PKTINFO  = 0x7
 )
 
-const ecnIPv4DataLen = 4
-
 const batchSize = 8
 
 func parseIPv4PktInfo(body []byte) (ip netip.Addr, _ uint32, ok bool) {

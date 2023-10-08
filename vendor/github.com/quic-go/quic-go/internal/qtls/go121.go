@@ -41,7 +41,7 @@ const (
 func QUICServer(config *QUICConfig) *QUICConn { return tls.QUICServer(config) }
 func QUICClient(config *QUICConfig) *QUICConn { return tls.QUICClient(config) }
 
-func SetupConfigForServer(qconf *QUICConfig, _ bool, getData func() []byte, handleSessionTicket func([]byte, bool) bool) {
+func SetupConfigForServer(qconf *QUICConfig, _ bool, getData func() []byte, accept0RTT func([]byte) bool) {
 	conf := qconf.TLSConfig
 
 	// Workaround for https://github.com/golang/go/issues/60506.
@@ -55,9 +55,11 @@ func SetupConfigForServer(qconf *QUICConfig, _ bool, getData func() []byte, hand
 	// add callbacks to save transport parameters into the session ticket
 	origWrapSession := conf.WrapSession
 	conf.WrapSession = func(cs tls.ConnectionState, state *tls.SessionState) ([]byte, error) {
-		// Add QUIC session ticket
-		state.Extra = append(state.Extra, addExtraPrefix(getData()))
-
+		// Add QUIC transport parameters if this is a 0-RTT packet.
+		// TODO(#3853): also save the RTT for non-0-RTT tickets
+		if state.EarlyData {
+			state.Extra = append(state.Extra, addExtraPrefix(getData()))
+		}
 		if origWrapSession != nil {
 			return origWrapSession(cs, state)
 		}
@@ -81,14 +83,14 @@ func SetupConfigForServer(qconf *QUICConfig, _ bool, getData func() []byte, hand
 		if err != nil || state == nil {
 			return nil, err
 		}
-
-		extra := findExtraData(state.Extra)
-		if extra != nil {
-			state.EarlyData = handleSessionTicket(extra, state.EarlyData && unwrapCount == 1)
-		} else {
-			state.EarlyData = false
+		if state.EarlyData {
+			extra := findExtraData(state.Extra)
+			if unwrapCount == 1 && extra != nil { // first session ticket
+				state.EarlyData = accept0RTT(extra)
+			} else { // subsequent session ticket, can't be used for 0-RTT
+				state.EarlyData = false
+			}
 		}
-
 		return state, nil
 	}
 }
