@@ -34,7 +34,7 @@ func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, err
 	if err != nil {
 		return nil, err
 	}
-	version := checkTxVersion(b)
+	version := checkSnapVersion(b)
 	if version < SnapshotVersionCommonEncoding {
 		return nil, fmt.Errorf("invalid version %v", b)
 	}
@@ -154,6 +154,7 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 		}
 		tx.References = append(tx.References, r)
 	}
+
 	el, err := dec.ReadUint32()
 	if err != nil {
 		return nil, err

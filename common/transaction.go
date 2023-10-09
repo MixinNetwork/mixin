@@ -297,11 +297,11 @@ func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [
 	}
 
 	var hramDigest [64]byte
-	msg := signed.AsVersioned().PayloadMarshal()
+	msg := signed.AsVersioned().PayloadHash()
 	h := sha512.New()
 	h.Write(P.Bytes())
 	h.Write(A.Bytes())
-	h.Write(msg)
+	h.Write(msg[:])
 	h.Sum(hramDigest[:0])
 	x, err := edwards25519.NewScalar().SetUniformBytes(hramDigest[:])
 	if err != nil {

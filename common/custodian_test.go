@@ -3,7 +3,6 @@ package common
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"sort"
 	"testing"
@@ -73,7 +72,7 @@ func TestCustodianUpdateNodes(t *testing.T) {
 	tx.Extra = append(sortedExtra, sig[:]...)
 	err = tx.validateCustodianUpdateNodes(store)
 	require.NotNil(err)
-	require.Contains(err.Error(), "domains count")
+	require.Contains(err.Error(), "there must be a custodian")
 
 	store.domain = &custodian
 	err = tx.validateCustodianUpdateNodes(store)
@@ -91,7 +90,8 @@ func TestCustodianUpdateNodes(t *testing.T) {
 
 	prev, err := store.ReadCustodian(uint64(time.Now().UnixNano()))
 	require.Nil(err)
-	require.Nil(prev)
+	require.NotNil(prev)
+	require.Equal(domain.String(), prev.Custodian.String())
 
 	timestamp := uint64(time.Now().UnixNano())
 	store.custodianUpdateNodesTimestamp = timestamp
@@ -122,23 +122,13 @@ func TestCustodianUpdateNodes(t *testing.T) {
 func TestCustodianParseNode(t *testing.T) {
 	require := require.New(t)
 
-	msg := "AXjpmilx5N4AV7TfZYPGJ880VjHctV76u1mGhVF9l9obUUv5TNnZbEC4beqfAS2e0RAGMQeM3o6i5KdZgl0sh3h7zwSeoiwoeh45wPxN0t96wibGBO3aTkBKpwRaOM6QpXoom3wIdG8o1Bquqv05SrNaOZSxD6EFlFR99loc9lTr_xnpMHU4RsZ2w0AELVVHAhtdWb4xgfRxt_18My1hNnJrIxUfmf4SYq_01tB8RE-GTC1pk7jqwQ6y5KjI3neGqL9xGCDa8FJPQOLkmCNSCWqdGRVEHGUD-Irj4oAt2OgOD4C2hPhgghT-Q7QBHEbXbhg7WFavLCO7PWK9eiE7c79DaZUw51-08tF2nh9RC5sK4AeqkbaiZ47efzbHrQ1kCxgH0Ra85_kSGwPW_sVvTeMRYKaE3oxT4UKeZAeqpb5XfsY2Zl-X9zqvYkAfZuSsRilcKu3pDgOolHWNcB3NjgM"
-	extra, _ := base64.RawURLEncoding.DecodeString(msg)
-	cn, err := ParseCustodianNode(extra)
-	require.Nil(err)
-	require.NotNil(cn)
-	require.Equal("XINGpVSTGyPEmtXQUCaSEGbnq2ZBVgZxtej6gaVhZ5qm39kbPncsa6TPSjQ8WrPQSZt4Bd5ZvbbYrLZvqJWdZ1T7a1JCA7WK", cn.Custodian.String())
-	require.Equal("XINHCU4KJj3XJT3shyYSoRp3RPQag3MaQc36xaDwqraVs6HZDu4r5t7vSHk6zm6rFmXENGMQcphq5ZhikwA5bfeZexXKqsof", cn.Payee.String())
-	require.Equal(extra, cn.Extra)
-	require.Nil(cn.validate())
-
 	mainnet, _ := crypto.HashFromString(mainnetId)
 	payee := testBuildAddress(require)
 	signer := testBuildAddress(require)
 	custodian := testBuildAddress(require)
 	nodeId := signer.Hash().ForNetwork(mainnet)
-	extra = EncodeCustodianNode(&custodian, &payee, &signer.PrivateSpendKey, &payee.PrivateSpendKey, &custodian.PrivateSpendKey, mainnet)
-	cn, err = ParseCustodianNode(extra)
+	extra := EncodeCustodianNode(&custodian, &payee, &signer.PrivateSpendKey, &payee.PrivateSpendKey, &custodian.PrivateSpendKey, mainnet)
+	cn, err := ParseCustodianNode(extra)
 	require.Nil(err)
 	require.NotNil(cn)
 	require.Equal(custodian.String(), cn.Custodian.String())
@@ -156,7 +146,12 @@ type testCustodianStore struct {
 
 func (s *testCustodianStore) ReadCustodian(ts uint64) (*CustodianUpdateRequest, error) {
 	if s.custodianUpdateNodesExtra == nil {
-		return nil, nil
+		if s.domain == nil {
+			return nil, nil
+		}
+		return &CustodianUpdateRequest{
+			Custodian: s.domain,
+		}, nil
 	}
 	cur, err := ParseCustodianUpdateNodesExtra(s.custodianUpdateNodesExtra)
 	if err != nil {

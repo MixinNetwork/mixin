@@ -177,10 +177,7 @@ func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error
 		return err
 	}
 	if prev == nil {
-		// FIXME do genesis check
-		// in the genesis, will assign a custodian directly, and all nodes are required
-		// to be in the safe custodian network
-		panic("FIXME genesis check")
+		return fmt.Errorf("there must be a custodian available %d", now)
 	}
 	eh := crypto.Blake3Hash(tx.Extra[:len(tx.Extra)-64])
 	if !prev.Custodian.PublicSpendKey.Verify(eh, *curs.Signature) {

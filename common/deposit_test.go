@@ -39,8 +39,9 @@ func TestDeposit(t *testing.T) {
 	seed := make([]byte, 64)
 	rand.Read(seed)
 	store := storeImpl{
-		seed:     seed,
-		accounts: accounts,
+		custodian: receiver.Address(),
+		seed:      seed,
+		accounts:  accounts,
 	}
 
 	tx := NewTransactionV5(assetID)

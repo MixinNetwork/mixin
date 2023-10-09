@@ -20,8 +20,8 @@ type Address struct {
 }
 
 func NewAddressFromSeed(seed []byte) Address {
-	hash1 := crypto.Blake3Hash(seed)
-	hash2 := crypto.Blake3Hash(hash1[:])
+	hash1 := crypto.Sha256Hash(seed)
+	hash2 := crypto.Sha256Hash(hash1[:])
 	src := append(hash1[:], hash2[:]...)
 	spend := crypto.NewKeyFromSeed(seed)
 	view := crypto.NewKeyFromSeed(src)
@@ -43,7 +43,7 @@ func NewAddressFromString(s string) (Address, error) {
 	if len(data) != 68 {
 		return a, errors.New("invalid address format")
 	}
-	checksum := crypto.Blake3Hash(append([]byte(MainNetworkId), data[:64]...))
+	checksum := crypto.Sha256Hash(append([]byte(MainNetworkId), data[:64]...))
 	if !bytes.Equal(checksum[:4], data[64:]) {
 		return a, errors.New("invalid address checksum")
 	}
@@ -61,14 +61,14 @@ func NewAddressFromString(s string) (Address, error) {
 func (a Address) String() string {
 	data := append([]byte(MainNetworkId), a.PublicSpendKey[:]...)
 	data = append(data, a.PublicViewKey[:]...)
-	checksum := crypto.Blake3Hash(data)
+	checksum := crypto.Sha256Hash(data)
 	data = append(a.PublicSpendKey[:], a.PublicViewKey[:]...)
 	data = append(data, checksum[:4]...)
 	return MainNetworkId + base58.Encode(data)
 }
 
 func (a Address) Hash() crypto.Hash {
-	return crypto.Blake3Hash(append(a.PublicSpendKey[:], a.PublicViewKey[:]...))
+	return crypto.Sha256Hash(append(a.PublicSpendKey[:], a.PublicViewKey[:]...))
 }
 
 func (a Address) MarshalJSON() ([]byte, error) {

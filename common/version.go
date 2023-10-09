@@ -103,7 +103,12 @@ func decompressUnmarshalVersionedTransaction(val []byte) (*VersionedTransaction,
 		return nil, fmt.Errorf("transaction too large %d", len(val))
 	}
 
-	signed, err := NewDecoder(val).DecodeTransaction()
+	b := val
+	if checkTxVersion(val) < TxVersionHashSignature {
+		b = decompress(val)
+	}
+
+	signed, err := NewDecoder(b).DecodeTransaction()
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +122,21 @@ func checkTxVersion(val []byte) uint8 {
 	}
 	for _, i := range []byte{
 		TxVersionHashSignature,
+	} {
+		v := append(magic, 0, i)
+		if bytes.Equal(v, val[:4]) {
+			return i
+		}
+	}
+	return 0
+}
+
+func checkSnapVersion(val []byte) uint8 {
+	if len(val) < 4 {
+		return 0
+	}
+	for _, i := range []byte{
+		SnapshotVersionCommonEncoding,
 	} {
 		v := append(magic, 0, i)
 		if bytes.Equal(v, val[:4]) {

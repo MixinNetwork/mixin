@@ -1,5 +1,6 @@
 {
   "epoch": 1551312000,
+  "custodian": "XINq9ctH1qYjxE8AsxJoH53qgNpS6hpL5mv5sFGML4Bf7tdpBD5LorhGBGpSF4tEKh9LD81XrXcaLA3CmTnCZU2NoKExsDh",
   "nodes": [
     {
       "signer": "XINq9ctH1qYjxE8AsxJoH53qgNpS6hpL5mv5sFGML4Bf7tdpBD5LorhGBGpSF4tEKh9LD81XrXcaLA3CmTnCZU2NoKExsDh",
@@ -75,12 +76,6 @@
       "signer": "XINBcaWrMMmnuKy3iGg4fbrpjxXx2inVNjG8g9V2u5xfbPQaowLfgapqpZW5wfY2AZU2BLvpbhrUc7UWRDWU6JifzCAeUHhA",
       "payee": "XINMVjfMY6vgNDCzQ1aga7ogBju2BdrGd3DiHZgrvAjpxVxqZBcAcMHA75Cu6AQctDzEGToYGk7HYRKHWJyd3Z2vS2QZgQpB",
       "balance": "10000"
-    }
-  ],
-  "domains": [
-    {
-      "signer": "XINq9ctH1qYjxE8AsxJoH53qgNpS6hpL5mv5sFGML4Bf7tdpBD5LorhGBGpSF4tEKh9LD81XrXcaLA3CmTnCZU2NoKExsDh",
-      "balance": "50000"
     }
   ]
 }
