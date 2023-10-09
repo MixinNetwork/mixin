@@ -57,7 +57,7 @@ func (k Key) HasValue() bool {
 }
 
 func (k Key) DeterministicHashDerive() Key {
-	seed := Blake3Hash(k[:])
+	seed := Sha256Hash(k[:])
 	return NewKeyFromSeed(append(seed[:], seed[:]...))
 }
 

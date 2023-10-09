@@ -73,7 +73,7 @@ func EncodeCustodianNode(custodian, payee *Address, signerSpend, payeeSpend, cus
 	return extra
 }
 
-func ParseCustodianNode(extra []byte) (*CustodianNode, error) {
+func parseCustodianNode(extra []byte, genesis bool) (*CustodianNode, error) {
 	if len(extra) != custodianNodeExtraSize {
 		return nil, fmt.Errorf("invalid custodian node data %x", extra)
 	}
@@ -88,13 +88,13 @@ func ParseCustodianNode(extra []byte) (*CustodianNode, error) {
 	copy(cn.Payee.PublicSpendKey[:], extra[65:97])
 	copy(cn.Payee.PublicViewKey[:], extra[97:129])
 	err := cn.validate()
-	if err != nil {
+	if err != nil && !genesis {
 		return nil, err
 	}
 	return &cn, nil
 }
 
-func ParseCustodianUpdateNodesExtra(extra []byte) (*CustodianUpdateRequest, error) {
+func ParseCustodianUpdateNodesExtra(extra []byte, genesis bool) (*CustodianUpdateRequest, error) {
 	if len(extra) < 64+custodianNodeExtraSize*custodianNodesMinimumCount+64 {
 		return nil, fmt.Errorf("invalid custodian update extra %x", extra)
 	}
@@ -113,7 +113,7 @@ func ParseCustodianUpdateNodesExtra(extra []byte) (*CustodianUpdateRequest, erro
 	uniqueKeys := make(map[crypto.Key]bool)
 	for i := range nodes {
 		cne := nodesExtra[i*custodianNodeExtraSize : (i+1)*custodianNodeExtraSize]
-		cn, err := ParseCustodianNode(cne)
+		cn, err := parseCustodianNode(cne, genesis)
 		if err != nil {
 			return nil, err
 		}
@@ -163,7 +163,7 @@ func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error
 		return fmt.Errorf("invalid custodian update output receiver %v", out)
 	}
 
-	curs, err := ParseCustodianUpdateNodesExtra(tx.Extra)
+	curs, err := ParseCustodianUpdateNodesExtra(tx.Extra, false)
 	if err != nil {
 		return err
 	}

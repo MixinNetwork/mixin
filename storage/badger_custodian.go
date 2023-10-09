@@ -21,14 +21,16 @@ func (s *BadgerStore) ListCustodianUpdates() ([]*common.CustodianUpdateRequest, 
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
+	genesis := true
 	var curs []*common.CustodianUpdateRequest
 	it.Seek(graphCustodianUpdateKey(0))
 	for ; it.ValidForPrefix([]byte(graphPrefixCustodianUpdate)); it.Next() {
-		cur, err := parseCustodianUpdateItem(txn, it)
+		cur, err := parseCustodianUpdateItem(txn, it, genesis)
 		if err != nil {
 			return nil, err
 		}
 		curs = append(curs, cur)
+		genesis = false
 	}
 	return curs, nil
 }
@@ -44,20 +46,30 @@ func readCustodianAccount(txn *badger.Txn, ts uint64) (*common.CustodianUpdateRe
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = true
 	opts.Prefix = []byte(graphPrefixCustodianUpdate)
-	opts.Reverse = true
+	opts.Reverse = false
 
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
-	it.Seek(graphCustodianUpdateKey(ts))
-	if it.ValidForPrefix([]byte(graphPrefixCustodianUpdate)) {
-		return parseCustodianUpdateItem(txn, it)
+	genesis := true
+	var found *common.CustodianUpdateRequest
+	it.Seek(graphCustodianUpdateKey(0))
+	for ; it.ValidForPrefix([]byte(graphPrefixCustodianUpdate)); it.Next() {
+		cur, err := parseCustodianUpdateItem(txn, it, genesis)
+		if err != nil {
+			return nil, err
+		}
+		if cur.Timestamp > ts {
+			break
+		}
+		found = cur
+		genesis = false
 	}
 
-	return nil, nil
+	return found, nil
 }
 
-func parseCustodianUpdateItem(txn *badger.Txn, it *badger.Iterator) (*common.CustodianUpdateRequest, error) {
+func parseCustodianUpdateItem(txn *badger.Txn, it *badger.Iterator, genesis bool) (*common.CustodianUpdateRequest, error) {
 	key := it.Item().KeyCopy(nil)
 	ts := graphCustodianAccountTimestamp(key)
 	val, err := it.Item().ValueCopy(nil)
@@ -74,7 +86,7 @@ func parseCustodianUpdateItem(txn *badger.Txn, it *badger.Iterator) (*common.Cus
 	if err != nil {
 		return nil, err
 	}
-	cur, err := common.ParseCustodianUpdateNodesExtra(tx.Extra)
+	cur, err := common.ParseCustodianUpdateNodesExtra(tx.Extra, genesis)
 	if err != nil {
 		return nil, err
 	}
@@ -83,10 +95,10 @@ func parseCustodianUpdateItem(txn *badger.Txn, it *badger.Iterator) (*common.Cus
 	return cur, nil
 }
 
-func writeCustodianNodes(txn *badger.Txn, snapTime uint64, utxo *common.UTXOWithLock, extra []byte) error {
-	now, err := common.ParseCustodianUpdateNodesExtra(extra)
+func writeCustodianNodes(txn *badger.Txn, snapTime uint64, utxo *common.UTXOWithLock, extra []byte, genesis bool) error {
+	now, err := common.ParseCustodianUpdateNodesExtra(extra, genesis)
 	if err != nil {
-		panic(fmt.Errorf("common.ParseCustodianUpdateNodesExtra(%x) => %v", extra, err))
+		panic(fmt.Errorf("common.ParseCustodianUpdateNodesExtra(%x, %t) => %v", extra, genesis, err))
 	}
 	if len(now.Nodes) > 50 {
 		panic(len(now.Nodes))

@@ -54,7 +54,7 @@ func (s *Snapshot) AddSoleTransaction(tx crypto.Hash) {
 }
 
 func UnmarshalVersionedSnapshot(b []byte) (*SnapshotWithTopologicalOrder, error) {
-	if checkTxVersion(b) < SnapshotVersionCommonEncoding {
+	if checkSnapVersion(b) < SnapshotVersionCommonEncoding {
 		panic(hex.EncodeToString(b))
 	}
 	return NewDecoder(b).DecodeSnapshotWithTopo()

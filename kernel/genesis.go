@@ -1,9 +1,11 @@
 package kernel
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -17,11 +19,12 @@ const (
 type Genesis struct {
 	Epoch int64 `json:"epoch"`
 	Nodes []*struct {
-		Signer  common.Address `json:"signer"`
-		Payee   common.Address `json:"payee"`
-		Balance common.Integer `json:"balance"`
+		Signer    *common.Address `json:"signer"`
+		Payee     *common.Address `json:"payee"`
+		Custodian *common.Address `json:"custodian"`
+		Balance   common.Integer  `json:"balance"`
 	} `json:"nodes"`
-	Custodian common.Address `json:"custodian"`
+	Custodian *common.Address `json:"custodian"`
 }
 
 func (node *Node) LoadGenesis(configDir string) error {
@@ -66,7 +69,7 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 		script := common.NewThresholdScript(uint8(len(gns.Nodes)*2/3 + 1))
 		accounts := []*common.Address{}
 		for _, d := range gns.Nodes {
-			accounts = append(accounts, &d.Signer)
+			accounts = append(accounts, d.Signer)
 		}
 
 		tx := common.NewTransactionV5(common.XINAssetId)
@@ -97,7 +100,7 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 		}
 	}
 
-	topo, signed := buildCustodianSnapshot(networkId, epoch, gns.Custodian, gns)
+	topo, signed := buildCustodianSnapshot(networkId, epoch, gns)
 	snapshots = append(snapshots, topo)
 	transactions = append(transactions, signed)
 	snap := topo.Snapshot
@@ -133,8 +136,50 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 	return rounds, snapshots, transactions, nil
 }
 
-func buildCustodianSnapshot(networkId crypto.Hash, epoch uint64, domain common.Address, gns *Genesis) (*common.SnapshotWithTopologicalOrder, *common.VersionedTransaction) {
-	panic(0)
+func buildCustodianSnapshot(networkId crypto.Hash, epoch uint64, gns *Genesis) (*common.SnapshotWithTopologicalOrder, *common.VersionedTransaction) {
+	tx := common.NewTransactionV5(common.XINAssetId)
+	si := crypto.Blake3Hash([]byte(gns.Custodian.String() + "CUSTODIANUPDATENODES"))
+	seed := append(si[:], si[:]...)
+	addr := common.NewAddressFromSeed(make([]byte, 64))
+	script := common.NewThresholdScript(64)
+	accounts := []*common.Address{&addr}
+	tx.Inputs = []*common.Input{{Genesis: networkId[:]}}
+	tx.AddOutputWithType(common.OutputTypeCustodianUpdateNodes, accounts, script, common.NewInteger(50000), seed)
+
+	tx.Extra = append(tx.Extra, gns.Custodian.PublicSpendKey[:]...)
+	tx.Extra = append(tx.Extra, gns.Custodian.PublicViewKey[:]...)
+	nodes := make([]*common.CustodianNode, len(gns.Nodes))
+	spend := gns.Custodian.PublicSpendKey.DeterministicHashDerive()
+	for i, node := range gns.Nodes {
+		extra := encodeGenesisCustodianNode(node.Custodian, node.Payee, node.Signer, &spend, networkId)
+		nodes[i] = &common.CustodianNode{
+			Custodian: *node.Custodian,
+			Payee:     *node.Payee,
+			Extra:     extra,
+		}
+	}
+	sort.Slice(nodes, func(i, j int) bool {
+		return bytes.Compare(nodes[i].Custodian.PublicSpendKey[:], nodes[j].Custodian.PublicSpendKey[:]) < 0
+	})
+	for _, n := range nodes {
+		tx.Extra = append(tx.Extra, n.Extra...)
+	}
+	eh := crypto.Blake3Hash(tx.Extra)
+	sig := spend.Sign(eh)
+	tx.Extra = append(tx.Extra, sig[:]...)
+
+	snapshot := &common.Snapshot{
+		Version:     common.SnapshotVersionCommonEncoding,
+		NodeId:      gns.Custodian.Hash().ForNetwork(networkId),
+		RoundNumber: 0,
+		Timestamp:   epoch + 1,
+	}
+	signed := tx.AsVersioned()
+	snapshot.AddSoleTransaction(signed.PayloadHash())
+	return &common.SnapshotWithTopologicalOrder{
+		Snapshot:         snapshot,
+		TopologicalOrder: uint64(len(gns.Nodes)),
+	}, signed
 }
 
 func readGenesis(path string) (*Genesis, error) {
@@ -148,12 +193,18 @@ func readGenesis(path string) (*Genesis, error) {
 	if err != nil {
 		return nil, err
 	}
+	if gns.Custodian == nil {
+		return nil, fmt.Errorf("invalid genesis custodian %v", gns)
+	}
 	if len(gns.Nodes) < MinimumNodeCount {
 		return nil, fmt.Errorf("invalid genesis inputs number %d/%d", len(gns.Nodes), MinimumNodeCount)
 	}
 
 	inputsFilter := make(map[string]bool)
 	for _, in := range gns.Nodes {
+		if in.Signer == nil || in.Payee == nil || in.Custodian == nil {
+			return nil, fmt.Errorf("invalid genesis node keys %v", *in)
+		}
 		_, err := common.NewAddressFromString(in.Signer.String())
 		if err != nil {
 			return nil, err
@@ -176,6 +227,25 @@ func readGenesis(path string) (*Genesis, error) {
 		}
 	}
 
-	panic("check gns.Custodian")
 	return &gns, nil
+}
+
+func encodeGenesisCustodianNode(custodian, payee, signer *common.Address, spend *crypto.Key, networkId crypto.Hash) []byte {
+	nodeId := signer.Hash().ForNetwork(networkId)
+
+	extra := []byte{1}
+	extra = append(extra, custodian.PublicSpendKey[:]...)
+	extra = append(extra, custodian.PublicViewKey[:]...)
+	extra = append(extra, payee.PublicSpendKey[:]...)
+	extra = append(extra, payee.PublicViewKey[:]...)
+	extra = append(extra, nodeId[:]...)
+
+	eh := crypto.Blake3Hash(extra)
+	signerSig := spend.Sign(eh)
+	payeeSig := spend.Sign(eh)
+	custodianSig := spend.Sign(eh)
+	extra = append(extra, signerSig[:]...)
+	extra = append(extra, payeeSig[:]...)
+	extra = append(extra, custodianSig[:]...)
+	return extra
 }

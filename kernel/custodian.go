@@ -30,7 +30,7 @@ func (node *Node) validateCustodianUpdateNodes(s *common.Snapshot, tx *common.Ve
 		return fmt.Errorf("invalid custodian update snapshot timestamp %d %d", node.GraphTimestamp, timestamp)
 	}
 
-	curs, err := common.ParseCustodianUpdateNodesExtra(tx.Extra)
+	curs, err := common.ParseCustodianUpdateNodesExtra(tx.Extra, false)
 	if err != nil {
 		return err
 	}

@@ -128,7 +128,7 @@ func TestCustodianParseNode(t *testing.T) {
 	custodian := testBuildAddress(require)
 	nodeId := signer.Hash().ForNetwork(mainnet)
 	extra := EncodeCustodianNode(&custodian, &payee, &signer.PrivateSpendKey, &payee.PrivateSpendKey, &custodian.PrivateSpendKey, mainnet)
-	cn, err := ParseCustodianNode(extra)
+	cn, err := parseCustodianNode(extra, false)
 	require.Nil(err)
 	require.NotNil(cn)
 	require.Equal(custodian.String(), cn.Custodian.String())
@@ -153,7 +153,7 @@ func (s *testCustodianStore) ReadCustodian(ts uint64) (*CustodianUpdateRequest, 
 			Custodian: s.domain,
 		}, nil
 	}
-	cur, err := ParseCustodianUpdateNodesExtra(s.custodianUpdateNodesExtra)
+	cur, err := ParseCustodianUpdateNodesExtra(s.custodianUpdateNodesExtra, false)
 	if err != nil {
 		return nil, err
 	}

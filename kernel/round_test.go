@@ -20,5 +20,5 @@ func TestRoundHash(t *testing.T) {
 	start, end, hash := ComputeRoundHash(nodeId, roundNumber, snapshots)
 	require.Equal(uint64(1663669260746463409), start)
 	require.Equal(uint64(1663669262746463409), end)
-	require.Equal("c97ab71d9e3abf43214f5289049c94514fb41b5fcb9944dd6d0556717f1f7e81", hash.String())
+	require.Equal("b02daf53fbcbc2a3243b4b1e885cb9573531e491f4d92e16be08bb29f9a0a580", hash.String())
 }
