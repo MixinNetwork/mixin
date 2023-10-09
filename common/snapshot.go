@@ -38,7 +38,7 @@ func (s *Snapshot) SoleTransaction() crypto.Hash {
 		panic(s.Version)
 	}
 	if len(s.Transactions) != 1 {
-		panic(*s)
+		panic(len(s.Transactions))
 	}
 	return s.Transactions[0]
 }

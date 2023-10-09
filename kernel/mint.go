@@ -207,13 +207,16 @@ func (node *Node) lastMintDistribution() *common.MintData {
 	if err != nil {
 		panic(err)
 	}
-	if dist != nil {
-		return &dist.MintData
+	if dist == nil {
+		return &common.MintData{
+			Batch:  KernelNetworkLegacyEnding,
+			Amount: common.NewIntegerFromString("89.87671232"),
+		}
 	}
-	return &common.MintData{
-		Batch:  KernelNetworkLegacyEnding,
-		Amount: common.NewIntegerFromString("89.87671232"),
+	if dist.Batch < KernelNetworkLegacyEnding {
+		panic(dist.Batch)
 	}
+	return &dist.MintData
 }
 
 func poolSizeUniversal(batch int) common.Integer {

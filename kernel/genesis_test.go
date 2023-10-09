@@ -14,6 +14,8 @@ import (
 func TestGenesis(t *testing.T) {
 	require := require.New(t)
 
+	require.Equal("13439.00000000", genesisPledgeAmount().String())
+
 	root, err := os.MkdirTemp("", "mixin-genesis-test")
 	require.Nil(err)
 	defer os.RemoveAll(root)

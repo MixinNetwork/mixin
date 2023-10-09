@@ -74,7 +74,7 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 
 		tx := common.NewTransactionV5(common.XINAssetId)
 		tx.Inputs = []*common.Input{{Genesis: networkId[:]}}
-		tx.AddOutputWithType(common.OutputTypeNodeAccept, accounts, script, pledgeAmount(0), seed)
+		tx.AddOutputWithType(common.OutputTypeNodeAccept, accounts, script, genesisPledgeAmount(), seed)
 		tx.Extra = append(in.Signer.PublicSpendKey[:], in.Payee.PublicSpendKey[:]...)
 
 		nodeId := in.Signer.Hash().ForNetwork(networkId)
@@ -170,7 +170,7 @@ func buildCustodianSnapshot(networkId crypto.Hash, epoch uint64, gns *Genesis) (
 
 	snapshot := &common.Snapshot{
 		Version:     common.SnapshotVersionCommonEncoding,
-		NodeId:      gns.Custodian.Hash().ForNetwork(networkId),
+		NodeId:      gns.Nodes[0].Signer.Hash().ForNetwork(networkId),
 		RoundNumber: 0,
 		Timestamp:   epoch + 1,
 	}
@@ -209,7 +209,7 @@ func readGenesis(path string) (*Genesis, error) {
 		if err != nil {
 			return nil, err
 		}
-		if in.Balance.Cmp(pledgeAmount(0)) != 0 {
+		if in.Balance.Cmp(genesisPledgeAmount()) != 0 {
 			return nil, fmt.Errorf("invalid genesis node input amount %s", in.Balance.String())
 		}
 		if inputsFilter[in.Signer.String()] {
@@ -228,6 +228,11 @@ func readGenesis(path string) (*Genesis, error) {
 	}
 
 	return &gns, nil
+}
+
+func genesisPledgeAmount() common.Integer {
+	adjust := KernelNetworkLegacyEnding * uint64(time.Hour) * 24
+	return pledgeAmount(time.Duration(adjust))
 }
 
 func encodeGenesisCustodianNode(custodian, payee, signer *common.Address, spend *crypto.Key, networkId crypto.Hash) []byte {

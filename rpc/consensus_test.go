@@ -113,7 +113,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	domainAddress := accounts[0].String()
 	deposits := make([]*common.VersionedTransaction, 0)
 	for i := 0; i < INPUTS; i++ {
-		raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
+		raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
 		rand.Seed(time.Now().UnixNano())
 		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw, snapVersionMint)
 		require.Nil(err)
@@ -384,7 +384,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 	sig := domain.PrivateSpendKey.Sign(sh)
 	tx.Extra = append(sortedExtra, sig[:]...)
 
-	raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%s"}}],"outputs":[{"type":0,"amount":"%s","script":"fffe01","accounts":["%s"]}]}`, 10000, amount.String(), amount.String(), domain.String())
+	raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%s"}}],"outputs":[{"type":0,"amount":"%s","script":"fffe01","accounts":["%s"]}]}`, 10000, amount.String(), amount.String(), domain.String())
 	rand.Seed(time.Now().UnixNano())
 	deposit, err := testSignTransaction(nodes[0].Host, domain, raw, 0)
 	require.Nil(err)
@@ -435,9 +435,9 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 	}
 	err = json.Unmarshal(data, &curs)
 	require.Nil(err)
-	require.Len(curs, 1)
-	require.Equal(hash.String(), curs[0].Transaction)
-	require.Equal(custodian.String(), curs[0].Custodian)
+	require.Len(curs, 2)
+	require.Equal(hash.String(), curs[1].Transaction)
+	require.Equal(custodian.String(), curs[1].Custodian)
 }
 
 func testCheckMintDistributions(require *require.Assertions, node string) {
@@ -730,30 +730,29 @@ func testDetermineAccountByIndex(i int, role string) common.Address {
 }
 
 func setupTestNet(root string) ([]common.Address, []common.Address, []byte, string) {
-	var signers, payees []common.Address
+	var signers, payees, custodians []common.Address
 
 	for i := 0; i < NODES; i++ {
 		signers = append(signers, testDetermineAccountByIndex(i, "SIGNER"))
 		payees = append(payees, testDetermineAccountByIndex(i, "PAYEE"))
+		custodians = append(custodians, testDetermineAccountByIndex(i, "CUSTODIAN"))
 	}
 
 	inputs := make([]map[string]string, 0)
 	for i := range signers {
 		inputs = append(inputs, map[string]string{
-			"signer":  signers[i].String(),
-			"payee":   payees[i].String(),
-			"balance": "10000",
+			"signer":    signers[i].String(),
+			"payee":     payees[i].String(),
+			"custodian": custodians[i].String(),
+			"balance":   "10000",
 		})
 	}
+
+	domain := signers[0]
 	genesis := map[string]any{
-		"epoch": 1551312000,
-		"nodes": inputs,
-		"domains": []map[string]string{
-			{
-				"signer":  signers[0].String(),
-				"balance": "50000",
-			},
-		},
+		"epoch":     1551312000,
+		"nodes":     inputs,
+		"custodian": domain.String(),
 	}
 	genesisData, err := json.MarshalIndent(genesis, "", "  ")
 	if err != nil {
@@ -894,13 +893,12 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 	var rss []*struct {
 		Version      uint8                 `json:"version"`
 		NodeId       crypto.Hash           `json:"node_id"`
-		References   *common.RoundLink     `json:"references"`
 		RoundNumber  uint64                `json:"round_number"`
+		References   *common.RoundLink     `json:"references"`
 		Timestamp    uint64                `json:"timestamp"`
-		Signatures   []*crypto.Signature   `json:"signatures"`
+		Transactions []crypto.Hash         `json:"transactions"`
 		Signature    *crypto.CosiSignature `json:"signature"`
 		Hash         crypto.Hash           `json:"hash"`
-		Transactions []crypto.Hash         `json:"transactions"`
 	}
 	err = json.Unmarshal(data, &rss)
 	if err != nil {
@@ -910,11 +908,13 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 	snapshots := make([]*common.Snapshot, len(rss))
 	for i, s := range rss {
 		snapshots[i] = &common.Snapshot{
-			Version:     s.Version,
-			NodeId:      s.NodeId,
-			RoundNumber: s.RoundNumber,
-			References:  s.References,
-			Timestamp:   s.Timestamp,
+			Version:      s.Version,
+			NodeId:       s.NodeId,
+			RoundNumber:  s.RoundNumber,
+			References:   s.References,
+			Timestamp:    s.Timestamp,
+			Transactions: s.Transactions,
+			Signature:    s.Signature,
 		}
 		switch s.Version {
 		case 2:
