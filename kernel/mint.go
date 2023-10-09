@@ -115,17 +115,8 @@ func (node *Node) MintLoop() {
 		case <-node.done:
 			return
 		case <-ticker.C:
-			cur, err := node.persistStore.ReadCustodian(node.GraphTimestamp)
-			if err != nil {
-				panic(err)
-			}
-			if cur == nil && node.isMainnet() {
-				err := node.tryToMintKernelNodeLegacy()
-				logger.Println(node.IdForNetwork, "tryToMintKernelNodeLegacy", err)
-			} else {
-				err = node.tryToMintUniversal(cur)
-				logger.Println(node.IdForNetwork, "tryToMintKernelUniversal", err)
-			}
+			err := node.tryToMintKernelNodeLegacy()
+			logger.Println(node.IdForNetwork, "tryToMintKernelNodeLegacy", err)
 		}
 	}
 }
@@ -301,6 +292,11 @@ func pledgeAmount(sinceEpoch time.Duration) common.Integer {
 func (node *Node) buildLegacyKerneNodeMintTransaction(timestamp uint64, validateOnly bool) *common.VersionedTransaction {
 	batch, amount := node.checkLegacyMintPossibility(timestamp, validateOnly)
 	if amount.Sign() <= 0 || batch <= 0 {
+		return nil
+	}
+	// the old network will stop mint on the last one 2023/10/31
+	// but the network will keep running with all other functions
+	if batch > 1706 {
 		return nil
 	}
 
