@@ -15,11 +15,12 @@ import (
 )
 
 var (
-	MintPool        common.Integer
-	MintLiquidity   common.Integer
-	MintYearShares  int
-	MintYearBatches int
-	MintNodeMaximum int
+	MintPool                  common.Integer
+	MintLiquidity             common.Integer
+	MintYearShares            int
+	MintYearBatches           int
+	MintNodeMaximum           int
+	KernelNetworkLegacyEnding uint64
 )
 
 func init() {
@@ -28,6 +29,7 @@ func init() {
 	MintYearShares = 10
 	MintYearBatches = 365
 	MintNodeMaximum = 50
+	KernelNetworkLegacyEnding = 1706
 }
 
 func (chain *Chain) AggregateMintWork() {
@@ -141,7 +143,7 @@ func (node *Node) tryToMintUniversal(custodianRequest *common.CustodianUpdateReq
 
 func (node *Node) buildUniversalMintTransaction(custodianRequest *common.CustodianUpdateRequest, timestamp uint64, validateOnly bool) *common.VersionedTransaction {
 	batch, amount := node.checkUniversalMintPossibility(timestamp, validateOnly)
-	if amount.Sign() <= 0 || batch <= 0 {
+	if amount.Sign() <= 0 || batch <= KernelNetworkLegacyEnding {
 		return nil
 	}
 
@@ -181,8 +183,6 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 		panic(fmt.Errorf("buildUniversalMintTransaction %s %s", amount, total))
 	}
 
-	amount = tx.Inputs[0].Mint.Amount
-
 	// TODO use real light mint account when light node online
 	light := amount.Sub(total)
 	addr := common.NewAddressFromSeed(make([]byte, 64))
@@ -195,11 +195,25 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 }
 
 func (node *Node) PoolSize() (common.Integer, error) {
+	dist := node.lastMintDistribution()
+	return poolSizeUniversal(int(dist.Batch)), nil
+}
+
+// this is the new mixin kernel, with 1706 batch, e.g. 2023/10/31 as
+// the last mint batch for the legacy kernel, and the first mint
+// for this kernel will be 1707
+func (node *Node) lastMintDistribution() *common.MintData {
 	dist, err := node.persistStore.ReadLastMintDistribution(^uint64(0))
 	if err != nil {
-		return common.Zero, err
+		panic(err)
 	}
-	return poolSizeUniversal(int(dist.Batch)), nil
+	if dist != nil {
+		return &dist.MintData
+	}
+	return &common.MintData{
+		Batch:  KernelNetworkLegacyEnding,
+		Amount: common.NewIntegerFromString("89.87671232"),
+	}
 }
 
 func poolSizeUniversal(batch int) common.Integer {
@@ -262,14 +276,14 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 	return nil
 }
 
-func (node *Node) checkUniversalMintPossibility(timestamp uint64, validateOnly bool) (int, common.Integer) {
+func (node *Node) checkUniversalMintPossibility(timestamp uint64, validateOnly bool) (uint64, common.Integer) {
 	if timestamp <= node.Epoch {
 		return 0, common.Zero
 	}
 
 	since := timestamp - node.Epoch
 	hours := int(since / 3600000000000)
-	batch := hours / 24
+	batch := uint64(hours / 24)
 	if batch < 1 {
 		return 0, common.Zero
 	}
@@ -279,31 +293,27 @@ func (node *Node) checkUniversalMintPossibility(timestamp uint64, validateOnly b
 	}
 
 	pool := MintPool
-	for i := 0; i < batch/MintYearBatches; i++ {
+	for i := 0; i < int(batch)/MintYearBatches; i++ {
 		pool = pool.Sub(pool.Div(MintYearShares))
 	}
 	pool = pool.Div(MintYearShares)
 	total := pool.Div(MintYearBatches)
 
-	dist, err := node.persistStore.ReadLastMintDistribution(^uint64(0))
-	if err != nil {
-		logger.Verbosef("ReadLastMintDistribution ERROR %s\n", err)
-		return 0, common.Zero
-	}
+	dist := node.lastMintDistribution()
 	logger.Verbosef("checkUniversalMintPossibility OLD %s %s %d %s %d\n",
 		pool, total, batch, dist.Amount, dist.Batch)
 
-	if batch < int(dist.Batch) {
+	if batch < dist.Batch {
 		return 0, common.Zero
 	}
-	if batch == int(dist.Batch) {
+	if batch == dist.Batch {
 		if validateOnly {
 			return batch, dist.Amount
 		}
 		return 0, common.Zero
 	}
 
-	amount := total.Mul(batch - int(dist.Batch))
+	amount := total.Mul(int(batch - dist.Batch))
 	logger.Verbosef("checkUniversalMintPossibility NEW %s %s %s %d %s %d\n",
 		pool, total, amount, batch, dist.Amount, dist.Batch)
 	return batch, amount
@@ -384,7 +394,7 @@ func (node *Node) distributeKernelMintByWorks(accepted []*CNode, base common.Int
 	for _, m := range mints {
 		ns := spaces[m.IdForNetwork]
 		if len(ns) > 0 {
-			// TODO use this for universal mint distributions
+			// TODO enable this for universal mint distributions
 			logger.Printf("node spaces %s %d %d\n", m.IdForNetwork, ns[0].Batch, len(ns))
 		}
 

@@ -87,13 +87,10 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 
 	node.loadNodeConfig()
 
-	mint, err := node.persistStore.ReadLastMintDistribution(^uint64(0))
-	if err != nil {
-		return nil, fmt.Errorf("ReadLastMintDistribution() => %v", err)
-	}
+	mint := node.lastMintDistribution()
 	node.LastMint = mint.Batch
 
-	err = node.LoadGenesis(dir)
+	err := node.LoadGenesis(dir)
 	if err != nil {
 		return nil, fmt.Errorf("LoadGenesis(%s) => %v", dir, err)
 	}
