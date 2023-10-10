@@ -109,7 +109,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	gt := testVerifyInfo(require, nodes)
 	require.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
 
-	genesisAmount := 10003.5 / float64(INPUTS)
+	genesisAmount := 13442.5 / float64(INPUTS)
 	domainAddress := accounts[0].String()
 	deposits := make([]*common.VersionedTransaction, 0)
 	for i := 0; i < INPUTS; i++ {
@@ -188,6 +188,8 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 		dummyInputs[i] = &common.Input{Hash: hash, Index: i}
 	}
 
+	legacy := time.Date(2023, time.Month(10), 31, 0, 0, 0, 0, time.UTC).Sub(epoch)
+	kernel.TestMockDiff(legacy)
 	for i := 0; i < 3; i++ {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount, snapVersionMint)
 		transactionsCount = transactionsCount + len(dummyInputs)
@@ -199,11 +201,11 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	logger.SetLevel(logger.ERROR)
 	logger.SetFilter("(?i)mint")
 
-	kernel.TestMockDiff((config.KernelMintTimeBegin + 24) * time.Hour)
+	kernel.TestMockDiff(time.Hour * (24 + config.KernelMintTimeBegin))
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
 	gt = testVerifyInfo(require, nodes)
-	require.Less(gt.Timestamp, epoch.Add(61*time.Second))
+	require.Less(gt.Timestamp, epoch.Add(legacy).Add(61*time.Second))
 
 	pn, pi, sv := testPledgeNewNode(t, nodes, accounts[0], gdata, plist, input, root, snapVersionMint)
 	t.Logf("PLEDGE %s\n", pn.Signer)
@@ -223,7 +225,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	require.Equal(transactionsCount, len(tl))
 	gt = testVerifyInfo(require, nodes)
 	require.Greater(gt.Timestamp, epoch.Add((config.KernelMintTimeBegin+24)*time.Hour))
-	require.Equal("499863.01369864", gt.PoolSize.String())
+	require.Equal("305850.45205696", gt.PoolSize.String())
 	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
@@ -327,7 +329,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	require.Greater(hr.Round, uint64(1))
 
 	removalInputs := []*common.Input{{Hash: all[NODES].Transaction, Index: 0}}
-	removalInputs = testSendDummyTransactionsWithRetry(t, nodes[:1], payee, removalInputs, "10000", snapVersionMint)
+	removalInputs = testSendDummyTransactionsWithRetry(t, nodes[:1], payee, removalInputs, "13439", snapVersionMint)
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
@@ -384,7 +386,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 	sig := domain.PrivateSpendKey.Sign(sh)
 	tx.Extra = append(sortedExtra, sig[:]...)
 
-	raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%s"}}],"outputs":[{"type":0,"amount":"%s","script":"fffe01","accounts":["%s"]}]}`, 10000, amount.String(), amount.String(), domain.String())
+	raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%s"}}],"outputs":[{"type":0,"amount":"%s","script":"fffe01","accounts":["%s"]}]}`, 13439, amount.String(), amount.String(), domain.String())
 	rand.Seed(time.Now().UnixNano())
 	deposit, err := testSignTransaction(nodes[0].Host, domain, raw, 0)
 	require.Nil(err)
@@ -446,9 +448,9 @@ func testCheckMintDistributions(require *require.Assertions, node string) {
 	tx := mints[0]
 	require.Len(tx.Inputs, 1)
 	mint := tx.Inputs[0].Mint
-	daily := common.NewIntegerFromString("136.98630136")
+	daily := common.NewIntegerFromString("89.87671232")
 	require.Equal("UNIVERSAL", mint.Group)
-	require.Equal(uint64(1), mint.Batch)
+	require.Equal(uint64(1707), mint.Batch)
 	require.Equal(daily, mint.Amount)
 	require.Len(tx.Outputs, NODES+2)
 	total := common.Zero
@@ -598,7 +600,7 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 		}},
 		"outputs": []map[string]any{{
 			"type":   common.OutputTypeNodePledge,
-			"amount": "10000",
+			"amount": "13439",
 		}},
 		"extra": signer.PublicSpendKey.String() + payee.PublicSpendKey.String(),
 	})
@@ -646,7 +648,7 @@ func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, ut
 	}
 	outputs = append(outputs, map[string]any{
 		"type":     0,
-		"amount":   "10000",
+		"amount":   "13439",
 		"script":   "fffe01",
 		"accounts": []string{domain.String()},
 	})
@@ -744,7 +746,7 @@ func setupTestNet(root string) ([]common.Address, []common.Address, []byte, stri
 			"signer":    signers[i].String(),
 			"payee":     payees[i].String(),
 			"custodian": custodians[i].String(),
-			"balance":   "10000",
+			"balance":   "13439",
 		})
 	}
 
@@ -936,7 +938,7 @@ type Node struct {
 }
 
 func testListNodes(node string) []*Node {
-	data, err := callRPC(node, "listallnodes", []any{0, false})
+	data, err := callRPC(node, "listallnodes", []any{time.Now().UnixNano() * 2, false})
 	if err != nil {
 		panic(err)
 	}

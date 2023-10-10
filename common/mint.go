@@ -49,7 +49,7 @@ func (tx *VersionedTransaction) validateMint(store DataStore) error {
 	}
 
 	dist, err := store.ReadLastMintDistribution(^uint64(0))
-	if err != nil {
+	if err != nil || dist == nil {
 		return err
 	}
 	if mint.Batch < dist.Batch {

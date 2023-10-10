@@ -46,6 +46,7 @@ func TestPoolSize(t *testing.T) {
 	require.Equal(common.NewIntegerFromString("450000"), poolSizeUniversal(365))
 	require.Equal(common.NewIntegerFromString("449876.71232877"), poolSizeUniversal(366))
 	require.Equal(common.NewIntegerFromString("307917.61644032"), poolSizeUniversal(1684))
+	require.Equal(common.NewIntegerFromString("305850.45205696"), poolSizeUniversal(1707))
 }
 
 func TestUniversalMintTransaction(t *testing.T) {

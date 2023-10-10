@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const mainnetId = "a1a2b0262a3b5bf0c88d03fd29867db83826a7d9648bb4fd79f0b1ba67f1d1e8"
+const mainnetId = "4d73a8617316f28afd61a74b8c345b3f2cb9033b3da2ab683c86bfefa1a6383b"
 
 func TestNodeRemovePossibility(t *testing.T) {
 	require := require.New(t)
@@ -37,15 +37,15 @@ func TestNodeRemovePossibility(t *testing.T) {
 	candi, err = node.checkRemovePossibility(node.IdForNetwork, uint64(now.UnixNano()), nil)
 	require.Nil(err)
 	require.NotNil(candi)
-	require.Equal("01d2c24cb71f6c92ce6fc0615d3eae3d297b0ef4c578dc22f4795efbaf84523c", candi.IdForNetwork.String())
+	require.Equal("0d4bbdc9bff475ded23e14f1e46195bbd31580d9301f90491c6d40ca9a0e318e", candi.IdForNetwork.String())
 
 	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, uint64(now.UnixNano()), nil)
 	require.Nil(err)
 	require.NotNil(tx)
-	require.Equal("9b11f5735a8860e0a6b6fc155115c6e6ffb499bc5561a8229390c918dd1324ba", tx.PayloadHash().String())
+	require.Equal("d5502a2754c916157bbc1420d9d520fd0c5efbed163ccec14e69bdab4af21a5a", tx.PayloadHash().String())
 	require.Equal(uint8(5), tx.Version)
 	require.Equal(common.XINAssetId, tx.Asset)
-	require.Equal(pledgeAmount(0), tx.Outputs[0].Amount)
+	require.Equal(pledgeAmount(1707*time.Hour*24), tx.Outputs[0].Amount)
 	require.Equal("fffe01", tx.Outputs[0].Script.String())
 	require.Equal(uint8(common.OutputTypeNodeRemove), tx.Outputs[0].Type)
 	require.Equal(uint8(common.TransactionTypeNodeRemove), tx.TransactionType())
@@ -57,7 +57,7 @@ func TestNodeRemovePossibility(t *testing.T) {
 	err = tx.Validate(node.persistStore, false)
 	require.Nil(err)
 
-	payee, err := common.NewAddressFromString("XINGuXcub78Td3XUQXykRLna964p53YRbVMuxKaovrA9SrwdornqcJBv8JLQFisA7KbZLP3L52TusQX5xxVjpdKcYhBPwdss")
+	payee, err := common.NewAddressFromString("XINS5363SmtRnKwf32yTipAYs7gNgZJnhsWAvBPLPxW9xyrQAGF5piAp91B6W3kXsarSgSsFkpQPyoSM5wr17gnCBavHXrrP")
 	require.Nil(err)
 	mask := tx.Outputs[0].Mask
 	ghost := tx.Outputs[0].Keys[0]
