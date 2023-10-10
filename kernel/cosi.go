@@ -139,6 +139,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		if s.Signature != nil || s.Timestamp != 0 {
 			return fmt.Errorf("only empty snapshot can be announced")
 		}
+		s.Timestamp = uint64(clock.Now().UnixNano())
 	case CosiActionSelfCommitment, CosiActionSelfFullCommitment, CosiActionSelfResponse:
 		if chain.ChainId != chain.node.IdForNetwork {
 			return fmt.Errorf("self action aggregation chain %s %s", chain.ChainId, chain.node.IdForNetwork)
@@ -285,7 +286,6 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	logger.Verbosef("cosiSendAnnouncement %v\n", m.Snapshot)
 	s, cd := m.Snapshot, m.data
-	s.Timestamp = uint64(clock.Now().UnixNano())
 	if chain.IsPledging() && s.RoundNumber == 0 && cd.TX.TransactionType() == common.TransactionTypeNodeAccept {
 	} else if chain.State == nil {
 		return nil
