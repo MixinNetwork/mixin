@@ -13,7 +13,6 @@ func TestValidation(t *testing.T) {
 	require := require.New(t)
 
 	btc := "c6d0c728-2624-429b-8e0d-d9d19b6592fa"
-	usdt := "815b0b1a-2764-3736-8faa-42d694fa620a"
 	tx := "c5945a8571fc84cd6850b26b5771d76311ed56957a04e993927de07b83f07c91"
 	addrLeg := "1zgmvYi5x1wy3hUh7AjKgpcVgpA8Lj9FA"
 	addrSeg := "bc1qxenlll5m5zyp778j8jd6arkn99h956zkcye93n"
@@ -21,20 +20,17 @@ func TestValidation(t *testing.T) {
 	addrCash := "qptz5xa5dd670f453grrplt6d4llaxlm05qmwktdc5"
 
 	require.Nil(VerifyAssetKey(btc))
-	require.Nil(VerifyAssetKey(usdt))
 	require.NotNil(VerifyAssetKey(tx))
 	require.NotNil(VerifyAssetKey(addrLeg))
 	require.NotNil(VerifyAssetKey(addrSeg))
 	require.NotNil(VerifyAssetKey(addrTaproot))
 	require.NotNil(VerifyAssetKey(addrCash))
 	require.NotNil(VerifyAssetKey(strings.ToUpper(btc)))
-	require.NotNil(VerifyAssetKey(strings.ToUpper(usdt)))
 
 	require.Nil(VerifyAddress(addrLeg))
 	require.Nil(VerifyAddress(addrSeg))
 	require.Nil(VerifyAddress(addrTaproot))
 	require.NotNil(VerifyAddress(btc))
-	require.NotNil(VerifyAddress(usdt))
 	require.NotNil(VerifyAddress(addrCash))
 	require.NotNil(VerifyAddress(addrLeg[1:]))
 	require.NotNil(VerifyAddress(strings.ToUpper(addrLeg)))
@@ -54,7 +50,5 @@ func TestValidation(t *testing.T) {
 	require.NotNil(VerifyTransactionHash(strings.ToUpper(tx)))
 
 	require.Equal(crypto.Sha256Hash([]byte("c6d0c728-2624-429b-8e0d-d9d19b6592fa")), GenerateAssetId(btc))
-	require.Equal(crypto.Sha256Hash([]byte("815b0b1a-2764-3736-8faa-42d694fa620a")), GenerateAssetId(usdt))
 	require.Equal(crypto.Sha256Hash([]byte("c6d0c728-2624-429b-8e0d-d9d19b6592fa")), BitcoinChainId)
-	require.Equal(crypto.Sha256Hash([]byte("815b0b1a-2764-3736-8faa-42d694fa620a")), BitcoinOmniUSDTId)
 }

@@ -9,22 +9,19 @@ import (
 )
 
 const (
-	BitcoinChainAssetKey    = "c6d0c728-2624-429b-8e0d-d9d19b6592fa"
-	BitcoinOmniUSDTAssetKey = "815b0b1a-2764-3736-8faa-42d694fa620a"
+	BitcoinChainAssetKey = "c6d0c728-2624-429b-8e0d-d9d19b6592fa"
 )
 
 var (
-	BitcoinChainId    crypto.Hash
-	BitcoinOmniUSDTId crypto.Hash
+	BitcoinChainId crypto.Hash
 )
 
 func init() {
 	BitcoinChainId = crypto.Sha256Hash([]byte(BitcoinChainAssetKey))
-	BitcoinOmniUSDTId = crypto.Sha256Hash([]byte(BitcoinOmniUSDTAssetKey))
 }
 
 func VerifyAssetKey(assetKey string) error {
-	if assetKey == BitcoinChainAssetKey || assetKey == BitcoinOmniUSDTAssetKey {
+	if assetKey == BitcoinChainAssetKey {
 		return nil
 	}
 	return fmt.Errorf("invalid bitcoin asset key %s", assetKey)
@@ -62,8 +59,6 @@ func GenerateAssetId(assetKey string) crypto.Hash {
 	switch assetKey {
 	case BitcoinChainAssetKey:
 		return BitcoinChainId
-	case BitcoinOmniUSDTAssetKey:
-		return BitcoinOmniUSDTId
 	default:
 		panic(assetKey)
 	}

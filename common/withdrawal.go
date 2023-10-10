@@ -159,17 +159,15 @@ func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[strin
 	if err != nil {
 		return err
 	}
-	var domainValid bool
 	view := custodian.Custodian.PublicSpendKey.DeterministicHashDerive()
 	for _, utxo := range inputs {
 		for _, key := range utxo.Keys {
 			ghost := crypto.ViewGhostOutputKey(key, &view, &utxo.Mask, uint64(utxo.Index))
 			valid := *ghost == custodian.Custodian.PublicSpendKey
-			domainValid = domainValid && valid
+			if !valid {
+				return fmt.Errorf("invalid domain signature for withdrawal claim %s", key.String())
+			}
 		}
-	}
-	if !domainValid {
-		return fmt.Errorf("invalid domain signature for withdrawal claim")
 	}
 	return nil
 }
