@@ -881,6 +881,7 @@ func requireKeyEqual(require *require.Assertions, a, b map[string]*common.Snapsh
 	}
 	slices.Sort(as)
 	slices.Sort(bs)
+	require.Equal(len(as), len(bs))
 	require.True(strings.Join(as, "") == strings.Join(bs, ""))
 }
 

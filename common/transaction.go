@@ -368,12 +368,11 @@ func (tx *Transaction) AddScriptOutput(accounts []*Address, s Script, amount Int
 	tx.AddOutputWithType(OutputTypeScript, accounts, s, amount, seed)
 }
 
-func (tx *Transaction) AddRandomScriptOutput(accounts []*Address, s Script, amount Integer) error {
+func (tx *Transaction) AddRandomScriptOutput(accounts []*Address, s Script, amount Integer) {
 	seed := make([]byte, 64)
 	_, err := rand.Read(seed)
 	if err != nil {
-		return err
+		panic(err)
 	}
 	tx.AddScriptOutput(accounts, s, amount, seed)
-	return nil
 }
