@@ -2,7 +2,6 @@ package common
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
@@ -58,7 +57,7 @@ func (tx *Transaction) verifyDepositFormat() error {
 	return fmt.Errorf("invalid deposit chain id %s", chainId)
 }
 
-func (tx *SignedTransaction) validateDeposit(store DataStore, payloadHash crypto.Hash, sigs []map[uint16]*crypto.Signature) error {
+func (tx *SignedTransaction) validateDeposit(store DataStore, payloadHash crypto.Hash, sigs []map[uint16]*crypto.Signature, snapTime uint64) error {
 	if len(tx.Inputs) != 1 {
 		return fmt.Errorf("invalid inputs count %d for deposit", len(tx.Inputs))
 	}
@@ -82,7 +81,7 @@ func (tx *SignedTransaction) validateDeposit(store DataStore, payloadHash crypto
 	}
 	// FIXME change this to custodian only when available
 	// domain key will be used as observer for the safe network
-	custodian, err := store.ReadCustodian(uint64(time.Now().UnixNano()))
+	custodian, err := store.ReadCustodian(snapTime)
 	if err != nil {
 		return err
 	}

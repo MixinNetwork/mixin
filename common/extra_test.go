@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"testing"
+	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/stretchr/testify/require"
@@ -56,7 +57,7 @@ func TestTransactionExtraLimit(t *testing.T) {
 	err = ver.AggregateSign(store, aas, seed)
 	require.Nil(err)
 	require.Len(ver.AggregatedSignature.Signers, 3)
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.NotNil(err)
 	require.Contains(err.Error(), "invalid extra size 257")
 
@@ -80,6 +81,6 @@ func TestTransactionExtraLimit(t *testing.T) {
 	err = ver.AggregateSign(store, aas, seed)
 	require.Nil(err)
 	require.Len(ver.AggregatedSignature.Signers, 3)
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.Nil(err)
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
-func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
+func (ver *VersionedTransaction) Validate(store DataStore, snapTime uint64, fork bool) error {
 	tx := &ver.SignedTransaction
 	txType := tx.TransactionType()
 
@@ -71,23 +71,23 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	case TransactionTypeMint:
 		return ver.validateMint(store)
 	case TransactionTypeDeposit:
-		return tx.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap)
+		return tx.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap, snapTime)
 	case TransactionTypeWithdrawalSubmit:
 		return tx.validateWithdrawalSubmit(inputsFilter)
 	case TransactionTypeWithdrawalFuel:
 		return tx.validateWithdrawalFuel(store, inputsFilter)
 	case TransactionTypeWithdrawalClaim:
-		return tx.validateWithdrawalClaim(store, inputsFilter)
+		return tx.validateWithdrawalClaim(store, inputsFilter, snapTime)
 	case TransactionTypeNodePledge:
-		return tx.validateNodePledge(store, inputsFilter)
+		return tx.validateNodePledge(store, inputsFilter, snapTime)
 	case TransactionTypeNodeCancel:
-		return tx.validateNodeCancel(store, ver.PayloadHash(), ver.SignaturesMap)
+		return tx.validateNodeCancel(store, ver.PayloadHash(), ver.SignaturesMap, snapTime)
 	case TransactionTypeNodeAccept:
-		return tx.validateNodeAccept(store)
+		return tx.validateNodeAccept(store, snapTime)
 	case TransactionTypeNodeRemove:
 		return tx.validateNodeRemove(store)
 	case TransactionTypeCustodianUpdateNodes:
-		return tx.validateCustodianUpdateNodes(store)
+		return tx.validateCustodianUpdateNodes(store, snapTime)
 	case TransactionTypeCustodianSlashNodes:
 		return tx.validateCustodianSlashNodes(store)
 	}

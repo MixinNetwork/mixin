@@ -242,7 +242,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	require.Equal("PLEDGING", all[NODES].State)
 	t.Logf("PLEDGE TEST DONE AT %s\n", time.Now())
 
-	kernel.TestMockDiff(11 * time.Hour)
+	kernel.TestMockDiff(29 * time.Hour)
 	time.Sleep(3 * time.Second)
 	all = testListNodes(nodes[0].Host)
 	require.Len(all, NODES+1)
@@ -279,7 +279,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	require.Equal(transactionsCount, len(tl))
 	gt = testVerifyInfo(require, nodes)
 	require.Greater(gt.Timestamp, epoch.Add((config.KernelMintTimeBegin+24)*time.Hour))
-	require.Equal("499863.01369864", gt.PoolSize.String())
+	require.Equal("305850.45205696", gt.PoolSize.String())
 	t.Logf("ACCEPT TEST DONE AT %s\n", time.Now())
 
 	kernel.TestMockDiff(24 * time.Hour)
@@ -296,8 +296,8 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 
 	nodes = append(nodes, &Node{Host: "127.0.0.1:18099"})
 	signer, payee := testGetNodeToRemove(instances[0].NetworkId(), accounts, payees, 0)
-	require.Equal("XINGmuYCB65rzMgUf1W35pbhj4C7fY9JrzWCL5vGRdL84SPcWVPhtBJ7DAarc1QPt564JwbEdNCH8359kdPRH1ieSM9f96RZ", signer.String())
-	require.Equal("XINMeKsKkSJJCgLWKvakEHaXBNPGfF7RmBu9jx5VZLE6UTuEaW4wSEqVybkH4xhQcqkT5jdiguiN3B3NKt8QBZTUbqZXJ1Fq", payee.String())
+	require.Equal("XINW6HTiMVmKHjfnk3DYbcWcTaTkKi4dr3wZgicyhKvKnyYEqD8PD5ZRfL13ZsouiMURM6atDh3Bdr3dqSVkYWEm7Kzp9Axt", signer.String())
+	require.Equal("XINCtoRSJYrNNQUv3xTsptxDKRqwHMwtNkvsQwFS58oFXYvgu9QhoetNwbmxUQ4JJGcjR1gnttMau1nCmGpkSimHR1dxrP8u", payee.String())
 	nodes = testRemoveNode(nodes, signer)
 	for i := 0; i < 3; i++ {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount, snapVersionMint)

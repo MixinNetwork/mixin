@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"testing"
+	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/stretchr/testify/require"
@@ -74,7 +75,7 @@ func TestTransactionReferences(t *testing.T) {
 		require.NotNil(err)
 		require.Contains(err.Error(), "invalid key for the input")
 	}
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.NotNil(err)
 	require.Contains(err.Error(), "invalid tx signature number")
 
@@ -82,14 +83,14 @@ func TestTransactionReferences(t *testing.T) {
 	for i := range ver.Inputs {
 		err := ver.SignInput(store, i, accounts[0:i+1])
 		require.Nil(err)
-		err = ver.Validate(store, false)
+		err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 		if i < len(ver.Inputs)-1 {
 			require.NotNil(err)
 		} else {
 			require.Nil(err)
 		}
 	}
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.Nil(err)
 
 	pm = ver.Marshal()
@@ -115,7 +116,7 @@ func TestTransactionReferences(t *testing.T) {
 		}
 	}
 	ver.SignaturesMap = sm
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.NotNil(err)
 	require.Equal("batch verification failure 3 3", err.Error())
 	sm = make([]map[uint16]*crypto.Signature, 2)
@@ -128,7 +129,7 @@ func TestTransactionReferences(t *testing.T) {
 		}
 	}
 	ver.SignaturesMap = sm
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.NotNil(err)
 	require.Equal("invalid signature map index 2 2", err.Error())
 	sm = make([]map[uint16]*crypto.Signature, 2)
@@ -142,7 +143,7 @@ func TestTransactionReferences(t *testing.T) {
 	}
 	sm[0][1] = sm[0][0]
 	ver.SignaturesMap = sm
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.NotNil(err)
 	require.Equal("batch verification failure 4 4", err.Error())
 	sm = make([]map[uint16]*crypto.Signature, 2)
@@ -156,7 +157,7 @@ func TestTransactionReferences(t *testing.T) {
 	}
 	sm[1][0] = sm[0][0]
 	ver.SignaturesMap = sm
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.NotNil(err)
 	require.Equal("batch verification failure 3 3", err.Error())
 
@@ -169,11 +170,11 @@ func TestTransactionReferences(t *testing.T) {
 	require.NotEqual(outputs[1].Keys[1].String(), accounts[1].PublicViewKey.String())
 
 	ver.AggregatedSignature = &AggregatedSignature{}
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.NotNil(err)
 	require.Contains(err.Error(), "invalid signatures map 2")
 	ver.SignaturesMap = nil
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.NotNil(err)
 	require.Contains(err.Error(), "invalid signature keys 0 1")
 
@@ -185,7 +186,7 @@ func TestTransactionReferences(t *testing.T) {
 	err = ver.AggregateSign(store, aas, seed)
 	require.Nil(err)
 	require.Len(ver.AggregatedSignature.Signers, 1)
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.NotNil(err)
 
 	aas = make([][]*Address, len(ver.Inputs))
@@ -199,7 +200,7 @@ func TestTransactionReferences(t *testing.T) {
 	require.NotNil(err)
 	require.Nil(ver.AggregatedSignature)
 	require.NotNil(ver.Marshal())
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.NotNil(err)
 
 	aas = make([][]*Address, len(ver.Inputs))
@@ -210,7 +211,7 @@ func TestTransactionReferences(t *testing.T) {
 	err = ver.AggregateSign(store, aas, seed)
 	require.Nil(err)
 	require.Len(ver.AggregatedSignature.Signers, 3)
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.Nil(err)
 
 	pm = ver.Marshal()
@@ -220,7 +221,7 @@ func TestTransactionReferences(t *testing.T) {
 	require.NotNil(ver.AggregatedSignature)
 	require.Nil(ver.SignaturesMap)
 	require.Equal(pm, ver.Marshal())
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.Nil(err)
 
 	require.Len(ver.References, 0)
@@ -229,13 +230,13 @@ func TestTransactionReferences(t *testing.T) {
 	ver.References = []crypto.Hash{ver.Inputs[0].Hash}
 	require.Len(ver.PayloadMarshal(), 772)
 	require.Len(ver.AggregatedSignature.Signers, 3)
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.NotNil(err)
 	ver.AggregatedSignature = nil
 	err = ver.AggregateSign(store, aas, seed)
 	require.Nil(err)
 	require.Len(ver.AggregatedSignature.Signers, 3)
-	err = ver.Validate(store, false)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
 	require.Nil(err)
 	pm = ver.Marshal()
 	require.Len(pm, 842)

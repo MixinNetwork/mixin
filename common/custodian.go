@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
 )
@@ -145,7 +144,7 @@ func ParseCustodianUpdateNodesExtra(extra []byte, genesis bool) (*CustodianUpdat
 	}, nil
 }
 
-func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error {
+func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader, now uint64) error {
 	if tx.Version < TxVersionHashSignature {
 		return fmt.Errorf("invalid custodian update version %d", tx.Version)
 	}
@@ -171,7 +170,6 @@ func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error
 		return fmt.Errorf("invalid custodian nodes count %d", len(curs.Nodes))
 	}
 
-	now := uint64(time.Now().UnixNano())
 	prev, err := store.ReadCustodian(now)
 	if err != nil {
 		return err

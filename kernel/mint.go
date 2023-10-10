@@ -124,7 +124,7 @@ func (node *Node) tryToMintUniversal(custodianRequest *common.CustodianUpdateReq
 	if err != nil {
 		return err
 	}
-	err = signed.Validate(node.persistStore, false)
+	err = signed.Validate(node.persistStore, node.GraphTimestamp, false)
 	if err != nil {
 		return err
 	}

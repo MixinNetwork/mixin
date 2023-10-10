@@ -25,7 +25,7 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 		return nil, false, err
 	}
 
-	err = tx.Validate(node.persistStore, finalized)
+	err = tx.Validate(node.persistStore, s.Timestamp, finalized)
 	if err != nil {
 		return nil, false, err
 	}

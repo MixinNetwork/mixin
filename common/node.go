@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
 )
@@ -28,7 +27,7 @@ func (n *Node) IdForNetwork(networkId crypto.Hash) crypto.Hash {
 	return n.Signer.Hash().ForNetwork(networkId)
 }
 
-func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UTXO) error {
+func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UTXO, snapTime uint64) error {
 	if tx.Asset != XINAssetId {
 		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
 	}
@@ -46,7 +45,7 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 
 	var signerSpend crypto.Key
 	copy(signerSpend[:], tx.Extra)
-	nodes := store.ReadAllNodes(uint64(time.Now().UnixNano()), false) // FIXME offset incorrect
+	nodes := store.ReadAllNodes(snapTime, false)
 	for _, n := range nodes {
 		if n.State != NodeStateAccepted && n.State != NodeStateCancelled && n.State != NodeStateRemoved {
 			return fmt.Errorf("invalid node pending state %s %s", n.Signer.String(), n.State)
@@ -62,7 +61,7 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 	return nil
 }
 
-func (tx *Transaction) validateNodeCancel(store DataStore, payloadHash crypto.Hash, sigs []map[uint16]*crypto.Signature) error {
+func (tx *Transaction) validateNodeCancel(store DataStore, payloadHash crypto.Hash, sigs []map[uint16]*crypto.Signature, snapTime uint64) error {
 	if tx.Asset != XINAssetId {
 		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
 	}
@@ -91,7 +90,7 @@ func (tx *Transaction) validateNodeCancel(store DataStore, payloadHash crypto.Ha
 
 	var pledging *Node
 	filter := make(map[string]string)
-	nodes := store.ReadAllNodes(uint64(time.Now().UnixNano()), false) // FIXME offset incorrect
+	nodes := store.ReadAllNodes(snapTime, false)
 	for _, n := range nodes {
 		filter[n.Signer.String()] = n.State
 		if n.State == NodeStateAccepted || n.State == NodeStateCancelled || n.State == NodeStateRemoved {
@@ -162,7 +161,7 @@ func (tx *Transaction) validateNodeCancel(store DataStore, payloadHash crypto.Ha
 	return nil
 }
 
-func (tx *Transaction) validateNodeAccept(store DataStore) error {
+func (tx *Transaction) validateNodeAccept(store DataStore, snapTime uint64) error {
 	if tx.Asset != XINAssetId {
 		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
 	}
@@ -174,7 +173,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore) error {
 	}
 	var pledging *Node
 	filter := make(map[string]string)
-	nodes := store.ReadAllNodes(uint64(time.Now().UnixNano()), false) // FIXME offset incorrect
+	nodes := store.ReadAllNodes(snapTime, false)
 	for _, n := range nodes {
 		filter[n.Signer.String()] = n.State
 		if n.State == NodeStateAccepted || n.State == NodeStateCancelled || n.State == NodeStateRemoved {

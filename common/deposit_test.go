@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
@@ -47,7 +48,7 @@ func TestDeposit(t *testing.T) {
 	tx := NewTransactionV5(assetID)
 	ver := tx.AsVersioned()
 	signed := &ver.SignedTransaction
-	err := signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap)
+	err := signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap, uint64(time.Now().UnixNano()))
 	require.NotNil(err)
 	require.True(strings.Contains(err.Error(), "invalid inputs"))
 
@@ -67,7 +68,7 @@ func TestDeposit(t *testing.T) {
 	})
 	ver = tx.AsVersioned()
 	signed = &ver.SignedTransaction
-	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap)
+	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap, uint64(time.Now().UnixNano()))
 	require.NotNil(err)
 	require.True(strings.Contains(err.Error(), "invalid inputs"))
 
@@ -81,7 +82,7 @@ func TestDeposit(t *testing.T) {
 	})
 	ver = tx.AsVersioned()
 	signed = &ver.SignedTransaction
-	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap)
+	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap, uint64(time.Now().UnixNano()))
 	require.NotNil(err)
 	require.True(strings.Contains(err.Error(), "invalid outputs"))
 
@@ -101,7 +102,7 @@ func TestDeposit(t *testing.T) {
 	tx.AddScriptOutput([]*Address{receiver.Address()}, NewThresholdScript(1), NewIntegerFromString("1007"), seed)
 	ver = tx.AsVersioned()
 	signed = &ver.SignedTransaction
-	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap)
+	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap, uint64(time.Now().UnixNano()))
 	require.NotNil(err)
 	require.True(strings.Contains(err.Error(), "invalid outputs"))
 
@@ -121,7 +122,7 @@ func TestDeposit(t *testing.T) {
 	err = ver.SignRaw(domain)
 	require.Nil(err)
 	signed = &ver.SignedTransaction
-	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap)
+	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap, uint64(time.Now().UnixNano()))
 	require.NotNil(err)
 	require.True(strings.Contains(err.Error(), "invalid domain signature for deposit"))
 
@@ -141,7 +142,7 @@ func TestDeposit(t *testing.T) {
 	err = ver.SignRaw(domain)
 	require.Nil(err)
 	signed = &ver.SignedTransaction
-	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap)
+	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap, uint64(time.Now().UnixNano()))
 	require.Nil(err)
 
 	tx = NewTransactionV5(assetID)
@@ -160,7 +161,7 @@ func TestDeposit(t *testing.T) {
 	err = ver.SignRaw(domain)
 	require.Nil(err)
 	signed = &ver.SignedTransaction
-	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap)
+	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap, uint64(time.Now().UnixNano()))
 	require.Nil(err)
 
 	tx = NewTransactionV5(assetID)
@@ -179,7 +180,7 @@ func TestDeposit(t *testing.T) {
 	err = ver.SignRaw(domain)
 	require.Nil(err)
 	signed = &ver.SignedTransaction
-	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap)
+	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap, uint64(time.Now().UnixNano()))
 	require.Nil(err)
 
 	pm := ver.Marshal()
@@ -188,7 +189,7 @@ func TestDeposit(t *testing.T) {
 	require.Equal(1, len(ver.SignaturesMap))
 	require.Equal(1, len(ver.SignaturesMap[0]))
 	signed = &ver.SignedTransaction
-	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap)
+	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap, uint64(time.Now().UnixNano()))
 	require.Nil(err)
 }
 

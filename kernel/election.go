@@ -144,7 +144,7 @@ func (node *Node) tryToSendRemoveTransaction() error {
 	}
 	logger.Verbosef("tryToSendRemoveTransaction %s\n", tx.PayloadHash())
 
-	err = tx.Validate(node.persistStore, false)
+	err = tx.Validate(node.persistStore, node.GraphTimestamp, false)
 	if err != nil {
 		return err
 	}
@@ -255,13 +255,14 @@ func (chain *Chain) buildNodeAcceptTransaction(timestamp uint64, s *common.Snaps
 }
 
 func (chain *Chain) tryToSendAcceptTransaction() error {
-	ver, err := chain.buildNodeAcceptTransaction(uint64(clock.Now().UnixNano()), nil, false)
+	now := uint64(clock.Now().UnixNano())
+	ver, err := chain.buildNodeAcceptTransaction(now, nil, false)
 	if err != nil {
 		return err
 	}
 	logger.Verbosef("tryToSendAcceptTransaction %s\n", ver.PayloadHash())
 
-	err = ver.Validate(chain.node.persistStore, false)
+	err = ver.Validate(chain.node.persistStore, now, false)
 	if err != nil {
 		return err
 	}

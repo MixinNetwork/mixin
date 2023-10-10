@@ -43,19 +43,19 @@ func TestCustodianUpdateNodes(t *testing.T) {
 	sig := domain.PrivateSpendKey.Sign(eh)
 	tx.Extra = append(tx.Extra, sig[:]...)
 
-	err := tx.validateCustodianUpdateNodes(store)
+	err := tx.validateCustodianUpdateNodes(store, uint64(time.Now().UnixNano()))
 	require.NotNil(err)
 	require.Contains(err.Error(), "outputs count")
 
 	random := testBuildAddress(require)
 	amount := NewInteger(100).Mul(count - 1)
 	tx.AddScriptOutput([]*Address{&random}, NewThresholdScript(Operator64), amount, make([]byte, 64))
-	err = tx.validateCustodianUpdateNodes(store)
+	err = tx.validateCustodianUpdateNodes(store, uint64(time.Now().UnixNano()))
 	require.NotNil(err)
 	require.Contains(err.Error(), "output type")
 
 	tx.Outputs[0].Type = OutputTypeCustodianUpdateNodes
-	err = tx.validateCustodianUpdateNodes(store)
+	err = tx.validateCustodianUpdateNodes(store, uint64(time.Now().UnixNano()))
 	require.NotNil(err)
 	require.Contains(err.Error(), "sort order")
 
@@ -70,22 +70,22 @@ func TestCustodianUpdateNodes(t *testing.T) {
 	eh = crypto.Blake3Hash(sortedExtra)
 	sig = domain.PrivateSpendKey.Sign(eh)
 	tx.Extra = append(sortedExtra, sig[:]...)
-	err = tx.validateCustodianUpdateNodes(store)
+	err = tx.validateCustodianUpdateNodes(store, uint64(time.Now().UnixNano()))
 	require.NotNil(err)
 	require.Contains(err.Error(), "there must be a custodian")
 
 	store.domain = &custodian
-	err = tx.validateCustodianUpdateNodes(store)
+	err = tx.validateCustodianUpdateNodes(store, uint64(time.Now().UnixNano()))
 	require.NotNil(err)
 	require.Contains(err.Error(), "approval signature")
 
 	store.domain = &domain
-	err = tx.validateCustodianUpdateNodes(store)
+	err = tx.validateCustodianUpdateNodes(store, uint64(time.Now().UnixNano()))
 	require.NotNil(err)
 	require.Contains(err.Error(), "update price")
 
 	tx.Outputs[0].Amount = NewInteger(100).Mul(count)
-	err = tx.validateCustodianUpdateNodes(store)
+	err = tx.validateCustodianUpdateNodes(store, uint64(time.Now().UnixNano()))
 	require.Nil(err)
 
 	prev, err := store.ReadCustodian(uint64(time.Now().UnixNano()))
@@ -104,18 +104,18 @@ func TestCustodianUpdateNodes(t *testing.T) {
 	require.Len(prev.Nodes, count)
 	require.Equal(timestamp, prev.Timestamp)
 
-	err = tx.validateCustodianUpdateNodes(store)
+	err = tx.validateCustodianUpdateNodes(store, uint64(time.Now().UnixNano()))
 	require.NotNil(err)
 	require.Contains(err.Error(), "approval signature")
 	tx.Extra = tx.Extra[:len(tx.Extra)-64]
 	eh = crypto.Blake3Hash(tx.Extra)
 	sig = custodian.PrivateSpendKey.Sign(eh)
 	tx.Extra = append(tx.Extra, sig[:]...)
-	err = tx.validateCustodianUpdateNodes(store)
+	err = tx.validateCustodianUpdateNodes(store, uint64(time.Now().UnixNano()))
 	require.Nil(err)
 
 	tx.Outputs[0].Amount = NewInteger(1)
-	err = tx.validateCustodianUpdateNodes(store)
+	err = tx.validateCustodianUpdateNodes(store, uint64(time.Now().UnixNano()))
 	require.Nil(err)
 }
 

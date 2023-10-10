@@ -2,7 +2,6 @@ package common
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -114,7 +113,7 @@ func (tx *Transaction) validateWithdrawalFuel(store DataStore, inputs map[string
 	return nil
 }
 
-func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[string]*UTXO) error {
+func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[string]*UTXO, snapTime uint64) error {
 	for _, in := range inputs {
 		if in.Type != OutputTypeScript {
 			return fmt.Errorf("invalid utxo type %d", in.Type)
@@ -156,7 +155,7 @@ func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[strin
 		return fmt.Errorf("invalid withdrawal submit data")
 	}
 
-	custodian, err := store.ReadCustodian(uint64(time.Now().UnixNano()))
+	custodian, err := store.ReadCustodian(snapTime)
 	if err != nil {
 		return err
 	}
