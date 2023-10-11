@@ -181,6 +181,10 @@ func (tx *SignedTransaction) validateInputs(store UTXOLockReader, msg []byte, ha
 	keySigs := make(map[*crypto.Key]*crypto.Signature)
 
 	for i, in := range tx.Inputs {
+		if checkFrozenUTXO(in.Hash) {
+			return nil, Zero, fmt.Errorf("frozen %s", in.Hash)
+		}
+
 		if in.Mint != nil {
 			return inputsFilter, in.Mint.Amount, nil
 		}
