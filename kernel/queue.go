@@ -28,7 +28,7 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 		return old.PayloadHash().String(), node.persistStore.CachePutTransaction(tx)
 	}
 
-	err = tx.Validate(node.persistStore, false)
+	err = tx.Validate(node.persistStore, uint64(clock.Now().UnixNano()), false)
 	if err != nil {
 		return "", err
 	}
@@ -80,7 +80,7 @@ func (node *Node) LoopCacheQueue() error {
 				stale = append(stale, hash)
 				continue
 			}
-			err = tx.Validate(node.persistStore, false)
+			err = tx.Validate(node.persistStore, uint64(clock.Now().UnixNano()), false)
 			if err != nil {
 				logger.Debugf("LoopCacheQueue Validate ERROR %s %s\n", hash, err)
 				// FIXME not mark invalid tx as stale is to ensure final graph sync

@@ -329,6 +329,29 @@ func main() {
 			},
 		},
 		{
+			Name:   "encodecustodianextra",
+			Usage:  "Encode the custodian node transaction extra",
+			Action: encodeCustodianExtraCmd,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "signer",
+					Usage: "the private spend key of the kernel signer",
+				},
+				&cli.StringFlag{
+					Name:  "payee",
+					Usage: "the private spend key of the kernel payee",
+				},
+				&cli.StringFlag{
+					Name:  "custodian",
+					Usage: "the private spend key of the custodian node",
+				},
+				&cli.StringFlag{
+					Name:  "network",
+					Usage: "the network id",
+				},
+			},
+		},
+		{
 			Name:   "getroundlink",
 			Usage:  "Get the latest link between two nodes",
 			Action: getRoundLinkCmd,
@@ -465,6 +488,12 @@ func main() {
 			},
 		},
 		{
+			Name:   "listcustodianupdates",
+			Usage:  "List all custodian updates",
+			Action: listCustodianUpdatesCmd,
+			Flags:  []cli.Flag{},
+		},
+		{
 			Name:   "listmintworks",
 			Usage:  "List mint works",
 			Action: listMintWorksCmd,
@@ -541,9 +570,13 @@ func main() {
 
 func kernelCmd(c *cli.Context) error {
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	err := os.Setenv("QUIC_GO_DISABLE_GSO", "true")
+	if err != nil {
+		return err
+	}
 
 	logger.SetLevel(c.Int("log"))
-	err := logger.SetFilter(c.String("filter"))
+	err = logger.SetFilter(c.String("filter"))
 	if err != nil {
 		return err
 	}
@@ -562,6 +595,11 @@ func kernelCmd(c *cli.Context) error {
 		return err
 	}
 	defer store.Close()
+
+	err = store.OneTimeFixMintPrefix()
+	if err != nil {
+		return err
+	}
 
 	addr := fmt.Sprintf(":%d", c.Int("port"))
 	node, err := kernel.SetupNode(custom, store, cache, addr, c.String("dir"))

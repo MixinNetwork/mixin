@@ -9,7 +9,7 @@ func BenchmarkVerifyBatch(b *testing.B) {
 	for _, n := range []int{1, 2, 4, 8, 64, 256} {
 		b.Run(fmt.Sprint(n), func(b *testing.B) {
 			b.ReportAllocs()
-			msg := []byte("BenchmarkVerifyBatch")
+			msg := Blake3Hash([]byte("BenchmarkVerifyBatch"))
 			var pubs []*Key
 			var sigs []*Signature
 			for i := 0; i < n; i++ {

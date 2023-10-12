@@ -20,7 +20,7 @@ func (s *Signature) S() []byte {
 	return s[32:]
 }
 
-func (privateKey *Key) Sign(message []byte) Signature {
+func (privateKey *Key) Sign(message Hash) Signature {
 	var digest1, messageDigest, hramDigest [64]byte
 
 	// the hash costs almost nothing compared to elliptic curve ops
@@ -29,7 +29,7 @@ func (privateKey *Key) Sign(message []byte) Signature {
 	h.Sum(digest1[:0])
 	h.Reset()
 	h.Write(digest1[32:])
-	h.Write(message)
+	h.Write(message[:])
 	h.Sum(messageDigest[:0])
 
 	z, err := edwards25519.NewScalar().SetUniformBytes(messageDigest[:])
@@ -43,7 +43,7 @@ func (privateKey *Key) Sign(message []byte) Signature {
 	h.Reset()
 	h.Write(R.Bytes())
 	h.Write(pub[:])
-	h.Write(message)
+	h.Write(message[:])
 	h.Sum(hramDigest[:0])
 	x, err := edwards25519.NewScalar().SetUniformBytes(hramDigest[:])
 	if err != nil {
@@ -63,7 +63,7 @@ func (privateKey *Key) Sign(message []byte) Signature {
 	return signature
 }
 
-func (publicKey *Key) VerifyWithChallenge(message []byte, sig Signature, a *edwards25519.Scalar) bool {
+func (publicKey *Key) VerifyWithChallenge(sig Signature, a *edwards25519.Scalar) bool {
 	p, err := edwards25519.NewIdentityPoint().SetBytes(publicKey[:])
 	if err != nil {
 		return false
@@ -78,11 +78,11 @@ func (publicKey *Key) VerifyWithChallenge(message []byte, sig Signature, a *edwa
 	return bytes.Equal(sig[:32], R.Bytes())
 }
 
-func (publicKey *Key) Verify(message []byte, sig Signature) bool {
+func (publicKey *Key) Verify(message Hash, sig Signature) bool {
 	h := sha512.New()
 	h.Write(sig[:32])
 	h.Write(publicKey[:])
-	h.Write(message)
+	h.Write(message[:])
 	var digest [64]byte
 	h.Sum(digest[:0])
 
@@ -90,7 +90,7 @@ func (publicKey *Key) Verify(message []byte, sig Signature) bool {
 	if err != nil {
 		panic(err)
 	}
-	return publicKey.VerifyWithChallenge(message, sig, x)
+	return publicKey.VerifyWithChallenge(sig, x)
 }
 
 func (s Signature) String() string {

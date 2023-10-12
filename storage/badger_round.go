@@ -7,7 +7,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v4"
 )
 
 func (s *BadgerStore) ReadLink(from, to crypto.Hash) (uint64, error) {
@@ -208,6 +208,6 @@ func graphRoundKey(hash crypto.Hash) []byte {
 }
 
 func graphLinkKey(from, to crypto.Hash) []byte {
-	link := crypto.NewHash(append(from[:], to[:]...))
+	link := crypto.Blake3Hash(append(from[:], to[:]...))
 	return append([]byte(graphPrefixLink), link[:]...)
 }

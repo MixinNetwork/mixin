@@ -3,31 +3,31 @@ package util
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRingBuffer(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	pool := NewRingBuffer(256)
 	for i := 0; i < 256; i++ {
 		ok, err := pool.Offer(i)
-		assert.True(ok)
-		assert.Nil(err)
+		require.True(ok)
+		require.Nil(err)
 	}
 	for i := 0; i < 256; i++ {
 		ok, err := pool.Offer(i)
-		assert.False(ok)
-		assert.Nil(err)
+		require.False(ok)
+		require.Nil(err)
 	}
 	for i := 0; i < 256; i++ {
 		m, err := pool.Poll(false)
-		assert.NotNil(m)
-		assert.Nil(err)
+		require.NotNil(m)
+		require.Nil(err)
 	}
 	for i := 0; i < 256; i++ {
 		m, err := pool.Poll(false)
-		assert.Nil(m)
-		assert.Nil(err)
+		require.Nil(m)
+		require.Nil(err)
 	}
 }

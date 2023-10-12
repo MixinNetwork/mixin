@@ -36,17 +36,14 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
 		sm := make([]map[string]any, len(r.Snapshots))
 		for i, s := range r.Snapshots {
 			sm[i] = map[string]any{
-				"version":     s.Version,
-				"node":        s.NodeId,
-				"references":  roundLinkToMap(s.References),
-				"round":       s.RoundNumber,
-				"timestamp":   s.Timestamp,
-				"hash":        s.Hash,
-				"transaction": s.SoleTransaction(),
-				"signature":   s.Signature,
-			}
-			if s.Version >= common.SnapshotVersionCommonEncoding {
-				sm[i]["transactions"] = []any{sm[i]["transaction"]}
+				"version":      s.Version,
+				"node":         s.NodeId,
+				"references":   roundLinkToMap(s.References),
+				"round":        s.RoundNumber,
+				"timestamp":    s.Timestamp,
+				"hash":         s.Hash,
+				"transactions": []any{s.SoleTransaction()},
+				"signature":    s.Signature,
 			}
 		}
 		cacheGraph[n.String()] = map[string]any{

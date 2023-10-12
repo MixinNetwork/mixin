@@ -12,8 +12,12 @@ memory-cache-size = 4096
 cache-ttl = 7200
 
 [storage]
-# enable value log gc will reduce disk storage usage
+# enable badger value log gc will reduce disk storage usage
 value-log-gc = true
+# max levels should be increased when data too big and badger panic
+# increase the level to 8 when data grows big to execeed 16TB
+# the max levels can not be decreased once up, so be cautious
+max-compaction-levels = 7
 
 [network]
 # the public endpoint to receive peer packets, may be a proxy or load balancer
@@ -46,6 +50,7 @@ peers = [
 	"35.239.195.252:7239",
 	"node-okashi.mixin.fan:7239",
 	"node-42.f1ex.io:7239",
+	"node-fes.f1ex.io:7239",
 	"mixin-node-01.b.watch:7239",
 	"mixin-node-02.b.watch:7239",
 	"mixin-node-03.b.watch:7239",

@@ -57,20 +57,17 @@ func (me *Peer) PingNeighbor(addr string) error {
 	} else if a.Port < 80 || a.IP == nil {
 		return fmt.Errorf("invalid address %s %d %s", addr, a.Port, a.IP)
 	}
-	key := crypto.NewHash([]byte(addr))
-	if me.pingFilter.Get(key) != nil {
-		return nil
-	}
-	me.pingFilter.Set(key, &Peer{})
-
-	go func() {
+	key := crypto.Blake3Hash([]byte(addr))
+	me.pingFilter.RunOnce(key, &Peer{}, func() {
 		for !me.closing {
+			// FIXME this loop is essential to prevent peer loss
+			// need to fix duplicated quic dials
 			err := me.pingPeerStream(addr)
 			if err != nil {
 				logger.Verbosef("PingNeighbor error %v\n", err)
 			}
 		}
-	}()
+	})
 	return nil
 }
 
@@ -102,6 +99,7 @@ func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) (*Peer, error
 	} else if a.Port < 80 || a.IP == nil {
 		return nil, fmt.Errorf("invalid address %s %d %s", addr, a.Port, a.IP)
 	}
+
 	old := me.neighbors.Get(idForNetwork)
 	if old != nil && old.Address == addr {
 		return old, nil
@@ -351,7 +349,7 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 			data := buildBundleMessage(msgs)
 			err := client.Send(data)
 			if err != nil {
-				key := crypto.NewHash(data)
+				key := crypto.Blake3Hash(data)
 				return &ChanMsg{key[:], data}, err
 			}
 			me.sentMetric.handle(PeerMessageTypeBundle)
@@ -572,4 +570,15 @@ func (m *neighborMap) Clear() {
 	for id := range m.m {
 		delete(m.m, id)
 	}
+}
+
+func (m *neighborMap) RunOnce(key crypto.Hash, v *Peer, f func()) {
+	m.Lock()
+	defer m.Unlock()
+
+	if m.m[key] != nil {
+		return
+	}
+	m.m[key] = v
+	go f()
 }

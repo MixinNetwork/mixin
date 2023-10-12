@@ -20,7 +20,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.20.3
+          go-version: 1.21
 
       - name: Build Mixin
         run: |
@@ -30,4 +30,4 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-latest' }}
         working-directory: .
         run: |
-          INPUT=10 go test ./... -v
+          ELECTION=false INPUT=10 go test ./... -v

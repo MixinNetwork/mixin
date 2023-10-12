@@ -48,7 +48,7 @@ func CosiAggregateCommitment(randoms map[int]*Key) (*CosiSignature, error) {
 	return cosi, nil
 }
 
-func (c *CosiSignature) AggregateResponse(publics []*Key, responses map[int]*[32]byte, message []byte, strict bool) error {
+func (c *CosiSignature) AggregateResponse(publics []*Key, responses map[int]*[32]byte, message Hash, strict bool) error {
 	S := edwards25519.NewScalar()
 	var keys []*Key
 	for _, i := range c.Keys() {
@@ -75,7 +75,7 @@ func (c *CosiSignature) AggregateResponse(publics []*Key, responses map[int]*[32
 			var sig Signature
 			copy(sig[:32], c.commitments[i][:])
 			copy(sig[32:], s[:])
-			valid := publics[i].VerifyWithChallenge(message, sig, challenge)
+			valid := publics[i].VerifyWithChallenge(sig, challenge)
 			if !valid {
 				return fmt.Errorf("invalid cosi signature response %s", hex.EncodeToString(s[:]))
 			}
@@ -91,7 +91,7 @@ func (c *CosiSignature) AggregateResponse(publics []*Key, responses map[int]*[32
 	return nil
 }
 
-func (c *CosiSignature) Challenge(publics []*Key, message []byte) (*edwards25519.Scalar, error) {
+func (c *CosiSignature) Challenge(publics []*Key, message Hash) (*edwards25519.Scalar, error) {
 	var hramDigest [64]byte
 	R := c.Signature[:32]
 	A, err := c.aggregatePublicKey(publics)
@@ -101,7 +101,7 @@ func (c *CosiSignature) Challenge(publics []*Key, message []byte) (*edwards25519
 	h := sha512.New()
 	h.Write(R)
 	h.Write(A[:])
-	h.Write(message)
+	h.Write(message[:])
 	h.Sum(hramDigest[:0])
 	s, err := edwards25519.NewScalar().SetUniformBytes(hramDigest[:])
 	if err != nil {
@@ -110,7 +110,7 @@ func (c *CosiSignature) Challenge(publics []*Key, message []byte) (*edwards25519
 	return s, nil
 }
 
-func (c *CosiSignature) Response(privateKey, random *Key, publics []*Key, message []byte) (*[32]byte, error) {
+func (c *CosiSignature) Response(privateKey, random *Key, publics []*Key, message Hash) (*[32]byte, error) {
 	x, err := c.Challenge(publics, message)
 	if err != nil {
 		return nil, err
@@ -129,7 +129,7 @@ func (c *CosiSignature) Response(privateKey, random *Key, publics []*Key, messag
 	return &s, nil
 }
 
-func (c *CosiSignature) VerifyResponse(publics []*Key, signer int, s *[32]byte, message []byte) error {
+func (c *CosiSignature) VerifyResponse(publics []*Key, signer int, s *[32]byte, message Hash) error {
 	var a, R *Key
 	for _, k := range c.Keys() {
 		if k >= len(publics) {
@@ -150,7 +150,7 @@ func (c *CosiSignature) VerifyResponse(publics []*Key, signer int, s *[32]byte, 
 	var sig Signature
 	copy(sig[:32], R[:])
 	copy(sig[32:], s[:])
-	valid := a.VerifyWithChallenge(message, sig, challenge)
+	valid := a.VerifyWithChallenge(sig, challenge)
 	if !valid {
 		return fmt.Errorf("invalid cosi signature response %s", sig)
 	}
@@ -184,7 +184,7 @@ func (c *CosiSignature) ThresholdVerify(threshold int) bool {
 	return len(c.Keys()) >= threshold
 }
 
-func (c *CosiSignature) FullVerify(publics []*Key, threshold int, message []byte) error {
+func (c *CosiSignature) FullVerify(publics []*Key, threshold int, message Hash) error {
 	if !c.ThresholdVerify(threshold) {
 		return fmt.Errorf("cosi.FullVerify publics %d threshold %d keys %d", len(publics), threshold, len(c.Keys()))
 	}

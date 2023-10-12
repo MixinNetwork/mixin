@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/logger"
 )
 
 // FIXME GLOBAL VARIABLES
@@ -41,6 +42,7 @@ func MockDiff(at time.Duration) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	mockDiff += at
+	logger.Printf("clock.MockDiff(%s) => %s\n", at, time.Now().Add(mockDiff))
 }
 
 func Now() time.Time {

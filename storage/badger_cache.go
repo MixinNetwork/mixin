@@ -6,15 +6,13 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v4"
 )
 
 const (
-	cachePrefixTransactionQueue  = "CACHETRANSACTIONQUEUE"
-	cachePrefixTransactionOrder  = "CACHETRANSACTIONORDER"
-	cachePrefixTransactionCache  = "CACHETRANSACTIONPAYLOAD"
-	cachePrefixSnapshotNodeQueue = "SNAPSHOTNODEQUEUE"
-	cachePrefixSnapshotNodeMeta  = "SNAPSHOTNODEMETA"
+	cachePrefixTransactionQueue = "CACHETRANSACTIONQUEUE"
+	cachePrefixTransactionOrder = "CACHETRANSACTIONORDER"
+	cachePrefixTransactionCache = "CACHETRANSACTIONPAYLOAD"
 )
 
 func (s *BadgerStore) CacheRetrieveTransactions(limit int) ([]*common.VersionedTransaction, error) {

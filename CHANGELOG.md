@@ -2,6 +2,10 @@
 
 Semantic Versioning
 
+## v0.16 Outstanding Golden Moths Aug 6, 2023
+
+Mint and slashing rules for both Mixin Kernel and Mixin Safe.
+
 ## v0.15 Swift Goliath Beetles Apr 4, 2023
 
 Transaction version 4 with pure transaction references and large storage extra.

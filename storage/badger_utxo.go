@@ -2,10 +2,11 @@ package storage
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v4"
 )
 
 func (s *BadgerStore) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKeys, error) {
@@ -33,7 +34,6 @@ func (s *BadgerStore) ReadUTXOLock(hash crypto.Hash, index int) (*common.UTXOWit
 }
 
 func (s *BadgerStore) readUTXOLock(txn *badger.Txn, hash crypto.Hash, index int) (*common.UTXOWithLock, error) {
-
 	key := graphUtxoKey(hash, index)
 	item, err := txn.Get(key)
 	if err == badger.ErrKeyNotFound {
@@ -94,10 +94,7 @@ func lockUTXO(txn *badger.Txn, hash crypto.Hash, index int, tx crypto.Hash, fork
 	return txn.Set(key, out.CompressMarshal())
 }
 
-func (s *BadgerStore) CheckGhost(key crypto.Key) (*crypto.Hash, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
+func (s *BadgerStore) ReadGhostKeyLock(key crypto.Key) (*crypto.Hash, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -111,4 +108,54 @@ func (s *BadgerStore) CheckGhost(key crypto.Key) (*crypto.Hash, error) {
 	var by crypto.Hash
 	_, err = item.ValueCopy(by[:])
 	return &by, err
+}
+
+func (s *BadgerStore) LockGhostKeys(keys []*crypto.Key, tx crypto.Hash, fork bool) error {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
+		filter := make(map[crypto.Key]bool)
+		for _, ghost := range keys {
+			if filter[*ghost] {
+				return fmt.Errorf("duplicated ghost key %s", ghost.String())
+			}
+			filter[*ghost] = true
+			err := lockGhostKey(txn, ghost, tx, fork)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func lockGhostKey(txn *badger.Txn, ghost *crypto.Key, tx crypto.Hash, fork bool) error {
+	key := graphGhostKey(*ghost)
+	item, err := txn.Get(key)
+	if err == badger.ErrKeyNotFound {
+		return txn.Set(key, tx[:])
+	}
+	if err != nil {
+		return err
+	}
+	var by crypto.Hash
+	val, err := item.ValueCopy(by[:])
+	if err != nil {
+		return err
+	}
+	if len(val) != len(by) || !by.HasValue() {
+		return fmt.Errorf("ghost key %s malformed lock %x", ghost.String(), val)
+	}
+	if fork && slices.Contains([]string{
+		"c63b6373652def5999c1d951fcb8f064db67b7d18565847b921b21639e15dddd",
+		"60deaf2471bb0b6481efe9080d8852b020ab2941e7faae21989d2404f34284ee",
+		"a558b1efbe27eb6a6f902fd97d4b7e2e3099e6edde1fe6e8e41204e0685fe426",
+	}, tx.String()) {
+		return nil
+	}
+	if by != tx {
+		return fmt.Errorf("ghost key %s locked for transaction %s", ghost.String(), by.String())
+	}
+	return nil
 }

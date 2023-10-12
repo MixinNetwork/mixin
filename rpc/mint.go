@@ -47,7 +47,7 @@ func listMintDistributions(store storage.Store, params []any) ([]map[string]any,
 		return nil, err
 	}
 
-	mints, transactions, err := store.ReadMintDistributions(common.MintGroupKernelNode, offset, count)
+	mints, transactions, err := store.ReadMintDistributions(offset, count)
 	return mintsToMap(mints, transactions, tx), err
 }
 

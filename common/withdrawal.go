@@ -5,51 +5,8 @@ import (
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/domains/akash"
-	"github.com/MixinNetwork/mixin/domains/algorand"
-	"github.com/MixinNetwork/mixin/domains/aptos"
-	"github.com/MixinNetwork/mixin/domains/arbitrum"
-	"github.com/MixinNetwork/mixin/domains/arweave"
-	"github.com/MixinNetwork/mixin/domains/avalanche"
-	"github.com/MixinNetwork/mixin/domains/bch"
-	"github.com/MixinNetwork/mixin/domains/binance"
 	"github.com/MixinNetwork/mixin/domains/bitcoin"
-	"github.com/MixinNetwork/mixin/domains/bsc"
-	"github.com/MixinNetwork/mixin/domains/bsv"
-	"github.com/MixinNetwork/mixin/domains/cosmos"
-	"github.com/MixinNetwork/mixin/domains/dash"
-	"github.com/MixinNetwork/mixin/domains/decred"
-	"github.com/MixinNetwork/mixin/domains/dfinity"
-	"github.com/MixinNetwork/mixin/domains/dogecoin"
-	"github.com/MixinNetwork/mixin/domains/eos"
-	"github.com/MixinNetwork/mixin/domains/etc"
 	"github.com/MixinNetwork/mixin/domains/ethereum"
-	"github.com/MixinNetwork/mixin/domains/filecoin"
-	"github.com/MixinNetwork/mixin/domains/handshake"
-	"github.com/MixinNetwork/mixin/domains/horizen"
-	"github.com/MixinNetwork/mixin/domains/kusama"
-	"github.com/MixinNetwork/mixin/domains/litecoin"
-	"github.com/MixinNetwork/mixin/domains/mobilecoin"
-	"github.com/MixinNetwork/mixin/domains/monero"
-	"github.com/MixinNetwork/mixin/domains/mvm"
-	"github.com/MixinNetwork/mixin/domains/namecoin"
-	"github.com/MixinNetwork/mixin/domains/near"
-	"github.com/MixinNetwork/mixin/domains/nervos"
-	"github.com/MixinNetwork/mixin/domains/optimism"
-	"github.com/MixinNetwork/mixin/domains/polkadot"
-	"github.com/MixinNetwork/mixin/domains/polygon"
-	"github.com/MixinNetwork/mixin/domains/ravencoin"
-	"github.com/MixinNetwork/mixin/domains/ripple"
-	"github.com/MixinNetwork/mixin/domains/siacoin"
-	"github.com/MixinNetwork/mixin/domains/solana"
-	"github.com/MixinNetwork/mixin/domains/starcoin"
-	"github.com/MixinNetwork/mixin/domains/stellar"
-	"github.com/MixinNetwork/mixin/domains/terra"
-	"github.com/MixinNetwork/mixin/domains/tezos"
-	"github.com/MixinNetwork/mixin/domains/ton"
-	"github.com/MixinNetwork/mixin/domains/tron"
-	"github.com/MixinNetwork/mixin/domains/xdc"
-	"github.com/MixinNetwork/mixin/domains/zcash"
 )
 
 type WithdrawalData struct {
@@ -109,94 +66,8 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 	switch chainId {
 	case ethereum.EthereumChainId:
 		return ethereum.VerifyAddress(submit.Withdrawal.Address)
-	case etc.EthereumClassicChainId:
-		return etc.VerifyAddress(submit.Withdrawal.Address)
 	case bitcoin.BitcoinChainId:
 		return bitcoin.VerifyAddress(submit.Withdrawal.Address)
-	case monero.MoneroChainId:
-		return monero.VerifyAddress(submit.Withdrawal.Address)
-	case zcash.ZcashChainId:
-		return zcash.VerifyAddress(submit.Withdrawal.Address)
-	case horizen.HorizenChainId:
-		return horizen.VerifyAddress(submit.Withdrawal.Address)
-	case litecoin.LitecoinChainId:
-		return litecoin.VerifyAddress(submit.Withdrawal.Address)
-	case dogecoin.DogecoinChainId:
-		return dogecoin.VerifyAddress(submit.Withdrawal.Address)
-	case ravencoin.RavencoinChainId:
-		return ravencoin.VerifyAddress(submit.Withdrawal.Address)
-	case namecoin.NamecoinChainId:
-		return namecoin.VerifyAddress(submit.Withdrawal.Address)
-	case dash.DashChainId:
-		return dash.VerifyAddress(submit.Withdrawal.Address)
-	case decred.DecredChainId:
-		return decred.VerifyAddress(submit.Withdrawal.Address)
-	case bch.BitcoinCashChainId:
-		return bch.VerifyAddress(submit.Withdrawal.Address)
-	case bsv.BitcoinSVChainId:
-		return bsv.VerifyAddress(submit.Withdrawal.Address)
-	case handshake.HandshakenChainId:
-		return handshake.VerifyAddress(submit.Withdrawal.Address)
-	case nervos.NervosChainId:
-		return nervos.VerifyAddress(submit.Withdrawal.Address)
-	case siacoin.SiacoinChainId:
-		return siacoin.VerifyAddress(submit.Withdrawal.Address)
-	case filecoin.FilecoinChainId:
-		return filecoin.VerifyAddress(submit.Withdrawal.Address)
-	case solana.SolanaChainId:
-		return solana.VerifyAddress(submit.Withdrawal.Address)
-	case near.NearChainId:
-		return near.VerifyAddress(submit.Withdrawal.Address)
-	case polkadot.PolkadotChainId:
-		return polkadot.VerifyAddress(submit.Withdrawal.Address)
-	case kusama.KusamaChainId:
-		return kusama.VerifyAddress(submit.Withdrawal.Address)
-	case ripple.RippleChainId:
-		return ripple.VerifyAddress(submit.Withdrawal.Address)
-	case stellar.StellarChainId:
-		return stellar.VerifyAddress(submit.Withdrawal.Address)
-	case tezos.TezosChainId:
-		return tezos.VerifyAddress(submit.Withdrawal.Address)
-	case eos.EOSChainId:
-		return eos.VerifyAddress(submit.Withdrawal.Address)
-	case tron.TronChainId:
-		return tron.VerifyAddress(submit.Withdrawal.Address)
-	case ton.TonChainId:
-		return ton.VerifyAddress(submit.Withdrawal.Address)
-	case mobilecoin.MobileCoinChainId:
-		return mobilecoin.VerifyAddress(submit.Withdrawal.Address)
-	case cosmos.CosmosChainId:
-		return cosmos.VerifyAddress(submit.Withdrawal.Address)
-	case starcoin.StarcoinChainId:
-		return starcoin.VerifyAddress(submit.Withdrawal.Address)
-	case aptos.AptosChainId:
-		return aptos.VerifyAddress(submit.Withdrawal.Address)
-	case avalanche.AvalancheChainId:
-		return avalanche.VerifyAddress(submit.Withdrawal.Address)
-	case binance.BinanceChainId:
-		return binance.VerifyAddress(submit.Withdrawal.Address)
-	case bsc.BinanceSmartChainId:
-		return bsc.VerifyAddress(submit.Withdrawal.Address)
-	case optimism.OptimismChainId:
-		return optimism.VerifyAddress(submit.Withdrawal.Address)
-	case arbitrum.ArbitrumChainId:
-		return arbitrum.VerifyAddress(submit.Withdrawal.Address)
-	case akash.AkashChainId:
-		return akash.VerifyAddress(submit.Withdrawal.Address)
-	case terra.TerraChainId:
-		return terra.VerifyAddress(submit.Withdrawal.Address)
-	case arweave.ArweaveChainId:
-		return arweave.VerifyAddress(submit.Withdrawal.Address)
-	case dfinity.DfinityChainId:
-		return dfinity.VerifyAddress(submit.Withdrawal.Address)
-	case algorand.AlgorandChainId:
-		return algorand.VerifyAddress(submit.Withdrawal.Address)
-	case polygon.PolygonChainId:
-		return polygon.VerifyAddress(submit.Withdrawal.Address)
-	case mvm.MVMChainId:
-		return mvm.VerifyAddress(submit.Withdrawal.Address)
-	case xdc.XDCChainId:
-		return xdc.VerifyAddress(submit.Withdrawal.Address)
 	}
 	return fmt.Errorf("invalid withdrawal chain id %s", chainId)
 }
@@ -242,7 +113,7 @@ func (tx *Transaction) validateWithdrawalFuel(store DataStore, inputs map[string
 	return nil
 }
 
-func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[string]*UTXO, msg []byte) error {
+func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[string]*UTXO, snapTime uint64) error {
 	for _, in := range inputs {
 		if in.Type != OutputTypeScript {
 			return fmt.Errorf("invalid utxo type %d", in.Type)
@@ -284,23 +155,19 @@ func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[strin
 		return fmt.Errorf("invalid withdrawal submit data")
 	}
 
-	var domainValid bool
-	for _, d := range store.ReadDomains() {
-		domainValid = true
-		view := d.Account.PublicSpendKey.DeterministicHashDerive()
-		for _, utxo := range inputs {
-			for _, key := range utxo.Keys {
-				ghost := crypto.ViewGhostOutputKey(key, &view, &utxo.Mask, uint64(utxo.Index))
-				valid := *ghost == d.Account.PublicSpendKey
-				domainValid = domainValid && valid
+	custodian, err := store.ReadCustodian(snapTime)
+	if err != nil {
+		return err
+	}
+	view := custodian.Custodian.PublicSpendKey.DeterministicHashDerive()
+	for _, utxo := range inputs {
+		for _, key := range utxo.Keys {
+			ghost := crypto.ViewGhostOutputKey(key, &view, &utxo.Mask, uint64(utxo.Index))
+			valid := *ghost == custodian.Custodian.PublicSpendKey
+			if !valid {
+				return fmt.Errorf("invalid domain signature for withdrawal claim %s", key.String())
 			}
 		}
-		if domainValid {
-			break
-		}
-	}
-	if !domainValid {
-		return fmt.Errorf("invalid domain signature for withdrawal claim")
 	}
 	return nil
 }

@@ -85,15 +85,12 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 		cqc:             make(chan struct{}),
 	}
 
-	node.LoadNodeConfig()
+	node.loadNodeConfig()
 
-	mint, err := node.persistStore.ReadLastMintDistribution(common.MintGroupKernelNode)
-	if err != nil {
-		return nil, fmt.Errorf("ReadLastMintDistribution() => %v", err)
-	}
+	mint := node.lastMintDistribution()
 	node.LastMint = mint.Batch
 
-	err = node.LoadGenesis(dir)
+	err := node.LoadGenesis(dir)
 	if err != nil {
 		return nil, fmt.Errorf("LoadGenesis(%s) => %v", dir, err)
 	}
@@ -128,7 +125,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 	return node, nil
 }
 
-func (node *Node) LoadNodeConfig() {
+func (node *Node) loadNodeConfig() {
 	var addr common.Address
 	addr.PrivateSpendKey = node.custom.Node.Signer
 	addr.PublicSpendKey = addr.PrivateSpendKey.Public()
@@ -321,22 +318,12 @@ func (node *Node) LoadConsensusNodes() error {
 }
 
 func (node *Node) SnapshotVersion() uint8 {
-	if node.networkId.String() != config.MainnetId {
-		return common.SnapshotVersionCommonEncoding
-	}
-
-	if node.LastMint >= MainnetMintTransactionV3ForkBatch {
-		return common.SnapshotVersionCommonEncoding
-	}
-	return common.SnapshotVersionMsgpackEncoding
+	return common.SnapshotVersionCommonEncoding
 }
 
 // this is needed to handle mainnet transaction version upgrading fork
 func (node *Node) NewTransaction(assetId crypto.Hash) *common.Transaction {
-	if node.SnapshotVersion() < common.SnapshotVersionCommonEncoding {
-		return common.NewTransactionV2(assetId)
-	}
-	return common.NewTransactionV3(assetId)
+	return common.NewTransactionV5(assetId)
 }
 
 func (node *Node) PingNeighborsFromConfig() error {
@@ -405,7 +392,8 @@ func (node *Node) BuildAuthenticationMessage() []byte {
 	data := make([]byte, 8)
 	binary.BigEndian.PutUint64(data, uint64(clock.Now().Unix()))
 	data = append(data, node.Signer.PublicSpendKey[:]...)
-	sig := node.Signer.PrivateSpendKey.Sign(data)
+	dh := crypto.Blake3Hash(data)
+	sig := node.Signer.PrivateSpendKey.Sign(dh)
 	data = append(data, sig[:]...)
 	return append(data, []byte(node.Listener)...)
 }
@@ -437,7 +425,8 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 
 	var sig crypto.Signature
 	copy(sig[:], msg[40:40+len(sig)])
-	if !signer.PublicSpendKey.Verify(msg[:40], sig) {
+	mh := crypto.Blake3Hash(msg[:40])
+	if !signer.PublicSpendKey.Verify(mh, sig) {
 		return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
 	}
 
@@ -538,11 +527,13 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 			return false
 		}
 		if cf.Hash != remote.Hash {
-			logger.Verbosef("CheckCatchUpWithPeers local(%s) != remote(%s)\n", cf.Hash, remote.Hash)
+			logger.Verbosef("CheckCatchUpWithPeers local(%s) != remote(%s)\n",
+				cf.Hash, remote.Hash)
 			return false
 		}
 		if now := uint64(clock.Now().UnixNano()); cf.Start+config.SnapshotRoundGap*100 > now {
-			logger.Verbosef("CheckCatchUpWithPeers local start(%d)+%d > now(%d)\n", cf.Start, config.SnapshotRoundGap*100, now)
+			logger.Verbosef("CheckCatchUpWithPeers local start(%d)+%d > now(%d)\n",
+				cf.Start, config.SnapshotRoundGap*100, now)
 			return false
 		}
 	}

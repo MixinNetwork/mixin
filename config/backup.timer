@@ -1,0 +1,11 @@
+[Unit]
+Description=Mixin Kernel Backup Timer
+
+[Timer]
+Unit=mixin-backup.service
+OnCalendar=*-*-* 00:00:00
+Persistent=True
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

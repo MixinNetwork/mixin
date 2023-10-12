@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -168,7 +169,7 @@ func validateGraphEntries(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	networkId := crypto.NewHash(data)
+	networkId := crypto.Blake3Hash(data)
 
 	store, err := storage.NewBadgerStore(custom, c.String("dir"))
 	if err != nil {
@@ -285,7 +286,7 @@ func buildRawTransactionCmd(c *cli.Context) error {
 	isb, _ := json.Marshal(map[string]any{"inputs": inputs})
 	json.Unmarshal(isb, &raw)
 
-	tx := common.NewTransactionV3(asset)
+	tx := common.NewTransactionV5(asset)
 	for _, in := range inputs {
 		tx.AddInput(in["hash"].(crypto.Hash), in["index"].(int))
 	}
@@ -325,7 +326,7 @@ func signTransactionCmd(c *cli.Context) error {
 		}
 	}
 
-	tx := common.NewTransactionV3(raw.Asset)
+	tx := common.NewTransactionV5(raw.Asset)
 	for _, in := range raw.Inputs {
 		if d := in.Deposit; d != nil {
 			tx.AddDepositInput(&common.DepositData{
@@ -350,7 +351,7 @@ func signTransactionCmd(c *cli.Context) error {
 				Mask:   out.Mask,
 			})
 		} else {
-			hash := crypto.NewHash(seed)
+			hash := crypto.Blake3Hash(seed)
 			seed = append(hash[:], hash[:]...)
 			tx.AddOutputWithType(out.Type, out.Accounts, out.Script, out.Amount, seed)
 		}
@@ -442,7 +443,7 @@ func pledgeNodeCmd(c *cli.Context) error {
 
 	amount := common.NewIntegerFromString(c.String("amount"))
 
-	tx := common.NewTransactionV3(common.XINAssetId)
+	tx := common.NewTransactionV5(common.XINAssetId)
 	tx.AddInput(input, 0)
 	tx.AddOutputWithType(common.OutputTypeNodePledge, nil, common.Script{}, amount, seed)
 	tx.Extra = append(signer.PublicSpendKey[:], payee.PublicSpendKey[:]...)
@@ -519,7 +520,7 @@ func cancelNodeCmd(c *cli.Context) error {
 		return fmt.Errorf("invalid source and receiver %s %s", pig.String(), receiver.PublicSpendKey)
 	}
 
-	tx := common.NewTransactionV3(common.XINAssetId)
+	tx := common.NewTransactionV5(common.XINAssetId)
 	tx.AddInput(pledge.PayloadHash(), 0)
 	tx.AddOutputWithType(common.OutputTypeNodeCancel, nil, common.Script{}, pledge.Outputs[0].Amount.Div(100), seed)
 	tx.AddScriptOutput([]*common.Address{&receiver}, common.NewThresholdScript(1), pledge.Outputs[0].Amount.Sub(tx.Outputs[0].Amount), seed)
@@ -574,6 +575,38 @@ func decodePledgeNodeCmd(c *cli.Context) error {
 	}
 	fmt.Printf("signer: %s\n", signer)
 	fmt.Printf("payee: %s\n", payee)
+	return nil
+}
+
+func encodeCustodianExtraCmd(c *cli.Context) error {
+	signerSpend, err := crypto.KeyFromString(c.String("signer"))
+	if err != nil {
+		return err
+	}
+	payeeSpend, err := crypto.KeyFromString(c.String("payee"))
+	if err != nil {
+		return err
+	}
+	custodianSpend, err := crypto.KeyFromString(c.String("custodian"))
+	if err != nil {
+		return err
+	}
+	networkId, err := crypto.HashFromString(c.String("network"))
+	if err != nil {
+		return err
+	}
+
+	custodian := &common.Address{
+		PublicSpendKey: custodianSpend.Public(),
+		PublicViewKey:  custodianSpend.Public().DeterministicHashDerive().Public(),
+	}
+	payee := &common.Address{
+		PublicSpendKey: payeeSpend.Public(),
+		PublicViewKey:  payeeSpend.Public().DeterministicHashDerive().Public(),
+	}
+	extra := common.EncodeCustodianNode(custodian, payee, &signerSpend, &payeeSpend, &custodianSpend, networkId)
+	fmt.Printf("HEX: %x\n", extra)
+	fmt.Printf("BASE64: %s\n", base64.RawURLEncoding.EncodeToString(extra))
 	return nil
 }
 
@@ -667,6 +700,14 @@ func getKeyCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getkey", []any{
 		c.String("key"),
 	}, c.Bool("time"))
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
+
+func listCustodianUpdatesCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "listcustodianupdates", []any{}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
 	}
@@ -924,10 +965,6 @@ func (raw signerInput) CheckDepositInput(deposit *common.DepositData, tx crypto.
 	return nil
 }
 
-func (raw signerInput) ReadLastMintDistribution(group string) (*common.MintDistribution, error) {
-	return nil, nil
-}
-
 func transactionToMap(tx *common.VersionedTransaction) map[string]any {
 	var inputs []map[string]any
 	for _, in := range tx.Inputs {
@@ -978,12 +1015,13 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]any {
 	}
 
 	tm := map[string]any{
-		"version": tx.Version,
-		"asset":   tx.Asset,
-		"inputs":  inputs,
-		"outputs": outputs,
-		"extra":   hex.EncodeToString(tx.Extra),
-		"hash":    tx.PayloadHash(),
+		"version":    tx.Version,
+		"asset":      tx.Asset,
+		"inputs":     inputs,
+		"outputs":    outputs,
+		"extra":      hex.EncodeToString(tx.Extra),
+		"hash":       tx.PayloadHash(),
+		"references": tx.References,
 	}
 	if as := tx.AggregatedSignature; as != nil {
 		tm["aggregated"] = map[string]any{
@@ -992,8 +1030,6 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]any {
 		}
 	} else if tx.SignaturesMap != nil {
 		tm["signatures"] = tx.SignaturesMap
-	} else if tx.SignaturesSliceV1 != nil {
-		tm["signatures"] = tx.SignaturesSliceV1
 	}
 	return tm
 }

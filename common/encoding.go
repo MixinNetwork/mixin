@@ -59,9 +59,6 @@ func (enc *Encoder) encodeSnapshotPayload(s *Snapshot, withSig bool) {
 	if len(s.Transactions) != 1 { // FIXME allow more than one transactions
 		panic(s)
 	}
-	if len(s.Signatures) != 0 {
-		panic(len(s.Signatures))
-	}
 	if !withSig && s.Signature != nil {
 		panic(s.Signature)
 	}
@@ -86,10 +83,7 @@ func (enc *Encoder) encodeSnapshotPayload(s *Snapshot, withSig bool) {
 }
 
 func (enc *Encoder) EncodeTransaction(signed *SignedTransaction) []byte {
-	if signed.Version < TxVersionCommonEncoding {
-		panic(signed)
-	}
-	if len(signed.SignaturesSliceV1) > 0 {
+	if signed.Version < TxVersionHashSignature {
 		panic(signed)
 	}
 
@@ -109,24 +103,18 @@ func (enc *Encoder) EncodeTransaction(signed *SignedTransaction) []byte {
 		enc.EncodeOutput(out)
 	}
 
-	if signed.Version >= TxVersionReferences {
-		rl := len(signed.References)
-		enc.WriteInt(rl)
-		for _, r := range signed.References {
-			enc.Write(r[:])
-		}
-
-		el := len(signed.Extra)
-		if el > ExtraSizeStorageCapacity {
-			panic(el)
-		}
-		enc.WriteUint32(uint32(el))
-		enc.Write(signed.Extra)
-	} else {
-		el := len(signed.Extra)
-		enc.WriteInt(el)
-		enc.Write(signed.Extra)
+	rl := len(signed.References)
+	enc.WriteInt(rl)
+	for _, r := range signed.References {
+		enc.Write(r[:])
 	}
+
+	el := len(signed.Extra)
+	if el > ExtraSizeStorageCapacity {
+		panic(el)
+	}
+	enc.WriteUint32(uint32(el))
+	enc.Write(signed.Extra)
 
 	if signed.AggregatedSignature != nil {
 		enc.EncodeAggregatedSignature(signed.AggregatedSignature)

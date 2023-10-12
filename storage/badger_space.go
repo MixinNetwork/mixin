@@ -8,7 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v4"
 )
 
 func (s *BadgerStore) ListAggregatedRoundSpaceCheckpoints(cids []crypto.Hash) (map[crypto.Hash]*common.RoundSpace, error) {
@@ -17,7 +17,7 @@ func (s *BadgerStore) ListAggregatedRoundSpaceCheckpoints(cids []crypto.Hash) (m
 
 	spaces := make(map[crypto.Hash]*common.RoundSpace)
 	for _, id := range cids {
-		batch, round, err := s.ReadRoundSpaceCheckpoint(id)
+		batch, round, err := readRoundSpaceCheckpoint(txn, id)
 		if err != nil {
 			return nil, err
 		}
@@ -50,16 +50,17 @@ func (s *BadgerStore) ReadNodeRoundSpacesForBatch(nodeId crypto.Hash, batch uint
 		if err != nil {
 			return nil, err
 		}
-		if bytes.Compare(nodeId[:], item.Key()[:32]) != 0 {
+		off := len(graphPrefixSpaceQueue)
+		if bytes.Compare(nodeId[:], item.Key()[off:off+32]) != 0 {
 			panic(nodeId)
 		}
-		if binary.BigEndian.Uint64(item.Key()[32:40]) != batch {
+		if binary.BigEndian.Uint64(item.Key()[off+32:off+40]) != batch {
 			panic(batch)
 		}
 		space := &common.RoundSpace{
 			NodeId:   nodeId,
 			Batch:    batch,
-			Round:    binary.BigEndian.Uint64(item.Key()[40:]),
+			Round:    binary.BigEndian.Uint64(item.Key()[off+40:]),
 			Duration: binary.BigEndian.Uint64(val),
 		}
 		spaces = append(spaces, space)

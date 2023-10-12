@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	MintGroupKernelNode = "KERNELNODE"
+	mintGroupUniversal = "UNIVERSAL"
 )
 
 type MintData struct {
@@ -42,19 +42,21 @@ func (tx *VersionedTransaction) validateMint(store DataStore) error {
 	}
 
 	mint := tx.Inputs[0].Mint
-	if mint.Group != MintGroupKernelNode {
+	switch mint.Group {
+	case mintGroupUniversal:
+	default:
 		return fmt.Errorf("invalid mint group %s", mint.Group)
 	}
 
-	dist, err := store.ReadLastMintDistribution(mint.Group)
-	if err != nil {
+	dist, err := store.ReadLastMintDistribution(^uint64(0))
+	if err != nil || dist == nil {
 		return err
-	}
-	if mint.Batch > dist.Batch {
-		return nil
 	}
 	if mint.Batch < dist.Batch {
 		return fmt.Errorf("backward mint batch %d %d", dist.Batch, mint.Batch)
+	}
+	if mint.Batch > dist.Batch {
+		return nil
 	}
 	if dist.Transaction != tx.PayloadHash() || dist.Amount.Cmp(mint.Amount) != 0 {
 		return fmt.Errorf("invalid mint lock %s %s", dist.Transaction.String(), tx.PayloadHash().String())
@@ -62,10 +64,10 @@ func (tx *VersionedTransaction) validateMint(store DataStore) error {
 	return nil
 }
 
-func (tx *Transaction) AddKernelNodeMintInput(batch uint64, amount Integer) {
+func (tx *Transaction) AddUniversalMintInput(batch uint64, amount Integer) {
 	tx.Inputs = append(tx.Inputs, &Input{
 		Mint: &MintData{
-			Group:  MintGroupKernelNode,
+			Group:  mintGroupUniversal,
 			Batch:  batch,
 			Amount: amount,
 		},
@@ -87,8 +89,8 @@ func DecompressUnmarshalMintDistribution(b []byte) (*MintDistribution, error) {
 func (m *MintDistribution) Marshal() []byte {
 	enc := NewMinimumEncoder()
 	switch m.Group {
-	case MintGroupKernelNode:
-		enc.WriteUint16(0x1)
+	case mintGroupUniversal:
+		enc.WriteUint16(0x0)
 	default:
 		panic(m.Group)
 	}
@@ -106,8 +108,7 @@ func UnmarshalMintDistribution(b []byte) (*MintDistribution, error) {
 	var m MintDistribution
 	dec, err := NewMinimumDecoder(b)
 	if err != nil {
-		err := msgpackUnmarshal(b, &m)
-		return &m, err
+		return nil, err
 	}
 
 	group, err := dec.ReadUint16()
@@ -115,8 +116,8 @@ func UnmarshalMintDistribution(b []byte) (*MintDistribution, error) {
 		return nil, err
 	}
 	switch group {
-	case 0x1:
-		m.Group = MintGroupKernelNode
+	case 0x0:
+		m.Group = mintGroupUniversal
 	default:
 		return nil, fmt.Errorf("invalid mint distribution group %d", group)
 	}

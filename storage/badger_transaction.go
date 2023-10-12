@@ -9,8 +9,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/dgraph-io/badger/v3"
-	"golang.org/x/exp/slices"
+	"github.com/dgraph-io/badger/v4"
 )
 
 func (s *BadgerStore) ReadTransaction(hash crypto.Hash) (*common.VersionedTransaction, string, error) {
@@ -181,33 +180,7 @@ func finalizeTransaction(txn *badger.Txn, ver *common.VersionedTransaction, snap
 
 func writeUTXO(txn *badger.Txn, utxo *common.UTXOWithLock, extra []byte, timestamp uint64, genesis bool) error {
 	for _, k := range utxo.Keys {
-		key := graphGhostKey(*k)
-
-		// FIXME assert kind checks, not needed at all
-		if config.Debug {
-			old, err := txn.Get(key)
-			if err == nil {
-				if slices.Contains([]string{
-					"c63b6373652def5999c1d951fcb8f064db67b7d18565847b921b21639e15dddd",
-					"60deaf2471bb0b6481efe9080d8852b020ab2941e7faae21989d2404f34284ee",
-					"a558b1efbe27eb6a6f902fd97d4b7e2e3099e6edde1fe6e8e41204e0685fe426",
-				}, utxo.Hash.String()) {
-					// TODO the ghost check is done from multiple chains without lock
-					// thus resulted in this situation, this is just a hotfix to allow
-					// some duplicated ghost keys, since no harm to security, and just
-					// some privacy manners for the users that initiated these transfers
-					// and further releases should fix the real issue
-				} else {
-					val, err := old.ValueCopy(nil)
-					panic(fmt.Errorf("writeUTXO(%v) => %x %v", utxo, val, err))
-				}
-			} else if err != badger.ErrKeyNotFound {
-				return err
-			}
-		}
-		// assert end
-
-		err := txn.Set(key, utxo.Hash[:])
+		err := lockGhostKey(txn, k, utxo.Hash, true)
 		if err != nil {
 			return err
 		}
@@ -233,8 +206,8 @@ func writeUTXO(txn *badger.Txn, utxo *common.UTXOWithLock, extra []byte, timesta
 		return writeNodeAccept(txn, signer, payee, utxo.Hash, timestamp, genesis)
 	case common.OutputTypeNodeRemove:
 		return writeNodeRemove(txn, signer, payee, utxo.Hash, timestamp)
-	case common.OutputTypeDomainAccept:
-		return writeDomainAccept(txn, signer, utxo.Hash, timestamp)
+	case common.OutputTypeCustodianUpdateNodes:
+		return writeCustodianNodes(txn, timestamp, utxo, extra, genesis)
 	}
 
 	return nil

@@ -10,9 +10,7 @@ import (
 
 const (
 	Debug        = true
-	BuildVersion = "v0.15.1-BUILD_VERSION"
-
-	MainnetId = "6430225c42bb015b4da03102fa962e4f4ef3969e03e04345db229f8377ef7997"
+	BuildVersion = "v0.16.7-BUILD_VERSION"
 
 	SnapshotRoundGap           = uint64(3 * time.Second)
 	SnapshotReferenceThreshold = 10
@@ -48,7 +46,8 @@ type Custom struct {
 		CacheTTL             int        `toml:"cache-ttl"`
 	} `toml:"node"`
 	Storage struct {
-		ValueLogGC bool `toml:"value-log-gc"`
+		ValueLogGC          bool `toml:"value-log-gc"`
+		MaxCompactionLevels int  `toml:"max-compaction-levels"`
 	} `toml:"storage"`
 	Network struct {
 		Listener        string   `toml:"listener"`

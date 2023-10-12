@@ -89,7 +89,7 @@ Basic Mixin Kernel transaction is similar to the transaction in Bitcoin, with fo
 
 ```json
 {
-  "version": 1,
+  "version": 4,
   "asset": "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
   "extra": "34366362393932382d653636632d343966392d386165632d366462366137346666663638",
   "outputs": [

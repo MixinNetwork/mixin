@@ -3,7 +3,7 @@ package storage
 import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v4"
 )
 
 func readTotalInAsset(txn *badger.Txn, hash crypto.Hash) (common.Integer, error) {

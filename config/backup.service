@@ -1,0 +1,13 @@
+[Unit]
+Description=Mixin Kernel Backup Service
+After=network.target
+
+[Service]
+User=one
+Type=simple
+ExecStart=/usr/bin/mnm run '/home/one/bin/snapshots.sh'
+Restart=on-failure
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
