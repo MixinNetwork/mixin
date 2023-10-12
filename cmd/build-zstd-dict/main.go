@@ -39,7 +39,7 @@ func loopSnapshots(db *badger.DB, dir string) {
 		if err != nil {
 			panic(err)
 		}
-		err = os.WriteFile(dir+"/SNAPSHOT-"+crypto.NewHash(key).String(), val, 0644)
+		err = os.WriteFile(dir+"/SNAPSHOT-"+crypto.Blake3Hash(key).String(), val, 0644)
 		if err != nil {
 			panic(err)
 		}
@@ -61,7 +61,7 @@ func loopTransactions(db *badger.DB, dir string) {
 		if err != nil {
 			panic(err)
 		}
-		err = os.WriteFile(dir+"/TRANSACTION-"+crypto.NewHash(key).String(), val, 0644)
+		err = os.WriteFile(dir+"/TRANSACTION-"+crypto.Blake3Hash(key).String(), val, 0644)
 		if err != nil {
 			panic(err)
 		}
@@ -83,7 +83,7 @@ func loopUTXOs(db *badger.DB, dir string) {
 		if err != nil {
 			panic(err)
 		}
-		err = os.WriteFile(dir+"/UTXO-"+crypto.NewHash(key).String(), val, 0644)
+		err = os.WriteFile(dir+"/UTXO-"+crypto.Blake3Hash(key).String(), val, 0644)
 		if err != nil {
 			panic(err)
 		}

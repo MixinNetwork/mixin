@@ -45,16 +45,8 @@ func TestPoolSize(t *testing.T) {
 	require.Equal(common.NewInteger(500000), poolSizeUniversal(0))
 	require.Equal(common.NewIntegerFromString("450000"), poolSizeUniversal(365))
 	require.Equal(common.NewIntegerFromString("449876.71232877"), poolSizeUniversal(366))
-}
-
-func TestPoolSizeLegacy(t *testing.T) {
-	require := require.New(t)
-
-	require.Equal(common.NewInteger(500000), poolSizeLegacy(0))
-	require.Equal(common.NewIntegerFromString("498767.12328830"), poolSizeLegacy(10))
-	require.Equal(common.NewInteger(500000), poolSizeLegacy(0))
-	require.Equal(common.NewIntegerFromString("455000"), poolSizeLegacy(365))
-	require.Equal(common.NewIntegerFromString("454889.04109592"), poolSizeLegacy(366))
+	require.Equal(common.NewIntegerFromString("307917.61644032"), poolSizeUniversal(1684))
+	require.Equal(common.NewIntegerFromString("305850.45205696"), poolSizeUniversal(1707))
 }
 
 func TestUniversalMintTransaction(t *testing.T) {
@@ -77,9 +69,12 @@ func TestUniversalMintTransaction(t *testing.T) {
 	addr := "XINYneY2gomSHxkYF62pxbNdwcdhcayxJRAeyUanJR611q5NWg4QebfFhEF3Me8qCHR8g8tD6QHPHD8naZnnn3GdRrhhiuxi"
 	custodian, _ := common.NewAddressFromString(addr)
 
-	tx := common.NewTransactionV3(common.XINAssetId)
-	amount := common.NewIntegerFromString("80.88904107")
-	tx.AddKernelNodeMintInputLegacy(uint64(1616), amount)
+	amount := common.NewIntegerFromString("89.87671232")
+	require.Equal(amount.String(), node.lastMintDistribution().Amount.String())
+	require.Equal(uint64(1706), node.lastMintDistribution().Batch)
+
+	tx := common.NewTransactionV5(common.XINAssetId)
+	tx.AddUniversalMintInput(uint64(1706), amount)
 	tx.AddScriptOutput([]*common.Address{&custodian}, common.NewThresholdScript(1), amount, make([]byte, 64))
 	versioned := tx.AsVersioned()
 	err = versioned.LockInputs(node.persistStore, false)
@@ -87,13 +82,13 @@ func TestUniversalMintTransaction(t *testing.T) {
 	err = node.persistStore.WriteTransaction(versioned)
 	require.Nil(err)
 
-	timestamp := uint64(1690959614703979550)
-	clock.MockDiff(time.Unix(0, int64(timestamp)).Sub(clock.Now()))
+	legacy := time.Date(2023, time.Month(10), 31, 8, 0, 0, 0, time.UTC)
+	clock.MockDiff(legacy.Sub(clock.Now()))
 	snap := &common.Snapshot{
 		Version:     common.SnapshotVersionCommonEncoding,
 		NodeId:      node.IdForNetwork,
 		RoundNumber: 1,
-		Timestamp:   timestamp,
+		Timestamp:   uint64(legacy.UnixNano()),
 		Signature:   &crypto.CosiSignature{Mask: 1},
 	}
 	snap.AddSoleTransaction(versioned.PayloadHash())
@@ -119,7 +114,7 @@ func TestUniversalMintTransaction(t *testing.T) {
 		round: 1,
 	}} {
 		clock.MockDiff(tr.diff)
-		timestamp = uint64(clock.Now().UnixNano())
+		timestamp := uint64(clock.Now().UnixNano())
 		for i := 0; i < 2; i++ {
 			snapshots := testBuildMintSnapshots(signers, tr.round, timestamp)
 			err = node.persistStore.WriteRoundWork(node.IdForNetwork, tr.round, snapshots)
@@ -150,15 +145,16 @@ func TestUniversalMintTransaction(t *testing.T) {
 		}
 	}
 
-	timestamp = uint64(clock.Now().UnixNano())
+	timestamp := uint64(clock.Now().UnixNano())
 	cur := &common.CustodianUpdateRequest{Custodian: &custodian}
 	versioned = node.buildUniversalMintTransaction(cur, timestamp, false)
 	require.NotNil(versioned)
-	amount = common.NewIntegerFromString("18686.95342732")
+
+	amount = common.NewIntegerFromString("89.87671232")
 	mint := versioned.Inputs[0].Mint
-	require.Equal(uint64(1617), mint.Batch)
+	require.Equal(KernelNetworkLegacyEnding+1, mint.Batch)
 	require.Equal("UNIVERSAL", mint.Group)
-	require.Equal(amount, mint.Amount)
+	require.Equal(amount.String(), mint.Amount.String())
 	require.Len(versioned.Outputs, len(signers)+2)
 	var kernel, safe, light common.Integer
 	for i, o := range versioned.Outputs {
@@ -175,7 +171,7 @@ func TestUniversalMintTransaction(t *testing.T) {
 	}
 	require.Equal(common.NewIntegerFromString("44.93835604"), kernel)
 	require.Equal(common.NewIntegerFromString("35.95068492"), safe)
-	require.Equal(common.NewIntegerFromString("18606.06438636"), light)
+	require.Equal(common.NewIntegerFromString("8.98767136"), light)
 }
 
 func TestMintWorks(t *testing.T) {
@@ -340,7 +336,7 @@ func testBuildMintSnapshots(signers []crypto.Hash, round, timestamp uint64) []*c
 		hash := []byte(fmt.Sprintf("MW%d%d%d", round, timestamp, i))
 		s := common.SnapshotWork{
 			Timestamp: timestamp,
-			Hash:      crypto.NewHash(hash),
+			Hash:      crypto.Blake3Hash(hash),
 			Signers:   signers,
 		}
 		snapshots[i] = &s

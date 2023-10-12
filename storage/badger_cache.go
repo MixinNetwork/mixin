@@ -10,11 +10,9 @@ import (
 )
 
 const (
-	cachePrefixTransactionQueue  = "CACHETRANSACTIONQUEUE"
-	cachePrefixTransactionOrder  = "CACHETRANSACTIONORDER"
-	cachePrefixTransactionCache  = "CACHETRANSACTIONPAYLOAD"
-	cachePrefixSnapshotNodeQueue = "SNAPSHOTNODEQUEUE"
-	cachePrefixSnapshotNodeMeta  = "SNAPSHOTNODEMETA"
+	cachePrefixTransactionQueue = "CACHETRANSACTIONQUEUE"
+	cachePrefixTransactionOrder = "CACHETRANSACTIONORDER"
+	cachePrefixTransactionCache = "CACHETRANSACTIONPAYLOAD"
 )
 
 func (s *BadgerStore) CacheRetrieveTransactions(limit int) ([]*common.VersionedTransaction, error) {

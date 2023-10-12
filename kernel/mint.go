@@ -14,21 +14,13 @@ import (
 	"github.com/dgraph-io/badger/v4"
 )
 
-const (
-	MainnetMintPeriodForkBatch           = 72
-	MainnetMintPeriodForkTimeBegin       = 6
-	MainnetMintPeriodForkTimeEnd         = 18
-	MainnetMintWorkDistributionForkBatch = 729
-	MainnetMintTransactionV2ForkBatch    = 739
-	MainnetMintTransactionV3ForkBatch    = 1313
-)
-
 var (
-	MintPool        common.Integer
-	MintLiquidity   common.Integer
-	MintYearShares  int
-	MintYearBatches int
-	MintNodeMaximum int
+	MintPool                  common.Integer
+	MintLiquidity             common.Integer
+	MintYearShares            int
+	MintYearBatches           int
+	MintNodeMaximum           int
+	KernelNetworkLegacyEnding uint64
 )
 
 func init() {
@@ -37,6 +29,7 @@ func init() {
 	MintYearShares = 10
 	MintYearBatches = 365
 	MintNodeMaximum = 50
+	KernelNetworkLegacyEnding = 1706
 }
 
 func (chain *Chain) AggregateMintWork() {
@@ -49,7 +42,6 @@ func (chain *Chain) AggregateMintWork() {
 	}
 	logger.Printf("AggregateMintWork(%s) begin with %d\n", chain.ChainId, round)
 
-	fork := uint64(SnapshotRoundDayLeapForkHack.UnixNano())
 	wait := time.Duration(chain.node.custom.Node.KernelOprationPeriod/2) * time.Second
 
 	for chain.running {
@@ -80,9 +72,6 @@ func (chain *Chain) AggregateMintWork() {
 			continue
 		}
 		for chain.running {
-			if chain.node.isMainnet() && snapshots[0].Timestamp < fork {
-				snapshots = nil
-			}
 			err = chain.persistStore.WriteRoundWork(chain.ChainId, round, snapshots)
 			if err == nil {
 				break
@@ -115,8 +104,12 @@ func (node *Node) MintLoop() {
 		case <-node.done:
 			return
 		case <-ticker.C:
-			err := node.tryToMintKernelNodeLegacy()
-			logger.Println(node.IdForNetwork, "tryToMintKernelNodeLegacy", err)
+			cur, err := node.persistStore.ReadCustodian(node.GraphTimestamp)
+			if err != nil {
+				panic(err)
+			}
+			err = node.tryToMintUniversal(cur)
+			logger.Println(node.IdForNetwork, "tryToMintKernelUniversal", err)
 		}
 	}
 }
@@ -131,7 +124,7 @@ func (node *Node) tryToMintUniversal(custodianRequest *common.CustodianUpdateReq
 	if err != nil {
 		return err
 	}
-	err = signed.Validate(node.persistStore, false)
+	err = signed.Validate(node.persistStore, node.GraphTimestamp, false)
 	if err != nil {
 		return err
 	}
@@ -150,7 +143,7 @@ func (node *Node) tryToMintUniversal(custodianRequest *common.CustodianUpdateReq
 
 func (node *Node) buildUniversalMintTransaction(custodianRequest *common.CustodianUpdateRequest, timestamp uint64, validateOnly bool) *common.VersionedTransaction {
 	batch, amount := node.checkUniversalMintPossibility(timestamp, validateOnly)
-	if amount.Sign() <= 0 || batch <= 0 {
+	if amount.Sign() <= 0 || batch <= KernelNetworkLegacyEnding {
 		return nil
 	}
 
@@ -168,7 +161,7 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 	total := common.NewInteger(0)
 	for _, m := range mints {
 		in := fmt.Sprintf("MINTKERNELNODE%d", batch)
-		si := crypto.NewHash([]byte(m.Signer.String() + in))
+		si := crypto.Blake3Hash([]byte(m.Signer.String() + in))
 		seed := append(si[:], si[:]...)
 		script := common.NewThresholdScript(1)
 		tx.AddScriptOutput([]*common.Address{&m.Payee}, script, m.Work, seed)
@@ -179,13 +172,9 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 	}
 
 	safe := amount.Div(10).Mul(4)
-	domains := node.persistStore.ReadDomains()
-	custodian := &domains[0].Account
-	if custodianRequest != nil {
-		custodian = custodianRequest.Custodian
-	}
+	custodian := custodianRequest.Custodian
 	in := fmt.Sprintf("MINTCUSTODIANACCOUNT%d", batch)
-	si := crypto.NewHash([]byte(custodian.String() + in))
+	si := crypto.Blake3Hash([]byte(custodian.String() + in))
 	seed := append(si[:], si[:]...)
 	script := common.NewThresholdScript(1)
 	tx.AddScriptOutput([]*common.Address{custodian}, script, safe, seed)
@@ -194,46 +183,40 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 		panic(fmt.Errorf("buildUniversalMintTransaction %s %s", amount, total))
 	}
 
-	node.tryToSlashLegacyLightPool(uint64(batch), tx)
-	amount = tx.Inputs[0].Mint.Amount
-
 	// TODO use real light mint account when light node online
 	light := amount.Sub(total)
 	addr := common.NewAddressFromSeed(make([]byte, 64))
 	script = common.NewThresholdScript(common.Operator64)
 	in = fmt.Sprintf("MINTLIGHTACCOUNT%d", batch)
-	si = crypto.NewHash([]byte(addr.String() + in))
+	si = crypto.Blake3Hash([]byte(addr.String() + in))
 	seed = append(si[:], si[:]...)
 	tx.AddScriptOutput([]*common.Address{&addr}, script, light, seed)
 	return tx.AsVersioned()
 }
 
-func (node *Node) tryToSlashLegacyLightPool(batch uint64, tx *common.Transaction) {
-	if !node.isMainnet() || batch < MainnetMintTransactionV3ForkBatch {
-		return
-	}
-	mint := tx.Inputs[0].Mint
-	mints, _, _ := node.persistStore.ReadMintDistributions(batch-1, 1)
-	if mints[0].Batch+1 != batch {
-		panic(fmt.Errorf("tryToSlashLegacyLightPool %v %d", mints[0], batch))
-	}
-	if mints[0].Group == mint.Group {
-		return
-	}
-	old := int(mints[0].Batch)
-	lightSlash := poolSizeLegacy(old).Sub(poolSizeUniversal(old))
-	mint.Amount = mint.Amount.Add(lightSlash)
+func (node *Node) PoolSize() (common.Integer, error) {
+	dist := node.lastMintDistribution()
+	return poolSizeUniversal(int(dist.Batch)), nil
 }
 
-func (node *Node) PoolSize() (common.Integer, error) {
+// this is the new mixin kernel, with 1706 batch, e.g. 2023/10/31 as
+// the last mint batch for the legacy kernel, and the first mint
+// for this kernel will be 1707
+func (node *Node) lastMintDistribution() *common.MintData {
 	dist, err := node.persistStore.ReadLastMintDistribution(^uint64(0))
 	if err != nil {
-		return common.Zero, err
+		panic(err)
 	}
-	if dist.Group == "KERNELNODE" {
-		return poolSizeLegacy(int(dist.Batch)), nil
+	if dist == nil {
+		return &common.MintData{
+			Batch:  KernelNetworkLegacyEnding,
+			Amount: common.NewIntegerFromString("89.87671232"),
+		}
 	}
-	return poolSizeUniversal(int(dist.Batch)), nil
+	if dist.Batch < KernelNetworkLegacyEnding {
+		panic(dist.Batch)
+	}
+	return &dist.MintData
 }
 
 func poolSizeUniversal(batch int) common.Integer {
@@ -246,23 +229,6 @@ func poolSizeUniversal(batch int) common.Integer {
 	day := pool.Div(MintYearShares).Div(MintYearBatches)
 	if count := batch % MintYearBatches; count > 0 {
 		mint = mint.Add(day.Mul(count))
-	}
-	if mint.Sign() > 0 {
-		return MintPool.Sub(mint)
-	}
-	return MintPool
-}
-
-func poolSizeLegacy(batch int) common.Integer {
-	mint, pool := common.Zero, MintPool
-	for i := 0; i < batch/MintYearBatches; i++ {
-		year := pool.Div(MintYearShares)
-		mint = mint.Add(year.Div(10).Mul(9))
-		pool = pool.Sub(year)
-	}
-	day := pool.Div(MintYearShares).Div(MintYearBatches)
-	if count := batch % MintYearBatches; count > 0 {
-		mint = mint.Add(day.Div(10).Mul(9).Mul(count))
 	}
 	if mint.Sign() > 0 {
 		return MintPool.Sub(mint)
@@ -289,101 +255,6 @@ func pledgeAmount(sinceEpoch time.Duration) common.Integer {
 	return liquidity.Div(MintNodeMaximum)
 }
 
-func (node *Node) buildLegacyKerneNodeMintTransaction(timestamp uint64, validateOnly bool) *common.VersionedTransaction {
-	batch, amount := node.checkLegacyMintPossibility(timestamp, validateOnly)
-	if amount.Sign() <= 0 || batch <= 0 {
-		return nil
-	}
-	// the old network will stop mint on the last one 2023/10/31
-	// but the network will keep running with all other functions
-	if batch > 1706 {
-		return nil
-	}
-
-	// TODO mint works should calculate according to finalized previous round, new fork required
-	if raw := TransactionMintWorkHacks[batch]; raw != "" && node.isMainnet() {
-		rt, err := hex.DecodeString(raw)
-		if err != nil {
-			panic(raw)
-		}
-		ver, err := common.UnmarshalVersionedTransaction(rt)
-		if err != nil {
-			panic(raw)
-		}
-		return ver
-	}
-
-	if node.isMainnet() && batch < MainnetMintTransactionV2ForkBatch {
-		return node.buildMintTransactionV1(timestamp, validateOnly)
-	}
-
-	accepted := node.NodesListWithoutState(timestamp, true)
-	mints, err := node.distributeKernelMintByWorks(accepted, amount, timestamp)
-	if err != nil {
-		logger.Printf("buildLegacyKerneNodeMintTransaction ERROR %s\n", err.Error())
-		return nil
-	}
-
-	tx := node.NewTransaction(common.XINAssetId)
-	tx.AddKernelNodeMintInputLegacy(uint64(batch), amount)
-	script := common.NewThresholdScript(1)
-	total := common.NewInteger(0)
-	for _, m := range mints {
-		in := fmt.Sprintf("MINTKERNELNODE%d", batch)
-		si := crypto.NewHash([]byte(m.Signer.String() + in))
-		seed := append(si[:], si[:]...)
-		tx.AddScriptOutput([]*common.Address{&m.Payee}, script, m.Work, seed)
-		total = total.Add(m.Work)
-	}
-	if total.Cmp(amount) > 0 {
-		panic(fmt.Errorf("buildLegacyKerneNodeMintTransaction %s %s", amount, total))
-	}
-
-	if diff := amount.Sub(total); diff.Sign() > 0 {
-		addr := common.NewAddressFromSeed(make([]byte, 64))
-		script := common.NewThresholdScript(common.Operator64)
-		in := fmt.Sprintf("MINTKERNELNODE%dDIFF", batch)
-		si := crypto.NewHash([]byte(addr.String() + in))
-		seed := append(si[:], si[:]...)
-		tx.AddScriptOutput([]*common.Address{&addr}, script, diff, seed)
-	}
-	return tx.AsVersioned()
-}
-
-func (node *Node) tryToMintKernelNodeLegacy() error {
-	signed := node.buildLegacyKerneNodeMintTransaction(node.GraphTimestamp, false)
-	if signed == nil {
-		return nil
-	}
-
-	if signed.Version == 1 {
-		err := signed.SignInputV1(node.persistStore, 0, []*common.Address{&node.Signer})
-		if err != nil {
-			return err
-		}
-	} else {
-		err := signed.SignInput(node.persistStore, 0, []*common.Address{&node.Signer})
-		if err != nil {
-			return err
-		}
-	}
-	err := signed.Validate(node.persistStore, false)
-	if err != nil {
-		return err
-	}
-	err = node.persistStore.CachePutTransaction(signed)
-	if err != nil {
-		return err
-	}
-	s := &common.Snapshot{
-		Version: common.SnapshotVersionCommonEncoding,
-		NodeId:  node.IdForNetwork,
-	}
-	s.AddSoleTransaction(signed.PayloadHash())
-	logger.Println("tryToMintKernelNodeLegacy", signed.PayloadHash(), hex.EncodeToString(signed.Marshal()))
-	return node.chain.AppendSelfEmpty(s)
-}
-
 func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.VersionedTransaction) error {
 	timestamp := snap.Timestamp
 	if snap.Timestamp == 0 && snap.NodeId == node.IdForNetwork {
@@ -395,16 +266,9 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 	if err != nil {
 		return err
 	}
-	if cur == nil && node.isMainnet() {
-		signed = node.buildLegacyKerneNodeMintTransaction(timestamp, true)
-		if signed == nil {
-			return fmt.Errorf("no legacy mint available at %d", timestamp)
-		}
-	} else {
-		signed = node.buildUniversalMintTransaction(cur, timestamp, true)
-		if signed == nil {
-			return fmt.Errorf("no universal mint available at %d", timestamp)
-		}
+	signed = node.buildUniversalMintTransaction(cur, timestamp, true)
+	if signed == nil {
+		return fmt.Errorf("no universal mint available at %d", timestamp)
 	}
 
 	if tx.PayloadHash() != signed.PayloadHash() {
@@ -415,14 +279,14 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 	return nil
 }
 
-func (node *Node) checkUniversalMintPossibility(timestamp uint64, validateOnly bool) (int, common.Integer) {
+func (node *Node) checkUniversalMintPossibility(timestamp uint64, validateOnly bool) (uint64, common.Integer) {
 	if timestamp <= node.Epoch {
 		return 0, common.Zero
 	}
 
 	since := timestamp - node.Epoch
 	hours := int(since / 3600000000000)
-	batch := hours / 24
+	batch := uint64(hours / 24)
 	if batch < 1 {
 		return 0, common.Zero
 	}
@@ -432,86 +296,29 @@ func (node *Node) checkUniversalMintPossibility(timestamp uint64, validateOnly b
 	}
 
 	pool := MintPool
-	for i := 0; i < batch/MintYearBatches; i++ {
+	for i := 0; i < int(batch)/MintYearBatches; i++ {
 		pool = pool.Sub(pool.Div(MintYearShares))
 	}
 	pool = pool.Div(MintYearShares)
 	total := pool.Div(MintYearBatches)
 
-	dist, err := node.persistStore.ReadLastMintDistribution(^uint64(0))
-	if err != nil {
-		logger.Verbosef("ReadLastMintDistribution ERROR %s\n", err)
-		return 0, common.Zero
-	}
+	dist := node.lastMintDistribution()
 	logger.Verbosef("checkUniversalMintPossibility OLD %s %s %d %s %d\n",
 		pool, total, batch, dist.Amount, dist.Batch)
 
-	if batch < int(dist.Batch) {
+	if batch < dist.Batch {
 		return 0, common.Zero
 	}
-	if batch == int(dist.Batch) {
+	if batch == dist.Batch {
 		if validateOnly {
 			return batch, dist.Amount
 		}
 		return 0, common.Zero
 	}
 
-	amount := total.Mul(batch - int(dist.Batch))
+	amount := total.Mul(int(batch - dist.Batch))
 	logger.Verbosef("checkUniversalMintPossibility NEW %s %s %s %d %s %d\n",
 		pool, total, amount, batch, dist.Amount, dist.Batch)
-	return batch, amount
-}
-
-func (node *Node) checkLegacyMintPossibility(timestamp uint64, validateOnly bool) (int, common.Integer) {
-	if timestamp <= node.Epoch {
-		return 0, common.Zero
-	}
-
-	since := timestamp - node.Epoch
-	hours := int(since / 3600000000000)
-	batch := hours / 24
-	if batch < 1 {
-		return 0, common.Zero
-	}
-	kmb, kme := config.KernelMintTimeBegin, config.KernelMintTimeEnd
-	if node.isMainnet() && batch < MainnetMintPeriodForkBatch {
-		kmb = MainnetMintPeriodForkTimeBegin
-		kme = MainnetMintPeriodForkTimeEnd
-	}
-	if hours%24 < kmb || hours%24 > kme {
-		return 0, common.Zero
-	}
-
-	pool := MintPool
-	for i := 0; i < batch/MintYearBatches; i++ {
-		pool = pool.Sub(pool.Div(MintYearShares))
-	}
-	pool = pool.Div(MintYearShares)
-	total := pool.Div(MintYearBatches)
-	light := total.Div(10)
-	full := light.Mul(9)
-
-	dist, err := node.persistStore.ReadLastMintDistribution(^uint64(0))
-	if err != nil {
-		logger.Verbosef("ReadLastMintDistribution ERROR %s\n", err)
-		return 0, common.Zero
-	}
-	logger.Verbosef("checkMintPossibility OLD %s %s %s %s %d %s %d\n",
-		pool, total, light, full, batch, dist.Amount, dist.Batch)
-
-	if batch < int(dist.Batch) {
-		return 0, common.Zero
-	}
-	if batch == int(dist.Batch) {
-		if validateOnly {
-			return batch, dist.Amount
-		}
-		return 0, common.Zero
-	}
-
-	amount := full.Mul(batch - int(dist.Batch))
-	logger.Verbosef("checkMintPossibility NEW %s %s %s %s %s %d %s %d\n",
-		pool, total, light, full, amount, batch, dist.Amount, dist.Batch)
 	return batch, amount
 }
 
@@ -590,7 +397,7 @@ func (node *Node) distributeKernelMintByWorks(accepted []*CNode, base common.Int
 	for _, m := range mints {
 		ns := spaces[m.IdForNetwork]
 		if len(ns) > 0 {
-			// TODO use this for universal mint distributions
+			// TODO enable this for universal mint distributions
 			logger.Printf("node spaces %s %d %d\n", m.IdForNetwork, ns[0].Batch, len(ns))
 		}
 

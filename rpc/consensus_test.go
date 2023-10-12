@@ -32,10 +32,10 @@ var (
 )
 
 func TestConsensus(t *testing.T) {
-	testConsensus(t, 0)
+	testConsensus(t)
 }
 
-func testConsensus(t *testing.T, snapVersionMint int) {
+func testConsensus(t *testing.T) {
 	require := require.New(t)
 	kernel.TestMockReset()
 
@@ -109,13 +109,13 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	gt := testVerifyInfo(require, nodes)
 	require.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
 
-	genesisAmount := 10003.5 / float64(INPUTS)
+	genesisAmount := (13439 + 3.5) / float64(INPUTS)
 	domainAddress := accounts[0].String()
 	deposits := make([]*common.VersionedTransaction, 0)
 	for i := 0; i < INPUTS; i++ {
-		raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
+		raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
 		rand.Seed(time.Now().UnixNano())
-		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw, snapVersionMint)
+		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw)
 		require.Nil(err)
 		require.NotNil(tx)
 		deposits = append(deposits, &common.VersionedTransaction{SignedTransaction: *tx})
@@ -136,9 +136,9 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 
 	utxos := make([]*common.VersionedTransaction, 0)
 	for _, d := range deposits {
-		raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, d.PayloadHash().String(), genesisAmount, domainAddress)
+		raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, d.PayloadHash().String(), genesisAmount, domainAddress)
 		rand.Seed(time.Now().UnixNano())
-		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw, snapVersionMint)
+		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw)
 		require.Nil(err)
 		require.NotNil(tx)
 		if tx != nil {
@@ -172,7 +172,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	require.Len(all, NODES)
 	require.Equal("ACCEPTED", all[NODES-1].State)
 
-	input, _ := testBuildPledgeInput(t, nodes, accounts[0], utxos, snapVersionMint)
+	input, _ := testBuildPledgeInput(t, nodes, accounts[0], utxos)
 	time.Sleep(3 * time.Second)
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes)
@@ -188,8 +188,10 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 		dummyInputs[i] = &common.Input{Hash: hash, Index: i}
 	}
 
+	legacy := time.Date(2023, time.Month(10), 31, 0, 0, 0, 0, time.UTC).Sub(epoch)
+	kernel.TestMockDiff(legacy)
 	for i := 0; i < 3; i++ {
-		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount, snapVersionMint)
+		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
 
@@ -199,20 +201,20 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	logger.SetLevel(logger.ERROR)
 	logger.SetFilter("(?i)mint")
 
-	kernel.TestMockDiff((config.KernelMintTimeBegin + 24) * time.Hour)
+	kernel.TestMockDiff(time.Hour * (24 + config.KernelMintTimeBegin))
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
 	gt = testVerifyInfo(require, nodes)
-	require.Less(gt.Timestamp, epoch.Add(61*time.Second))
+	require.Less(gt.Timestamp, epoch.Add(legacy).Add(61*time.Second))
 
-	pn, pi, sv := testPledgeNewNode(t, nodes, accounts[0], gdata, plist, input, root, snapVersionMint)
+	pn, pi, sv := testPledgeNewNode(t, nodes, accounts[0], gdata, plist, input, root)
 	t.Logf("PLEDGE %s\n", pn.Signer)
 	transactionsCount = transactionsCount + 1
 	defer pi.Teardown()
 	defer sv.Close()
 
 	for i := 0; i < 5; i++ {
-		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount, snapVersionMint)
+		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
 
@@ -223,7 +225,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	require.Equal(transactionsCount, len(tl))
 	gt = testVerifyInfo(require, nodes)
 	require.Greater(gt.Timestamp, epoch.Add((config.KernelMintTimeBegin+24)*time.Hour))
-	require.Equal("499863.01369864", gt.PoolSize.String())
+	require.Equal("305850.45205696", gt.PoolSize.String())
 	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
@@ -240,7 +242,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	require.Equal("PLEDGING", all[NODES].State)
 	t.Logf("PLEDGE TEST DONE AT %s\n", time.Now())
 
-	kernel.TestMockDiff(11 * time.Hour)
+	kernel.TestMockDiff(29 * time.Hour)
 	time.Sleep(3 * time.Second)
 	all = testListNodes(nodes[0].Host)
 	require.Len(all, NODES+1)
@@ -277,7 +279,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	require.Equal(transactionsCount, len(tl))
 	gt = testVerifyInfo(require, nodes)
 	require.Greater(gt.Timestamp, epoch.Add((config.KernelMintTimeBegin+24)*time.Hour))
-	require.Equal("499863.01369864", gt.PoolSize.String())
+	require.Equal("305850.45205696", gt.PoolSize.String())
 	t.Logf("ACCEPT TEST DONE AT %s\n", time.Now())
 
 	kernel.TestMockDiff(24 * time.Hour)
@@ -294,11 +296,11 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 
 	nodes = append(nodes, &Node{Host: "127.0.0.1:18099"})
 	signer, payee := testGetNodeToRemove(instances[0].NetworkId(), accounts, payees, 0)
-	require.Equal("XINGmuYCB65rzMgUf1W35pbhj4C7fY9JrzWCL5vGRdL84SPcWVPhtBJ7DAarc1QPt564JwbEdNCH8359kdPRH1ieSM9f96RZ", signer.String())
-	require.Equal("XINMeKsKkSJJCgLWKvakEHaXBNPGfF7RmBu9jx5VZLE6UTuEaW4wSEqVybkH4xhQcqkT5jdiguiN3B3NKt8QBZTUbqZXJ1Fq", payee.String())
+	require.Equal("XINW6HTiMVmKHjfnk3DYbcWcTaTkKi4dr3wZgicyhKvKnyYEqD8PD5ZRfL13ZsouiMURM6atDh3Bdr3dqSVkYWEm7Kzp9Axt", signer.String())
+	require.Equal("XINCtoRSJYrNNQUv3xTsptxDKRqwHMwtNkvsQwFS58oFXYvgu9QhoetNwbmxUQ4JJGcjR1gnttMau1nCmGpkSimHR1dxrP8u", payee.String())
 	nodes = testRemoveNode(nodes, signer)
 	for i := 0; i < 3; i++ {
-		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount, snapVersionMint)
+		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
 	transactionsCount = transactionsCount + 1
@@ -327,7 +329,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	require.Greater(hr.Round, uint64(1))
 
 	removalInputs := []*common.Input{{Hash: all[NODES].Transaction, Index: 0}}
-	removalInputs = testSendDummyTransactionsWithRetry(t, nodes[:1], payee, removalInputs, "10000", snapVersionMint)
+	removalInputs = testSendDummyTransactionsWithRetry(t, nodes[:1], payee, removalInputs, "13439")
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
@@ -348,7 +350,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 
 func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []common.Address, networkId crypto.Hash) {
 	require := require.New(t)
-	tx := common.NewTransactionV4(common.XINAssetId)
+	tx := common.NewTransactionV5(common.XINAssetId)
 	require.NotNil(tx)
 
 	domain := signers[0]
@@ -380,12 +382,13 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 	for _, n := range custodianNodes {
 		sortedExtra = append(sortedExtra, n.Extra...)
 	}
-	sig := domain.PrivateSpendKey.Sign(sortedExtra)
+	sh := crypto.Blake3Hash(sortedExtra)
+	sig := domain.PrivateSpendKey.Sign(sh)
 	tx.Extra = append(sortedExtra, sig[:]...)
 
-	raw := fmt.Sprintf(`{"version":2,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%s"}}],"outputs":[{"type":0,"amount":"%s","script":"fffe01","accounts":["%s"]}]}`, 10000, amount.String(), amount.String(), domain.String())
+	raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%s"}}],"outputs":[{"type":0,"amount":"%s","script":"fffe01","accounts":["%s"]}]}`, 13439, amount.String(), amount.String(), domain.String())
 	rand.Seed(time.Now().UnixNano())
-	deposit, err := testSignTransaction(nodes[0].Host, domain, raw, 0)
+	deposit, err := testSignTransaction(nodes[0].Host, domain, raw)
 	require.Nil(err)
 	require.NotNil(deposit)
 	deposits := []*common.VersionedTransaction{{SignedTransaction: *deposit}}
@@ -409,7 +412,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 		"outputs": outputs,
 		"extra":   hex.EncodeToString(tx.Extra),
 	})
-	signed, err := testSignTransaction(nodes[0].Host, domain, string(rb), 0)
+	signed, err := testSignTransaction(nodes[0].Host, domain, string(rb))
 	require.Nil(err)
 	require.NotNil(signed)
 
@@ -434,9 +437,9 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 	}
 	err = json.Unmarshal(data, &curs)
 	require.Nil(err)
-	require.Len(curs, 1)
-	require.Equal(hash.String(), curs[0].Transaction)
-	require.Equal(custodian.String(), curs[0].Custodian)
+	require.Len(curs, 2)
+	require.Equal(hash.String(), curs[1].Transaction)
+	require.Equal(custodian.String(), curs[1].Custodian)
 }
 
 func testCheckMintDistributions(require *require.Assertions, node string) {
@@ -445,9 +448,9 @@ func testCheckMintDistributions(require *require.Assertions, node string) {
 	tx := mints[0]
 	require.Len(tx.Inputs, 1)
 	mint := tx.Inputs[0].Mint
-	daily := common.NewIntegerFromString("136.98630136")
+	daily := common.NewIntegerFromString("89.87671232")
 	require.Equal("UNIVERSAL", mint.Group)
-	require.Equal(uint64(1), mint.Batch)
+	require.Equal(uint64(1707), mint.Batch)
 	require.Equal(daily, mint.Amount)
 	require.Len(tx.Outputs, NODES+2)
 	total := common.Zero
@@ -489,8 +492,8 @@ func testRemoveNode(nodes []*Node, r common.Address) []*Node {
 	return tmp
 }
 
-func testSendDummyTransactionsWithRetry(t *testing.T, nodes []*Node, domain common.Address, inputs []*common.Input, amount string, snapVersionMint int) []*common.Input {
-	outputs := testSendDummyTransactions(nodes, domain, inputs, amount, snapVersionMint)
+func testSendDummyTransactionsWithRetry(t *testing.T, nodes []*Node, domain common.Address, inputs []*common.Input, amount string) []*common.Input {
+	outputs := testSendDummyTransactions(nodes, domain, inputs, amount)
 	time.Sleep(3 * time.Second)
 
 	var missingInputs []*common.Input
@@ -512,12 +515,12 @@ func testSendDummyTransactionsWithRetry(t *testing.T, nodes []*Node, domain comm
 		missingNodes = append(missingNodes, nodes[i])
 	}
 	if len(missingInputs) > 0 {
-		testSendDummyTransactionsWithRetry(t, missingNodes, domain, missingInputs, amount, snapVersionMint)
+		testSendDummyTransactionsWithRetry(t, missingNodes, domain, missingInputs, amount)
 	}
 	return outputs
 }
 
-func testSendDummyTransactions(nodes []*Node, domain common.Address, inputs []*common.Input, amount string, snapVersionMint int) []*common.Input {
+func testSendDummyTransactions(nodes []*Node, domain common.Address, inputs []*common.Input, amount string) []*common.Input {
 	outputs := make([]*common.Input, len(inputs))
 
 	var wg sync.WaitGroup
@@ -538,7 +541,7 @@ func testSendDummyTransactions(nodes []*Node, domain common.Address, inputs []*c
 					"accounts": []string{domain.String()},
 				}},
 			})
-			tx, _ := testSignTransaction(node.Host, domain, string(raw), snapVersionMint)
+			tx, _ := testSignTransaction(node.Host, domain, string(raw))
 			ver := common.VersionedTransaction{SignedTransaction: *tx}
 			id, _ := testSendTransaction(node.Host, hex.EncodeToString(ver.Marshal()))
 			var res map[string]string
@@ -565,7 +568,7 @@ metric = true
 peers = [%s]
 `
 
-func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genesisData []byte, plist, input, root string, snapVersionMint int) (Node, *kernel.Node, *http.Server) {
+func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genesisData []byte, plist, input, root string) (Node, *kernel.Node, *http.Server) {
 	require := require.New(t)
 	var signer, payee common.Address
 
@@ -597,11 +600,11 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 		}},
 		"outputs": []map[string]any{{
 			"type":   common.OutputTypeNodePledge,
-			"amount": "10000",
+			"amount": "13439",
 		}},
 		"extra": signer.PublicSpendKey.String() + payee.PublicSpendKey.String(),
 	})
-	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw), snapVersionMint)
+	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw))
 	require.Nil(err)
 	ver := common.VersionedTransaction{SignedTransaction: *tx}
 	testSendTransactionsToNodesWithRetry(t, nodes, []*common.VersionedTransaction{&ver})
@@ -625,7 +628,7 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 	return Node{Signer: signer, Payee: payee, Host: "127.0.0.1:18099"}, pnode, server
 }
 
-func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, utxos []*common.VersionedTransaction, snapVersionMint int) (string, error) {
+func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, utxos []*common.VersionedTransaction) (string, error) {
 	require := require.New(t)
 	inputs := []map[string]any{}
 	for _, tx := range utxos {
@@ -645,7 +648,7 @@ func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, ut
 	}
 	outputs = append(outputs, map[string]any{
 		"type":     0,
-		"amount":   "10000",
+		"amount":   "13439",
 		"script":   "fffe01",
 		"accounts": []string{domain.String()},
 	})
@@ -655,7 +658,7 @@ func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, ut
 		"inputs":  inputs,
 		"outputs": outputs,
 	})
-	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw), snapVersionMint)
+	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw))
 	require.Nil(err)
 	ver := common.VersionedTransaction{SignedTransaction: *tx}
 	testSendTransactionsToNodesWithRetry(t, nodes, []*common.VersionedTransaction{&ver})
@@ -729,30 +732,29 @@ func testDetermineAccountByIndex(i int, role string) common.Address {
 }
 
 func setupTestNet(root string) ([]common.Address, []common.Address, []byte, string) {
-	var signers, payees []common.Address
+	var signers, payees, custodians []common.Address
 
 	for i := 0; i < NODES; i++ {
 		signers = append(signers, testDetermineAccountByIndex(i, "SIGNER"))
 		payees = append(payees, testDetermineAccountByIndex(i, "PAYEE"))
+		custodians = append(custodians, testDetermineAccountByIndex(i, "CUSTODIAN"))
 	}
 
 	inputs := make([]map[string]string, 0)
 	for i := range signers {
 		inputs = append(inputs, map[string]string{
-			"signer":  signers[i].String(),
-			"payee":   payees[i].String(),
-			"balance": "10000",
+			"signer":    signers[i].String(),
+			"payee":     payees[i].String(),
+			"custodian": custodians[i].String(),
+			"balance":   "13439",
 		})
 	}
+
+	domain := signers[0]
 	genesis := map[string]any{
-		"epoch": 1551312000,
-		"nodes": inputs,
-		"domains": []map[string]string{
-			{
-				"signer":  signers[0].String(),
-				"balance": "50000",
-			},
-		},
+		"epoch":     1551312000,
+		"nodes":     inputs,
+		"custodian": domain.String(),
 	}
 	genesisData, err := json.MarshalIndent(genesis, "", "  ")
 	if err != nil {
@@ -785,7 +787,7 @@ func setupTestNet(root string) ([]common.Address, []common.Address, []byte, stri
 	return signers, payees, genesisData, peersList
 }
 
-func testSignTransaction(node string, account common.Address, rawStr string, snapVersionMint int) (*common.SignedTransaction, error) {
+func testSignTransaction(node string, account common.Address, rawStr string) (*common.SignedTransaction, error) {
 	var raw signerInput
 	err := json.Unmarshal([]byte(rawStr), &raw)
 	if err != nil {
@@ -793,13 +795,7 @@ func testSignTransaction(node string, account common.Address, rawStr string, sna
 	}
 	raw.Node = node
 
-	tx := common.NewTransactionV3(raw.Asset)
-	if snapVersionMint < 1 && time.Now().UnixNano()%3 == 1 {
-		tx = common.NewTransactionV2(raw.Asset)
-	}
-	if len(raw.Extra) > 1024 || snapVersionMint < 1 && time.Now().UnixNano()%3 == 2 {
-		tx = common.NewTransactionV4(raw.Asset)
-	}
+	tx := common.NewTransactionV5(raw.Asset)
 	for _, in := range raw.Inputs {
 		if d := in.Deposit; d != nil {
 			tx.AddDepositInput(&common.DepositData{
@@ -818,7 +814,7 @@ func testSignTransaction(node string, account common.Address, rawStr string, sna
 		if out.Mask.HasValue() {
 			panic("not here")
 		}
-		hash := crypto.NewHash([]byte(rawStr))
+		hash := crypto.Blake3Hash([]byte(rawStr))
 		seed := append(hash[:], hash[:]...)
 		tx.AddOutputWithType(out.Type, out.Accounts, out.Script, out.Amount, seed)
 	}
@@ -885,6 +881,7 @@ func requireKeyEqual(require *require.Assertions, a, b map[string]*common.Snapsh
 	}
 	slices.Sort(as)
 	slices.Sort(bs)
+	require.Equal(len(as), len(bs))
 	require.True(strings.Join(as, "") == strings.Join(bs, ""))
 }
 
@@ -897,16 +894,14 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 	})
 
 	var rss []*struct {
-		Version           uint8                 `json:"version"`
-		NodeId            crypto.Hash           `json:"node_id"`
-		References        *common.RoundLink     `json:"references"`
-		RoundNumber       uint64                `json:"round_number"`
-		Timestamp         uint64                `json:"timestamp"`
-		Signatures        []*crypto.Signature   `json:"signatures"`
-		Signature         *crypto.CosiSignature `json:"signature"`
-		Hash              crypto.Hash           `json:"hash"`
-		Transactions      []crypto.Hash         `json:"transactions"`
-		TransactionLegacy crypto.Hash           `json:"transaction"`
+		Version      uint8                 `json:"version"`
+		NodeId       crypto.Hash           `json:"node_id"`
+		RoundNumber  uint64                `json:"round_number"`
+		References   *common.RoundLink     `json:"references"`
+		Timestamp    uint64                `json:"timestamp"`
+		Transactions []crypto.Hash         `json:"transactions"`
+		Signature    *crypto.CosiSignature `json:"signature"`
+		Hash         crypto.Hash           `json:"hash"`
 	}
 	err = json.Unmarshal(data, &rss)
 	if err != nil {
@@ -916,21 +911,20 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 	snapshots := make([]*common.Snapshot, len(rss))
 	for i, s := range rss {
 		snapshots[i] = &common.Snapshot{
-			Version:     s.Version,
-			NodeId:      s.NodeId,
-			RoundNumber: s.RoundNumber,
-			References:  s.References,
-			Timestamp:   s.Timestamp,
+			Version:      s.Version,
+			NodeId:       s.NodeId,
+			RoundNumber:  s.RoundNumber,
+			References:   s.References,
+			Timestamp:    s.Timestamp,
+			Transactions: s.Transactions,
+			Signature:    s.Signature,
 		}
 		switch s.Version {
-		case 0:
-			snapshots[i].Signatures = s.Signatures
-		case 1, 2:
+		case 2:
 			snapshots[i].Signature = s.Signature
 		default:
 			panic(s.Version)
 		}
-		snapshots[i].AddSoleTransaction(s.TransactionLegacy)
 		filter[s.Hash.String()] = snapshots[i]
 	}
 	return filter
@@ -945,7 +939,7 @@ type Node struct {
 }
 
 func testListNodes(node string) []*Node {
-	data, err := callRPC(node, "listallnodes", []any{0, false})
+	data, err := callRPC(node, "listallnodes", []any{time.Now().UnixNano() * 2, false})
 	if err != nil {
 		panic(err)
 	}

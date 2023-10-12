@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
 )
@@ -36,13 +35,14 @@ func (cn *CustodianNode) validate() error {
 		return fmt.Errorf("invalid custodian or payee keys %x", cn.Extra)
 	}
 
+	eh := crypto.Blake3Hash(cn.Extra[:161])
 	var payeeSig, custodianSig crypto.Signature
 	copy(payeeSig[:], cn.Extra[225:289])
 	copy(custodianSig[:], cn.Extra[289:custodianNodeExtraSize])
-	if !cn.Payee.PublicSpendKey.Verify(cn.Extra[:161], payeeSig) {
+	if !cn.Payee.PublicSpendKey.Verify(eh, payeeSig) {
 		return fmt.Errorf("invalid custodian update payee signature %x", cn.Extra)
 	}
-	if !cn.Custodian.PublicSpendKey.Verify(cn.Extra[:161], custodianSig) {
+	if !cn.Custodian.PublicSpendKey.Verify(eh, custodianSig) {
 		return fmt.Errorf("invalid custodian update custodian signature %x", cn.Extra)
 	}
 	return nil
@@ -62,16 +62,17 @@ func EncodeCustodianNode(custodian, payee *Address, signerSpend, payeeSpend, cus
 	extra = append(extra, payee.PublicViewKey[:]...)
 	extra = append(extra, nodeId[:]...)
 
-	signerSig := signerSpend.Sign(extra)
-	payeeSig := payeeSpend.Sign(extra)
-	custodianSig := custodianSpend.Sign(extra)
+	eh := crypto.Blake3Hash(extra)
+	signerSig := signerSpend.Sign(eh)
+	payeeSig := payeeSpend.Sign(eh)
+	custodianSig := custodianSpend.Sign(eh)
 	extra = append(extra, signerSig[:]...)
 	extra = append(extra, payeeSig[:]...)
 	extra = append(extra, custodianSig[:]...)
 	return extra
 }
 
-func ParseCustodianNode(extra []byte) (*CustodianNode, error) {
+func parseCustodianNode(extra []byte, genesis bool) (*CustodianNode, error) {
 	if len(extra) != custodianNodeExtraSize {
 		return nil, fmt.Errorf("invalid custodian node data %x", extra)
 	}
@@ -86,13 +87,13 @@ func ParseCustodianNode(extra []byte) (*CustodianNode, error) {
 	copy(cn.Payee.PublicSpendKey[:], extra[65:97])
 	copy(cn.Payee.PublicViewKey[:], extra[97:129])
 	err := cn.validate()
-	if err != nil {
+	if err != nil && !genesis {
 		return nil, err
 	}
 	return &cn, nil
 }
 
-func ParseCustodianUpdateNodesExtra(extra []byte) (*CustodianUpdateRequest, error) {
+func ParseCustodianUpdateNodesExtra(extra []byte, genesis bool) (*CustodianUpdateRequest, error) {
 	if len(extra) < 64+custodianNodeExtraSize*custodianNodesMinimumCount+64 {
 		return nil, fmt.Errorf("invalid custodian update extra %x", extra)
 	}
@@ -111,7 +112,7 @@ func ParseCustodianUpdateNodesExtra(extra []byte) (*CustodianUpdateRequest, erro
 	uniqueKeys := make(map[crypto.Key]bool)
 	for i := range nodes {
 		cne := nodesExtra[i*custodianNodeExtraSize : (i+1)*custodianNodeExtraSize]
-		cn, err := ParseCustodianNode(cne)
+		cn, err := parseCustodianNode(cne, genesis)
 		if err != nil {
 			return nil, err
 		}
@@ -143,8 +144,8 @@ func ParseCustodianUpdateNodesExtra(extra []byte) (*CustodianUpdateRequest, erro
 	}, nil
 }
 
-func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error {
-	if tx.Version < TxVersionReferences {
+func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader, now uint64) error {
+	if tx.Version < TxVersionHashSignature {
 		return fmt.Errorf("invalid custodian update version %d", tx.Version)
 	}
 	if tx.Asset != XINAssetId {
@@ -161,7 +162,7 @@ func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error
 		return fmt.Errorf("invalid custodian update output receiver %v", out)
 	}
 
-	curs, err := ParseCustodianUpdateNodesExtra(tx.Extra)
+	curs, err := ParseCustodianUpdateNodesExtra(tx.Extra, false)
 	if err != nil {
 		return err
 	}
@@ -169,19 +170,15 @@ func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader) error
 		return fmt.Errorf("invalid custodian nodes count %d", len(curs.Nodes))
 	}
 
-	now := uint64(time.Now().UnixNano())
 	prev, err := store.ReadCustodian(now)
 	if err != nil {
 		return err
 	}
 	if prev == nil {
-		domains := store.ReadDomains()
-		if len(domains) != 1 {
-			return fmt.Errorf("invalid domains count %d", len(domains))
-		}
-		prev = &CustodianUpdateRequest{Custodian: &domains[0].Account}
+		return fmt.Errorf("there must be a custodian available %d", now)
 	}
-	if !prev.Custodian.PublicSpendKey.Verify(tx.Extra[:len(tx.Extra)-64], *curs.Signature) {
+	eh := crypto.Blake3Hash(tx.Extra[:len(tx.Extra)-64])
+	if !prev.Custodian.PublicSpendKey.Verify(eh, *curs.Signature) {
 		return fmt.Errorf("invalid custodian update approval signature %x", tx.Extra)
 	}
 

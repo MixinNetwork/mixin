@@ -112,15 +112,6 @@ func (x Integer) String() string {
 	return "0." + strings.Repeat("0", -p) + s
 }
 
-func (x Integer) MarshalMsgpack() ([]byte, error) {
-	return x.i.Bytes(), nil
-}
-
-func (x *Integer) UnmarshalMsgpack(data []byte) error {
-	x.i.SetBytes(data)
-	return nil
-}
-
 func (x Integer) MarshalJSON() ([]byte, error) {
 	s := x.String()
 	return []byte(strconv.Quote(s)), nil

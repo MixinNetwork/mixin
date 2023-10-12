@@ -43,7 +43,7 @@ type SnapshotWitness struct {
 
 func (node *Node) WitnessSnapshot(s *common.SnapshotWithTopologicalOrder) *SnapshotWitness {
 	msg := crypto.Blake3Hash(s.VersionedMarshal())
-	sig := node.Signer.PrivateSpendKey.Sign(msg[:])
+	sig := node.Signer.PrivateSpendKey.Sign(msg)
 	return &SnapshotWitness{
 		Signature: &sig,
 		Timestamp: uint64(clock.Now().UnixNano()),
@@ -55,10 +55,9 @@ func (node *Node) TopoWrite(s *common.Snapshot, signers []crypto.Hash) *common.S
 	node.TopoCounter.Lock()
 	defer node.TopoCounter.Unlock()
 
-	if s.Version >= common.SnapshotVersionMsgpackEncoding && len(signers) != len(s.Signature.Keys()) {
+	if len(signers) != len(s.Signature.Keys()) {
 		panic(fmt.Errorf("malformed snapshot signers %s %d %d", s.Hash, len(signers), len(s.Signature.Keys())))
 	}
-
 	if node.TopoCounter.seq%100000 == 7 {
 		node.TopoCounter.filter = make(map[crypto.Hash]bool)
 	}

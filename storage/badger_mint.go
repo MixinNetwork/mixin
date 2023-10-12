@@ -99,7 +99,7 @@ func (s *BadgerStore) ReadLastMintDistribution(batch uint64) (*common.MintDistri
 		return data, nil
 	}
 
-	return &common.MintDistribution{}, nil
+	return nil, nil
 }
 
 func (s *BadgerStore) LockMintInput(mint *common.MintData, tx crypto.Hash, fork bool) error {

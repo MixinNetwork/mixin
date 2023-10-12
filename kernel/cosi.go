@@ -139,6 +139,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		if s.Signature != nil || s.Timestamp != 0 {
 			return fmt.Errorf("only empty snapshot can be announced")
 		}
+		s.Timestamp = uint64(clock.Now().UnixNano())
 	case CosiActionSelfCommitment, CosiActionSelfFullCommitment, CosiActionSelfResponse:
 		if chain.ChainId != chain.node.IdForNetwork {
 			return fmt.Errorf("self action aggregation chain %s %s", chain.ChainId, chain.node.IdForNetwork)
@@ -285,7 +286,6 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	logger.Verbosef("cosiSendAnnouncement %v\n", m.Snapshot)
 	s, cd := m.Snapshot, m.data
-	s.Timestamp = uint64(clock.Now().UnixNano())
 	if chain.IsPledging() && s.RoundNumber == 0 && cd.TX.TransactionType() == common.TransactionTypeNodeAccept {
 	} else if chain.State == nil {
 		return nil
@@ -408,65 +408,17 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 
 func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	logger.Verbosef("cosiHandleAnnouncement %s %v\n", m.PeerId, m.Snapshot)
-
-	s, cd := m.Snapshot, m.data
-	if chain.IsPledging() && s.RoundNumber == 0 {
-	} else if chain.State == nil {
-		logger.Verbosef("cosiHandleAnnouncement %s %v empty final round\n", m.PeerId, m.Snapshot)
-		return nil
-	} else {
-		cache, final := chain.StateCopy()
-		if s.RoundNumber < cache.Number {
-			logger.Verbosef("cosiHandleAnnouncement %s %v expired %d %d\n",
-				m.PeerId, m.Snapshot, s.RoundNumber, cache.Number)
-			return nil
-		}
-		if s.RoundNumber > cache.Number+1 {
-			logger.Verbosef("cosiHandleAnnouncement %s %v in future %d %d\n",
-				m.PeerId, m.Snapshot, s.RoundNumber, cache.Number)
-			return nil
-		}
-		if s.Timestamp <= final.Start+config.SnapshotRoundGap {
-			logger.Verbosef("cosiHandleAnnouncement %s %v invalid timestamp %d %d\n",
-				m.PeerId, m.Snapshot, s.Timestamp, final.Start+config.SnapshotRoundGap)
-			return nil
-		}
-		if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
-			err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References, s.Timestamp, true)
-			if err != nil {
-				logger.Verbosef("cosiHandleAnnouncement %s %v updateEmptyHeadRoundAndPersist %v\n",
-					m.PeerId, m.Snapshot, err)
-				return nil
-			}
-			return chain.AppendCosiAction(m)
-		}
-		if s.RoundNumber == cache.Number+1 {
-			nc, nf, _, err := chain.startNewRoundAndPersist(cache, s.References, s.Timestamp, false)
-			if err != nil {
-				logger.Verbosef("cosiHandleAnnouncement %s %v startNewRoundAndPersist %s\n",
-					m.PeerId, m.Snapshot, err)
-				return chain.AppendCosiAction(m)
-			} else if nf == nil {
-				logger.Verbosef("cosiHandleAnnouncement %s %v startNewRoundAndPersist failed\n",
-					m.PeerId, m.Snapshot)
-				return nil
-			}
-			cache, final = nc, nf
-			chain.CosiVerifiers = make(map[crypto.Hash]*CosiVerifier)
-		}
-
-		if err := cache.ValidateSnapshot(s); err != nil {
-			logger.Verbosef("cosiHandleAnnouncement %s %v ValidateSnapshot %s\n",
-				m.PeerId, m.Snapshot, err)
-			return nil
-		}
+	valid, err := chain.checkAnnouncementOrChallenge(m)
+	if err != nil || !valid {
+		return err
 	}
 
+	s, cd := m.Snapshot, m.data
 	r := crypto.CosiCommit(rand.Reader)
 	v := &CosiVerifier{Snapshot: s, Commitment: m.Commitment, random: r}
 	chain.CosiVerifiers[s.Hash] = v
 	chain.CosiVerifiers[s.SoleTransaction()] = v
-	err := chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, r.Public(), cd.TX == nil)
+	err = chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, r.Public(), cd.TX == nil)
 	if err != nil {
 		logger.Verbosef("cosiHandleAnnouncement SendSnapshotCommitmentMessage(%s, %s) ERROR %v\n",
 			s.NodeId, s.Hash, err)
@@ -509,7 +461,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	v := chain.CosiVerifiers[m.SnapshotHash]
 	priv := chain.node.Signer.PrivateSpendKey
 	_, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
-	response, err := cosi.Response(&priv, v.random, publics, m.SnapshotHash[:])
+	response, err := cosi.Response(&priv, v.random, publics, m.SnapshotHash)
 	if err != nil {
 		return err
 	}
@@ -543,60 +495,12 @@ func (chain *Chain) cosiHandleFullChallenge(m *CosiAction) error {
 		panic(m.SnapshotHash)
 	}
 
-	s := m.Snapshot
-	if chain.IsPledging() && s.RoundNumber == 0 {
-	} else if chain.State == nil {
-		logger.Verbosef("cosiHandleFullChallenge %s %v empty final round\n",
-			m.PeerId, m.Snapshot)
-		return nil
-	} else {
-		cache, final := chain.StateCopy()
-		if s.RoundNumber < cache.Number {
-			logger.Verbosef("cosiHandleFullChallenge %s %v expired %d %d\n",
-				m.PeerId, m.Snapshot, s.RoundNumber, cache.Number)
-			return nil
-		}
-		if s.RoundNumber > cache.Number+1 {
-			logger.Verbosef("cosiHandleFullChallenge %s %v in future %d %d\n",
-				m.PeerId, m.Snapshot, s.RoundNumber, cache.Number)
-			return nil
-		}
-		if s.Timestamp <= final.Start+config.SnapshotRoundGap {
-			logger.Verbosef("cosiHandleFullChallenge %s %v invalid timestamp %d %d\n",
-				m.PeerId, m.Snapshot, s.Timestamp, final.Start+config.SnapshotRoundGap)
-			return nil
-		}
-		if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
-			err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References, s.Timestamp, true)
-			if err != nil {
-				logger.Verbosef("cosiHandleFullChallenge %s %v updateEmptyHeadRoundAndPersist %v\n",
-					m.PeerId, m.Snapshot, err)
-				return nil
-			}
-			return chain.AppendCosiAction(m)
-		}
-		if s.RoundNumber == cache.Number+1 {
-			nc, nf, _, err := chain.startNewRoundAndPersist(cache, s.References, s.Timestamp, false)
-			if err != nil {
-				logger.Verbosef("cosiHandleFullChallenge %s %v startNewRoundAndPersist %s\n",
-					m.PeerId, m.Snapshot, err)
-				return chain.AppendCosiAction(m)
-			} else if nf == nil {
-				logger.Verbosef("cosiHandleFullChallenge %s %v startNewRoundAndPersist failed\n",
-					m.PeerId, m.Snapshot)
-				return nil
-			}
-			cache, final = nc, nf
-			chain.CosiVerifiers = make(map[crypto.Hash]*CosiVerifier)
-		}
-
-		if err := cache.ValidateSnapshot(s); err != nil {
-			logger.Verbosef("cosiHandleFullChallenge %s %v ValidateSnapshot %s\n",
-				m.PeerId, m.Snapshot, err)
-			return nil
-		}
+	valid, err := chain.checkAnnouncementOrChallenge(m)
+	if err != nil || !valid {
+		return err
 	}
 
+	s := m.Snapshot
 	v := &CosiVerifier{Snapshot: s, Commitment: m.Commitment, random: m.random}
 	chain.CosiVerifiers[s.Hash] = v
 	chain.CosiVerifiers[s.SoleTransaction()] = v
@@ -612,6 +516,64 @@ func (chain *Chain) cosiHandleFullChallenge(m *CosiAction) error {
 	return nil
 }
 
+func (chain *Chain) checkAnnouncementOrChallenge(m *CosiAction) (bool, error) {
+	s := m.Snapshot
+	if chain.IsPledging() && s.RoundNumber == 0 {
+		return true, nil
+	}
+	if chain.State == nil {
+		logger.Verbosef("checkAnnouncementOrChallenge %s %v empty final round\n", m.PeerId, m.Snapshot)
+		return false, nil
+	}
+
+	cache, final := chain.StateCopy()
+	if s.RoundNumber < cache.Number {
+		logger.Verbosef("checkAnnouncementOrChallenge %s %v expired %d %d\n",
+			m.PeerId, m.Snapshot, s.RoundNumber, cache.Number)
+		return false, nil
+	}
+	if s.RoundNumber > cache.Number+1 {
+		logger.Verbosef("checkAnnouncementOrChallenge %s %v in future %d %d\n",
+			m.PeerId, m.Snapshot, s.RoundNumber, cache.Number)
+		return false, nil
+	}
+	if s.Timestamp <= final.Start+config.SnapshotRoundGap {
+		logger.Verbosef("checkAnnouncementOrChallenge %s %v invalid timestamp %d %d\n",
+			m.PeerId, m.Snapshot, s.Timestamp, final.Start+config.SnapshotRoundGap)
+		return false, nil
+	}
+	if s.RoundNumber == cache.Number && !s.References.Equal(cache.References) {
+		err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, s.References, s.Timestamp, true)
+		if err != nil {
+			logger.Verbosef("checkAnnouncementOrChallenge %s %v updateEmptyHeadRoundAndPersist %v\n",
+				m.PeerId, m.Snapshot, err)
+			return false, nil
+		}
+		return false, chain.AppendCosiAction(m)
+	}
+	if s.RoundNumber == cache.Number+1 {
+		nc, nf, _, err := chain.startNewRoundAndPersist(cache, s.References, s.Timestamp, false)
+		if err != nil {
+			logger.Verbosef("checkAnnouncementOrChallenge %s %v startNewRoundAndPersist %s\n",
+				m.PeerId, m.Snapshot, err)
+			return false, chain.AppendCosiAction(m)
+		} else if nf == nil {
+			logger.Verbosef("checkAnnouncementOrChallenge %s %v startNewRoundAndPersist failed\n",
+				m.PeerId, m.Snapshot)
+			return false, nil
+		}
+		cache, final = nc, nf
+		chain.CosiVerifiers = make(map[crypto.Hash]*CosiVerifier)
+	}
+
+	if err := cache.ValidateSnapshot(s); err != nil {
+		logger.Verbosef("checkAnnouncementOrChallenge %s %v ValidateSnapshot %s\n",
+			m.PeerId, m.Snapshot, err)
+		return false, nil
+	}
+	return true, nil
+}
+
 func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	logger.Verbosef("cosiHandleChallenge %v\n", m)
 	v := chain.CosiVerifiers[m.SnapshotHash]
@@ -622,19 +584,19 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	copy(sig[32:], m.Signature.Signature[32:])
 	pub := cd.CN.Signer.PublicSpendKey
 	_, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
-	challenge, err := m.Signature.Challenge(publics, m.SnapshotHash[:])
+	challenge, err := m.Signature.Challenge(publics, m.SnapshotHash)
 	if err != nil {
 		logger.Verbosef("cosiHandleChallenge %v Challenge ERROR %s\n", m, err)
 		return nil
 	}
-	if !pub.VerifyWithChallenge(m.SnapshotHash[:], sig, challenge) {
+	if !pub.VerifyWithChallenge(sig, challenge) {
 		logger.Verbosef("cosiHandleChallenge %v VerifyWithChallenge ERROR %v %v\n",
 			m, sig, challenge)
 		return nil
 	}
 
 	priv := chain.node.Signer.PrivateSpendKey
-	response, err := m.Signature.Response(&priv, v.random, publics, m.SnapshotHash[:])
+	response, err := m.Signature.Response(&priv, v.random, publics, m.SnapshotHash)
 	if err != nil {
 		logger.Verbosef("cosiHandleChallenge %v Response ERROR %s\n", m, err)
 		return err
@@ -669,13 +631,13 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	logger.Verbosef("cosiHandleResponse %v ENOUGH\n", m)
 
 	cids, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
-	err := s.Signature.VerifyResponse(publics, cd.PN.ConsensusIndex, m.Response, m.SnapshotHash[:])
+	err := s.Signature.VerifyResponse(publics, cd.PN.ConsensusIndex, m.Response, m.SnapshotHash)
 	if err != nil {
 		logger.Verbosef("cosiHandleResponse %v RESPONSE ERROR %s\n", m, err)
 		return nil
 	}
 
-	s.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash[:], false)
+	s.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash, false)
 	signers, finalized := chain.node.CacheVerifyCosi(m.SnapshotHash, s.Signature, cids, publics, base)
 	if !finalized {
 		logger.Verbosef("cosiHandleResponse %v AGGREGATE ERROR\n", m)
@@ -1055,15 +1017,6 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d %t %v %v\n",
 			peerId, s, node.ConsensusThreshold(s.Timestamp, true), chain.IsPledging(), chain.State, chain.ConsensusInfo)
 		return nil
-	}
-
-	if s.Version == 0 {
-		err := chain.legacyAppendFinalization(peerId, s)
-		if err != nil {
-			logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) legacyAppendFinalization error %s\n",
-				peerId, s.Hash, err)
-		}
-		return err
 	}
 
 	err = chain.AppendFinalSnapshot(peerId, s)

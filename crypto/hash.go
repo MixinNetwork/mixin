@@ -12,7 +12,7 @@ import (
 
 type Hash [32]byte
 
-func NewHash(data []byte) Hash {
+func Sha256Hash(data []byte) Hash {
 	return Hash(sha3.Sum256(data))
 }
 
@@ -39,7 +39,7 @@ func (h Hash) HasValue() bool {
 }
 
 func (h Hash) ForNetwork(net Hash) Hash {
-	return NewHash(append(net[:], h[:]...))
+	return Blake3Hash(append(net[:], h[:]...))
 }
 
 func (h Hash) String() string {

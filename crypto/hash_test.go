@@ -15,7 +15,7 @@ func TestHash(t *testing.T) {
 		seed[i] = byte(i + 1)
 	}
 
-	h := NewHash(seed)
+	h := Sha256Hash(seed)
 	require.Equal("9323516a9ed2b789339472e38673fd74e8e802efbb94b0b9454f0188ccb70358", h.String())
 	h, err := HashFromString("9323516a9ed2b789339472e38673fd74e8e802efbb94b0b9454f0188ccb70358")
 	require.Nil(err)
@@ -53,7 +53,7 @@ func benchmarkHash(b *testing.B, legacy bool) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				if legacy {
-					NewHash([]byte(msg))
+					Sha256Hash([]byte(msg))
 				} else {
 					Blake3Hash([]byte(msg))
 				}

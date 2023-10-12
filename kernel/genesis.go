@@ -1,13 +1,14 @@
 package kernel
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
-	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
@@ -18,14 +19,12 @@ const (
 type Genesis struct {
 	Epoch int64 `json:"epoch"`
 	Nodes []*struct {
-		Signer  common.Address `json:"signer"`
-		Payee   common.Address `json:"payee"`
-		Balance common.Integer `json:"balance"`
+		Signer    *common.Address `json:"signer"`
+		Payee     *common.Address `json:"payee"`
+		Custodian *common.Address `json:"custodian"`
+		Balance   common.Integer  `json:"balance"`
 	} `json:"nodes"`
-	Domains []*struct {
-		Signer  common.Address `json:"signer"`
-		Balance common.Integer `json:"balance"`
-	} `json:"domains"`
+	Custodian *common.Address `json:"custodian"`
 }
 
 func (node *Node) LoadGenesis(configDir string) error {
@@ -39,7 +38,7 @@ func (node *Node) LoadGenesis(configDir string) error {
 		return err
 	}
 	node.Epoch = uint64(time.Unix(gns.Epoch, 0).UnixNano())
-	node.networkId = crypto.NewHash(data)
+	node.networkId = crypto.Blake3Hash(data)
 	node.IdForNetwork = node.Signer.Hash().ForNetwork(node.networkId)
 	for _, in := range gns.Nodes {
 		id := in.Signer.Hash().ForNetwork(node.networkId)
@@ -65,17 +64,17 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 	var transactions []*common.VersionedTransaction
 	cacheRounds := make(map[crypto.Hash]*CacheRound)
 	for i, in := range gns.Nodes {
-		si := crypto.NewHash([]byte(in.Signer.String() + "NODEACCEPT"))
+		si := crypto.Blake3Hash([]byte(in.Signer.String() + "NODEACCEPT"))
 		seed := append(si[:], si[:]...)
 		script := common.NewThresholdScript(uint8(len(gns.Nodes)*2/3 + 1))
 		accounts := []*common.Address{}
 		for _, d := range gns.Nodes {
-			accounts = append(accounts, &d.Signer)
+			accounts = append(accounts, d.Signer)
 		}
 
-		tx := common.NewTransactionV3(common.XINAssetId)
+		tx := common.NewTransactionV5(common.XINAssetId)
 		tx.Inputs = []*common.Input{{Genesis: networkId[:]}}
-		tx.AddOutputWithType(common.OutputTypeNodeAccept, accounts, script, pledgeAmount(0), seed)
+		tx.AddOutputWithType(common.OutputTypeNodeAccept, accounts, script, genesisPledgeAmount(), seed)
 		tx.Extra = append(in.Signer.PublicSpendKey[:], in.Payee.PublicSpendKey[:]...)
 
 		nodeId := in.Signer.Hash().ForNetwork(networkId)
@@ -86,11 +85,6 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 			Timestamp:   epoch,
 		}
 		signed := tx.AsVersioned()
-		if networkId.String() == config.MainnetId {
-			snapshot.Version = 0
-			signed.Version = 1
-			signed, _ = common.UnmarshalVersionedTransaction(signed.Marshal())
-		}
 		snapshot.AddSoleTransaction(signed.PayloadHash())
 		snapshot.Hash = snapshot.PayloadHash()
 		topo := &common.SnapshotWithTopologicalOrder{
@@ -106,12 +100,7 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 		}
 	}
 
-	domain := gns.Domains[0]
-	if in := gns.Nodes[0]; domain.Signer.String() != in.Signer.String() {
-		err := fmt.Errorf("invalid genesis domain input account %s %s", domain.Signer.String(), in.Signer.String())
-		return nil, nil, nil, err
-	}
-	topo, signed := buildDomainSnapshot(networkId, epoch, domain.Signer, gns)
+	topo, signed := buildCustodianSnapshot(networkId, epoch, gns)
 	snapshots = append(snapshots, topo)
 	transactions = append(transactions, signed)
 	snap := topo.Snapshot
@@ -147,33 +136,46 @@ func buildGenesisSnapshots(networkId crypto.Hash, epoch uint64, gns *Genesis) ([
 	return rounds, snapshots, transactions, nil
 }
 
-func buildDomainSnapshot(networkId crypto.Hash, epoch uint64, domain common.Address, gns *Genesis) (*common.SnapshotWithTopologicalOrder, *common.VersionedTransaction) {
-	si := crypto.NewHash([]byte(domain.String() + "DOMAINACCEPT"))
+func buildCustodianSnapshot(networkId crypto.Hash, epoch uint64, gns *Genesis) (*common.SnapshotWithTopologicalOrder, *common.VersionedTransaction) {
+	tx := common.NewTransactionV5(common.XINAssetId)
+	si := crypto.Blake3Hash([]byte(gns.Custodian.String() + "CUSTODIANUPDATENODES"))
 	seed := append(si[:], si[:]...)
-	script := common.NewThresholdScript(uint8(len(gns.Nodes)*2/3 + 1))
-	accounts := []*common.Address{}
-	for _, d := range gns.Nodes {
-		accounts = append(accounts, &d.Signer)
-	}
-	tx := common.NewTransactionV3(common.XINAssetId)
+	addr := common.NewAddressFromSeed(make([]byte, 64))
+	script := common.NewThresholdScript(64)
+	accounts := []*common.Address{&addr}
+	amount := common.NewInteger(100).Mul(len(gns.Nodes))
 	tx.Inputs = []*common.Input{{Genesis: networkId[:]}}
-	tx.AddOutputWithType(common.OutputTypeDomainAccept, accounts, script, common.NewInteger(50000), seed)
-	tx.Extra = make([]byte, len(domain.PublicSpendKey))
-	copy(tx.Extra, domain.PublicSpendKey[:])
+	tx.AddOutputWithType(common.OutputTypeCustodianUpdateNodes, accounts, script, amount, seed)
 
-	nodeId := domain.Hash().ForNetwork(networkId)
+	tx.Extra = append(tx.Extra, gns.Custodian.PublicSpendKey[:]...)
+	tx.Extra = append(tx.Extra, gns.Custodian.PublicViewKey[:]...)
+	nodes := make([]*common.CustodianNode, len(gns.Nodes))
+	spend := gns.Custodian.PublicSpendKey.DeterministicHashDerive()
+	for i, node := range gns.Nodes {
+		extra := encodeGenesisCustodianNode(node.Custodian, node.Payee, node.Signer, &spend, networkId)
+		nodes[i] = &common.CustodianNode{
+			Custodian: *node.Custodian,
+			Payee:     *node.Payee,
+			Extra:     extra,
+		}
+	}
+	sort.Slice(nodes, func(i, j int) bool {
+		return bytes.Compare(nodes[i].Custodian.PublicSpendKey[:], nodes[j].Custodian.PublicSpendKey[:]) < 0
+	})
+	for _, n := range nodes {
+		tx.Extra = append(tx.Extra, n.Extra...)
+	}
+	eh := crypto.Blake3Hash(tx.Extra)
+	sig := spend.Sign(eh)
+	tx.Extra = append(tx.Extra, sig[:]...)
+
 	snapshot := &common.Snapshot{
 		Version:     common.SnapshotVersionCommonEncoding,
-		NodeId:      nodeId,
+		NodeId:      gns.Nodes[0].Signer.Hash().ForNetwork(networkId),
 		RoundNumber: 0,
 		Timestamp:   epoch + 1,
 	}
 	signed := tx.AsVersioned()
-	if networkId.String() == config.MainnetId {
-		snapshot.Version = 0
-		signed.Version = 1
-		signed, _ = common.UnmarshalVersionedTransaction(signed.Marshal())
-	}
 	snapshot.AddSoleTransaction(signed.PayloadHash())
 	return &common.SnapshotWithTopologicalOrder{
 		Snapshot:         snapshot,
@@ -192,17 +194,23 @@ func readGenesis(path string) (*Genesis, error) {
 	if err != nil {
 		return nil, err
 	}
+	if gns.Custodian == nil {
+		return nil, fmt.Errorf("invalid genesis custodian %v", gns)
+	}
 	if len(gns.Nodes) < MinimumNodeCount {
 		return nil, fmt.Errorf("invalid genesis inputs number %d/%d", len(gns.Nodes), MinimumNodeCount)
 	}
 
 	inputsFilter := make(map[string]bool)
 	for _, in := range gns.Nodes {
+		if in.Signer == nil || in.Payee == nil || in.Custodian == nil {
+			return nil, fmt.Errorf("invalid genesis node keys %v", *in)
+		}
 		_, err := common.NewAddressFromString(in.Signer.String())
 		if err != nil {
 			return nil, err
 		}
-		if in.Balance.Cmp(pledgeAmount(0)) != 0 {
+		if in.Balance.Cmp(genesisPledgeAmount()) != 0 {
 			return nil, fmt.Errorf("invalid genesis node input amount %s", in.Balance.String())
 		}
 		if inputsFilter[in.Signer.String()] {
@@ -220,18 +228,30 @@ func readGenesis(path string) (*Genesis, error) {
 		}
 	}
 
-	if len(gns.Domains) != 1 {
-		return nil, fmt.Errorf("invalid genesis domain inputs count %d",
-			len(gns.Domains))
-	}
-	domain := gns.Domains[0]
-	if domain.Signer.String() != gns.Nodes[0].Signer.String() {
-		return nil, fmt.Errorf("invalid genesis domain input account %s %s",
-			domain.Signer.String(), gns.Nodes[0].Signer.String())
-	}
-	if domain.Balance.Cmp(common.NewInteger(50000)) != 0 {
-		return nil, fmt.Errorf("invalid genesis domain input amount %s",
-			domain.Balance.String())
-	}
 	return &gns, nil
+}
+
+func genesisPledgeAmount() common.Integer {
+	adjust := KernelNetworkLegacyEnding * uint64(time.Hour) * 24
+	return pledgeAmount(time.Duration(adjust))
+}
+
+func encodeGenesisCustodianNode(custodian, payee, signer *common.Address, spend *crypto.Key, networkId crypto.Hash) []byte {
+	nodeId := signer.Hash().ForNetwork(networkId)
+
+	extra := []byte{1}
+	extra = append(extra, custodian.PublicSpendKey[:]...)
+	extra = append(extra, custodian.PublicViewKey[:]...)
+	extra = append(extra, payee.PublicSpendKey[:]...)
+	extra = append(extra, payee.PublicViewKey[:]...)
+	extra = append(extra, nodeId[:]...)
+
+	eh := crypto.Blake3Hash(extra)
+	signerSig := spend.Sign(eh)
+	payeeSig := spend.Sign(eh)
+	custodianSig := spend.Sign(eh)
+	extra = append(extra, signerSig[:]...)
+	extra = append(extra, payeeSig[:]...)
+	extra = append(extra, custodianSig[:]...)
+	return extra
 }

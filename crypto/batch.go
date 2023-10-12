@@ -7,7 +7,7 @@ import (
 	"filippo.io/edwards25519"
 )
 
-func BatchVerify(msg []byte, keys []*Key, sigs []*Signature) bool {
+func BatchVerify(msg Hash, keys []*Key, sigs []*Signature) bool {
 	if len(keys) != len(sigs) {
 		return false
 	}
@@ -17,7 +17,7 @@ func BatchVerify(msg []byte, keys []*Key, sigs []*Signature) bool {
 	verifier := NewBatchVerifier()
 	for i := range keys {
 		k, s := keys[i], sigs[i]
-		verifier.Add(k, msg, s[:])
+		verifier.add(k, msg[:], s[:])
 	}
 	return verifier.Verify()
 }
@@ -45,7 +45,7 @@ func NewBatchVerifier() BatchVerifier {
 }
 
 // Add adds a (public key, message, sig) triple to the current batch.
-func (v *BatchVerifier) Add(publicKey *Key, message, sig []byte) {
+func (v *BatchVerifier) add(publicKey *Key, message, sig []byte) {
 	// Compute the challenge scalar for this entry upfront, so that we don't
 	// introduce a dependency on the lifetime of the message array. This doesn't
 	// matter so much for Go, which has garbage collection, but did matter for
@@ -143,8 +143,11 @@ func (v *BatchVerifier) Verify() bool {
 		}
 
 		buf := make([]byte, 32)
-		rand.Read(buf[:16])
-		_, err := Rcoeffs[i].SetCanonicalBytes(buf)
+		n, err := rand.Read(buf[:16])
+		if err != nil || n != 16 {
+			panic(err)
+		}
+		_, err = Rcoeffs[i].SetCanonicalBytes(buf)
 		if err != nil {
 			return false
 		}

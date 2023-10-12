@@ -199,17 +199,11 @@ func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx
 		},
 	}
 	if tx != nil {
-		item["transaction"] = transactionToMap(tx)
+		item["transactions"] = []any{transactionToMap(tx)}
 	} else {
-		item["transaction"] = s.SoleTransaction()
+		item["transactions"] = []any{s.SoleTransaction()}
 	}
-	if s.Version >= common.SnapshotVersionCommonEncoding {
-		item["transactions"] = []any{item["transaction"]}
-	}
-	if sig && s.Version == 0 {
-		item["signatures"] = s.Signatures
-	}
-	if sig && s.Version >= common.SnapshotVersionMsgpackEncoding {
+	if sig {
 		item["signature"] = s.Signature
 	}
 	return item
@@ -227,13 +221,23 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]any {
 			inputs = append(inputs, map[string]any{
 				"genesis": hex.EncodeToString(in.Genesis),
 			})
-		} else if in.Deposit != nil {
+		} else if d := in.Deposit; d != nil {
 			inputs = append(inputs, map[string]any{
-				"deposit": in.Deposit,
+				"deposit": map[string]any{
+					"chain":            d.Chain,
+					"asset_key":        d.AssetKey,
+					"transaction_hash": d.TransactionHash,
+					"output_index":     d.OutputIndex,
+					"amount":           d.Amount,
+				},
 			})
-		} else if in.Mint != nil {
+		} else if m := in.Mint; m != nil {
 			inputs = append(inputs, map[string]any{
-				"mint": in.Mint,
+				"mint": map[string]any{
+					"group":  m.Group,
+					"batch":  m.Batch,
+					"amount": m.Amount,
+				},
 			})
 		}
 	}
@@ -265,15 +269,13 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]any {
 	}
 
 	tm := map[string]any{
-		"version": tx.Version,
-		"asset":   tx.Asset,
-		"inputs":  inputs,
-		"outputs": outputs,
-		"extra":   hex.EncodeToString(tx.Extra),
-		"hash":    tx.PayloadHash(),
-	}
-	if tx.Version >= common.TxVersionReferences {
-		tm["references"] = tx.References
+		"version":    tx.Version,
+		"asset":      tx.Asset,
+		"inputs":     inputs,
+		"outputs":    outputs,
+		"extra":      hex.EncodeToString(tx.Extra),
+		"hash":       tx.PayloadHash(),
+		"references": tx.References,
 	}
 	return tm
 }

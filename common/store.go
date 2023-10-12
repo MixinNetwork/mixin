@@ -27,12 +27,7 @@ type NodeReader interface {
 	ReadTransaction(hash crypto.Hash) (*VersionedTransaction, string, error)
 }
 
-type DomainReader interface {
-	ReadDomains() []*Domain
-}
-
 type CustodianReader interface {
-	DomainReader
 	ReadCustodian(ts uint64) (*CustodianUpdateRequest, error)
 }
 
@@ -41,6 +36,5 @@ type DataStore interface {
 	UTXOLocker
 	GhostLocker
 	NodeReader
-	DomainReader
 	CustodianReader
 }

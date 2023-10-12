@@ -202,12 +202,11 @@ func (c *CacheRound) validateSnapshot(s *common.Snapshot, add bool) error {
 		panic(s)
 	}
 	day := uint64(time.Hour) * 24
-	fork := uint64(SnapshotRoundDayLeapForkHack.UnixNano())
 	for _, cs := range c.Snapshots {
 		if cs.Hash == s.Hash || cs.Timestamp == s.Timestamp || cs.SoleTransaction() == s.SoleTransaction() {
 			return fmt.Errorf("ValidateSnapshot error duplication %s %d %s", s.Hash, s.Timestamp, s.SoleTransaction())
 		}
-		if cs.Timestamp >= fork && cs.Timestamp/day != s.Timestamp/day {
+		if cs.Timestamp/day != s.Timestamp/day {
 			return fmt.Errorf("ValidateSnapshot error round day leap %s %d %s", s.Hash, s.Timestamp, s.SoleTransaction())
 		}
 	}
@@ -250,13 +249,8 @@ func ComputeRoundHash(nodeId crypto.Hash, number uint64, snapshots []*common.Sna
 		}
 	}
 
-	var hash crypto.Hash
 	buf := binary.BigEndian.AppendUint64(nodeId[:], number)
-	if version < common.SnapshotVersionCommonEncoding {
-		hash = crypto.NewHash(buf)
-	} else {
-		hash = crypto.Blake3Hash(buf)
-	}
+	hash := crypto.Blake3Hash(buf)
 	for _, s := range snapshots {
 		if s.Version > version {
 			panic(nodeId)
@@ -264,11 +258,7 @@ func ComputeRoundHash(nodeId crypto.Hash, number uint64, snapshots []*common.Sna
 		if s.Timestamp > end {
 			panic(nodeId)
 		}
-		if version < common.SnapshotVersionCommonEncoding {
-			hash = crypto.NewHash(append(hash[:], s.Hash[:]...))
-		} else {
-			hash = crypto.Blake3Hash(append(hash[:], s.Hash[:]...))
-		}
+		hash = crypto.Blake3Hash(append(hash[:], s.Hash[:]...))
 	}
 	return start, end, hash
 }

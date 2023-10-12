@@ -7,8 +7,7 @@ import (
 )
 
 const (
-	mintGroupUniversal        = "UNIVERSAL"
-	mintGroupKernelNodeLegacy = "KERNELNODE"
+	mintGroupUniversal = "UNIVERSAL"
 )
 
 type MintData struct {
@@ -45,20 +44,16 @@ func (tx *VersionedTransaction) validateMint(store DataStore) error {
 	mint := tx.Inputs[0].Mint
 	switch mint.Group {
 	case mintGroupUniversal:
-	case mintGroupKernelNodeLegacy:
 	default:
 		return fmt.Errorf("invalid mint group %s", mint.Group)
 	}
 
 	dist, err := store.ReadLastMintDistribution(^uint64(0))
-	if err != nil {
+	if err != nil || dist == nil {
 		return err
 	}
 	if mint.Batch < dist.Batch {
 		return fmt.Errorf("backward mint batch %d %d", dist.Batch, mint.Batch)
-	}
-	if dist.Group == mintGroupUniversal && mint.Group == mintGroupKernelNodeLegacy {
-		return fmt.Errorf("backward mint group %s %s", dist.Group, mint.Group)
 	}
 	if mint.Batch > dist.Batch {
 		return nil
@@ -67,16 +62,6 @@ func (tx *VersionedTransaction) validateMint(store DataStore) error {
 		return fmt.Errorf("invalid mint lock %s %s", dist.Transaction.String(), tx.PayloadHash().String())
 	}
 	return nil
-}
-
-func (tx *Transaction) AddKernelNodeMintInputLegacy(batch uint64, amount Integer) {
-	tx.Inputs = append(tx.Inputs, &Input{
-		Mint: &MintData{
-			Group:  mintGroupKernelNodeLegacy,
-			Batch:  batch,
-			Amount: amount,
-		},
-	})
 }
 
 func (tx *Transaction) AddUniversalMintInput(batch uint64, amount Integer) {
@@ -106,8 +91,6 @@ func (m *MintDistribution) Marshal() []byte {
 	switch m.Group {
 	case mintGroupUniversal:
 		enc.WriteUint16(0x0)
-	case mintGroupKernelNodeLegacy:
-		enc.WriteUint16(0x1)
 	default:
 		panic(m.Group)
 	}
@@ -125,8 +108,7 @@ func UnmarshalMintDistribution(b []byte) (*MintDistribution, error) {
 	var m MintDistribution
 	dec, err := NewMinimumDecoder(b)
 	if err != nil {
-		err := msgpackUnmarshal(b, &m)
-		return &m, err
+		return nil, err
 	}
 
 	group, err := dec.ReadUint16()
@@ -136,8 +118,6 @@ func UnmarshalMintDistribution(b []byte) (*MintDistribution, error) {
 	switch group {
 	case 0x0:
 		m.Group = mintGroupUniversal
-	case 0x1:
-		m.Group = mintGroupKernelNodeLegacy
 	default:
 		return nil, fmt.Errorf("invalid mint distribution group %d", group)
 	}

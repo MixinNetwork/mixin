@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const mainnetId = "4d73a8617316f28afd61a74b8c345b3f2cb9033b3da2ab683c86bfefa1a6383b"
+
 func TestNodeRemovePossibility(t *testing.T) {
 	require := require.New(t)
 
@@ -35,15 +37,15 @@ func TestNodeRemovePossibility(t *testing.T) {
 	candi, err = node.checkRemovePossibility(node.IdForNetwork, uint64(now.UnixNano()), nil)
 	require.Nil(err)
 	require.NotNil(candi)
-	require.Equal("028d97996a0b78f48e43f90e82137dbca60199519453a8fbf6e04b1e4d11efc9", candi.IdForNetwork.String())
+	require.Equal("0d4bbdc9bff475ded23e14f1e46195bbd31580d9301f90491c6d40ca9a0e318e", candi.IdForNetwork.String())
 
 	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, uint64(now.UnixNano()), nil)
 	require.Nil(err)
 	require.NotNil(tx)
-	require.Equal("31d7f3defd976c9d74b3df86790c648f740e2a6c8b643298011d7dca9dc43279", tx.PayloadHash().String())
-	require.Equal(uint8(2), tx.Version)
+	require.Equal("d5502a2754c916157bbc1420d9d520fd0c5efbed163ccec14e69bdab4af21a5a", tx.PayloadHash().String())
+	require.Equal(uint8(5), tx.Version)
 	require.Equal(common.XINAssetId, tx.Asset)
-	require.Equal(pledgeAmount(0), tx.Outputs[0].Amount)
+	require.Equal(pledgeAmount(1707*time.Hour*24), tx.Outputs[0].Amount)
 	require.Equal("fffe01", tx.Outputs[0].Script.String())
 	require.Equal(uint8(common.OutputTypeNodeRemove), tx.Outputs[0].Type)
 	require.Equal(uint8(common.TransactionTypeNodeRemove), tx.TransactionType())
@@ -52,10 +54,10 @@ func TestNodeRemovePossibility(t *testing.T) {
 	err = tx.SignInput(node.persistStore, 0, []*common.Address{&node.Signer})
 	require.NotNil(err)
 	require.Contains(err.Error(), "invalid key for the input")
-	err = tx.Validate(node.persistStore, false)
+	err = tx.Validate(node.persistStore, uint64(time.Now().UnixNano()), false)
 	require.Nil(err)
 
-	payee, err := common.NewAddressFromString("XINYDpVHXHxkFRPbP9LZak5p7FZs3mWTeKvrAzo4g9uziTW99t7LrU7me66Xhm6oXGTbYczQLvznk3hxgNSfNBaZveAmEeRM")
+	payee, err := common.NewAddressFromString("XINS5363SmtRnKwf32yTipAYs7gNgZJnhsWAvBPLPxW9xyrQAGF5piAp91B6W3kXsarSgSsFkpQPyoSM5wr17gnCBavHXrrP")
 	require.Nil(err)
 	mask := tx.Outputs[0].Mask
 	ghost := tx.Outputs[0].Keys[0]
@@ -97,6 +99,6 @@ func setupTestNode(require *require.Assertions, dir string) *Node {
 	require.NotNil(store)
 	node, err := SetupNode(custom, store, cache, ":7239", dir)
 	require.Nil(err)
-	require.Equal(config.MainnetId, node.networkId.String())
+	require.Equal(mainnetId, node.networkId.String())
 	return node
 }

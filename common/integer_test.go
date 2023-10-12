@@ -1,7 +1,6 @@
 package common
 
 import (
-	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -22,12 +21,6 @@ func TestInteger(t *testing.T) {
 	require.Nil(err)
 	require.Equal("\"20000.00000000\"", string(j))
 	err = c.UnmarshalJSON(j)
-	require.Nil(err)
-	require.Equal("20000.00000000", c.String())
-	p, err := c.MarshalMsgpack()
-	require.Nil(err)
-	require.Equal("01d1a94a2000", hex.EncodeToString(p))
-	err = c.UnmarshalMsgpack(p)
 	require.Nil(err)
 	require.Equal("20000.00000000", c.String())
 
@@ -71,17 +64,7 @@ func TestInteger(t *testing.T) {
 
 	m = NewInteger(8273)
 	require.Equal("8273.00000000", m.String())
-	p = msgpackMarshalPanic(m)
-	require.Equal("c70500c09eec3100", hex.EncodeToString(p))
-	err = msgpackUnmarshal(p, &m)
-	require.Nil(err)
-	require.Equal("8273.00000000", m.String())
 
 	m = NewIntegerFromString("0.00000192")
-	require.Equal("0.00000192", m.String())
-	p = msgpackMarshalPanic(m)
-	require.Equal("d400c0", hex.EncodeToString(p))
-	err = msgpackUnmarshal(p, &m)
-	require.Nil(err)
 	require.Equal("0.00000192", m.String())
 }

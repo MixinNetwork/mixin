@@ -32,7 +32,6 @@ func (tx *VersionedTransaction) UnspentOutputs() []*UTXOWithLock {
 			OutputTypeNodeCancel,
 			OutputTypeNodeAccept,
 			OutputTypeNodeRemove,
-			OutputTypeDomainAccept,
 			OutputTypeWithdrawalFuel,
 			OutputTypeWithdrawalClaim,
 			OutputTypeCustodianUpdateNodes:
@@ -90,9 +89,7 @@ func UnmarshalUTXO(b []byte) (*UTXOWithLock, error) {
 
 	dec, err := NewMinimumDecoder(b)
 	if err != nil {
-		var utxo UTXOWithLock
-		err := msgpackUnmarshal(b, &utxo)
-		return &utxo, err
+		return nil, err
 	}
 
 	utxo := &UTXOWithLock{}

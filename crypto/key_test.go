@@ -50,11 +50,12 @@ func TestGhostKey(t *testing.T) {
 	O := ViewGhostOutputKey(P, &a, &R, 0)
 	require.Equal(*O, B)
 
-	sig := p.Sign(a[:])
-	require.True(P.Verify(a[:], sig))
+	ah := Blake3Hash(a[:])
+	sig := p.Sign(ah)
+	require.True(P.Verify(ah, sig))
 
-	sig = a.Sign(a[:])
-	require.True(A.Verify(a[:], sig))
+	sig = a.Sign(ah)
+	require.True(A.Verify(ah, sig))
 }
 
 func randomKey() Key {

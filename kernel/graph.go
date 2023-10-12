@@ -268,22 +268,6 @@ func historySinceRound(history []*FinalRound, link uint64) []*FinalRound {
 	return nil
 }
 
-func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto.Key) bool {
-	key := append(snap[:], sig[:]...)
-	key = append(key, pub[:]...)
-	value, found := node.cacheStore.Get(key)
-	if found {
-		return value.(byte) == byte(1)
-	}
-	valid := pub.Verify(snap[:], sig)
-	if valid {
-		node.cacheStore.Set(key, byte(1), 1)
-	} else {
-		node.cacheStore.Set(key, byte(0), 1)
-	}
-	return valid
-}
-
 // Nodes list change problem:
 // 1. Node A gets snapshot S signed by enough nodes, including B, at time 10, and finalized but not broadcasted to others yet.
 // Then node B is removed at time 9. Now A broadcasts S, and others will not be able to finalize S.
@@ -299,17 +283,6 @@ func (node *Node) CacheVerify(snap crypto.Hash, sig crypto.Signature, pub crypto
 // Solution: Evil and slash.
 
 func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, cids []crypto.Hash, publics []*crypto.Key, threshold int) ([]crypto.Hash, bool) {
-	if snap.String() == "b3ea56de6124ad2f3ad1d48f2aff8338b761e62bcde6f2f0acba63a32dd8eecc" &&
-		sig.String() == "dbb0347be24ecb8de3d66631d347fde724ff92e22e1f45deeb8b5d843fd62da39ca8e39de9f35f1e0f7336d4686917983470c098edc91f456d577fb18069620f000000003fdfe712" {
-		// FIXME this is a hack to fix the large round gap around node remove snapshot
-		// and a bug in too recent external reference, e.g. bare final round
-		signers := make([]crypto.Hash, len(sig.Keys()))
-		for i, k := range sig.Keys() {
-			signers[i] = cids[k]
-		}
-		return signers, true
-	}
-
 	key := sig.Signature[:]
 	key = append(snap[:], key...)
 	for _, pub := range publics {
@@ -323,7 +296,7 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, c
 		return signers, len(signers) == len(sig.Keys())
 	}
 
-	err := sig.FullVerify(publics, threshold, snap[:])
+	err := sig.FullVerify(publics, threshold, snap)
 	if err != nil {
 		logger.Verbosef("CacheVerifyCosi(%s, %d, %d) ERROR %s\n", snap, len(publics), threshold, err.Error())
 		node.cacheStore.Set(key, []byte{0}, 1)
@@ -379,9 +352,7 @@ func (chain *Chain) ConsensusKeys(round, timestamp uint64) ([]crypto.Hash, []*cr
 
 func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool) {
 	switch s.Version {
-	case 0:
-		return nil, chain.legacyVerifyFinalization(s.Timestamp, s.Signatures)
-	case common.SnapshotVersionMsgpackEncoding, common.SnapshotVersionCommonEncoding:
+	case common.SnapshotVersionCommonEncoding:
 	default:
 		return nil, false
 	}
@@ -392,31 +363,5 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 
 	cids, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	base := chain.node.ConsensusThreshold(s.Timestamp, true)
-	signers, finalized := chain.node.CacheVerifyCosi(s.Hash, s.Signature, cids, publics, base)
-	if finalized {
-		return signers, finalized
-	}
-
-	// FIXME because some to be removed node can still make a signature, so remove this
-	// hack after the bug fixed. But this should be kept for old snapshots, only removed
-	// for new created snapshots.
-	nodes := chain.node.NodesListWithoutState(s.Timestamp, false)
-	rn := nodes[len(nodes)-1]
-	if rn.State != common.NodeStateRemoved {
-		return nil, finalized
-	}
-	timestamp := s.Timestamp - uint64(config.KernelNodeAcceptPeriodMinimum)
-	if rn.Timestamp < timestamp {
-		return nil, finalized
-	}
-
-	rs := []crypto.Hash{rn.IdForNetwork}
-	rk := []*crypto.Key{&rn.Signer.PublicSpendKey}
-	cids = append(rs, cids...)
-	publics = append(rk, publics...)
 	return chain.node.CacheVerifyCosi(s.Hash, s.Signature, cids, publics, base)
-}
-
-func (chain *Chain) legacyVerifyFinalization(timestamp uint64, sigs []*crypto.Signature) bool {
-	return len(sigs) >= chain.node.ConsensusThreshold(timestamp, true)
 }

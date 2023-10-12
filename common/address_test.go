@@ -48,4 +48,6 @@ func TestAddress(t *testing.T) {
 
 	z := NewAddressFromSeed(make([]byte, 64))
 	require.Equal("XIN8b7CsqwqaBP7576hvWzo7uDgbU9TB5KGU4jdgYpQTi2qrQGpBtrW49ENQiLGNrYU45e2wwKRD7dEUPtuaJYps2jbR4dH", z.String())
+	err = a.UnmarshalJSON([]byte("\"\""))
+	require.NotNil(err)
 }
