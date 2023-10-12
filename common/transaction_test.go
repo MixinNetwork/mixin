@@ -291,11 +291,11 @@ func (store storeImpl) ReadUTXOLock(hash crypto.Hash, index int) (*UTXOWithLock,
 	return utxo, nil
 }
 
-func (store storeImpl) LockGhostKeys(keys []*crypto.Key, tx crypto.Hash, fork bool) error {
+func (store storeImpl) LockGhostKeys(_ []*crypto.Key, _ crypto.Hash, _ bool) error {
 	return nil
 }
 
-func (store storeImpl) LockUTXOs(inputs []*Input, tx crypto.Hash, fork bool) error {
+func (store storeImpl) LockUTXOs(_ []*Input, _ crypto.Hash, _ bool) error {
 	return nil
 }
 
@@ -303,27 +303,27 @@ func (store storeImpl) ReadAllNodes(_ uint64, _ bool) []*Node {
 	return nil
 }
 
-func (store storeImpl) ReadTransaction(hash crypto.Hash) (*VersionedTransaction, string, error) {
+func (store storeImpl) ReadTransaction(_ crypto.Hash) (*VersionedTransaction, string, error) {
 	return nil, "", nil
 }
 
-func (store storeImpl) CheckDepositInput(deposit *DepositData, tx crypto.Hash) error {
+func (store storeImpl) CheckDepositInput(_ *DepositData, _ crypto.Hash) error {
 	return nil
 }
 
-func (store storeImpl) LockDepositInput(deposit *DepositData, tx crypto.Hash, fork bool) error {
+func (store storeImpl) LockDepositInput(_ *DepositData, _ crypto.Hash, _ bool) error {
 	return nil
 }
 
-func (store storeImpl) ReadLastMintDistribution(batch uint64) (*MintDistribution, error) {
+func (store storeImpl) ReadLastMintDistribution(_ uint64) (*MintDistribution, error) {
 	return nil, nil
 }
 
-func (store storeImpl) LockMintInput(mint *MintData, tx crypto.Hash, fork bool) error {
+func (store storeImpl) LockMintInput(_ *MintData, _ crypto.Hash, _ bool) error {
 	return nil
 }
 
-func (store storeImpl) ReadCustodian(ts uint64) (*CustodianUpdateRequest, error) {
+func (store storeImpl) ReadCustodian(_ uint64) (*CustodianUpdateRequest, error) {
 	return &CustodianUpdateRequest{Custodian: store.custodian}, nil
 }
 

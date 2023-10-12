@@ -42,9 +42,6 @@ func (node *Node) validateCustodianUpdateNodes(s *common.Snapshot, tx *common.Ve
 	if err != nil {
 		return err
 	}
-	if prev == nil {
-		panic("FIXME genesis check")
-	}
 	eh := crypto.Blake3Hash(tx.Extra[:len(tx.Extra)-64])
 	if !prev.Custodian.PublicSpendKey.Verify(eh, *curs.Signature) {
 		return fmt.Errorf("invalid custodian update approval signature %x", tx.Extra)

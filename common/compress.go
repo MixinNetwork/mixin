@@ -7,7 +7,8 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 
-// FIXME update this to the latest data format
+// FIXME have a cmd to make some random transactions, snapshots and
+// or other data to compress, then make different dicts respectively
 //
 //go:embed data/zstd.dic
 var ZstdEmbed []byte

@@ -143,8 +143,9 @@ func buildCustodianSnapshot(networkId crypto.Hash, epoch uint64, gns *Genesis) (
 	addr := common.NewAddressFromSeed(make([]byte, 64))
 	script := common.NewThresholdScript(64)
 	accounts := []*common.Address{&addr}
+	amount := common.NewInteger(100).Mul(len(gns.Nodes))
 	tx.Inputs = []*common.Input{{Genesis: networkId[:]}}
-	tx.AddOutputWithType(common.OutputTypeCustodianUpdateNodes, accounts, script, common.NewInteger(50000), seed)
+	tx.AddOutputWithType(common.OutputTypeCustodianUpdateNodes, accounts, script, amount, seed)
 
 	tx.Extra = append(tx.Extra, gns.Custodian.PublicSpendKey[:]...)
 	tx.Extra = append(tx.Extra, gns.Custodian.PublicViewKey[:]...)

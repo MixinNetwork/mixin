@@ -143,8 +143,11 @@ func (v *BatchVerifier) Verify() bool {
 		}
 
 		buf := make([]byte, 32)
-		rand.Read(buf[:16])
-		_, err := Rcoeffs[i].SetCanonicalBytes(buf)
+		n, err := rand.Read(buf[:16])
+		if err != nil || n != 16 {
+			panic(err)
+		}
+		_, err = Rcoeffs[i].SetCanonicalBytes(buf)
 		if err != nil {
 			return false
 		}
