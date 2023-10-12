@@ -16,7 +16,7 @@ func assetCapAt(id crypto.Hash) common.Integer {
 		return common.NewIntegerFromString("100000")
 	case common.XINAssetId:
 		return common.NewIntegerFromString("1000000")
-	default:
+	default: // TODO more assets and better default value
 		return common.NewIntegerFromString("115792089237316195423570985008687907853269984665640564039457.58400791")
 	}
 }
@@ -42,20 +42,26 @@ func writeTotalInAsset(txn *badger.Txn, ver *common.VersionedTransaction) error 
 		return err
 	}
 
-	switch ver.TransactionType() {
-	case common.TransactionTypeWithdrawalSubmit:
+	typ := ver.TransactionType()
+	switch { // TODO needs full test code for all kind of transactions
+	case typ == common.TransactionTypeWithdrawalSubmit:
 		total = total.Sub(ver.Outputs[0].Amount)
-	case common.TransactionTypeDeposit:
-		amount := ver.DepositData().Amount
-		total = total.Add(amount)
-		max := assetCapAt(ver.Asset)
-		if amount.Cmp(max) > 0 || total.Cmp(max) > 0 {
-			panic(amount.String())
+	case typ == common.TransactionTypeDeposit:
+		total = total.Add(ver.DepositData().Amount)
+	case typ == common.TransactionTypeMint:
+		total = total.Add(ver.Inputs[0].Mint.Amount)
+	case len(ver.Inputs[0].Genesis) > 0:
+		for _, out := range ver.Outputs {
+			total = total.Add(out.Amount)
 		}
 	default:
 		return nil
 	}
 
+	max := assetCapAt(ver.Asset)
+	if total.Cmp(max) > 0 {
+		panic(total.String())
+	}
 	key := graphAssetTotalKey(ver.Asset)
 	return txn.Set(key, []byte(total.String()))
 }

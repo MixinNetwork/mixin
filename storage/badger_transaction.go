@@ -97,11 +97,7 @@ func (s *BadgerStore) WriteTransaction(ver *common.VersionedTransaction) error {
 	}
 	// assert end
 
-	err := writeTotalInAsset(txn, ver)
-	if err != nil {
-		return err
-	}
-	err = writeTransaction(txn, ver)
+	err := writeTransaction(txn, ver)
 	if err != nil {
 		return err
 	}
@@ -175,7 +171,8 @@ func finalizeTransaction(txn *badger.Txn, ver *common.VersionedTransaction, snap
 			return err
 		}
 	}
-	return nil
+
+	return writeTotalInAsset(txn, ver)
 }
 
 func writeUTXO(txn *badger.Txn, utxo *common.UTXOWithLock, extra []byte, timestamp uint64, genesis bool) error {
