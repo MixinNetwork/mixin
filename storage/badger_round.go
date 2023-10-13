@@ -61,6 +61,7 @@ func (s *BadgerStore) UpdateEmptyHeadRound(node crypto.Hash, number uint64, refe
 		return err
 	}
 	err = writeRound(txn, node, &common.Round{
+		Hash:       node,
 		NodeId:     node,
 		Number:     number,
 		References: references,
@@ -145,6 +146,7 @@ func startNewRound(txn *badger.Txn, node crypto.Hash, number uint64, references 
 	}
 
 	return writeRound(txn, node, &common.Round{
+		Hash:       node,
 		NodeId:     node,
 		Number:     number,
 		References: references,
@@ -187,19 +189,20 @@ func readRound(txn *badger.Txn, hash crypto.Hash) (*common.Round, error) {
 		return nil, err
 	}
 
-	round, err := common.DecompressUnmarshalRound(ival)
-	if err != nil || round.Hash.HasValue() {
-		return round, err
+	round, err := common.UnmarshalRound(ival)
+	if err != nil {
+		return nil, err
+	}
+	if !round.Hash.HasValue() {
+		panic(hash)
 	}
 
-	// FIXME because old code forgot to write the hash
-	round.Hash = hash
 	return round, nil
 }
 
 func writeRound(txn *badger.Txn, hash crypto.Hash, round *common.Round) error {
 	key := graphRoundKey(hash)
-	val := round.CompressMarshal()
+	val := round.Marshal()
 	return txn.Set(key, val)
 }
 

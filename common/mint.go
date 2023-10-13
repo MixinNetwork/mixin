@@ -74,18 +74,6 @@ func (tx *Transaction) AddUniversalMintInput(batch uint64, amount Integer) {
 	})
 }
 
-func (m *MintDistribution) CompressMarshal() []byte {
-	return compress(m.Marshal())
-}
-
-func DecompressUnmarshalMintDistribution(b []byte) (*MintDistribution, error) {
-	d := decompress(b)
-	if d == nil {
-		d = b
-	}
-	return UnmarshalMintDistribution(d)
-}
-
 func (m *MintDistribution) Marshal() []byte {
 	enc := NewMinimumEncoder()
 	switch m.Group {

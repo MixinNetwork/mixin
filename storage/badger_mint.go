@@ -33,7 +33,7 @@ func (s *BadgerStore) ReadMintDistributions(offset, count uint64) ([]*common.Min
 		if err != nil {
 			return nil, nil, err
 		}
-		data, err := common.DecompressUnmarshalMintDistribution(ival)
+		data, err := common.UnmarshalMintDistribution(ival)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -83,7 +83,7 @@ func (s *BadgerStore) ReadLastMintDistribution(batch uint64) (*common.MintDistri
 		if err != nil {
 			return nil, err
 		}
-		data, err := common.DecompressUnmarshalMintDistribution(ival)
+		data, err := common.UnmarshalMintDistribution(ival)
 		if err != nil {
 			return nil, err
 		}
@@ -140,12 +140,12 @@ func readMintInput(txn *badger.Txn, mint *common.MintData) (*common.MintDistribu
 	if err != nil {
 		return nil, err
 	}
-	return common.DecompressUnmarshalMintDistribution(ival)
+	return common.UnmarshalMintDistribution(ival)
 }
 
 func writeMintDistribution(txn *badger.Txn, mint *common.MintData, tx crypto.Hash) error {
 	key := graphMintKey(mint.Batch)
-	val := mint.Distribute(tx).CompressMarshal()
+	val := mint.Distribute(tx).Marshal()
 	return txn.Set(key, val)
 }
 

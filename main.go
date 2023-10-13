@@ -596,11 +596,6 @@ func kernelCmd(c *cli.Context) error {
 	}
 	defer store.Close()
 
-	err = store.OneTimeFixMintPrefix()
-	if err != nil {
-		return err
-	}
-
 	addr := fmt.Sprintf(":%d", c.Int("port"))
 	node, err := kernel.SetupNode(custom, store, cache, addr, c.String("dir"))
 	if err != nil {

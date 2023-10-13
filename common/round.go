@@ -27,18 +27,6 @@ func (m *RoundLink) Copy() *RoundLink {
 	return &RoundLink{Self: m.Self, External: m.External}
 }
 
-func (r *Round) CompressMarshal() []byte {
-	return compress(r.Marshal())
-}
-
-func DecompressUnmarshalRound(b []byte) (*Round, error) {
-	d := decompress(b)
-	if d == nil {
-		d = b
-	}
-	return UnmarshalRound(d)
-}
-
 func (r *Round) Marshal() []byte {
 	enc := NewMinimumEncoder()
 	enc.Write(r.Hash[:])

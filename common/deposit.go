@@ -79,8 +79,6 @@ func (tx *SignedTransaction) validateDeposit(store DataStore, payloadHash crypto
 	if sig == nil {
 		return fmt.Errorf("invalid domain signature index for deposit")
 	}
-	// FIXME change this to custodian only when available
-	// domain key will be used as observer for the safe network
 	custodian, err := store.ReadCustodian(snapTime)
 	if err != nil {
 		return err

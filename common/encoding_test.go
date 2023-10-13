@@ -125,9 +125,9 @@ func TestCommonDataEncoding(t *testing.T) {
 
 	enc := mint.Marshal()
 	require.Equal("777700010000000000000000007b000412b9af98eea889c227076f8c62106b59a478e043c0030392f3be0f5d714ed27953cb2668", hex.EncodeToString(enc))
-	enc = mint.CompressMarshal()
-	require.Equal("0000000028b52ffd0300c118533ca10100777700010000000000000000007b000412b9af98eea889c227076f8c62106b59a478e043c0030392f3be0f5d714ed27953cb2668", hex.EncodeToString(enc))
-	res, err := DecompressUnmarshalMintDistribution(enc)
+	enc = mint.Marshal()
+	require.Equal("777700010000000000000000007b000412b9af98eea889c227076f8c62106b59a478e043c0030392f3be0f5d714ed27953cb2668", hex.EncodeToString(enc))
+	res, err := UnmarshalMintDistribution(enc)
 	require.Nil(err)
 	require.Equal(mintGroupUniversal, res.Group)
 	require.Equal(uint64(123), res.Batch)

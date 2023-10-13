@@ -39,18 +39,7 @@ func DecompressUnmarshalVersionedTransaction(val []byte) (*VersionedTransaction,
 }
 
 func UnmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
-	ver, err := unmarshalVersionedTransaction(val)
-	if err != nil {
-		return nil, err
-	}
-	if config.Debug {
-		ret1 := ver.marshal()
-		ret2 := ver.payloadMarshal() // FIXME remove this
-		if !bytes.Equal(val, ret1) && !bytes.Equal(val, ret2) {
-			return nil, fmt.Errorf("unmarshal malformed %d %d %d", len(val), len(ret1), len(ret2))
-		}
-	}
-	return ver, nil
+	return unmarshalVersionedTransaction(val)
 }
 
 func (ver *VersionedTransaction) CompressMarshal() []byte {
