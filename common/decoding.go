@@ -243,13 +243,13 @@ func (dec *Decoder) ReadInput() (*Input, error) {
 		if err != nil {
 			return nil, err
 		}
-		d.TransactionHash = string(th)
+		d.Transaction = string(th)
 
 		oi, err := dec.ReadUint64()
 		if err != nil {
 			return nil, err
 		}
-		d.OutputIndex = oi
+		d.Index = oi
 
 		amt, err := dec.ReadInteger()
 		if err != nil {

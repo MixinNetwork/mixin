@@ -330,11 +330,11 @@ func signTransactionCmd(c *cli.Context) error {
 	for _, in := range raw.Inputs {
 		if d := in.Deposit; d != nil {
 			tx.AddDepositInput(&common.DepositData{
-				Chain:           d.Chain,
-				AssetKey:        d.AssetKey,
-				TransactionHash: d.TransactionHash,
-				OutputIndex:     d.OutputIndex,
-				Amount:          d.Amount,
+				Chain:       d.Chain,
+				AssetKey:    d.AssetKey,
+				Transaction: d.TransactionHash,
+				Index:       d.OutputIndex,
+				Amount:      d.Amount,
 			})
 		} else {
 			tx.AddInput(in.Hash, in.Index)

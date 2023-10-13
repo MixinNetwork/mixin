@@ -9,11 +9,11 @@ import (
 )
 
 type DepositData struct {
-	Chain           crypto.Hash
-	AssetKey        string
-	TransactionHash string
-	OutputIndex     uint64
-	Amount          Integer
+	Chain       crypto.Hash
+	AssetKey    string
+	Transaction string
+	Index       uint64
+	Amount      Integer
 }
 
 func (d *DepositData) Asset() *Asset {
@@ -24,7 +24,7 @@ func (d *DepositData) Asset() *Asset {
 }
 
 func (d *DepositData) UniqueKey() crypto.Hash {
-	index := fmt.Sprintf("%s:%d", d.TransactionHash, d.OutputIndex)
+	index := fmt.Sprintf("%s:%d", d.Transaction, d.Index)
 	return crypto.Sha256Hash([]byte(index)).ForNetwork(d.Chain)
 }
 
@@ -50,9 +50,9 @@ func (tx *Transaction) verifyDepositFormat() error {
 	chainId := deposit.Asset().ChainId
 	switch chainId {
 	case ethereum.EthereumChainId:
-		return ethereum.VerifyTransactionHash(deposit.TransactionHash)
+		return ethereum.VerifyTransactionHash(deposit.Transaction)
 	case bitcoin.BitcoinChainId:
-		return bitcoin.VerifyTransactionHash(deposit.TransactionHash)
+		return bitcoin.VerifyTransactionHash(deposit.Transaction)
 	}
 	return fmt.Errorf("invalid deposit chain id %s", chainId)
 }

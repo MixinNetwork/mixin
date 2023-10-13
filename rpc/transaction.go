@@ -224,11 +224,11 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]any {
 		} else if d := in.Deposit; d != nil {
 			inputs = append(inputs, map[string]any{
 				"deposit": map[string]any{
-					"chain":            d.Chain,
-					"asset_key":        d.AssetKey,
-					"transaction_hash": d.TransactionHash,
-					"output_index":     d.OutputIndex,
-					"amount":           d.Amount,
+					"chain":       d.Chain,
+					"asset":       d.AssetKey,
+					"transaction": d.Transaction,
+					"index":       d.Index,
+					"amount":      d.Amount,
 				},
 			})
 		} else if m := in.Mint; m != nil {

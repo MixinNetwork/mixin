@@ -148,10 +148,10 @@ func (enc *Encoder) EncodeInput(in *Input) {
 		enc.WriteInt(len(d.AssetKey))
 		enc.Write([]byte(d.AssetKey))
 
-		enc.WriteInt(len(d.TransactionHash))
-		enc.Write([]byte(d.TransactionHash))
+		enc.WriteInt(len(d.Transaction))
+		enc.Write([]byte(d.Transaction))
 
-		enc.WriteUint64(d.OutputIndex)
+		enc.WriteUint64(d.Index)
 		enc.WriteInteger(d.Amount)
 	}
 

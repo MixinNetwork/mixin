@@ -53,18 +53,18 @@ func TestDeposit(t *testing.T) {
 	require.True(strings.Contains(err.Error(), "invalid inputs"))
 
 	tx.AddDepositInput(&DepositData{
-		Chain:           ethereum.EthereumChainId,
-		AssetKey:        assetKey,
-		TransactionHash: transactionHash,
-		OutputIndex:     0,
-		Amount:          NewIntegerFromString("1006"),
+		Chain:       ethereum.EthereumChainId,
+		AssetKey:    assetKey,
+		Transaction: transactionHash,
+		Index:       0,
+		Amount:      NewIntegerFromString("1006"),
 	})
 	tx.AddDepositInput(&DepositData{
-		Chain:           ethereum.EthereumChainId,
-		AssetKey:        assetKey,
-		TransactionHash: transactionHash,
-		OutputIndex:     1,
-		Amount:          NewIntegerFromString("1007"),
+		Chain:       ethereum.EthereumChainId,
+		AssetKey:    assetKey,
+		Transaction: transactionHash,
+		Index:       1,
+		Amount:      NewIntegerFromString("1007"),
 	})
 	ver = tx.AsVersioned()
 	signed = &ver.SignedTransaction
@@ -74,11 +74,11 @@ func TestDeposit(t *testing.T) {
 
 	tx = NewTransactionV5(assetID)
 	tx.AddDepositInput(&DepositData{
-		Chain:           ethereum.EthereumChainId,
-		AssetKey:        assetKey,
-		TransactionHash: transactionHash,
-		OutputIndex:     0,
-		Amount:          NewIntegerFromString("1006"),
+		Chain:       ethereum.EthereumChainId,
+		AssetKey:    assetKey,
+		Transaction: transactionHash,
+		Index:       0,
+		Amount:      NewIntegerFromString("1006"),
 	})
 	ver = tx.AsVersioned()
 	signed = &ver.SignedTransaction
@@ -88,11 +88,11 @@ func TestDeposit(t *testing.T) {
 
 	tx = NewTransactionV5(assetID)
 	tx.AddDepositInput(&DepositData{
-		Chain:           ethereum.EthereumChainId,
-		AssetKey:        assetKey,
-		TransactionHash: transactionHash,
-		OutputIndex:     0,
-		Amount:          NewIntegerFromString("1006"),
+		Chain:       ethereum.EthereumChainId,
+		AssetKey:    assetKey,
+		Transaction: transactionHash,
+		Index:       0,
+		Amount:      NewIntegerFromString("1006"),
 	})
 	si := crypto.Blake3Hash([]byte(transactionHash + "1"))
 	seed = append(si[:], si[:]...)
@@ -108,11 +108,11 @@ func TestDeposit(t *testing.T) {
 
 	tx = NewTransactionV5(assetID)
 	tx.AddDepositInput(&DepositData{
-		Chain:           ethereum.EthereumChainId,
-		AssetKey:        assetKey,
-		TransactionHash: transactionHash,
-		OutputIndex:     0,
-		Amount:          NewIntegerFromString("1006"),
+		Chain:       ethereum.EthereumChainId,
+		AssetKey:    assetKey,
+		Transaction: transactionHash,
+		Index:       0,
+		Amount:      NewIntegerFromString("1006"),
 	})
 	si = crypto.Blake3Hash([]byte(transactionHash))
 	seed = append(si[:], si[:]...)
@@ -128,11 +128,11 @@ func TestDeposit(t *testing.T) {
 
 	tx = NewTransactionV5(assetID)
 	tx.AddDepositInput(&DepositData{
-		Chain:           ethereum.EthereumChainId,
-		AssetKey:        assetKey,
-		TransactionHash: transactionHash,
-		OutputIndex:     0,
-		Amount:          NewIntegerFromString("1006"),
+		Chain:       ethereum.EthereumChainId,
+		AssetKey:    assetKey,
+		Transaction: transactionHash,
+		Index:       0,
+		Amount:      NewIntegerFromString("1006"),
 	})
 	si = crypto.Blake3Hash([]byte(transactionHash))
 	seed = append(si[:], si[:]...)
@@ -147,11 +147,11 @@ func TestDeposit(t *testing.T) {
 
 	tx = NewTransactionV5(assetID)
 	tx.AddDepositInput(&DepositData{
-		Chain:           ethereum.EthereumChainId,
-		AssetKey:        assetKey,
-		TransactionHash: transactionHash,
-		OutputIndex:     0,
-		Amount:          NewIntegerFromString("1006"),
+		Chain:       ethereum.EthereumChainId,
+		AssetKey:    assetKey,
+		Transaction: transactionHash,
+		Index:       0,
+		Amount:      NewIntegerFromString("1006"),
 	})
 	si = crypto.Blake3Hash([]byte(transactionHash))
 	seed = append(si[:], si[:]...)
@@ -166,11 +166,11 @@ func TestDeposit(t *testing.T) {
 
 	tx = NewTransactionV5(assetID)
 	tx.AddDepositInput(&DepositData{
-		Chain:           ethereum.EthereumChainId,
-		AssetKey:        assetKey,
-		TransactionHash: transactionHash,
-		OutputIndex:     0,
-		Amount:          NewIntegerFromString("1006"),
+		Chain:       ethereum.EthereumChainId,
+		AssetKey:    assetKey,
+		Transaction: transactionHash,
+		Index:       0,
+		Amount:      NewIntegerFromString("1006"),
 	})
 	si = crypto.Blake3Hash([]byte(transactionHash))
 	seed = append(si[:], si[:]...)
