@@ -61,15 +61,12 @@ func UnmarshalVersionedSnapshot(b []byte) (*SnapshotWithTopologicalOrder, error)
 }
 
 func DecompressUnmarshalVersionedSnapshot(b []byte) (*SnapshotWithTopologicalOrder, error) {
-	d := decompress(b)
-	if d == nil {
-		d = b
-	}
+	d := decompressSnapshot(b)
 	return UnmarshalVersionedSnapshot(d)
 }
 
 func (s *SnapshotWithTopologicalOrder) VersionedCompressMarshal() []byte {
-	return compress(s.VersionedMarshal())
+	return compressSnapshot(s.VersionedMarshal())
 }
 
 func (s *SnapshotWithTopologicalOrder) VersionedMarshal() []byte {

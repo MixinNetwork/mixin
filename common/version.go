@@ -94,7 +94,7 @@ func decompressUnmarshalVersionedTransaction(val []byte) (*VersionedTransaction,
 
 	b := val
 	if checkTxVersion(val) < TxVersionHashSignature {
-		b = decompress(val)
+		b = decompressTransaction(val)
 	}
 
 	signed, err := NewDecoder(b).DecodeTransaction()
@@ -152,7 +152,7 @@ func (ver *VersionedTransaction) compressMarshal() []byte {
 	switch ver.Version {
 	case TxVersionHashSignature:
 		b := ver.marshal()
-		return compress(b)
+		return compressTransaction(b)
 	default:
 		panic(ver.Version)
 	}

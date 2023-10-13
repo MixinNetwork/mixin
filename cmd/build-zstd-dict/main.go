@@ -1,96 +1,46 @@
 package main
 
 import (
-	"flag"
+	"fmt"
 	"os"
+	"time"
 
+	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/dgraph-io/badger/v4"
 )
 
 func main() {
-	dbDir := flag.String("db", "/tmp/mixin/snapshots", "the mixin badger snapshots directory")
-	dicDir := flag.String("dic", "/tmp/zstd", "the directory to store zstd dictionary samples")
-	flag.Parse()
-
-	db, err := openDB(*dbDir)
-	if err != nil {
-		panic(err)
-	}
-	defer db.Close()
-
-	loopUTXOs(db, *dicDir)
-	loopTransactions(db, *dicDir)
-	loopSnapshots(db, *dicDir)
+	buildSnapshots()
 }
 
-func loopSnapshots(db *badger.DB, dir string) {
-	txn := db.NewTransaction(false)
-	defer txn.Discard()
-
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
-	defer it.Close()
-
-	it.Seek([]byte("SNAPSHOT"))
-	for ; it.ValidForPrefix([]byte("SNAPSHOT")); it.Next() {
-		item := it.Item()
-		key := item.Key()
-		val, err := item.ValueCopy(nil)
-		if err != nil {
-			panic(err)
-		}
-		err = os.WriteFile(dir+"/SNAPSHOT-"+crypto.Blake3Hash(key).String(), val, 0644)
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
-func loopTransactions(db *badger.DB, dir string) {
-	txn := db.NewTransaction(false)
-	defer txn.Discard()
-
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
-	defer it.Close()
-
-	it.Seek([]byte("TRANSACTION"))
-	for ; it.ValidForPrefix([]byte("TRANSACTION")); it.Next() {
-		item := it.Item()
-		key := item.Key()
-		val, err := item.ValueCopy(nil)
-		if err != nil {
-			panic(err)
-		}
-		err = os.WriteFile(dir+"/TRANSACTION-"+crypto.Blake3Hash(key).String(), val, 0644)
-		if err != nil {
-			panic(err)
+// zstd --train /tmp/mixin-zstd-snapshots/* -o snapshot.zstd
+func buildSnapshots() {
+	dir := "/tmp/mixin-zstd-snapshots"
+	for n := 0; n < 30; n++ {
+		for i := 0; i < 300; i++ {
+			tx := crypto.Blake3Hash([]byte(fmt.Sprintf("TRANSACTION:0:%d", time.Now().UnixNano())))
+			self := crypto.Blake3Hash([]byte(fmt.Sprintf("REFERENCE:0:%d", time.Now().UnixNano())))
+			external := crypto.Blake3Hash([]byte(fmt.Sprintf("REFERENCE:1:%d", time.Now().UnixNano())))
+			sh0 := crypto.Blake3Hash([]byte(fmt.Sprintf("SIGNATURE:0:%d", time.Now().UnixNano())))
+			sh1 := crypto.Blake3Hash([]byte(fmt.Sprintf("SIGNATURE:1:%d", time.Now().UnixNano())))
+			key := crypto.NewKeyFromSeed(append(sh0[:], sh1[:]...))
+			sig := key.Sign(sh0)
+			s := common.Snapshot{
+				Version:      common.SnapshotVersionCommonEncoding,
+				NodeId:       crypto.Blake3Hash([]byte(fmt.Sprint(n))),
+				References:   &common.RoundLink{Self: self, External: external},
+				RoundNumber:  uint64(time.Now().Unix()/100000) + uint64(i*n),
+				Timestamp:    uint64(time.Now().UnixNano()),
+				Signature:    &crypto.CosiSignature{Signature: sig, Mask: uint64(time.Now().UnixNano())},
+				Transactions: []crypto.Hash{tx},
+			}
+			topo := common.SnapshotWithTopologicalOrder{Snapshot: &s, TopologicalOrder: uint64(i * n)}
+			s.Hash = s.PayloadHash()
+			val := topo.VersionedMarshal()
+			err := os.WriteFile(dir+"/SNAPSHOT-"+s.Hash.String(), val, 0644)
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
-}
-
-func loopUTXOs(db *badger.DB, dir string) {
-	txn := db.NewTransaction(false)
-	defer txn.Discard()
-
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
-	defer it.Close()
-
-	it.Seek([]byte("UTXO"))
-	for ; it.ValidForPrefix([]byte("UTXO")); it.Next() {
-		item := it.Item()
-		key := item.Key()
-		val, err := item.ValueCopy(nil)
-		if err != nil {
-			panic(err)
-		}
-		err = os.WriteFile(dir+"/UTXO-"+crypto.Blake3Hash(key).String(), val, 0644)
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
-func openDB(dir string) (*badger.DB, error) {
-	opts := badger.DefaultOptions(dir)
-	return badger.Open(opts)
 }

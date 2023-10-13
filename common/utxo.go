@@ -62,14 +62,11 @@ func (tx *VersionedTransaction) UnspentOutputs() []*UTXOWithLock {
 }
 
 func (out *UTXOWithLock) CompressMarshal() []byte {
-	return compress(out.Marshal())
+	return compressUTXO(out.Marshal())
 }
 
 func DecompressUnmarshalUTXO(b []byte) (*UTXOWithLock, error) {
-	d := decompress(b)
-	if d == nil {
-		d = b
-	}
+	d := decompressUTXO(b)
 	return UnmarshalUTXO(d)
 }
 
