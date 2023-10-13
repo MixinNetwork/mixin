@@ -73,15 +73,13 @@ func TestSnapshot(t *testing.T) {
 
 	s.Signature = &sig
 	s.TopologicalOrder = 345
-	require.Len(s.VersionedCompressMarshal(), 190)
-	require.Equal("0000000028b52ffd03008b1be2016d0500f40977770002d4f5a8351419cfc9b0ba10268f623994c6d6a1640efa904fe848ae697556652a00007b0002b7342ffb374824d69674054486e71bb8b575a4d961b65ffff647a8e1696f579a0552038ee8ce7c8b0efba019a7c36e86f1b70069553bbb187cfd8e3ca5f14fb10001d694818d674f347b36b0efd75332eadfa73723cd0fb6152da778b91baf9719cc17168a60ce8798b10102030400000000000001590300d9497ae54e2643e665c8", hex.EncodeToString(s.VersionedCompressMarshal()))
+	require.Len(s.VersionedMarshal(), 232)
+	require.Equal("77770002d4f5a8351419cfc9b0ba10268f623994c6d6a1640efa904fe848ae697556652a000000000000007b0002b7342ffb374824d69674054486e71bb8b575a4d961b65ffff647a8e1696f579a0552038ee8ce7c8b0efba019a7c36e86f1b70069553bbb187cfd8e3ca5f14fb10001d694818d674f347b36b0efd75332eadfa73723cd0fb6152da778b91baf9719cc17168a60ce8798b10000000000000001010203040102030401020304010203040102030401020304010203040102030401020304010203040102030401020304010203040102030401020304010203040000000000000159", hex.EncodeToString(s.VersionedMarshal()))
 	require.Equal("5496376f884328a6f73d2844b9cd646755d08348b7b9efc03d3868f5afd4b134", s.PayloadHash().String())
 	require.Equal(crypto.Blake3Hash(s.versionedPayload()).String(), s.PayloadHash().String())
-	_, err = NewDecoder(s.VersionedCompressMarshal()).DecodeSnapshotWithTopo()
-	require.NotNil(err)
-	s, err = NewDecoder(decompressSnapshot(s.VersionedCompressMarshal())).DecodeSnapshotWithTopo()
+	s, err = NewDecoder(s.VersionedMarshal()).DecodeSnapshotWithTopo()
 	require.Nil(err)
-	require.Equal("0000000028b52ffd03008b1be2016d0500f40977770002d4f5a8351419cfc9b0ba10268f623994c6d6a1640efa904fe848ae697556652a00007b0002b7342ffb374824d69674054486e71bb8b575a4d961b65ffff647a8e1696f579a0552038ee8ce7c8b0efba019a7c36e86f1b70069553bbb187cfd8e3ca5f14fb10001d694818d674f347b36b0efd75332eadfa73723cd0fb6152da778b91baf9719cc17168a60ce8798b10102030400000000000001590300d9497ae54e2643e665c8", hex.EncodeToString(s.VersionedCompressMarshal()))
+	require.Equal("77770002d4f5a8351419cfc9b0ba10268f623994c6d6a1640efa904fe848ae697556652a000000000000007b0002b7342ffb374824d69674054486e71bb8b575a4d961b65ffff647a8e1696f579a0552038ee8ce7c8b0efba019a7c36e86f1b70069553bbb187cfd8e3ca5f14fb10001d694818d674f347b36b0efd75332eadfa73723cd0fb6152da778b91baf9719cc17168a60ce8798b10000000000000001010203040102030401020304010203040102030401020304010203040102030401020304010203040102030401020304010203040102030401020304010203040000000000000159", hex.EncodeToString(s.VersionedMarshal()))
 	require.Equal("5496376f884328a6f73d2844b9cd646755d08348b7b9efc03d3868f5afd4b134", s.PayloadHash().String())
 	require.Equal(crypto.Blake3Hash(s.versionedPayload()).String(), s.PayloadHash().String())
 	require.Equal("b7342ffb374824d69674054486e71bb8b575a4d961b65ffff647a8e1696f579a", s.References.Self.String())
@@ -123,8 +121,8 @@ func benchmarkSnapshot(b *testing.B, s *SnapshotWithTopologicalOrder) {
 		b.Run(fmt.Sprint(n), func(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
-				buf := s.VersionedCompressMarshal()
-				s, err := DecompressUnmarshalVersionedSnapshot(buf)
+				buf := s.VersionedMarshal()
+				s, err := UnmarshalVersionedSnapshot(buf)
 				if err != nil {
 					b.Fatal("unmarshal snapshot")
 				}

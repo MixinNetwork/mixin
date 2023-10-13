@@ -34,16 +34,8 @@ func (tx *Transaction) AsVersioned() *VersionedTransaction {
 	}
 }
 
-func DecompressUnmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
-	return decompressUnmarshalVersionedTransaction(val)
-}
-
 func UnmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
 	return unmarshalVersionedTransaction(val)
-}
-
-func (ver *VersionedTransaction) CompressMarshal() []byte {
-	return ver.compressMarshal()
 }
 
 func (ver *VersionedTransaction) Marshal() []byte {
@@ -87,24 +79,6 @@ func (ver *VersionedTransaction) PayloadHash() crypto.Hash {
 	return ver.hash
 }
 
-func decompressUnmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
-	if len(val) > config.TransactionMaximumSize {
-		return nil, fmt.Errorf("transaction too large %d", len(val))
-	}
-
-	b := val
-	if checkTxVersion(val) < TxVersionHashSignature {
-		b = decompressTransaction(val)
-	}
-
-	signed, err := NewDecoder(b).DecodeTransaction()
-	if err != nil {
-		return nil, err
-	}
-	ver := &VersionedTransaction{SignedTransaction: *signed}
-	return ver, nil
-}
-
 func checkTxVersion(val []byte) uint8 {
 	if len(val) < 4 {
 		return 0
@@ -146,16 +120,6 @@ func unmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
 	}
 	ver := &VersionedTransaction{SignedTransaction: *signed}
 	return ver, nil
-}
-
-func (ver *VersionedTransaction) compressMarshal() []byte {
-	switch ver.Version {
-	case TxVersionHashSignature:
-		b := ver.marshal()
-		return compressTransaction(b)
-	default:
-		panic(ver.Version)
-	}
 }
 
 func (ver *VersionedTransaction) marshal() []byte {

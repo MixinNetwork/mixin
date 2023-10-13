@@ -69,7 +69,7 @@ func checkGenesisLoad(txn *badger.Txn, snapshots []*common.SnapshotWithTopologic
 		if err != nil {
 			return loaded, err
 		}
-		snap, err := common.DecompressUnmarshalVersionedSnapshot(v)
+		snap, err := common.UnmarshalVersionedSnapshot(v)
 		if err != nil {
 			return loaded, err
 		}

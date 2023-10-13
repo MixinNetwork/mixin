@@ -61,15 +61,6 @@ func (tx *VersionedTransaction) UnspentOutputs() []*UTXOWithLock {
 	return utxos
 }
 
-func (out *UTXOWithLock) CompressMarshal() []byte {
-	return compressUTXO(out.Marshal())
-}
-
-func DecompressUnmarshalUTXO(b []byte) (*UTXOWithLock, error) {
-	d := decompressUTXO(b)
-	return UnmarshalUTXO(d)
-}
-
 func (out *UTXOWithLock) Marshal() []byte {
 	enc := NewMinimumEncoder()
 	enc.Write(out.Asset[:])

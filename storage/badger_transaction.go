@@ -86,7 +86,7 @@ func (s *BadgerStore) WriteTransaction(ver *common.VersionedTransaction) error {
 			if err != nil {
 				panic(fmt.Errorf("UTXO check error %s", err.Error()))
 			}
-			out, err := common.DecompressUnmarshalUTXO(ival)
+			out, err := common.UnmarshalUTXO(ival)
 			if err != nil {
 				panic(fmt.Errorf("UTXO check error %s", err.Error()))
 			}
@@ -114,7 +114,7 @@ func readTransaction(txn *badger.Txn, hash crypto.Hash) (*common.VersionedTransa
 	if err != nil {
 		return nil, err
 	}
-	return common.DecompressUnmarshalVersionedTransaction(val)
+	return common.UnmarshalVersionedTransaction(val)
 }
 
 func pruneTransaction(txn *badger.Txn, hash crypto.Hash) error {
@@ -139,7 +139,7 @@ func writeTransaction(txn *badger.Txn, ver *common.VersionedTransaction) error {
 		return err
 	}
 
-	val := ver.CompressMarshal()
+	val := ver.Marshal()
 	return txn.Set(key, val)
 }
 
@@ -183,7 +183,7 @@ func writeUTXO(txn *badger.Txn, utxo *common.UTXOWithLock, extra []byte, timesta
 		}
 	}
 	key := graphUtxoKey(utxo.Hash, utxo.Index)
-	val := utxo.CompressMarshal()
+	val := utxo.Marshal()
 	err := txn.Set(key, val)
 	if err != nil {
 		return err

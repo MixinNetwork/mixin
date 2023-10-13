@@ -60,15 +60,6 @@ func UnmarshalVersionedSnapshot(b []byte) (*SnapshotWithTopologicalOrder, error)
 	return NewDecoder(b).DecodeSnapshotWithTopo()
 }
 
-func DecompressUnmarshalVersionedSnapshot(b []byte) (*SnapshotWithTopologicalOrder, error) {
-	d := decompressSnapshot(b)
-	return UnmarshalVersionedSnapshot(d)
-}
-
-func (s *SnapshotWithTopologicalOrder) VersionedCompressMarshal() []byte {
-	return compressSnapshot(s.VersionedMarshal())
-}
-
 func (s *SnapshotWithTopologicalOrder) VersionedMarshal() []byte {
 	switch s.Version {
 	case SnapshotVersionCommonEncoding:

@@ -79,7 +79,7 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash, depth u
 			if err != nil {
 				return total, invalid, err
 			}
-			ver, err := common.DecompressUnmarshalVersionedTransaction(val)
+			ver, err := common.UnmarshalVersionedTransaction(val)
 			if err != nil {
 				return total, invalid, err
 			}

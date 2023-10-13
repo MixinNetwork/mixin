@@ -84,7 +84,7 @@ func readSnapshotsForNodeRound(txn *badger.Txn, nodeId crypto.Hash, round uint64
 		if err != nil {
 			return snapshots, err
 		}
-		s, err := common.DecompressUnmarshalVersionedSnapshot(v)
+		s, err := common.UnmarshalVersionedSnapshot(v)
 		if err != nil {
 			return snapshots, err
 		}
@@ -162,7 +162,7 @@ func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder, v
 	}
 
 	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.SoleTransaction())
-	val := snap.VersionedCompressMarshal()
+	val := snap.VersionedMarshal()
 	err = txn.Set(key, val)
 	if err != nil {
 		return err

@@ -46,7 +46,7 @@ func readSnapshotWithTopo(txn *badger.Txn, hash crypto.Hash) (*common.SnapshotWi
 	if err != nil {
 		return nil, err
 	}
-	snap, err := common.DecompressUnmarshalVersionedSnapshot(v)
+	snap, err := common.UnmarshalVersionedSnapshot(v)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (s *BadgerStore) ReadSnapshotsSinceTopology(topologyOffset, count uint64) (
 		if err != nil {
 			return snapshots, err
 		}
-		snap, err := common.DecompressUnmarshalVersionedSnapshot(v)
+		snap, err := common.UnmarshalVersionedSnapshot(v)
 		if err != nil {
 			return snapshots, err
 		}

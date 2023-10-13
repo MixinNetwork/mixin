@@ -15,7 +15,6 @@ func TestTransactionReferences(t *testing.T) {
 	require := require.New(t)
 
 	PM := "77770005a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc00020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000200000005e8d4a5100000004fe2a684e0e6c5e370ca0d89f5e2cb0da1e2ecd4028fa2d395fbca4e33f258050003fffe0d000000000005e8d4a51000001041cd5439a3a3caf43b5755facd2856b8eb8dd9c825ddbdc4c2fc283afd25d428d069468da7057e644259c5f82cea4f32b481844aff68409a2823e6a2e7d84ae59402e07b4e453035787231b6b9b5c53498573e22e7f0d1440741c95e4c51b96c81ef7ed772d8f864f4a0250478fbc3c2927b7dd5dc364d6ad49156eccdde902c139921b524d87fafa4e671e6f8d9a9b3bbb405573eef90df4ea9d966c1a81b2d99e4228582ee9001653cfb2d7eb61dfe14d243e0280db8ffe2741a89190f532fbbbbe72344c65127e697a246c5f70804342195b92835afa9d8edf7498ba083e407a579b53eb7ce1ee7e97f826e6b463e7ad160cb97c56b6166d125ffd8b6f021d3f4a6136aaddce4bdbfddae92f702c56ccb94edb2f6d93615887f0806900a65c0f230e2e2ae9358beb7e7299cf8a00bc2fd2038540f818db6e16dd4abf4dadce64dd745fe693b2ee41e4ff1b7fccff3f50819a7d41e76cb04fe1065059f3b2068a5f51863e976f65e7b2665045e3e8919b96cae80cbbbf9d33009094b5091dde31937cf61a9d7393c6d4b01f068725f233eb564bb00767138b1c83bd09cf148832f8e5303a3249cee3c707607eb8ea030c0b92777e3ed729fb2aee4c4298bd6dcd0d1c0eff1a06c68bf6459f35c8a047130b631b22bff252edeb03310cf7f2121f21afb2d299f7febc6a3eaa79e5e19bd3a5c299817b50262289e2bc382f173c6473159e19ed185b373e935081774e0c133b9416abdff319667187a71dff53e0003fffe0d00000000000000000000"
-	CM := "0000000028b52ffd4300c118533ce4019d1400a42777770005a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc00020105e8d4a5100000004fe2a684e0e6c5e370ca0d89f5e2cb0da1e2ecd4028fa2d395fbca4e33f258050003fffe0d1041cd5439a3a3caf43b5755facd2856b8eb8dd9c825ddbdc4c2fc283afd25d428d069468da7057e644259c5f82cea4f32b481844aff68409a2823e6a2e7d84ae59402e07b4e453035787231b6b9b5c53498573e22e7f0d1440741c95e4c51b96c81ef7ed772d8f864f4a0250478fbc3c2927b7dd5dc364d6ad49156eccdde902c139921b524d87fafa4e671e6f8d9a9b3bbb405573eef90df4ea9d966c1a81b2d99e4228582ee9001653cfb2d7eb61dfe14d243e0280db8ffe2741a89190f532fbbbbe72344c65127e697a246c5f70804342195b92835afa9d8edf7498ba083e407a579b53eb7ce1ee7e97f826e6b463e7ad160cb97c56b6166d125ffd8b6f021d3f4a6136aaddce4bdbfddae92f702c56ccb94edb2f6d93615887f0806900a65c0f230e2e2ae9358beb7e7299cf8a00bc2fd2038540f818db6e16dd4abf4dadce64dd745fe693b2ee41e4ff1b7fccff3f50819a7d41e76cb04fe1065059f3b2068a5f51863e976f65e7b2665045e3e8919b96cae80cbbbf9d33009094b5091dde31937cf61a9d7393c6d4b01f068725f233eb564bb00767138b1c83bd09cf148832f8e5303a3249cee3c707607eb8ea030c0b92777e3ed729fb2aee4c4298bd6dcd0d1c0eff1a06c68bf6459f35c8a047130b631b22bff252edeb03310cf7f2121f21afb2d299f7febc6a3eaa79e5e19bd3a5c299817b50262289e2bc382f173c6473159e19ed185b373e935081774e0c133b9416abdff319667187a71dff53e00000000000700216a889d55a52db4aa823095819b3bad3baf993d01"
 
 	accounts := make([]*Address, 0)
 	for i := 0; i < 16; i++ {
@@ -49,22 +48,7 @@ func TestTransactionReferences(t *testing.T) {
 	pm := ver.Marshal()
 	require.Equal(740, len(pm))
 	require.Equal(PM, hex.EncodeToString(pm))
-	cm := ver.CompressMarshal()
-	require.Equal(678, len(cm))
-	require.Equal(CM, hex.EncodeToString(cm))
-	ver, err := DecompressUnmarshalVersionedTransaction(cm)
-	require.Nil(err)
-	pm = ver.Marshal()
-	require.Equal(740, len(pm))
-	require.Equal(PM, hex.EncodeToString(pm))
-	ver, err = DecompressUnmarshalVersionedTransaction(pm)
-	require.Nil(err)
-	pm = ver.Marshal()
-	require.Equal(740, len(pm))
-	require.Equal(PM, hex.EncodeToString(pm))
-	cm, err = hex.DecodeString(CM)
-	require.Nil(err)
-	ver, err = DecompressUnmarshalVersionedTransaction(cm)
+	ver, err := UnmarshalVersionedTransaction(pm)
 	require.Nil(err)
 	pm = ver.Marshal()
 	require.Equal(740, len(pm))
@@ -95,7 +79,7 @@ func TestTransactionReferences(t *testing.T) {
 
 	pm = ver.Marshal()
 	require.Len(pm, 942)
-	ver, err = DecompressUnmarshalVersionedTransaction(pm)
+	ver, err = UnmarshalVersionedTransaction(pm)
 	require.Nil(err)
 	require.Nil(ver.AggregatedSignature)
 	require.NotNil(ver.SignaturesMap)
@@ -216,7 +200,7 @@ func TestTransactionReferences(t *testing.T) {
 
 	pm = ver.Marshal()
 	require.Len(pm, 810)
-	ver, err = DecompressUnmarshalVersionedTransaction(pm)
+	ver, err = UnmarshalVersionedTransaction(pm)
 	require.Nil(err)
 	require.NotNil(ver.AggregatedSignature)
 	require.Nil(ver.SignaturesMap)
@@ -226,7 +210,7 @@ func TestTransactionReferences(t *testing.T) {
 
 	require.Len(ver.References, 0)
 	require.Len(ver.PayloadMarshal(), 740)
-	ver, _ = DecompressUnmarshalVersionedTransaction(pm)
+	ver, _ = UnmarshalVersionedTransaction(pm)
 	ver.References = []crypto.Hash{ver.Inputs[0].Hash}
 	require.Len(ver.PayloadMarshal(), 772)
 	require.Len(ver.AggregatedSignature.Signers, 3)
@@ -240,7 +224,7 @@ func TestTransactionReferences(t *testing.T) {
 	require.Nil(err)
 	pm = ver.Marshal()
 	require.Len(pm, 842)
-	ver, _ = DecompressUnmarshalVersionedTransaction(pm)
+	ver, _ = UnmarshalVersionedTransaction(pm)
 	require.Len(ver.References, 1)
 	require.Equal(ver.Inputs[0].Hash, ver.References[0])
 }

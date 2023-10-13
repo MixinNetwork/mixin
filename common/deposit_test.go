@@ -184,7 +184,7 @@ func TestDeposit(t *testing.T) {
 	require.Nil(err)
 
 	pm := ver.Marshal()
-	ver, err = DecompressUnmarshalVersionedTransaction(pm)
+	ver, err = UnmarshalVersionedTransaction(pm)
 	require.Nil(err)
 	require.Equal(1, len(ver.SignaturesMap))
 	require.Equal(1, len(ver.SignaturesMap[0]))

@@ -9,7 +9,6 @@ require (
 	github.com/dgraph-io/badger/v4 v4.2.0
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/gofrs/uuid/v5 v5.0.0
-	github.com/klauspost/compress v1.17.0
 	github.com/pelletier/go-toml v1.9.5
 	github.com/quic-go/quic-go v0.39.0
 	github.com/shopspring/decimal v1.3.1
@@ -32,6 +31,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/flatbuffers v23.5.26+incompatible // indirect
 	github.com/google/pprof v0.0.0-20230926050212-f7f687d19a98 // indirect
+	github.com/klauspost/compress v1.17.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/onsi/ginkgo/v2 v2.13.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

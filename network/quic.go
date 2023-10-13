@@ -14,8 +14,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/MixinNetwork/mixin/common"
-	"github.com/klauspost/compress/zstd"
 	"github.com/quic-go/quic-go"
 )
 
@@ -32,11 +30,9 @@ const (
 )
 
 type QuicClient struct {
-	session      quic.Connection
-	send         quic.SendStream
-	receive      quic.ReceiveStream
-	zstdZipper   *zstd.Encoder
-	zstdUnzipper *zstd.Decoder
+	session quic.Connection
+	send    quic.SendStream
+	receive quic.ReceiveStream
 }
 
 type QuicTransport struct {
@@ -78,9 +74,8 @@ func (t *QuicTransport) Dial(ctx context.Context) (Client, error) {
 		return nil, err
 	}
 	return &QuicClient{
-		session:    sess,
-		send:       stm,
-		zstdZipper: common.NewZstdEncoder(1, nil),
+		session: sess,
+		send:    stm,
 	}, nil
 }
 
@@ -112,9 +107,8 @@ func (t *QuicTransport) Accept(ctx context.Context) (Client, error) {
 		return nil, err
 	}
 	return &QuicClient{
-		session:      sess,
-		receive:      stm,
-		zstdUnzipper: common.NewZstdDecoder(1, nil),
+		session: sess,
+		receive: stm,
 	}, nil
 }
 
@@ -140,10 +134,6 @@ func (c *QuicClient) Receive() (*TransportMessage, error) {
 	if m.Version != TransportMessageVersion {
 		return nil, fmt.Errorf("quic receive invalid message version %d", m.Version)
 	}
-	m.Compression = header[1]
-	if m.Compression != TransportCompressionZstd {
-		return nil, fmt.Errorf("quic receive invalid message compression %d", m.Compression)
-	}
 	m.Size = binary.BigEndian.Uint32(header[2:])
 	if m.Size > TransportMessageMaxSize {
 		return nil, fmt.Errorf("quic receive invalid message size %d", m.Size)
@@ -160,11 +150,6 @@ func (c *QuicClient) Receive() (*TransportMessage, error) {
 		}
 	}
 
-	switch m.Compression {
-	case TransportCompressionZstd:
-		m.Data, err = c.zstdUnzipper.DecodeAll(m.Data, nil)
-	}
-
 	return m, err
 }
 
@@ -173,16 +158,11 @@ func (c *QuicClient) Send(data []byte) error {
 		return fmt.Errorf("quic send invalid message size %d", l)
 	}
 
-	switch TransportCompressionMethod {
-	case TransportCompressionZstd:
-		data = c.zstdZipper.EncodeAll(data, nil)
-	}
-
 	err := c.send.SetWriteDeadline(time.Now().Add(WriteDeadline))
 	if err != nil {
 		return err
 	}
-	header := []byte{TransportMessageVersion, TransportCompressionMethod, 0, 0, 0, 0}
+	header := []byte{TransportMessageVersion, 0, 0, 0, 0, 0}
 	binary.BigEndian.PutUint32(header[2:], uint32(len(data)))
 	_, err = c.send.Write(header)
 	if err != nil {
@@ -195,9 +175,6 @@ func (c *QuicClient) Send(data []byte) error {
 func (c *QuicClient) Close() error {
 	if c.send != nil {
 		c.send.Close()
-		c.zstdZipper.Close()
-	} else {
-		c.zstdUnzipper.Close()
 	}
 	return c.session.CloseWithError(0, "DONE")
 }
