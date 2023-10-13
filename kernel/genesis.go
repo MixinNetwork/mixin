@@ -213,9 +213,12 @@ func readGenesis(path string) (*Genesis, error) {
 		if in.Balance.Cmp(genesisPledgeAmount()) != 0 {
 			return nil, fmt.Errorf("invalid genesis node input amount %s", in.Balance.String())
 		}
-		if inputsFilter[in.Signer.String()] {
-			return nil, fmt.Errorf("duplicated genesis node input %s", in.Signer.String())
+		if inputsFilter[in.Signer.String()] || inputsFilter[in.Payee.String()] || inputsFilter[in.Custodian.String()] {
+			return nil, fmt.Errorf("duplicated genesis node input %v", in)
 		}
+		inputsFilter[in.Signer.String()] = true
+		inputsFilter[in.Payee.String()] = true
+		inputsFilter[in.Custodian.String()] = true
 		privateView := in.Signer.PublicSpendKey.DeterministicHashDerive()
 		if privateView.Public() != in.Signer.PublicViewKey {
 			return nil, fmt.Errorf("invalid node key format %s %s",

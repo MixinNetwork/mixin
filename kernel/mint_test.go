@@ -63,7 +63,7 @@ func TestUniversalMintTransaction(t *testing.T) {
 
 	snaps, err := node.persistStore.ReadSnapshotsSinceTopology(0, 100)
 	require.Nil(err)
-	require.Len(snaps, 16)
+	require.Len(snaps, 28)
 	node.IdForNetwork = snaps[0].NodeId
 
 	addr := "XINYneY2gomSHxkYF62pxbNdwcdhcayxJRAeyUanJR611q5NWg4QebfFhEF3Me8qCHR8g8tD6QHPHD8naZnnn3GdRrhhiuxi"
@@ -119,7 +119,7 @@ func TestUniversalMintTransaction(t *testing.T) {
 			snapshots := testBuildMintSnapshots(signers, tr.round, timestamp)
 			err = node.persistStore.WriteRoundWork(node.IdForNetwork, tr.round, snapshots)
 			require.Nil(err)
-			for i := 1; i < 11; i++ {
+			for i := 1; i < 2*len(node.genesisNodes)/23+1; i++ {
 				err = node.persistStore.WriteRoundWork(signers[i], tr.round, snapshots)
 				require.Nil(err)
 			}
@@ -132,7 +132,7 @@ func TestUniversalMintTransaction(t *testing.T) {
 
 		batch := (timestamp - node.Epoch) / (24 * uint64(time.Hour))
 		for i, id := range signers {
-			if i == 11 {
+			if i == 2*len(node.genesisNodes)/3+1 {
 				break
 			}
 			err = node.persistStore.WriteRoundSpaceAndState(&common.RoundSpace{
@@ -196,27 +196,27 @@ func TestMintWorks(t *testing.T) {
 		snapshots := testBuildMintSnapshots(signers[1:], 0, timestamp)
 		err = node.persistStore.WriteRoundWork(node.IdForNetwork, 0, snapshots)
 		require.Nil(err)
-		for i := 1; i < 11; i++ {
+		for i := 1; i < len(node.genesisNodes)*2/3+1; i++ {
 			err = node.persistStore.WriteRoundWork(signers[i], 0, snapshots)
 			require.Nil(err)
 		}
 
 		works, err := node.persistStore.ListNodeWorks(signers, uint32(snapshots[0].Timestamp/uint64(time.Hour*24)))
 		require.Nil(err)
-		require.Len(works, 16)
+		require.Len(works, 28)
 		for i, id := range signers {
 			if i == 0 {
 				require.Equal(uint64(0), works[id][0])
 				require.Equal(uint64(0), works[id][1])
-			} else if i < 11 {
+			} else if i < len(node.genesisNodes)*2/3+1 {
 				require.Equal(uint64(100), works[id][0])
-				require.Equal(uint64(1000), works[id][1])
-			} else if i < 15 {
+				require.Equal(uint64(0x708), works[id][1])
+			} else if i < len(node.genesisNodes) {
 				require.Equal(uint64(0), works[id][0])
-				require.Equal(uint64(1100), works[id][1])
+				require.Equal(uint64(0x76c), works[id][1])
 			} else {
-				require.Equal(uint64(100), works[id][0])
-				require.Equal(uint64(1000), works[id][1])
+				require.Equal(uint64(0x64), works[id][0])
+				require.Equal(uint64(0x708), works[id][1])
 			}
 		}
 		offset, err := node.persistStore.ReadWorkOffset(node.IdForNetwork)
@@ -231,22 +231,22 @@ func TestMintWorks(t *testing.T) {
 
 	works, err := node.persistStore.ListNodeWorks(signers, uint32(snapshots[0].Timestamp/uint64(time.Hour*24)))
 	require.Nil(err)
-	require.Len(works, 16)
+	require.Len(works, len(node.genesisNodes)+1)
 	require.Equal(uint64(198), works[node.IdForNetwork][0])
-	require.Equal(uint64(1000), works[node.IdForNetwork][1])
+	require.Equal(uint64(0x708), works[node.IdForNetwork][1])
 	for i, id := range signers {
 		if i == 0 {
 			require.Equal(uint64(0), works[id][0])
 			require.Equal(uint64(0), works[id][1])
-		} else if i < 11 {
+		} else if i < len(node.genesisNodes)*2/3+1 {
 			require.Equal(uint64(100), works[id][0])
-			require.Equal(uint64(1098), works[id][1])
-		} else if i < 15 {
+			require.Equal(uint64(0x76a), works[id][1])
+		} else if i < len(node.genesisNodes) {
 			require.Equal(uint64(0), works[id][0])
-			require.Equal(uint64(1198), works[id][1])
+			require.Equal(uint64(0x7ce), works[id][1])
 		} else {
-			require.Equal(uint64(198), works[id][0])
-			require.Equal(uint64(1000), works[id][1])
+			require.Equal(uint64(0xc6), works[id][0])
+			require.Equal(uint64(0x708), works[id][1])
 		}
 	}
 	offset, err = node.persistStore.ReadWorkOffset(node.IdForNetwork)
@@ -255,29 +255,29 @@ func TestMintWorks(t *testing.T) {
 
 	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 1, snapshots)
 	require.Nil(err)
-	for i := 1; i < 11; i++ {
+	for i := 1; i < len(node.genesisNodes)*2/3+1; i++ {
 		err = node.persistStore.WriteRoundWork(signers[i], 1, nil)
 		require.Nil(err)
 	}
 
 	works, err = node.persistStore.ListNodeWorks(signers, uint32(snapshots[0].Timestamp/uint64(time.Hour*24)))
 	require.Nil(err)
-	require.Len(works, 16)
+	require.Len(works, len(node.genesisNodes)+1)
 	require.Equal(uint64(200), works[node.IdForNetwork][0])
-	require.Equal(uint64(1000), works[node.IdForNetwork][1])
+	require.Equal(uint64(0x708), works[node.IdForNetwork][1])
 	for i, id := range signers {
 		if i == 0 {
 			require.Equal(uint64(0), works[id][0])
 			require.Equal(uint64(0), works[id][1])
-		} else if i < 11 {
+		} else if i < len(node.genesisNodes)*2/3+1 {
 			require.Equal(uint64(100), works[id][0])
-			require.Equal(uint64(1100), works[id][1])
-		} else if i < 15 {
+			require.Equal(uint64(0x76c), works[id][1])
+		} else if i < len(node.genesisNodes) {
 			require.Equal(uint64(0), works[id][0])
-			require.Equal(uint64(1200), works[id][1])
+			require.Equal(uint64(0x7d0), works[id][1])
 		} else {
 			require.Equal(uint64(200), works[id][0])
-			require.Equal(uint64(1000), works[id][1])
+			require.Equal(uint64(0x708), works[id][1])
 		}
 	}
 	offset, err = node.persistStore.ReadWorkOffset(node.IdForNetwork)
@@ -288,14 +288,14 @@ func TestMintWorks(t *testing.T) {
 	snapshots = testBuildMintSnapshots(signers[1:], 2, timestamp)
 	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 2, snapshots[:10])
 	require.Nil(err)
-	for i := 1; i < 11; i++ {
+	for i := 1; i < 2*len(node.genesisNodes)/3+1; i++ {
 		err = node.persistStore.WriteRoundWork(signers[i], 2, snapshots[:10])
 		require.Nil(err)
 	}
 
 	batch := (timestamp - node.Epoch) / (24 * uint64(time.Hour))
 	for i, id := range signers {
-		if i == 11 {
+		if i == len(node.genesisNodes)*2/3+1 {
 			break
 		}
 		err = node.persistStore.WriteRoundSpaceAndState(&common.RoundSpace{
@@ -313,17 +313,17 @@ func TestMintWorks(t *testing.T) {
 	}
 	mints, err := node.distributeKernelMintByWorks(accepted, common.NewInteger(10000), timestamp)
 	require.Nil(err)
-	require.Len(mints, 16)
+	require.Len(mints, len(node.genesisNodes)+1)
 	total := common.NewInteger(0)
 	for i, m := range mints {
 		if i == 0 { // 0
-			require.Equal("94.59529577", m.Work.String())
-		} else if i < 11 { // 1220 * 10
-			require.Equal("662.58616354", m.Work.String())
-		} else if i < 15 { // 1200 * 4
-			require.Equal("653.78520881", m.Work.String())
+			require.Equal("52.72234781", m.Work.String())
+		} else if i < 2*len(node.genesisNodes)/3+1 { // 1220 * 10
+			require.Equal("369.22742985", m.Work.String())
+		} else if i < len(node.genesisNodes) { // 1200 * 4
+			require.Equal("366.41822348", m.Work.String())
 		} else { // 1240
-			require.Equal("664.40223356", m.Work.String())
+			require.Equal("369.83812689", m.Work.String())
 		}
 		total = total.Add(m.Work)
 	}

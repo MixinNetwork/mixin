@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const mainnetId = "4d73a8617316f28afd61a74b8c345b3f2cb9033b3da2ab683c86bfefa1a6383b"
+const mainnetId = "74c6cdb7d51af57037faa1f5544f8331ced001df5964331911ca51385993b375"
 
 func TestNodeRemovePossibility(t *testing.T) {
 	require := require.New(t)
@@ -37,12 +37,12 @@ func TestNodeRemovePossibility(t *testing.T) {
 	candi, err = node.checkRemovePossibility(node.IdForNetwork, uint64(now.UnixNano()), nil)
 	require.Nil(err)
 	require.NotNil(candi)
-	require.Equal("0d4bbdc9bff475ded23e14f1e46195bbd31580d9301f90491c6d40ca9a0e318e", candi.IdForNetwork.String())
+	require.Equal("009234939f0f8f9495f611c713ec61358262ecf6ec742671addfcce5350c1d23", candi.IdForNetwork.String())
 
 	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, uint64(now.UnixNano()), nil)
 	require.Nil(err)
 	require.NotNil(tx)
-	require.Equal("d5502a2754c916157bbc1420d9d520fd0c5efbed163ccec14e69bdab4af21a5a", tx.PayloadHash().String())
+	require.Equal("c183ce86b5de6c35395371eebf9dbe7a27f06fa3bc5f8aae16a8e833bced422b", tx.PayloadHash().String())
 	require.Equal(uint8(5), tx.Version)
 	require.Equal(common.XINAssetId, tx.Asset)
 	require.Equal(pledgeAmount(1707*time.Hour*24), tx.Outputs[0].Amount)
@@ -57,7 +57,7 @@ func TestNodeRemovePossibility(t *testing.T) {
 	err = tx.Validate(node.persistStore, uint64(time.Now().UnixNano()), false)
 	require.Nil(err)
 
-	payee, err := common.NewAddressFromString("XINS5363SmtRnKwf32yTipAYs7gNgZJnhsWAvBPLPxW9xyrQAGF5piAp91B6W3kXsarSgSsFkpQPyoSM5wr17gnCBavHXrrP")
+	payee, err := common.NewAddressFromString("XIN4GLKJRtaquYDE49MraHWeKKyoWVmS58qvXQY845pxLECzm86RmkVZEwWMHo8ZRMd2Q8MziDvre5RrC8Lkty4kFeuZ2aYg")
 	require.Nil(err)
 	mask := tx.Outputs[0].Mask
 	ghost := tx.Outputs[0].Keys[0]
