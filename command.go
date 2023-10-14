@@ -766,7 +766,7 @@ func dumpGraphHeadCmd(c *cli.Context) error {
 }
 
 func setupTestNetCmd(c *cli.Context) error {
-	var signers, payees []common.Address
+	var signers, payees, custodians []common.Address
 
 	randomPubAccount := func() common.Address {
 		seed := make([]byte, 64)
@@ -779,25 +779,22 @@ func setupTestNetCmd(c *cli.Context) error {
 	for i := 0; i < 7; i++ {
 		signers = append(signers, randomPubAccount())
 		payees = append(payees, randomPubAccount())
+		custodians = append(custodians, randomPubAccount())
 	}
 
 	inputs := make([]map[string]string, 0)
 	for i := range signers {
 		inputs = append(inputs, map[string]string{
-			"signer":  signers[i].String(),
-			"payee":   payees[i].String(),
-			"balance": "10000",
+			"signer":    signers[i].String(),
+			"payee":     payees[i].String(),
+			"custodian": custodians[i].String(),
+			"balance":   "13439",
 		})
 	}
 	genesis := map[string]any{
-		"epoch": time.Now().Unix(),
-		"nodes": inputs,
-		"domains": []map[string]string{
-			{
-				"signer":  signers[0].String(),
-				"balance": "50000",
-			},
-		},
+		"epoch":     time.Now().Unix(),
+		"nodes":     inputs,
+		"custodian": randomPubAccount(),
 	}
 	genesisData, err := json.MarshalIndent(genesis, "", "  ")
 	if err != nil {

@@ -1,6 +1,6 @@
 [node]
 # the private spend key of the signer
-signer-key = "56a7904a2dfd71c397bb48584033d8cb6ddcde9b46b7d91f07d2ede061723a0b"
+signer-key = "8bcfad3959892e8334fa287a3c9755fed017cd7a9e8c68d7540dc9e69fa4a00d"
 # limit the peers that can establish a connection and exchange snapshots
 consensus-only = false
 # the period in seconds to check some mint and election kernel opportunities
