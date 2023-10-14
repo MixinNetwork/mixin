@@ -2,7 +2,6 @@ package common
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/hex"
 	"sort"
 	"testing"
@@ -163,9 +162,7 @@ func (s *testCustodianStore) ReadCustodian(_ uint64) (*CustodianUpdateRequest, e
 
 func testBuildAddress(require *require.Assertions) Address {
 	seed := make([]byte, 64)
-	n, err := rand.Read(seed)
-	require.Nil(err)
-	require.Equal(64, n)
+	crypto.ReadRand(seed)
 	addr := NewAddressFromSeed(seed)
 	addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
 	addr.PublicViewKey = addr.PrivateViewKey.Public()

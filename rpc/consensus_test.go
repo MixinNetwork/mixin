@@ -356,7 +356,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 	domain := signers[0]
 
 	seed := make([]byte, 64)
-	rand.Read(seed)
+	crypto.ReadRand(seed)
 	count := len(signers)
 	custodian := common.NewAddressFromSeed(seed)
 
@@ -365,7 +365,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 		signer := signers[i]
 		payee := payees[i]
 		seed := make([]byte, 64)
-		rand.Read(seed)
+		crypto.ReadRand(seed)
 		custodian := common.NewAddressFromSeed(seed)
 		extra := common.EncodeCustodianNode(&custodian, &payee, &signer.PrivateSpendKey, &payee.PrivateSpendKey, &custodian.PrivateSpendKey, networkId)
 		custodianNodes[i] = &common.CustodianNode{Custodian: custodian, Payee: payee, Extra: extra}

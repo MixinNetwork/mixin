@@ -2,7 +2,6 @@ package common
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/hex"
 	"testing"
 	"time"
@@ -25,7 +24,7 @@ func TestTransactionReferences(t *testing.T) {
 	}
 
 	seed := make([]byte, 64)
-	rand.Read(seed)
+	crypto.ReadRand(seed)
 	genesisHash := crypto.Hash{}
 	script := Script{OperatorCmp, OperatorSum, 13}
 	store := storeImpl{seed: seed, accounts: accounts}
@@ -317,7 +316,7 @@ func (store storeImpl) ReadCustodian(_ uint64) (*CustodianUpdateRequest, error) 
 
 func randomAccount() Address {
 	seed := make([]byte, 64)
-	rand.Read(seed)
+	crypto.ReadRand(seed)
 	return NewAddressFromSeed(seed)
 }
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -24,10 +23,7 @@ import (
 
 func createAddressCmd(c *cli.Context) error {
 	seed := make([]byte, 64)
-	_, err := rand.Read(seed)
-	if err != nil {
-		return err
-	}
+	crypto.ReadRand(seed)
 	addr := common.NewAddressFromSeed(seed)
 	if view := c.String("view"); len(view) > 0 {
 		key, err := hex.DecodeString(view)
@@ -210,10 +206,7 @@ func buildRawTransactionCmd(c *cli.Context) error {
 	}
 	if len(seed) != 64 {
 		seed = make([]byte, 64)
-		_, err := rand.Read(seed)
-		if err != nil {
-			return err
-		}
+		crypto.ReadRand(seed)
 	}
 
 	viewKey, err := crypto.KeyFromString(c.String("view"))
@@ -320,10 +313,7 @@ func signTransactionCmd(c *cli.Context) error {
 	}
 	if len(seed) != 64 {
 		seed = make([]byte, 64)
-		_, err := rand.Read(seed)
-		if err != nil {
-			return err
-		}
+		crypto.ReadRand(seed)
 	}
 
 	tx := common.NewTransactionV5(raw.Asset)
@@ -402,10 +392,7 @@ func sendTransactionCmd(c *cli.Context) error {
 
 func pledgeNodeCmd(c *cli.Context) error {
 	seed := make([]byte, 64)
-	_, err := rand.Read(seed)
-	if err != nil {
-		return err
-	}
+	crypto.ReadRand(seed)
 	viewKey, err := crypto.KeyFromString(c.String("view"))
 	if err != nil {
 		return err
@@ -459,10 +446,7 @@ func pledgeNodeCmd(c *cli.Context) error {
 
 func cancelNodeCmd(c *cli.Context) error {
 	seed := make([]byte, 64)
-	_, err := rand.Read(seed)
-	if err != nil {
-		return err
-	}
+	crypto.ReadRand(seed)
 	viewKey, err := crypto.KeyFromString(c.String("view"))
 	if err != nil {
 		return err
@@ -786,10 +770,7 @@ func setupTestNetCmd(c *cli.Context) error {
 
 	randomPubAccount := func() common.Address {
 		seed := make([]byte, 64)
-		_, err := rand.Read(seed)
-		if err != nil {
-			panic(err)
-		}
+		crypto.ReadRand(seed)
 		account := common.NewAddressFromSeed(seed)
 		account.PrivateViewKey = account.PublicSpendKey.DeterministicHashDerive()
 		account.PublicViewKey = account.PrivateViewKey.Public()

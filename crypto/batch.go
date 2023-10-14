@@ -1,7 +1,6 @@
 package crypto
 
 import (
-	"crypto/rand"
 	"crypto/sha512"
 
 	"filippo.io/edwards25519"
@@ -143,11 +142,8 @@ func (v *BatchVerifier) Verify() bool {
 		}
 
 		buf := make([]byte, 32)
-		n, err := rand.Read(buf[:16])
-		if err != nil || n != 16 {
-			panic(err)
-		}
-		_, err = Rcoeffs[i].SetCanonicalBytes(buf)
+		ReadRand(buf[:16])
+		_, err := Rcoeffs[i].SetCanonicalBytes(buf)
 		if err != nil {
 			return false
 		}

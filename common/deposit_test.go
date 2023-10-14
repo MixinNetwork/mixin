@@ -1,7 +1,6 @@
 package common
 
 import (
-	"crypto/rand"
 	"encoding/hex"
 	"strings"
 	"testing"
@@ -38,7 +37,7 @@ func TestDeposit(t *testing.T) {
 	}
 
 	seed := make([]byte, 64)
-	rand.Read(seed)
+	crypto.ReadRand(seed)
 	store := storeImpl{
 		custodian: receiver.Address(),
 		seed:      seed,

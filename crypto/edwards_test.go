@@ -1,7 +1,6 @@
 package crypto
 
 import (
-	"crypto/rand"
 	"testing"
 
 	"filippo.io/edwards25519"
@@ -13,12 +12,12 @@ func TestEdwards(t *testing.T) {
 	require := require.New(t)
 
 	seed := make([]byte, 64)
-	rand.Read(seed)
+	ReadRand(seed)
 	key := NewKeyFromSeed(seed)
 	a, err := edwards25519.NewScalar().SetCanonicalBytes(key[:])
 	require.Nil(err)
 	seed = make([]byte, 64)
-	rand.Read(seed)
+	ReadRand(seed)
 	key = NewKeyFromSeed(seed)
 	b, err := edwards25519.NewScalar().SetCanonicalBytes(key[:])
 	require.Nil(err)

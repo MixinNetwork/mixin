@@ -1,7 +1,6 @@
 package crypto
 
 import (
-	"crypto/rand"
 	"fmt"
 	"testing"
 
@@ -13,7 +12,7 @@ import (
 func TestCosi(t *testing.T) {
 	require := require.New(t)
 
-	require.NotEqual(CosiCommit(rand.Reader).String(), CosiCommit(rand.Reader).String())
+	require.NotEqual(CosiCommit(RandReader()).String(), CosiCommit(RandReader()).String())
 
 	keys := make([]*Key, 31)
 	publics := make([]*Key, len(keys))

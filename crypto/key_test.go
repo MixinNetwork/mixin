@@ -1,7 +1,6 @@
 package crypto
 
 import (
-	"crypto/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -60,6 +59,6 @@ func TestGhostKey(t *testing.T) {
 
 func randomKey() Key {
 	seed := make([]byte, 64)
-	rand.Read(seed)
+	ReadRand(seed)
 	return NewKeyFromSeed(seed)
 }

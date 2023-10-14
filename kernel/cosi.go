@@ -1,7 +1,6 @@
 package kernel
 
 import (
-	"crypto/rand"
 	"fmt"
 	"time"
 
@@ -372,7 +371,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		Responses:      make(map[int]*[32]byte),
 	}
 
-	v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(rand.Reader)}
+	v := &CosiVerifier{Snapshot: s, random: crypto.CosiCommit(crypto.RandReader())}
 	R := v.random.Public()
 	chain.CosiVerifiers[s.Hash] = v
 	chain.CosiVerifiers[s.SoleTransaction()] = v
@@ -414,7 +413,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	}
 
 	s, cd := m.Snapshot, m.data
-	r := crypto.CosiCommit(rand.Reader)
+	r := crypto.CosiCommit(crypto.RandReader())
 	v := &CosiVerifier{Snapshot: s, Commitment: m.Commitment, random: r}
 	chain.CosiVerifiers[s.Hash] = v
 	chain.CosiVerifiers[s.SoleTransaction()] = v
@@ -856,7 +855,7 @@ func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) err
 	commitments := make([]*crypto.Key, maximum)
 	cm := make(map[crypto.Key]*crypto.Key, maximum)
 	for i := 0; i < maximum; i++ {
-		r := crypto.CosiCommit(rand.Reader)
+		r := crypto.CosiCommit(crypto.RandReader())
 		k := r.Public()
 		commitments[i] = &k
 		cm[k] = r

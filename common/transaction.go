@@ -1,7 +1,6 @@
 package common
 
 import (
-	"crypto/rand"
 	"crypto/sha512"
 	"encoding/binary"
 	"fmt"
@@ -360,9 +359,6 @@ func (tx *Transaction) AddScriptOutput(accounts []*Address, s Script, amount Int
 
 func (tx *Transaction) AddRandomScriptOutput(accounts []*Address, s Script, amount Integer) {
 	seed := make([]byte, 64)
-	n, err := rand.Read(seed)
-	if err != nil || n != 64 {
-		panic(err)
-	}
+	crypto.ReadRand(seed)
 	tx.AddScriptOutput(accounts, s, amount, seed)
 }

@@ -2,7 +2,6 @@ package network
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
@@ -14,6 +13,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/quic-go/quic-go"
 )
 
@@ -180,7 +180,7 @@ func (c *QuicClient) Close() error {
 }
 
 func generateTLSConfig() *tls.Config {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	key, err := rsa.GenerateKey(crypto.RandReader(), 2048)
 	if err != nil {
 		panic(err)
 	}
@@ -192,7 +192,7 @@ func generateTLSConfig() *tls.Config {
 		NotAfter:              time.Now().Add(time.Hour * 24 * 30),
 		BasicConstraintsValid: true,
 	}
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	certDER, err := x509.CreateCertificate(crypto.RandReader(), &template, &template, &key.PublicKey, key)
 	if err != nil {
 		panic(err)
 	}
