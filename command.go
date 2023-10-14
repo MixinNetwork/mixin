@@ -845,10 +845,11 @@ func setupTestNetCmd(c *cli.Context) error {
 			"balance":   "13439",
 		})
 	}
+	custodian := randomPubAccount()
 	genesis := map[string]any{
 		"epoch":     time.Now().Unix(),
 		"nodes":     inputs,
-		"custodian": randomPubAccount(),
+		"custodian": custodian,
 	}
 	genesisData, err := json.MarshalIndent(genesis, "", "  ")
 	if err != nil {
@@ -862,6 +863,9 @@ func setupTestNetCmd(c *cli.Context) error {
 	}
 	peersList := `"` + strings.Join(peers, `","`) + `"`
 	fmt.Println(peers)
+	fmt.Printf("custodian:\t%s\n", custodian.String())
+	fmt.Printf("view key:\t%s\n", custodian.PrivateViewKey.String())
+	fmt.Printf("spend key:\t%s\n", custodian.PrivateSpendKey.String())
 
 	for i, a := range signers {
 		dir := fmt.Sprintf("/tmp/mixin-700%d", i+1)
@@ -876,8 +880,6 @@ signer-key = "%s"
 consensus-only = true
 memory-cache-size = 128
 cache-ttl = 3600
-ring-cache-size = 4096
-ring-final-size = 16384
 [network]
 listener = "%s"
 peers = [%s]
@@ -1019,13 +1021,23 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]any {
 			inputs = append(inputs, map[string]any{
 				"genesis": hex.EncodeToString(in.Genesis),
 			})
-		} else if in.Deposit != nil {
+		} else if d := in.Deposit; d != nil {
 			inputs = append(inputs, map[string]any{
-				"deposit": in.Deposit,
+				"deposit": map[string]any{
+					"chain":       d.Chain,
+					"asset":       d.AssetKey,
+					"transaction": d.Transaction,
+					"index":       d.Index,
+					"amount":      d.Amount,
+				},
 			})
-		} else if in.Mint != nil {
+		} else if m := in.Mint; m != nil {
 			inputs = append(inputs, map[string]any{
-				"mint": in.Mint,
+				"mint": map[string]any{
+					"group":  m.Group,
+					"batch":  m.Batch,
+					"amount": m.Amount,
+				},
 			})
 		}
 	}
