@@ -31,6 +31,7 @@ const (
 	graphPrefixWorkSnapshot    = "WORKSNAPSHOT"
 	graphPrefixSpaceCheckpoint = "SPACECHECKPOINT"
 	graphPrefixSpaceQueue      = "SPACEQUEUE"
+	graphPrefixAssetInfo       = "ASSETINFO"
 	graphPrefixAssetTotal      = "ASSETTOTAL"
 	graphPrefixCustodianUpdate = "CUSTODIANUPDATE"
 )

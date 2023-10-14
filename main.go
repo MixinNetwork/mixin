@@ -488,6 +488,17 @@ func main() {
 			},
 		},
 		{
+			Name:   "getasset",
+			Usage:  "Get the asset and balance",
+			Action: getAssetCmd,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "id",
+					Usage: "the asset id",
+				},
+			},
+		},
+		{
 			Name:   "listcustodianupdates",
 			Usage:  "List all custodian updates",
 			Action: listCustodianUpdatesCmd,

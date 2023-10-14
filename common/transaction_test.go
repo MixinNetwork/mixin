@@ -235,6 +235,10 @@ type storeImpl struct {
 	accounts  []*Address
 }
 
+func (store storeImpl) ReadAssetWithBalance(_ crypto.Hash) (*Asset, Integer, error) {
+	return nil, Zero, nil
+}
+
 func (store storeImpl) ReadUTXOKeys(hash crypto.Hash, index int) (*UTXOKeys, error) {
 	utxo, err := store.ReadUTXOLock(hash, index)
 	if err != nil {

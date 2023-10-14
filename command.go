@@ -706,6 +706,16 @@ func getKeyCmd(c *cli.Context) error {
 	return err
 }
 
+func getAssetCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "getasset", []any{
+		c.String("id"),
+	}, c.Bool("time"))
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
+
 func listCustodianUpdatesCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "listcustodianupdates", []any{}, c.Bool("time"))
 	if err == nil {

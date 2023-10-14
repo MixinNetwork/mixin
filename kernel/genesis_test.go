@@ -55,6 +55,13 @@ func TestGenesis(t *testing.T) {
 		require.Equal(g.Transactions[0].String(), s.SoleTransaction().String())
 		require.Equal(g.Version, s.Version)
 	}
+
+	asset, balance, err := node.persistStore.ReadAssetWithBalance(common.XINAssetId)
+	require.Nil(err)
+	require.NotNil(asset)
+	require.Equal(common.EthereumAssetId, asset.Chain)
+	require.Equal("0xa974c709cfb4566686553a20790685a47aceaa33", asset.AssetKey)
+	require.Equal(common.NewInteger(13439).Mul(27).Add(common.NewInteger(2700)), balance)
 }
 
 type SnapshotJSON struct {

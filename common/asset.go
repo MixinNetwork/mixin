@@ -2,43 +2,36 @@ package common
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/domains/bitcoin"
-	"github.com/MixinNetwork/mixin/domains/ethereum"
 )
 
 var (
-	XINAssetId crypto.Hash
+	XINAsset        *Asset
+	XINAssetId      crypto.Hash
+	BitcoinAssetId  crypto.Hash
+	EthereumAssetId crypto.Hash
 )
 
 type Asset struct {
-	ChainId  crypto.Hash
+	Chain    crypto.Hash
 	AssetKey string
 }
 
 func init() {
 	XINAssetId = crypto.Sha256Hash([]byte("c94ac88f-4671-3976-b60a-09064f1811e8"))
+	BitcoinAssetId = crypto.Sha256Hash([]byte("c6d0c728-2624-429b-8e0d-d9d19b6592fa"))
+	EthereumAssetId = crypto.Sha256Hash([]byte("43d61dcd-e413-450d-80b8-101d5e903357"))
+	XINAsset = &Asset{Chain: EthereumAssetId, AssetKey: "0xa974c709cfb4566686553a20790685a47aceaa33"}
 }
 
 func (a *Asset) Verify() error {
-	switch a.ChainId {
-	case ethereum.EthereumChainId:
-		return ethereum.VerifyAssetKey(a.AssetKey)
-	case bitcoin.BitcoinChainId:
-		return bitcoin.VerifyAssetKey(a.AssetKey)
-	default:
-		return fmt.Errorf("invalid chain id %s", a.ChainId)
+	if !a.Chain.HasValue() {
+		return fmt.Errorf("invalid asset chain %v", *a)
 	}
-}
-
-func (a *Asset) AssetId() crypto.Hash {
-	switch a.ChainId {
-	case ethereum.EthereumChainId:
-		return ethereum.GenerateAssetId(a.AssetKey)
-	case bitcoin.BitcoinChainId:
-		return bitcoin.GenerateAssetId(a.AssetKey)
-	default:
-		panic(a.ChainId)
+	if strings.TrimSpace(a.AssetKey) != a.AssetKey || len(a.AssetKey) == 0 {
+		return fmt.Errorf("invalid asset key %v", *a)
 	}
+	return nil
 }

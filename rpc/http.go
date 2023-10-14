@@ -142,6 +142,13 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			renderer.RenderData(utxo)
 		}
+	case "getasset":
+		asset, err := readAsset(impl.Store, call.Params)
+		if err != nil {
+			renderer.RenderError(err)
+		} else {
+			renderer.RenderData(asset)
+		}
 	case "getsnapshot":
 		snap, err := getSnapshot(impl.Node, impl.Store, call.Params)
 		if err != nil {

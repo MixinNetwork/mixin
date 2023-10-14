@@ -162,10 +162,12 @@ func (tx *SignedTransaction) validateInputs(store UTXOLockReader, hash crypto.Ha
 	keySigs := make(map[*crypto.Key]*crypto.Signature)
 
 	for i, in := range tx.Inputs {
+		if len(in.Genesis) > 0 {
+			return inputsFilter, inputAmount, fmt.Errorf("invalid genesis %v", in)
+		}
 		if in.Mint != nil {
 			return inputsFilter, in.Mint.Amount, nil
 		}
-
 		if in.Deposit != nil {
 			return inputsFilter, in.Deposit.Amount, nil
 		}

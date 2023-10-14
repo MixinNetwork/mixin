@@ -223,12 +223,6 @@ func (signed *SignedTransaction) SignRaw(key crypto.Key) error {
 	if in.Deposit == nil && in.Mint == nil {
 		return fmt.Errorf("invalid input format")
 	}
-	if in.Deposit != nil {
-		err := signed.verifyDepositFormat()
-		if err != nil {
-			return err
-		}
-	}
 	sig := key.Sign(msg)
 	sigs := map[uint16]*crypto.Signature{0: &sig}
 	signed.SignaturesMap = append(signed.SignaturesMap, sigs)

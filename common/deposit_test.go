@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/domains/ethereum"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,8 +22,9 @@ func TestDeposit(t *testing.T) {
 		accounts = append(accounts, &a)
 	}
 
+	chainId, _ := crypto.HashFromString("8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27")
 	assetKey := "0xa974c709cfb4566686553a20790685a47aceaa33"
-	assetID := ethereum.GenerateAssetId(assetKey)
+	assetID, _ := crypto.HashFromString("a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc")
 	transactionHash := "0x426ce53523b2f24d0f20707ef169f9cc5a1eea34287210873421bd1e5e5d2718"
 
 	receiver := &MixinKey{
@@ -53,14 +53,14 @@ func TestDeposit(t *testing.T) {
 	require.True(strings.Contains(err.Error(), "invalid inputs"))
 
 	tx.AddDepositInput(&DepositData{
-		Chain:       ethereum.EthereumChainId,
+		Chain:       chainId,
 		AssetKey:    assetKey,
 		Transaction: transactionHash,
 		Index:       0,
 		Amount:      NewIntegerFromString("1006"),
 	})
 	tx.AddDepositInput(&DepositData{
-		Chain:       ethereum.EthereumChainId,
+		Chain:       chainId,
 		AssetKey:    assetKey,
 		Transaction: transactionHash,
 		Index:       1,
@@ -74,7 +74,7 @@ func TestDeposit(t *testing.T) {
 
 	tx = NewTransactionV5(assetID)
 	tx.AddDepositInput(&DepositData{
-		Chain:       ethereum.EthereumChainId,
+		Chain:       chainId,
 		AssetKey:    assetKey,
 		Transaction: transactionHash,
 		Index:       0,
@@ -88,7 +88,7 @@ func TestDeposit(t *testing.T) {
 
 	tx = NewTransactionV5(assetID)
 	tx.AddDepositInput(&DepositData{
-		Chain:       ethereum.EthereumChainId,
+		Chain:       chainId,
 		AssetKey:    assetKey,
 		Transaction: transactionHash,
 		Index:       0,
@@ -108,7 +108,7 @@ func TestDeposit(t *testing.T) {
 
 	tx = NewTransactionV5(assetID)
 	tx.AddDepositInput(&DepositData{
-		Chain:       ethereum.EthereumChainId,
+		Chain:       chainId,
 		AssetKey:    assetKey,
 		Transaction: transactionHash,
 		Index:       0,
@@ -128,7 +128,7 @@ func TestDeposit(t *testing.T) {
 
 	tx = NewTransactionV5(assetID)
 	tx.AddDepositInput(&DepositData{
-		Chain:       ethereum.EthereumChainId,
+		Chain:       chainId,
 		AssetKey:    assetKey,
 		Transaction: transactionHash,
 		Index:       0,
@@ -147,7 +147,7 @@ func TestDeposit(t *testing.T) {
 
 	tx = NewTransactionV5(assetID)
 	tx.AddDepositInput(&DepositData{
-		Chain:       ethereum.EthereumChainId,
+		Chain:       chainId,
 		AssetKey:    assetKey,
 		Transaction: transactionHash,
 		Index:       0,
@@ -166,7 +166,7 @@ func TestDeposit(t *testing.T) {
 
 	tx = NewTransactionV5(assetID)
 	tx.AddDepositInput(&DepositData{
-		Chain:       ethereum.EthereumChainId,
+		Chain:       chainId,
 		AssetKey:    assetKey,
 		Transaction: transactionHash,
 		Index:       0,

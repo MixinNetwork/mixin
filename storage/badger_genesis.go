@@ -16,6 +16,11 @@ func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.Sn
 		return err
 	}
 
+	err = writeAssetInfo(txn, common.XINAssetId, common.XINAsset)
+	if err != nil {
+		return err
+	}
+
 	for _, r := range rounds {
 		err := writeRound(txn, r.Hash, r)
 		if err != nil {

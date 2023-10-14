@@ -157,14 +157,14 @@ func finalizeTransaction(txn *badger.Txn, ver *common.VersionedTransaction, snap
 		return err
 	}
 
-	var genesis bool
-	for _, in := range ver.Inputs {
-		if len(in.Genesis) > 0 {
-			genesis = true
-			break
+	if d := ver.Inputs[0].Deposit; d != nil {
+		err := writeAssetInfo(txn, ver.Asset, d.Asset())
+		if err != nil {
+			return err
 		}
 	}
 
+	genesis := len(ver.Inputs[0].Genesis) > 0
 	for _, utxo := range ver.UnspentOutputs() {
 		err := writeUTXO(txn, utxo, ver.Extra, snap.Timestamp, genesis)
 		if err != nil {

@@ -31,10 +31,15 @@ type CustodianReader interface {
 	ReadCustodian(ts uint64) (*CustodianUpdateRequest, error)
 }
 
+type AssetReader interface {
+	ReadAssetWithBalance(id crypto.Hash) (*Asset, Integer, error)
+}
+
 type DataStore interface {
 	UTXOLockReader
 	UTXOLocker
 	GhostLocker
 	NodeReader
 	CustodianReader
+	AssetReader
 }
