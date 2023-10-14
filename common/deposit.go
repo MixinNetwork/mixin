@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/MixinNetwork/mixin/crypto"
 )
@@ -41,6 +42,9 @@ func (tx *Transaction) verifyDepositFormat(store DataStore) error {
 	}
 	if deposit.Amount.Sign() <= 0 {
 		return fmt.Errorf("invalid amount %s", deposit.Amount.String())
+	}
+	if strings.TrimSpace(deposit.Transaction) != deposit.Transaction || len(deposit.Transaction) == 0 {
+		return fmt.Errorf("invalid transaction hash %s", deposit.Transaction)
 	}
 	old, _, err := store.ReadAssetWithBalance(tx.Asset)
 	if err != nil || old == nil {

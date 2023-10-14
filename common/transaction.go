@@ -172,7 +172,6 @@ func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []*Address) error
 }
 
 func (signed *SignedTransaction) SignInput(reader UTXOKeysReader, index int, accounts []*Address) error {
-
 	if len(accounts) == 0 {
 		return nil
 	}

@@ -260,6 +260,45 @@ func main() {
 			},
 		},
 		{
+			Name:   "signcustodiandeposit",
+			Usage:  "Sign a deposit transaction with a single custodian key",
+			Action: custodianDepositCmd,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "receiver",
+					Usage: "the receiver address of the deposit",
+				},
+				&cli.StringFlag{
+					Name:  "custodian",
+					Usage: "the custodian private view and spend key hex",
+				},
+				&cli.StringFlag{
+					Name:  "asset",
+					Usage: "the deposit asset id",
+				},
+				&cli.StringFlag{
+					Name:  "chain",
+					Usage: "the deposit chain id",
+				},
+				&cli.StringFlag{
+					Name:  "asset_key",
+					Usage: "the deposit asset key",
+				},
+				&cli.StringFlag{
+					Name:  "transaction",
+					Usage: "the deposit transaction hash",
+				},
+				&cli.Uint64Flag{
+					Name:  "index",
+					Usage: "the deposit transaction output index",
+				},
+				&cli.StringFlag{
+					Name:  "amount",
+					Usage: "the deposit amount",
+				},
+			},
+		},
+		{
 			Name:   "buildnodepledgetransaction",
 			Usage:  "Build the transaction to pledge a node",
 			Action: pledgeNodeCmd,

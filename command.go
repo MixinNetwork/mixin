@@ -390,6 +390,60 @@ func sendTransactionCmd(c *cli.Context) error {
 	return err
 }
 
+func custodianDepositCmd(c *cli.Context) error {
+	receiver, err := common.NewAddressFromString(c.String("receiver"))
+	if err != nil {
+		return fmt.Errorf("invalid receiver %s", c.String("receiver"))
+	}
+	kph := c.String("custodian")
+	if len(kph) != 128 {
+		return fmt.Errorf("invalid custodian %s", kph)
+	}
+	view, err := crypto.KeyFromString(kph[:64])
+	if err != nil {
+		return fmt.Errorf("invalid custodian %s", kph)
+	}
+	spend, err := crypto.KeyFromString(kph[64:])
+	if err != nil {
+		return fmt.Errorf("invalid custodian %s", kph)
+	}
+	custodian := &common.Address{
+		PrivateViewKey:  view,
+		PrivateSpendKey: spend,
+		PublicViewKey:   view.Public(),
+		PublicSpendKey:  spend.Public(),
+	}
+
+	asset, err := crypto.HashFromString(c.String("asset"))
+	if err != nil {
+		return fmt.Errorf("invalid asset %s", c.String("asset"))
+	}
+	chain, err := crypto.HashFromString(c.String("chain"))
+	if err != nil {
+		return fmt.Errorf("invalid chain %s", c.String("chain"))
+	}
+	amount := common.NewIntegerFromString(c.String("amount"))
+	seed := make([]byte, 64)
+	crypto.ReadRand(seed)
+	script := common.NewThresholdScript(1)
+	deposit := &common.DepositData{
+		Chain:       chain,
+		AssetKey:    c.String("asset_key"),
+		Transaction: c.String("transaction"),
+		Index:       c.Uint64("index"),
+		Amount:      amount,
+	}
+	tx := common.NewTransactionV5(asset)
+	tx.AddDepositInput(deposit)
+	tx.AddScriptOutput([]*common.Address{&receiver}, script, amount, seed)
+	ver := tx.AsVersioned()
+	err = ver.SignInput(nil, 0, []*common.Address{custodian})
+	if err == nil {
+		fmt.Printf("%x\n", ver.Marshal())
+	}
+	return err
+}
+
 func pledgeNodeCmd(c *cli.Context) error {
 	seed := make([]byte, 64)
 	crypto.ReadRand(seed)
