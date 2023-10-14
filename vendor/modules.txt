@@ -32,9 +32,6 @@ github.com/dustin/go-humanize
 # github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572
 ## explicit; go 1.13
 github.com/go-task/slim-sprig
-# github.com/gofrs/uuid/v5 v5.0.0
-## explicit; go 1.19
-github.com/gofrs/uuid/v5
 # github.com/gogo/protobuf v1.3.2
 ## explicit; go 1.15
 github.com/gogo/protobuf/proto
@@ -55,7 +52,7 @@ github.com/google/flatbuffers/go
 # github.com/google/pprof v0.0.0-20230926050212-f7f687d19a98
 ## explicit; go 1.19
 github.com/google/pprof/profile
-# github.com/klauspost/compress v1.17.0
+# github.com/klauspost/compress v1.17.1
 ## explicit; go 1.18
 github.com/klauspost/compress
 github.com/klauspost/compress/fse
@@ -171,7 +168,6 @@ golang.org/x/crypto/cryptobyte/asn1
 golang.org/x/crypto/hkdf
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
-golang.org/x/crypto/ripemd160
 golang.org/x/crypto/sha3
 # golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 ## explicit; go 1.20

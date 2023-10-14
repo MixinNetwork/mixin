@@ -46,6 +46,9 @@ func (tx *Transaction) verifyDepositFormat(store DataStore) error {
 	if err != nil || old == nil {
 		return err
 	}
+	if old.Chain == asset.Chain && old.AssetKey == asset.AssetKey {
+		return nil
+	}
 	return fmt.Errorf("invalid asset info %s %v %v", tx.Asset, *old, *asset)
 }
 
