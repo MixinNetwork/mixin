@@ -335,17 +335,6 @@ func (dec *Decoder) ReadOutput() (*Output, error) {
 		return nil, err
 	} else if hw {
 		w := &WithdrawalData{}
-		err := dec.Read(w.Chain[:])
-		if err != nil {
-			return nil, err
-		}
-
-		ak, err := dec.ReadBytes()
-		if err != nil {
-			return nil, err
-		}
-		w.AssetKey = string(ak)
-
 		ab, err := dec.ReadBytes()
 		if err != nil {
 			return nil, err

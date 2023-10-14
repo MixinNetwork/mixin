@@ -74,8 +74,6 @@ func (ver *VersionedTransaction) Validate(store DataStore, snapTime uint64, fork
 		return tx.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap, snapTime)
 	case TransactionTypeWithdrawalSubmit:
 		return tx.validateWithdrawalSubmit(inputsFilter)
-	case TransactionTypeWithdrawalFuel:
-		return tx.validateWithdrawalFuel(store, inputsFilter)
 	case TransactionTypeWithdrawalClaim:
 		return tx.validateWithdrawalClaim(store, inputsFilter, snapTime)
 	case TransactionTypeNodePledge:
@@ -267,7 +265,6 @@ func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, fork
 
 		switch o.Type {
 		case OutputTypeWithdrawalSubmit,
-			OutputTypeWithdrawalFuel,
 			OutputTypeWithdrawalClaim,
 			OutputTypeNodePledge,
 			OutputTypeNodeCancel,

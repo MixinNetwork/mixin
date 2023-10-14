@@ -32,7 +32,6 @@ func (tx *VersionedTransaction) UnspentOutputs() []*UTXOWithLock {
 			OutputTypeNodeCancel,
 			OutputTypeNodeAccept,
 			OutputTypeNodeRemove,
-			OutputTypeWithdrawalFuel,
 			OutputTypeWithdrawalClaim,
 			OutputTypeCustodianUpdateNodes:
 		case OutputTypeWithdrawalSubmit,

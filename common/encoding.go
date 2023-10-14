@@ -184,10 +184,6 @@ func (enc *Encoder) EncodeOutput(o *Output) {
 		enc.Write(null)
 	} else {
 		enc.Write(magic)
-		enc.Write(w.Chain[:])
-
-		enc.WriteInt(len(w.AssetKey))
-		enc.Write([]byte(w.AssetKey))
 
 		enc.WriteInt(len(w.Address))
 		enc.Write([]byte(w.Address))

@@ -1005,10 +1005,8 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]any {
 		}
 		if w := out.Withdrawal; w != nil {
 			output["withdrawal"] = map[string]any{
-				"chain":     w.Chain,
-				"asset_key": w.AssetKey,
-				"address":   w.Address,
-				"tag":       w.Tag,
+				"address": w.Address,
+				"tag":     w.Tag,
 			}
 		}
 		outputs = append(outputs, output)

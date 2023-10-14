@@ -42,14 +42,3 @@ func (a *Asset) AssetId() crypto.Hash {
 		panic(a.ChainId)
 	}
 }
-
-func (a *Asset) FeeAssetId() crypto.Hash {
-	switch a.ChainId {
-	case ethereum.EthereumChainId:
-		return ethereum.EthereumChainId
-	case bitcoin.BitcoinChainId:
-		return bitcoin.BitcoinChainId
-	default:
-		panic(a.ChainId)
-	}
-}

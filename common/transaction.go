@@ -22,7 +22,6 @@ const (
 
 	OutputTypeScript               = 0x00
 	OutputTypeWithdrawalSubmit     = 0xa1
-	OutputTypeWithdrawalFuel       = 0xa2
 	OutputTypeNodePledge           = 0xa3
 	OutputTypeNodeAccept           = 0xa4
 	outputTypeNodeResign           = 0xa5
@@ -36,7 +35,6 @@ const (
 	TransactionTypeMint                 = 0x01
 	TransactionTypeDeposit              = 0x02
 	TransactionTypeWithdrawalSubmit     = 0x03
-	TransactionTypeWithdrawalFuel       = 0x04
 	TransactionTypeWithdrawalClaim      = 0x05
 	TransactionTypeNodePledge           = 0x06
 	TransactionTypeNodeAccept           = 0x07
@@ -124,8 +122,6 @@ func (tx *SignedTransaction) TransactionType() uint8 {
 		switch out.Type {
 		case OutputTypeWithdrawalSubmit:
 			return TransactionTypeWithdrawalSubmit
-		case OutputTypeWithdrawalFuel:
-			return TransactionTypeWithdrawalFuel
 		case OutputTypeWithdrawalClaim:
 			return TransactionTypeWithdrawalClaim
 		case OutputTypeNodePledge:
