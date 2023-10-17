@@ -2,6 +2,10 @@
 
 Semantic Versioning
 
+## v0.17 Silent Cicadas Oct 17, 2023
+
+Complete new transaction and snapshot releases, this version is meant to be a genesis reset of the previous mainnet.
+
 ## v0.16 Outstanding Golden Moths Aug 6, 2023
 
 Mint and slashing rules for both Mixin Kernel and Mixin Safe.
