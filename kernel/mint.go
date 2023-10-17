@@ -115,8 +115,17 @@ func (node *Node) MintLoop() {
 		case <-node.done:
 			return
 		case <-ticker.C:
-			err := node.tryToMintKernelNodeLegacy()
-			logger.Println(node.IdForNetwork, "tryToMintKernelNodeLegacy", err)
+			cur, err := node.persistStore.ReadCustodian(node.GraphTimestamp)
+			if err != nil {
+				panic(err)
+			}
+			if cur == nil && node.isMainnet() {
+				err := node.tryToMintKernelNodeLegacy()
+				logger.Println(node.IdForNetwork, "tryToMintKernelNodeLegacy", err)
+			} else {
+				err = node.tryToMintUniversal(cur)
+				logger.Println(node.IdForNetwork, "tryToMintKernelUniversal", err)
+			}
 		}
 	}
 }
