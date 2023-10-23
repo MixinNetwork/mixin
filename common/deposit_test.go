@@ -123,7 +123,7 @@ func TestDeposit(t *testing.T) {
 	signed = &ver.SignedTransaction
 	err = signed.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap, uint64(time.Now().UnixNano()))
 	require.NotNil(err)
-	require.True(strings.Contains(err.Error(), "invalid domain signature for deposit"))
+	require.True(strings.Contains(err.Error(), "invalid custodian signature for deposit"))
 
 	tx = NewTransactionV5(assetID)
 	tx.AddDepositInput(&DepositData{

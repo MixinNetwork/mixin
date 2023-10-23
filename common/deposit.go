@@ -76,14 +76,14 @@ func (tx *SignedTransaction) validateDeposit(store DataStore, payloadHash crypto
 
 	sig := sigs[0][0]
 	if sig == nil {
-		return fmt.Errorf("invalid domain signature index for deposit")
+		return fmt.Errorf("invalid custodian signature index for deposit")
 	}
 	custodian, err := store.ReadCustodian(snapTime)
 	if err != nil {
 		return err
 	}
 	if !custodian.Custodian.PublicSpendKey.Verify(payloadHash, *sig) {
-		return fmt.Errorf("invalid domain signature for deposit")
+		return fmt.Errorf("invalid custodian signature for deposit")
 	}
 
 	return store.CheckDepositInput(tx.Inputs[0].Deposit, payloadHash)

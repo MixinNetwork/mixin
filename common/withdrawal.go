@@ -63,6 +63,9 @@ func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[strin
 	if len(tx.Outputs) == 2 && tx.Outputs[1].Type != OutputTypeScript {
 		return fmt.Errorf("invalid change type %d for withdrawal claim transaction", tx.Outputs[1].Type)
 	}
+	if len(tx.References) != 1 {
+		return fmt.Errorf("invalid references count %d for withdrawal claim transaction", len(tx.References))
+	}
 
 	claim := tx.Outputs[0]
 	if claim.Type != OutputTypeWithdrawalClaim {
@@ -72,12 +75,7 @@ func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[strin
 		return fmt.Errorf("invalid output amount %s for withdrawal claim transaction", claim.Amount)
 	}
 
-	var hash crypto.Hash
-	if len(tx.Extra) != len(hash) {
-		return fmt.Errorf("invalid extra %d for withdrawal claim transaction", len(tx.Extra))
-	}
-	copy(hash[:], tx.Extra)
-	submit, _, err := store.ReadTransaction(hash)
+	submit, _, err := store.ReadTransaction(tx.References[0])
 	if err != nil {
 		return err
 	}
@@ -89,19 +87,18 @@ func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[strin
 		return fmt.Errorf("invalid withdrawal submit data")
 	}
 
+	var sig crypto.Signature
+	if len(tx.Extra) < len(sig) {
+		return fmt.Errorf("invalid withdrawal claim information")
+	}
+	copy(sig[:], tx.Extra[:len(sig)])
+	eh := crypto.Blake3Hash(tx.Extra[len(sig):])
 	custodian, err := store.ReadCustodian(snapTime)
 	if err != nil {
 		return err
 	}
-	view := custodian.Custodian.PublicSpendKey.DeterministicHashDerive()
-	for _, utxo := range inputs {
-		for _, key := range utxo.Keys {
-			ghost := crypto.ViewGhostOutputKey(key, &view, &utxo.Mask, uint64(utxo.Index))
-			valid := *ghost == custodian.Custodian.PublicSpendKey
-			if !valid {
-				return fmt.Errorf("invalid domain signature for withdrawal claim %s", key.String())
-			}
-		}
+	if !custodian.Custodian.PublicSpendKey.Verify(eh, sig) {
+		return fmt.Errorf("invalid custodian signature for withdrawal claim")
 	}
 	return nil
 }
