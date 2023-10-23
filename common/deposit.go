@@ -34,7 +34,7 @@ func (tx *Transaction) DepositData() *DepositData {
 	return tx.Inputs[0].Deposit
 }
 
-func (tx *Transaction) verifyDepositFormat(store DataStore) error {
+func (tx *Transaction) verifyDepositData(store DataStore) error {
 	deposit := tx.Inputs[0].Deposit
 	asset := deposit.Asset()
 	if err := asset.Verify(); err != nil {
@@ -46,9 +46,13 @@ func (tx *Transaction) verifyDepositFormat(store DataStore) error {
 	if strings.TrimSpace(deposit.Transaction) != deposit.Transaction || len(deposit.Transaction) == 0 {
 		return fmt.Errorf("invalid transaction hash %s", deposit.Transaction)
 	}
-	old, _, err := store.ReadAssetWithBalance(tx.Asset)
+	old, balance, err := store.ReadAssetWithBalance(tx.Asset)
 	if err != nil || old == nil {
 		return err
+	}
+	total := balance.Add(deposit.Amount)
+	if total.Cmp(GetAssetCapacity(tx.Asset)) >= 0 {
+		return fmt.Errorf("invalid deposit capacity %s", total.String())
 	}
 	if old.Chain == asset.Chain && old.AssetKey == asset.AssetKey {
 		return nil
@@ -69,7 +73,7 @@ func (tx *SignedTransaction) validateDeposit(store DataStore, payloadHash crypto
 	if len(sigs) != 1 || len(sigs[0]) != 1 {
 		return fmt.Errorf("invalid signatures count %d for deposit", len(sigs))
 	}
-	err := tx.verifyDepositFormat(store)
+	err := tx.verifyDepositData(store)
 	if err != nil {
 		return err
 	}

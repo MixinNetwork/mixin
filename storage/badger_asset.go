@@ -24,19 +24,6 @@ func (s *BadgerStore) ReadAssetWithBalance(id crypto.Hash) (*common.Asset, commo
 	return asset, balance, nil
 }
 
-func assetCapAt(id crypto.Hash) common.Integer {
-	switch id {
-	case common.BitcoinAssetId:
-		return common.NewIntegerFromString("10000")
-	case common.EthereumAssetId:
-		return common.NewIntegerFromString("100000")
-	case common.XINAssetId:
-		return common.NewIntegerFromString("1000000")
-	default: // TODO more assets and better default value
-		return common.NewIntegerFromString("115792089237316195423570985008687907853269984665640564039457.58400791")
-	}
-}
-
 func readTotalInAsset(txn *badger.Txn, hash crypto.Hash) (common.Integer, error) {
 	key := graphAssetTotalKey(hash)
 	item, err := txn.Get(key)
@@ -80,7 +67,7 @@ func writeTotalInAsset(txn *badger.Txn, ver *common.VersionedTransaction) error 
 		return nil
 	}
 
-	max := assetCapAt(ver.Asset)
+	max := common.GetAssetCapacity(ver.Asset)
 	if total.Cmp(max) > 0 {
 		panic(total.String())
 	}
