@@ -30,7 +30,7 @@ func handlePanic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rdr := &Render{w: w}
-	rdr.RenderError(fmt.Errorf("bad request"))
+	rdr.RenderError(fmt.Errorf("server error"))
 }
 
 type Render struct {

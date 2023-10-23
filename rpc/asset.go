@@ -18,7 +18,7 @@ func readAsset(store storage.Store, params []any) (map[string]any, error) {
 	}
 
 	asset, balance, err := store.ReadAssetWithBalance(id)
-	if err != nil {
+	if err != nil || asset == nil {
 		return nil, err
 	}
 	return map[string]any{
