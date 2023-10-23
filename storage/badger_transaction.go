@@ -35,10 +35,10 @@ func readTransactionAndFinalization(txn *badger.Txn, hash crypto.Hash) (*common.
 	if err != nil {
 		return tx, "", err
 	}
-	if len(val) == 0 {
-		return tx, "MISSING", nil
-	}
 	var final crypto.Hash
+	if len(val) != len(final) {
+		panic(len(val))
+	}
 	copy(final[:], val)
 	return tx, final.String(), nil
 }

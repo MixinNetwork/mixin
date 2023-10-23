@@ -2,6 +2,10 @@ package common
 
 import "github.com/MixinNetwork/mixin/crypto"
 
+type TransactionReader interface {
+	ReadTransaction(hash crypto.Hash) (*VersionedTransaction, string, error)
+}
+
 type UTXOKeysReader interface {
 	ReadUTXOKeys(hash crypto.Hash, index int) (*UTXOKeys, error)
 }
@@ -24,7 +28,6 @@ type GhostLocker interface {
 
 type NodeReader interface {
 	ReadAllNodes(offset uint64, withState bool) []*Node
-	ReadTransaction(hash crypto.Hash) (*VersionedTransaction, string, error)
 }
 
 type CustodianReader interface {
@@ -36,6 +39,7 @@ type AssetReader interface {
 }
 
 type DataStore interface {
+	TransactionReader
 	UTXOLockReader
 	UTXOLocker
 	GhostLocker
