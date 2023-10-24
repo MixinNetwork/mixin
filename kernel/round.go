@@ -20,7 +20,7 @@ type CacheRound struct {
 	Number     uint64
 	Timestamp  uint64
 	References *common.RoundLink
-	Snapshots  []*common.Snapshot `msgpack:"-"`
+	Snapshots  []*common.Snapshot
 }
 
 type FinalRound struct {

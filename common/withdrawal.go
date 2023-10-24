@@ -93,11 +93,11 @@ func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[strin
 	}
 	copy(sig[:], tx.Extra[:len(sig)])
 	eh := crypto.Blake3Hash(tx.Extra[len(sig):])
-	custodian, err := store.ReadCustodian(snapTime)
+	cur, err := store.ReadCustodian(snapTime)
 	if err != nil {
 		return err
 	}
-	if !custodian.Custodian.PublicSpendKey.Verify(eh, sig) {
+	if !cur.Custodian.PublicSpendKey.Verify(eh, sig) {
 		return fmt.Errorf("invalid custodian signature for withdrawal claim")
 	}
 	return nil

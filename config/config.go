@@ -10,7 +10,7 @@ import (
 
 const (
 	Debug        = true
-	BuildVersion = "v0.17.0-BUILD_VERSION"
+	BuildVersion = "v0.17.1-BUILD_VERSION"
 
 	SnapshotRoundGap           = uint64(3 * time.Second)
 	SnapshotReferenceThreshold = 10
