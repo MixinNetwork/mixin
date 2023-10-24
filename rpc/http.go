@@ -128,6 +128,13 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			renderer.RenderData(tx)
 		}
+	case "getdeposittransaction":
+		tx, err := readDeposit(impl.Store, call.Params)
+		if err != nil {
+			renderer.RenderError(err)
+		} else {
+			renderer.RenderData(tx)
+		}
 	case "getutxo":
 		utxo, err := getUTXO(impl.Store, call.Params)
 		if err != nil {

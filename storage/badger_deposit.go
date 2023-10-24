@@ -10,23 +10,25 @@ import (
 	"github.com/dgraph-io/badger/v4"
 )
 
-func (s *BadgerStore) CheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
+func (s *BadgerStore) ReadDepositLock(deposit *common.DepositData) (crypto.Hash, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
+	var hash crypto.Hash
 	ival, err := readDepositInput(txn, deposit)
 	if err == badger.ErrKeyNotFound {
-		return nil
+		return hash, nil
 	} else if err != nil {
-		return err
+		return hash, err
 	}
-	if bytes.Equal(ival, tx[:]) {
-		return nil
+	if len(ival) != len(hash) {
+		panic(hex.EncodeToString(ival))
 	}
-	return fmt.Errorf("invalid lock %s %s", hex.EncodeToString(ival), hex.EncodeToString(tx[:]))
+	copy(hash[:], ival)
+	return hash, nil
 }
 
 func (s *BadgerStore) LockDepositInput(deposit *common.DepositData, tx crypto.Hash, fork bool) error {
@@ -36,7 +38,7 @@ func (s *BadgerStore) LockDepositInput(deposit *common.DepositData, tx crypto.Ha
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		ival, err := readDepositInput(txn, deposit)
 		if err == badger.ErrKeyNotFound {
-			return writeDeposit(txn, deposit, tx)
+			return writeDepositLock(txn, deposit, tx)
 		}
 		if err != nil {
 			return err
@@ -55,7 +57,7 @@ func (s *BadgerStore) LockDepositInput(deposit *common.DepositData, tx crypto.Ha
 		if err != nil {
 			return err
 		}
-		return writeDeposit(txn, deposit, tx)
+		return writeDepositLock(txn, deposit, tx)
 	})
 }
 
@@ -68,7 +70,7 @@ func readDepositInput(txn *badger.Txn, deposit *common.DepositData) ([]byte, err
 	return item.ValueCopy(nil)
 }
 
-func writeDeposit(txn *badger.Txn, deposit *common.DepositData, tx crypto.Hash) error {
+func writeDepositLock(txn *badger.Txn, deposit *common.DepositData, tx crypto.Hash) error {
 	key := graphDepositKey(deposit)
 	return txn.Set(key, tx[:])
 }

@@ -294,8 +294,8 @@ func (store storeImpl) ReadTransaction(_ crypto.Hash) (*VersionedTransaction, st
 	return nil, "", nil
 }
 
-func (store storeImpl) CheckDepositInput(_ *DepositData, _ crypto.Hash) error {
-	return nil
+func (store storeImpl) ReadDepositLock(_ *DepositData) (crypto.Hash, error) {
+	return crypto.Hash{}, nil
 }
 
 func (store storeImpl) LockDepositInput(_ *DepositData, _ crypto.Hash, _ bool) error {

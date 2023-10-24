@@ -22,7 +22,7 @@ type Store interface {
 	ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKeys, error)
 	ReadUTXOLock(hash crypto.Hash, index int) (*common.UTXOWithLock, error)
 	LockUTXOs(inputs []*common.Input, tx crypto.Hash, fork bool) error
-	CheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error
+	ReadDepositLock(deposit *common.DepositData) (crypto.Hash, error)
 	LockDepositInput(deposit *common.DepositData, tx crypto.Hash, fork bool) error
 	ReadGhostKeyLock(key crypto.Key) (*crypto.Hash, error)
 	LockGhostKeys(keys []*crypto.Key, tx crypto.Hash, fork bool) error

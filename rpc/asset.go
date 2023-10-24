@@ -22,9 +22,9 @@ func readAsset(store storage.Store, params []any) (map[string]any, error) {
 		return nil, err
 	}
 	return map[string]any{
-		"id":      id,
-		"chain":   asset.Chain,
-		"asset":   asset.AssetKey,
-		"balance": balance,
+		"id":        id,
+		"chain":     asset.Chain,
+		"asset_key": asset.AssetKey,
+		"balance":   balance,
 	}, nil
 }

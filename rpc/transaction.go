@@ -225,7 +225,7 @@ func transactionToMap(tx *common.VersionedTransaction) map[string]any {
 			inputs = append(inputs, map[string]any{
 				"deposit": map[string]any{
 					"chain":       d.Chain,
-					"asset":       d.AssetKey,
+					"asset_key":   d.AssetKey,
 					"transaction": d.Transaction,
 					"index":       d.Index,
 					"amount":      d.Amount,

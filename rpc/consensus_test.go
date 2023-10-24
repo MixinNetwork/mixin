@@ -113,7 +113,7 @@ func testConsensus(t *testing.T) {
 	domainAddress := accounts[0].String()
 	deposits := make([]*common.VersionedTransaction, 0)
 	for i := 0; i < INPUTS; i++ {
-		raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
+		raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset_key":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
 		rand.Seed(time.Now().UnixNano())
 		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw)
 		require.Nil(err)
@@ -126,6 +126,7 @@ func testConsensus(t *testing.T) {
 	transactionsCount = transactionsCount + INPUTS
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
+	testVerifyDeposits(require, nodes, deposits)
 
 	gt = testVerifyInfo(require, nodes)
 	require.Truef(gt.Timestamp.Before(epoch.Add(7*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(7*time.Second))
@@ -386,7 +387,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 	sig := domain.PrivateSpendKey.Sign(sh)
 	tx.Extra = append(sortedExtra, sig[:]...)
 
-	raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%s"}}],"outputs":[{"type":0,"amount":"%s","script":"fffe01","accounts":["%s"]}]}`, 13439, amount.String(), amount.String(), domain.String())
+	raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset_key":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%s"}}],"outputs":[{"type":0,"amount":"%s","script":"fffe01","accounts":["%s"]}]}`, 13439, amount.String(), amount.String(), domain.String())
 	rand.Seed(time.Now().UnixNano())
 	deposit, err := testSignTransaction(nodes[0].Host, domain, raw)
 	require.Nil(err)
@@ -844,6 +845,45 @@ func testVerifyInfo(require *require.Assertions, nodes []*Node) Info {
 	return info
 }
 
+func testVerifyDeposits(require *require.Assertions, nodes []*Node, deposits []*common.VersionedTransaction) {
+	for _, dt := range deposits {
+		dd := dt.DepositData()
+		for _, n := range nodes {
+			b, err := callRPC(n.Host, "getdeposittransaction", []any{dd.Chain, dd.Transaction, dd.Index})
+			require.Nil(err)
+			var tx struct {
+				Hash   crypto.Hash `json:"hash"`
+				Inputs []*struct {
+					Deposit *struct {
+						Chain           crypto.Hash    `json:"chain"`
+						AssetKey        string         `json:"asset_key"`
+						TransactionHash string         `json:"transaction"`
+						OutputIndex     uint64         `json:"index"`
+						Amount          common.Integer `json:"amount"`
+					} `json:"deposit,omitempty"`
+				}
+				Outputs []*struct {
+					Type   uint8          `json:"type"`
+					Amount common.Integer `json:"amount"`
+					Keys   []*crypto.Key  `json:"keys"`
+					Script common.Script  `json:"script"`
+				}
+			}
+			err = json.Unmarshal(b, &tx)
+			if err != nil {
+				panic(err)
+			}
+			id := tx.Inputs[0].Deposit
+			require.Equal(dd.Amount, id.Amount)
+			require.Equal(dd.Chain, id.Chain)
+			require.Equal(dd.AssetKey, id.AssetKey)
+			require.Equal(dd.Transaction, id.TransactionHash)
+			require.Equal(dd.Index, id.OutputIndex)
+			require.Equal(tx.Hash, dt.PayloadHash())
+		}
+	}
+}
+
 func testVerifySnapshots(require *require.Assertions, nodes []*Node) (map[string]bool, map[string]bool) {
 	filters := make([]map[string]*common.Snapshot, 0)
 	for _, n := range nodes {
@@ -1109,7 +1149,7 @@ type signerInput struct {
 		Index   int         `json:"index"`
 		Deposit *struct {
 			Chain           crypto.Hash    `json:"chain"`
-			AssetKey        string         `json:"asset"`
+			AssetKey        string         `json:"asset_key"`
 			TransactionHash string         `json:"transaction"`
 			OutputIndex     uint64         `json:"index"`
 			Amount          common.Integer `json:"amount"`
@@ -1158,8 +1198,8 @@ func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKe
 	return utxo, nil
 }
 
-func (raw signerInput) CheckDepositInput(deposit *common.DepositData, tx crypto.Hash) error {
-	return nil
+func (raw signerInput) ReadDepositLock(deposit *common.DepositData) (crypto.Hash, error) {
+	return crypto.Hash{}, nil
 }
 
 func newCache(conf *config.Custom) *ristretto.Cache {

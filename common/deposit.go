@@ -90,7 +90,14 @@ func (tx *SignedTransaction) validateDeposit(store DataStore, payloadHash crypto
 		return fmt.Errorf("invalid custodian signature for deposit")
 	}
 
-	return store.CheckDepositInput(tx.Inputs[0].Deposit, payloadHash)
+	locked, err := store.ReadDepositLock(tx.DepositData())
+	if err != nil {
+		return err
+	}
+	if locked.HasValue() && locked != payloadHash {
+		return fmt.Errorf("invalid lock %s %s", locked, payloadHash)
+	}
+	return nil
 }
 
 func (tx *Transaction) AddDepositInput(data *DepositData) {
