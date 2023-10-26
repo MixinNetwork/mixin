@@ -45,7 +45,7 @@ func TestNodeRemovePossibility(t *testing.T) {
 	require.Equal("c183ce86b5de6c35395371eebf9dbe7a27f06fa3bc5f8aae16a8e833bced422b", tx.PayloadHash().String())
 	require.Equal(uint8(5), tx.Version)
 	require.Equal(common.XINAssetId, tx.Asset)
-	require.Equal(pledgeAmount(1707*time.Hour*24), tx.Outputs[0].Amount)
+	require.Equal(KernelNodePledgeAmount, tx.Outputs[0].Amount)
 	require.Equal("fffe01", tx.Outputs[0].Script.String())
 	require.Equal(uint8(common.OutputTypeNodeRemove), tx.Outputs[0].Type)
 	require.Equal(uint8(common.TransactionTypeNodeRemove), tx.TransactionType())

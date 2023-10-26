@@ -17,24 +17,7 @@ import (
 func TestPledgeAmount(t *testing.T) {
 	require := require.New(t)
 
-	for y, m := range map[int]string{
-		0:  "10000",
-		1:  "11000",
-		2:  "11900",
-		3:  "12710",
-		4:  "13439",
-		5:  "14095.1",
-		6:  "14685.59",
-		7:  "15217.031",
-		8:  "15695.3279",
-		9:  "16125.79511",
-		10: "16513.215599",
-	} {
-		for b := 365 * y; b < 365*(y+1); b++ {
-			since := time.Duration(b*24) * time.Hour
-			require.Equal(common.NewIntegerFromString(m), pledgeAmount(since))
-		}
-	}
+	require.Equal(common.NewIntegerFromString("13439"), KernelNodePledgeAmount)
 }
 
 func TestPoolSize(t *testing.T) {

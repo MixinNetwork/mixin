@@ -28,7 +28,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
 	info["mint"] = map[string]any{
 		"pool":   pool,
 		"batch":  node.LastMint,
-		"pledge": node.PledgeAmount(node.GraphTimestamp),
+		"pledge": kernel.KernelNodePledgeAmount,
 	}
 	cacheMap, finalMap := node.LoadRoundGraph()
 	cacheGraph := make(map[string]any)

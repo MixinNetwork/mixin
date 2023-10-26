@@ -19,7 +19,7 @@ var (
 	MintLiquidity             common.Integer
 	MintYearShares            int
 	MintYearBatches           int
-	MintNodeMaximum           int
+	KernelNodePledgeAmount    common.Integer
 	KernelNetworkLegacyEnding uint64
 )
 
@@ -28,7 +28,7 @@ func init() {
 	MintLiquidity = common.NewInteger(500000)
 	MintYearShares = 10
 	MintYearBatches = 365
-	MintNodeMaximum = 50
+	KernelNodePledgeAmount = common.NewInteger(13439)
 	KernelNetworkLegacyEnding = 1706
 }
 
@@ -234,25 +234,6 @@ func poolSizeUniversal(batch int) common.Integer {
 		return MintPool.Sub(mint)
 	}
 	return MintPool
-}
-
-func (node *Node) PledgeAmount(ts uint64) common.Integer {
-	if ts < node.Epoch {
-		return pledgeAmount(0)
-	}
-	since := uint64(ts) - node.Epoch
-	return pledgeAmount(time.Duration(since))
-}
-
-func pledgeAmount(sinceEpoch time.Duration) common.Integer {
-	batch := int(sinceEpoch / 3600000000000 / 24)
-	liquidity, pool := MintLiquidity, MintPool
-	for i := 0; i < batch/MintYearBatches; i++ {
-		share := pool.Div(MintYearShares)
-		liquidity = liquidity.Add(share)
-		pool = pool.Sub(share)
-	}
-	return liquidity.Div(MintNodeMaximum)
 }
 
 func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.VersionedTransaction) error {

@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	Debug        = true
-	BuildVersion = "v0.17.1-BUILD_VERSION"
+	Debug           = true
+	BuildVersion    = "v0.17.1-BUILD_VERSION"
+	KernelNetworkId = "74c6cdb7d51af57037faa1f5544f8331ced001df5964331911ca51385993b375"
 
 	SnapshotRoundGap           = uint64(3 * time.Second)
 	SnapshotReferenceThreshold = 10

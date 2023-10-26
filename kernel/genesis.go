@@ -235,8 +235,7 @@ func readGenesis(path string) (*Genesis, error) {
 }
 
 func genesisPledgeAmount() common.Integer {
-	adjust := KernelNetworkLegacyEnding * uint64(time.Hour) * 24
-	return pledgeAmount(time.Duration(adjust))
+	return KernelNodePledgeAmount
 }
 
 func encodeGenesisCustodianNode(custodian, payee, signer *common.Address, spend *crypto.Key, networkId crypto.Hash) []byte {

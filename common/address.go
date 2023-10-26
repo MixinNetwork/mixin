@@ -10,7 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/util/base58"
 )
 
-const MainNetworkId = "XIN"
+const MainAddressPrefix = "XIN"
 
 type Address struct {
 	PrivateSpendKey crypto.Key
@@ -36,14 +36,14 @@ func NewAddressFromSeed(seed []byte) Address {
 
 func NewAddressFromString(s string) (Address, error) {
 	var a Address
-	if !strings.HasPrefix(s, MainNetworkId) {
+	if !strings.HasPrefix(s, MainAddressPrefix) {
 		return a, errors.New("invalid address network")
 	}
-	data := base58.Decode(s[len(MainNetworkId):])
+	data := base58.Decode(s[len(MainAddressPrefix):])
 	if len(data) != 68 {
 		return a, errors.New("invalid address format")
 	}
-	checksum := crypto.Sha256Hash(append([]byte(MainNetworkId), data[:64]...))
+	checksum := crypto.Sha256Hash(append([]byte(MainAddressPrefix), data[:64]...))
 	if !bytes.Equal(checksum[:4], data[64:]) {
 		return a, errors.New("invalid address checksum")
 	}
@@ -59,12 +59,12 @@ func NewAddressFromString(s string) (Address, error) {
 }
 
 func (a Address) String() string {
-	data := append([]byte(MainNetworkId), a.PublicSpendKey[:]...)
+	data := append([]byte(MainAddressPrefix), a.PublicSpendKey[:]...)
 	data = append(data, a.PublicViewKey[:]...)
 	checksum := crypto.Sha256Hash(data)
 	data = append(a.PublicSpendKey[:], a.PublicViewKey[:]...)
 	data = append(data, checksum[:4]...)
-	return MainNetworkId + base58.Encode(data)
+	return MainAddressPrefix + base58.Encode(data)
 }
 
 func (a Address) Hash() crypto.Hash {

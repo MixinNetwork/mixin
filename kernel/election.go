@@ -431,7 +431,9 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	if timestamp < node.Epoch {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
 	}
-	since := timestamp - node.Epoch
+	if tx.Outputs[0].Amount.Cmp(KernelNodePledgeAmount) != 0 {
+		return fmt.Errorf("invalid pledge amount %s", tx.Outputs[0].Amount.String())
+	}
 
 	var signerSpend crypto.Key
 	copy(signerSpend[:], tx.Extra)
@@ -457,9 +459,6 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		if cn.Payee.PublicSpendKey.String() == signerSpend.String() {
 			return fmt.Errorf("invalid node signer key %s %s", hex.EncodeToString(tx.Extra), cn.Payee)
 		}
-	}
-	if tx.Outputs[0].Amount.Cmp(pledgeAmount(time.Duration(since))) != 0 {
-		return fmt.Errorf("invalid pledge amount %s", tx.Outputs[0].Amount.String())
 	}
 
 	// FIXME the node operation lock threshold should be optimized on pledging period
