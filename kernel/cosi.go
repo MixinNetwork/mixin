@@ -282,76 +282,87 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 	return nil
 }
 
-func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
-	logger.Verbosef("cosiSendAnnouncement %v\n", m.Snapshot)
+func (chain *Chain) prepareAnnouncement(m *CosiAction) (bool, error) {
 	s, cd := m.Snapshot, m.data
 	if chain.IsPledging() && s.RoundNumber == 0 && cd.TX.TransactionType() == common.TransactionTypeNodeAccept {
-	} else if chain.State == nil {
-		return nil
-	} else {
-		cache, final := chain.StateCopy()
-		if len(cache.Snapshots) == 0 && !chain.node.CheckBroadcastedToPeers() {
-			return nil
-		}
-		if s.Timestamp <= cache.Timestamp {
-			return chain.clearAndQueueSnapshotOrPanic(s)
-		}
-
-		if len(cache.Snapshots) == 0 {
-			external, err := chain.persistStore.ReadRound(cache.References.External)
-			if err != nil {
-				return err
-			}
-			best := chain.determineBestRound(s.Timestamp)
-			threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*36
-			if best != nil && best.NodeId != final.NodeId && threshold < best.Start {
-				logger.Verbosef("cosiSendAnnouncement new best external %s:%d:%d => %s:%d:%d\n",
-					external.NodeId, external.Number, external.Timestamp, best.NodeId, best.Number, best.Start)
-				references := &common.RoundLink{Self: final.Hash, External: best.Hash}
-				err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, references, s.Timestamp, true)
-				if err != nil {
-					logger.Verbosef("ERROR cosiSendAnnouncement updateEmptyHeadRoundAndPersist failed %s %s %v\n",
-						m.PeerId, s.Hash, err)
-					return nil
-				}
-				return chain.clearAndQueueSnapshotOrPanic(s)
-			}
-		} else if start, _ := cache.Gap(); s.Timestamp >= start+config.SnapshotRoundGap {
-			best := chain.determineBestRound(s.Timestamp)
-			if best == nil {
-				logger.Verbosef("cosiSendAnnouncement no best available\n")
-				return chain.clearAndQueueSnapshotOrPanic(s)
-			}
-			if best.NodeId == final.NodeId {
-				panic("should never be here")
-			}
-			references := &common.RoundLink{Self: cache.asFinal().Hash, External: best.Hash}
-			nc, nf, _, err := chain.startNewRoundAndPersist(cache, references, s.Timestamp, false)
-			if err != nil || nf == nil {
-				logger.Verbosef("cosiSendAnnouncement %s %v startNewRoundAndPersist %v %v\n",
-					m.PeerId, m.Snapshot, err, nf)
-				return chain.clearAndQueueSnapshotOrPanic(s)
-			}
-			cache, final = nc, nf
-			chain.CosiAggregators = make(map[crypto.Hash]*CosiAggregator)
-			chain.CosiVerifiers = make(map[crypto.Hash]*CosiVerifier)
-		}
-		cache.Timestamp = s.Timestamp
-
-		if len(cache.Snapshots) > 0 {
-			cft := cache.Snapshots[0].Timestamp
-			if s.Timestamp > cft+uint64(config.SnapshotRoundGap*4/5) {
-				return chain.clearAndQueueSnapshotOrPanic(s)
-			}
-			day := uint64(time.Hour) * 24
-			if s.Timestamp/day != cft/day {
-				return chain.clearAndQueueSnapshotOrPanic(s)
-			}
-		}
-		s.RoundNumber = cache.Number
-		s.References = cache.References
+		return true, nil
+	}
+	if chain.State == nil {
+		return false, nil
 	}
 
+	cache, final := chain.StateCopy()
+	if len(cache.Snapshots) == 0 && !chain.node.CheckBroadcastedToPeers() {
+		return false, nil
+	}
+	if s.Timestamp <= cache.Timestamp {
+		return false, chain.clearAndQueueSnapshotOrPanic(s)
+	}
+
+	if len(cache.Snapshots) == 0 {
+		external, err := chain.persistStore.ReadRound(cache.References.External)
+		if err != nil {
+			return false, err
+		}
+		best := chain.determineBestRound(s.Timestamp)
+		threshold := external.Timestamp + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*36
+		if best != nil && best.NodeId != final.NodeId && threshold < best.Start {
+			logger.Verbosef("cosiSendAnnouncement new best external %s:%d:%d => %s:%d:%d\n",
+				external.NodeId, external.Number, external.Timestamp, best.NodeId, best.Number, best.Start)
+			references := &common.RoundLink{Self: final.Hash, External: best.Hash}
+			err := chain.updateEmptyHeadRoundAndPersist(m, final, cache, references, s.Timestamp, true)
+			if err != nil {
+				logger.Verbosef("ERROR cosiSendAnnouncement updateEmptyHeadRoundAndPersist failed %s %s %v\n",
+					m.PeerId, s.Hash, err)
+				return false, nil
+			}
+			return false, chain.clearAndQueueSnapshotOrPanic(s)
+		}
+	} else if start, _ := cache.Gap(); s.Timestamp >= start+config.SnapshotRoundGap {
+		best := chain.determineBestRound(s.Timestamp)
+		if best == nil {
+			logger.Verbosef("cosiSendAnnouncement no best available\n")
+			return false, chain.clearAndQueueSnapshotOrPanic(s)
+		}
+		if best.NodeId == final.NodeId {
+			panic("should never be here")
+		}
+		references := &common.RoundLink{Self: cache.asFinal().Hash, External: best.Hash}
+		nc, nf, _, err := chain.startNewRoundAndPersist(cache, references, s.Timestamp, false)
+		if err != nil || nf == nil {
+			logger.Verbosef("cosiSendAnnouncement %s %v startNewRoundAndPersist %v %v\n",
+				m.PeerId, m.Snapshot, err, nf)
+			return false, chain.clearAndQueueSnapshotOrPanic(s)
+		}
+		cache, final = nc, nf
+		chain.CosiAggregators = make(map[crypto.Hash]*CosiAggregator)
+		chain.CosiVerifiers = make(map[crypto.Hash]*CosiVerifier)
+	}
+	cache.Timestamp = s.Timestamp
+
+	if len(cache.Snapshots) > 0 {
+		cft := cache.Snapshots[0].Timestamp
+		if s.Timestamp > cft+uint64(config.SnapshotRoundGap*4/5) {
+			return false, chain.clearAndQueueSnapshotOrPanic(s)
+		}
+		day := uint64(time.Hour) * 24
+		if s.Timestamp/day != cft/day {
+			return false, chain.clearAndQueueSnapshotOrPanic(s)
+		}
+	}
+	s.RoundNumber = cache.Number
+	s.References = cache.References
+	return true, nil
+}
+
+func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
+	logger.Verbosef("cosiSendAnnouncement %v\n", m.Snapshot)
+	valid, err := chain.prepareAnnouncement(m)
+	if err != nil || !valid {
+		return err
+	}
+
+	s, cd := m.Snapshot, m.data
 	ov := chain.CosiVerifiers[s.SoleTransaction()]
 	if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber &&
 		s.Timestamp < ov.Snapshot.Timestamp+config.SnapshotRoundGap {
@@ -690,42 +701,51 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	return chain.node.reloadConsensusState(s, cd.TX)
 }
 
-func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
-	logger.Debugf("cosiHandleFinalization %s %v\n", m.PeerId, m.Snapshot)
+func (chain *Chain) prepareFinalization(m *CosiAction) (bool, error) {
 	s := m.Snapshot
-	m.WantTx = false
-
 	if chain.IsPledging() && s.RoundNumber == 0 {
-	} else if chain.State == nil {
+		return true, nil
+	}
+	if chain.State == nil {
 		logger.Debugf("ERROR cosiHandleFinalization without consensus%s %s\n", m.PeerId, s.Hash)
-		return nil
-	} else {
-		cache := chain.State.CacheRound
-		if s.RoundNumber < cache.Number {
-			logger.Debugf("ERROR cosiHandleFinalization expired round %s %s %d %d\n",
-				m.PeerId, s.Hash, s.RoundNumber, cache.Number)
-			return nil
+		return false, nil
+	}
+	cache := chain.State.CacheRound
+	if s.RoundNumber < cache.Number {
+		logger.Debugf("ERROR cosiHandleFinalization expired round %s %s %d %d\n",
+			m.PeerId, s.Hash, s.RoundNumber, cache.Number)
+		return false, nil
+	}
+	if s.RoundNumber > cache.Number+1 {
+		logger.Debugf("ERROR cosiHandleFinalization in future %s %s %d %d\n",
+			m.PeerId, s.Hash, s.RoundNumber, cache.Number)
+		return false, nil
+	}
+	if s.RoundNumber == cache.Number+1 {
+		_, nf, dummy, err := chain.startNewRoundAndPersist(cache, s.References, s.Timestamp, true)
+		if err != nil || nf == nil {
+			logger.Verbosef("ERROR cosiHandleFinalization startNewRound %s %v %v %v\n",
+				m.PeerId, s, err, nf)
+			return false, nil
 		}
-		if s.RoundNumber > cache.Number+1 {
-			logger.Debugf("ERROR cosiHandleFinalization in future %s %s %d %d\n",
-				m.PeerId, s.Hash, s.RoundNumber, cache.Number)
-			return nil
-		}
-		if s.RoundNumber == cache.Number+1 {
-			_, nf, dummy, err := chain.startNewRoundAndPersist(cache, s.References, s.Timestamp, true)
-			if err != nil || nf == nil {
-				logger.Verbosef("ERROR cosiHandleFinalization startNewRound %s %v %v %v\n",
-					m.PeerId, s, err, nf)
-				return nil
-			}
-			if dummy {
-				logger.Verbosef("ERROR cosiHandleFinalization startNewRound DUMMY %s %s %d\n",
-					m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp, true))
-				return nil
-			}
+		if dummy {
+			logger.Verbosef("ERROR cosiHandleFinalization startNewRound DUMMY %s %s %d\n",
+				m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp, true))
+			return false, nil
 		}
 	}
+	return true, nil
+}
 
+func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
+	logger.Debugf("cosiHandleFinalization %s %v\n", m.PeerId, m.Snapshot)
+	valid, err := chain.prepareFinalization(m)
+	if err != nil || !valid {
+		return err
+	}
+
+	s := m.Snapshot
+	m.WantTx = false
 	signers, finalized := chain.verifyFinalization(s)
 	if !finalized {
 		logger.Verbosef("ERROR cosiHandleFinalization verifyFinalization %s %v %d\n",

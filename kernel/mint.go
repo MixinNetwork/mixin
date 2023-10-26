@@ -71,16 +71,8 @@ func (chain *Chain) AggregateMintWork() {
 			chain.waitOrDone(wait)
 			continue
 		}
-		for chain.running {
-			err = chain.persistStore.WriteRoundWork(chain.ChainId, round, snapshots)
-			if err == nil {
-				break
-			}
-			if errors.Is(err, badger.ErrConflict) {
-				logger.Verbosef("AggregateMintWork(%s) ERROR WriteRoundWork %s\n", chain.ChainId, err.Error())
-				time.Sleep(100 * time.Millisecond)
-				continue
-			}
+		err = chain.writeRoundWork(round, snapshots)
+		if err != nil {
 			panic(err)
 		}
 		if round < crn {
@@ -91,6 +83,22 @@ func (chain *Chain) AggregateMintWork() {
 	}
 
 	logger.Printf("AggregateMintWork(%s) end with %d\n", chain.ChainId, round)
+}
+
+func (chain *Chain) writeRoundWork(round uint64, works []*common.SnapshotWork) error {
+	for chain.running {
+		err := chain.persistStore.WriteRoundWork(chain.ChainId, round, works)
+		if err == nil {
+			return nil
+		}
+		if errors.Is(err, badger.ErrConflict) {
+			logger.Verbosef("AggregateMintWork(%s) ERROR WriteRoundWork %s\n", chain.ChainId, err.Error())
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		return err
+	}
+	return fmt.Errorf("chain %s is done", chain.ChainId)
 }
 
 func (node *Node) MintLoop() {
