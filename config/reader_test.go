@@ -23,6 +23,6 @@ func TestConfig(t *testing.T) {
 
 	require.Equal("mixin-node.example.com:7239", custom.Network.Listener)
 	require.Len(custom.Network.Peers, 27)
-	require.Equal("lehigh-2.hotot.org:7239", custom.Network.Peers[26])
+	require.Equal("43.206.154.20:7239", custom.Network.Peers[26])
 	require.Equal(false, custom.RPC.Runtime)
 }
