@@ -65,162 +65,168 @@ func (r *Render) render(body map[string]any) {
 	r.w.Write(b)
 }
 
+func (impl *RPC) renderInfo(rdr *Render) {
+	info, err := getInfo(impl.Store, impl.Node)
+	if err != nil {
+		rdr.RenderError(err)
+	} else {
+		rdr.RenderData(info)
+	}
+}
+
 func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer handlePanic(w, r)
 
 	rdr := &Render{w: w}
+	if r.URL.Path == "/" && r.Method == "GET" {
+		impl.renderInfo(rdr)
+		return
+	}
 	if r.URL.Path != "/" || r.Method != "POST" {
 		rdr.RenderError(fmt.Errorf("bad request %s %s", r.Method, r.URL.Path))
 		return
 	}
 
 	var call Call
-	d := json.NewDecoder(r.Body)
-	d.UseNumber()
-	if err := d.Decode(&call); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&call); err != nil {
 		rdr.RenderError(fmt.Errorf("bad request %s", err.Error()))
 		return
 	}
-	renderer := &Render{w: w, id: call.Id}
+	rdr.id = call.Id
 	if impl.custom.RPC.Runtime {
-		renderer.start = time.Now()
+		rdr.start = time.Now()
 	}
 	switch call.Method {
 	case "getinfo":
-		info, err := getInfo(impl.Store, impl.Node)
-		if err != nil {
-			renderer.RenderError(err)
-		} else {
-			renderer.RenderData(info)
-		}
+		impl.renderInfo(rdr)
 	case "listpeers":
 		peers := make([]map[string]any, 0)
 		if strings.HasPrefix(r.RemoteAddr, "127.0.0.1:") {
 			peers = peerNeighbors(impl.Node.Peer.Neighbors())
 		}
-		renderer.RenderData(peers)
+		rdr.RenderData(peers)
 		return
 	case "dumpgraphhead":
 		data, err := dumpGraphHead(impl.Node, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(data)
+			rdr.RenderData(data)
 		}
 	case "sendrawtransaction":
 		id, err := queueTransaction(impl.Node, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(map[string]string{"hash": id})
+			rdr.RenderData(map[string]string{"hash": id})
 		}
 	case "gettransaction":
 		tx, err := getTransaction(impl.Store, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(tx)
+			rdr.RenderData(tx)
 		}
 	case "getcachetransaction":
 		tx, err := getCacheTransaction(impl.Store, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(tx)
+			rdr.RenderData(tx)
 		}
 	case "getdeposittransaction":
 		tx, err := readDeposit(impl.Store, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(tx)
+			rdr.RenderData(tx)
 		}
 	case "getutxo":
 		utxo, err := getUTXO(impl.Store, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(utxo)
+			rdr.RenderData(utxo)
 		}
 	case "getkey":
 		utxo, err := getGhostKey(impl.Store, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(utxo)
+			rdr.RenderData(utxo)
 		}
 	case "getasset":
 		asset, err := readAsset(impl.Store, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(asset)
+			rdr.RenderData(asset)
 		}
 	case "getsnapshot":
 		snap, err := getSnapshot(impl.Node, impl.Store, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(snap)
+			rdr.RenderData(snap)
 		}
 	case "listsnapshots":
 		snapshots, err := listSnapshots(impl.Node, impl.Store, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(snapshots)
+			rdr.RenderData(snapshots)
 		}
 	case "listcustodianupdates":
 		curs, err := getCustodianHistory(impl.Store, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(curs)
+			rdr.RenderData(curs)
 		}
 	case "listmintworks":
 		works, err := listMintWorks(impl.Node, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(works)
+			rdr.RenderData(works)
 		}
 	case "listmintdistributions":
 		distributions, err := listMintDistributions(impl.Store, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(distributions)
+			rdr.RenderData(distributions)
 		}
 	case "listallnodes":
 		nodes, err := listAllNodes(impl.Store, impl.Node, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(nodes)
+			rdr.RenderData(nodes)
 		}
 	case "getroundbynumber":
 		round, err := getRoundByNumber(impl.Node, impl.Store, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(round)
+			rdr.RenderData(round)
 		}
 	case "getroundbyhash":
 		round, err := getRoundByHash(impl.Node, impl.Store, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(round)
+			rdr.RenderData(round)
 		}
 	case "getroundlink":
 		link, err := getRoundLink(impl.Store, call.Params)
 		if err != nil {
-			renderer.RenderError(err)
+			rdr.RenderError(err)
 		} else {
-			renderer.RenderData(map[string]any{"link": link})
+			rdr.RenderData(map[string]any{"link": link})
 		}
 	default:
-		renderer.RenderError(fmt.Errorf("invalid method %s", call.Method))
+		rdr.RenderError(fmt.Errorf("invalid method %s", call.Method))
 	}
 }
 
