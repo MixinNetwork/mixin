@@ -88,7 +88,9 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var call Call
-	if err := json.NewDecoder(r.Body).Decode(&call); err != nil {
+	dec := json.NewDecoder(r.Body)
+	dec.UseNumber()
+	if err := dec.Decode(&call); err != nil {
 		rdr.RenderError(fmt.Errorf("bad request %s", err.Error()))
 		return
 	}
