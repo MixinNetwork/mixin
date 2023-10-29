@@ -5,7 +5,6 @@ import (
 
 	"filippo.io/edwards25519"
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v3/suites"
 )
 
 func TestEdwards(t *testing.T) {
@@ -26,11 +25,10 @@ func TestEdwards(t *testing.T) {
 	p2 := edwards25519.NewIdentityPoint().ScalarMult(a, edwards25519.NewGeneratorPoint())
 	require.Equal(p1.Bytes(), p2.Bytes())
 
-	s := suites.MustFind("ed25519")
-	sa := s.Scalar().SetBytes(a.Bytes())
-	sb := s.Scalar().SetBytes(b.Bytes())
-	ss := s.Scalar().Add(sa, sb)
-	tmp1 := edwards25519.NewScalar().Add(a, b)
-	st := s.Scalar().SetBytes(tmp1.Bytes())
-	require.Equal(ss, st)
+	p2 = edwards25519.NewIdentityPoint().ScalarBaseMult(b)
+	s := edwards25519.NewScalar().Add(a, b)
+	copy(key[:], s.Bytes())
+	S := key.Public()
+	P := edwards25519.NewIdentityPoint().Add(p1, p2)
+	require.Equal(S[:], P.Bytes())
 }

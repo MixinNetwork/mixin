@@ -1,9 +1,9 @@
+// https://github.com/dedis/kyber/blob/master/xof/blake2xb/blake.go
 // Package blake2xb provides an implementation of kyber.XOF based on the
 // Blake2xb construction.
-package blake2xb
+package crypto
 
 import (
-	"go.dedis.ch/kyber/v3"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -15,7 +15,7 @@ type xof struct {
 }
 
 // New creates a new XOF using the Blake2b hash.
-func New(seed []byte) kyber.XOF {
+func NewBlake2bXOF(seed []byte) *xof {
 	seed1 := seed
 	var seed2 []byte
 	if len(seed) > blake2b.Size {
@@ -36,7 +36,7 @@ func New(seed []byte) kyber.XOF {
 	return &xof{impl: b}
 }
 
-func (x *xof) Clone() kyber.XOF {
+func (x *xof) Clone() *xof {
 	return &xof{impl: x.impl.Clone()}
 }
 
@@ -56,9 +56,9 @@ func (x *xof) Reseed() {
 		x.key = x.key[0:128]
 	}
 	x.Read(x.key)
-	y := New(x.key)
+	y := NewBlake2bXOF(x.key)
 	// Steal the XOF implementation, and put it inside of x.
-	x.impl = y.(*xof).impl
+	x.impl = y.impl
 }
 
 func (x *xof) XORKeyStream(dst, src []byte) {

@@ -139,21 +139,6 @@ github.com/zeebo/blake3/internal/alg/hash/hash_avx2
 github.com/zeebo/blake3/internal/alg/hash/hash_pure
 github.com/zeebo/blake3/internal/consts
 github.com/zeebo/blake3/internal/utils
-# go.dedis.ch/fixbuf v1.0.3
-## explicit
-go.dedis.ch/fixbuf
-# go.dedis.ch/kyber/v3 v3.1.0
-## explicit; go 1.13
-go.dedis.ch/kyber/v3
-go.dedis.ch/kyber/v3/group/edwards25519
-go.dedis.ch/kyber/v3/group/internal/marshalling
-go.dedis.ch/kyber/v3/group/mod
-go.dedis.ch/kyber/v3/group/nist
-go.dedis.ch/kyber/v3/pairing
-go.dedis.ch/kyber/v3/pairing/bn256
-go.dedis.ch/kyber/v3/suites
-go.dedis.ch/kyber/v3/util/random
-go.dedis.ch/kyber/v3/xof/blake2xb
 # go.uber.org/mock v0.3.0
 ## explicit; go 1.20
 go.uber.org/mock/mockgen

@@ -6,7 +6,6 @@ import (
 
 	"filippo.io/edwards25519"
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v3/xof/blake2xb"
 )
 
 func TestCosi(t *testing.T) {
@@ -37,7 +36,7 @@ func TestCosi(t *testing.T) {
 	copy(aggregatedPublic[:], P.Bytes())
 	require.Equal("f77fde77d032e4f828f06aaa4c92c7690fabda792eebe10a7ce57313da8a3b50", aggregatedPublic.String())
 
-	randReader := blake2xb.New(nil)
+	randReader := NewBlake2bXOF(nil)
 	message := Blake3Hash([]byte("Schnorr Signature in Mixin Kernel"))
 	randoms := make(map[int]*Key)
 	randKeys := make([]*Key, len(keys)*2/3+1)
