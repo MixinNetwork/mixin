@@ -39,7 +39,7 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 		return fmt.Errorf("invalid extra length %d for pledge transaction", len(tx.Extra))
 	}
 	for _, in := range inputs {
-		if in.Type != OutputTypeScript {
+		if in.Type != OutputTypeScript && in.Type != OutputTypeNodeRemove {
 			return fmt.Errorf("invalid utxo type %d", in.Type)
 		}
 	}

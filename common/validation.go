@@ -332,6 +332,9 @@ func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, fork
 func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, as *AggregatedSignature, msg []byte, txType uint8, keySigs map[*crypto.Key]*crypto.Signature, offset int) error {
 	switch utxo.Type {
 	case OutputTypeScript, OutputTypeNodeRemove:
+		if utxo.Type == OutputTypeNodeRemove && txType != TransactionTypeNodePledge {
+			return fmt.Errorf("remove input used for invalid transaction type %d", txType)
+		}
 		if as != nil {
 			signers, limit := 0, offset+len(utxo.Keys)
 			for _, m := range as.Signers {
