@@ -291,59 +291,6 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 		require.Equal(all[NODES].Payee.String(), pn.Payee.String())
 		require.Equal("ACCEPTED", all[NODES].State)
 	}
-
-	nodes = append(nodes, &Node{Host: "127.0.0.1:18099"})
-	signer, payee := testGetNodeToRemove(instances[0].NetworkId(), accounts, payees, 0)
-	require.Equal("XINGmuYCB65rzMgUf1W35pbhj4C7fY9JrzWCL5vGRdL84SPcWVPhtBJ7DAarc1QPt564JwbEdNCH8359kdPRH1ieSM9f96RZ", signer.String())
-	require.Equal("XINMeKsKkSJJCgLWKvakEHaXBNPGfF7RmBu9jx5VZLE6UTuEaW4wSEqVybkH4xhQcqkT5jdiguiN3B3NKt8QBZTUbqZXJ1Fq", payee.String())
-	nodes = testRemoveNode(nodes, signer)
-	for i := 0; i < 3; i++ {
-		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount, snapVersionMint)
-		transactionsCount = transactionsCount + len(dummyInputs)
-	}
-	transactionsCount = transactionsCount + 1
-
-	tl, _ = testVerifySnapshots(require, nodes)
-	require.Equal(transactionsCount, len(tl))
-	for i := range nodes {
-		all = testListNodes(nodes[i].Host)
-		require.Len(all, NODES+1)
-		require.Equal(all[NODES].Signer.String(), signer.String())
-		require.Equal(all[NODES].Payee.String(), payee.String())
-		require.Equal("REMOVED", all[NODES].State)
-	}
-
-	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
-	require.Greater(hr.Round, uint64(1))
-	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, instances[0].IdForNetwork)
-	require.Greater(hr.Round, uint64(1))
-	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork)
-	require.Greater(hr.Round, uint64(1))
-	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, pi.IdForNetwork)
-	require.Greater(hr.Round, uint64(1))
-	hr = testDumpGraphHead(nodes[0].Host, signer.Hash().ForNetwork(instances[0].NetworkId()))
-	require.Greater(hr.Round, uint64(1))
-	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, signer.Hash().ForNetwork(instances[0].NetworkId()))
-	require.Greater(hr.Round, uint64(1))
-
-	removalInputs := []*common.Input{{Hash: all[NODES].Transaction, Index: 0}}
-	removalInputs = testSendDummyTransactionsWithRetry(t, nodes[:1], payee, removalInputs, "10000", snapVersionMint)
-	transactionsCount = transactionsCount + 1
-	tl, _ = testVerifySnapshots(require, nodes)
-	require.Equal(transactionsCount, len(tl))
-	for i := range nodes {
-		all = testListNodes(nodes[i].Host)
-		require.Len(all, NODES+1)
-		require.Equal(all[NODES].Signer.String(), signer.String())
-		require.Equal(all[NODES].Payee.String(), payee.String())
-		require.Equal("REMOVED", all[NODES].State)
-	}
-	t.Logf("REMOVE TEST DONE AT %s\n", time.Now())
-
-	for _, node := range instances {
-		t.Log(node.IdForNetwork, node.Peer.Metric())
-	}
-
 }
 
 func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []common.Address, networkId crypto.Hash) {

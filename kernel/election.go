@@ -77,18 +77,6 @@ func (node *Node) ElectionLoop() {
 		}
 	}
 	logger.Println("ElectionLoop ACCEPTED!")
-
-	for {
-		select {
-		case <-node.done:
-			return
-		case <-ticker.C:
-			err := node.tryToSendRemoveTransaction()
-			if err != nil {
-				logger.Println("tryToSendRemoveTransaction", err)
-			}
-		}
-	}
 }
 
 func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64, old *common.VersionedTransaction) (*CNode, error) {
@@ -186,31 +174,10 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 	return ver, nil
 }
 
-func (node *Node) tryToSendRemoveTransaction() error {
-	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, node.GraphTimestamp, nil)
-	if err != nil {
-		return err
+func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
+	if !finalized {
+		return fmt.Errorf("node are not allowed to be removed any more %v", tx)
 	}
-	logger.Verbosef("tryToSendRemoveTransaction %s\n", tx.PayloadHash())
-
-	err = tx.Validate(node.persistStore, false)
-	if err != nil {
-		return err
-	}
-	err = node.persistStore.CachePutTransaction(tx)
-	if err != nil {
-		return err
-	}
-	chain := node.getOrCreateChain(node.IdForNetwork)
-	s := &common.Snapshot{
-		Version: common.SnapshotVersionCommonEncoding,
-		NodeId:  node.IdForNetwork,
-	}
-	s.AddSoleTransaction(tx.PayloadHash())
-	return chain.AppendSelfEmpty(s)
-}
-
-func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	if node.isMainnet() && MainnetRollingRemovalForkTransactionMap[tx.PayloadHash().String()] {
 		return nil
 	}
