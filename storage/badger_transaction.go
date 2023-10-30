@@ -227,7 +227,10 @@ func graphGhostKey(k crypto.Key) []byte {
 	return append([]byte(graphPrefixGhost), k[:]...)
 }
 
-func graphUtxoKey(hash crypto.Hash, index int) []byte {
+func graphUtxoKey(hash crypto.Hash, index uint) []byte {
+	if index > 1024 {
+		panic(index)
+	}
 	buf := make([]byte, binary.MaxVarintLen64)
 	size := binary.PutVarint(buf, int64(index))
 	key := append([]byte(graphPrefixUTXO), hash[:]...)

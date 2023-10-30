@@ -72,11 +72,11 @@ func getUTXO(store storage.Store, params []any) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	index, err := strconv.ParseUint(fmt.Sprint(params[1]), 10, 64)
+	index, err := strconv.ParseUint(fmt.Sprint(params[1]), 10, 16)
 	if err != nil {
 		return nil, err
 	}
-	utxo, err := store.ReadUTXOLock(hash, int(index))
+	utxo, err := store.ReadUTXOLock(hash, uint(index))
 	if err != nil || utxo == nil {
 		return nil, err
 	}

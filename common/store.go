@@ -7,11 +7,11 @@ type TransactionReader interface {
 }
 
 type UTXOKeysReader interface {
-	ReadUTXOKeys(hash crypto.Hash, index int) (*UTXOKeys, error)
+	ReadUTXOKeys(hash crypto.Hash, index uint) (*UTXOKeys, error)
 }
 
 type UTXOLockReader interface {
-	ReadUTXOLock(hash crypto.Hash, index int) (*UTXOWithLock, error)
+	ReadUTXOLock(hash crypto.Hash, index uint) (*UTXOWithLock, error)
 	ReadDepositLock(deposit *DepositData) (crypto.Hash, error)
 	ReadLastMintDistribution(batch uint64) (*MintDistribution, error)
 }

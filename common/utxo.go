@@ -44,7 +44,7 @@ func (tx *VersionedTransaction) UnspentOutputs() []*UTXOWithLock {
 		utxo := UTXO{
 			Input: Input{
 				Hash:  hash,
-				Index: i,
+				Index: uint(i),
 			},
 			Output: Output{
 				Type:   out.Type,

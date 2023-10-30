@@ -133,8 +133,11 @@ func (enc *Encoder) EncodeTransaction(signed *SignedTransaction) []byte {
 }
 
 func (enc *Encoder) EncodeInput(in *Input) {
+	if in.Index > 1024 {
+		panic(in.Index)
+	}
 	enc.Write(in.Hash[:])
-	enc.WriteInt(in.Index)
+	enc.WriteUint16(uint16(in.Index))
 
 	enc.WriteInt(len(in.Genesis))
 	enc.Write(in.Genesis)

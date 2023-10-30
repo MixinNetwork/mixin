@@ -47,7 +47,7 @@ const (
 
 type Input struct {
 	Hash    crypto.Hash
-	Index   int
+	Index   uint
 	Genesis []byte
 	Deposit *DepositData
 	Mint    *MintData
@@ -324,7 +324,7 @@ func NewTransactionV5(asset crypto.Hash) *Transaction {
 	}
 }
 
-func (tx *Transaction) AddInput(hash crypto.Hash, index int) {
+func (tx *Transaction) AddInput(hash crypto.Hash, index uint) {
 	in := &Input{
 		Hash:  hash,
 		Index: index,

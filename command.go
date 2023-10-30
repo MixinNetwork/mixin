@@ -250,7 +250,7 @@ func buildRawTransactionCmd(c *cli.Context) error {
 		}
 		inputs = append(inputs, map[string]any{
 			"hash":  hash,
-			"index": int(index),
+			"index": index,
 		})
 	}
 
@@ -281,7 +281,7 @@ func buildRawTransactionCmd(c *cli.Context) error {
 
 	tx := common.NewTransactionV5(asset)
 	for _, in := range inputs {
-		tx.AddInput(in["hash"].(crypto.Hash), in["index"].(int))
+		tx.AddInput(in["hash"].(crypto.Hash), in["index"].(uint))
 	}
 	for _, out := range outputs {
 		tx.AddScriptOutput(out["accounts"].([]*common.Address), common.NewThresholdScript(1), out["amount"].(common.Integer), seed)
@@ -953,7 +953,7 @@ func callRPC(node, method string, params []any, pt bool) ([]byte, error) {
 type signerInput struct {
 	Inputs []struct {
 		Hash    crypto.Hash `json:"hash"`
-		Index   int         `json:"index"`
+		Index   uint        `json:"index"`
 		Deposit *struct {
 			Chain           crypto.Hash    `json:"chain"`
 			AssetKey        string         `json:"asset_key"`
@@ -977,7 +977,7 @@ type signerInput struct {
 	Node  string      `json:"-"`
 }
 
-func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKeys, error) {
+func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index uint) (*common.UTXOKeys, error) {
 	utxo := &common.UTXOKeys{}
 
 	for _, in := range raw.Inputs {

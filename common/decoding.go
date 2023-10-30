@@ -211,11 +211,11 @@ func (dec *Decoder) ReadInput() (*Input, error) {
 		return nil, err
 	}
 
-	ii, err := dec.ReadInt()
+	ii, err := dec.ReadUint16()
 	if err != nil {
 		return nil, err
 	}
-	in.Index = ii
+	in.Index = uint(ii)
 
 	gb, err := dec.ReadBytes()
 	if err != nil {

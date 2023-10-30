@@ -186,7 +186,7 @@ func testConsensus(t *testing.T) {
 	dummyInputs := make([]*common.Input, NODES)
 	for i := range dummyInputs {
 		hash, _ := crypto.HashFromString(input)
-		dummyInputs[i] = &common.Input{Hash: hash, Index: i}
+		dummyInputs[i] = &common.Input{Hash: hash, Index: uint(i)}
 	}
 
 	legacy := time.Date(2023, time.Month(10), 31, 0, 0, 0, 0, time.UTC).Sub(epoch)
@@ -1146,7 +1146,7 @@ func callRPC(node, method string, params []any) ([]byte, error) {
 type signerInput struct {
 	Inputs []struct {
 		Hash    crypto.Hash `json:"hash"`
-		Index   int         `json:"index"`
+		Index   uint        `json:"index"`
 		Deposit *struct {
 			Chain           crypto.Hash    `json:"chain"`
 			AssetKey        string         `json:"asset_key"`
@@ -1170,7 +1170,7 @@ type signerInput struct {
 	Node  string      `json:"-"`
 }
 
-func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKeys, error) {
+func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index uint) (*common.UTXOKeys, error) {
 	utxo := &common.UTXOKeys{}
 
 	for _, in := range raw.Inputs {

@@ -9,7 +9,7 @@ import (
 	"github.com/dgraph-io/badger/v4"
 )
 
-func (s *BadgerStore) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKeys, error) {
+func (s *BadgerStore) ReadUTXOKeys(hash crypto.Hash, index uint) (*common.UTXOKeys, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -23,7 +23,7 @@ func (s *BadgerStore) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKey
 	}, nil
 }
 
-func (s *BadgerStore) ReadUTXOLock(hash crypto.Hash, index int) (*common.UTXOWithLock, error) {
+func (s *BadgerStore) ReadUTXOLock(hash crypto.Hash, index uint) (*common.UTXOWithLock, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -33,7 +33,7 @@ func (s *BadgerStore) ReadUTXOLock(hash crypto.Hash, index int) (*common.UTXOWit
 	return s.readUTXOLock(txn, hash, index)
 }
 
-func (s *BadgerStore) readUTXOLock(txn *badger.Txn, hash crypto.Hash, index int) (*common.UTXOWithLock, error) {
+func (s *BadgerStore) readUTXOLock(txn *badger.Txn, hash crypto.Hash, index uint) (*common.UTXOWithLock, error) {
 	key := graphUtxoKey(hash, index)
 	item, err := txn.Get(key)
 	if err == badger.ErrKeyNotFound {
@@ -65,7 +65,7 @@ func (s *BadgerStore) LockUTXOs(inputs []*common.Input, tx crypto.Hash, fork boo
 	})
 }
 
-func lockUTXO(txn *badger.Txn, hash crypto.Hash, index int, tx crypto.Hash, fork bool) error {
+func lockUTXO(txn *badger.Txn, hash crypto.Hash, index uint, tx crypto.Hash, fork bool) error {
 	key := graphUtxoKey(hash, index)
 	item, err := txn.Get(key)
 	if err != nil {

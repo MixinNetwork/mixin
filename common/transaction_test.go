@@ -238,7 +238,7 @@ func (store storeImpl) ReadAssetWithBalance(_ crypto.Hash) (*Asset, Integer, err
 	return nil, Zero, nil
 }
 
-func (store storeImpl) ReadUTXOKeys(hash crypto.Hash, index int) (*UTXOKeys, error) {
+func (store storeImpl) ReadUTXOKeys(hash crypto.Hash, index uint) (*UTXOKeys, error) {
 	utxo, err := store.ReadUTXOLock(hash, index)
 	if err != nil {
 		return nil, err
@@ -249,7 +249,7 @@ func (store storeImpl) ReadUTXOKeys(hash crypto.Hash, index int) (*UTXOKeys, err
 	}, nil
 }
 
-func (store storeImpl) ReadUTXOLock(hash crypto.Hash, index int) (*UTXOWithLock, error) {
+func (store storeImpl) ReadUTXOLock(hash crypto.Hash, index uint) (*UTXOWithLock, error) {
 	genesisMaskr := crypto.NewKeyFromSeed(store.seed)
 	genesisMaskR := genesisMaskr.Public()
 
@@ -271,7 +271,7 @@ func (store storeImpl) ReadUTXOLock(hash crypto.Hash, index int) (*UTXOWithLock,
 		},
 	}
 
-	for i := 0; i <= index+1; i++ {
+	for i := uint(0); i <= index+1; i++ {
 		key := crypto.DeriveGhostPublicKey(&genesisMaskr, &store.accounts[i].PublicViewKey, &store.accounts[i].PublicSpendKey, uint64(index))
 		utxo.Keys = append(utxo.Keys, key)
 	}

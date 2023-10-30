@@ -27,7 +27,7 @@ func TestUTXO(t *testing.T) {
 	require.Len(utxos, 1)
 	utxo := utxos[0]
 	require.Equal(tx.PayloadHash(), utxo.Input.Hash)
-	require.Equal(0, utxo.Input.Index)
+	require.Equal(uint(0), utxo.Input.Index)
 	require.Equal(uint8(OutputTypeScript), utxo.Output.Type)
 	require.Equal("20000.00000000", utxo.Output.Amount.String())
 	require.Equal("fffe02", utxo.Output.Script.String())
