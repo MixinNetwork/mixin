@@ -14,6 +14,8 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
+const MaxKernelNodesCount = 50
+
 func (node *Node) ElectionLoop() {
 	defer close(node.elc)
 
@@ -423,7 +425,7 @@ func (node *Node) getInitialExternalReference(s *common.Snapshot) (*FinalRound, 
 }
 
 func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
-	timestamp := s.Timestamp
+	timestamp, totalNodes := s.Timestamp, 0
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
 		timestamp = uint64(clock.Now().UnixNano())
 	}
@@ -440,9 +442,9 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	offset := timestamp + uint64(config.KernelNodePledgePeriodMinimum)
 	for _, cn := range node.NodesListWithoutState(offset, false) {
 		if cn.Transaction == tx.PayloadHash() {
-			continue
+			return nil
 		}
-		if timestamp < cn.Timestamp {
+		if cn.Timestamp > timestamp {
 			return fmt.Errorf("invalid snapshot timestamp %d %d", cn.Timestamp, timestamp)
 		}
 		elapse := time.Duration(timestamp - cn.Timestamp)
@@ -459,8 +461,12 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		if cn.Payee.PublicSpendKey.String() == signerSpend.String() {
 			return fmt.Errorf("invalid node signer key %s %s", hex.EncodeToString(tx.Extra), cn.Payee)
 		}
+		totalNodes = totalNodes + 1
 	}
 
+	if totalNodes >= MaxKernelNodesCount {
+		return fmt.Errorf("maximum kernel nodes count reached because cosi signauture mask limit %s", tx.PayloadHash())
+	}
 	// FIXME the node operation lock threshold should be optimized on pledging period
 	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2)
 }
