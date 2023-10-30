@@ -21,8 +21,8 @@ func (node *Node) Loop() error {
 		}
 	}()
 	go node.LoopCacheQueue()
-	go node.MintLoop()
-	node.ElectionLoop()
+	go node.ElectionLoop()
+	node.MintLoop()
 	return nil
 }
 
