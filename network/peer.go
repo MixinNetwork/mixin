@@ -128,13 +128,14 @@ func (p *Peer) disconnect() {
 }
 
 func (me *Peer) Metric() map[string]*MetricPool {
-	if !me.sentMetric.enabled && me.receivedMetric.enabled {
-		return nil
+	metrics := make(map[string]*MetricPool)
+	if me.sentMetric.enabled {
+		metrics["sent"] = me.sentMetric
 	}
-	return map[string]*MetricPool{
-		"sent":     me.sentMetric,
-		"received": me.receivedMetric,
+	if me.receivedMetric.enabled {
+		metrics["received"] = me.receivedMetric
 	}
+	return metrics
 }
 
 func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNeighbors, enableMetric bool) *Peer {
