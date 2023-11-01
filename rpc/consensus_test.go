@@ -55,7 +55,7 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	require.Nil(err)
 	defer os.RemoveAll(root)
 
-	accounts, payees, gdata, plist := setupTestNet(root)
+	accounts, _, gdata, plist := setupTestNet(root)
 	require.Len(accounts, NODES)
 
 	epoch := time.Unix(1551312000, 0)
@@ -159,10 +159,6 @@ func testConsensus(t *testing.T, snapVersionMint int) {
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
 	t.Logf("INPUT TEST DONE AT %s\n", time.Now())
-
-	testCustodianUpdateNodes(t, nodes, accounts, payees, instances[0].NetworkId())
-	transactionsCount = transactionsCount + 2
-	t.Logf("CUSTODIAN TEST DONE AT %s\n", time.Now())
 
 	if !enableElection {
 		return

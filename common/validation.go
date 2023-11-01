@@ -100,7 +100,7 @@ func (ver *VersionedTransaction) Validate(store DataStore, fork bool) error {
 	case TransactionTypeNodeRemove:
 		return tx.validateNodeRemove(store)
 	case TransactionTypeCustodianUpdateNodes:
-		return tx.validateCustodianUpdateNodes(store)
+		return fmt.Errorf("invalid transaction type %d", txType)
 	case TransactionTypeCustodianSlashNodes:
 		return tx.validateCustodianSlashNodes(store)
 	case TransactionTypeDomainAccept:

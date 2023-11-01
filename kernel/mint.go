@@ -162,6 +162,9 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 	if amount.Sign() <= 0 || batch <= 0 {
 		return nil
 	}
+	if batch > 1706 {
+		return nil
+	}
 
 	// TODO mint works should calculate according to finalized previous round, new fork required
 	kernel := amount.Div(10).Mul(5)
