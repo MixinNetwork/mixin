@@ -9,7 +9,7 @@ require (
 	github.com/dgraph-io/badger/v4 v4.2.0
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/pelletier/go-toml v1.9.5
-	github.com/quic-go/quic-go v0.39.3
+	github.com/quic-go/quic-go v0.40.0
 	github.com/shopspring/decimal v1.3.1
 	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli/v2 v2.25.7
