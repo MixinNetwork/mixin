@@ -281,7 +281,7 @@ func buildRawTransactionCmd(c *cli.Context) error {
 
 	tx := common.NewTransactionV5(asset)
 	for _, in := range inputs {
-		tx.AddInput(in["hash"].(crypto.Hash), in["index"].(uint))
+		tx.AddInput(in["hash"].(crypto.Hash), uint(in["index"].(int64)))
 	}
 	for _, out := range outputs {
 		tx.AddScriptOutput(out["accounts"].([]*common.Address), common.NewThresholdScript(1), out["amount"].(common.Integer), seed)
