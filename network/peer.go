@@ -128,6 +128,9 @@ func (p *Peer) disconnect() {
 }
 
 func (me *Peer) Metric() map[string]*MetricPool {
+	if !me.sentMetric.enabled && me.receivedMetric.enabled {
+		return nil
+	}
 	return map[string]*MetricPool{
 		"sent":     me.sentMetric,
 		"received": me.receivedMetric,
