@@ -20,6 +20,27 @@ func TestPledgeAmount(t *testing.T) {
 	require.Equal(common.NewIntegerFromString("13439"), KernelNodePledgeAmount)
 }
 
+func TestMintBatchSize(t *testing.T) {
+	require := require.New(t)
+
+	for i := uint64(1707); i < 1825; i++ {
+		amount := common.NewIntegerFromString("89.87671232")
+		require.Equal(amount, mintBatchSize(i))
+	}
+	require.Equal(common.NewIntegerFromString("89.87671232"), mintMultiBatchesSize(1706, 1707))
+	require.Equal(common.NewIntegerFromString("179.75342464"), mintMultiBatchesSize(1706, 1708))
+
+	require.Equal(common.NewIntegerFromString("80.88904109"), mintBatchSize(1825))
+	require.Equal(common.NewIntegerFromString("80.88904109"), mintMultiBatchesSize(1824, 1825))
+	require.Equal(common.NewIntegerFromString("80.88904109"), mintMultiBatchesSize(1825, 1826))
+	require.Equal(common.NewIntegerFromString("161.77808218"), mintMultiBatchesSize(1825, 1827))
+
+	require.Equal(common.NewIntegerFromString("89.87671232"), mintMultiBatchesSize(1823, 1824))
+	require.Equal(common.NewIntegerFromString("170.76575341"), mintMultiBatchesSize(1823, 1825))
+	require.Equal(common.NewIntegerFromString("251.65479450"), mintMultiBatchesSize(1823, 1826))
+	require.Equal(common.NewIntegerFromString("341.53150682"), mintMultiBatchesSize(1822, 1826))
+}
+
 func TestPoolSize(t *testing.T) {
 	require := require.New(t)
 
@@ -135,7 +156,7 @@ func TestUniversalMintTransaction(t *testing.T) {
 
 	amount = common.NewIntegerFromString("89.87671232")
 	mint := versioned.Inputs[0].Mint
-	require.Equal(KernelNetworkLegacyEnding+1, mint.Batch)
+	require.Equal(uint64(KernelNetworkLegacyEnding+1), mint.Batch)
 	require.Equal("UNIVERSAL", mint.Group)
 	require.Equal(amount.String(), mint.Amount.String())
 	require.Len(versioned.Outputs, len(signers)+2)

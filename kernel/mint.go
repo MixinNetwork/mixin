@@ -15,22 +15,16 @@ import (
 )
 
 var (
-	MintPool                  common.Integer
-	MintLiquidity             common.Integer
-	MintYearShares            int
-	MintYearBatches           int
-	KernelNodePledgeAmount    common.Integer
-	KernelNetworkLegacyEnding uint64
+	KernelNodePledgeAmount = common.NewInteger(13439)
+	MintPool               = common.NewInteger(500000)
+	MintLiquidity          = common.NewInteger(500000)
+	MintYearPercent        = common.NewInteger(10).Ration(common.NewInteger(100))
 )
 
-func init() {
-	MintPool = common.NewInteger(500000)
-	MintLiquidity = common.NewInteger(500000)
-	MintYearShares = 10
-	MintYearBatches = 365
-	KernelNodePledgeAmount = common.NewInteger(13439)
+const (
+	MintYearDays              = 365
 	KernelNetworkLegacyEnding = 1706
-}
+)
 
 func (chain *Chain) AggregateMintWork() {
 	logger.Printf("AggregateMintWork(%s)\n", chain.ChainId)
@@ -155,7 +149,6 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 		return nil
 	}
 
-	// TODO mint works should calculate according to finalized previous round, new fork required
 	kernel := amount.Div(10).Mul(5)
 	accepted := node.NodesListWithoutState(timestamp, true)
 	mints, err := node.distributeKernelMintByWorks(accepted, kernel, timestamp)
@@ -229,19 +222,44 @@ func (node *Node) lastMintDistribution() *common.MintData {
 
 func poolSizeUniversal(batch int) common.Integer {
 	mint, pool := common.Zero, MintPool
-	for i := 0; i < batch/MintYearBatches; i++ {
-		year := pool.Div(MintYearShares)
+	for i := 0; i < batch/MintYearDays; i++ {
+		year := MintYearPercent.Product(pool)
 		mint = mint.Add(year)
 		pool = pool.Sub(year)
 	}
-	day := pool.Div(MintYearShares).Div(MintYearBatches)
-	if count := batch % MintYearBatches; count > 0 {
+	year := MintYearPercent.Product(pool)
+	day := year.Div(MintYearDays)
+	if count := batch % MintYearDays; count > 0 {
 		mint = mint.Add(day.Mul(count))
 	}
 	if mint.Sign() > 0 {
 		return MintPool.Sub(mint)
 	}
 	return MintPool
+}
+
+func mintBatchSize(batch uint64) common.Integer {
+	pool, years := MintPool, batch/MintYearDays
+	if years > 10000 {
+		panic(years)
+	}
+	for i := 0; i < int(years); i++ {
+		year := MintYearPercent.Product(pool)
+		pool = pool.Sub(year)
+	}
+	year := MintYearPercent.Product(pool)
+	return year.Div(MintYearDays)
+}
+
+func mintMultiBatchesSize(old, batch uint64) common.Integer {
+	if old >= batch {
+		panic(batch)
+	}
+	var amount common.Integer
+	for i := old + 1; i <= batch; i++ {
+		amount = amount.Add(mintBatchSize(i))
+	}
+	return amount
 }
 
 func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.VersionedTransaction) error {
@@ -284,16 +302,9 @@ func (node *Node) checkUniversalMintPossibility(timestamp uint64, validateOnly b
 		return 0, common.Zero
 	}
 
-	pool := MintPool
-	for i := 0; i < int(batch)/MintYearBatches; i++ {
-		pool = pool.Sub(pool.Div(MintYearShares))
-	}
-	pool = pool.Div(MintYearShares)
-	total := pool.Div(MintYearBatches)
-
 	dist := node.lastMintDistribution()
-	logger.Verbosef("checkUniversalMintPossibility OLD %s %s %d %s %d\n",
-		pool, total, batch, dist.Amount, dist.Batch)
+	logger.Verbosef("checkUniversalMintPossibility OLD %d %s %d\n",
+		batch, dist.Amount, dist.Batch)
 
 	if batch < dist.Batch {
 		return 0, common.Zero
@@ -305,9 +316,9 @@ func (node *Node) checkUniversalMintPossibility(timestamp uint64, validateOnly b
 		return 0, common.Zero
 	}
 
-	amount := total.Mul(int(batch - dist.Batch))
-	logger.Verbosef("checkUniversalMintPossibility NEW %s %s %s %d %s %d\n",
-		pool, total, amount, batch, dist.Amount, dist.Batch)
+	amount := mintMultiBatchesSize(dist.Batch, batch)
+	logger.Verbosef("checkUniversalMintPossibility NEW %s %d %s %d\n",
+		amount, batch, dist.Amount, dist.Batch)
 	return batch, amount
 }
 
@@ -386,8 +397,10 @@ func (node *Node) distributeKernelMintByWorks(accepted []*CNode, base common.Int
 	for _, m := range mints {
 		ns := spaces[m.IdForNetwork]
 		if len(ns) > 0 {
-			// TODO enable this for universal mint distributions
-			logger.Printf("node spaces %s %d %d\n", m.IdForNetwork, ns[0].Batch, len(ns))
+			// TODO enable this for universal mint distributions, need to ensure all nodes
+			// have their own transaction monitor, send some regular transactions
+			// otherwise this will not work in low transaction conditions
+			logger.Verbosef("node spaces %s %d %d\n", m.IdForNetwork, ns[0].Batch, len(ns))
 		}
 
 		w := works[m.IdForNetwork]
