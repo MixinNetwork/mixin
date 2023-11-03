@@ -33,7 +33,7 @@ NODES=(
 for NODE in "${NODES[@]}"
 do
   echo "$NODE"
-  mixin -n "$NODE" getinfo | jq '.network, .node, .timestamp, .graph.topology'
+  mixin -n "$NODE" getinfo | jq '.network, .node, .version, .timestamp, .graph.topology'
   echo
 done
 

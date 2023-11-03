@@ -18,12 +18,10 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 			return fmt.Errorf("invalid utxo type %d", in.Type)
 		}
 	}
-
-	if len(tx.Outputs) > 2 {
-		return fmt.Errorf("invalid outputs count %d for withdrawal submit transaction", len(tx.Outputs))
-	}
-	if len(tx.Outputs) == 2 && tx.Outputs[1].Type != OutputTypeScript {
-		return fmt.Errorf("invalid change type %d for withdrawal submit transaction", tx.Outputs[1].Type)
+	for _, o := range tx.Outputs[1:] {
+		if o.Type != OutputTypeScript {
+			return fmt.Errorf("invalid change type %d for withdrawal submit transaction", tx.Outputs[1].Type)
+		}
 	}
 
 	submit := tx.Outputs[0]
@@ -57,11 +55,10 @@ func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[strin
 	if tx.Asset != XINAssetId {
 		return fmt.Errorf("invalid asset %s for withdrawal claim transaction", tx.Asset)
 	}
-	if len(tx.Outputs) > 2 {
-		return fmt.Errorf("invalid outputs count %d for withdrawal claim transaction", len(tx.Outputs))
-	}
-	if len(tx.Outputs) == 2 && tx.Outputs[1].Type != OutputTypeScript {
-		return fmt.Errorf("invalid change type %d for withdrawal claim transaction", tx.Outputs[1].Type)
+	for _, o := range tx.Outputs[1:] {
+		if o.Type != OutputTypeScript {
+			return fmt.Errorf("invalid change type %d for withdrawal claim transaction", tx.Outputs[1].Type)
+		}
 	}
 	if len(tx.References) != 1 {
 		return fmt.Errorf("invalid references count %d for withdrawal claim transaction", len(tx.References))
