@@ -34,13 +34,15 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 	if len(tx.Outputs) != 1 {
 		return fmt.Errorf("invalid outputs count %d for pledge transaction", len(tx.Outputs))
 	}
+	if len(tx.Inputs) != 1 || len(inputs) != len(tx.Inputs) {
+		return fmt.Errorf("invalid inputs count %d for pledge transaction", len(tx.Outputs))
+	}
+	fk := fmt.Sprintf("%s:%d", tx.Inputs[0].Hash.String(), tx.Inputs[0].Index)
+	if inputs[fk].Type != OutputTypeScript && inputs[fk].Type != OutputTypeNodeRemove {
+		return fmt.Errorf("invalid utxo type %d", inputs[fk].Type)
+	}
 	if len(tx.Extra) != 2*len(crypto.Key{}) {
 		return fmt.Errorf("invalid extra length %d for pledge transaction", len(tx.Extra))
-	}
-	for _, in := range inputs {
-		if in.Type != OutputTypeScript {
-			return fmt.Errorf("invalid utxo type %d", in.Type)
-		}
 	}
 
 	var signerSpend crypto.Key
