@@ -89,7 +89,7 @@ Basic Mixin Kernel transaction is similar to the transaction in Bitcoin, with fo
 
 ```json
 {
-  "version": 4,
+  "version": 5,
   "asset": "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
   "extra": "34366362393932382d653636632d343966392d386165632d366462366137346666663638",
   "outputs": [
@@ -118,7 +118,7 @@ Compact the raw transaction JSON and sign it with the private view and spend key
 ```
 $ mixin signrawtransaction -n mixin-node:8239 \
     -key 0d48c96d383d325a97eea5295cbf3afa7766c49db477b68fd8032ff7f59b0b00d77e434f96f3f42c2d1796662c7cc90497feaf3863a5815f27ba49fd5e29b906 \
-    -raw '{"version":1,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","extra":"34366362393932382d653636632d343966392d386165632d366462366137346666663638","outputs":[{"type":0,"amount":"115.06849309","script":"fffe01","accounts":["XINPXu5NBXszhpZDRJ8iA26TbQ2oWTSq1tXqKKeVeYWgLSz8yXGTtVhMogynYytoMewYVFR541wauLhy1YV33zg445E49YA7"]}],"inputs":[{"hash":"20001842d6eff5129c11f7c053bf1209f0267bf223f1681c9cb9d19fc773a692","index":11}]}'
+    -raw '{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","extra":"34366362393932382d653636632d343966392d386165632d366462366137346666663638","outputs":[{"type":0,"amount":"115.06849309","script":"fffe01","accounts":["XINPXu5NBXszhpZDRJ8iA26TbQ2oWTSq1tXqKKeVeYWgLSz8yXGTtVhMogynYytoMewYVFR541wauLhy1YV33zg445E49YA7"]}],"inputs":[{"hash":"20001842d6eff5129c11f7c053bf1209f0267bf223f1681c9cb9d19fc773a692","index":11}]}'
 ```
 
 

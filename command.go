@@ -305,6 +305,9 @@ func signTransactionCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	if raw.Version != common.TxVersionHashSignature {
+		return fmt.Errorf("invalid version number %d", raw.Version)
+	}
 	raw.Node = c.String("node")
 
 	seed, err := hex.DecodeString(c.String("seed"))
@@ -951,7 +954,8 @@ func callRPC(node, method string, params []any, pt bool) ([]byte, error) {
 }
 
 type signerInput struct {
-	Inputs []struct {
+	Version uint8 `json:"version"`
+	Inputs  []struct {
 		Hash    crypto.Hash `json:"hash"`
 		Index   uint        `json:"index"`
 		Deposit *struct {
