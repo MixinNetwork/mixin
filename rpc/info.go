@@ -30,40 +30,6 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
 		"batch":  node.LastMint,
 		"pledge": kernel.KernelNodePledgeAmount,
 	}
-	cacheMap, finalMap := node.LoadRoundGraph()
-	cacheGraph := make(map[string]any)
-	for n, r := range cacheMap {
-		sm := make([]map[string]any, len(r.Snapshots))
-		for i, s := range r.Snapshots {
-			sm[i] = map[string]any{
-				"version":      s.Version,
-				"node":         s.NodeId,
-				"references":   roundLinkToMap(s.References),
-				"round":        s.RoundNumber,
-				"timestamp":    s.Timestamp,
-				"hash":         s.Hash,
-				"transactions": []any{s.SoleTransaction()},
-				"signature":    s.Signature,
-			}
-		}
-		cacheGraph[n.String()] = map[string]any{
-			"node":       r.NodeId.String(),
-			"round":      r.Number,
-			"timestamp":  r.Timestamp,
-			"snapshots":  sm,
-			"references": roundLinkToMap(r.References),
-		}
-	}
-	finalGraph := make(map[string]any)
-	for n, r := range finalMap {
-		finalGraph[n.String()] = map[string]any{
-			"node":  r.NodeId.String(),
-			"round": r.Number,
-			"start": r.Start,
-			"end":   r.End,
-			"hash":  r.Hash.String(),
-		}
-	}
 
 	cids := make([]crypto.Hash, 0)
 	nodes := make([]map[string]any, 0)
@@ -102,6 +68,8 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
 			nodes = append(nodes, node)
 		}
 	}
+
+	cacheGraph, finalGraph := filterRemovedRoundGraph(node)
 	info["graph"] = map[string]any{
 		"consensus": nodes,
 		"cache":     cacheGraph,
@@ -126,4 +94,59 @@ func dumpGraphHead(node *kernel.Node, params []any) (any, error) {
 	rounds := node.BuildGraph()
 	sort.Slice(rounds, func(i, j int) bool { return fmt.Sprint(rounds[i].NodeId) < fmt.Sprint(rounds[j].NodeId) })
 	return rounds, nil
+}
+
+func filterRemovedRoundGraph(node *kernel.Node) (map[string]any, map[string]any) {
+	removed := make(map[crypto.Hash]bool)
+	allNodes := node.NodesListWithoutState(node.GraphTimestamp, false)
+	for _, n := range allNodes {
+		if n.State == common.NodeStateRemoved {
+			removed[n.IdForNetwork] = true
+		}
+	}
+
+	cacheMap, finalMap := node.LoadRoundGraph()
+	cacheGraph := make(map[string]any)
+
+	for n, r := range cacheMap {
+		if removed[n] {
+			continue
+		}
+		sm := make([]map[string]any, len(r.Snapshots))
+		for i, s := range r.Snapshots {
+			sm[i] = map[string]any{
+				"version":      s.Version,
+				"node":         s.NodeId,
+				"references":   roundLinkToMap(s.References),
+				"round":        s.RoundNumber,
+				"timestamp":    s.Timestamp,
+				"hash":         s.Hash,
+				"transactions": []any{s.SoleTransaction()},
+				"signature":    s.Signature,
+			}
+		}
+		cacheGraph[n.String()] = map[string]any{
+			"node":       r.NodeId.String(),
+			"round":      r.Number,
+			"timestamp":  r.Timestamp,
+			"snapshots":  sm,
+			"references": roundLinkToMap(r.References),
+		}
+	}
+
+	finalGraph := make(map[string]any)
+	for n, r := range finalMap {
+		if removed[n] {
+			continue
+		}
+		finalGraph[n.String()] = map[string]any{
+			"node":  r.NodeId.String(),
+			"round": r.Number,
+			"start": r.Start,
+			"end":   r.End,
+			"hash":  r.Hash.String(),
+		}
+	}
+
+	return cacheGraph, finalGraph
 }
