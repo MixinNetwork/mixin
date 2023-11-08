@@ -29,7 +29,7 @@ func (ver *VersionedTransaction) Validate(store DataStore, snapTime uint64, fork
 		return fmt.Errorf("invalid tx inputs or outputs %d %d %d",
 			len(tx.Inputs), len(tx.Outputs), len(tx.References))
 	}
-	if len(tx.Extra) > tx.getExtraLimit() {
+	if len(tx.Extra) > tx.GetExtraLimit() {
 		return fmt.Errorf("invalid extra size %d", len(tx.Extra))
 	}
 	if len(ver.PayloadMarshal()) > config.TransactionMaximumSize {
@@ -92,7 +92,7 @@ func (ver *VersionedTransaction) Validate(store DataStore, snapTime uint64, fork
 	return fmt.Errorf("invalid transaction type %d", txType)
 }
 
-func (tx *SignedTransaction) getExtraLimit() int {
+func (tx *SignedTransaction) GetExtraLimit() int {
 	if tx.Version < TxVersionHashSignature {
 		panic(tx.Version)
 	}
