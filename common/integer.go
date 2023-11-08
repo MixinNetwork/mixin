@@ -30,7 +30,7 @@ func NewIntegerFromString(x string) (v Integer) {
 	if d.Sign() < 0 {
 		panic(x)
 	}
-	s := d.Mul(decimal.New(1, Precision)).StringFixed(0)
+	s := d.Mul(decimal.New(1, Precision)).Floor().String()
 	v.i.SetString(s, 10)
 	return
 }
