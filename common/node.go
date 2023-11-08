@@ -27,6 +27,22 @@ func (n *Node) IdForNetwork(networkId crypto.Hash) crypto.Hash {
 	return n.Signer.Hash().ForNetwork(networkId)
 }
 
+func (tx *Transaction) NodeTransactionExtraAsSigner() *Address {
+	switch tx.AsVersioned().TransactionType() {
+	case TransactionTypeNodePledge:
+	case TransactionTypeNodeAccept:
+	case TransactionTypeNodeRemove:
+	default:
+		panic(tx.AsVersioned().PayloadHash())
+	}
+
+	var signer Address
+	copy(signer.PublicSpendKey[:], tx.Extra)
+	signer.PrivateViewKey = signer.PublicSpendKey.DeterministicHashDerive()
+	signer.PublicViewKey = signer.PrivateViewKey.Public()
+	return &signer
+}
+
 func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UTXO, snapTime uint64) error {
 	if tx.Asset != XINAssetId {
 		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
@@ -125,13 +141,7 @@ func (tx *Transaction) validateNodeCancel(store DataStore, payloadHash crypto.Ha
 	if cancel.Amount.Cmp(po.Amount.Div(100)) != 0 {
 		return fmt.Errorf("invalid script output amount %s for cancel transaction", cancel.Amount)
 	}
-	var publicSpend crypto.Key
-	copy(publicSpend[:], lastPledge.Extra)
-	privateView := publicSpend.DeterministicHashDerive()
-	acc := Address{
-		PublicViewKey:  privateView.Public(),
-		PublicSpendKey: publicSpend,
-	}
+	acc := lastPledge.NodeTransactionExtraAsSigner()
 	if filter[acc.String()] != NodeStatePledging {
 		return fmt.Errorf("invalid pledge utxo source %s", filter[acc.String()])
 	}
@@ -205,13 +215,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore, snapTime uint64) erro
 	if po.Type != OutputTypeNodePledge {
 		return fmt.Errorf("invalid pledge utxo type %d", po.Type)
 	}
-	var publicSpend crypto.Key
-	copy(publicSpend[:], lastPledge.Extra)
-	privateView := publicSpend.DeterministicHashDerive()
-	acc := Address{
-		PublicViewKey:  privateView.Public(),
-		PublicSpendKey: publicSpend,
-	}
+	acc := lastPledge.NodeTransactionExtraAsSigner()
 	if filter[acc.String()] != NodeStatePledging {
 		return fmt.Errorf("invalid pledge utxo source %s", filter[acc.String()])
 	}

@@ -90,7 +90,7 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 			return err
 		}
 	case common.TransactionTypeNodeRemove:
-		err := node.validateNodeRemoveSnapshot(s, tx)
+		err := node.validateNodeRemoveSnapshot(s, tx, finalized)
 		if err != nil {
 			logger.Verbosef("validateNodeRemoveSnapshot ERROR %v %s %s\n",
 				s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())

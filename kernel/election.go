@@ -163,10 +163,23 @@ func (node *Node) tryToSendRemoveTransaction() error {
 	return chain.AppendSelfEmpty(s)
 }
 
-func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
+func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
 	timestamp := s.Timestamp
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
 		timestamp = uint64(clock.Now().UnixNano())
+	}
+	signer := tx.NodeTransactionExtraAsSigner()
+	id := signer.Hash().ForNetwork(node.networkId)
+	for _, cn := range node.allNodesSortedWithState {
+		if cn.State != common.NodeStateRemoved {
+			continue
+		}
+		if cn.IdForNetwork != id {
+			continue
+		}
+		if finalized && cn.Transaction == tx.PayloadHash() {
+			return nil
+		}
 	}
 	cantx, err := node.buildNodeRemoveTransaction(s.NodeId, timestamp, tx)
 	if err != nil {
@@ -335,10 +348,7 @@ func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedT
 		panic("should never be here")
 	}
 
-	var signer common.Address
-	copy(signer.PublicSpendKey[:], tx.Extra)
-	signer.PrivateViewKey = signer.PublicSpendKey.DeterministicHashDerive()
-	signer.PublicViewKey = signer.PrivateViewKey.Public()
+	signer := tx.NodeTransactionExtraAsSigner()
 	id := signer.Hash().ForNetwork(node.networkId)
 	if id == s.NodeId {
 		return nil
