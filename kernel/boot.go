@@ -2,14 +2,12 @@ package kernel
 
 import (
 	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 )
 
 func (node *Node) Loop() error {
-	rand.Seed(clock.Now().UnixNano())
 	err := node.PingNeighborsFromConfig()
 	if err != nil {
 		return err

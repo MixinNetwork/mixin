@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
 	"slices"
@@ -114,8 +113,8 @@ func testConsensus(t *testing.T) {
 	deposits := make([]*common.VersionedTransaction, 0)
 	for i := 0; i < INPUTS; i++ {
 		raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset_key":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
-		rand.Seed(time.Now().UnixNano())
-		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw)
+		randT := int(time.Now().UnixNano()) % len(nodes)
+		tx, err := testSignTransaction(nodes[randT].Host, accounts[0], raw)
 		require.Nil(err)
 		require.NotNil(tx)
 		deposits = append(deposits, &common.VersionedTransaction{SignedTransaction: *tx})
@@ -138,8 +137,8 @@ func testConsensus(t *testing.T) {
 	utxos := make([]*common.VersionedTransaction, 0)
 	for _, d := range deposits {
 		raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, d.PayloadHash().String(), genesisAmount, domainAddress)
-		rand.Seed(time.Now().UnixNano())
-		tx, err := testSignTransaction(nodes[rand.Intn(len(nodes))].Host, accounts[0], raw)
+		randT := int(time.Now().UnixNano()) % len(nodes)
+		tx, err := testSignTransaction(nodes[randT].Host, accounts[0], raw)
 		require.Nil(err)
 		require.NotNil(tx)
 		if tx != nil {
@@ -388,7 +387,6 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 	tx.Extra = append(sortedExtra, sig[:]...)
 
 	raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset_key":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%s"}}],"outputs":[{"type":0,"amount":"%s","script":"fffe01","accounts":["%s"]}]}`, 13439, amount.String(), amount.String(), domain.String())
-	rand.Seed(time.Now().UnixNano())
 	deposit, err := testSignTransaction(nodes[0].Host, domain, raw)
 	require.Nil(err)
 	require.NotNil(deposit)
@@ -485,9 +483,8 @@ func testRemoveNode(nodes []*Node, r common.Address) []*Node {
 			tmp = append(tmp, n)
 		}
 	}
-	rand.Seed(time.Now().UnixNano())
 	for n := len(tmp); n > 0; n-- {
-		randIndex := rand.Intn(n)
+		randIndex := int(time.Now().UnixNano()) % n
 		tmp[n-1], tmp[randIndex] = tmp[randIndex], tmp[n-1]
 	}
 	return tmp
