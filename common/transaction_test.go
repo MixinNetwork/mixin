@@ -290,8 +290,8 @@ func (store storeImpl) ReadAllNodes(_ uint64, _ bool) []*Node {
 	return nil
 }
 
-func (store storeImpl) ReadTransaction(_ crypto.Hash) (*VersionedTransaction, string, error) {
-	return nil, "", nil
+func (store storeImpl) ReadTransaction(h crypto.Hash) (*VersionedTransaction, string, error) {
+	return &VersionedTransaction{}, h.String(), nil
 }
 
 func (store storeImpl) ReadDepositLock(_ *DepositData) (crypto.Hash, error) {

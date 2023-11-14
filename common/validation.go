@@ -137,18 +137,18 @@ func validateScriptTransaction(inputs map[string]*UTXO) error {
 	return nil
 }
 
-func validateReferences(store UTXOLockReader, tx *SignedTransaction) error {
+func validateReferences(store TransactionReader, tx *SignedTransaction) error {
 	if len(tx.References) > ReferencesCountLimit {
 		return fmt.Errorf("too many references %d", len(tx.References))
 	}
 
 	for _, r := range tx.References {
-		utxo, err := store.ReadUTXOLock(r, 0)
+		rtx, snap, err := store.ReadTransaction(r)
 		if err != nil {
 			return err
 		}
-		if utxo == nil {
-			return fmt.Errorf("reference not found %s", r.String())
+		if rtx == nil || snap == "" {
+			return fmt.Errorf("reference not found %s", r)
 		}
 	}
 
