@@ -13,16 +13,10 @@ import (
 // FIXME GLOBAL VARIABLES
 
 var (
-	inTest   bool
-	mutex    *sync.RWMutex
-	mockDiff time.Duration
+	inTest   = strings.Contains(config.BuildVersion, "BUILD_VERSION")
+	mutex    = new(sync.RWMutex)
+	mockDiff = time.Duration(0)
 )
-
-func init() {
-	inTest = strings.Contains(config.BuildVersion, "BUILD_VERSION")
-	mutex = new(sync.RWMutex)
-	mockDiff = 0
-}
 
 func Reset() {
 	if !inTest {

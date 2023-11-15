@@ -12,11 +12,7 @@ import (
 
 const Precision = 8
 
-var Zero Integer
-
-func init() {
-	Zero = NewInteger(0)
-}
+var Zero = NewInteger(0)
 
 type Integer struct {
 	i big.Int
