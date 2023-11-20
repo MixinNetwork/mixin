@@ -143,6 +143,13 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			rdr.RenderData(tx)
 		}
+	case "getwithdrawalclaim":
+		tx, err := readWithdrawal(impl.Store, call.Params)
+		if err != nil {
+			rdr.RenderError(err)
+		} else {
+			rdr.RenderData(tx)
+		}
 	case "getutxo":
 		utxo, err := getUTXO(impl.Store, call.Params)
 		if err != nil {

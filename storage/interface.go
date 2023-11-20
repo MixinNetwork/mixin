@@ -24,6 +24,7 @@ type Store interface {
 	LockUTXOs(inputs []*common.Input, tx crypto.Hash, fork bool) error
 	ReadDepositLock(deposit *common.DepositData) (crypto.Hash, error)
 	LockDepositInput(deposit *common.DepositData, tx crypto.Hash, fork bool) error
+	ReadWithdrawalClaim(hash crypto.Hash) (*common.VersionedTransaction, string, error)
 	ReadGhostKeyLock(key crypto.Key) (*crypto.Hash, error)
 	LockGhostKeys(keys []*crypto.Key, tx crypto.Hash, fork bool) error
 	ReadSnapshot(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)

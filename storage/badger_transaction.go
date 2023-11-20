@@ -166,7 +166,7 @@ func finalizeTransaction(txn *badger.Txn, ver *common.VersionedTransaction, snap
 
 	genesis := len(ver.Inputs[0].Genesis) > 0
 	for _, utxo := range ver.UnspentOutputs() {
-		err := writeUTXO(txn, utxo, ver.Extra, snap.Timestamp, genesis)
+		err := writeUTXO(txn, utxo, ver, snap.Timestamp, genesis)
 		if err != nil {
 			return err
 		}
@@ -175,7 +175,7 @@ func finalizeTransaction(txn *badger.Txn, ver *common.VersionedTransaction, snap
 	return writeTotalInAsset(txn, ver)
 }
 
-func writeUTXO(txn *badger.Txn, utxo *common.UTXOWithLock, extra []byte, timestamp uint64, genesis bool) error {
+func writeUTXO(txn *badger.Txn, utxo *common.UTXOWithLock, ver *common.VersionedTransaction, timestamp uint64, genesis bool) error {
 	for _, k := range utxo.Keys {
 		err := lockGhostKey(txn, k, utxo.Hash, true)
 		if err != nil {
@@ -190,9 +190,9 @@ func writeUTXO(txn *badger.Txn, utxo *common.UTXOWithLock, extra []byte, timesta
 	}
 
 	var signer, payee crypto.Key
-	if len(extra) >= len(signer) {
-		copy(signer[:], extra)
-		copy(payee[:], extra[len(signer):])
+	if len(ver.Extra) >= len(signer) {
+		copy(signer[:], ver.Extra)
+		copy(payee[:], ver.Extra[len(signer):])
 	}
 	switch utxo.Type {
 	case common.OutputTypeNodePledge:
@@ -204,7 +204,9 @@ func writeUTXO(txn *badger.Txn, utxo *common.UTXOWithLock, extra []byte, timesta
 	case common.OutputTypeNodeRemove:
 		return writeNodeRemove(txn, signer, payee, utxo.Hash, timestamp)
 	case common.OutputTypeCustodianUpdateNodes:
-		return writeCustodianNodes(txn, timestamp, utxo, extra, genesis)
+		return writeCustodianNodes(txn, timestamp, utxo, ver.Extra, genesis)
+	case common.OutputTypeWithdrawalClaim:
+		return writeWithdrawalClaim(txn, ver.References[0], ver.PayloadHash())
 	}
 
 	return nil
