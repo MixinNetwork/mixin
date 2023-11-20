@@ -94,7 +94,7 @@ func (chain *Chain) readFinalRoundTimestamp(round uint64) (uint64, error) {
 	for i, s := range snapshots {
 		rawSnapshots[i] = s.Snapshot
 	}
-	start, _, hash := ComputeRoundHash(chain.ChainId, round, rawSnapshots)
+	start, _, hash := common.ComputeRoundHash(chain.ChainId, round, rawSnapshots)
 
 	r, err := chain.persistStore.ReadRound(hash)
 	if err != nil {

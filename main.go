@@ -497,6 +497,37 @@ func main() {
 			},
 		},
 		{
+			Name:   "getdeposittransaction",
+			Usage:  "Get the deposit transaction by external chain transaction",
+			Action: getDepositTransactionCmd,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "chain",
+					Usage: "the chain hash",
+				},
+				&cli.StringFlag{
+					Name:  "hash",
+					Usage: "the external chain transaction hash",
+				},
+				&cli.IntFlag{
+					Name:  "index",
+					Usage: "the external chain transaction output index",
+				},
+			},
+		},
+		{
+			Name:   "getwithdrawalclaim",
+			Usage:  "Get the claim transaction for a withdrawal submit",
+			Action: getWithdrawalClaimCmd,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "hash",
+					Aliases: []string{"x"},
+					Usage:   "the withdrawal submit transaction hash",
+				},
+			},
+		},
+		{
 			Name:   "getutxo",
 			Usage:  "Get the UTXO by hash and index",
 			Action: getUTXOCmd,

@@ -54,14 +54,14 @@ type Input struct {
 }
 
 type Output struct {
-	Type       uint8
-	Amount     Integer
-	Keys       []*crypto.Key
-	Withdrawal *WithdrawalData
+	Type   uint8
+	Amount Integer
 
-	// OutputTypeScript fields
-	Script Script
+	Keys   []*crypto.Key
 	Mask   crypto.Key
+	Script Script
+
+	Withdrawal *WithdrawalData
 }
 
 type Transaction struct {

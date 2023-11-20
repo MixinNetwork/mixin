@@ -21,6 +21,7 @@ func TestBadger(t *testing.T) {
 	store, err := NewBadgerStore(custom, root)
 	require.Nil(err)
 	require.NotNil(store)
+	defer store.Close()
 
 	seq := store.TopologySequence()
 	require.Equal(uint64(0), seq)

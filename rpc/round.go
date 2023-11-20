@@ -57,7 +57,7 @@ func getRoundByNumber(kn *kernel.Node, store storage.Store, params []any) (map[s
 		for i, s := range snapshots {
 			rawSnapshots[i] = s.Snapshot
 		}
-		start, end, hash = kernel.ComputeRoundHash(node, number, rawSnapshots)
+		start, end, hash = common.ComputeRoundHash(node, number, rawSnapshots)
 		round, err := store.ReadRound(hash)
 		if err != nil {
 			return nil, err
@@ -111,7 +111,7 @@ func getRoundByHash(kn *kernel.Node, store storage.Store, params []any) (map[str
 		for i, s := range snapshots {
 			rawSnapshots[i] = s.Snapshot
 		}
-		s, e, h := kernel.ComputeRoundHash(round.NodeId, round.Number, rawSnapshots)
+		s, e, h := common.ComputeRoundHash(round.NodeId, round.Number, rawSnapshots)
 		if h != hash {
 			return nil, fmt.Errorf("round malformed %s:%d:%d:%s %s", round.NodeId, round.Number, round.Timestamp, hash, h)
 		}

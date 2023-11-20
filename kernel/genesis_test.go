@@ -14,7 +14,7 @@ import (
 func TestGenesis(t *testing.T) {
 	require := require.New(t)
 
-	require.Equal("13439.00000000", genesisPledgeAmount().String())
+	require.Equal("13439.00000000", common.KernelNodePledgeAmount.String())
 
 	root, err := os.MkdirTemp("", "mixin-genesis-test")
 	require.Nil(err)

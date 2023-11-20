@@ -16,7 +16,6 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/urfave/cli/v2"
 )
@@ -156,7 +155,7 @@ func validateGraphEntries(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	var gns kernel.Genesis
+	var gns common.Genesis
 	err = json.Unmarshal(f, &gns)
 	if err != nil {
 		return err
@@ -718,6 +717,28 @@ func getTransactionCmd(c *cli.Context) error {
 
 func getCacheTransactionCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getcachetransaction", []any{
+		c.String("hash"),
+	}, c.Bool("time"))
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
+
+func getDepositTransactionCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "getdeposittransaction", []any{
+		c.String("chain"),
+		c.String("hash"),
+		c.Int("index"),
+	}, c.Bool("time"))
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
+
+func getWithdrawalClaimCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "getwithdrawalclaim", []any{
 		c.String("hash"),
 	}, c.Bool("time"))
 	if err == nil {

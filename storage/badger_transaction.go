@@ -139,6 +139,13 @@ func writeTransaction(txn *badger.Txn, ver *common.VersionedTransaction) error {
 		return err
 	}
 
+	if d := ver.Inputs[0].Deposit; d != nil {
+		err := verifyAssetInfo(txn, ver.Asset, d.Asset())
+		if err != nil {
+			return err
+		}
+	}
+
 	val := ver.Marshal()
 	return txn.Set(key, val)
 }

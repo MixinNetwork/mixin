@@ -95,6 +95,17 @@ func readAssetInfo(txn *badger.Txn, id crypto.Hash) (*common.Asset, error) {
 	return &a, a.Verify()
 }
 
+func verifyAssetInfo(txn *badger.Txn, id crypto.Hash, a *common.Asset) error {
+	old, err := readAssetInfo(txn, id)
+	if err != nil || old == nil {
+		return err
+	}
+	if old.Chain == a.Chain && old.AssetKey == a.AssetKey {
+		return nil
+	}
+	return fmt.Errorf("invalid asset info %s %v %v", id.String(), *old, *a)
+}
+
 func writeAssetInfo(txn *badger.Txn, id crypto.Hash, a *common.Asset) error {
 	old, err := readAssetInfo(txn, id)
 	if err != nil {
