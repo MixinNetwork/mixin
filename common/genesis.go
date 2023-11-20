@@ -8,11 +8,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-)
-
-const (
-	MinimumNodeCount = 7
 )
 
 var (
@@ -181,8 +178,8 @@ func ReadGenesis(path string) (*Genesis, error) {
 	if gns.Custodian == nil {
 		return nil, fmt.Errorf("invalid genesis custodian %v", gns)
 	}
-	if len(gns.Nodes) < MinimumNodeCount {
-		return nil, fmt.Errorf("invalid genesis inputs number %d/%d", len(gns.Nodes), MinimumNodeCount)
+	if len(gns.Nodes) < config.KernelMinimumNodesCount {
+		return nil, fmt.Errorf("invalid genesis inputs number %d/%d", len(gns.Nodes), config.KernelMinimumNodesCount)
 	}
 
 	inputsFilter := make(map[string]bool)

@@ -13,7 +13,7 @@ func readWithdrawal(store storage.Store, params []any) (map[string]any, error) {
 	if len(params) != 1 {
 		return nil, errors.New("invalid params count")
 	}
-	hash, err := crypto.HashFromString(fmt.Sprint(params[1]))
+	hash, err := crypto.HashFromString(fmt.Sprint(params[0]))
 	if err != nil {
 		return nil, err
 	}
