@@ -15,6 +15,27 @@ import (
 
 const mainnetId = "74c6cdb7d51af57037faa1f5544f8331ced001df5964331911ca51385993b375"
 
+func TestNodeElection(t *testing.T) {
+	require := require.New(t)
+
+	root, err := os.MkdirTemp("", "mixin-election-test")
+	require.Nil(err)
+	defer os.RemoveAll(root)
+
+	node := setupTestNode(require, root)
+	require.NotNil(node)
+
+	now := node.Epoch + uint64(time.Hour*24*123)
+	eid := node.electSnapshotNode(common.TransactionTypeMint, now)
+	require.Equal("fb2793d548a889fbc41612ca336bb6112121962c0fac94be76174882e2042da6", eid.String())
+	eid = node.electSnapshotNode(common.TransactionTypeNodePledge, now)
+	require.Equal("333508c8fdd5245ca9a3e47807aec3761f0609ace487484c0d0c6617aa109575", eid.String())
+	eid = node.electSnapshotNode(common.TransactionTypeNodeRemove, now)
+	require.Equal("588e521a7e7fd0998ed65ca09443206421f86cf18b167e2367a25af705204d8a", eid.String())
+	eid = node.electSnapshotNode(common.TransactionTypeCustodianUpdateNodes, now)
+	require.Equal("d6fc1a38c5fb8c2a4a63eb276613643f09d9f67270129256284b7fc37aa56b82", eid.String())
+}
+
 func TestNodeRemovePossibility(t *testing.T) {
 	require := require.New(t)
 

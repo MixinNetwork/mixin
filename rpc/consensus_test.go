@@ -160,7 +160,7 @@ func testConsensus(t *testing.T) {
 	require.Greater(hr.Round, uint64(0))
 	t.Logf("INPUT TEST DONE AT %s\n", time.Now())
 
-	testCustodianUpdateNodes(t, nodes, accounts, payees, instances[0].NetworkId())
+	testCustodianUpdateNodes(t, nodes, instances, accounts, payees, instances[0].NetworkId())
 	transactionsCount = transactionsCount + 2
 	t.Logf("CUSTODIAN TEST DONE AT %s\n", time.Now())
 
@@ -348,7 +348,7 @@ func testConsensus(t *testing.T) {
 
 }
 
-func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []common.Address, networkId crypto.Hash) {
+func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.Node, signers, payees []common.Address, networkId crypto.Hash) {
 	require := require.New(t)
 	tx := common.NewTransactionV5(common.XINAssetId)
 	require.NotNil(tx)
@@ -386,8 +386,10 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 	sig := domain.PrivateSpendKey.Sign(sh)
 	tx.Extra = append(sortedExtra, sig[:]...)
 
+	enode := electSnapshotNode(nodes, instances[0], common.TransactionTypeCustodianUpdateNodes, instances[0].GraphTimestamp)
+
 	raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset_key":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%s"}}],"outputs":[{"type":0,"amount":"%s","script":"fffe01","accounts":["%s"]}]}`, 13439, amount.String(), amount.String(), domain.String())
-	deposit, err := testSignTransaction(nodes[0].Host, domain, raw)
+	deposit, err := testSignTransaction(enode.Host, domain, raw)
 	require.Nil(err)
 	require.NotNil(deposit)
 	deposits := []*common.VersionedTransaction{{SignedTransaction: *deposit}}
@@ -411,7 +413,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 		"outputs": outputs,
 		"extra":   hex.EncodeToString(tx.Extra),
 	})
-	signed, err := testSignTransaction(nodes[0].Host, domain, string(rb))
+	signed, err := testSignTransaction(enode.Host, domain, string(rb))
 	require.Nil(err)
 	require.NotNil(signed)
 
@@ -419,7 +421,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 	testSendTransactionsToNodesWithRetry(t, nodes, updates)
 
 	raw = hex.EncodeToString(signed.AsVersioned().Marshal())
-	id, err := testSendTransaction(nodes[0].Host, raw)
+	id, err := testSendTransaction(enode.Host, raw)
 	require.Nil(err)
 	require.Len(id, 75)
 	var res map[string]string
@@ -427,7 +429,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, signers, payees []com
 	hash, _ := crypto.HashFromString(res["hash"])
 	require.True(hash.HasValue())
 
-	data, err := callRPC(nodes[0].Host, "listcustodianupdates", []any{})
+	data, err := callRPC(enode.Host, "listcustodianupdates", []any{})
 	require.Nil(err)
 	var curs []*struct {
 		Custodian   string `json:"custodian"`
@@ -602,6 +604,7 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 		}},
 		"extra": signer.PublicSpendKey.String() + payee.PublicSpendKey.String(),
 	})
+
 	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw))
 	require.Nil(err)
 	ver := common.VersionedTransaction{SignedTransaction: *tx}
@@ -1197,6 +1200,30 @@ func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index uint) (*common.UTXOK
 
 func (raw signerInput) ReadDepositLock(deposit *common.DepositData) (crypto.Hash, error) {
 	return crypto.Hash{}, nil
+}
+
+func electSnapshotNode(nodes []*Node, node *kernel.Node, operation byte, now uint64) *Node {
+	switch operation {
+	case common.TransactionTypeMint:
+	case common.TransactionTypeNodeRemove:
+	case common.TransactionTypeNodePledge:
+	case common.TransactionTypeCustodianUpdateNodes:
+	case common.TransactionTypeCustodianSlashNodes:
+	}
+	accepted := node.NodesListWithoutState(now, false)
+	if len(accepted) < config.KernelMinimumNodesCount {
+		panic(len(accepted))
+	}
+	accepted = accepted[1 : len(accepted)-1]
+	day := int((now - node.Epoch) / (uint64(time.Hour) * 24))
+	idx := (day + int(operation)) % len(accepted)
+	eid := accepted[idx].IdForNetwork
+	for _, n := range nodes {
+		if n.Signer.Hash().ForNetwork(node.NetworkId()) == eid {
+			return n
+		}
+	}
+	return nil
 }
 
 func newCache(conf *config.Custom) *ristretto.Cache {

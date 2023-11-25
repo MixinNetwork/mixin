@@ -122,6 +122,10 @@ func (node *Node) MintLoop() {
 }
 
 func (node *Node) tryToMintUniversal(custodianRequest *common.CustodianUpdateRequest) error {
+	eid := node.electSnapshotNode(common.TransactionTypeMint, node.GraphTimestamp)
+	if eid != node.IdForNetwork {
+		return fmt.Errorf("universal mint operation at %d only by %s not me", node.GraphTimestamp, eid)
+	}
 	signed := node.buildUniversalMintTransaction(custodianRequest, node.GraphTimestamp, false)
 	if signed == nil {
 		return nil
@@ -271,6 +275,10 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 	timestamp := snap.Timestamp
 	if snap.Timestamp == 0 && snap.NodeId == node.IdForNetwork {
 		timestamp = uint64(clock.Now().UnixNano())
+	}
+	eid := node.electSnapshotNode(common.TransactionTypeMint, timestamp)
+	if eid != snap.NodeId {
+		return fmt.Errorf("univernal mint operation at %d only by %s not %s", timestamp, eid, snap.NodeId)
 	}
 
 	var signed *common.VersionedTransaction

@@ -49,6 +49,25 @@ func (node *Node) ElectionLoop() {
 	}
 }
 
+// TODO slashing rule for failure of this elected node
+func (node *Node) electSnapshotNode(operation byte, now uint64) crypto.Hash {
+	switch operation {
+	case common.TransactionTypeMint:
+	case common.TransactionTypeNodeRemove:
+	case common.TransactionTypeNodePledge:
+	case common.TransactionTypeCustodianUpdateNodes:
+	case common.TransactionTypeCustodianSlashNodes:
+	}
+	accepted := node.NodesListWithoutState(now, false)
+	if len(accepted) < config.KernelMinimumNodesCount {
+		panic(len(accepted))
+	}
+	accepted = accepted[1 : len(accepted)-1]
+	day := int((now - node.Epoch) / (uint64(time.Hour) * 24))
+	idx := (day + int(operation)) % len(accepted)
+	return accepted[idx].IdForNetwork
+}
+
 func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64, old *common.VersionedTransaction) (*CNode, error) {
 	if p := node.PledgingNode(now); p != nil {
 		return nil, fmt.Errorf("still pledging now %s", p.Signer.String())
@@ -140,6 +159,10 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 }
 
 func (node *Node) tryToSendRemoveTransaction() error {
+	eid := node.electSnapshotNode(common.TransactionTypeNodeRemove, node.GraphTimestamp)
+	if eid != node.IdForNetwork {
+		return fmt.Errorf("node remove operation at %d only by %s not me", node.GraphTimestamp, eid)
+	}
 	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, node.GraphTimestamp, nil)
 	if err != nil {
 		return err
@@ -168,6 +191,11 @@ func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.Vers
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
 		timestamp = uint64(clock.Now().UnixNano())
 	}
+	eid := node.electSnapshotNode(common.TransactionTypeNodeRemove, timestamp)
+	if eid != s.NodeId {
+		return fmt.Errorf("node remove operation at %d only by %s not %s", timestamp, eid, s.NodeId)
+	}
+
 	signer := tx.NodeTransactionExtraAsSigner()
 	id := signer.Hash().ForNetwork(node.networkId)
 	for _, cn := range node.allNodesSortedWithState {
@@ -438,6 +466,10 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	timestamp, totalNodes := s.Timestamp, 0
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
 		timestamp = uint64(clock.Now().UnixNano())
+	}
+	eid := node.electSnapshotNode(common.TransactionTypeNodePledge, timestamp)
+	if eid != s.NodeId {
+		return fmt.Errorf("node pledge operation at %d only by %s not %s", timestamp, eid, s.NodeId)
 	}
 
 	if timestamp < node.Epoch {

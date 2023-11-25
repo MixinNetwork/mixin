@@ -14,6 +14,10 @@ func (node *Node) validateCustodianUpdateNodes(s *common.Snapshot, tx *common.Ve
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
 		timestamp = uint64(clock.Now().UnixNano())
 	}
+	eid := node.electSnapshotNode(common.TransactionTypeCustodianUpdateNodes, timestamp)
+	if eid != s.NodeId {
+		return fmt.Errorf("custodian updates operation at %d only by %s not %s", timestamp, eid, s.NodeId)
+	}
 
 	if timestamp < node.Epoch {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
