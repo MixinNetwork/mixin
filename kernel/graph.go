@@ -15,8 +15,6 @@ import (
 const (
 	GraphOperationClassAtomic       = 0x00
 	GraphOperationClassNormalLedger = 0x01
-
-	MainnetNodeRemovalConsensusForkTimestamp = 1590000000000000000
 )
 
 func (chain *Chain) startNewRoundAndPersist(cache *CacheRound, references *common.RoundLink, timestamp uint64, finalized bool) (*CacheRound, *FinalRound, bool, error) {
@@ -361,7 +359,12 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 		return nil, false
 	}
 
-	cids, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
-	base := chain.node.ConsensusThreshold(s.Timestamp, true)
+	timestamp := s.Timestamp
+	if s.Hash.String() == mainnetNodeRemovalHackSnapshotHash {
+		timestamp = timestamp - uint64(time.Minute)
+	}
+
+	cids, publics := chain.ConsensusKeys(s.RoundNumber, timestamp)
+	base := chain.node.ConsensusThreshold(timestamp, true)
 	return chain.node.CacheVerifyCosi(s.Hash, s.Signature, cids, publics, base)
 }

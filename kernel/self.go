@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/badger/v4"
 )
@@ -60,6 +61,9 @@ func (node *Node) lockAndPersistTransaction(tx *common.VersionedTransaction, fin
 }
 
 func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
+	if finalized && node.networkId.String() == config.KernelNetworkId && s.Timestamp < mainnetConsensusOperationElectionForkAt {
+		return nil
+	}
 	switch tx.TransactionType() {
 	case common.TransactionTypeMint:
 		err := node.validateMintSnapshot(s, tx)
