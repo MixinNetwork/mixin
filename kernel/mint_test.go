@@ -17,7 +17,7 @@ import (
 func TestPledgeAmount(t *testing.T) {
 	require := require.New(t)
 
-	require.Equal(common.NewIntegerFromString("13439"), KernelNodePledgeAmount)
+	require.Equal(common.NewIntegerFromString("13439"), common.KernelNodePledgeAmount)
 }
 
 func TestMintBatchSize(t *testing.T) {

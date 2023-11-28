@@ -28,7 +28,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
 	info["mint"] = map[string]any{
 		"pool":   pool,
 		"batch":  node.LastMint,
-		"pledge": kernel.KernelNodePledgeAmount,
+		"pledge": common.KernelNodePledgeAmount,
 	}
 
 	cids := make([]crypto.Hash, 0)

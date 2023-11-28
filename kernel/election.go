@@ -475,7 +475,7 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	if timestamp < node.Epoch {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
 	}
-	if tx.Outputs[0].Amount.Cmp(KernelNodePledgeAmount) != 0 {
+	if tx.Outputs[0].Amount.Cmp(common.KernelNodePledgeAmount) != 0 {
 		return fmt.Errorf("invalid pledge amount %s", tx.Outputs[0].Amount.String())
 	}
 

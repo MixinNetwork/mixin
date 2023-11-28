@@ -15,10 +15,9 @@ import (
 )
 
 var (
-	KernelNodePledgeAmount = common.NewInteger(13439)
-	MintPool               = common.NewInteger(500000)
-	MintLiquidity          = common.NewInteger(500000)
-	MintYearPercent        = common.NewInteger(10).Ration(common.NewInteger(100))
+	MintPool        = common.NewInteger(500000)
+	MintLiquidity   = common.NewInteger(500000)
+	MintYearPercent = common.NewInteger(10).Ration(common.NewInteger(100))
 )
 
 const (
