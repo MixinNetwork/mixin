@@ -12,11 +12,6 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
-const (
-	GraphOperationClassAtomic       = 0x00
-	GraphOperationClassNormalLedger = 0x01
-)
-
 func (chain *Chain) startNewRoundAndPersist(cache *CacheRound, references *common.RoundLink, timestamp uint64, finalized bool) (*CacheRound, *FinalRound, bool, error) {
 	dummyExternal := cache.References.External
 	final, dummy, err := chain.validateNewRound(cache, references, timestamp, finalized)
