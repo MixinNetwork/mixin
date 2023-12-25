@@ -493,17 +493,20 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		if elapse < config.KernelNodePledgePeriodMinimum {
 			return fmt.Errorf("invalid pledge period %d %d", config.KernelNodePledgePeriodMinimum, elapse)
 		}
-		if cn.State != common.NodeStateAccepted && cn.State != common.NodeStateCancelled &&
-			cn.State != common.NodeStateRemoved {
-			return fmt.Errorf("invalid node pending state %s %s", cn.Signer, cn.State)
-		}
 		if cn.Signer.PublicSpendKey.String() == signerSpend.String() {
 			return fmt.Errorf("invalid node signer key %s %s", hex.EncodeToString(tx.Extra), cn.Signer)
 		}
 		if cn.Payee.PublicSpendKey.String() == signerSpend.String() {
 			return fmt.Errorf("invalid node signer key %s %s", hex.EncodeToString(tx.Extra), cn.Payee)
 		}
-		totalNodes = totalNodes + 1
+		switch cn.State {
+		case common.NodeStateAccepted:
+			totalNodes = totalNodes + 1
+		case common.NodeStateRemoved:
+		case common.NodeStateCancelled:
+		default:
+			return fmt.Errorf("invalid node pending state %s %s", cn.Signer, cn.State)
+		}
 	}
 
 	if totalNodes >= MaxKernelNodesCount {
