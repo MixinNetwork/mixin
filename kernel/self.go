@@ -68,42 +68,42 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 	case common.TransactionTypeMint:
 		err := node.validateMintSnapshot(s, tx)
 		if err != nil {
-			logger.Verbosef("validateMintSnapshot ERROR %v %s %s\n",
+			logger.Printf("validateMintSnapshot ERROR %v %s %s\n",
 				s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
 			return err
 		}
 	case common.TransactionTypeNodePledge:
 		err := node.validateNodePledgeSnapshot(s, tx)
 		if err != nil {
-			logger.Verbosef("validateNodePledgeSnapshot ERROR %v %s %s\n",
+			logger.Printf("validateNodePledgeSnapshot ERROR %v %s %s\n",
 				s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
 			return err
 		}
 	case common.TransactionTypeNodeCancel:
 		err := node.validateNodeCancelSnapshot(s, tx, finalized)
 		if err != nil {
-			logger.Verbosef("validateNodeCancelSnapshot ERROR %v %s %s\n",
+			logger.Printf("validateNodeCancelSnapshot ERROR %v %s %s\n",
 				s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
 			return err
 		}
 	case common.TransactionTypeNodeAccept:
 		err := node.validateNodeAcceptSnapshot(s, tx, finalized)
 		if err != nil {
-			logger.Verbosef("validateNodeAcceptSnapshot ERROR %v %s %s\n",
+			logger.Printf("validateNodeAcceptSnapshot ERROR %v %s %s\n",
 				s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
 			return err
 		}
 	case common.TransactionTypeNodeRemove:
 		err := node.validateNodeRemoveSnapshot(s, tx, finalized)
 		if err != nil {
-			logger.Verbosef("validateNodeRemoveSnapshot ERROR %v %s %s\n",
+			logger.Printf("validateNodeRemoveSnapshot ERROR %v %s %s\n",
 				s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
 			return err
 		}
 	case common.TransactionTypeCustodianUpdateNodes:
 		err := node.validateCustodianUpdateNodes(s, tx, finalized)
 		if err != nil {
-			logger.Verbosef("validateCustodianUpdateNodes ERROR %v %s %s\n",
+			logger.Printf("validateCustodianUpdateNodes ERROR %v %s %s\n",
 				s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
 			return err
 		}
