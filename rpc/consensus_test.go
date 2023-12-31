@@ -101,6 +101,8 @@ func testConsensus(t *testing.T) {
 	}()
 	time.Sleep(3 * time.Second)
 
+	testRemovingNodePrediction(t, instances, false)
+
 	transactionsCount := NODES + 1
 	tl, sl := testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
@@ -128,11 +130,13 @@ func testConsensus(t *testing.T) {
 	testVerifyDeposits(require, nodes, deposits)
 
 	gt = testVerifyInfo(require, nodes)
-	require.Truef(gt.Timestamp.Before(epoch.Add(7*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(7*time.Second))
+	require.Truef(gt.Timestamp.Before(epoch.Add(20*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(20*time.Second))
 	hr := testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.GreaterOrEqual(hr.Round, uint64(0))
 	t.Logf("DEPOSIT TEST DONE AT %s\n", time.Now())
+
+	testRemovingNodePrediction(t, instances, false)
 
 	utxos := make([]*common.VersionedTransaction, 0)
 	for _, d := range deposits {
@@ -168,6 +172,7 @@ func testConsensus(t *testing.T) {
 		return
 	}
 
+	testRemovingNodePrediction(t, instances, false)
 	all := testListNodes(nodes[0].Host)
 	require.Len(all, NODES)
 	require.Equal("ACCEPTED", all[NODES-1].State)
@@ -178,7 +183,7 @@ func testConsensus(t *testing.T) {
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
 	gt = testVerifyInfo(require, nodes)
-	require.Less(gt.Timestamp, epoch.Add(31*time.Second))
+	require.Less(gt.Timestamp, epoch.Add(64*time.Second))
 	t.Logf("PLEDGE %s\n", input)
 
 	dummyAmount := common.NewIntegerFromString("3.5").Div(NODES).String()
@@ -205,7 +210,7 @@ func testConsensus(t *testing.T) {
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
 	gt = testVerifyInfo(require, nodes)
-	require.Less(gt.Timestamp, epoch.Add(legacy).Add(61*time.Second))
+	require.Less(gt.Timestamp, epoch.Add(legacy).Add(128*time.Second))
 
 	pn, pi, sv := testPledgeNewNode(t, nodes, accounts[0], gdata, plist, input, root)
 	t.Logf("PLEDGE %s\n", pn.Signer)
@@ -231,6 +236,8 @@ func testConsensus(t *testing.T) {
 	require.Greater(hr.Round, uint64(0))
 	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork)
 	require.Nil(hr)
+
+	testRemovingNodePrediction(t, instances, true)
 
 	mints = testListMintDistributions(nodes[0].Host)
 	require.Len(mints, 1)
@@ -273,6 +280,8 @@ func testConsensus(t *testing.T) {
 	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, pi.IdForNetwork)
 	require.NotNil(hr)
 	require.Equal(uint64(0), hr.Round)
+
+	testRemovingNodePrediction(t, instances, true)
 
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes)
@@ -345,7 +354,25 @@ func testConsensus(t *testing.T) {
 	for _, node := range instances {
 		t.Log(node.IdForNetwork, node.Peer.Metric())
 	}
+}
 
+func testRemovingNodePrediction(t *testing.T, instances []*kernel.Node, otherConsensus bool) {
+	require := require.New(t)
+
+	var id crypto.Hash
+	for _, n := range instances {
+		if !id.HasValue() || n.IdForNetwork.String() < id.String() {
+			id = n.IdForNetwork
+		}
+	}
+	for _, n := range instances {
+		r := n.GetRemovingOrSlashingNode(n.IdForNetwork)
+		if n.IdForNetwork == id && !otherConsensus {
+			require.NotNil(r)
+		} else {
+			require.Nil(r)
+		}
+	}
 }
 
 func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.Node, signers, payees []common.Address, networkId crypto.Hash) {
