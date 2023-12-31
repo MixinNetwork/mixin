@@ -51,18 +51,14 @@ func (chain *Chain) AggregateMintWork() {
 		// all automatically from kernel.
 		// Another fix is to utilize the light node to reference the node removal
 		// and incentivize the first light nodes that do this.
-		crn := chain.State.CacheRound.Number
-		if crn < round {
-			panic(fmt.Errorf("AggregateMintWork(%s) waiting %d %d", chain.ChainId, crn, round))
-		}
-		// we don't care the round state final or cache, it must has following snapshots
-		if round == crn || len(chain.State.CacheRound.Snapshots) == 0 {
+		// we don't care the round state final or cache, it must has subsequent snapshots
+		if !chain.checkRoundMature(round) {
 			chain.waitOrDone(wait)
 			continue
 		}
 		snapshots, err := chain.persistStore.ReadSnapshotWorksForNodeRound(chain.ChainId, round)
 		if err != nil {
-			logger.Verbosef("AggregateMintWork(%s) ERROR ReadSnapshotsForNodeRound %s\n", chain.ChainId, err.Error())
+			logger.Printf("AggregateMintWork(%s) ERROR ReadSnapshotsForNodeRound %s\n", chain.ChainId, err.Error())
 			continue
 		}
 		if len(snapshots) == 0 {
@@ -73,7 +69,7 @@ func (chain *Chain) AggregateMintWork() {
 		if err != nil {
 			panic(err)
 		}
-		if round < crn {
+		if round < chain.State.CacheRound.Number {
 			round = round + 1
 		} else {
 			chain.waitOrDone(wait)
@@ -81,6 +77,20 @@ func (chain *Chain) AggregateMintWork() {
 	}
 
 	logger.Printf("AggregateMintWork(%s) end with %d\n", chain.ChainId, round)
+}
+
+func (chain *Chain) checkRoundMature(round uint64) bool {
+	crn := chain.State.CacheRound.Number
+	if crn < round {
+		panic(fmt.Errorf("AggregateMintWork(%s) waiting %d %d", chain.ChainId, crn, round))
+	}
+	if crn == round {
+		return false
+	}
+	if crn == round+1 {
+		return len(chain.State.CacheRound.Snapshots) > 0
+	}
+	return true
 }
 
 func (chain *Chain) writeRoundWork(round uint64, works []*common.SnapshotWork) error {
