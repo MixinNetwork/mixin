@@ -275,7 +275,7 @@ func historySinceRound(history []*FinalRound, link uint64) []*FinalRound {
 // 3. Node A pledge snapshot finalized but not broadcasted on time.
 // Solution: Evil and slash.
 
-func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, cids []crypto.Hash, publics []*crypto.Key, threshold int) ([]crypto.Hash, bool) {
+func (node *Node) cacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, cids []crypto.Hash, publics []*crypto.Key, threshold int) ([]crypto.Hash, bool) {
 	key := sig.Signature[:]
 	key = append(snap[:], key...)
 	for _, pub := range publics {
@@ -291,7 +291,7 @@ func (node *Node) CacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, c
 
 	err := sig.FullVerify(publics, threshold, snap)
 	if err != nil {
-		logger.Verbosef("CacheVerifyCosi(%s, %d, %d) ERROR %s\n", snap, len(publics), threshold, err.Error())
+		logger.Verbosef("cacheVerifyCosi(%s, %d, %d) ERROR %s\n", snap, len(publics), threshold, err.Error())
 		node.cacheStore.Set(key, []byte{0}, 1)
 		return nil, false
 	}
@@ -358,8 +358,26 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 	if s.Hash.String() == mainnetNodeRemovalHackSnapshotHash {
 		timestamp = timestamp - uint64(time.Minute)
 	}
+	if timestamp < chain.node.Epoch {
+		panic(timestamp)
+	}
 
 	cids, publics := chain.ConsensusKeys(s.RoundNumber, timestamp)
 	base := chain.node.ConsensusThreshold(timestamp, true)
-	return chain.node.CacheVerifyCosi(s.Hash, s.Signature, cids, publics, base)
+	signers, finalized := chain.node.cacheVerifyCosi(s.Hash, s.Signature, cids, publics, base)
+	if finalized || chain.node.networkId.String() != config.KernelNetworkId ||
+		timestamp > mainnetConsensusNodeRemovalTimeForkAt {
+		return signers, finalized
+	}
+
+	logger.Printf("verifyFinalization(%v) node removal time fork check", s)
+	hour := (timestamp - chain.node.Epoch) / uint64(time.Hour) % 24
+	if hour < config.KernelNodeAcceptTimeBegin || hour > config.KernelNodeAcceptTimeEnd {
+		return signers, finalized
+	}
+	elapsed := hour + 1 - config.KernelNodeAcceptTimeBegin
+	timestamp = timestamp - elapsed*uint64(time.Hour)
+	cids, publics = chain.ConsensusKeys(s.RoundNumber, timestamp)
+	base = chain.node.ConsensusThreshold(timestamp, true)
+	return chain.node.cacheVerifyCosi(s.Hash, s.Signature, cids, publics, base)
 }

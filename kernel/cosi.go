@@ -648,7 +648,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	}
 
 	s.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash, false)
-	signers, finalized := chain.node.CacheVerifyCosi(m.SnapshotHash, s.Signature, cids, publics, base)
+	signers, finalized := chain.node.cacheVerifyCosi(m.SnapshotHash, s.Signature, cids, publics, base)
 	if !finalized {
 		logger.Verbosef("cosiHandleResponse %v AGGREGATE ERROR\n", m)
 		return nil
