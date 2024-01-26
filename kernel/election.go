@@ -76,9 +76,9 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64, old *co
 	if now < node.Epoch {
 		return nil, fmt.Errorf("local time invalid %d %d", now, node.Epoch)
 	}
-	hours := (now - node.Epoch) / 3600000000000
-	if hours%24 < config.KernelNodeAcceptTimeBegin || hours%24 > config.KernelNodeAcceptTimeEnd {
-		return nil, fmt.Errorf("invalid node remove hour %d", hours%24)
+	if !node.checkConsensusAcceptHour(now) {
+		hour := (now - node.Epoch) / uint64(time.Hour) % 24
+		return nil, fmt.Errorf("invalid node remove hour %d", hour)
 	}
 
 	var candi *CNode
@@ -237,10 +237,9 @@ func (chain *Chain) checkNodeAcceptPossibility(timestamp uint64, s *common.Snaps
 		return fmt.Errorf("invalid snapshot timestamp %d %d", epoch, timestamp)
 	}
 
-	since := timestamp - epoch
-	hours := int(since / 3600000000000)
-	if hours%24 < config.KernelNodeAcceptTimeBegin || hours%24 > config.KernelNodeAcceptTimeEnd {
-		return fmt.Errorf("invalid node accept hour %d", hours%24)
+	if !chain.node.checkConsensusAcceptHour(timestamp) {
+		hour := (timestamp - epoch) / uint64(time.Hour) % 24
+		return fmt.Errorf("invalid node accept hour %d", hour)
 	}
 
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
@@ -530,10 +529,9 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("invalid consensus status")
 	}
 
-	since := timestamp - node.Epoch
-	hours := int(since / 3600000000000)
-	if hours%24 < config.KernelNodeAcceptTimeBegin || hours%24 > config.KernelNodeAcceptTimeEnd {
-		return fmt.Errorf("invalid node cancel hour %d", hours%24)
+	if !node.checkConsensusAcceptHour(timestamp) {
+		hour := (timestamp - node.Epoch) / uint64(time.Hour) % 24
+		return fmt.Errorf("invalid node cancel hour %d", hour)
 	}
 
 	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
@@ -554,4 +552,9 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 
 	// FIXME the node operation lock threshold should be optimized on pledging period
 	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2)
+}
+
+func (node *Node) checkConsensusAcceptHour(timestamp uint64) bool {
+	hour := (timestamp - node.Epoch) / uint64(time.Hour) % 24
+	return hour >= config.KernelNodeAcceptTimeBegin && hour <= config.KernelNodeAcceptTimeEnd
 }

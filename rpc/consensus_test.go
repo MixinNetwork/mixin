@@ -101,7 +101,7 @@ func testConsensus(t *testing.T) {
 	}()
 	time.Sleep(3 * time.Second)
 
-	testRemovingNodePrediction(t, instances, false)
+	testRemovingNodePrediction(t, instances, true)
 
 	transactionsCount := NODES + 1
 	tl, sl := testVerifySnapshots(require, nodes)
@@ -136,7 +136,7 @@ func testConsensus(t *testing.T) {
 	require.GreaterOrEqual(hr.Round, uint64(0))
 	t.Logf("DEPOSIT TEST DONE AT %s\n", time.Now())
 
-	testRemovingNodePrediction(t, instances, false)
+	testRemovingNodePrediction(t, instances, true)
 
 	utxos := make([]*common.VersionedTransaction, 0)
 	for _, d := range deposits {
@@ -172,7 +172,7 @@ func testConsensus(t *testing.T) {
 		return
 	}
 
-	testRemovingNodePrediction(t, instances, false)
+	testRemovingNodePrediction(t, instances, true)
 	all := testListNodes(nodes[0].Host)
 	require.Len(all, NODES)
 	require.Equal("ACCEPTED", all[NODES-1].State)

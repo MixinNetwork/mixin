@@ -1,6 +1,8 @@
 package kernel
 
 import (
+	"time"
+
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
@@ -54,9 +56,10 @@ const (
 // a removing or slashing node is only drastically mint decline.
 func (node *Node) GetRemovingOrSlashingNode(id crypto.Hash) *CNode {
 	now := uint64(clock.Now().UnixNano())
-	hours := (now - node.Epoch) / 3600000000000
-	hours = hours%24 + config.KernelNodeAcceptTimeBegin + 1
-	now = hours*3600000000000 + node.Epoch
+	now, ready := prepareNodeRemovalTime(now, node.Epoch)
+	if !ready {
+		return nil
+	}
 	rn, err := node.checkRemovePossibility(crypto.Hash{}, now, nil)
 	if err != nil || rn == nil {
 		return nil
@@ -65,4 +68,20 @@ func (node *Node) GetRemovingOrSlashingNode(id crypto.Hash) *CNode {
 		return rn
 	}
 	return nil
+}
+
+func prepareNodeRemovalTime(now, epoch uint64) (uint64, bool) {
+	since := now - epoch
+	h := int(since / uint64(time.Hour) % 24)
+	b, e := config.KernelNodeAcceptTimeBegin, config.KernelNodeAcceptTimeEnd
+	if h <= e && h+12 < b {
+		return 0, false
+	}
+	if h > e && h < b+12 {
+		return 0, false
+	}
+	day := uint64(time.Hour * 24)
+	since = since/day*day + uint64(b)*uint64(time.Hour)
+	now = epoch + since + uint64(time.Minute)
+	return now, true
 }
