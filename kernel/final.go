@@ -5,11 +5,12 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
-func (node *Node) checkTxInStorage(id crypto.Hash) (*common.VersionedTransaction, error) {
-	tx, _, err := node.persistStore.ReadTransaction(id)
+func (node *Node) checkTxInStorage(id crypto.Hash) (*common.VersionedTransaction, string, error) {
+	tx, snap, err := node.persistStore.ReadTransaction(id)
 	if err != nil || tx != nil {
-		return tx, err
+		return tx, snap, err
 	}
 
-	return node.persistStore.CacheGetTransaction(id)
+	tx, err = node.persistStore.CacheGetTransaction(id)
+	return tx, "", err
 }

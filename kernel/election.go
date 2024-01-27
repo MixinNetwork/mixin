@@ -422,6 +422,7 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot, signers []crypt
 			Self:     final.Hash,
 			External: external.Hash,
 		},
+		index: make(map[crypto.Hash]bool),
 	}
 	err = node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 	if err != nil {

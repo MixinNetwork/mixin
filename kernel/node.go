@@ -435,7 +435,7 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 }
 
 func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
-	tx, err := node.checkTxInStorage(hash)
+	tx, _, err := node.checkTxInStorage(hash)
 	if err != nil || tx == nil {
 		return err
 	}

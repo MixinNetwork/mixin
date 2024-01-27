@@ -19,6 +19,7 @@ type CacheRound struct {
 	Timestamp  uint64
 	References *common.RoundLink
 	Snapshots  []*common.Snapshot
+	index      map[crypto.Hash]bool
 }
 
 type FinalRound struct {
@@ -96,6 +97,7 @@ func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*
 		Number:     meta.Number,
 		Timestamp:  meta.Timestamp,
 		References: meta.References,
+		index:      make(map[crypto.Hash]bool),
 	}
 	topos, err := store.ReadSnapshotsForNodeRound(round.NodeId, round.Number)
 	if err != nil {
@@ -105,6 +107,7 @@ func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*
 		s := t.Snapshot
 		s.Hash = s.PayloadHash()
 		round.Snapshots = append(round.Snapshots, s)
+		round.index[s.Hash] = true
 	}
 	return round, nil
 }
@@ -142,6 +145,7 @@ func (c *CacheRound) Copy() *CacheRound {
 			External: c.References.External,
 		},
 		Snapshots: append([]*common.Snapshot{}, c.Snapshots...),
+		index:     c.index,
 	}
 }
 
@@ -184,10 +188,12 @@ func (c *CacheRound) Gap() (uint64, uint64) {
 
 func (chain *Chain) AddSnapshot(final *FinalRound, cache *CacheRound, s *common.Snapshot, signers []crypto.Hash) error {
 	chain.node.TopoWrite(s, signers)
-	if err := cache.validateSnapshot(s, true); err != nil {
-		panic("should never be here")
+	err := cache.validateSnapshot(s, true)
+	if err != nil {
+		panic(err)
 	}
 	chain.assignNewGraphRound(final, cache)
+	chain.State.CacheRound.index[s.Hash] = true
 	return nil
 }
 

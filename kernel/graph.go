@@ -25,6 +25,7 @@ func (chain *Chain) startNewRoundAndPersist(cache *CacheRound, references *commo
 		Number:     final.Number + 1,
 		Timestamp:  timestamp,
 		References: references.Copy(),
+		index:      make(map[crypto.Hash]bool),
 	}
 	if dummy {
 		cache.References.External = dummyExternal

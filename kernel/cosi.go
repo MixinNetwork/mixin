@@ -1022,16 +1022,21 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		return nil
 	}
 
-	tx, err := node.checkTxInStorage(s.SoleTransaction())
+	tx, finalized, err := node.checkTxInStorage(s.SoleTransaction())
 	if err != nil {
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) check tx error %s\n", peerId, s.Hash, err)
 	} else if tx == nil {
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) SendTransactionRequestMessage %s\n",
 			peerId, s.Hash, s.SoleTransaction())
 		node.Peer.SendTransactionRequestMessage(peerId, s.SoleTransaction())
+	} else if finalized == s.Hash.String() {
+		return nil
 	}
 
 	chain := node.getOrCreateChain(s.NodeId)
+	if cs := chain.State; cs != nil && cs.CacheRound.index[s.Hash] {
+		return nil
+	}
 	if _, finalized := chain.verifyFinalization(s); !finalized {
 		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d %t %v %v\n",
 			peerId, s, node.ConsensusThreshold(s.Timestamp, true), chain.IsPledging(), chain.State, chain.ConsensusInfo)
