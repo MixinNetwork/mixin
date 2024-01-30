@@ -96,7 +96,7 @@ func (s *BadgerStore) ListNodeWorks(cids []crypto.Hash, day uint32) (map[crypto.
 	return works, nil
 }
 
-func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots []*common.SnapshotWork) error {
+func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots []*common.SnapshotWork, credit bool) error {
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		offKey := graphWorkOffsetKey(nodeId)
 		off, osm, err := graphReadWorkOffset(txn, offKey)
@@ -133,7 +133,7 @@ func (s *BadgerStore) WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots
 		if err != nil || len(fresh) == 0 {
 			return err
 		}
-		if len(fresh[0].Signers) == 0 {
+		if len(fresh[0].Signers) == 0 || !credit {
 			return nil
 		}
 

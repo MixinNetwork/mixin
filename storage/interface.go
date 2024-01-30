@@ -49,7 +49,7 @@ type Store interface {
 	ListWorkOffsets(cids []crypto.Hash) (map[crypto.Hash]uint64, error)
 	ListNodeWorks(cids []crypto.Hash, day uint32) (map[crypto.Hash][2]uint64, error)
 	ReadWorkOffset(nodeId crypto.Hash) (uint64, error)
-	WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots []*common.SnapshotWork) error
+	WriteRoundWork(nodeId crypto.Hash, round uint64, snapshots []*common.SnapshotWork, credit bool) error
 
 	ReadRoundSpaceCheckpoint(nodeId crypto.Hash) (uint64, uint64, error)
 	WriteRoundSpaceAndState(space *common.RoundSpace) error

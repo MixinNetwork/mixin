@@ -61,11 +61,16 @@ func (node *Node) lockAndPersistTransaction(tx *common.VersionedTransaction, fin
 }
 
 func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
-	if finalized && node.networkId.String() == config.KernelNetworkId && s.Timestamp < mainnetConsensusOperationElectionForkAt {
+	if finalized && node.networkId.String() == config.KernelNetworkId &&
+		s.Timestamp < mainnetConsensusOperationElectionForkAt {
 		return nil
 	}
 	switch tx.TransactionType() {
 	case common.TransactionTypeMint:
+		if finalized && tx.Inputs[0].Mint.Batch < mainnetMintDayGapSkipForkBatch &&
+			node.IdForNetwork.String() == config.KernelNetworkId {
+			return nil
+		}
 		err := node.validateMintSnapshot(s, tx)
 		if err != nil {
 			logger.Printf("validateMintSnapshot ERROR %v %s %s\n",

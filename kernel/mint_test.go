@@ -121,10 +121,10 @@ func TestUniversalMintTransaction(t *testing.T) {
 		timestamp := uint64(clock.Now().UnixNano())
 		for i := 0; i < 2; i++ {
 			snapshots := testBuildMintSnapshots(signers, tr.round, timestamp)
-			err = node.persistStore.WriteRoundWork(node.IdForNetwork, tr.round, snapshots)
+			err = node.persistStore.WriteRoundWork(node.IdForNetwork, tr.round, snapshots, true)
 			require.Nil(err)
 			for j := 1; j < 2*len(signers)/3+1; j++ {
-				err = node.persistStore.WriteRoundWork(signers[j], tr.round, snapshots)
+				err = node.persistStore.WriteRoundWork(signers[j], tr.round, snapshots, true)
 				require.Nil(err)
 			}
 
@@ -199,10 +199,10 @@ func TestMintWorks(t *testing.T) {
 	leaders := len(signers)*2/3 + 1
 	for i := 0; i < 2; i++ {
 		snapshots := testBuildMintSnapshots(signers[1:], 0, timestamp)
-		err = node.persistStore.WriteRoundWork(node.IdForNetwork, 0, snapshots)
+		err = node.persistStore.WriteRoundWork(node.IdForNetwork, 0, snapshots, true)
 		require.Nil(err)
 		for j := 1; j < leaders; j++ {
-			err = node.persistStore.WriteRoundWork(signers[j], 0, snapshots)
+			err = node.persistStore.WriteRoundWork(signers[j], 0, snapshots, true)
 			require.Nil(err)
 		}
 
@@ -231,7 +231,7 @@ func TestMintWorks(t *testing.T) {
 
 	timestamp = uint64(clock.Now().UnixNano())
 	snapshots := testBuildMintSnapshots(signers[1:], 1, timestamp)
-	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 1, snapshots[:98])
+	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 1, snapshots[:98], true)
 	require.Nil(err)
 
 	works, err := node.persistStore.ListNodeWorks(signers, uint32(snapshots[0].Timestamp/uint64(time.Hour*24)))
@@ -258,10 +258,10 @@ func TestMintWorks(t *testing.T) {
 	require.Nil(err)
 	require.Equal(uint64(1), offset)
 
-	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 1, snapshots)
+	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 1, snapshots, true)
 	require.Nil(err)
 	for i := 1; i < leaders; i++ {
-		err = node.persistStore.WriteRoundWork(signers[i], 1, nil)
+		err = node.persistStore.WriteRoundWork(signers[i], 1, nil, true)
 		require.Nil(err)
 	}
 
@@ -291,10 +291,10 @@ func TestMintWorks(t *testing.T) {
 
 	timestamp = uint64(clock.Now().Add(24 * time.Hour).UnixNano())
 	snapshots = testBuildMintSnapshots(signers[1:], 2, timestamp)
-	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 2, snapshots[:10])
+	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 2, snapshots[:10], true)
 	require.Nil(err)
 	for i := 1; i < leaders; i++ {
-		err = node.persistStore.WriteRoundWork(signers[i], 2, snapshots[:10])
+		err = node.persistStore.WriteRoundWork(signers[i], 2, snapshots[:10], true)
 		require.Nil(err)
 	}
 

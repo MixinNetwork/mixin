@@ -52,7 +52,8 @@ func (chain *Chain) AggregateMintWork() {
 		// Another fix is to utilize the light node to reference the node removal
 		// and incentivize the first light nodes that do this.
 		// we don't care the round state final or cache, it must has subsequent snapshots
-		if !chain.checkRoundMature(round) {
+		mts, ok := chain.checkRoundMature(round)
+		if !ok {
 			chain.waitOrDone(wait)
 			continue
 		}
@@ -61,11 +62,13 @@ func (chain *Chain) AggregateMintWork() {
 			logger.Printf("AggregateMintWork(%s) ERROR ReadSnapshotsForNodeRound %s\n", chain.ChainId, err.Error())
 			continue
 		}
-		if len(snapshots) == 0 {
-			chain.waitOrDone(wait)
-			continue
+		day := uint64(time.Hour) * 24
+		rd := snapshots[0].Timestamp / day
+		md := mts / day
+		if rd > md {
+			panic(fmt.Errorf("AggregateMintWork(%s) %d %d %d", chain.ChainId, round, rd, md))
 		}
-		err = chain.writeRoundWork(round, snapshots)
+		err = chain.writeRoundWork(round, snapshots, rd == md)
 		if err != nil {
 			panic(err)
 		}
@@ -79,23 +82,28 @@ func (chain *Chain) AggregateMintWork() {
 	logger.Printf("AggregateMintWork(%s) end with %d\n", chain.ChainId, round)
 }
 
-func (chain *Chain) checkRoundMature(round uint64) bool {
-	crn := chain.State.CacheRound.Number
-	if crn < round {
-		panic(fmt.Errorf("AggregateMintWork(%s) waiting %d %d", chain.ChainId, crn, round))
+func (chain *Chain) checkRoundMature(round uint64) (uint64, bool) {
+	cache := chain.State.CacheRound
+	if cache.Number < round {
+		panic(fmt.Errorf("AggregateMintWork(%s) waiting %d %d", chain.ChainId, cache.Number, round))
 	}
-	if crn == round {
-		return false
+	if cache.Number == round {
+		return 0, false
 	}
-	if crn == round+1 {
-		return len(chain.State.CacheRound.Snapshots) > 0
+	if cache.Number > round+1 {
+		return chain.State.FinalRound.Start, true
 	}
-	return true
+	if len(cache.Snapshots) < 1 {
+		return 0, false
+	}
+	return cache.Snapshots[0].Timestamp, true
 }
 
-func (chain *Chain) writeRoundWork(round uint64, works []*common.SnapshotWork) error {
+func (chain *Chain) writeRoundWork(round uint64, works []*common.SnapshotWork, credit bool) error {
+	credit = credit || (chain.node.IdForNetwork.String() == config.KernelNetworkId &&
+		(works[0].Timestamp-chain.node.Epoch)/(uint64(time.Hour)*24) < mainnetMintDayGapSkipForkBatch)
 	for chain.running {
-		err := chain.persistStore.WriteRoundWork(chain.ChainId, round, works)
+		err := chain.persistStore.WriteRoundWork(chain.ChainId, round, works, credit)
 		if err == nil {
 			return nil
 		}
