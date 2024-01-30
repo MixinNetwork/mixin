@@ -754,11 +754,11 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 
 	tx, _, err := chain.node.validateSnapshotTransaction(s, true)
 	if err != nil {
-		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %v\n",
+		logger.Verbosef("ERROR handleFinalization validateSnapshotTransaction %s %s %d %v\n",
 			m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp, true), err)
 		return nil
 	} else if tx == nil {
-		logger.Verbosef("ERROR handleFinalization checkFinalSnapshotTransaction %s %s %d %s\n",
+		logger.Verbosef("ERROR handleFinalization validateSnapshotTransaction %s %s %d %s\n",
 			m.PeerId, s.Hash, chain.node.ConsensusThreshold(s.Timestamp, true), "tx empty")
 		m.WantTx = true
 		return nil

@@ -68,7 +68,7 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 	switch tx.TransactionType() {
 	case common.TransactionTypeMint:
 		if finalized && tx.Inputs[0].Mint.Batch < mainnetMintDayGapSkipForkBatch &&
-			node.IdForNetwork.String() == config.KernelNetworkId {
+			node.networkId.String() == config.KernelNetworkId {
 			return nil
 		}
 		err := node.validateMintSnapshot(s, tx)

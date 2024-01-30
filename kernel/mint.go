@@ -99,7 +99,7 @@ func (chain *Chain) checkRoundMature(round uint64) (uint64, bool) {
 }
 
 func (chain *Chain) writeRoundWork(round uint64, works []*common.SnapshotWork, credit bool) error {
-	credit = credit || (chain.node.IdForNetwork.String() == config.KernelNetworkId &&
+	credit = credit || (chain.node.networkId.String() == config.KernelNetworkId &&
 		(works[0].Timestamp-chain.node.Epoch)/OneDay < mainnetMintDayGapSkipForkBatch)
 	for chain.running {
 		err := chain.persistStore.WriteRoundWork(chain.ChainId, round, works, credit)
