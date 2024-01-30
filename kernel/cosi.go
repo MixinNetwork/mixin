@@ -345,8 +345,7 @@ func (chain *Chain) prepareAnnouncement(m *CosiAction) (bool, error) {
 		if s.Timestamp > cft+uint64(config.SnapshotRoundGap*4/5) {
 			return false, chain.clearAndQueueSnapshotOrPanic(s)
 		}
-		day := uint64(time.Hour) * 24
-		if s.Timestamp/day != cft/day {
+		if s.Timestamp/OneDay != cft/OneDay {
 			return false, chain.clearAndQueueSnapshotOrPanic(s)
 		}
 	}

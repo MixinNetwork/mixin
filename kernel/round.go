@@ -3,7 +3,6 @@ package kernel
 import (
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -205,12 +204,11 @@ func (c *CacheRound) validateSnapshot(s *common.Snapshot, add bool) error {
 	if s.RoundNumber != c.Number || !s.Hash.HasValue() {
 		panic(s)
 	}
-	day := uint64(time.Hour) * 24
 	for _, cs := range c.Snapshots {
 		if cs.Hash == s.Hash || cs.Timestamp == s.Timestamp || cs.SoleTransaction() == s.SoleTransaction() {
 			return fmt.Errorf("ValidateSnapshot error duplication %s %d %s", s.Hash, s.Timestamp, s.SoleTransaction())
 		}
-		if cs.Timestamp/day != s.Timestamp/day {
+		if cs.Timestamp/OneDay != s.Timestamp/OneDay {
 			return fmt.Errorf("ValidateSnapshot error round day leap %s %d %s", s.Hash, s.Timestamp, s.SoleTransaction())
 		}
 	}

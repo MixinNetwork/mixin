@@ -80,8 +80,7 @@ func prepareNodeRemovalTime(now, epoch uint64) (uint64, bool) {
 	if h > e && h < b+12 {
 		return 0, false
 	}
-	day := uint64(time.Hour * 24)
-	since = since/day*day + uint64(b)*uint64(time.Hour)
+	since = since/OneDay*OneDay + uint64(b)*uint64(time.Hour)
 	now = epoch + since + uint64(time.Minute)
 	return now, true
 }

@@ -23,6 +23,7 @@ var (
 const (
 	MintYearDays              = 365
 	KernelNetworkLegacyEnding = 1706
+	OneDay                    = 24 * uint64(time.Hour)
 )
 
 func (chain *Chain) AggregateMintWork() {
@@ -52,7 +53,7 @@ func (chain *Chain) AggregateMintWork() {
 		// Another fix is to utilize the light node to reference the node removal
 		// and incentivize the first light nodes that do this.
 		// we don't care the round state final or cache, it must has subsequent snapshots
-		mts, ok := chain.checkRoundMature(round)
+		md, ok := chain.checkRoundMature(round)
 		if !ok {
 			chain.waitOrDone(wait)
 			continue
@@ -62,9 +63,7 @@ func (chain *Chain) AggregateMintWork() {
 			logger.Printf("AggregateMintWork(%s) ERROR ReadSnapshotsForNodeRound %s\n", chain.ChainId, err.Error())
 			continue
 		}
-		day := uint64(time.Hour) * 24
-		rd := snapshots[0].Timestamp / day
-		md := mts / day
+		rd := snapshots[0].Timestamp / OneDay
 		if rd > md {
 			panic(fmt.Errorf("AggregateMintWork(%s) %d %d %d", chain.ChainId, round, rd, md))
 		}
@@ -91,17 +90,17 @@ func (chain *Chain) checkRoundMature(round uint64) (uint64, bool) {
 		return 0, false
 	}
 	if cache.Number > round+1 {
-		return chain.State.FinalRound.Start, true
+		return chain.State.FinalRound.Start / OneDay, true
 	}
 	if len(cache.Snapshots) < 1 {
 		return 0, false
 	}
-	return cache.Snapshots[0].Timestamp, true
+	return cache.Snapshots[0].Timestamp / OneDay, true
 }
 
 func (chain *Chain) writeRoundWork(round uint64, works []*common.SnapshotWork, credit bool) error {
 	credit = credit || (chain.node.IdForNetwork.String() == config.KernelNetworkId &&
-		(works[0].Timestamp-chain.node.Epoch)/(uint64(time.Hour)*24) < mainnetMintDayGapSkipForkBatch)
+		(works[0].Timestamp-chain.node.Epoch)/OneDay < mainnetMintDayGapSkipForkBatch)
 	for chain.running {
 		err := chain.persistStore.WriteRoundWork(chain.ChainId, round, works, credit)
 		if err == nil {
@@ -358,19 +357,17 @@ type CNodeWork struct {
 }
 
 func (node *Node) ListMintWorks(batch uint64) (map[crypto.Hash][2]uint64, error) {
-	now := node.Epoch + batch*uint64(time.Hour*24)
+	now := node.Epoch + batch*OneDay
 	list := node.NodesListWithoutState(now, true)
 	cids := make([]crypto.Hash, len(list))
 	for i, n := range list {
 		cids[i] = n.IdForNetwork
 	}
-	day := now / (uint64(time.Hour) * 24)
-	works, err := node.persistStore.ListNodeWorks(cids, uint32(day))
-	return works, err
+	return node.persistStore.ListNodeWorks(cids, uint32(now/OneDay))
 }
 
 func (node *Node) ListRoundSpaces(cids []crypto.Hash, day uint64) (map[crypto.Hash][]*common.RoundSpace, error) {
-	epoch := node.Epoch / (uint64(time.Hour) * 24)
+	epoch := node.Epoch / OneDay
 	spaces := make(map[crypto.Hash][]*common.RoundSpace)
 	for _, id := range cids {
 		ns, err := node.persistStore.ReadNodeRoundSpacesForBatch(id, day-epoch)
@@ -394,8 +391,8 @@ func (node *Node) distributeKernelMintByWorks(accepted []*CNode, base common.Int
 		cids[i] = n.IdForNetwork
 		mints[i] = &CNodeWork{CNode: *n}
 	}
-	epoch := node.Epoch / (uint64(time.Hour) * 24)
-	day := timestamp / (uint64(time.Hour) * 24)
+	epoch := node.Epoch / OneDay
+	day := timestamp / OneDay
 	if day < epoch {
 		panic(fmt.Errorf("invalid mint day %d %d", epoch, day))
 	}
@@ -506,7 +503,7 @@ func (node *Node) validateWorksAndSpacesAggregator(cids []crypto.Hash, thr int, 
 	if err != nil {
 		return err
 	}
-	epoch := node.Epoch / (uint64(time.Hour) * 24)
+	epoch := node.Epoch / OneDay
 	batch := day - epoch
 	for _, s := range spaces {
 		if s.Batch >= batch {
