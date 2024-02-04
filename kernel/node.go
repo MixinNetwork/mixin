@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,7 +21,7 @@ import (
 type Node struct {
 	IdForNetwork crypto.Hash
 	Signer       common.Address
-	Listener     string
+	isRelayer    bool
 
 	Peer          *network.Peer
 	TopoCounter   *TopologicalSequence
@@ -68,7 +69,7 @@ type CNode struct {
 	ConsensusIndex int
 }
 
-func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ristretto.Cache, addr string, dir string) (*Node, error) {
+func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ristretto.Cache, addr, dir string) (*Node, error) {
 	var node = &Node{
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
 		chains:          &chainsMap{m: make(map[crypto.Hash]*Chain)},
@@ -90,7 +91,11 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 	mint := node.lastMintDistribution()
 	node.LastMint = mint.Batch
 
-	err := node.LoadGenesis(dir)
+	gns, err := common.ReadGenesis(dir + "/genesis.json")
+	if err != nil {
+		return nil, fmt.Errorf("ReadGenesis(%s) => %v", dir, err)
+	}
+	err = node.LoadGenesis(gns)
 	if err != nil {
 		return nil, fmt.Errorf("LoadGenesis(%s) => %v", dir, err)
 	}
@@ -132,7 +137,7 @@ func (node *Node) loadNodeConfig() {
 	addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
 	addr.PublicViewKey = addr.PrivateViewKey.Public()
 	node.Signer = addr
-	node.Listener = node.custom.Network.Listener
+	node.isRelayer = node.custom.Network.Relayer
 }
 
 func (node *Node) buildNodeStateSequences(allNodesSortedWithState []*CNode, acceptedOnly bool) []*NodeStateSequence {
@@ -326,31 +331,34 @@ func (node *Node) NewTransaction(assetId crypto.Hash) *common.Transaction {
 	return common.NewTransactionV5(assetId)
 }
 
-func (node *Node) PingNeighborsFromConfig() error {
-	gossip, metric := node.custom.Network.GossipNeighbors, node.custom.Network.Metric
-	node.Peer = network.NewPeer(node, node.IdForNetwork, node.addr, gossip, metric)
+func (node *Node) addRelayersFromConfig() error {
+	node.Peer = network.NewPeer(node, node.IdForNetwork, node.addr, node.isRelayer)
 
 	for _, s := range node.custom.Network.Peers {
-		if s == node.Listener {
+		parts := strings.Split(s, "@")
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid peer %s", s)
+		}
+		nid, err := crypto.HashFromString(parts[0])
+		if err != nil {
+			return fmt.Errorf("invalid peer id %s", s)
+		}
+		if nid == node.IdForNetwork {
 			continue
 		}
-		node.Peer.PingNeighbor(s)
+		go node.Peer.ConnectRelayer(nid, parts[1])
 	}
 	return nil
 }
 
-func (node *Node) UpdateNeighbors(neighbors []string) error {
-	for _, in := range neighbors {
-		if in == node.Listener {
-			continue
-		}
-		node.Peer.PingNeighbor(in)
+func (node *Node) listenConsumers() {
+	if !node.isRelayer {
+		return
 	}
-	return nil
-}
-
-func (node *Node) ListenNeighbors() error {
-	return node.Peer.ListenNeighbors()
+	err := node.Peer.ListenConsumers()
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (node *Node) NetworkId() crypto.Hash {
@@ -392,19 +400,24 @@ func (node *Node) BuildAuthenticationMessage() []byte {
 	data := make([]byte, 8)
 	binary.BigEndian.PutUint64(data, uint64(clock.Now().Unix()))
 	data = append(data, node.Signer.PublicSpendKey[:]...)
+	if node.isRelayer {
+		data = append(data, 1)
+	} else {
+		data = append(data, 0)
+	}
 	dh := crypto.Blake3Hash(data)
 	sig := node.Signer.PrivateSpendKey.Sign(dh)
 	data = append(data, sig[:]...)
-	return append(data, []byte(node.Listener)...)
+	return data
 }
 
-func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
-	if len(msg) < 8+len(crypto.Hash{})+len(crypto.Signature{}) {
-		return crypto.Hash{}, "", fmt.Errorf("peer authentication message malformated %d", len(msg))
+func (node *Node) Authenticate(msg []byte) (crypto.Hash, bool, error) {
+	if len(msg) != 105 {
+		return crypto.Hash{}, false, fmt.Errorf("peer authentication message malformated %d", len(msg))
 	}
 	ts := binary.BigEndian.Uint64(msg[:8])
 	if clock.Now().Unix()-int64(ts) > 3 {
-		return crypto.Hash{}, "", fmt.Errorf("peer authentication message timeout %d %d", ts, clock.Now().Unix())
+		return crypto.Hash{}, false, fmt.Errorf("peer authentication message timeout %d %d", ts, clock.Now().Unix())
 	}
 
 	var signer common.Address
@@ -412,25 +425,20 @@ func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
 	signer.PublicViewKey = signer.PublicSpendKey.DeterministicHashDerive().Public()
 	peerId := signer.Hash().ForNetwork(node.networkId)
 	if peerId == node.IdForNetwork {
-		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
+		return crypto.Hash{}, false, fmt.Errorf("peer is self %s", peerId)
 	}
 	peer := node.GetAcceptedOrPledgingNode(peerId)
-
-	if node.custom.Node.ConsensusOnly && peer == nil {
-		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
-	}
 	if peer != nil && peer.Signer.Hash() != signer.Hash() {
-		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
+		return crypto.Hash{}, false, fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
 	}
 
 	var sig crypto.Signature
-	copy(sig[:], msg[40:40+len(sig)])
-	mh := crypto.Blake3Hash(msg[:40])
+	copy(sig[:], msg[41:105])
+	mh := crypto.Blake3Hash(msg[:41])
 	if !signer.PublicSpendKey.Verify(mh, sig) {
-		return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
+		return crypto.Hash{}, false, fmt.Errorf("peer authentication message signature invalid %s", peerId)
 	}
-
-	listener := string(msg[40+len(sig):])
+	listener := msg[40] == byte(1)
 	return peerId, listener, nil
 }
 
@@ -461,6 +469,19 @@ func (node *Node) ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.Sn
 
 func (node *Node) ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	return node.persistStore.ReadSnapshotsForNodeRound(nodeIdWithNetwork, round)
+}
+
+func (node *Node) sendGraphToConcensusNodes() {
+	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
+	defer graphTicker.Stop()
+
+	for {
+		nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
+		for _, cn := range nodes {
+			node.Peer.SendGraphMessage(cn.IdForNetwork)
+		}
+		<-graphTicker.C
+	}
 }
 
 func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoint) {

@@ -1,15 +1,8 @@
 package kernel
 
-import (
-	"github.com/MixinNetwork/mixin/common"
-)
+import "github.com/MixinNetwork/mixin/common"
 
-func (node *Node) LoadGenesis(configDir string) error {
-	gns, err := common.ReadGenesis(configDir + "/genesis.json")
-	if err != nil {
-		return err
-	}
-
+func (node *Node) LoadGenesis(gns *common.Genesis) error {
 	node.Epoch = gns.EpochTimestamp()
 	node.networkId = gns.NetworkId()
 	node.IdForNetwork = node.Signer.Hash().ForNetwork(node.networkId)

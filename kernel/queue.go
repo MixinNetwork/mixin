@@ -45,7 +45,7 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 	return tx.PayloadHash().String(), err
 }
 
-func (node *Node) LoopCacheQueue() error {
+func (node *Node) loopCacheQueue() error {
 	defer close(node.cqc)
 
 	for {

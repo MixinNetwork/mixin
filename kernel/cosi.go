@@ -652,6 +652,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		logger.Verbosef("cosiHandleResponse %v AGGREGATE ERROR\n", m)
 		return nil
 	}
+	logger.Verbosef("node.cacheVerifyCosi(%s, %s) FINAL\n", chain.node.Peer.Address, m.SnapshotHash)
 
 	if chain.IsPledging() && s.RoundNumber == 0 && cd.TX.TransactionType() == common.TransactionTypeNodeAccept {
 		err := chain.node.finalizeNodeAcceptSnapshot(s, signers)
@@ -1007,7 +1008,7 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
 	logger.Debugf("VerifyAndQueueAppendSnapshotFinalization(%s, %s)\n", peerId, s.Hash)
-	if node.custom.Node.ConsensusOnly && node.GetAcceptedOrPledgingNode(peerId) == nil {
+	if node.GetAcceptedOrPledgingNode(peerId) == nil {
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) invalid consensus peer\n",
 			peerId, s.Hash)
 		return nil

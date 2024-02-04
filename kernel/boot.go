@@ -1,24 +1,19 @@
 package kernel
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 )
 
 func (node *Node) Loop() error {
-	err := node.PingNeighborsFromConfig()
+	err := node.addRelayersFromConfig()
 	if err != nil {
 		return err
 	}
-	go func() {
-		err := node.ListenNeighbors()
-		if err != nil {
-			panic(fmt.Errorf("ListenNeighbors %s", err.Error()))
-		}
-	}()
-	go node.LoopCacheQueue()
+	go node.listenConsumers()
+	go node.sendGraphToConcensusNodes()
+	go node.loopCacheQueue()
 	go node.MintLoop()
 	node.ElectionLoop()
 	return nil

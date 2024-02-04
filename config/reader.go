@@ -41,7 +41,6 @@ type Custom struct {
 	Node struct {
 		Signer               crypto.Key `toml:"-"`
 		SignerStr            string     `toml:"signer-key"`
-		ConsensusOnly        bool       `toml:"consensus-only"`
 		KernelOprationPeriod int        `toml:"kernel-operation-period"`
 		MemoryCacheSize      int        `toml:"memory-cache-size"`
 		CacheTTL             int        `toml:"cache-ttl"`
@@ -51,10 +50,9 @@ type Custom struct {
 		MaxCompactionLevels int  `toml:"max-compaction-levels"`
 	} `toml:"storage"`
 	Network struct {
-		Listener        string   `toml:"listener"`
-		GossipNeighbors bool     `toml:"gossip-neighbors"`
-		Metric          bool     `toml:"metric"`
-		Peers           []string `toml:"peers"`
+		Relayer bool     `toml:"relayer"`
+		Metric  bool     `toml:"metric"`
+		Peers   []string `toml:"peers"`
 	} `toml:"network"`
 	RPC struct {
 		Runtime bool `toml:"runtime"`

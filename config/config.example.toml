@@ -1,8 +1,6 @@
 [node]
 # the private spend key of the signer
 signer-key = "8bcfad3959892e8334fa287a3c9755fed017cd7a9e8c68d7540dc9e69fa4a00d"
-# limit the peers that can establish a connection and exchange snapshots
-consensus-only = false
 # the period in seconds to check some mint and election kernel opportunities
 kernel-operation-period = 700
 # the maximum cache size in MB
@@ -20,43 +18,16 @@ value-log-gc = true
 max-compaction-levels = 7
 
 [network]
-# the public endpoint to receive peer packets, may be a proxy or load balancer
-# must be a public reachable domain or IP, and the port allowed by firewall
-listener = "mixin-node.example.com:7239"
-# whether to gossip known neighbors to neighbors, and to connect neighbors gossiped
-# by neighbors
-gossip-neighbors = true
+# a relayer needs a public address to listen and relay messages to other nodes
+# a signer should set this value to false for security
+relayer = false
 # metric different message types sent and received
 metric = false
 # the nodes list
 peers = [
-	"new-mixin-node0.exinpool.com:7239",
-	"new-mixin-node1.exinpool.com:7239",
-	"new-mixin-node2.exinpool.com:7239",
-	"new-mixin-node3.exinpool.com:7239",
-	"mixin-node-lehigh-1.hotot.org:7239",
-	"mixin-node-lehigh-2.hotot.org:7239",
-	"mixin-node-42.f1ex.io:7239",
-	"mixin-node-fes.f1ex.io:7239",
-	"mixin-node-box-1.b.watch:7239",
-	"mixin-node-box-2.b.watch:7239",
-	"mixin-node-box-3.b.watch:7239",
-	"mixin-node-box-4.b.watch:7239",
-	"mixin-node-okashi.mixin.fan:7239",
-	"mixin-node1.b1.run:7239",
-	"mixin-node2.b1.run:7239",
-	"mixin-node3.b1.run:7239",
-	"mixin-node4.b1.run:7239",
-	"mixin-node6.b1.run:7239",
-	"mixin-node7.b1.run:7239",
-	"mixin-node8b.b1.run:7239",
-	"34.42.197.136:7239",
-	"13.51.72.77:7239",
-	"3.227.254.217:7239",
-	"44.197.199.140:7239",
-	"16.170.250.120:7239",
-	"13.51.169.35:7239",
-	"43.206.154.20:7239"
+	"b798bca3d9aa61fed4cf39dee1e9b4317daf64a6e31cd433ac684d629f896b46@new-mixin-node0.exinpool.com:7239",
+	"3dae767383bd0eee3ff338e8d1e89577e4f3ece4b98662cb151f22d6c474407b@mixin-node-42.f1ex.io:7239",
+	"5e7ca75239ff68231bd0bcebc8be5b4725e8784b4df8788306c9baa291ec8595@mixin-node1.b1.run:7239"
 ]
 
 [rpc]

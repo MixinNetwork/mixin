@@ -11,12 +11,10 @@ func TestQuic(t *testing.T) {
 	require := require.New(t)
 
 	addr := "127.0.0.1:7000"
-	serverTrans, err := NewQuicServer(addr)
+	serverTrans, err := NewQuicRelayer(addr)
 	require.Nil(err)
 	require.NotNil(serverTrans)
 	defer serverTrans.Close()
-	err = serverTrans.Listen()
-	require.Nil(err)
 
 	wait := make(chan struct{})
 	go func() {
@@ -29,10 +27,7 @@ func TestQuic(t *testing.T) {
 		wait <- struct{}{}
 	}()
 
-	clientTrans, err := NewQuicClient(addr)
-	require.Nil(err)
-	require.NotNil(clientTrans)
-	client, err := clientTrans.Dial(context.Background())
+	client, err := NewQuicConsumer(context.Background(), addr)
 	require.Nil(err)
 	require.NotNil(client)
 	err = client.Send([]byte("hello mixin"))

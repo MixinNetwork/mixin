@@ -31,10 +31,11 @@ var (
 )
 
 func TestConsensus(t *testing.T) {
-	testConsensus(t)
+	testConsensus(t, false)
+	testConsensus(t, true)
 }
 
-func testConsensus(t *testing.T) {
+func testConsensus(t *testing.T, withRelayers bool) {
 	require := require.New(t)
 	kernel.TestMockReset()
 
@@ -54,7 +55,7 @@ func testConsensus(t *testing.T) {
 	require.Nil(err)
 	defer os.RemoveAll(root)
 
-	accounts, payees, gdata, plist := setupTestNet(root)
+	accounts, payees, gdata, plist := setupTestNet(root, withRelayers)
 	require.Len(accounts, NODES)
 
 	epoch := time.Unix(1551312000, 0)
@@ -74,8 +75,6 @@ func testConsensus(t *testing.T) {
 		node, err := kernel.SetupNode(custom, store, cache, fmt.Sprintf(":170%02d", i+1), dir)
 		require.Nil(err)
 		require.NotNil(node)
-		err = node.PingNeighborsFromConfig()
-		require.Nil(err)
 		instances = append(instances, node)
 		host := fmt.Sprintf("127.0.0.1:180%02d", i+1)
 		nodes = append(nodes, &Node{Signer: node.Signer, Host: host})
@@ -83,10 +82,8 @@ func testConsensus(t *testing.T) {
 
 		server := NewServer(custom, store, node, 18000+i+1)
 		defer server.Close()
-		go func(node *kernel.Node, store storage.Store, num int, s *http.Server) {
-			go s.ListenAndServe()
-			go node.Loop()
-		}(node, store, i, server)
+		go server.ListenAndServe()
+		go node.Loop()
 	}
 	defer func() {
 		var wg sync.WaitGroup
@@ -590,7 +587,7 @@ memory-cache-size = 128
 kernel-operation-period = 3
 cache-ttl = 3600
 [network]
-listener = "%s"
+relayer = %t
 metric = true
 peers = [%s]
 `
@@ -608,7 +605,7 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 		panic(err)
 	}
 
-	configData := []byte(fmt.Sprintf(configDataTmpl, signer.PrivateSpendKey.String(), "127.0.0.1:17099", plist))
+	configData := []byte(fmt.Sprintf(configDataTmpl, signer.PrivateSpendKey.String(), false, plist))
 	err = os.WriteFile(dir+"/config.toml", configData, 0644)
 	if err != nil {
 		panic(err)
@@ -646,8 +643,6 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 	pnode, err := kernel.SetupNode(custom, store, cache, fmt.Sprintf(":170%02d", 99), dir)
 	require.Nil(err)
 	require.NotNil(pnode)
-	err = pnode.PingNeighborsFromConfig()
-	require.Nil(err)
 	go pnode.Loop()
 
 	server := NewServer(custom, store, pnode, 18099)
@@ -759,13 +754,15 @@ func testDetermineAccountByIndex(i int, role string) common.Address {
 	return account
 }
 
-func setupTestNet(root string) ([]common.Address, []common.Address, []byte, string) {
+func setupTestNet(root string, withRelayers bool) ([]common.Address, []common.Address, []byte, string) {
 	var signers, payees, custodians []common.Address
+	var relayers []common.Address
 
 	for i := 0; i < NODES; i++ {
 		signers = append(signers, testDetermineAccountByIndex(i, "SIGNER"))
 		payees = append(payees, testDetermineAccountByIndex(i, "PAYEE"))
 		custodians = append(custodians, testDetermineAccountByIndex(i, "CUSTODIAN"))
+		relayers = append(relayers, testDetermineAccountByIndex(i, "RELAYER"))
 	}
 
 	inputs := make([]map[string]string, 0)
@@ -788,12 +785,49 @@ func setupTestNet(root string) ([]common.Address, []common.Address, []byte, stri
 	if err != nil {
 		panic(err)
 	}
+	var gns common.Genesis
+	err = json.Unmarshal(genesisData, &gns)
+	if err != nil {
+		panic(err)
+	}
 
 	peers := make([]string, len(signers))
-	for i := range signers {
-		peers[i] = fmt.Sprintf("127.0.0.1:170%02d", i+1)
+	for i, s := range signers {
+		id := s.Hash().ForNetwork(gns.NetworkId())
+		peers[i] = fmt.Sprintf("%s@127.0.0.1:170%02d", id.String(), i+1)
 	}
-	peersList := `"` + strings.Join(peers, `","`) + `"`
+	peersList := `"` + strings.Join(peers[:len(peers)/3], `","`) + `"`
+
+	if withRelayers {
+		peers := make([]string, len(relayers))
+		for i, s := range relayers {
+			id := s.Hash().ForNetwork(gns.NetworkId())
+			peers[i] = fmt.Sprintf("%s@127.0.0.1:160%02d", id.String(), i+1)
+		}
+		peersList = `"` + strings.Join(peers[:len(peers)/3], `","`) + `"`
+		for i, a := range relayers {
+			dir := fmt.Sprintf("%s/mixin-160%02d", root, i+1)
+			err := os.MkdirAll(dir, 0755)
+			if err != nil {
+				panic(err)
+			}
+
+			configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey.String(), true, peersList))
+			err = os.WriteFile(dir+"/config.toml", configData, 0644)
+			if err != nil {
+				panic(err)
+			}
+			err = os.WriteFile(dir+"/genesis.json", genesisData, 0644)
+			if err != nil {
+				panic(err)
+			}
+			custom, _ := config.Initialize(dir + "/config.toml")
+			cache := newCache(custom)
+			store, _ := storage.NewBadgerStore(custom, dir)
+			node, _ := kernel.SetupNode(custom, store, cache, fmt.Sprintf(":160%02d", i+1), dir)
+			go node.Loop()
+		}
+	}
 
 	for i, a := range signers {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
@@ -802,7 +836,8 @@ func setupTestNet(root string) ([]common.Address, []common.Address, []byte, stri
 			panic(err)
 		}
 
-		configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey.String(), peers[i], peersList))
+		isRelayer := !withRelayers && strings.Contains(peersList, fmt.Sprintf("170%02d", i+1))
+		configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey.String(), isRelayer, peersList))
 		err = os.WriteFile(dir+"/config.toml", configData, 0644)
 		if err != nil {
 			panic(err)
