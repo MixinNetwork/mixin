@@ -54,10 +54,17 @@ type PeerMessage struct {
 	version byte
 }
 
+type AuthToken struct {
+	PeerId    crypto.Hash
+	Timestamp uint64
+	IsRelayer bool
+	Data      []byte
+}
+
 type SyncHandle interface {
 	GetCacheStore() *ristretto.Cache
-	BuildAuthenticationMessage() []byte
-	Authenticate(msg []byte) (crypto.Hash, bool, error)
+	BuildAuthenticationMessage(relayerId crypto.Hash) []byte
+	AuthenticateAs(recipientId crypto.Hash, msg []byte) (*AuthToken, error)
 	BuildGraph() []*SyncPoint
 	UpdateSyncPoint(peerId crypto.Hash, points []*SyncPoint)
 	ReadAllNodesWithoutState() []crypto.Hash
@@ -246,6 +253,7 @@ func (me *Peer) buildConsumersMessage() []byte {
 	peers := me.consumers.Slice()
 	for _, p := range peers {
 		data = append(data, p.IdForNetwork[:]...)
+		data = append(data, p.consumerAuth.Data...)
 	}
 	return data
 }
@@ -416,6 +424,8 @@ func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage
 			return err
 		}
 		// FIXME check the relayed message signature from the actual sending peer
+		// no need to do special check here, just ensure all message types has the
+		// authentic signature, most already, a few needs improvement
 		return me.handlePeerMessage(from, rm)
 	}
 	if me.relayer == nil {
@@ -447,22 +457,31 @@ func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage
 	return nil
 }
 
-func (me *Peer) updateRemoteRelayerConsumers(peerId crypto.Hash, data []byte) error {
-	logger.Verbosef("me.updateRemoteRelayerConsumers(%s, %s) => %x", me.Address, peerId, data)
-	peer := me.relayers.Get(peerId)
-	if peer == nil {
-		peer = me.consumers.Get(peerId)
+func (me *Peer) updateRemoteRelayerConsumers(relayerId crypto.Hash, data []byte) error {
+	logger.Verbosef("me.updateRemoteRelayerConsumers(%s, %s) => %x", me.Address, relayerId, data)
+	relayer := me.relayers.Get(relayerId)
+	if relayer == nil {
+		relayer = me.consumers.Get(relayerId)
 	}
-	if peer == nil || !peer.isRemoteRelayer {
+	if relayer == nil || !relayer.isRemoteRelayer {
 		return nil
 	}
-	// FIXME ensure the relayer could represent the consumers with consumer signature
-	// better just use a relayed normal message to determin the consumers list
-	for c := len(data) / len(crypto.Key{}); c > 0; c-- {
+	pl := len(crypto.Key{}) + 137
+	for c := len(data) / pl; c > 0; c-- {
 		var id crypto.Hash
 		copy(id[:], data[:32])
-		data = data[32:]
-		me.remoteRelayers.Set(id, peer)
+		token, err := me.handle.AuthenticateAs(relayerId, data[32:pl])
+		if err != nil {
+			return nil
+		}
+		if token.PeerId != id {
+			return nil
+		}
+		old := me.remoteRelayers.Get(id)
+		if old == nil || old.consumerAuth == nil || old.consumerAuth.Timestamp < token.Timestamp {
+			me.remoteRelayers.Set(id, relayer)
+		}
+		data = data[pl:]
 	}
 	return nil
 }

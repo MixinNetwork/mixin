@@ -1,8 +1,10 @@
 package kernel
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -396,9 +398,10 @@ func (node *Node) BuildGraph() []*network.SyncPoint {
 	return points
 }
 
-func (node *Node) BuildAuthenticationMessage() []byte {
+func (node *Node) BuildAuthenticationMessage(relayerId crypto.Hash) []byte {
 	data := make([]byte, 8)
 	binary.BigEndian.PutUint64(data, uint64(clock.Now().Unix()))
+	data = append(data, relayerId[:]...)
 	data = append(data, node.Signer.PublicSpendKey[:]...)
 	if node.isRelayer {
 		data = append(data, 1)
@@ -411,35 +414,42 @@ func (node *Node) BuildAuthenticationMessage() []byte {
 	return data
 }
 
-func (node *Node) Authenticate(msg []byte) (crypto.Hash, bool, error) {
-	if len(msg) != 105 {
-		return crypto.Hash{}, false, fmt.Errorf("peer authentication message malformated %d", len(msg))
+func (node *Node) AuthenticateAs(recipientId crypto.Hash, msg []byte) (*network.AuthToken, error) {
+	if len(msg) != 137 {
+		return nil, fmt.Errorf("peer authentication message malformatted %d", len(msg))
 	}
 	ts := binary.BigEndian.Uint64(msg[:8])
-	if clock.Now().Unix()-int64(ts) > 3 {
-		return crypto.Hash{}, false, fmt.Errorf("peer authentication message timeout %d %d", ts, clock.Now().Unix())
+	if math.Abs(float64(clock.Now().Unix())-float64(ts)) > 5 {
+		return nil, fmt.Errorf("peer authentication message timeout %d %d", ts, clock.Now().Unix())
+	}
+
+	var relayerId crypto.Hash
+	copy(relayerId[:], msg[8:40])
+	if relayerId != recipientId {
+		return nil, fmt.Errorf("peer authentication is not for me %s", relayerId)
 	}
 
 	var signer common.Address
-	copy(signer.PublicSpendKey[:], msg[8:40])
+	copy(signer.PublicSpendKey[:], msg[40:72])
 	signer.PublicViewKey = signer.PublicSpendKey.DeterministicHashDerive().Public()
 	peerId := signer.Hash().ForNetwork(node.networkId)
-	if peerId == node.IdForNetwork {
-		return crypto.Hash{}, false, fmt.Errorf("peer is self %s", peerId)
-	}
-	peer := node.GetAcceptedOrPledgingNode(peerId)
-	if peer != nil && peer.Signer.Hash() != signer.Hash() {
-		return crypto.Hash{}, false, fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
+	if peerId == recipientId {
+		return nil, fmt.Errorf("peer is self %s", peerId)
 	}
 
 	var sig crypto.Signature
-	copy(sig[:], msg[41:105])
-	mh := crypto.Blake3Hash(msg[:41])
+	copy(sig[:], msg[73:137])
+	mh := crypto.Blake3Hash(msg[:73])
 	if !signer.PublicSpendKey.Verify(mh, sig) {
-		return crypto.Hash{}, false, fmt.Errorf("peer authentication message signature invalid %s", peerId)
+		return nil, fmt.Errorf("peer authentication message signature invalid %s", peerId)
 	}
-	listener := msg[40] == byte(1)
-	return peerId, listener, nil
+	token := &network.AuthToken{
+		PeerId:    peerId,
+		Timestamp: ts,
+		IsRelayer: msg[72] == byte(1),
+		Data:      bytes.Clone(msg),
+	}
+	return token, nil
 }
 
 func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {

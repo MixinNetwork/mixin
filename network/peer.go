@@ -36,6 +36,7 @@ type Peer struct {
 	stn             chan struct{}
 
 	relayer         *QuicRelayer
+	consumerAuth    *AuthToken
 	isRemoteRelayer bool
 	remoteRelayers  *neighborMap
 }
@@ -84,7 +85,7 @@ func (me *Peer) connectRelayer(relayer *Peer) error {
 	defer client.Close()
 	defer relayer.disconnect()
 
-	auth := me.handle.BuildAuthenticationMessage()
+	auth := me.handle.BuildAuthenticationMessage(relayer.IdForNetwork)
 	err = client.Send(buildAuthenticationMessage(auth))
 	logger.Printf("client.SendAuthenticationMessage(%x) => %v", auth, err)
 	if err != nil {
@@ -365,14 +366,15 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 		}
 		me.receivedMetric.handle(PeerMessageTypeAuthentication)
 
-		id, isRelayer, err := me.handle.Authenticate(msg.Data)
+		token, err := me.handle.AuthenticateAs(me.IdForNetwork, msg.Data)
 		if err != nil {
 			auth <- err
 			return
 		}
 
 		addr := client.RemoteAddr().String()
-		peer = NewPeer(nil, id, addr, isRelayer)
+		peer = NewPeer(nil, token.PeerId, addr, token.IsRelayer)
+		peer.consumerAuth = token
 		auth <- nil
 	}()
 
