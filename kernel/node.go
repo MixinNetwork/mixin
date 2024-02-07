@@ -491,6 +491,11 @@ func (node *Node) BuildLegacyGraph() []*network.SyncPoint {
 	return points
 }
 
+func (node *Node) SignData(data []byte) crypto.Signature {
+	dh := crypto.Blake3Hash(data)
+	return node.Signer.PrivateSpendKey.Sign(dh)
+}
+
 func (node *Node) BuildGraph() []*p2p.SyncPoint {
 	node.chains.RLock()
 	defer node.chains.RUnlock()
@@ -603,13 +608,21 @@ func (node *Node) sendGraphToConcensusNodes() {
 	}
 }
 
-func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*p2p.SyncPoint) {
+func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*p2p.SyncPoint, sig *crypto.Signature) error {
+	peer := node.GetAcceptedOrPledgingNode(peerId)
+	if peer != nil {
+		dh := crypto.Blake3Hash(p2p.MarshalSyncPoints(points))
+		if !peer.Signer.PublicSpendKey.Verify(dh, *sig) {
+			return fmt.Errorf("invalid graph signature %s", peerId)
+		}
+	}
 	for _, p := range points {
 		if p.NodeId == node.IdForNetwork {
 			node.SyncPoints.Set(peerId, p)
 		}
 	}
 	node.SyncPointsMap = node.SyncPoints.Map()
+	return nil
 }
 
 func (node *Node) UpdateLegacySyncPoint(peerId crypto.Hash, points []*network.SyncPoint) {

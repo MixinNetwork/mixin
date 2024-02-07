@@ -64,10 +64,11 @@ type AuthToken struct {
 
 type SyncHandle interface {
 	GetCacheStore() *ristretto.Cache
+	SignData(data []byte) crypto.Signature
 	BuildAuthenticationMessage(relayerId crypto.Hash) []byte
 	AuthenticateAs(recipientId crypto.Hash, msg []byte, timeoutSec int64) (*AuthToken, error)
 	BuildGraph() []*SyncPoint
-	UpdateSyncPoint(peerId crypto.Hash, points []*SyncPoint)
+	UpdateSyncPoint(peerId crypto.Hash, points []*SyncPoint, sig *crypto.Signature) error
 	ReadAllNodesWithoutState() []crypto.Hash
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
@@ -83,7 +84,7 @@ type SyncHandle interface {
 }
 
 func (me *Peer) SendGraphMessage(idForNetwork crypto.Hash) error {
-	msg := buildGraphMessage(me.handle.BuildGraph())
+	msg := buildGraphMessage(me.handle)
 	return me.sendHighToPeer(idForNetwork, PeerMessageTypeGraph, nil, msg)
 }
 
@@ -234,8 +235,11 @@ func buildTransactionRequestMessage(tx crypto.Hash) []byte {
 	return append([]byte{PeerMessageTypeTransactionRequest}, tx[:]...)
 }
 
-func buildGraphMessage(points []*SyncPoint) []byte {
-	data := marshalSyncPoints(points)
+func buildGraphMessage(handle SyncHandle) []byte {
+	points := handle.BuildGraph()
+	data := MarshalSyncPoints(points)
+	sig := handle.SignData(data)
+	data = append(sig[:], data...)
 	return append([]byte{PeerMessageTypeGraph}, data...)
 }
 
@@ -295,11 +299,14 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 			msg.Commitments = append(msg.Commitments, &key)
 		}
 	case PeerMessageTypeGraph:
-		points, err := unmarshalSyncPoints(data[1:])
+		var sig crypto.Signature
+		copy(sig[:], data[1:])
+		points, err := unmarshalSyncPoints(data[65:])
 		if err != nil {
 			return nil, err
 		}
 		msg.Graph = points
+		msg.signature = &sig
 	case PeerMessageTypePing:
 	case PeerMessageTypeAuthentication:
 		msg.Data = data[1:]
@@ -505,7 +512,10 @@ func (me *Peer) handlePeerMessage(peerId crypto.Hash, msg *PeerMessage) error {
 		return me.handle.CosiQueueExternalCommitments(peerId, msg.Commitments)
 	case PeerMessageTypeGraph:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeGraph %s\n", peerId)
-		me.handle.UpdateSyncPoint(peerId, msg.Graph)
+		err := me.handle.UpdateSyncPoint(peerId, msg.Graph, msg.signature)
+		if err != nil {
+			return err
+		}
 		peer := me.relayers.Get(peerId)
 		if peer == nil {
 			peer = me.consumers.Get(peerId)
@@ -546,7 +556,7 @@ func (me *Peer) handlePeerMessage(peerId crypto.Hash, msg *PeerMessage) error {
 	return nil
 }
 
-func marshalSyncPoints(points []*SyncPoint) []byte {
+func MarshalSyncPoints(points []*SyncPoint) []byte {
 	enc := common.NewMinimumEncoder()
 	enc.WriteInt(len(points))
 	for _, p := range points {

@@ -164,7 +164,9 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNei
 
 func (me *Peer) Teardown() {
 	me.closing = true
-	me.transport.Close()
+	if me.transport != nil {
+		me.transport.Close()
+	}
 	me.highRing.Dispose()
 	me.normalRing.Dispose()
 	me.syncRing.Dispose()

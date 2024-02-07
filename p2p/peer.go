@@ -246,7 +246,7 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 		select {
 		case <-graphTicker.C:
 			me.sentMetric.handle(PeerMessageTypeGraph)
-			msg := buildGraphMessage(me.handle.BuildGraph())
+			msg := buildGraphMessage(me.handle)
 			msgs = append(msgs, &ChanMsg{nil, msg})
 			size = size + len(msg)
 		default:
