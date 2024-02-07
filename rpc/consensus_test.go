@@ -586,10 +586,13 @@ consensus-only = false
 memory-cache-size = 128
 kernel-operation-period = 3
 cache-ttl = 3600
-[network]
+[p2p]
+port = %d
+seeds = [%s]
 relayer = %t
 metric = true
-peers = [%s]
+[rpc]
+port = %d
 `
 
 func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genesisData []byte, plist, input, root string) (Node, *kernel.Node, *http.Server) {
@@ -605,7 +608,7 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 		panic(err)
 	}
 
-	configData := []byte(fmt.Sprintf(configDataTmpl, signer.PrivateSpendKey.String(), false, plist))
+	configData := []byte(fmt.Sprintf(configDataTmpl, signer.PrivateSpendKey, 17099, plist, false, 18099))
 	err = os.WriteFile(dir+"/config.toml", configData, 0644)
 	if err != nil {
 		panic(err)
@@ -815,7 +818,7 @@ func setupTestNet(root string, withRelayers bool) ([]common.Address, []common.Ad
 				panic(err)
 			}
 
-			configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey.String(), true, peersList))
+			configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey, 16000+i+1, peersList, true, 0))
 			err = os.WriteFile(dir+"/config.toml", configData, 0644)
 			if err != nil {
 				panic(err)
@@ -843,12 +846,13 @@ func setupTestNet(root string, withRelayers bool) ([]common.Address, []common.Ad
 		if i > len(signers)/2 {
 			peersList = peersListTail
 		}
-		p2p := fmt.Sprintf("170%02d", i+1)
+		port := 17000 + i + 1
+		p2p := fmt.Sprint(port)
 		isRelayer := !withRelayers && (strings.Contains(peersListHead, p2p) || strings.Contains(peersListTail, p2p))
 		if isRelayer {
 			peersList = peersListHead
 		}
-		configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey.String(), isRelayer, peersList))
+		configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey, port, peersList, isRelayer, 18000+i+1))
 		err = os.WriteFile(dir+"/config.toml", configData, 0644)
 		if err != nil {
 			panic(err)

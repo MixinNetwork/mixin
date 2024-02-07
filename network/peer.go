@@ -3,6 +3,7 @@ package network
 import (
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"sync"
@@ -23,21 +24,19 @@ type Peer struct {
 	receivedMetric *MetricPool
 
 	ctx             context.Context
-	handle          SyncHandle
-	relayers        *neighborMap
-	consumers       *neighborMap
 	snapshotsCaches *confirmMap
+	neighbors       *neighborMap
+	gossipRound     *neighborMap
+	pingFilter      *neighborMap
+	handle          SyncHandle
+	transport       Transport
+	gossipNeighbors bool
 	highRing        *util.RingBuffer
 	normalRing      *util.RingBuffer
 	syncRing        *util.RingBuffer
 	closing         bool
 	ops             chan struct{}
 	stn             chan struct{}
-
-	relayer         *QuicRelayer
-	consumerAuth    *AuthToken
-	isRemoteRelayer bool
-	remoteRelayers  *neighborMap
 }
 
 type SyncPoint struct {
@@ -52,66 +51,74 @@ type ChanMsg struct {
 	data []byte
 }
 
-func (me *Peer) ConnectRelayer(idForNetwork crypto.Hash, addr string) {
+func (me *Peer) PingNeighbor(addr string) error {
 	if a, err := net.ResolveUDPAddr("udp", addr); err != nil {
-		panic(fmt.Errorf("invalid address %s %s", addr, err))
+		return fmt.Errorf("invalid address %s %s", addr, err)
 	} else if a.Port < 80 || a.IP == nil {
-		panic(fmt.Errorf("invalid address %s %d %s", addr, a.Port, a.IP))
+		return fmt.Errorf("invalid address %s %d %s", addr, a.Port, a.IP)
 	}
-	if me.isRemoteRelayer {
-		me.remoteRelayers = &neighborMap{m: make(map[crypto.Hash]*Peer)}
-	}
-
-	for !me.closing {
-		time.Sleep(time.Duration(config.SnapshotRoundGap))
-		old := me.relayers.Get(idForNetwork)
-		if old != nil {
-			panic(fmt.Errorf("ConnectRelayer(%s) => %s", idForNetwork, old.Address))
+	key := crypto.Blake3Hash([]byte(addr))
+	me.pingFilter.RunOnce(key, &Peer{}, func() {
+		for !me.closing {
+			// FIXME this loop is essential to prevent peer loss
+			// need to fix duplicated quic dials
+			err := me.pingPeerStream(addr)
+			if err != nil {
+				logger.Verbosef("PingNeighbor error %v\n", err)
+			}
 		}
-		relayer := NewPeer(nil, idForNetwork, addr, true)
-		err := me.connectRelayer(relayer)
-		logger.Printf("me.connectRelayer(%s, %v) => %v", me.Address, relayer, err)
-	}
+	})
+	return nil
 }
 
-func (me *Peer) connectRelayer(relayer *Peer) error {
-	logger.Printf("me.connectRelayer(%s, %s) => %v", me.Address, me.IdForNetwork, relayer)
-	client, err := NewQuicConsumer(me.ctx, relayer.Address)
-	logger.Printf("NewQuicConsumer(%s) => %v %v", relayer.Address, client, err)
+func (me *Peer) pingPeerStream(addr string) error {
+	logger.Verbosef("PING OPEN PEER STREAM %s\n", addr)
+	transport, err := NewQuicClient(addr)
+	if err != nil {
+		return err
+	}
+	client, err := transport.Dial(me.ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	defer relayer.disconnect()
+	logger.Verbosef("PING DIAL PEER STREAM %s\n", addr)
 
-	auth := me.handle.BuildAuthenticationMessage(relayer.IdForNetwork)
-	err = client.Send(buildAuthenticationMessage(auth))
-	logger.Printf("client.SendAuthenticationMessage(%x) => %v", auth, err)
+	err = client.Send(buildAuthenticationMessage(me.handle.BuildAuthenticationMessage()))
 	if err != nil {
 		return err
 	}
-	me.sentMetric.handle(PeerMessageTypeAuthentication)
-	if !me.relayers.Put(relayer.IdForNetwork, relayer) {
-		panic(fmt.Errorf("ConnectRelayer(%s) => %s", relayer.IdForNetwork, relayer.Address))
-	}
-	defer me.relayers.Delete(relayer.IdForNetwork)
+	logger.Verbosef("PING AUTH PEER STREAM %s\n", addr)
+	time.Sleep(time.Duration(config.SnapshotRoundGap))
+	return nil
+}
 
-	go me.syncToNeighborLoop(relayer)
-	go me.loopReceiveMessage(relayer, client)
-	_, err = me.loopSendingStream(relayer, client)
-	return err
+func (me *Peer) AddNeighbor(idForNetwork crypto.Hash, addr string) (*Peer, error) {
+	if a, err := net.ResolveUDPAddr("udp", addr); err != nil {
+		return nil, fmt.Errorf("invalid address %s %s", addr, err)
+	} else if a.Port < 80 || a.IP == nil {
+		return nil, fmt.Errorf("invalid address %s %d %s", addr, a.Port, a.IP)
+	}
+
+	old := me.neighbors.Get(idForNetwork)
+	if old != nil && old.Address == addr {
+		return old, nil
+	} else if old != nil {
+		old.disconnect()
+	}
+
+	peer := NewPeer(nil, idForNetwork, addr, false, false)
+	me.neighbors.Set(idForNetwork, peer)
+	go me.openPeerStreamLoop(peer)
+	go me.syncToNeighborLoop(peer)
+	return peer, nil
 }
 
 func (me *Peer) Neighbors() []*Peer {
-	relayers := me.relayers.Slice()
-	consumers := me.consumers.Slice()
-	return append(relayers, consumers...)
+	return me.neighbors.Slice()
 }
 
 func (p *Peer) disconnect() {
-	if p.closing {
-		return
-	}
 	p.closing = true
 	p.highRing.Dispose()
 	p.normalRing.Dispose()
@@ -131,21 +138,22 @@ func (me *Peer) Metric() map[string]*MetricPool {
 	return metrics
 }
 
-func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, isRelayer bool) *Peer {
+func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, gossipNeighbors, enableMetric bool) *Peer {
 	peer := &Peer{
 		IdForNetwork:    idForNetwork,
 		Address:         addr,
-		relayers:        &neighborMap{m: make(map[crypto.Hash]*Peer)},
-		consumers:       &neighborMap{m: make(map[crypto.Hash]*Peer)},
+		neighbors:       &neighborMap{m: make(map[crypto.Hash]*Peer)},
+		gossipRound:     &neighborMap{m: make(map[crypto.Hash]*Peer)},
+		pingFilter:      &neighborMap{m: make(map[crypto.Hash]*Peer)},
+		gossipNeighbors: gossipNeighbors,
 		highRing:        util.NewRingBuffer(1024),
 		normalRing:      util.NewRingBuffer(1024),
 		syncRing:        util.NewRingBuffer(1024),
 		handle:          handle,
-		sentMetric:      &MetricPool{enabled: false},
-		receivedMetric:  &MetricPool{enabled: false},
+		sentMetric:      &MetricPool{enabled: enableMetric},
+		receivedMetric:  &MetricPool{enabled: enableMetric},
 		ops:             make(chan struct{}),
 		stn:             make(chan struct{}),
-		isRemoteRelayer: isRelayer,
 	}
 	peer.ctx = context.Background() // FIXME use real context
 	if handle != nil {
@@ -156,15 +164,13 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, isRelayer
 
 func (me *Peer) Teardown() {
 	me.closing = true
-	if me.relayer != nil {
-		me.relayer.Close()
-	}
+	me.transport.Close()
 	me.highRing.Dispose()
 	me.normalRing.Dispose()
 	me.syncRing.Dispose()
-	peers := me.Neighbors()
+	neighbors := me.neighbors.Slice()
 	var wg sync.WaitGroup
-	for _, p := range peers {
+	for _, p := range neighbors {
 		wg.Add(1)
 		go func(p *Peer) {
 			p.disconnect()
@@ -175,28 +181,34 @@ func (me *Peer) Teardown() {
 	logger.Printf("Teardown(%s, %s)\n", me.IdForNetwork, me.Address)
 }
 
-func (me *Peer) ListenConsumers() error {
-	logger.Printf("me.ListenConsumers(%s, %s)", me.Address, me.IdForNetwork)
-	relayer, err := NewQuicRelayer(me.Address)
+func (me *Peer) ListenNeighbors() error {
+	transport, err := NewQuicServer(me.Address)
 	if err != nil {
 		return err
 	}
-	me.relayer = relayer
-	me.remoteRelayers = &neighborMap{m: make(map[crypto.Hash]*Peer)}
+	me.transport = transport
+
+	err = me.transport.Listen()
+	if err != nil {
+		return err
+	}
 
 	go func() {
 		ticker := time.NewTicker(time.Duration(config.SnapshotRoundGap))
 		defer ticker.Stop()
 
 		for !me.closing {
-			neighbors := me.Neighbors()
-			msg := me.buildConsumersMessage()
+			me.gossipRound.Clear()
+			neighbors := me.neighbors.Slice()
+			for i := range neighbors {
+				j := int(time.Now().UnixNano() % int64(i+1))
+				neighbors[i], neighbors[j] = neighbors[j], neighbors[i]
+			}
+			if len(neighbors) > config.GossipSize {
+				neighbors = neighbors[:config.GossipSize]
+			}
 			for _, p := range neighbors {
-				if !p.isRemoteRelayer {
-					continue
-				}
-				key := crypto.Blake3Hash(append(msg, p.IdForNetwork[:]...))
-				me.sendHighToPeer(p.IdForNetwork, PeerMessageTypeConsumers, key[:], msg)
+				me.gossipRound.Set(p.IdForNetwork, p)
 			}
 
 			<-ticker.C
@@ -204,42 +216,74 @@ func (me *Peer) ListenConsumers() error {
 	}()
 
 	for !me.closing {
-		c, err := me.relayer.Accept(me.ctx)
-		logger.Printf("me.relayer.Accept(%s) => %v %v", me.Address, c, err)
+		c, err := me.transport.Accept(me.ctx)
 		if err != nil {
+			logger.Verbosef("accept error %v\n", err)
 			continue
 		}
 		go func(c Client) {
-			defer c.Close()
-
-			peer, err := me.authenticateNeighbor(c)
-			logger.Printf("me.authenticateNeighbor(%s, %s) => %v %v", me.Address, c.RemoteAddr().String(), peer, err)
+			err := me.acceptNeighborConnection(c)
 			if err != nil {
-				return
+				logger.Debugf("accept neighbor %s error %v\n", c.RemoteAddr().String(), err)
 			}
-			defer peer.disconnect()
-			if !me.consumers.Put(peer.IdForNetwork, peer) {
-				return
-			}
-			defer me.consumers.Delete(peer.IdForNetwork)
-
-			go me.syncToNeighborLoop(peer)
-			go me.loopReceiveMessage(peer, c)
-			me.loopSendingStream(peer, c)
-			logger.Printf("me.loopSendingStream(%s, %s) => %v", me.Address, c.RemoteAddr().String(), err)
 		}(c)
 	}
 
-	logger.Printf("ListenConsumers(%s, %s) DONE\n", me.IdForNetwork, me.Address)
+	logger.Printf("ListenNeighbors(%s, %s) DONE\n", me.IdForNetwork, me.Address)
 	return nil
 }
 
-func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
+func (me *Peer) openPeerStreamLoop(p *Peer) {
 	defer close(p.ops)
-	defer consumer.Close()
+
+	var resend *ChanMsg
+	for !me.closing && !p.closing {
+		msg, err := me.openPeerStream(p, resend)
+		if err != nil {
+			logger.Verbosef("neighbor open stream %s error %v\n", p.Address, err)
+		}
+		resend = msg
+		time.Sleep(1 * time.Second)
+	}
+}
+
+func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
+	logger.Verbosef("OPEN PEER STREAM %s\n", p.Address)
+	transport, err := NewQuicClient(p.Address)
+	if err != nil {
+		return nil, err
+	}
+	client, err := transport.Dial(me.ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+	logger.Verbosef("DIAL PEER STREAM %s\n", p.Address)
+
+	err = client.Send(buildAuthenticationMessage(me.handle.BuildAuthenticationMessage()))
+	if err != nil {
+		return nil, err
+	}
+	me.sentMetric.handle(PeerMessageTypeAuthentication)
+	logger.Verbosef("AUTH PEER STREAM %s\n", p.Address)
+
+	if resend != nil && !me.snapshotsCaches.contains(resend.key, time.Minute) {
+		logger.Verbosef("RESEND PEER STREAM %s\n", hex.EncodeToString(resend.key))
+		err := client.Send(resend.data)
+		if err != nil {
+			return resend, err
+		}
+		if resend.key != nil {
+			me.snapshotsCaches.store(resend.key, time.Now())
+		}
+	}
+	logger.Verbosef("LOOP PEER STREAM %s\n", p.Address)
 
 	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
 	defer graphTicker.Stop()
+
+	gossipNeighborsTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap * 100))
+	defer gossipNeighborsTicker.Stop()
 
 	for !me.closing && !p.closing {
 		msgs, size := []*ChanMsg{}, 0
@@ -249,10 +293,17 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 			msg := buildGraphMessage(me.handle.BuildGraph())
 			msgs = append(msgs, &ChanMsg{nil, msg})
 			size = size + len(msg)
+		case <-gossipNeighborsTicker.C:
+			if me.gossipNeighbors {
+				me.sentMetric.handle(PeerMessageTypeGossipNeighbors)
+				msg := buildGossipNeighborsMessage(me.neighbors.Slice())
+				msgs = append(msgs, &ChanMsg{nil, msg})
+				size = size + len(msg)
+			}
 		default:
 		}
 
-		for len(msgs) < 16 && size < TransportMessageMaxSize/2 {
+		for len(msgs) < MaxMessageBundleSize && size < TransportMessageMaxSize/2 {
 			item, err := p.highRing.Poll(false)
 			if err != nil {
 				return nil, err
@@ -267,7 +318,7 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 			size = size + len(msg.data)
 		}
 
-		for len(msgs) < 16 && size < TransportMessageMaxSize/2 {
+		for len(msgs) < MaxMessageBundleSize && size < TransportMessageMaxSize/2 {
 			item, err := p.normalRing.Poll(false)
 			if err != nil {
 				return nil, err
@@ -287,16 +338,29 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 			continue
 		}
 
-		for _, m := range msgs {
-			if m.key != nil && me.snapshotsCaches.contains(m.key, time.Minute) {
+		if len(msgs) == 1 {
+			if msgs[0].key != nil && me.snapshotsCaches.contains(msgs[0].key, time.Minute) {
 				continue
 			}
-			err := consumer.Send(m.data)
+			err := client.Send(msgs[0].data)
 			if err != nil {
-				return m, fmt.Errorf("consumer.Send(%s) => %v", p.Address, err)
+				return msgs[0], err
 			}
-			if m.key != nil {
-				me.snapshotsCaches.store(m.key, time.Now())
+			if msgs[0].key != nil {
+				me.snapshotsCaches.store(msgs[0].key, time.Now())
+			}
+		} else {
+			data := buildBundleMessage(msgs)
+			err := client.Send(data)
+			if err != nil {
+				key := crypto.Blake3Hash(data)
+				return &ChanMsg{key[:], data}, err
+			}
+			me.sentMetric.handle(PeerMessageTypeBundle)
+			for _, msg := range msgs {
+				if msg.key != nil {
+					me.snapshotsCaches.store(msg.key, time.Now())
+				}
 			}
 		}
 	}
@@ -304,32 +368,62 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 	return nil, fmt.Errorf("PEER DONE")
 }
 
-func (me *Peer) loopReceiveMessage(peer *Peer, client Client) error {
-	logger.Printf("me.loopReceiveMessage(%s, %s)", me.Address, client.RemoteAddr().String())
+func (me *Peer) acceptNeighborConnection(client Client) error {
 	receive := make(chan *PeerMessage, 1024)
-	defer close(receive)
-	defer client.Close()
 
-	go me.loopHandlePeerMessage(peer.IdForNetwork, receive)
+	defer func() {
+		client.Close()
+		close(receive)
+	}()
 
-	for !me.closing {
+	peer, err := me.authenticateNeighbor(client)
+	if err != nil {
+		return fmt.Errorf("peer authentication error %v", err)
+	}
+
+	go me.handlePeerMessage(peer, receive)
+
+	for {
 		tm, err := client.Receive()
 		if err != nil {
-			return fmt.Errorf("client.Receive %s %v", peer.Address, err)
+			return fmt.Errorf("client.Receive %s %v", peer.IdForNetwork, err)
 		}
 		msg, err := parseNetworkMessage(tm.Version, tm.Data)
 		if err != nil {
-			return fmt.Errorf("parseNetworkMessage %s %v", peer.Address, err)
+			return fmt.Errorf("parseNetworkMessage %s %v", peer.IdForNetwork, err)
 		}
 		me.receivedMetric.handle(msg.Type)
 
-		select {
-		case receive <- msg:
-		default:
-			return fmt.Errorf("peer receive timeout %s", peer.Address)
+		if msg.Type != PeerMessageTypeBundle {
+			select {
+			case receive <- msg:
+			default:
+				return fmt.Errorf("peer receive timeout %s", peer.IdForNetwork)
+			}
+			continue
+		}
+
+		for data := msg.Data; len(data) > 4; {
+			size := binary.BigEndian.Uint32(data[:4])
+			if size < 16 || int(size+4) > len(data) {
+				return fmt.Errorf("parseNetworkMessage %s invalid bundle element size", peer.IdForNetwork)
+			}
+			elm, err := parseNetworkMessage(tm.Version, data[4:4+size])
+			if err != nil {
+				return fmt.Errorf("parseNetworkMessage %s %v", peer.IdForNetwork, err)
+			}
+			if elm.Type == PeerMessageTypeBundle {
+				return fmt.Errorf("parseNetworkMessage %s invalid bundle element type", peer.IdForNetwork)
+			}
+			me.receivedMetric.handle(elm.Type)
+			select {
+			case receive <- elm:
+			default:
+				return fmt.Errorf("peer receive timeout %s", peer.IdForNetwork)
+			}
+			data = data[4+size:]
 		}
 	}
-	return nil
 }
 
 func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
@@ -352,96 +446,73 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 		}
 		me.receivedMetric.handle(PeerMessageTypeAuthentication)
 
-		token, err := me.handle.AuthenticateAs(me.IdForNetwork, msg.Data, 5)
+		id, addr, err := me.handle.Authenticate(msg.Data)
 		if err != nil {
 			auth <- err
 			return
 		}
 
-		addr := client.RemoteAddr().String()
-		peer = NewPeer(nil, token.PeerId, addr, token.IsRelayer)
-		peer.consumerAuth = token
-		auth <- nil
+		peer, err = me.AddNeighbor(id, addr)
+		if err != nil {
+			auth <- fmt.Errorf("peer authentication add neighbor failed %v", err)
+		} else {
+			auth <- nil
+		}
 	}()
 
 	select {
 	case err := <-auth:
 		if err != nil {
-			return nil, err
+			client.Close()
+			return nil, fmt.Errorf("peer authentication failed %v", err)
 		}
 	case <-time.After(3 * time.Second):
-		return nil, fmt.Errorf("timeout")
+		client.Close()
+		return nil, fmt.Errorf("peer authentication timeout")
 	}
 	return peer, nil
 }
 
-func (me *Peer) sendHighToPeer(to crypto.Hash, typ byte, key, data []byte) error {
-	return me.sendToPeer(to, typ, key, data, MsgPriorityHigh)
-}
-
-func (p *Peer) offer(priority int, msg *ChanMsg) (bool, error) {
-	switch priority {
-	case MsgPriorityNormal:
-		return p.normalRing.Offer(msg)
-	case MsgPriorityHigh:
-		return p.highRing.Offer(msg)
+func (me *Peer) sendHighToPeer(idForNetwork crypto.Hash, typ byte, key, data []byte) error {
+	if idForNetwork == me.IdForNetwork {
+		return nil
 	}
-	panic(priority)
-}
-
-func (me *Peer) sendToPeer(to crypto.Hash, typ byte, key, data []byte, priority int) error {
-	if to == me.IdForNetwork {
+	peer := me.neighbors.Get(idForNetwork)
+	if peer == nil {
 		return nil
 	}
 	if me.snapshotsCaches.contains(key, time.Minute) {
 		return nil
 	}
+
 	me.sentMetric.handle(typ)
-
-	peer := me.consumers.Get(to)
-	if peer == nil {
-		peer = me.relayers.Get(to)
-	}
-	if peer != nil {
-		success, _ := peer.offer(priority, &ChanMsg{key, data})
-		if !success {
-			return fmt.Errorf("peer send %d timeout", priority)
-		}
-		return nil
-	}
-
-	rm := me.buildRelayMessage(to, data)
-	if me.remoteRelayers != nil {
-		peer = me.remoteRelayers.Get(to)
-	}
-	if peer != nil {
-		rk := crypto.Blake3Hash(append(rm, peer.IdForNetwork[:]...))
-		success, _ := peer.offer(priority, &ChanMsg{rk[:], rm})
-		if !success {
-			return fmt.Errorf("peer.offer(%s, %s) => %d timeout", peer.Address, peer.IdForNetwork, priority)
-		}
-		return nil
-	}
-
-	neighbors := me.Neighbors()
-	for _, peer := range neighbors {
-		if !peer.isRemoteRelayer {
-			continue
-		}
-		rk := crypto.Blake3Hash(append(rm, peer.IdForNetwork[:]...))
-		success, _ := peer.offer(priority, &ChanMsg{rk[:], rm})
-		if success {
-			break
-		}
-		return fmt.Errorf("peer.offer(%s, %s) => %d timeout", peer.Address, peer.IdForNetwork, priority)
+	success, _ := peer.highRing.Offer(&ChanMsg{key, data})
+	if !success {
+		return fmt.Errorf("peer send high timeout")
 	}
 	return nil
 }
 
-func (me *Peer) sendSnapshotMessageToPeer(to crypto.Hash, snap crypto.Hash, typ byte, data []byte) error {
-	key := append(to[:], snap[:]...)
+func (me *Peer) sendSnapshotMessageToPeer(idForNetwork crypto.Hash, snap crypto.Hash, typ byte, data []byte) error {
+	if idForNetwork == me.IdForNetwork {
+		return nil
+	}
+	peer := me.neighbors.Get(idForNetwork)
+	if peer == nil {
+		return nil
+	}
+	key := append(idForNetwork[:], snap[:]...)
 	key = append(key, 'S', 'N', 'A', 'P', typ)
-	return me.sendToPeer(to, typ, key, data, MsgPriorityNormal)
+	if me.snapshotsCaches.contains(key, time.Minute) {
+		return nil
+	}
+
+	me.sentMetric.handle(typ)
+	success, _ := peer.normalRing.Offer(&ChanMsg{key, data})
+	if !success {
+		return fmt.Errorf("peer send normal timeout")
+	}
+	return nil
 }
 
 type confirmMap struct {
@@ -478,29 +549,11 @@ func (m *neighborMap) Get(key crypto.Hash) *Peer {
 	return m.m[key]
 }
 
-func (m *neighborMap) Delete(key crypto.Hash) {
-	m.Lock()
-	defer m.Unlock()
-
-	delete(m.m, key)
-}
-
 func (m *neighborMap) Set(key crypto.Hash, v *Peer) {
 	m.Lock()
 	defer m.Unlock()
 
 	m.m[key] = v
-}
-
-func (m *neighborMap) Put(key crypto.Hash, v *Peer) bool {
-	m.Lock()
-	defer m.Unlock()
-
-	if m.m[key] != nil {
-		return false
-	}
-	m.m[key] = v
-	return true
 }
 
 func (m *neighborMap) Slice() []*Peer {

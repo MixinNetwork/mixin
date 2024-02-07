@@ -1,4 +1,4 @@
-package network
+package p2p
 
 import (
 	"encoding/binary"
@@ -29,10 +29,11 @@ const (
 	PeerMessageTypeCommitments          = 15
 	PeerMessageTypeFullChallenge        = 16
 
-	PeerMessageTypeBundle          = 100
-	PeerMessageTypeGossipNeighbors = 101
+	PeerMessageTypeRelay     = 200
+	PeerMessageTypeConsumers = 201
 
-	MaxMessageBundleSize = 16
+	MsgPriorityNormal = 0
+	MsgPriorityHigh   = 1
 )
 
 type PeerMessage struct {
@@ -49,14 +50,21 @@ type PeerMessage struct {
 	Commitments     []*crypto.Key
 	Graph           []*SyncPoint
 	Data            []byte
-	Neighbors       []string
+
+	version byte
+}
+
+type AuthToken struct {
+	PeerId    crypto.Hash
+	Timestamp uint64
+	IsRelayer bool
+	Data      []byte
 }
 
 type SyncHandle interface {
 	GetCacheStore() *ristretto.Cache
-	BuildAuthenticationMessage() []byte
-	Authenticate(msg []byte) (crypto.Hash, string, error)
-	UpdateNeighbors(neighbors []string) error
+	BuildAuthenticationMessage(relayerId crypto.Hash) []byte
+	AuthenticateAs(recipientId crypto.Hash, msg []byte, timeoutSec int64) (*AuthToken, error)
 	BuildGraph() []*SyncPoint
 	UpdateSyncPoint(peerId crypto.Hash, points []*SyncPoint)
 	ReadAllNodesWithoutState() []crypto.Hash
@@ -71,6 +79,11 @@ type SyncHandle interface {
 	CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Hash, response *[32]byte) error
 	VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error
 	CosiQueueExternalCommitments(peerId crypto.Hash, commitments []*crypto.Key) error
+}
+
+func (me *Peer) SendGraphMessage(idForNetwork crypto.Hash) error {
+	msg := buildGraphMessage(me.handle.BuildGraph())
+	return me.sendHighToPeer(idForNetwork, PeerMessageTypeGraph, nil, msg)
 }
 
 func (me *Peer) SendCommitmentsMessage(idForNetwork crypto.Hash, commitments []*crypto.Key) error {
@@ -149,15 +162,6 @@ func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash) {
 func buildAuthenticationMessage(data []byte) []byte {
 	header := []byte{PeerMessageTypeAuthentication}
 	return append(header, data...)
-}
-
-func buildGossipNeighborsMessage(neighbors []*Peer) []byte {
-	rns := make([]string, len(neighbors))
-	for i, p := range neighbors {
-		rns[i] = p.Address
-	}
-	data := marshalPeers(rns)
-	return append([]byte{PeerMessageTypeGossipNeighbors}, data...)
 }
 
 func buildSnapshotAnnouncementMessage(s *common.Snapshot, R crypto.Key) []byte {
@@ -244,15 +248,24 @@ func buildCommitmentsMessage(commitments []*crypto.Key) []byte {
 	return data
 }
 
-func buildBundleMessage(msgs []*ChanMsg) []byte {
-	data := []byte{PeerMessageTypeBundle}
-	for _, m := range msgs {
-		if len(m.data) > TransportMessageMaxSize {
-			panic(hex.EncodeToString(m.data))
-		}
-		data = binary.BigEndian.AppendUint32(data, uint32(len(m.data)))
-		data = append(data, m.data...)
+func (me *Peer) buildConsumersMessage() []byte {
+	data := []byte{PeerMessageTypeConsumers}
+	peers := me.consumers.Slice()
+	for _, p := range peers {
+		data = append(data, p.IdForNetwork[:]...)
+		data = append(data, p.consumerAuth.Data...)
 	}
+	return data
+}
+
+func (me *Peer) buildRelayMessage(peerId crypto.Hash, msg []byte) []byte {
+	data := []byte{PeerMessageTypeRelay}
+	data = append(data, me.IdForNetwork[:]...)
+	data = append(data, peerId[:]...)
+	if len(msg) > TransportMessageMaxSize {
+		panic(hex.EncodeToString(msg))
+	}
+	data = append(data, msg...)
 	return data
 }
 
@@ -260,7 +273,7 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 	if len(data) < 1 {
 		return nil, errors.New("invalid message data")
 	}
-	msg := &PeerMessage{Type: data[0]}
+	msg := &PeerMessage{Type: data[0], version: version}
 	switch msg.Type {
 	case PeerMessageTypeCommitments:
 		if len(data) < 3 {
@@ -285,12 +298,6 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		}
 		msg.Graph = points
 	case PeerMessageTypePing:
-	case PeerMessageTypeGossipNeighbors:
-		neighbors, err := unmarshalPeers(data[1:])
-		if err != nil {
-			return nil, err
-		}
-		msg.Neighbors = neighbors
 	case PeerMessageTypeAuthentication:
 		msg.Data = data[1:]
 	case PeerMessageTypeSnapshotConfirm:
@@ -388,56 +395,149 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 			return nil, fmt.Errorf("invalid snapshot finalization message data")
 		}
 		msg.Snapshot = snap.Snapshot
-	case PeerMessageTypeBundle:
+	case PeerMessageTypeRelay:
+		msg.Data = data[1:]
+	case PeerMessageTypeConsumers:
 		msg.Data = data[1:]
 	}
 	return msg, nil
 }
 
-func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage) {
+func (me *Peer) loopHandlePeerMessage(peerId crypto.Hash, receive chan *PeerMessage) {
 	for msg := range receive {
-		switch msg.Type {
-		case PeerMessageTypePing:
-		case PeerMessageTypeGossipNeighbors:
-			if me.gossipNeighbors {
-				me.handle.UpdateNeighbors(msg.Neighbors)
-			}
-		case PeerMessageTypeCommitments:
-			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeCommitments %s %d\n", peer.IdForNetwork, len(msg.Commitments))
-			me.handle.CosiQueueExternalCommitments(peer.IdForNetwork, msg.Commitments)
-		case PeerMessageTypeGraph:
-			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeGraph %s\n", peer.IdForNetwork)
-			me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.Graph)
-			peer.syncRing.Offer(msg.Graph)
-		case PeerMessageTypeTransactionRequest:
-			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionRequest %s %s\n", peer.IdForNetwork, msg.TransactionHash)
-			me.handle.SendTransactionToPeer(peer.IdForNetwork, msg.TransactionHash)
-		case PeerMessageTypeTransaction:
-			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransaction %s\n", peer.IdForNetwork)
-			me.handle.CachePutTransaction(peer.IdForNetwork, msg.Transaction)
-		case PeerMessageTypeSnapshotConfirm:
-			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotConfirm %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
-			me.ConfirmSnapshotForPeer(peer.IdForNetwork, msg.SnapshotHash)
-		case PeerMessageTypeSnapshotAnnouncement:
-			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotAnnouncement %s %s\n", peer.IdForNetwork, msg.Snapshot.SoleTransaction())
-			me.handle.CosiQueueExternalAnnouncement(peer.IdForNetwork, msg.Snapshot, &msg.Commitment)
-		case PeerMessageTypeSnapshotCommitment:
-			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotCommitment %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
-			me.handle.CosiAggregateSelfCommitments(peer.IdForNetwork, msg.SnapshotHash, &msg.Commitment, msg.WantTx)
-		case PeerMessageTypeTransactionChallenge:
-			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionChallenge %s %s %t\n", peer.IdForNetwork, msg.SnapshotHash, msg.Transaction != nil)
-			me.handle.CosiQueueExternalChallenge(peer.IdForNetwork, msg.SnapshotHash, &msg.Cosi, msg.Transaction)
-		case PeerMessageTypeFullChallenge:
-			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeFullChallenge %s %v %v\n", peer.IdForNetwork, msg.Snapshot, msg.Transaction)
-			me.handle.CosiQueueExternalFullChallenge(peer.IdForNetwork, msg.Snapshot, &msg.Commitment, &msg.Challenge, &msg.Cosi, msg.Transaction)
-		case PeerMessageTypeSnapshotResponse:
-			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotResponse %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
-			me.handle.CosiAggregateSelfResponses(peer.IdForNetwork, msg.SnapshotHash, &msg.Response)
-		case PeerMessageTypeSnapshotFinalization:
-			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotFinalization %s %s\n", peer.IdForNetwork, msg.Snapshot.SoleTransaction())
-			me.handle.VerifyAndQueueAppendSnapshotFinalization(peer.IdForNetwork, msg.Snapshot)
-		}
+		me.handlePeerMessage(peerId, msg)
 	}
+}
+
+func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage) error {
+	logger.Printf("me.relayOrHandlePeerMessage(%s, %s) => %s %v", me.Address, me.IdForNetwork, relayerId, msg.Data)
+	if len(msg.Data) < 64 {
+		return nil
+	}
+	var from, to crypto.Hash
+	copy(from[:], msg.Data[:32])
+	copy(to[:], msg.Data[32:64])
+	if to == me.IdForNetwork {
+		rm, err := parseNetworkMessage(msg.version, msg.Data[64:])
+		logger.Printf("me.relayOrHandlePeerMessage.ME(%s, %s) => %s %v %v", me.Address, me.IdForNetwork, from, rm, err)
+		if err != nil {
+			return err
+		}
+		// FIXME check the relayed message signature from the actual sending peer
+		// no need to do special check here, just ensure all message types has the
+		// authentic signature, most already, a few needs improvement
+		return me.handlePeerMessage(from, rm)
+	}
+	if me.relayer == nil {
+		return nil
+	}
+	data := append([]byte{PeerMessageTypeRelay}, msg.Data...)
+	peer := me.consumers.Get(to)
+	if peer == nil {
+		peer = me.relayers.Get(to)
+	}
+	if peer != nil {
+		rk := crypto.Blake3Hash(append(msg.Data, to[:]...))
+		rk = crypto.Blake3Hash(append(rk[:], relayerId[:]...))
+		success, _ := peer.offer(MsgPriorityHigh, &ChanMsg{rk[:], data})
+		if !success {
+			return fmt.Errorf("peer send high timeout")
+		}
+		return nil
+	}
+	peer = me.remoteRelayers.Get(to)
+	if peer == nil || peer.IdForNetwork == relayerId {
+		return nil
+	}
+	rk := crypto.Blake3Hash(append(msg.Data, to[:]...))
+	rk = crypto.Blake3Hash(append(rk[:], relayerId[:]...))
+	success, _ := peer.offer(MsgPriorityHigh, &ChanMsg{rk[:], data})
+	if !success {
+		return fmt.Errorf("peer send high timeout")
+	}
+	return nil
+}
+
+func (me *Peer) updateRemoteRelayerConsumers(relayerId crypto.Hash, data []byte) error {
+	logger.Verbosef("me.updateRemoteRelayerConsumers(%s, %s) => %x", me.Address, relayerId, data)
+	relayer := me.relayers.Get(relayerId)
+	if relayer == nil {
+		relayer = me.consumers.Get(relayerId)
+	}
+	if relayer == nil || !relayer.isRemoteRelayer {
+		return nil
+	}
+	pl := len(crypto.Key{}) + 137
+	for c := len(data) / pl; c > 0; c-- {
+		var id crypto.Hash
+		copy(id[:], data[:32])
+		token, err := me.handle.AuthenticateAs(relayerId, data[32:pl], 0)
+		if err != nil {
+			return nil
+		}
+		if token.PeerId != id {
+			return nil
+		}
+		old := me.remoteRelayers.Get(id)
+		if old == nil || old.consumerAuth == nil || old.consumerAuth.Timestamp < token.Timestamp {
+			me.remoteRelayers.Set(id, relayer)
+		}
+		data = data[pl:]
+	}
+	return nil
+}
+
+func (me *Peer) handlePeerMessage(peerId crypto.Hash, msg *PeerMessage) error {
+	switch msg.Type {
+	case PeerMessageTypeRelay:
+		return me.relayOrHandlePeerMessage(peerId, msg)
+	case PeerMessageTypeConsumers:
+		return me.updateRemoteRelayerConsumers(peerId, msg.Data)
+	case PeerMessageTypePing:
+	case PeerMessageTypeCommitments:
+		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeCommitments %s %d\n", peerId, len(msg.Commitments))
+		return me.handle.CosiQueueExternalCommitments(peerId, msg.Commitments)
+	case PeerMessageTypeGraph:
+		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeGraph %s\n", peerId)
+		me.handle.UpdateSyncPoint(peerId, msg.Graph)
+		peer := me.relayers.Get(peerId)
+		if peer == nil {
+			peer = me.consumers.Get(peerId)
+		}
+		if peer != nil {
+			peer.syncRing.Offer(msg.Graph)
+		}
+		return nil
+	case PeerMessageTypeTransactionRequest:
+		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionRequest %s %s\n", peerId, msg.TransactionHash)
+		return me.handle.SendTransactionToPeer(peerId, msg.TransactionHash)
+	case PeerMessageTypeTransaction:
+		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransaction %s\n", peerId)
+		return me.handle.CachePutTransaction(peerId, msg.Transaction)
+	case PeerMessageTypeSnapshotConfirm:
+		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotConfirm %s %s\n", peerId, msg.SnapshotHash)
+		me.ConfirmSnapshotForPeer(peerId, msg.SnapshotHash)
+		return nil
+	case PeerMessageTypeSnapshotAnnouncement:
+		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotAnnouncement %s %s\n", peerId, msg.Snapshot.SoleTransaction())
+		return me.handle.CosiQueueExternalAnnouncement(peerId, msg.Snapshot, &msg.Commitment)
+	case PeerMessageTypeSnapshotCommitment:
+		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotCommitment %s %s\n", peerId, msg.SnapshotHash)
+		return me.handle.CosiAggregateSelfCommitments(peerId, msg.SnapshotHash, &msg.Commitment, msg.WantTx)
+	case PeerMessageTypeTransactionChallenge:
+		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionChallenge %s %s %t\n", peerId, msg.SnapshotHash, msg.Transaction != nil)
+		return me.handle.CosiQueueExternalChallenge(peerId, msg.SnapshotHash, &msg.Cosi, msg.Transaction)
+	case PeerMessageTypeFullChallenge:
+		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeFullChallenge %s %v %v\n", peerId, msg.Snapshot, msg.Transaction)
+		return me.handle.CosiQueueExternalFullChallenge(peerId, msg.Snapshot, &msg.Commitment, &msg.Challenge, &msg.Cosi, msg.Transaction)
+	case PeerMessageTypeSnapshotResponse:
+		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotResponse %s %s\n", peerId, msg.SnapshotHash)
+		return me.handle.CosiAggregateSelfResponses(peerId, msg.SnapshotHash, &msg.Response)
+	case PeerMessageTypeSnapshotFinalization:
+		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotFinalization %s %s\n", peerId, msg.Snapshot.SoleTransaction())
+		return me.handle.VerifyAndQueueAppendSnapshotFinalization(peerId, msg.Snapshot)
+	}
+	return nil
 }
 
 func marshalSyncPoints(points []*SyncPoint) []byte {

@@ -1,4 +1,4 @@
-package network
+package p2p
 
 import (
 	"context"
@@ -31,36 +31,17 @@ const (
 
 type QuicClient struct {
 	session quic.Connection
-	send    quic.SendStream
-	receive quic.ReceiveStream
+	stream  quic.Stream
 }
 
-type QuicTransport struct {
+type QuicRelayer struct {
 	addr     string
-	tls      *tls.Config
 	listener *quic.Listener
 }
 
-func NewQuicServer(addr string) (*QuicTransport, error) {
-	tlsConf := generateTLSConfig()
-	return &QuicTransport{
-		addr: addr,
-		tls:  tlsConf,
-	}, nil
-}
-
-func NewQuicClient(addr string) (*QuicTransport, error) {
-	return &QuicTransport{
-		addr: addr,
-		tls: &tls.Config{
-			InsecureSkipVerify: true,
-			NextProtos:         []string{"mixin-quic-peer"},
-		},
-	}, nil
-}
-
-func (t *QuicTransport) Dial(ctx context.Context) (Client, error) {
-	sess, err := quic.DialAddr(ctx, t.addr, t.tls, &quic.Config{
+func NewQuicRelayer(listenAddr string) (*QuicRelayer, error) {
+	tls := generateTLSConfig()
+	l, err := quic.ListenAddr(listenAddr, tls, &quic.Config{
 		MaxIncomingStreams:   MaxIncomingStreams,
 		HandshakeIdleTimeout: HandshakeTimeout,
 		MaxIdleTimeout:       IdleTimeout,
@@ -69,46 +50,51 @@ func (t *QuicTransport) Dial(ctx context.Context) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	stm, err := sess.OpenUniStreamSync(ctx)
+	return &QuicRelayer{
+		addr:     listenAddr,
+		listener: l,
+	}, nil
+}
+
+func NewQuicConsumer(ctx context.Context, relayer string) (*QuicClient, error) {
+	sess, err := quic.DialAddr(ctx, relayer, &tls.Config{
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"mixin-quic-peer"},
+	}, &quic.Config{
+		MaxIncomingStreams:   MaxIncomingStreams,
+		HandshakeIdleTimeout: HandshakeTimeout,
+		MaxIdleTimeout:       IdleTimeout,
+		KeepAlivePeriod:      IdleTimeout / 2,
+	})
+	if err != nil {
+		return nil, err
+	}
+	stm, err := sess.OpenStreamSync(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &QuicClient{
 		session: sess,
-		send:    stm,
+		stream:  stm,
 	}, nil
 }
 
-func (t *QuicTransport) Listen() error {
-	l, err := quic.ListenAddr(t.addr, t.tls, &quic.Config{
-		MaxIncomingStreams:   MaxIncomingStreams,
-		HandshakeIdleTimeout: HandshakeTimeout,
-		MaxIdleTimeout:       IdleTimeout,
-		KeepAlivePeriod:      IdleTimeout / 2,
-	})
-	if err != nil {
-		return err
-	}
-	t.listener = l
-	return nil
-}
-
-func (t *QuicTransport) Close() error {
+func (t *QuicRelayer) Close() error {
 	return t.listener.Close()
 }
 
-func (t *QuicTransport) Accept(ctx context.Context) (Client, error) {
+func (t *QuicRelayer) Accept(ctx context.Context) (Client, error) {
 	sess, err := t.listener.Accept(ctx)
 	if err != nil {
 		return nil, err
 	}
-	stm, err := sess.AcceptUniStream(ctx)
+	stm, err := sess.AcceptStream(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &QuicClient{
 		session: sess,
-		receive: stm,
+		stream:  stm,
 	}, nil
 }
 
@@ -117,13 +103,13 @@ func (c *QuicClient) RemoteAddr() net.Addr {
 }
 
 func (c *QuicClient) Receive() (*TransportMessage, error) {
-	err := c.receive.SetReadDeadline(time.Now().Add(ReadDeadline))
+	err := c.stream.SetReadDeadline(time.Now().Add(ReadDeadline))
 	if err != nil {
 		return nil, err
 	}
 	m := &TransportMessage{}
 	header := make([]byte, TransportMessageHeaderSize)
-	s, err := c.receive.Read(header)
+	s, err := c.stream.Read(header)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +126,7 @@ func (c *QuicClient) Receive() (*TransportMessage, error) {
 	}
 	for {
 		data := make([]byte, int(m.Size)-len(m.Data))
-		s, err = c.receive.Read(data)
+		s, err = c.stream.Read(data)
 		if err != nil {
 			return nil, err
 		}
@@ -158,24 +144,22 @@ func (c *QuicClient) Send(data []byte) error {
 		return fmt.Errorf("quic send invalid message size %d", l)
 	}
 
-	err := c.send.SetWriteDeadline(time.Now().Add(WriteDeadline))
+	err := c.stream.SetWriteDeadline(time.Now().Add(WriteDeadline))
 	if err != nil {
 		return err
 	}
 	header := []byte{TransportMessageVersion, 0, 0, 0, 0, 0}
 	binary.BigEndian.PutUint32(header[2:], uint32(len(data)))
-	_, err = c.send.Write(header)
+	_, err = c.stream.Write(header)
 	if err != nil {
 		return err
 	}
-	_, err = c.send.Write(data)
+	_, err = c.stream.Write(data)
 	return err
 }
 
 func (c *QuicClient) Close() error {
-	if c.send != nil {
-		c.send.Close()
-	}
+	c.stream.Close()
 	return c.session.CloseWithError(0, "DONE")
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/network"
+	"github.com/MixinNetwork/mixin/p2p"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/dgraph-io/ristretto"
 )
@@ -25,10 +26,12 @@ type Node struct {
 	Signer       common.Address
 	isRelayer    bool
 
-	Peer          *network.Peer
+	LegacyPeer *network.Peer
+
+	Peer          *p2p.Peer
 	TopoCounter   *TopologicalSequence
 	SyncPoints    *syncMap
-	SyncPointsMap map[crypto.Hash]*network.SyncPoint
+	SyncPointsMap map[crypto.Hash]*p2p.SyncPoint
 
 	GraphTimestamp uint64
 	Epoch          uint64
@@ -73,7 +76,7 @@ type CNode struct {
 
 func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ristretto.Cache, addr, dir string) (*Node, error) {
 	var node = &Node{
-		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
+		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*p2p.SyncPoint)},
 		chains:          &chainsMap{m: make(map[crypto.Hash]*Chain)},
 		genesisNodesMap: make(map[crypto.Hash]bool),
 		persistStore:    persistStore,
@@ -139,7 +142,7 @@ func (node *Node) loadNodeConfig() {
 	addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
 	addr.PublicViewKey = addr.PrivateViewKey.Public()
 	node.Signer = addr
-	node.isRelayer = node.custom.Network.Relayer
+	node.isRelayer = node.custom.P2P.Relayer
 }
 
 func (node *Node) buildNodeStateSequences(allNodesSortedWithState []*CNode, acceptedOnly bool) []*NodeStateSequence {
@@ -334,9 +337,9 @@ func (node *Node) NewTransaction(assetId crypto.Hash) *common.Transaction {
 }
 
 func (node *Node) addRelayersFromConfig() error {
-	node.Peer = network.NewPeer(node, node.IdForNetwork, node.addr, node.isRelayer)
+	node.Peer = p2p.NewPeer(node, node.IdForNetwork, node.addr, node.isRelayer)
 
-	for _, s := range node.custom.Network.Peers {
+	for _, s := range node.custom.P2P.Seeds {
 		parts := strings.Split(s, "@")
 		if len(parts) != 2 {
 			return fmt.Errorf("invalid peer %s", s)
@@ -375,17 +378,17 @@ func (node *Node) GetCacheStore() *ristretto.Cache {
 	return node.cacheStore
 }
 
-func (node *Node) BuildGraph() []*network.SyncPoint {
+func (node *Node) BuildGraph() []*p2p.SyncPoint {
 	node.chains.RLock()
 	defer node.chains.RUnlock()
 
-	points := make([]*network.SyncPoint, 0)
+	points := make([]*p2p.SyncPoint, 0)
 	for _, chain := range node.chains.m {
 		if chain.State == nil {
 			continue
 		}
 		f := chain.State.FinalRound
-		points = append(points, &network.SyncPoint{
+		points = append(points, &p2p.SyncPoint{
 			NodeId: chain.ChainId,
 			Hash:   f.Hash,
 			Number: f.Number,
@@ -414,7 +417,7 @@ func (node *Node) BuildAuthenticationMessage(relayerId crypto.Hash) []byte {
 	return data
 }
 
-func (node *Node) AuthenticateAs(recipientId crypto.Hash, msg []byte, timeoutSec int64) (*network.AuthToken, error) {
+func (node *Node) AuthenticateAs(recipientId crypto.Hash, msg []byte, timeoutSec int64) (*p2p.AuthToken, error) {
 	if len(msg) != 137 {
 		return nil, fmt.Errorf("peer authentication message malformatted %d", len(msg))
 	}
@@ -443,7 +446,7 @@ func (node *Node) AuthenticateAs(recipientId crypto.Hash, msg []byte, timeoutSec
 	if !signer.PublicSpendKey.Verify(mh, sig) {
 		return nil, fmt.Errorf("peer authentication message signature invalid %s", peerId)
 	}
-	token := &network.AuthToken{
+	token := &p2p.AuthToken{
 		PeerId:    peerId,
 		Timestamp: ts,
 		IsRelayer: msg[72] == byte(1),
@@ -494,7 +497,7 @@ func (node *Node) sendGraphToConcensusNodes() {
 	}
 }
 
-func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*network.SyncPoint) {
+func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*p2p.SyncPoint) {
 	for _, p := range points {
 		if p.NodeId == node.IdForNetwork {
 			node.SyncPoints.Set(peerId, p)
@@ -589,20 +592,20 @@ func (node *Node) waitOrDone(wait time.Duration) bool {
 
 type syncMap struct {
 	mutex *sync.RWMutex
-	m     map[crypto.Hash]*network.SyncPoint
+	m     map[crypto.Hash]*p2p.SyncPoint
 }
 
-func (s *syncMap) Set(k crypto.Hash, p *network.SyncPoint) {
+func (s *syncMap) Set(k crypto.Hash, p *p2p.SyncPoint) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.m[k] = p
 }
 
-func (s *syncMap) Map() map[crypto.Hash]*network.SyncPoint {
+func (s *syncMap) Map() map[crypto.Hash]*p2p.SyncPoint {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	m := make(map[crypto.Hash]*network.SyncPoint)
+	m := make(map[crypto.Hash]*p2p.SyncPoint)
 	for k, p := range s.m {
 		m[k] = p
 	}

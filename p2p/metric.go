@@ -1,4 +1,4 @@
-package network
+package p2p
 
 import (
 	"encoding/json"
@@ -23,8 +23,7 @@ type MetricPool struct {
 	PeerMessageTypeCommitments          uint32 `json:"commitments"`
 	PeerMessageTypeFullChallenge        uint32 `json:"full-challenge"`
 
-	PeerMessageTypeBundle          uint32 `json:"bundle"`
-	PeerMessageTypeGossipNeighbors uint32 `json:"gossip-neighbors"`
+	PeerMessageTypeRelay uint32 `json:"relay"`
 }
 
 func (mp *MetricPool) handle(msg uint8) {
@@ -59,10 +58,8 @@ func (mp *MetricPool) handle(msg uint8) {
 		atomic.AddUint32(&mp.PeerMessageTypeCommitments, 1)
 	case PeerMessageTypeFullChallenge:
 		atomic.AddUint32(&mp.PeerMessageTypeFullChallenge, 1)
-	case PeerMessageTypeBundle:
-		atomic.AddUint32(&mp.PeerMessageTypeBundle, 1)
-	case PeerMessageTypeGossipNeighbors:
-		atomic.AddUint32(&mp.PeerMessageTypeGossipNeighbors, 1)
+	case PeerMessageTypeRelay:
+		atomic.AddUint32(&mp.PeerMessageTypeRelay, 1)
 	}
 }
 

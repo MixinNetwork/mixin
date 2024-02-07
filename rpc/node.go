@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/kernel"
-	"github.com/MixinNetwork/mixin/network"
+	"github.com/MixinNetwork/mixin/p2p"
 	"github.com/MixinNetwork/mixin/storage"
 )
 
@@ -43,7 +43,7 @@ func listAllNodes(store storage.Store, node *kernel.Node, params []any) ([]map[s
 	return result, nil
 }
 
-func peerNeighbors(peers []*network.Peer) []map[string]any {
+func peerNeighbors(peers []*p2p.Peer) []map[string]any {
 	sort.Slice(peers, func(i, j int) bool { return peers[i].IdForNetwork.String() < peers[j].IdForNetwork.String() })
 	data := make([]map[string]any, 0)
 	for _, p := range peers {

@@ -1,4 +1,4 @@
-package network
+package p2p
 
 import (
 	"fmt"
@@ -109,10 +109,6 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 		graph, offset := me.getSyncPointOffset(p)
 		logger.Verbosef("network.sync syncToNeighborLoop getSyncPointOffset %s %d %v\n", p.IdForNetwork, offset, graph != nil)
 
-		if me.gossipRound.Get(p.IdForNetwork) == nil {
-			continue
-		}
-
 		for !me.closing && !p.closing && offset > 0 {
 			off, err := me.syncToNeighborSince(graph, p, offset)
 			if err != nil {
@@ -157,7 +153,7 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 		}
 		off, err := me.compareRoundGraphAndGetTopologicalOffset(p, me.handle.BuildGraph(), g)
 		if err != nil {
-			logger.Printf("network.sync compareRoundGraphAndGetTopologicalOffset %s error %v\n", p.IdForNetwork, err)
+			logger.Verbosef("network.sync compareRoundGraphAndGetTopologicalOffset %s error %v\n", p.IdForNetwork, err)
 		}
 		if off > 0 {
 			offset = off

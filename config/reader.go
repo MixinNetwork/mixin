@@ -49,16 +49,18 @@ type Custom struct {
 		ValueLogGC          bool `toml:"value-log-gc"`
 		MaxCompactionLevels int  `toml:"max-compaction-levels"`
 	} `toml:"storage"`
-	Network struct {
+	P2P struct {
+		Port    int      `toml:"port"`
+		Seeds   []string `toml:"seeds"`
 		Relayer bool     `toml:"relayer"`
 		Metric  bool     `toml:"metric"`
-		Peers   []string `toml:"peers"`
-	} `toml:"network"`
+	} `toml:"p2p"`
 	RPC struct {
+		Port    int  `toml:"port"`
 		Runtime bool `toml:"runtime"`
 	} `toml:"rpc"`
 	Dev struct {
-		Profile bool `toml:"profile"`
+		Port int `toml:"port"`
 	} `toml:"dev"`
 }
 

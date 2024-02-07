@@ -53,12 +53,6 @@ func main() {
 					Usage:   "the data directory",
 				},
 				&cli.IntFlag{
-					Name:    "port",
-					Aliases: []string{"p"},
-					Value:   7239,
-					Usage:   "the peer port to listen",
-				},
-				&cli.IntFlag{
 					Name:    "log",
 					Aliases: []string{"l"},
 					Value:   logger.INFO,
@@ -677,22 +671,19 @@ func kernelCmd(c *cli.Context) error {
 	}
 	defer store.Close()
 
-	addr := fmt.Sprintf(":%d", c.Int("port"))
+	addr := fmt.Sprintf(":%d", custom.P2P.Port)
 	node, err := kernel.SetupNode(custom, store, cache, addr, c.String("dir"))
 	if err != nil {
 		return err
 	}
 
-	go func() {
-		server := rpc.NewServer(custom, store, node, c.Int("port")+1000)
-		err := server.ListenAndServe()
-		if err != nil {
-			panic(err)
-		}
-	}()
+	if p := custom.RPC.Port; p > 0 {
+		server := rpc.NewServer(custom, store, node, p)
+		go server.ListenAndServe()
+	}
 
-	if custom.Dev.Profile {
-		go http.ListenAndServe(fmt.Sprintf(":%d", c.Int("port")+2000), http.DefaultServeMux)
+	if p := custom.Dev.Port; p > 0 {
+		go http.ListenAndServe(fmt.Sprintf(":%d", p), http.DefaultServeMux)
 	}
 
 	return node.Loop()
