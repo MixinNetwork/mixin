@@ -31,8 +31,8 @@ var (
 )
 
 func TestConsensus(t *testing.T) {
-	testConsensus(t, false)
 	testConsensus(t, true)
+	testConsensus(t, false)
 }
 
 func testConsensus(t *testing.T, withRelayers bool) {
@@ -796,7 +796,8 @@ func setupTestNet(root string, withRelayers bool) ([]common.Address, []common.Ad
 		id := s.Hash().ForNetwork(gns.NetworkId())
 		peers[i] = fmt.Sprintf("%s@127.0.0.1:170%02d", id.String(), i+1)
 	}
-	peersList := `"` + strings.Join(peers[:len(peers)/3], `","`) + `"`
+	peersListHead := `"` + strings.Join(peers[:len(peers)/3], `","`) + `"`
+	peersListTail := `"` + strings.Join(peers[len(peers)/2:], `","`) + `"`
 
 	if withRelayers {
 		peers := make([]string, len(relayers))
@@ -804,7 +805,9 @@ func setupTestNet(root string, withRelayers bool) ([]common.Address, []common.Ad
 			id := s.Hash().ForNetwork(gns.NetworkId())
 			peers[i] = fmt.Sprintf("%s@127.0.0.1:160%02d", id.String(), i+1)
 		}
-		peersList = `"` + strings.Join(peers[:len(peers)/3], `","`) + `"`
+		peersListHead = `"` + strings.Join(peers[:len(peers)/3], `","`) + `"`
+		peersListTail = `"` + strings.Join(peers[len(peers)/2:], `","`) + `"`
+		peersList := `"` + strings.Join(peers[:len(peers)/3], `","`) + `"`
 		for i, a := range relayers {
 			dir := fmt.Sprintf("%s/mixin-160%02d", root, i+1)
 			err := os.MkdirAll(dir, 0755)
@@ -836,7 +839,15 @@ func setupTestNet(root string, withRelayers bool) ([]common.Address, []common.Ad
 			panic(err)
 		}
 
-		isRelayer := !withRelayers && strings.Contains(peersList, fmt.Sprintf("170%02d", i+1))
+		peersList := peersListHead
+		if i > len(signers)/2 {
+			peersList = peersListTail
+		}
+		p2p := fmt.Sprintf("170%02d", i+1)
+		isRelayer := !withRelayers && (strings.Contains(peersListHead, p2p) || strings.Contains(peersListTail, p2p))
+		if isRelayer {
+			peersList = peersListHead
+		}
 		configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey.String(), isRelayer, peersList))
 		err = os.WriteFile(dir+"/config.toml", configData, 0644)
 		if err != nil {
@@ -847,7 +858,7 @@ func setupTestNet(root string, withRelayers bool) ([]common.Address, []common.Ad
 			panic(err)
 		}
 	}
-	return signers, payees, genesisData, peersList
+	return signers, payees, genesisData, peersListHead
 }
 
 func testSignTransaction(node string, account common.Address, rawStr string) (*common.SignedTransaction, error) {

@@ -64,7 +64,7 @@ type AuthToken struct {
 type SyncHandle interface {
 	GetCacheStore() *ristretto.Cache
 	BuildAuthenticationMessage(relayerId crypto.Hash) []byte
-	AuthenticateAs(recipientId crypto.Hash, msg []byte) (*AuthToken, error)
+	AuthenticateAs(recipientId crypto.Hash, msg []byte, timeoutSec int64) (*AuthToken, error)
 	BuildGraph() []*SyncPoint
 	UpdateSyncPoint(peerId crypto.Hash, points []*SyncPoint)
 	ReadAllNodesWithoutState() []crypto.Hash
@@ -410,7 +410,7 @@ func (me *Peer) loopHandlePeerMessage(peerId crypto.Hash, receive chan *PeerMess
 }
 
 func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage) error {
-	logger.Printf("me.relayOrHandlePeerMessage(%s, %s) => %s %v", me.Address, me.IdForNetwork, relayerId, msg)
+	logger.Printf("me.relayOrHandlePeerMessage(%s, %s) => %s %v", me.Address, me.IdForNetwork, relayerId, msg.Data)
 	if len(msg.Data) < 64 {
 		return nil
 	}
@@ -443,6 +443,7 @@ func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage
 		if !success {
 			return fmt.Errorf("peer send high timeout")
 		}
+		return nil
 	}
 	peer = me.remoteRelayers.Get(to)
 	if peer == nil || peer.IdForNetwork == relayerId {
@@ -470,7 +471,7 @@ func (me *Peer) updateRemoteRelayerConsumers(relayerId crypto.Hash, data []byte)
 	for c := len(data) / pl; c > 0; c-- {
 		var id crypto.Hash
 		copy(id[:], data[:32])
-		token, err := me.handle.AuthenticateAs(relayerId, data[32:pl])
+		token, err := me.handle.AuthenticateAs(relayerId, data[32:pl], 0)
 		if err != nil {
 			return nil
 		}

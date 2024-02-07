@@ -192,7 +192,7 @@ func (me *Peer) ListenConsumers() error {
 
 		for !me.closing {
 			me.gossipRound.Clear()
-			neighbors := me.consumers.Slice()
+			neighbors := me.Neighbors()
 			for i := range neighbors {
 				j := int(time.Now().UnixNano() % int64(i+1))
 				neighbors[i], neighbors[j] = neighbors[j], neighbors[i]
@@ -204,6 +204,7 @@ func (me *Peer) ListenConsumers() error {
 				me.gossipRound.Put(p.IdForNetwork, p)
 			}
 
+			neighbors = me.Neighbors()
 			msg := me.buildConsumersMessage()
 			for _, p := range neighbors {
 				if !p.isRemoteRelayer {
@@ -366,7 +367,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 		}
 		me.receivedMetric.handle(PeerMessageTypeAuthentication)
 
-		token, err := me.handle.AuthenticateAs(me.IdForNetwork, msg.Data)
+		token, err := me.handle.AuthenticateAs(me.IdForNetwork, msg.Data, 5)
 		if err != nil {
 			auth <- err
 			return

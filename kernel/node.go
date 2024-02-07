@@ -414,12 +414,12 @@ func (node *Node) BuildAuthenticationMessage(relayerId crypto.Hash) []byte {
 	return data
 }
 
-func (node *Node) AuthenticateAs(recipientId crypto.Hash, msg []byte) (*network.AuthToken, error) {
+func (node *Node) AuthenticateAs(recipientId crypto.Hash, msg []byte, timeoutSec int64) (*network.AuthToken, error) {
 	if len(msg) != 137 {
 		return nil, fmt.Errorf("peer authentication message malformatted %d", len(msg))
 	}
 	ts := binary.BigEndian.Uint64(msg[:8])
-	if math.Abs(float64(clock.Now().Unix())-float64(ts)) > 5 {
+	if timeoutSec > 0 && math.Abs(float64(clock.Now().Unix())-float64(ts)) > float64(timeoutSec) {
 		return nil, fmt.Errorf("peer authentication message timeout %d %d", ts, clock.Now().Unix())
 	}
 
