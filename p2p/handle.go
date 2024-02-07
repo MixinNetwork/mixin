@@ -51,7 +51,8 @@ type PeerMessage struct {
 	Graph           []*SyncPoint
 	Data            []byte
 
-	version byte
+	signature *crypto.Signature
+	version   byte
 }
 
 type AuthToken struct {
@@ -72,7 +73,7 @@ type SyncHandle interface {
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	SendTransactionToPeer(peerId, tx crypto.Hash) error
 	CachePutTransaction(peerId crypto.Hash, ver *common.VersionedTransaction) error
-	CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot, R *crypto.Key) error
+	CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot, R *crypto.Key, sig *crypto.Signature) error
 	CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool) error
 	CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, ver *common.VersionedTransaction) error
 	CosiQueueExternalFullChallenge(peerId crypto.Hash, s *common.Snapshot, commitment, challenge *crypto.Key, cosi *crypto.CosiSignature, ver *common.VersionedTransaction) error
@@ -94,8 +95,8 @@ func (me *Peer) SendCommitmentsMessage(idForNetwork crypto.Hash, commitments []*
 	return me.sendHighToPeer(idForNetwork, PeerMessageTypeCommitments, key, data)
 }
 
-func (me *Peer) SendSnapshotAnnouncementMessage(idForNetwork crypto.Hash, s *common.Snapshot, R crypto.Key) error {
-	data := buildSnapshotAnnouncementMessage(s, R)
+func (me *Peer) SendSnapshotAnnouncementMessage(idForNetwork crypto.Hash, s *common.Snapshot, R crypto.Key, spend crypto.Key) error {
+	data := buildSnapshotAnnouncementMessage(s, R, spend)
 	return me.sendSnapshotMessageToPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeSnapshotAnnouncement, data)
 }
 
@@ -164,9 +165,11 @@ func buildAuthenticationMessage(data []byte) []byte {
 	return append(header, data...)
 }
 
-func buildSnapshotAnnouncementMessage(s *common.Snapshot, R crypto.Key) []byte {
+func buildSnapshotAnnouncementMessage(s *common.Snapshot, R, spend crypto.Key) []byte {
 	data := s.VersionedMarshal()
 	data = append(R[:], data...)
+	sig := spend.Sign(crypto.Blake3Hash(data))
+	data = append(sig[:], data...)
 	return append([]byte{PeerMessageTypeSnapshotAnnouncement}, data...)
 }
 
@@ -311,11 +314,13 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 	case PeerMessageTypeTransactionRequest:
 		copy(msg.TransactionHash[:], data[1:])
 	case PeerMessageTypeSnapshotAnnouncement:
-		if len(data[1:]) <= 32 {
+		if len(data[1:]) <= 99 {
 			return nil, fmt.Errorf("invalid announcement message size %d", len(data[1:]))
 		}
-		copy(msg.Commitment[:], data[1:])
-		snap, err := common.UnmarshalVersionedSnapshot(data[33:])
+		var sig crypto.Signature
+		copy(sig[:], data[1:65])
+		copy(msg.Commitment[:], data[65:])
+		snap, err := common.UnmarshalVersionedSnapshot(data[97:])
 		if err != nil {
 			return nil, err
 		}
@@ -323,6 +328,7 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 			return nil, fmt.Errorf("invalid snapshot announcement message data")
 		}
 		msg.Snapshot = snap.Snapshot
+		msg.signature = &sig
 	case PeerMessageTypeSnapshotCommitment:
 		if len(data[1:]) != 65 {
 			return nil, fmt.Errorf("invalid commitment message size %d", len(data[1:]))
@@ -520,7 +526,7 @@ func (me *Peer) handlePeerMessage(peerId crypto.Hash, msg *PeerMessage) error {
 		return nil
 	case PeerMessageTypeSnapshotAnnouncement:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotAnnouncement %s %s\n", peerId, msg.Snapshot.SoleTransaction())
-		return me.handle.CosiQueueExternalAnnouncement(peerId, msg.Snapshot, &msg.Commitment)
+		return me.handle.CosiQueueExternalAnnouncement(peerId, msg.Snapshot, &msg.Commitment, msg.signature)
 	case PeerMessageTypeSnapshotCommitment:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotCommitment %s %s\n", peerId, msg.SnapshotHash)
 		return me.handle.CosiAggregateSelfCommitments(peerId, msg.SnapshotHash, &msg.Commitment, msg.WantTx)

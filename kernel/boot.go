@@ -35,6 +35,7 @@ func (node *Node) Teardown() {
 		c.Teardown()
 	}
 	node.chains.RUnlock()
+	node.LegacyPeer.Teardown()
 	node.Peer.Teardown()
 	node.persistStore.Close()
 	node.cacheStore.Clear()

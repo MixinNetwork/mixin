@@ -562,6 +562,10 @@ func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
 	if err != nil || tx == nil {
 		return err
 	}
+	err = node.LegacyPeer.SendTransactionMessage(peerId, tx)
+	if err != nil {
+		return err
+	}
 	return node.Peer.SendTransactionMessage(peerId, tx)
 }
 
