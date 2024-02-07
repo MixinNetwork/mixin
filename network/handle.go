@@ -54,11 +54,11 @@ type PeerMessage struct {
 
 type SyncHandle interface {
 	GetCacheStore() *ristretto.Cache
-	BuildAuthenticationMessage() []byte
+	BuildLegacyAuthenticationMessage() []byte
 	Authenticate(msg []byte) (crypto.Hash, string, error)
 	UpdateNeighbors(neighbors []string) error
-	BuildGraph() []*SyncPoint
-	UpdateSyncPoint(peerId crypto.Hash, points []*SyncPoint)
+	BuildLegacyGraph() []*SyncPoint
+	UpdateLegacySyncPoint(peerId crypto.Hash, points []*SyncPoint)
 	ReadAllNodesWithoutState() []crypto.Hash
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
@@ -407,7 +407,7 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage) {
 			me.handle.CosiQueueExternalCommitments(peer.IdForNetwork, msg.Commitments)
 		case PeerMessageTypeGraph:
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeGraph %s\n", peer.IdForNetwork)
-			me.handle.UpdateSyncPoint(peer.IdForNetwork, msg.Graph)
+			me.handle.UpdateLegacySyncPoint(peer.IdForNetwork, msg.Graph)
 			peer.syncRing.Offer(msg.Graph)
 		case PeerMessageTypeTransactionRequest:
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionRequest %s %s\n", peer.IdForNetwork, msg.TransactionHash)

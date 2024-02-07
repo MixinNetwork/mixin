@@ -11,6 +11,12 @@ func (node *Node) Loop() error {
 	if err != nil {
 		return err
 	}
+	err = node.PingNeighborsFromConfig()
+	if err != nil {
+		return err
+	}
+	go node.ListenNeighbors()
+
 	go node.listenConsumers()
 	go node.sendGraphToConcensusNodes()
 	go node.loopCacheQueue()

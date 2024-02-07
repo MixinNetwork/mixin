@@ -84,7 +84,7 @@ func (me *Peer) pingPeerStream(addr string) error {
 	defer client.Close()
 	logger.Verbosef("PING DIAL PEER STREAM %s\n", addr)
 
-	err = client.Send(buildAuthenticationMessage(me.handle.BuildAuthenticationMessage()))
+	err = client.Send(buildAuthenticationMessage(me.handle.BuildLegacyAuthenticationMessage()))
 	if err != nil {
 		return err
 	}
@@ -260,7 +260,7 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 	defer client.Close()
 	logger.Verbosef("DIAL PEER STREAM %s\n", p.Address)
 
-	err = client.Send(buildAuthenticationMessage(me.handle.BuildAuthenticationMessage()))
+	err = client.Send(buildAuthenticationMessage(me.handle.BuildLegacyAuthenticationMessage()))
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +290,7 @@ func (me *Peer) openPeerStream(p *Peer, resend *ChanMsg) (*ChanMsg, error) {
 		select {
 		case <-graphTicker.C:
 			me.sentMetric.handle(PeerMessageTypeGraph)
-			msg := buildGraphMessage(me.handle.BuildGraph())
+			msg := buildGraphMessage(me.handle.BuildLegacyGraph())
 			msgs = append(msgs, &ChanMsg{nil, msg})
 			size = size + len(msg)
 		case <-gossipNeighborsTicker.C:

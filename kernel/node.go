@@ -26,7 +26,10 @@ type Node struct {
 	Signer       common.Address
 	isRelayer    bool
 
-	LegacyPeer *network.Peer
+	Listener            string
+	LegacyPeer          *network.Peer
+	LegacySyncPoints    *legacySyncMap
+	LegacySyncPointsMap map[crypto.Hash]*network.SyncPoint
 
 	Peer          *p2p.Peer
 	TopoCounter   *TopologicalSequence
@@ -76,19 +79,20 @@ type CNode struct {
 
 func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ristretto.Cache, addr, dir string) (*Node, error) {
 	var node = &Node{
-		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*p2p.SyncPoint)},
-		chains:          &chainsMap{m: make(map[crypto.Hash]*Chain)},
-		genesisNodesMap: make(map[crypto.Hash]bool),
-		persistStore:    persistStore,
-		cacheStore:      cacheStore,
-		custom:          custom,
-		configDir:       dir,
-		addr:            addr,
-		startAt:         clock.Now(),
-		done:            make(chan struct{}),
-		elc:             make(chan struct{}),
-		mlc:             make(chan struct{}),
-		cqc:             make(chan struct{}),
+		SyncPoints:       &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*p2p.SyncPoint)},
+		LegacySyncPoints: &legacySyncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
+		chains:           &chainsMap{m: make(map[crypto.Hash]*Chain)},
+		genesisNodesMap:  make(map[crypto.Hash]bool),
+		persistStore:     persistStore,
+		cacheStore:       cacheStore,
+		custom:           custom,
+		configDir:        dir,
+		addr:             addr,
+		startAt:          clock.Now(),
+		done:             make(chan struct{}),
+		elc:              make(chan struct{}),
+		mlc:              make(chan struct{}),
+		cqc:              make(chan struct{}),
 	}
 
 	node.loadNodeConfig()
@@ -143,6 +147,7 @@ func (node *Node) loadNodeConfig() {
 	addr.PublicViewKey = addr.PrivateViewKey.Public()
 	node.Signer = addr
 	node.isRelayer = node.custom.P2P.Relayer
+	node.Listener = node.custom.LegacyNetwork.Listener
 }
 
 func (node *Node) buildNodeStateSequences(allNodesSortedWithState []*CNode, acceptedOnly bool) []*NodeStateSequence {
@@ -366,41 +371,6 @@ func (node *Node) listenConsumers() {
 	}
 }
 
-func (node *Node) NetworkId() crypto.Hash {
-	return node.networkId
-}
-
-func (node *Node) Uptime() time.Duration {
-	return clock.Now().Sub(node.startAt)
-}
-
-func (node *Node) GetCacheStore() *ristretto.Cache {
-	return node.cacheStore
-}
-
-func (node *Node) BuildGraph() []*p2p.SyncPoint {
-	node.chains.RLock()
-	defer node.chains.RUnlock()
-
-	points := make([]*p2p.SyncPoint, 0)
-	for _, chain := range node.chains.m {
-		if chain.State == nil {
-			continue
-		}
-		f := chain.State.FinalRound
-		points = append(points, &p2p.SyncPoint{
-			NodeId: chain.ChainId,
-			Hash:   f.Hash,
-			Number: f.Number,
-			Pool: map[string]int{
-				"index": chain.FinalIndex,
-				"count": chain.FinalCount,
-			},
-		})
-	}
-	return points
-}
-
 func (node *Node) BuildAuthenticationMessage(relayerId crypto.Hash) []byte {
 	data := make([]byte, 8)
 	binary.BigEndian.PutUint64(data, uint64(clock.Now().Unix()))
@@ -455,6 +425,138 @@ func (node *Node) AuthenticateAs(recipientId crypto.Hash, msg []byte, timeoutSec
 	return token, nil
 }
 
+func (node *Node) PingNeighborsFromConfig() error {
+	node.LegacyPeer = network.NewPeer(node, node.IdForNetwork, node.addr, true, true)
+
+	for _, s := range node.custom.LegacyNetwork.Peers {
+		if s == node.Listener {
+			continue
+		}
+		node.LegacyPeer.PingNeighbor(s)
+	}
+	return nil
+}
+
+func (node *Node) UpdateNeighbors(neighbors []string) error {
+	for _, in := range neighbors {
+		if in == node.Listener {
+			continue
+		}
+		node.LegacyPeer.PingNeighbor(in)
+	}
+	return nil
+}
+
+func (node *Node) ListenNeighbors() {
+	if node.custom.LegacyNetwork.Listener != "" {
+		err := node.LegacyPeer.ListenNeighbors()
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func (node *Node) NetworkId() crypto.Hash {
+	return node.networkId
+}
+
+func (node *Node) Uptime() time.Duration {
+	return clock.Now().Sub(node.startAt)
+}
+
+func (node *Node) GetCacheStore() *ristretto.Cache {
+	return node.cacheStore
+}
+
+func (node *Node) BuildLegacyGraph() []*network.SyncPoint {
+	node.chains.RLock()
+	defer node.chains.RUnlock()
+
+	points := make([]*network.SyncPoint, 0)
+	for _, chain := range node.chains.m {
+		if chain.State == nil {
+			continue
+		}
+		f := chain.State.FinalRound
+		points = append(points, &network.SyncPoint{
+			NodeId: chain.ChainId,
+			Hash:   f.Hash,
+			Number: f.Number,
+			Pool: map[string]int{
+				"index": chain.FinalIndex,
+				"count": chain.FinalCount,
+			},
+		})
+	}
+	return points
+}
+
+func (node *Node) BuildGraph() []*p2p.SyncPoint {
+	node.chains.RLock()
+	defer node.chains.RUnlock()
+
+	points := make([]*p2p.SyncPoint, 0)
+	for _, chain := range node.chains.m {
+		if chain.State == nil {
+			continue
+		}
+		f := chain.State.FinalRound
+		points = append(points, &p2p.SyncPoint{
+			NodeId: chain.ChainId,
+			Hash:   f.Hash,
+			Number: f.Number,
+			Pool: map[string]int{
+				"index": chain.FinalIndex,
+				"count": chain.FinalCount,
+			},
+		})
+	}
+	return points
+}
+
+func (node *Node) BuildLegacyAuthenticationMessage() []byte {
+	data := make([]byte, 8)
+	binary.BigEndian.PutUint64(data, uint64(clock.Now().Unix()))
+	data = append(data, node.Signer.PublicSpendKey[:]...)
+	dh := crypto.Blake3Hash(data)
+	sig := node.Signer.PrivateSpendKey.Sign(dh)
+	data = append(data, sig[:]...)
+	return append(data, []byte(node.Listener)...)
+}
+
+func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
+	if len(msg) < 8+len(crypto.Hash{})+len(crypto.Signature{}) {
+		return crypto.Hash{}, "", fmt.Errorf("peer authentication message malformated %d", len(msg))
+	}
+	ts := binary.BigEndian.Uint64(msg[:8])
+	if clock.Now().Unix()-int64(ts) > 3 {
+		return crypto.Hash{}, "", fmt.Errorf("peer authentication message timeout %d %d", ts, clock.Now().Unix())
+	}
+
+	var signer common.Address
+	copy(signer.PublicSpendKey[:], msg[8:40])
+	signer.PublicViewKey = signer.PublicSpendKey.DeterministicHashDerive().Public()
+	peerId := signer.Hash().ForNetwork(node.networkId)
+	if peerId == node.IdForNetwork {
+		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
+	}
+	peer := node.GetAcceptedOrPledgingNode(peerId)
+
+	if peer != nil && peer.Signer.Hash() != signer.Hash() {
+		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
+	}
+
+	var sig crypto.Signature
+	copy(sig[:], msg[40:40+len(sig)])
+	mh := crypto.Blake3Hash(msg[:40])
+	if !signer.PublicSpendKey.Verify(mh, sig) {
+		return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
+	}
+
+	listener := string(msg[40+len(sig):])
+	return peerId, listener, nil
+}
+
 func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
 	tx, _, err := node.checkTxInStorage(hash)
 	if err != nil || tx == nil {
@@ -506,7 +608,20 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*p2p.SyncPoint) {
 	node.SyncPointsMap = node.SyncPoints.Map()
 }
 
+func (node *Node) UpdateLegacySyncPoint(peerId crypto.Hash, points []*network.SyncPoint) {
+	for _, p := range points {
+		if p.NodeId == node.IdForNetwork {
+			node.LegacySyncPoints.Set(peerId, p)
+		}
+	}
+	node.LegacySyncPointsMap = node.LegacySyncPoints.Map()
+}
+
 func (node *Node) CheckBroadcastedToPeers() bool {
+	return node.CheckBroadcastedToP2PPeers() || node.CheckBroadcastedToLegacyPeers()
+}
+
+func (node *Node) CheckBroadcastedToP2PPeers() bool {
 	spm := node.SyncPointsMap
 	if len(spm) == 0 || node.chain.State == nil {
 		return false
@@ -527,8 +642,84 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 	return count >= threshold
 }
 
+func (node *Node) CheckBroadcastedToLegacyPeers() bool {
+	spm := node.LegacySyncPointsMap
+	if len(spm) == 0 || node.chain.State == nil {
+		return false
+	}
+
+	final, count := node.chain.State.FinalRound.Number, 1
+	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()), false)
+	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
+	for _, cn := range nodes {
+		remote := spm[cn.IdForNetwork]
+		if remote == nil {
+			continue
+		}
+		if remote.Number+1 >= final {
+			count += 1
+		}
+	}
+	return count >= threshold
+}
+
 func (node *Node) CheckCatchUpWithPeers() bool {
+	return node.CheckCatchUpWithP2PPeers() || node.CheckCatchUpWithLegacyPeers()
+}
+
+func (node *Node) CheckCatchUpWithP2PPeers() bool {
 	spm := node.SyncPointsMap
+	if len(spm) == 0 || node.chain.State == nil {
+		return false
+	}
+
+	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()), false)
+	cache, updated := node.chain.State.CacheRound, 1
+	final := node.chain.State.FinalRound.Number
+
+	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
+	for _, cn := range nodes {
+		remote := spm[cn.IdForNetwork]
+		if remote == nil {
+			continue
+		}
+		updated = updated + 1
+		if remote.Number <= final {
+			continue
+		}
+		if remote.Number > final+1 {
+			logger.Verbosef("CheckCatchUpWithPeers local(%d)+1 < remote(%s:%d)\n", final, cn.IdForNetwork, remote.Number)
+			return false
+		}
+		if cache == nil {
+			logger.Verbosef("CheckCatchUpWithPeers local cache nil\n")
+			return false
+		}
+		cf := cache.asFinal()
+		if cf == nil {
+			logger.Verbosef("CheckCatchUpWithPeers local cache empty\n")
+			return false
+		}
+		if cf.Hash != remote.Hash {
+			logger.Verbosef("CheckCatchUpWithPeers local(%s) != remote(%s)\n",
+				cf.Hash, remote.Hash)
+			return false
+		}
+		if now := uint64(clock.Now().UnixNano()); cf.Start+config.SnapshotRoundGap*100 > now {
+			logger.Verbosef("CheckCatchUpWithPeers local start(%d)+%d > now(%d)\n",
+				cf.Start, config.SnapshotRoundGap*100, now)
+			return false
+		}
+	}
+
+	if updated < threshold {
+		logger.Verbosef("CheckCatchUpWithPeers updated(%d) < threshold(%d)\n", updated, threshold)
+	}
+	return updated >= threshold
+}
+
+func (node *Node) CheckCatchUpWithLegacyPeers() bool {
+	spm := node.LegacySyncPointsMap
 	if len(spm) == 0 || node.chain.State == nil {
 		return false
 	}
@@ -606,6 +797,28 @@ func (s *syncMap) Map() map[crypto.Hash]*p2p.SyncPoint {
 	defer s.mutex.RUnlock()
 
 	m := make(map[crypto.Hash]*p2p.SyncPoint)
+	for k, p := range s.m {
+		m[k] = p
+	}
+	return m
+}
+
+type legacySyncMap struct {
+	mutex *sync.RWMutex
+	m     map[crypto.Hash]*network.SyncPoint
+}
+
+func (s *legacySyncMap) Set(k crypto.Hash, p *network.SyncPoint) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.m[k] = p
+}
+
+func (s *legacySyncMap) Map() map[crypto.Hash]*network.SyncPoint {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	m := make(map[crypto.Hash]*network.SyncPoint)
 	for k, p := range s.m {
 		m[k] = p
 	}

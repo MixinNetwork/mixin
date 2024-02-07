@@ -34,10 +34,10 @@ metric = false
 
 [rpc]
 # enable rpc access by setting a valid TCP port number
-port = 8239
+port = 6860
 # whether respond the runtime of each RPC call
 runtime = false
 
 [dev]
 # enable the pprof web server with a valid TCP port number
-port = 9239
+port = 7870

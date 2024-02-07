@@ -123,7 +123,7 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 		}
 
 		if graph != nil {
-			points := me.handle.BuildGraph()
+			points := me.handle.BuildLegacyGraph()
 			nodes := me.handle.ReadAllNodesWithoutState()
 			local := make(map[crypto.Hash]*SyncPoint)
 			for _, n := range points {
@@ -155,7 +155,7 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 		for _, r := range g {
 			graph[r.NodeId] = r
 		}
-		off, err := me.compareRoundGraphAndGetTopologicalOffset(p, me.handle.BuildGraph(), g)
+		off, err := me.compareRoundGraphAndGetTopologicalOffset(p, me.handle.BuildLegacyGraph(), g)
 		if err != nil {
 			logger.Printf("network.sync compareRoundGraphAndGetTopologicalOffset %s error %v\n", p.IdForNetwork, err)
 		}
