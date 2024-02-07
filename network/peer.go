@@ -27,7 +27,6 @@ type Peer struct {
 	relayers        *neighborMap
 	consumers       *neighborMap
 	snapshotsCaches *confirmMap
-	gossipRound     *neighborMap
 	highRing        *util.RingBuffer
 	normalRing      *util.RingBuffer
 	syncRing        *util.RingBuffer
@@ -138,7 +137,6 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, isRelayer
 		Address:         addr,
 		relayers:        &neighborMap{m: make(map[crypto.Hash]*Peer)},
 		consumers:       &neighborMap{m: make(map[crypto.Hash]*Peer)},
-		gossipRound:     &neighborMap{m: make(map[crypto.Hash]*Peer)},
 		highRing:        util.NewRingBuffer(1024),
 		normalRing:      util.NewRingBuffer(1024),
 		syncRing:        util.NewRingBuffer(1024),
@@ -191,20 +189,7 @@ func (me *Peer) ListenConsumers() error {
 		defer ticker.Stop()
 
 		for !me.closing {
-			me.gossipRound.Clear()
 			neighbors := me.Neighbors()
-			for i := range neighbors {
-				j := int(time.Now().UnixNano() % int64(i+1))
-				neighbors[i], neighbors[j] = neighbors[j], neighbors[i]
-			}
-			if len(neighbors) > config.GossipSize {
-				neighbors = neighbors[:config.GossipSize]
-			}
-			for _, p := range neighbors {
-				me.gossipRound.Put(p.IdForNetwork, p)
-			}
-
-			neighbors = me.Neighbors()
 			msg := me.buildConsumersMessage()
 			for _, p := range neighbors {
 				if !p.isRemoteRelayer {

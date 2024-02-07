@@ -210,7 +210,7 @@ func testConsensus(t *testing.T, withRelayers bool) {
 	require.Less(gt.Timestamp, epoch.Add(legacy).Add(128*time.Second))
 
 	pn, pi, sv := testPledgeNewNode(t, nodes, accounts[0], gdata, plist, input, root)
-	t.Logf("PLEDGE %s\n", pn.Signer)
+	t.Logf("PLEDGE %s %s\n", pn.Signer, pi.IdForNetwork)
 	transactionsCount = transactionsCount + 1
 	defer pi.Teardown()
 	defer sv.Close()
