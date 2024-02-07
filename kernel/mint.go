@@ -89,13 +89,17 @@ func (chain *Chain) checkRoundMature(round uint64) (uint64, bool) {
 	if cache.Number == round {
 		return 0, false
 	}
-	if cache.Number > round+1 {
-		return chain.State.FinalRound.Start / OneDay, true
+	if cache.Number == round+1 {
+		if len(cache.Snapshots) < 1 {
+			return 0, false
+		}
+		return cache.Snapshots[0].Timestamp / OneDay, true
 	}
-	if len(cache.Snapshots) < 1 {
-		return 0, false
+	snapshots, err := chain.persistStore.ReadSnapshotWorksForNodeRound(chain.ChainId, round+1)
+	if err != nil {
+		panic(err)
 	}
-	return cache.Snapshots[0].Timestamp / OneDay, true
+	return snapshots[0].Timestamp / OneDay, true
 }
 
 func (chain *Chain) writeRoundWork(round uint64, works []*common.SnapshotWork, credit bool) error {
