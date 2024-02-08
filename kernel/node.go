@@ -608,13 +608,10 @@ func (node *Node) sendGraphToConcensusNodes() {
 	}
 }
 
-func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*p2p.SyncPoint, sig *crypto.Signature) error {
+func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*p2p.SyncPoint, data []byte, sig *crypto.Signature) error {
 	peer := node.GetAcceptedOrPledgingNode(peerId)
-	if peer != nil {
-		dh := crypto.Blake3Hash(p2p.MarshalSyncPoints(points))
-		if !peer.Signer.PublicSpendKey.Verify(dh, *sig) {
-			return fmt.Errorf("invalid graph signature %s", peerId)
-		}
+	if peer != nil && !peer.Signer.PublicSpendKey.Verify(crypto.Blake3Hash(data), *sig) {
+		return fmt.Errorf("invalid graph signature %s", peerId)
 	}
 	for _, p := range points {
 		if p.NodeId == node.IdForNetwork {

@@ -65,12 +65,12 @@ type SyncHandle interface {
 	SendTransactionToPeer(peerId, tx crypto.Hash) error
 	CachePutTransaction(peerId crypto.Hash, ver *common.VersionedTransaction) error
 	CosiQueueExternalAnnouncementLegacy(peerId crypto.Hash, s *common.Snapshot, R *crypto.Key) error
-	CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool) error
+	CosiAggregateSelfCommitmentsLegacy(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool) error
 	CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, ver *common.VersionedTransaction) error
 	CosiQueueExternalFullChallenge(peerId crypto.Hash, s *common.Snapshot, commitment, challenge *crypto.Key, cosi *crypto.CosiSignature, ver *common.VersionedTransaction) error
 	CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Hash, response *[32]byte) error
 	VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error
-	CosiQueueExternalCommitments(peerId crypto.Hash, commitments []*crypto.Key) error
+	CosiQueueExternalCommitmentsLegacy(peerId crypto.Hash, commitments []*crypto.Key) error
 }
 
 func (me *Peer) SendCommitmentsMessage(idForNetwork crypto.Hash, commitments []*crypto.Key) error {
@@ -404,7 +404,7 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage) {
 			}
 		case PeerMessageTypeCommitments:
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeCommitments %s %d\n", peer.IdForNetwork, len(msg.Commitments))
-			me.handle.CosiQueueExternalCommitments(peer.IdForNetwork, msg.Commitments)
+			me.handle.CosiQueueExternalCommitmentsLegacy(peer.IdForNetwork, msg.Commitments)
 		case PeerMessageTypeGraph:
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeGraph %s\n", peer.IdForNetwork)
 			me.handle.UpdateLegacySyncPoint(peer.IdForNetwork, msg.Graph)
@@ -423,7 +423,7 @@ func (me *Peer) handlePeerMessage(peer *Peer, receive chan *PeerMessage) {
 			me.handle.CosiQueueExternalAnnouncementLegacy(peer.IdForNetwork, msg.Snapshot, &msg.Commitment)
 		case PeerMessageTypeSnapshotCommitment:
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotCommitment %s %s\n", peer.IdForNetwork, msg.SnapshotHash)
-			me.handle.CosiAggregateSelfCommitments(peer.IdForNetwork, msg.SnapshotHash, &msg.Commitment, msg.WantTx)
+			me.handle.CosiAggregateSelfCommitmentsLegacy(peer.IdForNetwork, msg.SnapshotHash, &msg.Commitment, msg.WantTx)
 		case PeerMessageTypeTransactionChallenge:
 			logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionChallenge %s %s %t\n", peer.IdForNetwork, msg.SnapshotHash, msg.Transaction != nil)
 			me.handle.CosiQueueExternalChallenge(peer.IdForNetwork, msg.SnapshotHash, &msg.Cosi, msg.Transaction)

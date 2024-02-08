@@ -901,7 +901,29 @@ func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) err
 	return chain.node.Peer.SendCommitmentsMessage(peerId, commitments)
 }
 
-func (node *Node) CosiQueueExternalCommitments(peerId crypto.Hash, commitments []*crypto.Key) error {
+func (node *Node) CosiQueueExternalCommitments(peerId crypto.Hash, commitments []*crypto.Key, data []byte, sig *crypto.Signature) error {
+	logger.Debugf("CosiQueueExternalCommitments(%s, %d)\n", peerId, len(commitments))
+	peer := node.GetAcceptedOrPledgingNode(peerId)
+	if peer == nil {
+		logger.Verbosef("CosiQueueExternalCommitments(%s, %d) from malicious node\n",
+			peerId, len(commitments))
+		return nil
+	}
+	if !peer.Signer.PublicSpendKey.Verify(crypto.Blake3Hash(data), *sig) {
+		logger.Printf("CosiQueueExternalCommitments(%s) invalid sigature\n", peerId)
+		return nil
+	}
+
+	m := &CosiAction{
+		PeerId:      peerId,
+		Action:      CosiActionExternalCommitments,
+		Commitments: commitments,
+	}
+	node.chain.AppendCosiAction(m)
+	return nil
+}
+
+func (node *Node) CosiQueueExternalCommitmentsLegacy(peerId crypto.Hash, commitments []*crypto.Key) error {
 	logger.Debugf("CosiQueueExternalCommitments(%s, %d)\n", peerId, len(commitments))
 	if node.GetAcceptedOrPledgingNode(peerId) == nil {
 		logger.Verbosef("CosiQueueExternalCommitments(%s, %d) from malicious node\n",
@@ -927,6 +949,7 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 	}
 	data := append(commitment[:], s.VersionedMarshal()...)
 	if !peer.Signer.PublicSpendKey.Verify(crypto.Blake3Hash(data), *sig) {
+		logger.Printf("CosiQueueExternalAnnouncement(%s, %v) invalid sigature\n", peerId, s)
 		return nil
 	}
 	chain := node.getOrCreateChain(s.NodeId)
@@ -963,7 +986,30 @@ func (node *Node) CosiQueueExternalAnnouncementLegacy(peerId crypto.Hash, s *com
 	return nil
 }
 
-func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool) error {
+func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool, data []byte, sig *crypto.Signature) error {
+	logger.Debugf("CosiAggregateSelfCommitments(%s, %s)\n", peerId, snap)
+	peer := node.GetAcceptedOrPledgingNode(peerId)
+	if peer == nil {
+		logger.Verbosef("CosiAggregateSelfCommitments(%s, %s) from malicious node\n", peerId, snap)
+		return nil
+	}
+	if !peer.Signer.PublicSpendKey.Verify(crypto.Blake3Hash(data), *sig) {
+		logger.Printf("CosiAggregateSelfCommitments(%s, %s) invalid sigature\n", peerId, snap)
+		return nil
+	}
+
+	m := &CosiAction{
+		PeerId:       peerId,
+		Action:       CosiActionSelfCommitment,
+		SnapshotHash: snap,
+		Commitment:   commitment,
+		WantTx:       wantTx,
+	}
+	node.chain.AppendCosiAction(m)
+	return nil
+}
+
+func (node *Node) CosiAggregateSelfCommitmentsLegacy(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool) error {
 	logger.Debugf("CosiAggregateSelfCommitments(%s, %s)\n", peerId, snap)
 	if node.GetAcceptedOrPledgingNode(peerId) == nil {
 		logger.Verbosef("CosiAggregateSelfCommitments(%s, %s) from malicious node\n", peerId, snap)
