@@ -436,7 +436,7 @@ func (me *Peer) loopHandlePeerMessage(peerId crypto.Hash, receive chan *PeerMess
 }
 
 func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage) error {
-	logger.Printf("me.relayOrHandlePeerMessage(%s, %s) => %s %v", me.Address, me.IdForNetwork, relayerId, msg.Data)
+	logger.Verbosef("me.relayOrHandlePeerMessage(%s, %s) => %s %v", me.Address, me.IdForNetwork, relayerId, msg.Data)
 	if len(msg.Data) < 64 {
 		return nil
 	}
@@ -445,7 +445,7 @@ func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage
 	copy(to[:], msg.Data[32:64])
 	if to == me.IdForNetwork {
 		rm, err := parseNetworkMessage(msg.version, msg.Data[64:])
-		logger.Printf("me.relayOrHandlePeerMessage.ME(%s, %s) => %s %v %v", me.Address, me.IdForNetwork, from, rm, err)
+		logger.Verbosef("me.relayOrHandlePeerMessage.ME(%s, %s) => %s %v %v", me.Address, me.IdForNetwork, from, rm, err)
 		if err != nil {
 			return err
 		}
