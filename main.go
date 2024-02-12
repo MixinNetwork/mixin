@@ -53,6 +53,12 @@ func main() {
 					Usage:   "the data directory",
 				},
 				&cli.IntFlag{
+					Name:    "port",
+					Aliases: []string{"p"},
+					Value:   7239,
+					Usage:   "the peer port to listen",
+				},
+				&cli.IntFlag{
 					Name:    "log",
 					Aliases: []string{"l"},
 					Value:   logger.INFO,
@@ -671,8 +677,7 @@ func kernelCmd(c *cli.Context) error {
 	}
 	defer store.Close()
 
-	addr := fmt.Sprintf(":%d", custom.P2P.Port)
-	node, err := kernel.SetupNode(custom, store, cache, addr, c.String("dir"))
+	node, err := kernel.SetupNode(custom, store, cache, c.Int("port"), c.String("dir"))
 	if err != nil {
 		return err
 	}

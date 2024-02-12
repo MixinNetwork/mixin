@@ -72,7 +72,7 @@ func testConsensus(t *testing.T, withRelayers bool) {
 		if i == 0 {
 			kernel.TestMockDiff(epoch.Sub(time.Now()))
 		}
-		node, err := kernel.SetupNode(custom, store, cache, fmt.Sprintf(":170%02d", i+1), dir)
+		node, err := kernel.SetupNode(custom, store, cache, 0, dir)
 		require.Nil(err)
 		require.NotNil(node)
 		instances = append(instances, node)
@@ -643,7 +643,7 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 	store, err := storage.NewBadgerStore(custom, dir)
 	require.Nil(err)
 	require.NotNil(store)
-	pnode, err := kernel.SetupNode(custom, store, cache, fmt.Sprintf(":170%02d", 99), dir)
+	pnode, err := kernel.SetupNode(custom, store, cache, 0, dir)
 	require.Nil(err)
 	require.NotNil(pnode)
 	go pnode.Loop()
@@ -830,7 +830,7 @@ func setupTestNet(root string, withRelayers bool) ([]common.Address, []common.Ad
 			custom, _ := config.Initialize(dir + "/config.toml")
 			cache := newCache(custom)
 			store, _ := storage.NewBadgerStore(custom, dir)
-			node, _ := kernel.SetupNode(custom, store, cache, fmt.Sprintf(":160%02d", i+1), dir)
+			node, _ := kernel.SetupNode(custom, store, cache, 0, dir)
 			go node.Loop()
 		}
 	}

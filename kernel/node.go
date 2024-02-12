@@ -26,7 +26,8 @@ type Node struct {
 	Signer       common.Address
 	isRelayer    bool
 
-	Listener            string
+	// FIXME deprecate these
+	LegacyAddr          string
 	LegacyPeer          *network.Peer
 	LegacySyncPoints    *legacySyncMap
 	LegacySyncPointsMap map[crypto.Hash]*network.SyncPoint
@@ -54,7 +55,6 @@ type Node struct {
 	cacheStore      *ristretto.Cache
 	custom          *config.Custom
 	configDir       string
-	addr            string
 
 	done chan struct{}
 	elc  chan struct{}
@@ -77,17 +77,17 @@ type CNode struct {
 	ConsensusIndex int
 }
 
-func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ristretto.Cache, addr, dir string) (*Node, error) {
-	var node = &Node{
+func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ristretto.Cache, legacyPort int, dir string) (*Node, error) {
+	node := &Node{
 		SyncPoints:       &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*p2p.SyncPoint)},
 		LegacySyncPoints: &legacySyncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
+		LegacyAddr:       fmt.Sprintf(":%d", legacyPort),
 		chains:           &chainsMap{m: make(map[crypto.Hash]*Chain)},
 		genesisNodesMap:  make(map[crypto.Hash]bool),
 		persistStore:     persistStore,
 		cacheStore:       cacheStore,
 		custom:           custom,
 		configDir:        dir,
-		addr:             addr,
 		startAt:          clock.Now(),
 		done:             make(chan struct{}),
 		elc:              make(chan struct{}),
@@ -131,7 +131,7 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 	}
 	node.chain = node.BootChain(node.IdForNetwork)
 
-	logger.Printf("Listen:\t%s\n", addr)
+	logger.Printf("Listen:\t%d\n", node.custom.P2P.Port)
 	logger.Printf("Signer:\t%s\n", node.Signer.String())
 	logger.Printf("Network:\t%s\n", node.networkId.String())
 	logger.Printf("Node Id:\t%s\n", node.IdForNetwork.String())
@@ -147,7 +147,6 @@ func (node *Node) loadNodeConfig() {
 	addr.PublicViewKey = addr.PrivateViewKey.Public()
 	node.Signer = addr
 	node.isRelayer = node.custom.P2P.Relayer
-	node.Listener = node.custom.LegacyNetwork.Listener
 }
 
 func (node *Node) buildNodeStateSequences(allNodesSortedWithState []*CNode, acceptedOnly bool) []*NodeStateSequence {
@@ -342,7 +341,8 @@ func (node *Node) NewTransaction(assetId crypto.Hash) *common.Transaction {
 }
 
 func (node *Node) addRelayersFromConfig() error {
-	node.Peer = p2p.NewPeer(node, node.IdForNetwork, node.addr, node.isRelayer)
+	addr := fmt.Sprintf(":%d", node.custom.P2P.Port)
+	node.Peer = p2p.NewPeer(node, node.IdForNetwork, addr, node.isRelayer)
 
 	for _, s := range node.custom.P2P.Seeds {
 		parts := strings.Split(s, "@")
@@ -426,10 +426,10 @@ func (node *Node) AuthenticateAs(recipientId crypto.Hash, msg []byte, timeoutSec
 }
 
 func (node *Node) PingNeighborsFromConfig() error {
-	node.LegacyPeer = network.NewPeer(node, node.IdForNetwork, node.addr, true, true)
+	node.LegacyPeer = network.NewPeer(node, node.IdForNetwork, node.LegacyAddr, true, true)
 
 	for _, s := range node.custom.LegacyNetwork.Peers {
-		if s == node.Listener {
+		if s == node.custom.LegacyNetwork.Listener {
 			continue
 		}
 		node.LegacyPeer.PingNeighbor(s)
@@ -439,7 +439,7 @@ func (node *Node) PingNeighborsFromConfig() error {
 
 func (node *Node) UpdateNeighbors(neighbors []string) error {
 	for _, in := range neighbors {
-		if in == node.Listener {
+		if in == node.custom.LegacyNetwork.Listener {
 			continue
 		}
 		node.LegacyPeer.PingNeighbor(in)
@@ -526,7 +526,7 @@ func (node *Node) BuildLegacyAuthenticationMessage() []byte {
 	dh := crypto.Blake3Hash(data)
 	sig := node.Signer.PrivateSpendKey.Sign(dh)
 	data = append(data, sig[:]...)
-	return append(data, []byte(node.Listener)...)
+	return append(data, []byte(node.custom.LegacyNetwork.Listener)...)
 }
 
 func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
