@@ -25,7 +25,7 @@ func main() {
 		&cli.StringFlag{
 			Name:    "node",
 			Aliases: []string{"n"},
-			Value:   "127.0.0.1:8239",
+			Value:   "127.0.0.1:6860",
 			Usage:   "the node RPC endpoint",
 		},
 		&cli.StringFlag{
