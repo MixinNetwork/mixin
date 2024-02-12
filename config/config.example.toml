@@ -17,12 +17,9 @@ value-log-gc = true
 # the max levels can not be decreased once up, so be cautious
 max-compaction-levels = 7
 
-# this is the old network configuration, should be deprecated
 [network]
-# the public endpoint to receive peer packets, may be a proxy or load balancer
-# must be a public reachable domain or IP, and the port allowed by firewall
+# this section is the old network configuration, should be deprecated
 listener = "mixin-node.example.com:7239"
-# the nodes list
 peers = [
 	"new-mixin-node0.exinpool.com:7239",
 	"new-mixin-node1.exinpool.com:7239",
@@ -58,10 +55,7 @@ peers = [
 port = 5850
 # the seed relayer nodes list
 seeds = [
-	"06ff8589d5d8b40dd90a8120fa65b273d136ba4896e46ad20d76e53a9b73fd9f@kernel.mixin.dev:5850",
-	"b798bca3d9aa61fed4cf39dee1e9b4317daf64a6e31cd433ac684d629f896b46@new-mixin-node0.exinpool.com:5850",
-	"3dae767383bd0eee3ff338e8d1e89577e4f3ece4b98662cb151f22d6c474407b@mixin-node-42.f1ex.io:5850",
-	"5e7ca75239ff68231bd0bcebc8be5b4725e8784b4df8788306c9baa291ec8595@mixin-node1.b1.run:5850"
+	"06ff8589d5d8b40dd90a8120fa65b273d136ba4896e46ad20d76e53a9b73fd9f@seed.mixin.dev:5850"
 ]
 # a relayer needs a public address to listen and relay messages to other nodes
 # a signer should set this value to false for security
