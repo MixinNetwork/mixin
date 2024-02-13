@@ -2,6 +2,10 @@
 
 Semantic Versioning
 
+## v0.18 Stealth Phasmids Feb 13, 2024
+
+A new peer to peer network layer that improves security and privacy of the signer node.
+
 ## v0.17 Silent Cicadas Oct 17, 2023
 
 Complete new transaction and snapshot releases, this version is meant to be a genesis reset of the previous mainnet.

@@ -125,7 +125,6 @@ func SetupNode(custom *config.Custom, store storage.Store, cache *ristretto.Cach
 	}
 	node.chain = node.BootChain(node.IdForNetwork)
 
-	logger.Printf("Listen:\t%d\n", node.custom.P2P.Port)
 	logger.Printf("Signer:\t%s\n", node.Signer.String())
 	logger.Printf("Network:\t%s\n", node.networkId.String())
 	logger.Printf("Node Id:\t%s\n", node.IdForNetwork.String())
