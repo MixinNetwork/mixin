@@ -107,6 +107,8 @@ func setupTestNode(require *require.Assertions, dir string) *Node {
 
 	custom, err := config.Initialize(dir + "/config.toml")
 	require.Nil(err)
+	gns, err := common.ReadGenesis(dir + "/genesis.json")
+	require.Nil(err)
 
 	cache, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: 1e7, // number of keys to track frequency of (10M).
@@ -118,7 +120,7 @@ func setupTestNode(require *require.Assertions, dir string) *Node {
 	store, err := storage.NewBadgerStore(custom, dir)
 	require.Nil(err)
 	require.NotNil(store)
-	node, err := SetupNode(custom, store, cache, 7239, dir)
+	node, err := SetupNode(custom, store, cache, gns, 7239)
 	require.Nil(err)
 	require.Equal(mainnetId, node.networkId.String())
 	return node

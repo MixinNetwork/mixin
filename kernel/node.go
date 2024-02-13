@@ -54,7 +54,6 @@ type Node struct {
 	persistStore    storage.Store
 	cacheStore      *ristretto.Cache
 	custom          *config.Custom
-	configDir       string
 
 	done chan struct{}
 	elc  chan struct{}
@@ -77,17 +76,16 @@ type CNode struct {
 	ConsensusIndex int
 }
 
-func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ristretto.Cache, legacyPort int, dir string) (*Node, error) {
+func SetupNode(custom *config.Custom, store storage.Store, cache *ristretto.Cache, gns *common.Genesis, legacyPort int) (*Node, error) {
 	node := &Node{
 		SyncPoints:       &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*p2p.SyncPoint)},
 		LegacySyncPoints: &legacySyncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
 		LegacyAddr:       fmt.Sprintf(":%d", legacyPort),
 		chains:           &chainsMap{m: make(map[crypto.Hash]*Chain)},
 		genesisNodesMap:  make(map[crypto.Hash]bool),
-		persistStore:     persistStore,
-		cacheStore:       cacheStore,
+		persistStore:     store,
+		cacheStore:       cache,
 		custom:           custom,
-		configDir:        dir,
 		startAt:          clock.Now(),
 		done:             make(chan struct{}),
 		elc:              make(chan struct{}),
@@ -100,15 +98,11 @@ func SetupNode(custom *config.Custom, persistStore storage.Store, cacheStore *ri
 	mint := node.lastMintDistribution()
 	node.LastMint = mint.Batch
 
-	gns, err := common.ReadGenesis(dir + "/genesis.json")
+	err := node.LoadGenesis(gns)
 	if err != nil {
-		return nil, fmt.Errorf("ReadGenesis(%s) => %v", dir, err)
+		return nil, fmt.Errorf("LoadGenesis(%v) => %v", gns, err)
 	}
-	err = node.LoadGenesis(gns)
-	if err != nil {
-		return nil, fmt.Errorf("LoadGenesis(%s) => %v", dir, err)
-	}
-	node.TopoCounter = node.getTopologyCounter(persistStore)
+	node.TopoCounter = node.getTopologyCounter(store)
 
 	logger.Println("Validating graph entries...")
 	start := clock.Now()

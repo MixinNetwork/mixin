@@ -63,6 +63,8 @@ func testConsensus(t *testing.T, withRelayers bool) {
 	instances := make([]*kernel.Node, 0)
 	for i := range accounts {
 		dir := fmt.Sprintf("%s/mixin-170%02d", root, i+1)
+		gns, err := common.ReadGenesis(dir + "/genesis.json")
+		require.Nil(err)
 		custom, err := config.Initialize(dir + "/config.toml")
 		require.Nil(err)
 		cache := newCache(custom)
@@ -72,7 +74,7 @@ func testConsensus(t *testing.T, withRelayers bool) {
 		if i == 0 {
 			kernel.TestMockDiff(epoch.Sub(time.Now()))
 		}
-		node, err := kernel.SetupNode(custom, store, cache, 0, dir)
+		node, err := kernel.SetupNode(custom, store, cache, gns, 0)
 		require.Nil(err)
 		require.NotNil(node)
 		instances = append(instances, node)
@@ -639,11 +641,13 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 
 	custom, err := config.Initialize(dir + "/config.toml")
 	require.Nil(err)
+	gns, err := common.ReadGenesis(dir + "/genesis.json")
+	require.Nil(err)
 	cache := newCache(custom)
 	store, err := storage.NewBadgerStore(custom, dir)
 	require.Nil(err)
 	require.NotNil(store)
-	pnode, err := kernel.SetupNode(custom, store, cache, 0, dir)
+	pnode, err := kernel.SetupNode(custom, store, cache, gns, 0)
 	require.Nil(err)
 	require.NotNil(pnode)
 	go pnode.Loop()
@@ -827,10 +831,11 @@ func setupTestNet(root string, withRelayers bool) ([]common.Address, []common.Ad
 			if err != nil {
 				panic(err)
 			}
+			gns, _ := common.ReadGenesis(dir + "/genesis.json")
 			custom, _ := config.Initialize(dir + "/config.toml")
 			cache := newCache(custom)
 			store, _ := storage.NewBadgerStore(custom, dir)
-			node, _ := kernel.SetupNode(custom, store, cache, 0, dir)
+			node, _ := kernel.SetupNode(custom, store, cache, gns, 0)
 			go node.Loop()
 		}
 	}

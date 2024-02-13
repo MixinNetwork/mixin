@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/logger"
@@ -661,6 +662,12 @@ func kernelCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
+	gns, err := common.ReadGenesis(c.String("dir") + "/genesis.json")
+	if err != nil {
+		return err
+	}
+
 	custom, err := config.Initialize(c.String("dir") + "/config.toml")
 	if err != nil {
 		return err
@@ -677,7 +684,7 @@ func kernelCmd(c *cli.Context) error {
 	}
 	defer store.Close()
 
-	node, err := kernel.SetupNode(custom, store, cache, c.Int("port"), c.String("dir"))
+	node, err := kernel.SetupNode(custom, store, cache, gns, c.Int("port"))
 	if err != nil {
 		return err
 	}
