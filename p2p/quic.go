@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"math/big"
 	"net"
 	"time"
@@ -109,7 +110,7 @@ func (c *QuicClient) Receive() (*TransportMessage, error) {
 	}
 	m := &TransportMessage{}
 	header := make([]byte, TransportMessageHeaderSize)
-	s, err := c.stream.Read(header)
+	s, err := io.ReadFull(c.stream, header)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +127,7 @@ func (c *QuicClient) Receive() (*TransportMessage, error) {
 	}
 	for {
 		data := make([]byte, int(m.Size)-len(m.Data))
-		s, err = c.stream.Read(data)
+		s, err := io.ReadFull(c.stream, data)
 		if err != nil {
 			return nil, err
 		}
