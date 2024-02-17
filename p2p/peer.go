@@ -99,6 +99,7 @@ func (me *Peer) connectRelayer(relayer *Peer) error {
 	go me.syncToNeighborLoop(relayer)
 	go me.loopReceiveMessage(relayer, client)
 	_, err = me.loopSendingStream(relayer, client)
+	logger.Printf("me.loopSendingStream(%s, %s) => %v", me.Address, client.RemoteAddr().String(), err)
 	return err
 }
 
@@ -225,7 +226,7 @@ func (me *Peer) ListenConsumers() error {
 
 			go me.syncToNeighborLoop(peer)
 			go me.loopReceiveMessage(peer, c)
-			me.loopSendingStream(peer, c)
+			_, err = me.loopSendingStream(peer, c)
 			logger.Printf("me.loopSendingStream(%s, %s) => %v", me.Address, c.RemoteAddr().String(), err)
 		}(c)
 	}
@@ -242,17 +243,16 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 	defer graphTicker.Stop()
 
 	for !me.closing && !p.closing {
-		msgs, size := []*ChanMsg{}, 0
+		msgs := []*ChanMsg{}
 		select {
 		case <-graphTicker.C:
 			me.sentMetric.handle(PeerMessageTypeGraph)
 			msg := buildGraphMessage(me.handle)
 			msgs = append(msgs, &ChanMsg{nil, msg})
-			size = size + len(msg)
 		default:
 		}
 
-		for len(msgs) < 16 && size < TransportMessageMaxSize/2 {
+		for len(msgs) < 16 {
 			item, err := p.highRing.Poll(false)
 			if err != nil {
 				return nil, err
@@ -264,10 +264,9 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 				continue
 			}
 			msgs = append(msgs, msg)
-			size = size + len(msg.data)
 		}
 
-		for len(msgs) < 16 && size < TransportMessageMaxSize/2 {
+		for len(msgs) < 16 {
 			item, err := p.normalRing.Poll(false)
 			if err != nil {
 				return nil, err
@@ -279,7 +278,6 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 				continue
 			}
 			msgs = append(msgs, msg)
-			size = size + len(msg.data)
 		}
 
 		if len(msgs) == 0 {
@@ -304,32 +302,45 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 	return nil, fmt.Errorf("PEER DONE")
 }
 
-func (me *Peer) loopReceiveMessage(peer *Peer, client Client) error {
+func (me *Peer) loopReceiveMessage(peer *Peer, client Client) {
 	logger.Printf("me.loopReceiveMessage(%s, %s)", me.Address, client.RemoteAddr().String())
 	receive := make(chan *PeerMessage, 1024)
 	defer close(receive)
 	defer client.Close()
 
-	go me.loopHandlePeerMessage(peer.IdForNetwork, receive)
+	go func() {
+		defer client.Close()
+
+		for msg := range receive {
+			err := me.handlePeerMessage(peer.IdForNetwork, msg)
+			if err == nil {
+				continue
+			}
+			logger.Printf("me.handlePeerMessage(%s) => %v", peer.IdForNetwork, err)
+			return
+		}
+	}()
 
 	for !me.closing {
 		tm, err := client.Receive()
 		if err != nil {
-			return fmt.Errorf("client.Receive %s %v", peer.Address, err)
+			logger.Printf("client.Receive %s %v", peer.Address, err)
+			return
 		}
 		msg, err := parseNetworkMessage(tm.Version, tm.Data)
 		if err != nil {
-			return fmt.Errorf("parseNetworkMessage %s %v", peer.Address, err)
+			logger.Debugf("parseNetworkMessage %s %v", peer.Address, err)
+			return
 		}
 		me.receivedMetric.handle(msg.Type)
 
 		select {
 		case receive <- msg:
 		default:
-			return fmt.Errorf("peer receive timeout %s", peer.Address)
+			logger.Printf("peer receive timeout %s", peer.Address)
+			return
 		}
 	}
-	return nil
 }
 
 func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
