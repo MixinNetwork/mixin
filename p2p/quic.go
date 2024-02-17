@@ -24,8 +24,8 @@ import (
 const (
 	MaxIncomingStreams = 128
 	HandshakeTimeout   = 10 * time.Second
-	IdleTimeout        = 60 * time.Second
-	ReadDeadline       = 10 * time.Second
+	IdleTimeout        = 600 * time.Second
+	ReadDeadline       = 300 * time.Second
 	WriteDeadline      = 10 * time.Second
 )
 
