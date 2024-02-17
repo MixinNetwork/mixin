@@ -27,7 +27,7 @@ type Node struct {
 	isRelayer    bool
 
 	// FIXME deprecate these
-	LegacyAddr          string
+	LegacyPort          int
 	LegacyPeer          *network.Peer
 	LegacySyncPoints    *legacySyncMap
 	LegacySyncPointsMap map[crypto.Hash]*network.SyncPoint
@@ -80,7 +80,7 @@ func SetupNode(custom *config.Custom, store storage.Store, cache *ristretto.Cach
 	node := &Node{
 		SyncPoints:       &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*p2p.SyncPoint)},
 		LegacySyncPoints: &legacySyncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
-		LegacyAddr:       fmt.Sprintf(":%d", legacyPort),
+		LegacyPort:       legacyPort,
 		chains:           &chainsMap{m: make(map[crypto.Hash]*Chain)},
 		genesisNodesMap:  make(map[crypto.Hash]bool),
 		persistStore:     store,
@@ -419,7 +419,11 @@ func (node *Node) AuthenticateAs(recipientId crypto.Hash, msg []byte, timeoutSec
 }
 
 func (node *Node) PingNeighborsFromConfig() error {
-	node.LegacyPeer = network.NewPeer(node, node.IdForNetwork, node.LegacyAddr, true, true)
+	if node.LegacyPort < 1024 {
+		return nil
+	}
+	addr := fmt.Sprintf(":%d", node.LegacyPort)
+	node.LegacyPeer = network.NewPeer(node, node.IdForNetwork, addr, true, true)
 
 	for _, s := range node.custom.LegacyNetwork.Peers {
 		if s == node.custom.LegacyNetwork.Listener {
@@ -431,6 +435,9 @@ func (node *Node) PingNeighborsFromConfig() error {
 }
 
 func (node *Node) UpdateNeighbors(neighbors []string) error {
+	if node.LegacyPeer == nil {
+		return nil
+	}
 	for _, in := range neighbors {
 		if in == node.custom.LegacyNetwork.Listener {
 			continue
@@ -441,6 +448,9 @@ func (node *Node) UpdateNeighbors(neighbors []string) error {
 }
 
 func (node *Node) ListenNeighbors() {
+	if node.LegacyPeer == nil {
+		return
+	}
 	if node.custom.LegacyNetwork.Listener != "" {
 		err := node.LegacyPeer.ListenNeighbors()
 		if err != nil {
@@ -560,9 +570,11 @@ func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
 	if err != nil || tx == nil {
 		return err
 	}
-	err = node.LegacyPeer.SendTransactionMessage(peerId, tx)
-	if err != nil {
-		return err
+	if node.LegacyPeer != nil {
+		err = node.LegacyPeer.SendTransactionMessage(peerId, tx)
+		if err != nil {
+			return err
+		}
 	}
 	return node.Peer.SendTransactionMessage(peerId, tx)
 }
@@ -650,6 +662,9 @@ func (node *Node) CheckBroadcastedToP2PPeers() bool {
 }
 
 func (node *Node) CheckBroadcastedToLegacyPeers() bool {
+	if node.LegacyPeer == nil {
+		return false
+	}
 	spm := node.LegacySyncPointsMap
 	if len(spm) == 0 || node.chain.State == nil {
 		return false
@@ -726,6 +741,9 @@ func (node *Node) CheckCatchUpWithP2PPeers() bool {
 }
 
 func (node *Node) CheckCatchUpWithLegacyPeers() bool {
+	if node.LegacyPeer == nil {
+		return false
+	}
 	spm := node.LegacySyncPointsMap
 	if len(spm) == 0 || node.chain.State == nil {
 		return false
