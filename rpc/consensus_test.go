@@ -525,16 +525,13 @@ func testSendDummyTransactionsWithRetry(t *testing.T, nodes []*Node, domain comm
 	var missingInputs []*common.Input
 	var missingNodes []*Node
 	for i, in := range outputs {
-		data, _ := callRPC(nodes[i].Host, "gettransaction", []any{in.Hash.String()})
-		var res map[string]string
-		json.Unmarshal([]byte(data), &res)
-		hash, _ := crypto.HashFromString(res["snapshot"])
+		ver, snap, _ := GetTransaction("http://"+nodes[i].Host, in.Hash.String())
+		hash, _ := crypto.HashFromString(snap)
 		if hash.HasValue() {
 			continue
 		}
 		t.Logf("DUMMY UTXO %s PENDING IN %s AT %s\n", inputs[i].Hash, nodes[i].Host, time.Now())
-		hash, _ = crypto.HashFromString(res["hash"])
-		if !hash.HasValue() {
+		if ver == nil {
 			t.Logf("DUMMY UTXO %s MISSING IN %s AT %s\n", inputs[i].Hash, nodes[i].Host, time.Now())
 		}
 		missingInputs = append(missingInputs, inputs[i])
@@ -715,10 +712,9 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 	var missingTxs []*common.VersionedTransaction
 	for _, ver := range vers {
 		node := nodes[int(time.Now().UnixNano())%len(nodes)].Host
-		data, _ := callRPC(node, "gettransaction", []any{ver.PayloadHash().String()})
-		var res map[string]string
-		json.Unmarshal([]byte(data), &res)
-		hash, _ := crypto.HashFromString(res["snapshot"])
+		_, snap, err := GetTransaction("http://"+node, ver.PayloadHash().String())
+		require.Nil(err)
+		hash, _ := crypto.HashFromString(snap)
 		if hash.HasValue() {
 			continue
 		}
@@ -1127,60 +1123,12 @@ func testGetGraphInfo(node string) Info {
 	}
 }
 
-func testListMintDistributions(node string) []*common.Transaction {
-	data, err := callRPC(node, "listmintdistributions", []any{
-		0,
-		10,
-		false,
-	})
-
-	var mints []*struct {
-		Group       string `json:"group"`
-		Batch       int    `json:"batch"`
-		Amount      string `json:"amount"`
-		Transaction string `json:"transaction"`
-	}
-	err = json.Unmarshal(data, &mints)
+func testListMintDistributions(node string) []*common.VersionedTransaction {
+	vers, err := ListMintDistributions("http://"+node, 0, 10)
 	if err != nil {
 		panic(err)
 	}
-
-	txs := make([]*common.Transaction, len(mints))
-	for i, m := range mints {
-		data, err := callRPC(node, "gettransaction", []any{m.Transaction})
-		if err != nil {
-			panic(err)
-		}
-		var tx struct {
-			Inputs []*struct {
-				Mint *common.MintData `json:"mint"`
-			}
-			Outputs []*struct {
-				Type   uint8          `json:"type"`
-				Amount common.Integer `json:"amount"`
-				Keys   []*crypto.Key  `json:"keys"`
-				Script common.Script  `json:"script"`
-			}
-		}
-		err = json.Unmarshal(data, &tx)
-		if err != nil {
-			panic(err)
-		}
-		ctx := &common.Transaction{}
-		for _, in := range tx.Inputs {
-			ctx.Inputs = append(ctx.Inputs, &common.Input{Mint: in.Mint})
-		}
-		for _, out := range tx.Outputs {
-			ctx.Outputs = append(ctx.Outputs, &common.Output{
-				Type:   out.Type,
-				Amount: out.Amount,
-				Keys:   out.Keys,
-				Script: out.Script,
-			})
-		}
-		txs[i] = ctx
-	}
-	return txs
+	return vers
 }
 
 var httpClient *http.Client
