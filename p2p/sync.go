@@ -18,6 +18,8 @@ func (me *Peer) cacheReadSnapshotsSinceTopology(offset, limit uint64) ([]*common
 	return me.handle.ReadSnapshotsSinceTopology(offset, limit)
 }
 
+// FIXME this could result in a very small topology due to already removed node
+// and sync to neighbor since this offset will take substantial time
 func (me *Peer) compareRoundGraphAndGetTopologicalOffset(p *Peer, local, remote []*SyncPoint) (uint64, error) {
 	remoteFilter := make(map[crypto.Hash]*SyncPoint)
 	for _, p := range remote {
