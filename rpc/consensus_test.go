@@ -447,15 +447,11 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 	testSendTransactionsToNodesWithRetry(t, nodes, updates)
 
 	raw = hex.EncodeToString(signed.AsVersioned().Marshal())
-	id, err := testSendTransaction(enode.Host, raw)
+	hash, err := testSendTransaction(enode.Host, raw)
 	require.Nil(err)
-	require.Len(id, 75)
-	var res map[string]string
-	json.Unmarshal([]byte(id), &res)
-	hash, _ := crypto.HashFromString(res["hash"])
 	require.True(hash.HasValue())
 
-	data, err := callRPC(enode.Host, "listcustodianupdates", []any{})
+	data, err := callMixinRPC("http://"+enode.Host, "listcustodianupdates", []any{})
 	require.Nil(err)
 	var curs []*struct {
 		Custodian   string `json:"custodian"`
@@ -566,10 +562,7 @@ func testSendDummyTransactions(nodes []*Node, domain common.Address, inputs []*c
 			})
 			tx, _ := testSignTransaction(node.Host, domain, string(raw))
 			ver := common.VersionedTransaction{SignedTransaction: *tx}
-			id, _ := testSendTransaction(node.Host, hex.EncodeToString(ver.Marshal()))
-			var res map[string]string
-			json.Unmarshal([]byte(id), &res)
-			hash, _ := crypto.HashFromString(res["hash"])
+			hash, _ := testSendTransaction(node.Host, hex.EncodeToString(ver.Marshal()))
 			outputs[i] = &common.Input{Index: 0, Hash: hash}
 			wg.Done()
 		}(i, node)
@@ -702,7 +695,7 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 			node := nodes[int(time.Now().UnixNano())%len(nodes)].Host
 			id, err := testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
 			require.Nil(err)
-			require.Len(id, 75)
+			require.True(id.HasValue())
 			defer wg.Done()
 		}(ver)
 	}
@@ -727,11 +720,8 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 	testSendTransactionsToNodesWithRetry(t, nodes, missingTxs)
 }
 
-func testSendTransaction(node, raw string) (string, error) {
-	data, err := callRPC(node, "sendrawtransaction", []any{
-		raw,
-	})
-	return string(data), err
+func testSendTransaction(node, raw string) (crypto.Hash, error) {
+	return SendRawTransaction("http://"+node, raw)
 }
 
 func testGetNodeToRemove(networkId crypto.Hash, signers, payees []common.Address, seq int) (common.Address, common.Address) {
@@ -927,37 +917,14 @@ func testVerifyDeposits(require *require.Assertions, nodes []*Node, deposits []*
 	for _, dt := range deposits {
 		dd := dt.DepositData()
 		for _, n := range nodes {
-			b, err := callRPC(n.Host, "getdeposittransaction", []any{dd.Chain, dd.Transaction, dd.Index})
-			require.Nil(err)
-			var tx struct {
-				Hash   crypto.Hash `json:"hash"`
-				Inputs []*struct {
-					Deposit *struct {
-						Chain           crypto.Hash    `json:"chain"`
-						AssetKey        string         `json:"asset_key"`
-						TransactionHash string         `json:"transaction"`
-						OutputIndex     uint64         `json:"index"`
-						Amount          common.Integer `json:"amount"`
-					} `json:"deposit,omitempty"`
-				}
-				Outputs []*struct {
-					Type   uint8          `json:"type"`
-					Amount common.Integer `json:"amount"`
-					Keys   []*crypto.Key  `json:"keys"`
-					Script common.Script  `json:"script"`
-				}
-			}
-			err = json.Unmarshal(b, &tx)
-			if err != nil {
-				panic(err)
-			}
+			tx, _, _ := GetDepositTransaction("http://"+n.Host, dd.Chain.String(), dd.Transaction, dd.Index)
 			id := tx.Inputs[0].Deposit
 			require.Equal(dd.Amount, id.Amount)
 			require.Equal(dd.Chain, id.Chain)
 			require.Equal(dd.AssetKey, id.AssetKey)
-			require.Equal(dd.Transaction, id.TransactionHash)
-			require.Equal(dd.Index, id.OutputIndex)
-			require.Equal(tx.Hash, dt.PayloadHash())
+			require.Equal(dd.Transaction, id.Transaction)
+			require.Equal(dd.Index, id.Index)
+			require.Equal(tx.PayloadHash(), dt.PayloadHash())
 		}
 	}
 }
@@ -1004,7 +971,7 @@ func requireKeyEqual(require *require.Assertions, a, b map[string]*common.Snapsh
 }
 
 func testListSnapshots(node string) map[string]*common.Snapshot {
-	data, err := callRPC(node, "listsnapshots", []any{
+	data, err := callMixinRPC("http://"+node, "listsnapshots", []any{
 		0,
 		100000,
 		false,
@@ -1057,7 +1024,7 @@ type Node struct {
 }
 
 func testListNodes(node string) []*Node {
-	data, err := callRPC(node, "listallnodes", []any{time.Now().UnixNano() * 2, false})
+	data, err := callMixinRPC("http://"+node, "listallnodes", []any{time.Now().UnixNano() * 2, false})
 	if err != nil {
 		panic(err)
 	}
@@ -1076,7 +1043,7 @@ type HeadRound struct {
 }
 
 func testDumpGraphHead(node string, id crypto.Hash) *HeadRound {
-	data, err := callRPC(node, "dumpgraphhead", []any{})
+	data, err := callMixinRPC("http://"+node, "dumpgraphhead", []any{})
 	if err != nil {
 		panic(err)
 	}
@@ -1099,7 +1066,7 @@ type Info struct {
 }
 
 func testGetGraphInfo(node string) Info {
-	data, err := callRPC(node, "getinfo", []any{})
+	data, err := callMixinRPC("http://"+node, "getinfo", []any{})
 	if err != nil {
 		panic(err)
 	}
@@ -1129,48 +1096,6 @@ func testListMintDistributions(node string) []*common.VersionedTransaction {
 		panic(err)
 	}
 	return vers
-}
-
-var httpClient *http.Client
-
-func callRPC(node, method string, params []any) ([]byte, error) {
-	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 30 * time.Second}
-	}
-
-	body, err := json.Marshal(map[string]any{
-		"method": method,
-		"params": params,
-	})
-	if err != nil {
-		panic(err)
-	}
-	req, err := http.NewRequest("POST", "http://"+node, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-
-	req.Close = true
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result struct {
-		Data  any `json:"data"`
-		Error any `json:"error"`
-	}
-	err = json.NewDecoder(resp.Body).Decode(&result)
-	if err != nil {
-		return nil, err
-	}
-	if result.Error != nil {
-		return nil, fmt.Errorf("ERROR %s", result.Error)
-	}
-
-	return json.Marshal(result.Data)
 }
 
 type signerInput struct {
@@ -1211,12 +1136,7 @@ func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index uint) (*common.UTXOK
 		}
 	}
 
-	data, err := callRPC(raw.Node, "getutxo", []any{hash.String(), index})
-	if err != nil {
-		return nil, err
-	}
-	var out common.UTXOWithLock
-	err = json.Unmarshal(data, &out)
+	out, err := GetUTXO("http://"+raw.Node, hash.String(), uint64(index))
 	if err != nil {
 		return nil, err
 	}

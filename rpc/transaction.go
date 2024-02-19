@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/MixinNetwork/mixin/common"
+	"github.com/MixinNetwork/mixin/crypto"
 )
 
 func GetTransaction(rpc, hash string) (*common.VersionedTransaction, string, error) {
@@ -29,4 +30,21 @@ func GetTransaction(rpc, hash string) (*common.VersionedTransaction, string, err
 		return ver, "", nil
 	}
 	return ver, signed["snapshot"].(string), nil
+}
+
+func SendRawTransaction(rpc, raw string) (crypto.Hash, error) {
+	body, err := callMixinRPC(rpc, "sendrawtransaction", []any{raw})
+	if err != nil {
+		return crypto.Hash{}, err
+	}
+	var tx map[string]string
+	err = json.Unmarshal(body, &tx)
+	if err != nil {
+		panic(string(body))
+	}
+	hash, err := crypto.HashFromString(tx["hash"])
+	if err != nil || !hash.HasValue() {
+		panic(string(body))
+	}
+	return hash, nil
 }
