@@ -99,14 +99,8 @@ func (tx *SignedTransaction) GetExtraLimit() int {
 	if tx.Asset != XINAssetId {
 		return ExtraSizeGeneralLimit
 	}
-	if len(tx.Outputs) < 1 {
-		return ExtraSizeGeneralLimit
-	}
-	out := tx.Outputs[0]
-	if len(out.Keys) != 1 {
-		return ExtraSizeGeneralLimit
-	}
-	if out.Script.String() != "fffe40" {
+	out := tx.findStorageOutput()
+	if out == nil {
 		return ExtraSizeGeneralLimit
 	}
 	switch out.Type {
@@ -126,6 +120,25 @@ func (tx *SignedTransaction) GetExtraLimit() int {
 		return ExtraSizeStorageCapacity
 	}
 	return int(limit)
+}
+
+func (tx *SignedTransaction) findStorageOutput() *Output {
+	var so *Output
+	for _, out := range tx.Outputs {
+		if len(out.Keys) != 1 {
+			continue
+		}
+		if out.Script.String() != "fffe40" {
+			continue
+		}
+		if so == nil {
+			so = out
+		}
+		if out.Amount.Cmp(so.Amount) > 0 {
+			so = out
+		}
+	}
+	return so
 }
 
 func validateScriptTransaction(inputs map[string]*UTXO) error {
