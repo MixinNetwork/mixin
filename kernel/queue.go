@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"math/big"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -80,7 +81,8 @@ func (node *Node) loopCacheQueue() error {
 				stale = append(stale, hash)
 				continue
 			}
-			err = tx.Validate(node.persistStore, uint64(clock.Now().UnixNano()), false)
+			now := clock.Now()
+			err = tx.Validate(node.persistStore, uint64(now.UnixNano()), false)
 			if err != nil {
 				logger.Debugf("LoopCacheQueue Validate ERROR %s %s\n", hash, err)
 				// FIXME not mark invalid tx as stale is to ensure final graph sync
@@ -88,14 +90,18 @@ func (node *Node) loopCacheQueue() error {
 				continue
 			}
 
-			nbor := neighbors[int(clock.Now().UnixNano())%len(neighbors)]
+			hb := new(big.Int).SetBytes(hash[:])
+			mb := big.NewInt(now.Unix() / 60)
+			ib := new(big.Int).Add(hb, mb)
+			idx := new(big.Int).Mod(ib, big.NewInt(int64(len(neighbors))))
+			nbor := neighbors[idx.Int64()]
 			node.SendTransactionToPeer(nbor.IdForNetwork, hash)
 
 			s := &common.Snapshot{
 				Version: common.SnapshotVersionCommonEncoding,
 				NodeId:  node.IdForNetwork,
 			}
-			s.AddSoleTransaction(tx.PayloadHash())
+			s.AddSoleTransaction(hash)
 			node.chain.AppendSelfEmpty(s)
 		}
 		if err != nil {
