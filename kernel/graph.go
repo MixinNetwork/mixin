@@ -366,8 +366,10 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 	cids, publics := chain.ConsensusKeys(s.RoundNumber, timestamp)
 	base := chain.node.ConsensusThreshold(timestamp, true)
 	signers, finalized := chain.node.cacheVerifyCosi(s.Hash, s.Signature, cids, publics, base)
-	if finalized || chain.node.networkId.String() != config.KernelNetworkId ||
-		timestamp > mainnetConsensusNodeRemovalTimeForkAt {
+	if finalized {
+		// FIXME we have an issue in determining the removing node
+		//if finalized || chain.node.networkId.String() != config.KernelNetworkId ||
+		//timestamp > mainnetConsensusNodeRemovalTimeForkAt {
 		return signers, finalized
 	}
 
@@ -378,7 +380,10 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 	}
 	elapsed := hour + 1 - config.KernelNodeAcceptTimeBegin
 	timestamp = timestamp - elapsed*uint64(time.Hour)
-	cids, publics = chain.ConsensusKeys(s.RoundNumber, timestamp)
-	base = chain.node.ConsensusThreshold(timestamp, true)
-	return chain.node.cacheVerifyCosi(s.Hash, s.Signature, cids, publics, base)
+	acids, apublics := chain.ConsensusKeys(s.RoundNumber, timestamp)
+	if len(apublics) <= len(publics) {
+		return signers, finalized
+	}
+	abase := chain.node.ConsensusThreshold(timestamp, true)
+	return chain.node.cacheVerifyCosi(s.Hash, s.Signature, acids, apublics, abase)
 }
