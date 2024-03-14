@@ -57,6 +57,8 @@ func (node *Node) electSnapshotNode(operation byte, now uint64) crypto.Hash {
 	case common.TransactionTypeNodePledge:
 	case common.TransactionTypeCustodianUpdateNodes:
 	case common.TransactionTypeCustodianSlashNodes:
+	default:
+		return crypto.Hash{}
 	}
 	accepted := node.NodesListWithoutState(now, true)
 	if len(accepted) < config.KernelMinimumNodesCount {

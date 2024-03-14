@@ -90,12 +90,15 @@ func (node *Node) loopCacheQueue() error {
 				continue
 			}
 
-			hb := new(big.Int).SetBytes(hash[:])
-			mb := big.NewInt(now.Unix() / 60)
-			ib := new(big.Int).Add(hb, mb)
-			idx := new(big.Int).Mod(ib, big.NewInt(int64(len(neighbors))))
-			nbor := neighbors[idx.Int64()]
-			node.SendTransactionToPeer(nbor.IdForNetwork, hash)
+			nbor := node.electSnapshotNode(tx.TransactionType(), uint64(now.UnixNano()))
+			if !nbor.HasValue() {
+				hb := new(big.Int).SetBytes(hash[:])
+				mb := big.NewInt(now.Unix() / 60)
+				ib := new(big.Int).Add(hb, mb)
+				idx := new(big.Int).Mod(ib, big.NewInt(int64(len(neighbors))))
+				nbor = neighbors[idx.Int64()].IdForNetwork
+			}
+			node.SendTransactionToPeer(nbor, hash)
 
 			s := &common.Snapshot{
 				Version: common.SnapshotVersionCommonEncoding,
