@@ -17,39 +17,6 @@ value-log-gc = true
 # the max levels can not be decreased once up, so be cautious
 max-compaction-levels = 7
 
-[network]
-# this section is the old network configuration, should be deprecated
-listener = "mixin-node.example.com:7239"
-peers = [
-	"new-mixin-node0.exinpool.com:7239",
-	"new-mixin-node1.exinpool.com:7239",
-	"new-mixin-node2.exinpool.com:7239",
-	"new-mixin-node3.exinpool.com:7239",
-	"mixin-node-lehigh-1.hotot.org:7239",
-	"mixin-node-lehigh-2.hotot.org:7239",
-	"mixin-node-42.f1ex.io:7239",
-	"mixin-node-fes.f1ex.io:7239",
-	"mixin-node-box-1.b.watch:7239",
-	"mixin-node-box-2.b.watch:7239",
-	"mixin-node-box-3.b.watch:7239",
-	"mixin-node-box-4.b.watch:7239",
-	"mixin-node-okashi.mixin.fan:7239",
-	"mixin-node1.b1.run:7239",
-	"mixin-node2.b1.run:7239",
-	"mixin-node3.b1.run:7239",
-	"mixin-node4.b1.run:7239",
-	"mixin-node6.b1.run:7239",
-	"mixin-node7.b1.run:7239",
-	"mixin-node8b.b1.run:7239",
-	"34.42.197.136:7239",
-	"13.51.72.77:7239",
-	"3.227.254.217:7239",
-	"44.197.199.140:7239",
-	"16.170.250.120:7239",
-	"13.51.169.35:7239",
-	"43.206.154.20:7239"
-]
-
 [p2p]
 # the UDP port for communcation with other nodes
 port = 5850

@@ -15,7 +15,6 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/MixinNetwork/mixin/network"
 	"github.com/MixinNetwork/mixin/p2p"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/dgraph-io/ristretto"
@@ -25,12 +24,6 @@ type Node struct {
 	IdForNetwork crypto.Hash
 	Signer       common.Address
 	isRelayer    bool
-
-	// FIXME deprecate these
-	LegacyPort          int
-	LegacyPeer          *network.Peer
-	LegacySyncPoints    *legacySyncMap
-	LegacySyncPointsMap map[crypto.Hash]*network.SyncPoint
 
 	Peer          *p2p.Peer
 	TopoCounter   *TopologicalSequence
@@ -76,21 +69,19 @@ type CNode struct {
 	ConsensusIndex int
 }
 
-func SetupNode(custom *config.Custom, store storage.Store, cache *ristretto.Cache, gns *common.Genesis, legacyPort int) (*Node, error) {
+func SetupNode(custom *config.Custom, store storage.Store, cache *ristretto.Cache, gns *common.Genesis) (*Node, error) {
 	node := &Node{
-		SyncPoints:       &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*p2p.SyncPoint)},
-		LegacySyncPoints: &legacySyncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*network.SyncPoint)},
-		LegacyPort:       legacyPort,
-		chains:           &chainsMap{m: make(map[crypto.Hash]*Chain)},
-		genesisNodesMap:  make(map[crypto.Hash]bool),
-		persistStore:     store,
-		cacheStore:       cache,
-		custom:           custom,
-		startAt:          clock.Now(),
-		done:             make(chan struct{}),
-		elc:              make(chan struct{}),
-		mlc:              make(chan struct{}),
-		cqc:              make(chan struct{}),
+		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*p2p.SyncPoint)},
+		chains:          &chainsMap{m: make(map[crypto.Hash]*Chain)},
+		genesisNodesMap: make(map[crypto.Hash]bool),
+		persistStore:    store,
+		cacheStore:      cache,
+		custom:          custom,
+		startAt:         clock.Now(),
+		done:            make(chan struct{}),
+		elc:             make(chan struct{}),
+		mlc:             make(chan struct{}),
+		cqc:             make(chan struct{}),
 	}
 
 	node.loadNodeConfig()
@@ -418,47 +409,6 @@ func (node *Node) AuthenticateAs(recipientId crypto.Hash, msg []byte, timeoutSec
 	return token, nil
 }
 
-func (node *Node) PingNeighborsFromConfig() error {
-	if node.LegacyPort < 1024 {
-		return nil
-	}
-	addr := fmt.Sprintf(":%d", node.LegacyPort)
-	node.LegacyPeer = network.NewPeer(node, node.IdForNetwork, addr, true, true)
-
-	for _, s := range node.custom.LegacyNetwork.Peers {
-		if s == node.custom.LegacyNetwork.Listener {
-			continue
-		}
-		node.LegacyPeer.PingNeighbor(s)
-	}
-	return nil
-}
-
-func (node *Node) UpdateNeighbors(neighbors []string) error {
-	if node.LegacyPeer == nil {
-		return nil
-	}
-	for _, in := range neighbors {
-		if in == node.custom.LegacyNetwork.Listener {
-			continue
-		}
-		node.LegacyPeer.PingNeighbor(in)
-	}
-	return nil
-}
-
-func (node *Node) ListenNeighbors() {
-	if node.LegacyPeer == nil {
-		return
-	}
-	if node.custom.LegacyNetwork.Listener != "" {
-		err := node.LegacyPeer.ListenNeighbors()
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
 func (node *Node) NetworkId() crypto.Hash {
 	return node.networkId
 }
@@ -469,29 +419,6 @@ func (node *Node) Uptime() time.Duration {
 
 func (node *Node) GetCacheStore() *ristretto.Cache {
 	return node.cacheStore
-}
-
-func (node *Node) BuildLegacyGraph() []*network.SyncPoint {
-	node.chains.RLock()
-	defer node.chains.RUnlock()
-
-	points := make([]*network.SyncPoint, 0)
-	for _, chain := range node.chains.m {
-		if chain.State == nil {
-			continue
-		}
-		f := chain.State.FinalRound
-		points = append(points, &network.SyncPoint{
-			NodeId: chain.ChainId,
-			Hash:   f.Hash,
-			Number: f.Number,
-			Pool: map[string]int{
-				"index": chain.FinalIndex,
-				"count": chain.FinalCount,
-			},
-		})
-	}
-	return points
 }
 
 func (node *Node) SignData(data []byte) crypto.Signature {
@@ -520,16 +447,6 @@ func (node *Node) BuildGraph() []*p2p.SyncPoint {
 		})
 	}
 	return points
-}
-
-func (node *Node) BuildLegacyAuthenticationMessage() []byte {
-	data := make([]byte, 8)
-	binary.BigEndian.PutUint64(data, uint64(clock.Now().Unix()))
-	data = append(data, node.Signer.PublicSpendKey[:]...)
-	dh := crypto.Blake3Hash(data)
-	sig := node.Signer.PrivateSpendKey.Sign(dh)
-	data = append(data, sig[:]...)
-	return append(data, []byte(node.custom.LegacyNetwork.Listener)...)
 }
 
 func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
@@ -569,12 +486,6 @@ func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
 	tx, _, err := node.checkTxInStorage(hash)
 	if err != nil || tx == nil {
 		return err
-	}
-	if node.LegacyPeer != nil {
-		err = node.LegacyPeer.SendTransactionMessage(peerId, tx)
-		if err != nil {
-			return err
-		}
 	}
 	return node.Peer.SendTransactionMessage(peerId, tx)
 }
@@ -627,45 +538,8 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*p2p.SyncPoint, d
 	return nil
 }
 
-func (node *Node) UpdateLegacySyncPoint(peerId crypto.Hash, points []*network.SyncPoint) {
-	for _, p := range points {
-		if p.NodeId == node.IdForNetwork {
-			node.LegacySyncPoints.Set(peerId, p)
-		}
-	}
-	node.LegacySyncPointsMap = node.LegacySyncPoints.Map()
-}
-
 func (node *Node) CheckBroadcastedToPeers() bool {
-	return node.CheckBroadcastedToP2PPeers() || node.CheckBroadcastedToLegacyPeers()
-}
-
-func (node *Node) CheckBroadcastedToP2PPeers() bool {
 	spm := node.SyncPointsMap
-	if len(spm) == 0 || node.chain.State == nil {
-		return false
-	}
-
-	final, count := node.chain.State.FinalRound.Number, 1
-	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()), false)
-	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
-	for _, cn := range nodes {
-		remote := spm[cn.IdForNetwork]
-		if remote == nil {
-			continue
-		}
-		if remote.Number+1 >= final {
-			count += 1
-		}
-	}
-	return count >= threshold
-}
-
-func (node *Node) CheckBroadcastedToLegacyPeers() bool {
-	if node.LegacyPeer == nil {
-		return false
-	}
-	spm := node.LegacySyncPointsMap
 	if len(spm) == 0 || node.chain.State == nil {
 		return false
 	}
@@ -686,65 +560,7 @@ func (node *Node) CheckBroadcastedToLegacyPeers() bool {
 }
 
 func (node *Node) CheckCatchUpWithPeers() bool {
-	return node.CheckCatchUpWithP2PPeers() || node.CheckCatchUpWithLegacyPeers()
-}
-
-func (node *Node) CheckCatchUpWithP2PPeers() bool {
 	spm := node.SyncPointsMap
-	if len(spm) == 0 || node.chain.State == nil {
-		return false
-	}
-
-	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()), false)
-	cache, updated := node.chain.State.CacheRound, 1
-	final := node.chain.State.FinalRound.Number
-
-	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
-	for _, cn := range nodes {
-		remote := spm[cn.IdForNetwork]
-		if remote == nil {
-			continue
-		}
-		updated = updated + 1
-		if remote.Number <= final {
-			continue
-		}
-		if remote.Number > final+1 {
-			logger.Verbosef("CheckCatchUpWithPeers local(%d)+1 < remote(%s:%d)\n", final, cn.IdForNetwork, remote.Number)
-			return false
-		}
-		if cache == nil {
-			logger.Verbosef("CheckCatchUpWithPeers local cache nil\n")
-			return false
-		}
-		cf := cache.asFinal()
-		if cf == nil {
-			logger.Verbosef("CheckCatchUpWithPeers local cache empty\n")
-			return false
-		}
-		if cf.Hash != remote.Hash {
-			logger.Verbosef("CheckCatchUpWithPeers local(%s) != remote(%s)\n",
-				cf.Hash, remote.Hash)
-			return false
-		}
-		if now := uint64(clock.Now().UnixNano()); cf.Start+config.SnapshotRoundGap*100 > now {
-			logger.Verbosef("CheckCatchUpWithPeers local start(%d)+%d > now(%d)\n",
-				cf.Start, config.SnapshotRoundGap*100, now)
-			return false
-		}
-	}
-
-	if updated < threshold {
-		logger.Verbosef("CheckCatchUpWithPeers updated(%d) < threshold(%d)\n", updated, threshold)
-	}
-	return updated >= threshold
-}
-
-func (node *Node) CheckCatchUpWithLegacyPeers() bool {
-	if node.LegacyPeer == nil {
-		return false
-	}
-	spm := node.LegacySyncPointsMap
 	if len(spm) == 0 || node.chain.State == nil {
 		return false
 	}
@@ -822,28 +638,6 @@ func (s *syncMap) Map() map[crypto.Hash]*p2p.SyncPoint {
 	defer s.mutex.RUnlock()
 
 	m := make(map[crypto.Hash]*p2p.SyncPoint)
-	for k, p := range s.m {
-		m[k] = p
-	}
-	return m
-}
-
-type legacySyncMap struct {
-	mutex *sync.RWMutex
-	m     map[crypto.Hash]*network.SyncPoint
-}
-
-func (s *legacySyncMap) Set(k crypto.Hash, p *network.SyncPoint) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.m[k] = p
-}
-
-func (s *legacySyncMap) Map() map[crypto.Hash]*network.SyncPoint {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	m := make(map[crypto.Hash]*network.SyncPoint)
 	for k, p := range s.m {
 		m[k] = p
 	}

@@ -49,10 +49,6 @@ type Custom struct {
 		ValueLogGC          bool `toml:"value-log-gc"`
 		MaxCompactionLevels int  `toml:"max-compaction-levels"`
 	} `toml:"storage"`
-	LegacyNetwork struct {
-		Listener string   `toml:"listener"`
-		Peers    []string `toml:"peers"`
-	} `toml:"network"`
 	P2P struct {
 		Port    int      `toml:"port"`
 		Seeds   []string `toml:"seeds"`

@@ -120,7 +120,7 @@ func setupTestNode(require *require.Assertions, dir string) *Node {
 	store, err := storage.NewBadgerStore(custom, dir)
 	require.Nil(err)
 	require.NotNil(store)
-	node, err := SetupNode(custom, store, cache, gns, 7239)
+	node, err := SetupNode(custom, store, cache, gns)
 	require.Nil(err)
 	require.Equal(mainnetId, node.networkId.String())
 	return node

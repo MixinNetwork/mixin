@@ -91,9 +91,6 @@ func (chain *Chain) cosiHook(m *CosiAction) (bool, error) {
 	}
 	logger.Debugf("cosiHook finalized snapshot without transaction %s %s %s\n",
 		m.PeerId, m.SnapshotHash, m.Snapshot.SoleTransaction())
-	if chain.node.LegacyPeer != nil {
-		chain.node.LegacyPeer.SendTransactionRequestMessage(m.PeerId, m.Snapshot.SoleTransaction())
-	}
 	chain.node.Peer.SendTransactionRequestMessage(m.PeerId, m.Snapshot.SoleTransaction())
 	return m.finalized, nil
 }
@@ -398,9 +395,6 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		}
 		commitment := chain.cosiPopCommitment(peerId)
 		if commitment == nil {
-			if chain.node.LegacyPeer != nil {
-				chain.node.LegacyPeer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R)
-			}
 			err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R, chain.node.Signer.PrivateSpendKey)
 			if err != nil {
 				logger.Verbosef("cosiSendAnnouncement SendSnapshotAnnouncementMessage(%s, %s) ERROR %v\n",
@@ -433,9 +427,6 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	v := &CosiVerifier{Snapshot: s, Commitment: m.Commitment, random: r}
 	chain.CosiVerifiers[s.Hash] = v
 	chain.CosiVerifiers[s.SoleTransaction()] = v
-	if chain.node.LegacyPeer != nil {
-		chain.node.LegacyPeer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, r.Public(), cd.TX == nil)
-	}
 	err = chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, r.Public(), cd.TX == nil)
 	if err != nil {
 		logger.Verbosef("cosiHandleAnnouncement SendSnapshotCommitmentMessage(%s, %s) ERROR %v\n",
@@ -490,23 +481,13 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
 		if ann.FullChallenges[id] {
-			if chain.node.LegacyPeer != nil {
-				chain.node.LegacyPeer.SendFullChallengeMessage(id, s, ann.Commitments[cd.CN.ConsensusIndex],
-					ann.Commitments[cn.ConsensusIndex], cd.TX)
-			}
 			err = chain.node.Peer.SendFullChallengeMessage(id, s, ann.Commitments[cd.CN.ConsensusIndex],
 				ann.Commitments[cn.ConsensusIndex], cd.TX)
 		} else if wantTx, found := ann.WantTxs[id]; !found {
 			continue
 		} else if wantTx {
-			if chain.node.LegacyPeer != nil {
-				chain.node.LegacyPeer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, cd.TX)
-			}
 			err = chain.node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, cd.TX)
 		} else {
-			if chain.node.LegacyPeer != nil {
-				chain.node.LegacyPeer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, nil)
-			}
 			err = chain.node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, nil)
 		}
 		if err != nil {
@@ -629,9 +610,6 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 		logger.Verbosef("cosiHandleChallenge %v Response ERROR %s\n", m, err)
 		return err
 	}
-	if chain.node.LegacyPeer != nil {
-		chain.node.LegacyPeer.SendSnapshotResponseMessage(m.PeerId, m.SnapshotHash, response)
-	}
 	err = chain.node.Peer.SendSnapshotResponseMessage(m.PeerId, m.SnapshotHash, response)
 	if err != nil {
 		logger.Verbosef("cosiHandleChallenge SendSnapshotResponseMessage(%s, %s) ERROR %v\n",
@@ -713,9 +691,6 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 				logger.Verbosef("cosiHandleResponse SendTransactionToPeer(%s, %s) ERROR %v\n",
 					id, m.SnapshotHash, err)
 			}
-		}
-		if chain.node.LegacyPeer != nil {
-			chain.node.LegacyPeer.SendSnapshotFinalizationMessage(id, s)
 		}
 		err := chain.node.Peer.SendSnapshotFinalizationMessage(id, s)
 		if err != nil {
@@ -913,9 +888,6 @@ func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) err
 		chain.CosiRandoms[r.Public()] = r
 	}
 	chain.ComitmentsSentTime = clock.Now()
-	if chain.node.LegacyPeer != nil {
-		chain.node.LegacyPeer.SendCommitmentsMessage(peerId, commitments)
-	}
 	return chain.node.Peer.SendCommitmentsMessage(peerId, commitments)
 }
 
@@ -929,23 +901,6 @@ func (node *Node) CosiQueueExternalCommitments(peerId crypto.Hash, commitments [
 	}
 	if !peer.Signer.PublicSpendKey.Verify(crypto.Blake3Hash(data), *sig) {
 		logger.Printf("CosiQueueExternalCommitments(%s) invalid sigature\n", peerId)
-		return nil
-	}
-
-	m := &CosiAction{
-		PeerId:      peerId,
-		Action:      CosiActionExternalCommitments,
-		Commitments: commitments,
-	}
-	node.chain.AppendCosiAction(m)
-	return nil
-}
-
-func (node *Node) CosiQueueExternalCommitmentsLegacy(peerId crypto.Hash, commitments []*crypto.Key) error {
-	logger.Debugf("CosiQueueExternalCommitments(%s, %d)\n", peerId, len(commitments))
-	if node.GetAcceptedOrPledgingNode(peerId) == nil {
-		logger.Verbosef("CosiQueueExternalCommitments(%s, %d) from malicious node\n",
-			peerId, len(commitments))
 		return nil
 	}
 
@@ -984,26 +939,6 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 	return nil
 }
 
-func (node *Node) CosiQueueExternalAnnouncementLegacy(peerId crypto.Hash, s *common.Snapshot, commitment *crypto.Key) error {
-	logger.Debugf("CosiQueueExternalAnnouncement(%s, %v)\n", peerId, s)
-	if node.GetAcceptedOrPledgingNode(peerId) == nil {
-		logger.Verbosef("CosiQueueExternalAnnouncement(%s, %v) from malicious node\n", peerId, s)
-		return nil
-	}
-	chain := node.getOrCreateChain(s.NodeId)
-
-	s.Hash = s.PayloadHash()
-	m := &CosiAction{
-		PeerId:       peerId,
-		Action:       CosiActionExternalAnnouncement,
-		Snapshot:     s,
-		Commitment:   commitment,
-		SnapshotHash: s.Hash,
-	}
-	chain.AppendCosiAction(m)
-	return nil
-}
-
 func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool, data []byte, sig *crypto.Signature) error {
 	logger.Debugf("CosiAggregateSelfCommitments(%s, %s)\n", peerId, snap)
 	peer := node.GetAcceptedOrPledgingNode(peerId)
@@ -1013,24 +948,6 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 	}
 	if !peer.Signer.PublicSpendKey.Verify(crypto.Blake3Hash(data), *sig) {
 		logger.Printf("CosiAggregateSelfCommitments(%s, %s) invalid sigature\n", peerId, snap)
-		return nil
-	}
-
-	m := &CosiAction{
-		PeerId:       peerId,
-		Action:       CosiActionSelfCommitment,
-		SnapshotHash: snap,
-		Commitment:   commitment,
-		WantTx:       wantTx,
-	}
-	node.chain.AppendCosiAction(m)
-	return nil
-}
-
-func (node *Node) CosiAggregateSelfCommitmentsLegacy(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTx bool) error {
-	logger.Debugf("CosiAggregateSelfCommitments(%s, %s)\n", peerId, snap)
-	if node.GetAcceptedOrPledgingNode(peerId) == nil {
-		logger.Verbosef("CosiAggregateSelfCommitments(%s, %s) from malicious node\n", peerId, snap)
 		return nil
 	}
 
@@ -1108,10 +1025,6 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 	s.Hash = s.PayloadHash()
 	logger.Debugf("VerifyAndQueueAppendSnapshotFinalization(%s, %s)\n", peerId, s.Hash)
 
-	if node.LegacyPeer != nil {
-		node.LegacyPeer.ConfirmSnapshotForPeer(peerId, s.Hash)
-		node.LegacyPeer.SendSnapshotConfirmMessage(peerId, s.Hash)
-	}
 	node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
 	err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)
 	if err != nil {
@@ -1126,9 +1039,6 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 	} else if tx == nil {
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) SendTransactionRequestMessage %s\n",
 			peerId, s.Hash, s.SoleTransaction())
-		if node.LegacyPeer != nil {
-			node.LegacyPeer.SendTransactionRequestMessage(peerId, s.SoleTransaction())
-		}
 		node.Peer.SendTransactionRequestMessage(peerId, s.SoleTransaction())
 	} else if finalized == s.Hash.String() {
 		return nil

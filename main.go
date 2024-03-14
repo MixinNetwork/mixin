@@ -54,12 +54,6 @@ func main() {
 					Usage:   "the data directory",
 				},
 				&cli.IntFlag{
-					Name:    "port",
-					Aliases: []string{"p"},
-					Value:   7239,
-					Usage:   "the peer port to listen",
-				},
-				&cli.IntFlag{
 					Name:    "log",
 					Aliases: []string{"l"},
 					Value:   logger.INFO,
@@ -684,7 +678,7 @@ func kernelCmd(c *cli.Context) error {
 	}
 	defer store.Close()
 
-	node, err := kernel.SetupNode(custom, store, cache, gns, c.Int("port"))
+	node, err := kernel.SetupNode(custom, store, cache, gns)
 	if err != nil {
 		return err
 	}

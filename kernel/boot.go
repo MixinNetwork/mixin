@@ -11,11 +11,6 @@ func (node *Node) Loop() error {
 	if err != nil {
 		return err
 	}
-	err = node.PingNeighborsFromConfig()
-	if err != nil {
-		return err
-	}
-	go node.ListenNeighbors()
 
 	go node.listenConsumers()
 	go node.sendGraphToConcensusNodes()
@@ -35,9 +30,6 @@ func (node *Node) Teardown() {
 		c.Teardown()
 	}
 	node.chains.RUnlock()
-	if node.LegacyPeer != nil {
-		node.LegacyPeer.Teardown()
-	}
 	node.Peer.Teardown()
 	node.persistStore.Close()
 	node.cacheStore.Clear()
