@@ -22,7 +22,8 @@ max-compaction-levels = 7
 port = 5850
 # the seed relayer nodes list
 seeds = [
-	"06ff8589d5d8b40dd90a8120fa65b273d136ba4896e46ad20d76e53a9b73fd9f@seed.mixin.dev:5850"
+	"06ff8589d5d8b40dd90a8120fa65b273d136ba4896e46ad20d76e53a9b73fd9f@seed.mixin.dev:5850",
+	"38047dc7632a7bcdef6a2dfab925de3a74bdde05a58f4623a3195a09d37c78fc@seed-mixin-node.exinpool.com:5850"
 ]
 # a relayer needs a public address to listen and relay messages to other nodes
 # a signer should set this value to false for security
