@@ -54,6 +54,12 @@ func main() {
 					Usage:   "the data directory",
 				},
 				&cli.IntFlag{
+					Name:    "port",
+					Aliases: []string{"p"},
+					Value:   123,
+					Usage:   "the peer port to listen",
+				},
+				&cli.IntFlag{
 					Name:    "log",
 					Aliases: []string{"l"},
 					Value:   logger.INFO,
