@@ -5,7 +5,7 @@ filippo.io/edwards25519/field
 # github.com/cespare/xxhash/v2 v2.2.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/cpuguy83/go-md2man/v2 v2.0.3
+# github.com/cpuguy83/go-md2man/v2 v2.0.4
 ## explicit; go 1.11
 github.com/cpuguy83/go-md2man/v2/md2man
 # github.com/davecgh/go-spew v1.1.1
@@ -49,7 +49,7 @@ github.com/golang/snappy
 # github.com/google/flatbuffers v24.3.7+incompatible
 ## explicit
 github.com/google/flatbuffers/go
-# github.com/google/pprof v0.0.0-20240227163752-401108e1b7e7
+# github.com/google/pprof v0.0.0-20240320155624-b11c3daa6f07
 ## explicit; go 1.19
 github.com/google/pprof/profile
 # github.com/klauspost/compress v1.17.7
@@ -64,7 +64,7 @@ github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/klauspost/cpuid/v2 v2.2.7
 ## explicit; go 1.15
 github.com/klauspost/cpuid/v2
-# github.com/onsi/ginkgo/v2 v2.16.0
+# github.com/onsi/ginkgo/v2 v2.17.0
 ## explicit; go 1.20
 github.com/onsi/ginkgo/v2/config
 github.com/onsi/ginkgo/v2/formatter
@@ -91,7 +91,7 @@ github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
-# github.com/quic-go/quic-go v0.41.0
+# github.com/quic-go/quic-go v0.42.0
 ## explicit; go 1.21
 github.com/quic-go/quic-go
 github.com/quic-go/quic-go/internal/ackhandler
@@ -121,8 +121,8 @@ github.com/stretchr/testify/require
 # github.com/urfave/cli/v2 v2.27.1
 ## explicit; go 1.18
 github.com/urfave/cli/v2
-# github.com/xrash/smetrics v0.0.0-20231213231151-1d8dd44e695e
-## explicit
+# github.com/xrash/smetrics v0.0.0-20240312152122-5f08fbb34913
+## explicit; go 1.15.0
 github.com/xrash/smetrics
 # github.com/zeebo/blake3 v0.2.3
 ## explicit; go 1.13
@@ -149,7 +149,7 @@ golang.org/x/crypto/hkdf
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
 golang.org/x/crypto/sha3
-# golang.org/x/exp v0.0.0-20240222234643-814bf88cf225
+# golang.org/x/exp v0.0.0-20240318143956-a85f2c67cd81
 ## explicit; go 1.20
 golang.org/x/exp/rand
 # golang.org/x/mod v0.16.0

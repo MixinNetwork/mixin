@@ -21,7 +21,7 @@ func TestConfig(t *testing.T) {
 	require.Equal(7, custom.Storage.MaxCompactionLevels)
 
 	require.Equal(false, custom.P2P.Relayer)
-	require.Len(custom.P2P.Seeds, 2)
+	require.Len(custom.P2P.Seeds, 4)
 	require.Equal("06ff8589d5d8b40dd90a8120fa65b273d136ba4896e46ad20d76e53a9b73fd9f@seed.mixin.dev:5850", custom.P2P.Seeds[0])
 	require.Equal(false, custom.RPC.Runtime)
 }
