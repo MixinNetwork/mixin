@@ -18,6 +18,9 @@ var (
 	PandoUSDAssetId     = crypto.Sha256Hash([]byte("31d2ea9c-95eb-3355-b65b-ba096853bc18"))
 	USDCAssetId         = crypto.Sha256Hash([]byte("9b180ab6-6abe-3dc0-a13f-04169eb34bfa"))
 	EOSAssetId          = crypto.Sha256Hash([]byte("6cfe566e-4aad-470b-8c9a-2fd35b49c68d"))
+	SOLAssetId          = crypto.Sha256Hash([]byte("64692c23-8971-4cf4-84a7-4dd1271dd887"))
+	UNIAssetId          = crypto.Sha256Hash([]byte("a31e847e-ca87-3162-b4d1-322bc552e831"))
+	DOGEAssetId         = crypto.Sha256Hash([]byte("6770a1e5-6086-44d5-b60f-545f9d9e8ffd"))
 
 	XINAsset = &Asset{Chain: EthereumAssetId, AssetKey: "0xa974c709cfb4566686553a20790685a47aceaa33"}
 )
@@ -48,7 +51,7 @@ func GetAssetCapacity(id crypto.Hash) Integer {
 	case BOXAssetId:
 		return NewIntegerFromString("200000000")
 	case MOBAssetId:
-		return NewIntegerFromString("40000000")
+		return NewIntegerFromString("50000000")
 	case USDTEthereumAssetId:
 		return NewIntegerFromString("10000000")
 	case USDTTronAssetId:
@@ -58,7 +61,13 @@ func GetAssetCapacity(id crypto.Hash) Integer {
 	case USDCAssetId:
 		return NewIntegerFromString("1000000")
 	case EOSAssetId:
-		return NewIntegerFromString("5000000")
+		return NewIntegerFromString("3000000")
+	case SOLAssetId:
+		return NewIntegerFromString("70000")
+	case UNIAssetId:
+		return NewIntegerFromString("1000000")
+	case DOGEAssetId:
+		return NewIntegerFromString("20000000")
 	default: // TODO more assets and better default value
 		return NewIntegerFromString("115792089237316195423570985008687907853269984665640564039457.58400791")
 	}
