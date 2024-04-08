@@ -65,7 +65,7 @@ If no checksum included, then anyone can include any content in the inscription 
 
 ```golang
 type Inscription struct {
-  // operation must be inscribe
+	// operation must be inscribe
 	Operation string `json:"operation"`
 
 	// Recipient can only be MIX address, not ghost keys, because
@@ -81,15 +81,19 @@ type Inscription struct {
 }
 ```
 
-After the inscription is successful, and according to the rule of the collection mode. Someone needs to distribute a UTXO to the recipient per inscription, optionally with a UTXO for treasury, and the distribution transaction must reference the inscription transaction and include the following JSON extra.
+## Distribute
+
+According to the rule of the collection mode, a distributor needs to distribute a UTXO to the recipient per inscription, optionally with a UTXO for treasury.
+
+The distribution transaction must reference the inscription transaction and include the following JSON extra.
 
 ```golang
 type Distribution struct {
-  // operation must be distribute
-  Operation string `json:"distribute"`
+	// operation must be distribute
+	Operation string `json:"distribute"`
 
-  // sequence must monoticially increase from 0
-  Sequence uint64 `json:"sequence"`
+	// sequence must monoticially increase from 0
+	Sequence uint64 `json:"sequence"`
 }
 ```
 
@@ -103,14 +107,16 @@ For an NFT inscription, the owner will release the NFT if they split or combine 
 
 ## Occupy
 
-Whoever receives a transaction with the exact unit amount of inscription tokens and the following extra will occupy the vacant or released NFT. The occupation transaction must reference the NFT initial inscription transaction hash.
+Whoever receives a transaction with the exact unit amount of inscription tokens and the following extra will occupy the vacant or released NFT.
+
+The occupation transaction must reference the NFT initial inscription transaction hash.
 
 ```golang
 type Occupation struct {
-  // operation must be occupy
+	// operation must be occupy
 	Operation string `json:"operation"`
 
 	// the integer sequence number of the NFT inscription
-	Sequence  uint64 `json:"sequence"`
+	Sequence uint64 `json:"sequence"`
 }
 ```
