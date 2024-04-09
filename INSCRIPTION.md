@@ -46,8 +46,8 @@ type Deployment struct {
 	// at the same time  as defined by the mode
 	//
 	// For MAO, the ratio will be 0.9, and each collectible will only cost
-	// 10% of the unit tokens, so only the inscribers have NFTs, but not the
-	// the treasury tokens, however they can combine to NFT when vacant.
+	// 10% of the unit tokens, so only the inscribers have NFTs, but not
+	// the treasury tokens, however they can occupy a vacant NFT.
 	Treasury *struct {
 		Ratio     string `json:"ratio"`
 		Recipient string `json:"recipient"`
@@ -107,9 +107,9 @@ For an NFT inscription, the owner will release the NFT if they split or combine 
 
 ## Occupy
 
-Whoever receives a transaction with the exact unit amount of inscription tokens and the following extra will occupy the vacant or released NFT.
+Whoever receives a transaction with the exact unit amount of inscription tokens at the first UTXO will occupy the vacant NFT.
 
-The occupation transaction must reference the NFT initial inscription transaction hash.
+The occupancy transaction must reference the NFT initial inscription transaction hash and include the following JSON extra.
 
 ```golang
 type Occupation struct {

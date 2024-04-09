@@ -56,8 +56,9 @@ type Custom struct {
 		Metric  bool     `toml:"metric"`
 	} `toml:"p2p"`
 	RPC struct {
-		Port    int  `toml:"port"`
-		Runtime bool `toml:"runtime"`
+		Port         int  `toml:"port"`
+		Runtime      bool `toml:"runtime"`
+		ObjectServer bool `toml:"object-server"`
 	} `toml:"rpc"`
 	Dev struct {
 		Port int `toml:"port"`

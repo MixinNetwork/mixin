@@ -38,6 +38,8 @@ metric = false
 port = 6860
 # whether respond the runtime of each RPC call
 runtime = false
+# enable the object server
+object-server = false
 
 [dev]
 # enable the pprof web server with a valid TCP port number

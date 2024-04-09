@@ -82,6 +82,10 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		impl.renderInfo(rdr)
 		return
 	}
+	if strings.HasPrefix(r.URL.Path, "/objects/") && impl.custom.RPC.ObjectServer {
+		impl.handleObject(w, r, rdr)
+		return
+	}
 	if r.URL.Path != "/" || r.Method != "POST" {
 		rdr.RenderError(fmt.Errorf("bad request %s %s", r.Method, r.URL.Path))
 		return
