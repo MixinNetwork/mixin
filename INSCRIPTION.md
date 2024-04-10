@@ -29,17 +29,20 @@ type Deployment struct {
 	Supply string `json:"supply"`
 
 	// the token symbol and name are required and must be valid UTF8
-	Symbol string `json:"symbol"`
-	Name   string `json:"name"`
+	Symbol      string `json:"symbol"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
 
 	// the icon must be in valid data URI scheme
 	// e.g. image/webp;base64,IVVB===
 	Icon string `json:"icon"`
 
-	// only needed if the deployer wants to limit the NFT contents of all
-	// inscriptions, base64 of all NFT blake3 checksums, and all checksums
-	// must be different from each other
-	Checksum string `json:"checksum,omitempty"`
+	// only needed if the deployer wants to limit the contents of inscriptions
+	// there are only two validation rules supported:
+	// CHECKSUM: base64 of all NFT blake3 checksums, and all checksums
+	// must be different from each other.
+	// REGEX: a valid regex for text only content
+	Validation string `json:"validation,omitempty"`
 
 	// ratio of each inscribed tokens will be kept in treasury
 	// the treasury tokens will be distributed to the recipient MIX address
