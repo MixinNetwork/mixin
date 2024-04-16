@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"unicode/utf8"
 
@@ -54,32 +53,30 @@ func (impl *RPC) handleObject(w http.ResponseWriter, r *http.Request, rdr *Rende
 }
 
 func parseDataURI(v string) ([]byte, string) {
+	const scheme = "data:"
+	if !strings.HasPrefix(v, scheme) {
+		return []byte(v), "text/plain"
+	}
 	ds := strings.Split(v, ",")
 	if len(ds) != 2 {
 		return []byte(v), "text/plain"
 	}
-	s := tryURLQueryUnescape(ds[1])
+	ds[0] = ds[0][len(scheme):]
 
 	ms := strings.Split(ds[0], ";")
 	if len(ms) < 2 {
-		return []byte(s), "text/plain"
+		return []byte(ds[1]), "text/plain"
 	}
-	if ms[len(ms)-1] == "base64" {
-		b, _ := base64.StdEncoding.DecodeString(s)
-		s = string(b)
-	}
-	if ms[0] == "" || !utf8.ValidString(ms[0]) {
-		return []byte(s), decideContentType([]byte(s))
-	}
-	return []byte(s), ms[0]
-}
 
-func tryURLQueryUnescape(v string) string {
-	s, err := url.QueryUnescape(v)
-	if err != nil {
-		return v
+	mime, data := ms[0], ds[1]
+	if ms[len(ms)-1] == "base64" {
+		b, _ := base64.StdEncoding.DecodeString(data)
+		data = string(b)
 	}
-	return s
+	if mime == "" || !utf8.ValidString(mime) {
+		mime = decideContentType([]byte(data))
+	}
+	return []byte(data), mime
 }
 
 func decideContentType(extra []byte) string {
