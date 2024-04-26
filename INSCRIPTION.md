@@ -15,6 +15,9 @@ type Deployment struct {
 	// the version must be 1
 	Version uint8 `json:"version"`
 
+	// operation must be deploy
+	Operation string `json:"operation"`
+
 	// 1 distribute tokens per inscription
 	// 2 distribute tokens after inscription progress done
 	Mode uint8 `json:"mode"`
