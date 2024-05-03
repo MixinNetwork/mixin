@@ -110,6 +110,20 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 	for !me.closing && !p.closing {
 		graph, offset := me.getSyncPointOffset(p)
 		logger.Verbosef("network.sync syncToNeighborLoop getSyncPointOffset %s %d %v\n", p.IdForNetwork, offset, graph != nil)
+		if graph == nil {
+			time.Sleep(time.Duration(config.SnapshotRoundGap))
+			continue
+		}
+
+		points := me.handle.BuildGraph()
+		nodes := me.handle.ReadAllNodesWithoutState()
+		local := make(map[crypto.Hash]*SyncPoint)
+		for _, n := range points {
+			local[n.NodeId] = n
+		}
+		for _, n := range nodes {
+			me.syncHeadRoundToRemote(local, graph, p, n)
+		}
 
 		for !me.closing && !p.closing && offset > 0 {
 			off, err := me.syncToNeighborSince(graph, p, offset)
@@ -118,18 +132,6 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 				break
 			}
 			offset = off
-		}
-
-		if graph != nil {
-			points := me.handle.BuildGraph()
-			nodes := me.handle.ReadAllNodesWithoutState()
-			local := make(map[crypto.Hash]*SyncPoint)
-			for _, n := range points {
-				local[n.NodeId] = n
-			}
-			for _, n := range nodes {
-				me.syncHeadRoundToRemote(local, graph, p, n)
-			}
 		}
 	}
 }
