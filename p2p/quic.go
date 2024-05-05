@@ -159,9 +159,9 @@ func (c *QuicClient) Send(data []byte) error {
 	return err
 }
 
-func (c *QuicClient) Close() error {
+func (c *QuicClient) Close(code string) error {
 	c.stream.Close()
-	return c.session.CloseWithError(0, "DONE")
+	return c.session.CloseWithError(0, code)
 }
 
 func generateTLSConfig() *tls.Config {

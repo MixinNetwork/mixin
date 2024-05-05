@@ -81,7 +81,7 @@ func (me *Peer) connectRelayer(relayer *Peer) error {
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer client.Close("connectRelayer")
 	defer relayer.disconnect()
 
 	auth := me.handle.BuildAuthenticationMessage(relayer.IdForNetwork)
@@ -211,7 +211,7 @@ func (me *Peer) ListenConsumers() error {
 			continue
 		}
 		go func(c Client) {
-			defer c.Close()
+			defer c.Close("authenticateNeighbor")
 
 			peer, err := me.authenticateNeighbor(c)
 			logger.Printf("me.authenticateNeighbor(%s, %s) => %v %v", me.Address, c.RemoteAddr().String(), peer, err)
@@ -237,7 +237,7 @@ func (me *Peer) ListenConsumers() error {
 
 func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 	defer close(p.ops)
-	defer consumer.Close()
+	defer consumer.Close("loopSendingStream")
 
 	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
 	defer graphTicker.Stop()
@@ -306,10 +306,10 @@ func (me *Peer) loopReceiveMessage(peer *Peer, client Client) {
 	logger.Printf("me.loopReceiveMessage(%s, %s)", me.Address, client.RemoteAddr().String())
 	receive := make(chan *PeerMessage, 1024)
 	defer close(receive)
-	defer client.Close()
+	defer client.Close("loopReceiveMessage")
 
 	go func() {
-		defer client.Close()
+		defer client.Close("handlePeerMessage")
 
 		for msg := range receive {
 			err := me.handlePeerMessage(peer.IdForNetwork, msg)
