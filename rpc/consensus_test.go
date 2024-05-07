@@ -107,7 +107,8 @@ func testConsensus(t *testing.T, withRelayers bool) {
 	require.Equal(transactionsCount, len(tl))
 	require.Equal(transactionsCount, len(sl))
 	gt := testVerifyInfo(require, nodes)
-	require.Truef(gt.Timestamp.Before(epoch.Add(1*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(1*time.Second))
+	gts := epoch.Add(time.Second)
+	require.Truef(gt.Timestamp.Before(gts), "%s should before %s", gt.Timestamp, gts)
 
 	genesisAmount := (13439 + 3.5) / float64(INPUTS)
 	domainAddress := accounts[0].String()
@@ -129,7 +130,8 @@ func testConsensus(t *testing.T, withRelayers bool) {
 	testVerifyDeposits(require, nodes, deposits)
 
 	gt = testVerifyInfo(require, nodes)
-	require.Truef(gt.Timestamp.Before(epoch.Add(20*time.Second)), "%s should before %s", gt.Timestamp, epoch.Add(20*time.Second))
+	gts = epoch.Add(20 * time.Second)
+	require.Truef(gt.Timestamp.Before(gts), "%s should before %s", gt.Timestamp, gts)
 	hr := testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.GreaterOrEqual(hr.Round, uint64(0))
@@ -157,7 +159,8 @@ func testConsensus(t *testing.T, withRelayers bool) {
 	require.Equal(transactionsCount, len(tl))
 
 	gt = testVerifyInfo(require, nodes)
-	require.True(gt.Timestamp.Before(epoch.Add(31 * time.Second)))
+	gts = epoch.Add(31 * time.Second)
+	require.Truef(gt.Timestamp.Before(gts), "%s should before %s", gt.Timestamp, gts)
 	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))

@@ -215,6 +215,17 @@ func (node *Node) PledgingNode(timestamp uint64) *CNode {
 	return nil
 }
 
+func (node *Node) ListWorkingAcceptedNodes(timestamp uint64) []*CNode {
+	nodes := node.NodesListWithoutState(timestamp, true)
+	if len(nodes) == 0 {
+		return nodes
+	}
+	if node.GetRemovingOrSlashingNode(nodes[0].IdForNetwork) != nil {
+		return nodes[1:]
+	}
+	return nodes
+}
+
 func (node *Node) GetAcceptedOrPledgingNode(id crypto.Hash) *CNode {
 	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), false)
 	for _, cn := range nodes {

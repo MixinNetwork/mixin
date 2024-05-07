@@ -59,8 +59,8 @@ func (node *Node) loopCacheQueue() error {
 			continue
 		}
 
-		neighbors := node.Peer.Neighbors()
-		if len(neighbors) <= 0 {
+		working := node.ListWorkingAcceptedNodes(uint64(clock.Now().UnixNano()))
+		if len(working) <= 0 {
 			continue
 		}
 		var stale []crypto.Hash
@@ -93,19 +93,22 @@ func (node *Node) loopCacheQueue() error {
 			nbor := node.electSnapshotNode(tx.TransactionType(), uint64(now.UnixNano()))
 			if !nbor.HasValue() {
 				hb := new(big.Int).SetBytes(hash[:])
-				mb := big.NewInt(now.Unix() / 60)
+				mb := big.NewInt(now.UnixNano() / int64(time.Minute))
 				ib := new(big.Int).Add(hb, mb)
-				idx := new(big.Int).Mod(ib, big.NewInt(int64(len(neighbors))))
-				nbor = neighbors[idx.Int64()].IdForNetwork
+				idx := new(big.Int).Mod(ib, big.NewInt(int64(len(working))))
+				nbor = working[idx.Int64()].IdForNetwork
 			}
-			node.SendTransactionToPeer(nbor, hash)
-
-			s := &common.Snapshot{
-				Version: common.SnapshotVersionCommonEncoding,
-				NodeId:  node.IdForNetwork,
+			if nbor != node.IdForNetwork {
+				err := node.SendTransactionToPeer(nbor, hash)
+				logger.Debugf("queue.SendTransactionToPeer(%s, %s) => %v", hash, nbor, err)
+			} else {
+				s := &common.Snapshot{
+					Version: common.SnapshotVersionCommonEncoding,
+					NodeId:  node.IdForNetwork,
+				}
+				s.AddSoleTransaction(hash)
+				node.chain.AppendSelfEmpty(s)
 			}
-			s.AddSoleTransaction(hash)
-			node.chain.AppendSelfEmpty(s)
 		}
 		if err != nil {
 			logger.Printf("LoopCacheQueue CacheRetrieveTransactions ERROR %s\n", err)
