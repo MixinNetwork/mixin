@@ -31,7 +31,9 @@ github.com/dgraph-io/ristretto/z/simd
 github.com/dustin/go-humanize
 # github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572
 ## explicit; go 1.13
-github.com/go-task/slim-sprig
+# github.com/go-task/slim-sprig/v3 v3.0.0
+## explicit; go 1.20
+github.com/go-task/slim-sprig/v3
 # github.com/gogo/protobuf v1.3.2
 ## explicit; go 1.15
 github.com/gogo/protobuf/proto
@@ -49,7 +51,7 @@ github.com/golang/snappy
 # github.com/google/flatbuffers v24.3.25+incompatible
 ## explicit
 github.com/google/flatbuffers/go
-# github.com/google/pprof v0.0.0-20240424215950-a892ee059fd6
+# github.com/google/pprof v0.0.0-20240507183855-6f11f98ebb1c
 ## explicit; go 1.19
 github.com/google/pprof/profile
 # github.com/klauspost/compress v1.17.8
@@ -64,7 +66,7 @@ github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/klauspost/cpuid/v2 v2.2.7
 ## explicit; go 1.15
 github.com/klauspost/cpuid/v2
-# github.com/onsi/ginkgo/v2 v2.17.1
+# github.com/onsi/ginkgo/v2 v2.17.3
 ## explicit; go 1.20
 github.com/onsi/ginkgo/v2/config
 github.com/onsi/ginkgo/v2/formatter
@@ -91,7 +93,7 @@ github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
-# github.com/quic-go/quic-go v0.42.0
+# github.com/quic-go/quic-go v0.43.1
 ## explicit; go 1.21
 github.com/quic-go/quic-go
 github.com/quic-go/quic-go/internal/ackhandler
@@ -118,7 +120,7 @@ github.com/shopspring/decimal
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-# github.com/urfave/cli/v2 v2.27.1
+# github.com/urfave/cli/v2 v2.27.2
 ## explicit; go 1.18
 github.com/urfave/cli/v2
 # github.com/xrash/smetrics v0.0.0-20240312152122-5f08fbb34913
@@ -140,7 +142,7 @@ github.com/zeebo/blake3/internal/utils
 ## explicit; go 1.20
 go.uber.org/mock/mockgen
 go.uber.org/mock/mockgen/model
-# golang.org/x/crypto v0.22.0
+# golang.org/x/crypto v0.23.0
 ## explicit; go 1.18
 golang.org/x/crypto/blake2b
 golang.org/x/crypto/chacha20
@@ -149,7 +151,7 @@ golang.org/x/crypto/hkdf
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
 golang.org/x/crypto/sha3
-# golang.org/x/exp v0.0.0-20240416160154-fe59bbe5cc7f
+# golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
 ## explicit; go 1.20
 golang.org/x/exp/rand
 # golang.org/x/mod v0.17.0
@@ -158,7 +160,7 @@ golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/modfile
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.24.0
+# golang.org/x/net v0.25.0
 ## explicit; go 1.18
 golang.org/x/net/bpf
 golang.org/x/net/internal/iana
@@ -167,12 +169,12 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 golang.org/x/net/trace
-# golang.org/x/sys v0.19.0
+# golang.org/x/sys v0.20.0
 ## explicit; go 1.18
 golang.org/x/sys/cpu
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/tools v0.20.0
+# golang.org/x/tools v0.21.0
 ## explicit; go 1.19
 golang.org/x/tools/cover
 golang.org/x/tools/go/ast/astutil
@@ -182,12 +184,11 @@ golang.org/x/tools/internal/event
 golang.org/x/tools/internal/event/core
 golang.org/x/tools/internal/event/keys
 golang.org/x/tools/internal/event/label
-golang.org/x/tools/internal/event/tag
 golang.org/x/tools/internal/gocommand
 golang.org/x/tools/internal/gopathwalk
 golang.org/x/tools/internal/imports
 golang.org/x/tools/internal/stdlib
-# google.golang.org/protobuf v1.33.0
+# google.golang.org/protobuf v1.34.1
 ## explicit; go 1.17
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
@@ -195,6 +196,7 @@ google.golang.org/protobuf/internal/descfmt
 google.golang.org/protobuf/internal/descopts
 google.golang.org/protobuf/internal/detrand
 google.golang.org/protobuf/internal/editiondefaults
+google.golang.org/protobuf/internal/editionssupport
 google.golang.org/protobuf/internal/encoding/defval
 google.golang.org/protobuf/internal/encoding/messageset
 google.golang.org/protobuf/internal/encoding/tag
