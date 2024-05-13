@@ -880,19 +880,26 @@ func setupTestNetCmd(c *cli.Context) error {
 		return err
 	}
 	fmt.Println(string(genesisData))
+	var gns common.Genesis
+	err = json.Unmarshal(genesisData, &gns)
+	if err != nil {
+		return err
+	}
 
 	peers := make([]string, len(signers))
-	for i := range signers {
-		peers[i] = fmt.Sprintf("127.0.0.1:700%d", i+1)
+	for i, s := range signers {
+		id := s.Hash().ForNetwork(gns.NetworkId())
+		peers[i] = fmt.Sprintf("%s@127.0.0.1:585%d", id, i+1)
 	}
-	peersList := `"` + strings.Join(peers, `","`) + `"`
+	seedsList := `"` + strings.Join(peers, `","`) + `"`
 	fmt.Println(peers)
+	fmt.Printf("network: \t%s\n", gns.NetworkId())
 	fmt.Printf("custodian:\t%s\n", custodian.String())
 	fmt.Printf("view key:\t%s\n", custodian.PrivateViewKey.String())
 	fmt.Printf("spend key:\t%s\n", custodian.PrivateSpendKey.String())
 
 	for i, a := range signers {
-		dir := fmt.Sprintf("/tmp/mixin-700%d", i+1)
+		dir := fmt.Sprintf("/tmp/mixin-686%d", i+1)
 		err := os.MkdirAll(dir, 0755)
 		if err != nil {
 			return err
@@ -901,13 +908,20 @@ func setupTestNetCmd(c *cli.Context) error {
 		var configData = []byte(fmt.Sprintf(`
 [node]
 signer-key = "%s"
-consensus-only = true
-memory-cache-size = 128
-cache-ttl = 3600
-[network]
-listener = "%s"
-peers = [%s]
-`, a.PrivateSpendKey.String(), peers[i], peersList))
+kernel-operation-period = 700
+memory-cache-size = 64
+cache-ttl = 180
+[storage]
+value-log-gc = true
+max-compaction-levels = 7
+[p2p]
+port = 585%d
+relayer = true
+seeds = [%s]
+[rpc]
+port = 686%d
+object-server = true
+`, a.PrivateSpendKey.String(), i+1, seedsList, i+1))
 
 		err = os.WriteFile(dir+"/config.toml", configData, 0644)
 		if err != nil {
