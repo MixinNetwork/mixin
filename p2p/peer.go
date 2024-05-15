@@ -363,7 +363,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 		}
 		me.receivedMetric.handle(PeerMessageTypeAuthentication)
 
-		token, err := me.handle.AuthenticateAs(me.IdForNetwork, msg.Data, 5)
+		token, err := me.handle.AuthenticateAs(me.IdForNetwork, msg.Data, int64(HandshakeTimeout/time.Second))
 		if err != nil {
 			auth <- err
 			return

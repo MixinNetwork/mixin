@@ -24,10 +24,10 @@ import (
 
 const (
 	MaxIncomingStreams = 128
-	HandshakeTimeout   = 10 * time.Second
+	HandshakeTimeout   = 30 * time.Second
 	IdleTimeout        = 600 * time.Second
 	ReadDeadline       = 300 * time.Second
-	WriteDeadline      = 10 * time.Second
+	WriteDeadline      = 30 * time.Second
 )
 
 type QuicClient struct {

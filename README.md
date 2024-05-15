@@ -180,8 +180,8 @@ address:    XINBpBaDKtcu5SBuuqE1pwMrdeFvyCwFChdjLS23ewKdoLbURL4iJYCXLvsXP1nVbB3C
 view key:   be25d97ba8eb80336998facfb033f71713f9c1cabdc417478f831c749fcd9001
 spend key:  5189b286e5717ea36435a29dfb1aaddebad5e216b05e8b4de59693dfb9fe1f06
 
-$ mixin signcustodiandeposit -receiver XINBpBaDKtcu5SBuuqE1pwMrdeFvyCwFChdjLS23ewKdoLbURL4iJYCXLvsXP1nVbB3CGRbWg6UgVH8AWVgjSgmenMsrgpRY \
-      -custodian CUSODIANPRIVATEVIEWPRIVATESPEND \
+$ mixin signcustodiandeposit -custodian CUSODIANPRIVATEVIEWPRIVATESPEND \
+      -receiver XINBpBaDKtcu5SBuuqE1pwMrdeFvyCwFChdjLS23ewKdoLbURL4iJYCXLvsXP1nVbB3CGRbWg6UgVH8AWVgjSgmenMsrgpRY \
       -asset a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc \
       -chain 8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27 \
       -asset_key 0xa974c709cfb4566686553a20790685a47aceaa33 \

@@ -460,39 +460,6 @@ func (node *Node) BuildGraph() []*p2p.SyncPoint {
 	return points
 }
 
-func (node *Node) Authenticate(msg []byte) (crypto.Hash, string, error) {
-	if len(msg) < 8+len(crypto.Hash{})+len(crypto.Signature{}) {
-		return crypto.Hash{}, "", fmt.Errorf("peer authentication message malformated %d", len(msg))
-	}
-	ts := binary.BigEndian.Uint64(msg[:8])
-	if clock.Now().Unix()-int64(ts) > 3 {
-		return crypto.Hash{}, "", fmt.Errorf("peer authentication message timeout %d %d", ts, clock.Now().Unix())
-	}
-
-	var signer common.Address
-	copy(signer.PublicSpendKey[:], msg[8:40])
-	signer.PublicViewKey = signer.PublicSpendKey.DeterministicHashDerive().Public()
-	peerId := signer.Hash().ForNetwork(node.networkId)
-	if peerId == node.IdForNetwork {
-		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
-	}
-	peer := node.GetAcceptedOrPledgingNode(peerId)
-
-	if peer != nil && peer.Signer.Hash() != signer.Hash() {
-		return crypto.Hash{}, "", fmt.Errorf("peer authentication invalid consensus peer %s", peerId)
-	}
-
-	var sig crypto.Signature
-	copy(sig[:], msg[40:40+len(sig)])
-	mh := crypto.Blake3Hash(msg[:40])
-	if !signer.PublicSpendKey.Verify(mh, sig) {
-		return crypto.Hash{}, "", fmt.Errorf("peer authentication message signature invalid %s", peerId)
-	}
-
-	listener := string(msg[40+len(sig):])
-	return peerId, listener, nil
-}
-
 func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
 	tx, _, err := node.checkTxInStorage(hash)
 	if err != nil || tx == nil {
