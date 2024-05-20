@@ -23,11 +23,11 @@ import (
 // net.core.wmem_max=8388608
 
 const (
-	MaxIncomingStreams = 128
-	HandshakeTimeout   = 30 * time.Second
-	IdleTimeout        = 600 * time.Second
-	ReadDeadline       = 300 * time.Second
-	WriteDeadline      = 30 * time.Second
+	MaxIncomingStreams = 1024
+	HandshakeTimeout   = 10 * time.Second
+	IdleTimeout        = 60 * time.Second
+	ReadDeadline       = 60 * time.Second
+	WriteDeadline      = 10 * time.Second
 )
 
 type QuicClient struct {

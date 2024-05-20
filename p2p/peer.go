@@ -291,7 +291,7 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 			}
 			err := consumer.Send(m.data)
 			if err != nil {
-				return m, fmt.Errorf("consumer.Send(%s) => %v", p.Address, err)
+				return m, fmt.Errorf("consumer.Send(%s, %d) => %v", p.Address, len(m.data), err)
 			}
 			if m.key != nil {
 				me.snapshotsCaches.store(m.key, time.Now())
