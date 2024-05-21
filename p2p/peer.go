@@ -198,7 +198,7 @@ func (me *Peer) ListenConsumers() error {
 					continue
 				}
 				key := crypto.Blake3Hash(append(msg, p.IdForNetwork[:]...))
-				me.sendHighToPeer(p.IdForNetwork, PeerMessageTypeConsumers, key[:], msg)
+				me.sendToPeer(p.IdForNetwork, PeerMessageTypeConsumers, key[:], msg, MsgPriorityNormal)
 			}
 
 			<-ticker.C
