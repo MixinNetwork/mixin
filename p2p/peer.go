@@ -256,7 +256,7 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 			msgs = append(msgs, msg)
 		}
 
-		for len(msgs) < 16 {
+		for len(msgs) < 32 {
 			item, err := p.normalRing.Poll(false)
 			if err != nil {
 				return nil, err
@@ -271,14 +271,11 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 		}
 
 		if len(msgs) == 0 {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(time.Second)
 			continue
 		}
 
 		for _, m := range msgs {
-			if me.snapshotsCaches.contains(m.key, time.Minute) {
-				continue
-			}
 			err := consumer.Send(m.data)
 			if err != nil {
 				return m, fmt.Errorf("consumer.Send(%s, %d) => %v", p.Address, len(m.data), err)
