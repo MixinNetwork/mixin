@@ -489,14 +489,22 @@ func (node *Node) ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round
 	return node.persistStore.ReadSnapshotsForNodeRound(nodeIdWithNetwork, round)
 }
 
-func (node *Node) sendGraphToConcensusNodes() {
-	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
+func (node *Node) sendGraphToConcensusNodesAndPeers() {
+	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap))
 	defer graphTicker.Stop()
 
 	for {
 		nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
+		neighbors := node.Peer.Neighbors()
+		peers := make(map[crypto.Hash]bool)
 		for _, cn := range nodes {
-			node.Peer.SendGraphMessage(cn.IdForNetwork)
+			peers[cn.IdForNetwork] = true
+		}
+		for _, p := range neighbors {
+			peers[p.IdForNetwork] = true
+		}
+		for id := range peers {
+			node.Peer.SendGraphMessage(id)
 		}
 		<-graphTicker.C
 	}

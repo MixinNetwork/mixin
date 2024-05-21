@@ -133,14 +133,15 @@ func (me *Peer) Metric() map[string]*MetricPool {
 }
 
 func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, isRelayer bool) *Peer {
+	ringSize := uint64(MaxIncomingStreams * 16)
 	peer := &Peer{
 		IdForNetwork:    idForNetwork,
 		Address:         addr,
 		relayers:        &neighborMap{m: make(map[crypto.Hash]*Peer)},
 		consumers:       &neighborMap{m: make(map[crypto.Hash]*Peer)},
-		highRing:        util.NewRingBuffer(1024),
-		normalRing:      util.NewRingBuffer(1024),
-		syncRing:        util.NewRingBuffer(1024),
+		highRing:        util.NewRingBuffer(ringSize),
+		normalRing:      util.NewRingBuffer(ringSize),
+		syncRing:        util.NewRingBuffer(ringSize),
 		handle:          handle,
 		sentMetric:      &MetricPool{enabled: false},
 		receivedMetric:  &MetricPool{enabled: false},
@@ -286,7 +287,7 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 		}
 
 		for _, m := range msgs {
-			if m.key != nil && me.snapshotsCaches.contains(m.key, time.Minute) {
+			if me.snapshotsCaches.contains(m.key, time.Minute) {
 				continue
 			}
 			err := consumer.Send(m.data)
@@ -460,6 +461,9 @@ type confirmMap struct {
 }
 
 func (m *confirmMap) contains(key []byte, duration time.Duration) bool {
+	if key == nil {
+		return false
+	}
 	val, found := m.cache.Get(key)
 	if found {
 		ts := time.Unix(0, int64(binary.BigEndian.Uint64(val.([]byte))))

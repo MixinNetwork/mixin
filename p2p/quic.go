@@ -26,8 +26,8 @@ const (
 	MaxIncomingStreams = 1024
 	HandshakeTimeout   = 10 * time.Second
 	IdleTimeout        = 60 * time.Second
-	ReadDeadline       = 60 * time.Second
 	WriteDeadline      = 10 * time.Second
+	ReadDeadline       = 2 * WriteDeadline
 )
 
 type QuicClient struct {
@@ -46,7 +46,7 @@ func NewQuicRelayer(listenAddr string) (*QuicRelayer, error) {
 		MaxIncomingStreams:   MaxIncomingStreams,
 		HandshakeIdleTimeout: HandshakeTimeout,
 		MaxIdleTimeout:       IdleTimeout,
-		KeepAlivePeriod:      IdleTimeout / 2,
+		KeepAlivePeriod:      0,
 	})
 	if err != nil {
 		return nil, err

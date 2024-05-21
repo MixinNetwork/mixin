@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	PeerMessageTypePing               = 1
+	PeerMessageTypePing               = 1 // not used because too more than enough graph sync messages
 	PeerMessageTypeAuthentication     = 3
 	PeerMessageTypeGraph              = 4
 	PeerMessageTypeSnapshotConfirm    = 5
