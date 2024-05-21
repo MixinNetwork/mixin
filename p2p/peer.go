@@ -240,19 +240,8 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 	defer close(p.ops)
 	defer consumer.Close("loopSendingStream")
 
-	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
-	defer graphTicker.Stop()
-
 	for !me.closing && !p.closing {
 		msgs := []*ChanMsg{}
-		select {
-		case <-graphTicker.C:
-			me.sentMetric.handle(PeerMessageTypeGraph)
-			msg := buildGraphMessage(me.handle)
-			msgs = append(msgs, &ChanMsg{nil, msg})
-		default:
-		}
-
 		for len(msgs) < 16 {
 			item, err := p.highRing.Poll(false)
 			if err != nil {
