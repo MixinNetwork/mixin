@@ -490,7 +490,7 @@ func (node *Node) ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round
 }
 
 func (node *Node) sendGraphToConcensusNodesAndPeers() {
-	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap))
+	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
 	defer graphTicker.Stop()
 
 	for {

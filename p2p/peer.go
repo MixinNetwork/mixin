@@ -245,7 +245,7 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 		for len(msgs) < 16 {
 			item, err := p.highRing.Poll(false)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("peer.highRing(%s) => %v", p.IdForNetwork, err)
 			} else if item == nil {
 				break
 			}
@@ -259,7 +259,7 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 		for len(msgs) < 32 {
 			item, err := p.normalRing.Poll(false)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("peer.normalRing(%s) => %v", p.IdForNetwork, err)
 			} else if item == nil {
 				break
 			}
@@ -271,7 +271,7 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 		}
 
 		if len(msgs) == 0 {
-			time.Sleep(time.Second)
+			time.Sleep(300 * time.Millisecond)
 			continue
 		}
 
@@ -431,7 +431,7 @@ func (me *Peer) sendToPeer(to crypto.Hash, typ byte, key, data []byte, priority 
 		if success {
 			break
 		}
-		return fmt.Errorf("peer.offer(%s, %s) => %d timeout", peer.Address, peer.IdForNetwork, priority)
+		logger.Printf("peer.offer(%s, %s) => %d timeout", peer.Address, peer.IdForNetwork, priority)
 	}
 	return nil
 }
