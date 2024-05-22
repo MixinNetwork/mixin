@@ -448,24 +448,17 @@ func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage
 	if me.relayer == nil {
 		return nil
 	}
-	data := append([]byte{PeerMessageTypeRelay}, msg.Data...)
 	peer := me.consumers.Get(to)
 	if peer == nil {
 		peer = me.relayers.Get(to)
 	}
-	if peer != nil {
-		rk := crypto.Blake3Hash(append(msg.Data, to[:]...))
-		rk = crypto.Blake3Hash(append(rk[:], relayerId[:]...))
-		success, _ := peer.offer(MsgPriorityNormal, &ChanMsg{rk[:], data})
-		if !success {
-			return fmt.Errorf("peer.offer(%s) consumer timeout", peer.IdForNetwork)
-		}
-		return nil
+	if peer == nil {
+		peer = me.remoteRelayers.Get(to)
 	}
-	peer = me.remoteRelayers.Get(to)
 	if peer == nil || peer.IdForNetwork == relayerId {
 		return nil
 	}
+	data := append([]byte{PeerMessageTypeRelay}, msg.Data...)
 	rk := crypto.Blake3Hash(append(msg.Data, to[:]...))
 	rk = crypto.Blake3Hash(append(rk[:], relayerId[:]...))
 	success, _ := peer.offer(MsgPriorityNormal, &ChanMsg{rk[:], data})
