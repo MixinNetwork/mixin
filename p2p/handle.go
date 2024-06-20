@@ -461,7 +461,7 @@ func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage
 	data := append([]byte{PeerMessageTypeRelay}, msg.Data...)
 	rk := crypto.Blake3Hash(append(msg.Data, to[:]...))
 	rk = crypto.Blake3Hash(append(rk[:], relayerId[:]...))
-	success, _ := peer.offer(MsgPriorityNormal, &ChanMsg{rk[:], data})
+	success := me.offerWithCacheCheck(peer, MsgPriorityNormal, &ChanMsg{rk[:], data})
 	if !success {
 		return fmt.Errorf("peer.offer(%s) relayer timeout", peer.IdForNetwork)
 	}

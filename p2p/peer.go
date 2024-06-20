@@ -133,7 +133,10 @@ func (me *Peer) Metric() map[string]*MetricPool {
 }
 
 func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, isRelayer bool) *Peer {
-	ringSize := uint64(MaxIncomingStreams * 16)
+	ringSize := uint64(1024)
+	if isRelayer {
+		ringSize = ringSize * MaxIncomingStreams
+	}
 	peer := &Peer{
 		IdForNetwork:    idForNetwork,
 		Address:         addr,
@@ -368,7 +371,7 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			return nil, err
 		}
 	case <-time.After(3 * time.Second):
-		return nil, fmt.Errorf("timeout")
+		return nil, fmt.Errorf("authenticate timeout")
 	}
 	return peer, nil
 }
@@ -377,12 +380,24 @@ func (me *Peer) sendHighToPeer(to crypto.Hash, typ byte, key, data []byte) error
 	return me.sendToPeer(to, typ, key, data, MsgPriorityHigh)
 }
 
-func (p *Peer) offer(priority int, msg *ChanMsg) (bool, error) {
+func (me *Peer) offerWithCacheCheck(p *Peer, priority int, msg *ChanMsg) bool {
+	if p.IdForNetwork == me.IdForNetwork {
+		return true
+	}
+	if me.snapshotsCaches.contains(msg.key, time.Minute) {
+		return true
+	}
+	return p.offer(priority, msg)
+}
+
+func (p *Peer) offer(priority int, msg *ChanMsg) bool {
 	switch priority {
 	case MsgPriorityNormal:
-		return p.normalRing.Offer(msg)
+		s, err := p.normalRing.Offer(msg)
+		return s && err == nil
 	case MsgPriorityHigh:
-		return p.highRing.Offer(msg)
+		s, err := p.highRing.Offer(msg)
+		return s && err == nil
 	}
 	panic(priority)
 }
@@ -401,7 +416,7 @@ func (me *Peer) sendToPeer(to crypto.Hash, typ byte, key, data []byte, priority 
 		peer = me.relayers.Get(to)
 	}
 	if peer != nil {
-		success, _ := peer.offer(priority, &ChanMsg{key, data})
+		success := peer.offer(priority, &ChanMsg{key, data})
 		if !success {
 			return fmt.Errorf("peer send %d timeout", priority)
 		}
@@ -414,7 +429,7 @@ func (me *Peer) sendToPeer(to crypto.Hash, typ byte, key, data []byte, priority 
 	}
 	if peer != nil {
 		rk := crypto.Blake3Hash(append(rm, peer.IdForNetwork[:]...))
-		success, _ := peer.offer(priority, &ChanMsg{rk[:], rm})
+		success := peer.offer(priority, &ChanMsg{rk[:], rm})
 		if !success {
 			return fmt.Errorf("peer.offer(%s, %s) => %d timeout", peer.Address, peer.IdForNetwork, priority)
 		}
@@ -427,7 +442,7 @@ func (me *Peer) sendToPeer(to crypto.Hash, typ byte, key, data []byte, priority 
 			continue
 		}
 		rk := crypto.Blake3Hash(append(rm, peer.IdForNetwork[:]...))
-		success, _ := peer.offer(priority, &ChanMsg{rk[:], rm})
+		success := peer.offer(priority, &ChanMsg{rk[:], rm})
 		if success {
 			break
 		}
