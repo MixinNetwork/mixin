@@ -125,18 +125,9 @@ func (c *QuicClient) Receive() (*TransportMessage, error) {
 	if m.Size > TransportMessageMaxSize {
 		return nil, fmt.Errorf("quic receive invalid message size %d", m.Size)
 	}
-	for {
-		data := make([]byte, int(m.Size)-len(m.Data))
-		s, err := io.ReadFull(c.stream, data)
-		if err != nil {
-			return nil, err
-		}
-		m.Data = append(m.Data, data[:s]...)
-		if len(m.Data) == int(m.Size) {
-			break
-		}
-	}
 
+	m.Data = make([]byte, m.Size)
+	_, err = io.ReadFull(c.stream, m.Data)
 	return m, err
 }
 
