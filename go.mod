@@ -1,6 +1,6 @@
 module github.com/MixinNetwork/mixin
 
-go 1.22.4
+go 1.22.5
 
 replace github.com/dgraph-io/badger/v4 => github.com/MixinNetwork/badger/v4 v4.2.0-F1
 

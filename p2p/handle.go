@@ -464,9 +464,9 @@ func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage
 			return nil
 		}
 		rk := crypto.Blake3Hash(append(rk[:], peer.IdForNetwork[:]...))
-		success := me.offerWithCacheCheck(peer, MsgPriorityNormal, &ChanMsg{rk[:], data})
+		success := me.offerToPeerWithCacheCheck(peer, MsgPriorityNormal, &ChanMsg{rk[:], data})
 		if !success {
-			logger.Verbosef("me.offerWithCacheCheck(%s) relayer timeout\n", peer.IdForNetwork)
+			logger.Verbosef("me.offerToPeerWithCacheCheck(%s) relayer timeout\n", peer.IdForNetwork)
 		}
 	}
 	return nil
