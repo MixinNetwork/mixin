@@ -639,6 +639,17 @@ func main() {
 			Action: listPeersCmd,
 		},
 		{
+			Name:   "listrelayers",
+			Usage:  "List the remote relayers for peer",
+			Action: listRelayersCmd,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "id",
+					Usage: "the peer node id",
+				},
+			},
+		},
+		{
 			Name:   "dumpgraphhead",
 			Usage:  "Dump the graph head",
 			Action: dumpGraphHeadCmd,

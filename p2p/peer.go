@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"slices"
 	"sync"
 	"time"
 
@@ -34,10 +35,10 @@ type Peer struct {
 	ops             chan struct{}
 	stn             chan struct{}
 
-	relayer         *QuicRelayer
-	consumerAuth    *AuthToken
-	isRemoteRelayer bool
-	remoteRelayers  *neighborMap
+	relayer        *QuicRelayer
+	consumerAuth   *AuthToken
+	isRelayer      bool
+	remoteRelayers *relayersMap
 }
 
 type SyncPoint struct {
@@ -52,14 +53,18 @@ type ChanMsg struct {
 	data []byte
 }
 
+func (me *Peer) IsRelayer() bool {
+	return me.isRelayer
+}
+
 func (me *Peer) ConnectRelayer(idForNetwork crypto.Hash, addr string) {
 	if a, err := net.ResolveUDPAddr("udp", addr); err != nil {
 		panic(fmt.Errorf("invalid address %s %s", addr, err))
 	} else if a.Port < 80 || a.IP == nil {
 		panic(fmt.Errorf("invalid address %s %d %s", addr, a.Port, a.IP))
 	}
-	if me.isRemoteRelayer {
-		me.remoteRelayers = &neighborMap{m: make(map[crypto.Hash]*Peer)}
+	if me.isRelayer {
+		me.remoteRelayers = &relayersMap{m: make(map[crypto.Hash][]*remoteRelayer)}
 	}
 
 	for !me.closing {
@@ -106,7 +111,15 @@ func (me *Peer) connectRelayer(relayer *Peer) error {
 func (me *Peer) Neighbors() []*Peer {
 	relayers := me.relayers.Slice()
 	consumers := me.consumers.Slice()
-	return append(relayers, consumers...)
+	for _, c := range consumers {
+		if slices.ContainsFunc(relayers, func(p *Peer) bool {
+			return p.IdForNetwork == c.IdForNetwork
+		}) {
+			continue
+		}
+		relayers = append(relayers, c)
+	}
+	return relayers
 }
 
 func (p *Peer) disconnect() {
@@ -138,19 +151,19 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, isRelayer
 		ringSize = ringSize * MaxIncomingStreams
 	}
 	peer := &Peer{
-		IdForNetwork:    idForNetwork,
-		Address:         addr,
-		relayers:        &neighborMap{m: make(map[crypto.Hash]*Peer)},
-		consumers:       &neighborMap{m: make(map[crypto.Hash]*Peer)},
-		highRing:        util.NewRingBuffer(ringSize),
-		normalRing:      util.NewRingBuffer(ringSize),
-		syncRing:        util.NewRingBuffer(ringSize),
-		handle:          handle,
-		sentMetric:      &MetricPool{enabled: false},
-		receivedMetric:  &MetricPool{enabled: false},
-		ops:             make(chan struct{}),
-		stn:             make(chan struct{}),
-		isRemoteRelayer: isRelayer,
+		IdForNetwork:   idForNetwork,
+		Address:        addr,
+		relayers:       &neighborMap{m: make(map[crypto.Hash]*Peer)},
+		consumers:      &neighborMap{m: make(map[crypto.Hash]*Peer)},
+		highRing:       util.NewRingBuffer(ringSize),
+		normalRing:     util.NewRingBuffer(ringSize),
+		syncRing:       util.NewRingBuffer(ringSize),
+		handle:         handle,
+		sentMetric:     &MetricPool{enabled: false},
+		receivedMetric: &MetricPool{enabled: false},
+		ops:            make(chan struct{}),
+		stn:            make(chan struct{}),
+		isRelayer:      isRelayer,
 	}
 	peer.ctx = context.Background() // FIXME use real context
 	if handle != nil {
@@ -187,7 +200,7 @@ func (me *Peer) ListenConsumers() error {
 		return err
 	}
 	me.relayer = relayer
-	me.remoteRelayers = &neighborMap{m: make(map[crypto.Hash]*Peer)}
+	me.remoteRelayers = &relayersMap{m: make(map[crypto.Hash][]*remoteRelayer)}
 
 	go func() {
 		ticker := time.NewTicker(time.Duration(config.SnapshotRoundGap))
@@ -197,7 +210,7 @@ func (me *Peer) ListenConsumers() error {
 			neighbors := me.Neighbors()
 			msg := me.buildConsumersMessage()
 			for _, p := range neighbors {
-				if !p.isRemoteRelayer {
+				if !p.isRelayer {
 					continue
 				}
 				key := crypto.Blake3Hash(append(msg, p.IdForNetwork[:]...))
@@ -223,8 +236,14 @@ func (me *Peer) ListenConsumers() error {
 				return
 			}
 			defer peer.disconnect()
+
+			old := me.consumers.Get(peer.IdForNetwork)
+			if old != nil {
+				old.disconnect()
+				me.consumers.Delete(old.IdForNetwork)
+			}
 			if !me.consumers.Put(peer.IdForNetwork, peer) {
-				return
+				panic(peer.IdForNetwork)
 			}
 			defer me.consumers.Delete(peer.IdForNetwork)
 
@@ -411,10 +430,7 @@ func (me *Peer) sendToPeer(to crypto.Hash, typ byte, key, data []byte, priority 
 	}
 	me.sentMetric.handle(typ)
 
-	peer := me.consumers.Get(to)
-	if peer == nil {
-		peer = me.relayers.Get(to)
-	}
+	peer := me.GetNeighbor(to)
 	if peer != nil {
 		success := peer.offer(priority, &ChanMsg{key, data})
 		if !success {
@@ -424,29 +440,21 @@ func (me *Peer) sendToPeer(to crypto.Hash, typ byte, key, data []byte, priority 
 	}
 
 	rm := me.buildRelayMessage(to, data)
-	if me.remoteRelayers != nil {
-		peer = me.remoteRelayers.Get(to)
+	rk := crypto.Blake3Hash(rm)
+	rk = crypto.Blake3Hash(append(rk[:], []byte("REMOTE")...))
+	relayers := me.GetRemoteRelayers(to)
+	if len(relayers) == 0 {
+		relayers = me.relayers.Slice()
 	}
-	if peer != nil {
-		rk := crypto.Blake3Hash(append(rm, peer.IdForNetwork[:]...))
+	for _, peer := range relayers {
+		if !peer.IsRelayer() {
+			panic(peer.IdForNetwork)
+		}
+		rk := crypto.Blake3Hash(append(rk[:], peer.IdForNetwork[:]...))
 		success := peer.offer(priority, &ChanMsg{rk[:], rm})
 		if !success {
-			return fmt.Errorf("peer.offer(%s, %s) => %d timeout", peer.Address, peer.IdForNetwork, priority)
+			logger.Verbosef("peer.offer(%s) send timeout\n", peer.IdForNetwork)
 		}
-		return nil
-	}
-
-	neighbors := me.Neighbors()
-	for _, peer := range neighbors {
-		if !peer.isRemoteRelayer {
-			continue
-		}
-		rk := crypto.Blake3Hash(append(rm, peer.IdForNetwork[:]...))
-		success := peer.offer(priority, &ChanMsg{rk[:], rm})
-		if success {
-			break
-		}
-		logger.Printf("peer.offer(%s, %s) => %d timeout", peer.Address, peer.IdForNetwork, priority)
 	}
 	return nil
 }
@@ -480,6 +488,80 @@ func (m *confirmMap) store(key []byte, ts time.Time) {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, uint64(ts.UnixNano()))
 	m.cache.Set(key, buf, 8)
+}
+
+type remoteRelayer struct {
+	Id       crypto.Hash
+	ActiveAt time.Time
+}
+
+type relayersMap struct {
+	sync.RWMutex
+	m map[crypto.Hash][]*remoteRelayer
+}
+
+func (me *Peer) GetNeighbor(key crypto.Hash) *Peer {
+	p := me.relayers.Get(key)
+	if p != nil {
+		return p
+	}
+	return me.consumers.Get(key)
+}
+
+func (me *Peer) GetRemoteRelayers(key crypto.Hash) []*Peer {
+	if me.remoteRelayers == nil {
+		return nil
+	}
+	var relayers []*Peer
+	ids := me.remoteRelayers.Get(key)
+	for _, id := range ids {
+		p := me.GetNeighbor(id)
+		if p != nil {
+			relayers = append(relayers, p)
+		}
+	}
+	return relayers
+}
+
+func (m *relayersMap) Get(key crypto.Hash) []crypto.Hash {
+	m.RLock()
+	defer m.RUnlock()
+
+	var relayers []crypto.Hash
+	for _, r := range m.m[key] {
+		if r.ActiveAt.Add(time.Minute).Before(time.Now()) {
+			continue
+		}
+		relayers = append(relayers, r.Id)
+	}
+	return relayers
+}
+
+func (m *relayersMap) Add(key crypto.Hash, v crypto.Hash) {
+	m.Lock()
+	defer m.Unlock()
+
+	var relayers []*remoteRelayer
+	for _, r := range m.m[key] {
+		if r.ActiveAt.Add(time.Minute).After(time.Now()) {
+			relayers = append(relayers, r)
+		}
+	}
+	for _, r := range relayers {
+		if r.Id == v {
+			r.ActiveAt = time.Now()
+			return
+		}
+	}
+	i := slices.IndexFunc(relayers, func(r *remoteRelayer) bool {
+		return r.Id == v
+	})
+	if i < 0 {
+		relayers = append(relayers, &remoteRelayer{ActiveAt: time.Now(), Id: v})
+	} else {
+		relayers[i].ActiveAt = time.Now()
+	}
+	m.m[key] = relayers
 }
 
 type neighborMap struct {

@@ -2,12 +2,14 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 )
@@ -111,7 +113,17 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			peers = peerNeighbors(impl.Node.Peer.Neighbors())
 		}
 		rdr.RenderData(peers)
-		return
+	case "listrelayers":
+		if len(call.Params) != 1 {
+			rdr.RenderError(errors.New("invalid params count"))
+			return
+		}
+		peers := make([]map[string]any, 0)
+		if strings.HasPrefix(r.RemoteAddr, "127.0.0.1:") {
+			id, _ := crypto.HashFromString(fmt.Sprint(call.Params[0]))
+			peers = peerNeighbors(impl.Node.Peer.GetRemoteRelayers(id))
+		}
+		rdr.RenderData(peers)
 	case "dumpgraphhead":
 		data, err := dumpGraphHead(impl.Node, call.Params)
 		if err != nil {

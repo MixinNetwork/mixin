@@ -835,6 +835,14 @@ func listPeersCmd(c *cli.Context) error {
 	return err
 }
 
+func listRelayersCmd(c *cli.Context) error {
+	data, err := callRPC(c.String("node"), "listrelayers", []any{c.String("id")}, c.Bool("time"))
+	if err == nil {
+		fmt.Println(string(data))
+	}
+	return err
+}
+
 func dumpGraphHeadCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "dumpgraphhead", []any{}, c.Bool("time"))
 	if err == nil {

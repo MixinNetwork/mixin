@@ -50,6 +50,7 @@ func peerNeighbors(peers []*p2p.Peer) []map[string]any {
 		data = append(data, map[string]any{
 			"id":      p.IdForNetwork.String(),
 			"address": p.Address,
+			"relayer": p.IsRelayer(),
 		})
 	}
 	return data

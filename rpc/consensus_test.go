@@ -35,7 +35,7 @@ func TestConsensus(t *testing.T) {
 	testConsensus(t, false)
 }
 
-func testConsensus(t *testing.T, withRelayers bool) {
+func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require := require.New(t)
 	kernel.TestMockReset()
 
@@ -55,7 +55,7 @@ func testConsensus(t *testing.T, withRelayers bool) {
 	require.Nil(err)
 	defer os.RemoveAll(root)
 
-	accounts, payees, gdata, plist := setupTestNet(root, withRelayers)
+	accounts, payees, gdata, plist := setupTestNet(root, extrenalRelayers)
 	require.Len(accounts, NODES)
 
 	epoch := time.Unix(1551312000, 0)
@@ -750,7 +750,7 @@ func testDetermineAccountByIndex(i int, role string) common.Address {
 	return account
 }
 
-func setupTestNet(root string, withRelayers bool) ([]common.Address, []common.Address, []byte, string) {
+func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []common.Address, []byte, string) {
 	var signers, payees, custodians []common.Address
 	var relayers []common.Address
 
@@ -795,7 +795,7 @@ func setupTestNet(root string, withRelayers bool) ([]common.Address, []common.Ad
 	peersListHead := `"` + strings.Join(peers[:len(peers)/3], `","`) + `"`
 	peersListTail := `"` + strings.Join(peers[len(peers)/2:], `","`) + `"`
 
-	if withRelayers {
+	if extrenalRelayers {
 		peers := make([]string, len(relayers))
 		for i, s := range relayers {
 			id := s.Hash().ForNetwork(gns.NetworkId())
@@ -803,7 +803,6 @@ func setupTestNet(root string, withRelayers bool) ([]common.Address, []common.Ad
 		}
 		peersListHead = `"` + strings.Join(peers[:len(peers)/3], `","`) + `"`
 		peersListTail = `"` + strings.Join(peers[len(peers)/2:], `","`) + `"`
-		peersList := `"` + strings.Join(peers[:len(peers)/3], `","`) + `"`
 		for i, a := range relayers {
 			dir := fmt.Sprintf("%s/mixin-160%02d", root, i+1)
 			err := os.MkdirAll(dir, 0755)
@@ -811,7 +810,8 @@ func setupTestNet(root string, withRelayers bool) ([]common.Address, []common.Ad
 				panic(err)
 			}
 
-			configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey, 16000+i+1, peersList, true, 0))
+			rpcPort := 26000 + i + 1
+			configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey, 16000+i+1, peersListHead, true, rpcPort))
 			err = os.WriteFile(dir+"/config.toml", configData, 0644)
 			if err != nil {
 				panic(err)
@@ -825,6 +825,9 @@ func setupTestNet(root string, withRelayers bool) ([]common.Address, []common.Ad
 			cache := newCache(custom)
 			store, _ := storage.NewBadgerStore(custom, dir)
 			node, _ := kernel.SetupNode(custom, store, cache, gns)
+
+			server := NewServer(custom, store, node, rpcPort)
+			go server.ListenAndServe()
 			go node.Loop()
 		}
 	}
@@ -842,7 +845,7 @@ func setupTestNet(root string, withRelayers bool) ([]common.Address, []common.Ad
 		}
 		port := 17000 + i + 1
 		p2p := fmt.Sprint(port)
-		isRelayer := !withRelayers && (strings.Contains(peersListHead, p2p) || strings.Contains(peersListTail, p2p))
+		isRelayer := !extrenalRelayers && (strings.Contains(peersListHead, p2p) || strings.Contains(peersListTail, p2p))
 		if isRelayer {
 			peersList = peersListHead
 		}

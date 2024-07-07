@@ -445,36 +445,40 @@ func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage
 		}
 		return me.handlePeerMessage(from, rm)
 	}
-	if me.relayer == nil {
+	if !me.IsRelayer() {
 		return nil
 	}
-	peer := me.consumers.Get(to)
-	if peer == nil {
-		peer = me.relayers.Get(to)
-	}
-	if peer == nil {
-		peer = me.remoteRelayers.Get(to)
-	}
-	if peer == nil || peer.IdForNetwork == relayerId {
-		return nil
+
+	var relayers []*Peer
+	peer := me.GetNeighbor(to)
+	if peer != nil {
+		relayers = []*Peer{peer}
+	} else {
+		relayers = me.GetRemoteRelayers(to)
 	}
 	data := append([]byte{PeerMessageTypeRelay}, msg.Data...)
-	rk := crypto.Blake3Hash(append(msg.Data, to[:]...))
-	rk = crypto.Blake3Hash(append(rk[:], relayerId[:]...))
-	success := me.offerWithCacheCheck(peer, MsgPriorityNormal, &ChanMsg{rk[:], data})
-	if !success {
-		logger.Verbosef("peer.offer(%s) relayer timeout\n", peer.IdForNetwork)
+	rk := crypto.Blake3Hash(data)
+	rk = crypto.Blake3Hash(append(rk[:], []byte("REMOTE")...))
+	for _, peer := range relayers {
+		if peer.IdForNetwork == relayerId {
+			return nil
+		}
+		rk := crypto.Blake3Hash(append(rk[:], peer.IdForNetwork[:]...))
+		success := me.offerWithCacheCheck(peer, MsgPriorityNormal, &ChanMsg{rk[:], data})
+		if !success {
+			logger.Verbosef("me.offerWithCacheCheck(%s) relayer timeout\n", peer.IdForNetwork)
+		}
 	}
 	return nil
 }
 
 func (me *Peer) updateRemoteRelayerConsumers(relayerId crypto.Hash, data []byte) error {
 	logger.Verbosef("me.updateRemoteRelayerConsumers(%s, %s) => %x", me.Address, relayerId, data)
-	relayer := me.relayers.Get(relayerId)
-	if relayer == nil {
-		relayer = me.consumers.Get(relayerId)
+	if !me.IsRelayer() {
+		return nil
 	}
-	if relayer == nil || !relayer.isRemoteRelayer {
+	relayer := me.GetNeighbor(relayerId)
+	if relayer == nil || !relayer.IsRelayer() {
 		return nil
 	}
 	pl := len(crypto.Key{}) + 137
@@ -483,15 +487,12 @@ func (me *Peer) updateRemoteRelayerConsumers(relayerId crypto.Hash, data []byte)
 		copy(id[:], data[:32])
 		token, err := me.handle.AuthenticateAs(relayerId, data[32:pl], 0)
 		if err != nil {
-			return nil
+			panic(err)
 		}
 		if token.PeerId != id {
-			return nil
+			panic(id)
 		}
-		old := me.remoteRelayers.Get(id)
-		if old == nil || old.consumerAuth == nil || old.consumerAuth.Timestamp < token.Timestamp {
-			me.remoteRelayers.Set(id, relayer)
-		}
+		me.remoteRelayers.Add(id, relayer.IdForNetwork)
 		data = data[pl:]
 	}
 	return nil
@@ -513,10 +514,7 @@ func (me *Peer) handlePeerMessage(peerId crypto.Hash, msg *PeerMessage) error {
 		if err != nil {
 			return err
 		}
-		peer := me.relayers.Get(peerId)
-		if peer == nil {
-			peer = me.consumers.Get(peerId)
-		}
+		peer := me.GetNeighbor(peerId)
 		if peer != nil {
 			peer.syncRing.Offer(msg.Graph)
 		}
