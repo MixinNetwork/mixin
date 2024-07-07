@@ -133,23 +133,3 @@ func (m *neighborMap) Slice() []*Peer {
 	}
 	return peers
 }
-
-func (m *neighborMap) Clear() {
-	m.Lock()
-	defer m.Unlock()
-
-	for id := range m.m {
-		delete(m.m, id)
-	}
-}
-
-func (m *neighborMap) RunOnce(key crypto.Hash, v *Peer, f func()) {
-	m.Lock()
-	defer m.Unlock()
-
-	if m.m[key] != nil {
-		return
-	}
-	m.m[key] = v
-	go f()
-}
