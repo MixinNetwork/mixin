@@ -428,11 +428,13 @@ func (me *Peer) sendToPeer(to crypto.Hash, typ byte, key, data []byte, priority 
 	}
 	me.sentMetric.handle(typ)
 
-	peer := me.GetNeighbor(to)
-	if peer != nil {
-		success := peer.offer(priority, &ChanMsg{key, data})
-		if !success {
-			return fmt.Errorf("peer send %d timeout", priority)
+	nbrs := me.GetNeighbors(to)
+	if len(nbrs) > 0 {
+		for _, peer := range nbrs {
+			success := peer.offer(priority, &ChanMsg{key, data})
+			if !success {
+				logger.Verbosef("peer.offer(%s) send timeout\n", peer.IdForNetwork)
+			}
 		}
 		return nil
 	}
@@ -463,12 +465,17 @@ func (me *Peer) sendSnapshotMessageToPeer(to crypto.Hash, snap crypto.Hash, typ 
 	return me.sendToPeer(to, typ, key, data, MsgPriorityNormal)
 }
 
-func (me *Peer) GetNeighbor(key crypto.Hash) *Peer {
+func (me *Peer) GetNeighbors(key crypto.Hash) []*Peer {
+	var nbrs []*Peer
 	p := me.relayers.Get(key)
 	if p != nil {
-		return p
+		nbrs = append(nbrs, p)
 	}
-	return me.consumers.Get(key)
+	p = me.consumers.Get(key)
+	if p != nil {
+		nbrs = append(nbrs, p)
+	}
+	return nbrs
 }
 
 func (me *Peer) GetRemoteRelayers(key crypto.Hash) []*Peer {
@@ -478,10 +485,8 @@ func (me *Peer) GetRemoteRelayers(key crypto.Hash) []*Peer {
 	var relayers []*Peer
 	ids := me.remoteRelayers.Get(key)
 	for _, id := range ids {
-		p := me.GetNeighbor(id)
-		if p != nil {
-			relayers = append(relayers, p)
-		}
+		nbrs := me.GetNeighbors(id)
+		relayers = append(relayers, nbrs...)
 	}
 	return relayers
 }

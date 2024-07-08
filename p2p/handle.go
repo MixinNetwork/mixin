@@ -422,7 +422,7 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		}
 		msg.Snapshot = snap.Snapshot
 	case PeerMessageTypeRelay:
-		msg.Data = data[1:]
+		msg.Data = data
 	case PeerMessageTypeConsumers:
 		msg.Data = data[1:]
 	}
@@ -431,14 +431,14 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 
 func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage) error {
 	logger.Verbosef("me.relayOrHandlePeerMessage(%s, %s) => %s %v", me.Address, me.IdForNetwork, relayerId, msg.Data)
-	if len(msg.Data) < 64 {
+	if len(msg.Data) < 65 {
 		return nil
 	}
 	var from, to crypto.Hash
-	copy(from[:], msg.Data[:32])
-	copy(to[:], msg.Data[32:64])
+	copy(from[:], msg.Data[1:33])
+	copy(to[:], msg.Data[33:65])
 	if to == me.IdForNetwork {
-		rm, err := parseNetworkMessage(msg.version, msg.Data[64:])
+		rm, err := parseNetworkMessage(msg.version, msg.Data[65:])
 		logger.Verbosef("me.relayOrHandlePeerMessage.ME(%s, %s) => %s %v %v", me.Address, me.IdForNetwork, from, rm, err)
 		if err != nil {
 			return err
@@ -450,21 +450,19 @@ func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage
 	}
 
 	var relayers []*Peer
-	peer := me.GetNeighbor(to)
-	if peer != nil {
-		relayers = []*Peer{peer}
+	if nbrs := me.GetNeighbors(to); len(nbrs) > 0 {
+		relayers = nbrs
 	} else {
 		relayers = me.GetRemoteRelayers(to)
 	}
-	data := append([]byte{PeerMessageTypeRelay}, msg.Data...)
-	rk := crypto.Blake3Hash(data)
+	rk := crypto.Blake3Hash(msg.Data)
 	rk = crypto.Blake3Hash(append(rk[:], []byte("REMOTE")...))
 	for _, peer := range relayers {
 		if peer.IdForNetwork == relayerId {
 			return nil
 		}
 		rk := crypto.Blake3Hash(append(rk[:], peer.IdForNetwork[:]...))
-		success := me.offerToPeerWithCacheCheck(peer, MsgPriorityNormal, &ChanMsg{rk[:], data})
+		success := me.offerToPeerWithCacheCheck(peer, MsgPriorityNormal, &ChanMsg{rk[:], msg.Data})
 		if !success {
 			logger.Verbosef("me.offerToPeerWithCacheCheck(%s) relayer timeout\n", peer.IdForNetwork)
 		}
@@ -475,10 +473,6 @@ func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage
 func (me *Peer) updateRemoteRelayerConsumers(relayerId crypto.Hash, data []byte) error {
 	logger.Verbosef("me.updateRemoteRelayerConsumers(%s, %s) => %x", me.Address, relayerId, data)
 	if !me.IsRelayer() {
-		return nil
-	}
-	relayer := me.GetNeighbor(relayerId)
-	if relayer == nil || !relayer.IsRelayer() {
 		return nil
 	}
 	pl := len(crypto.Key{}) + 137
@@ -492,7 +486,7 @@ func (me *Peer) updateRemoteRelayerConsumers(relayerId crypto.Hash, data []byte)
 		if token.PeerId != id {
 			panic(id)
 		}
-		me.remoteRelayers.Add(id, relayer.IdForNetwork)
+		me.remoteRelayers.Add(id, relayerId)
 		data = data[pl:]
 	}
 	return nil
@@ -514,8 +508,8 @@ func (me *Peer) handlePeerMessage(peerId crypto.Hash, msg *PeerMessage) error {
 		if err != nil {
 			return err
 		}
-		peer := me.GetNeighbor(peerId)
-		if peer != nil {
+		nbrs := me.GetNeighbors(peerId)
+		for _, peer := range nbrs {
 			peer.syncRing.Offer(msg.Graph)
 		}
 		return nil
