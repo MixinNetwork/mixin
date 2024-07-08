@@ -142,15 +142,14 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 
 	startAt := time.Now()
 	for !me.closing && !p.closing {
-		item, err := p.syncRing.Poll(false)
-		if err != nil {
-			break
-		} else if item == nil {
+		var g []*SyncPoint
+		select {
+		case g = <-p.syncRing:
+		default:
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 
-		g := item.([]*SyncPoint)
 		graph = make(map[crypto.Hash]*SyncPoint)
 		for _, r := range g {
 			graph[r.NodeId] = r

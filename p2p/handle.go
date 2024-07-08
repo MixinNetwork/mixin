@@ -510,7 +510,10 @@ func (me *Peer) handlePeerMessage(peerId crypto.Hash, msg *PeerMessage) error {
 		}
 		nbrs := me.GetNeighbors(peerId)
 		for _, peer := range nbrs {
-			peer.syncRing.Offer(msg.Graph)
+			select {
+			case peer.syncRing <- msg.Graph:
+			default:
+			}
 		}
 		return nil
 	case PeerMessageTypeTransactionRequest:

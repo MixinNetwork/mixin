@@ -4,14 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"slices"
 	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/MixinNetwork/mixin/util"
 )
 
 type Peer struct {
@@ -26,9 +24,9 @@ type Peer struct {
 	relayers        *neighborMap
 	consumers       *neighborMap
 	snapshotsCaches *confirmMap
-	highRing        *util.RingBuffer
-	normalRing      *util.RingBuffer
-	syncRing        *util.RingBuffer
+	highRing        chan *ChanMsg
+	normalRing      chan *ChanMsg
+	syncRing        chan []*SyncPoint
 	closing         bool
 	ops             chan struct{}
 	stn             chan struct{}
@@ -109,15 +107,7 @@ func (me *Peer) connectRelayer(relayer *Peer) error {
 func (me *Peer) Neighbors() []*Peer {
 	relayers := me.relayers.Slice()
 	consumers := me.consumers.Slice()
-	for _, c := range consumers {
-		if slices.ContainsFunc(relayers, func(p *Peer) bool {
-			return p.IdForNetwork == c.IdForNetwork
-		}) {
-			continue
-		}
-		relayers = append(relayers, c)
-	}
-	return relayers
+	return append(relayers, consumers...)
 }
 
 func (p *Peer) disconnect() {
@@ -125,10 +115,10 @@ func (p *Peer) disconnect() {
 		return
 	}
 	p.closing = true
-	p.highRing.Dispose()
-	p.normalRing.Dispose()
-	p.syncRing.Dispose()
 	<-p.ops
+	close(p.highRing)
+	close(p.normalRing)
+	close(p.syncRing)
 	<-p.stn
 }
 
@@ -145,17 +135,14 @@ func (me *Peer) Metric() map[string]*MetricPool {
 
 func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, isRelayer bool) *Peer {
 	ringSize := uint64(1024)
-	if isRelayer {
-		ringSize = ringSize * MaxIncomingStreams
-	}
 	peer := &Peer{
 		IdForNetwork:   idForNetwork,
 		Address:        addr,
 		relayers:       &neighborMap{m: make(map[crypto.Hash]*Peer)},
 		consumers:      &neighborMap{m: make(map[crypto.Hash]*Peer)},
-		highRing:       util.NewRingBuffer(ringSize),
-		normalRing:     util.NewRingBuffer(ringSize),
-		syncRing:       util.NewRingBuffer(ringSize),
+		highRing:       make(chan *ChanMsg, ringSize),
+		normalRing:     make(chan *ChanMsg, ringSize),
+		syncRing:       make(chan []*SyncPoint, 128),
 		handle:         handle,
 		sentMetric:     &MetricPool{enabled: false},
 		receivedMetric: &MetricPool{enabled: false},
@@ -175,9 +162,9 @@ func (me *Peer) Teardown() {
 	if me.relayer != nil {
 		me.relayer.Close()
 	}
-	me.highRing.Dispose()
-	me.normalRing.Dispose()
-	me.syncRing.Dispose()
+	close(me.highRing)
+	close(me.normalRing)
+	close(me.syncRing)
 	peers := me.Neighbors()
 	var wg sync.WaitGroup
 	for _, p := range peers {
@@ -211,8 +198,7 @@ func (me *Peer) ListenConsumers() error {
 				if !p.isRelayer {
 					continue
 				}
-				key := crypto.Blake3Hash(append(msg, p.IdForNetwork[:]...))
-				me.sendToPeer(p.IdForNetwork, PeerMessageTypeConsumers, key[:], msg, MsgPriorityNormal)
+				me.offerToPeerWithCacheCheck(p, MsgPriorityNormal, &ChanMsg{nil, msg})
 			}
 
 			<-ticker.C
@@ -261,34 +247,9 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 	defer consumer.Close("loopSendingStream")
 
 	for !me.closing && !p.closing {
-		msgs := []*ChanMsg{}
-		for len(msgs) < 16 {
-			item, err := p.highRing.Poll(false)
-			if err != nil {
-				return nil, fmt.Errorf("peer.highRing(%s) => %v", p.IdForNetwork, err)
-			} else if item == nil {
-				break
-			}
-			msg := item.(*ChanMsg)
-			if me.snapshotsCaches.contains(msg.key, time.Minute) {
-				continue
-			}
-			msgs = append(msgs, msg)
-		}
-
-		for len(msgs) < 32 {
-			item, err := p.normalRing.Poll(false)
-			if err != nil {
-				return nil, fmt.Errorf("peer.normalRing(%s) => %v", p.IdForNetwork, err)
-			} else if item == nil {
-				break
-			}
-			msg := item.(*ChanMsg)
-			if me.snapshotsCaches.contains(msg.key, time.Minute) {
-				continue
-			}
-			msgs = append(msgs, msg)
-		}
+		hm := me.pollRingWithCache(p.highRing, 16)
+		nm := me.pollRingWithCache(p.normalRing, 16)
+		msgs := append(hm, nm...)
 
 		if len(msgs) == 0 {
 			time.Sleep(300 * time.Millisecond)
@@ -307,6 +268,22 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 	}
 
 	return nil, fmt.Errorf("PEER DONE")
+}
+
+func (me *Peer) pollRingWithCache(ring chan *ChanMsg, limit int) []*ChanMsg {
+	var msgs []*ChanMsg
+	for len(msgs) < limit {
+		select {
+		case msg := <-ring:
+			if me.snapshotsCaches.contains(msg.key, time.Minute) {
+				continue
+			}
+			msgs = append(msgs, msg)
+		default:
+			return msgs
+		}
+	}
+	return msgs
 }
 
 func (me *Peer) loopReceiveMessage(peer *Peer, client Client) {
@@ -408,13 +385,24 @@ func (me *Peer) offerToPeerWithCacheCheck(p *Peer, priority int, msg *ChanMsg) b
 }
 
 func (p *Peer) offer(priority int, msg *ChanMsg) bool {
+	if p.closing {
+		return false
+	}
 	switch priority {
 	case MsgPriorityNormal:
-		s, err := p.normalRing.Offer(msg)
-		return s && err == nil
+		select {
+		case p.normalRing <- msg:
+			return true
+		default:
+			return false
+		}
 	case MsgPriorityHigh:
-		s, err := p.highRing.Offer(msg)
-		return s && err == nil
+		select {
+		case p.highRing <- msg:
+			return true
+		default:
+			return false
+		}
 	}
 	panic(priority)
 }
