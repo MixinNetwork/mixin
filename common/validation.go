@@ -56,13 +56,12 @@ func (ver *VersionedTransaction) Validate(store DataStore, snapTime uint64, fork
 	if err != nil {
 		return err
 	}
-	outputAmount, err := tx.validateOutputs(store, ver.PayloadHash(), fork)
+	if inputAmount.Sign() <= 0 {
+		return fmt.Errorf("invalid input amount %s", inputAmount)
+	}
+	err = tx.validateOutputs(store, ver.PayloadHash(), inputAmount, fork)
 	if err != nil {
 		return err
-	}
-
-	if inputAmount.Sign() <= 0 || inputAmount.Cmp(outputAmount) != 0 {
-		return fmt.Errorf("invalid input output amount %s %s", inputAmount.String(), outputAmount.String())
 	}
 
 	switch txType {
@@ -246,18 +245,16 @@ func (tx *SignedTransaction) validateInputs(store UTXOLockReader, hash crypto.Ha
 	return inputsFilter, inputAmount, nil
 }
 
-func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, fork bool) (Integer, error) {
+func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, inputAmount Integer, fork bool) error {
 	outputAmount := NewInteger(0)
 	ghostKeysFilter := make(map[crypto.Key]bool)
 	ghostKeys := make([]*crypto.Key, 0)
 	for _, o := range tx.Outputs {
 		if len(o.Keys) > SliceCountLimit {
-			err := fmt.Errorf("invalid output keys count %d", len(o.Keys))
-			return outputAmount, err
+			return fmt.Errorf("invalid output keys count %d", len(o.Keys))
 		}
 		if o.Amount.Sign() <= 0 {
-			err := fmt.Errorf("invalid output amount %s", o.Amount.String())
-			return outputAmount, err
+			return fmt.Errorf("invalid output amount %s", o.Amount.String())
 		}
 
 		if o.Withdrawal != nil {
@@ -267,13 +264,12 @@ func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, fork
 
 		for _, k := range o.Keys {
 			if ghostKeysFilter[*k] {
-				err := fmt.Errorf("invalid output key %s", k.String())
-				return outputAmount, err
+				return fmt.Errorf("invalid output key %s", k.String())
 			}
 			ghostKeysFilter[*k] = true
 			if !k.CheckKey() {
-				err := fmt.Errorf("invalid output key format %s", k.String())
-				return outputAmount, err
+				return fmt.Errorf("invalid output key format %s", k.String())
+
 			}
 			ghostKeys = append(ghostKeys, k)
 		}
@@ -285,39 +281,37 @@ func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, fork
 			OutputTypeNodeCancel,
 			OutputTypeNodeAccept:
 			if len(o.Keys) != 0 {
-				err := fmt.Errorf("invalid output keys count %d for kernel multisig transaction", len(o.Keys))
-				return outputAmount, err
+				return fmt.Errorf("invalid output keys count %d for kernel multisig transaction", len(o.Keys))
 			}
 			if len(o.Script) != 0 {
-				err := fmt.Errorf("invalid output script %s for kernel multisig transaction", o.Script)
-				return outputAmount, err
+				return fmt.Errorf("invalid output script %s for kernel multisig transaction", o.Script)
 			}
 			if o.Mask.HasValue() {
-				err := fmt.Errorf("invalid output empty mask %s for kernel multisig transaction", o.Mask)
-				return outputAmount, err
+				return fmt.Errorf("invalid output empty mask %s for kernel multisig transaction", o.Mask)
 			}
 		default:
 			err := o.Script.VerifyFormat()
 			if err != nil {
-				return outputAmount, err
+				return err
 			}
 			if !o.Mask.HasValue() {
-				err := fmt.Errorf("invalid script output empty mask %s", o.Mask)
-				return outputAmount, err
+				return fmt.Errorf("invalid script output empty mask %s", o.Mask)
 			}
 			if o.Withdrawal != nil {
-				err := fmt.Errorf("invalid script output with withdrawal %s", o.Withdrawal.Address)
-				return outputAmount, err
+				return fmt.Errorf("invalid script output with withdrawal %s", o.Withdrawal.Address)
 			}
 		}
 		outputAmount = outputAmount.Add(o.Amount)
 	}
 
+	if inputAmount.Cmp(outputAmount) != 0 {
+		return fmt.Errorf("invalid input output amount %s %s", inputAmount, outputAmount)
+	}
 	err := store.LockGhostKeys(ghostKeys, hash, fork)
 	if err != nil {
-		return Zero, err
+		return err
 	}
-	return outputAmount, nil
+	return nil
 }
 
 func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, as *AggregatedSignature, msg crypto.Hash, txType uint8, keySigs map[*crypto.Key]*crypto.Signature, offset int) error {
