@@ -25,11 +25,11 @@ require (
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/glog v1.2.1 // indirect
+	github.com/golang/glog v1.2.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/flatbuffers v24.3.25+incompatible // indirect
-	github.com/google/pprof v0.0.0-20240625030939-27f56978b8b0 // indirect
+	github.com/google/pprof v0.0.0-20240711041743-f6c9dda6c6da // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
 	github.com/onsi/ginkgo/v2 v2.19.0 // indirect
@@ -38,11 +38,12 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	go.uber.org/mock v0.4.0 // indirect
-	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8 // indirect
+	golang.org/x/exp v0.0.0-20240716160929-1d5bc16f04a8 // indirect
 	golang.org/x/mod v0.19.0 // indirect
 	golang.org/x/net v0.27.0 // indirect
+	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.22.0 // indirect
-	golang.org/x/tools v0.22.0 // indirect
+	golang.org/x/tools v0.23.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
