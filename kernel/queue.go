@@ -59,10 +59,12 @@ func (node *Node) loopCacheQueue() error {
 			continue
 		}
 
-		working := node.ListWorkingAcceptedNodes(uint64(clock.Now().UnixNano()))
-		if len(working) <= 0 {
+		allNodes := node.ListWorkingAcceptedNodes(uint64(clock.Now().UnixNano()))
+		if len(allNodes) <= 0 {
 			continue
 		}
+		leadingNodes, leadingFilter := node.filterLeadingNodes(allNodes)
+
 		var stale []crypto.Hash
 		filter := make(map[crypto.Hash]bool)
 		txs, err := node.persistStore.CacheRetrieveTransactions(100)
@@ -91,23 +93,13 @@ func (node *Node) loopCacheQueue() error {
 			}
 
 			nbor := node.electSnapshotNode(tx.TransactionType(), uint64(now.UnixNano()))
-			if !nbor.HasValue() {
-				hb := new(big.Int).SetBytes(hash[:])
-				mb := big.NewInt(now.UnixNano() / int64(time.Minute))
-				ib := new(big.Int).Add(hb, mb)
-				idx := new(big.Int).Mod(ib, big.NewInt(int64(len(working))))
-				nbor = working[idx.Int64()].IdForNetwork
-			}
-			if nbor != node.IdForNetwork {
-				err := node.SendTransactionToPeer(nbor, hash)
-				logger.Debugf("queue.SendTransactionToPeer(%s, %s) => %v", hash, nbor, err)
+			if nbor.HasValue() {
+				node.sendTransactionToNode(hash, nbor)
 			} else {
-				s := &common.Snapshot{
-					Version: common.SnapshotVersionCommonEncoding,
-					NodeId:  node.IdForNetwork,
+				nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now, hash)
+				for _, nbor := range nbors {
+					node.sendTransactionToNode(hash, nbor)
 				}
-				s.AddSoleTransaction(hash)
-				node.chain.AppendSelfEmpty(s)
 			}
 		}
 		if err != nil {
@@ -118,6 +110,60 @@ func (node *Node) loopCacheQueue() error {
 			logger.Printf("LoopCacheQueue CacheRemoveTransactions ERROR %s\n", err)
 		}
 	}
+}
+
+func (node *Node) sendTransactionToNode(hash, nbor crypto.Hash) {
+	if nbor != node.IdForNetwork {
+		err := node.SendTransactionToPeer(nbor, hash)
+		logger.Debugf("queue.SendTransactionToPeer(%s, %s) => %v", hash, nbor, err)
+	} else {
+		s := &common.Snapshot{
+			Version: common.SnapshotVersionCommonEncoding,
+			NodeId:  node.IdForNetwork,
+		}
+		s.AddSoleTransaction(hash)
+		node.chain.AppendSelfEmpty(s)
+	}
+}
+
+func (node *Node) filterLeadingNodes(all []*CNode) ([]*CNode, map[crypto.Hash]bool) {
+	node.chains.RLock()
+	defer node.chains.RUnlock()
+
+	threshold := 5 * uint64(time.Minute)
+	now := uint64(clock.Now().UnixNano())
+
+	leading := make([]*CNode, 0)
+	filter := make(map[crypto.Hash]bool)
+	for _, cn := range all {
+		chain := node.chain.node.chains.m[cn.IdForNetwork]
+		if chain.State == nil {
+			continue
+		}
+		f := chain.State.FinalRound
+		if f.Start+threshold < now {
+			continue
+		}
+		leading = append(leading, cn)
+		filter[cn.IdForNetwork] = true
+	}
+	return leading, filter
+}
+
+func (node *Node) findRandomHeadNodeWithPossibleTail(all, leading []*CNode, filter map[crypto.Hash]bool, now time.Time, hash crypto.Hash) []crypto.Hash {
+	hb := new(big.Int).SetBytes(hash[:])
+	mb := big.NewInt(now.UnixNano() / int64(time.Minute))
+	ib := new(big.Int).Add(hb, mb)
+	idx := new(big.Int).Mod(ib, big.NewInt(int64(len(all)))).Int64()
+	id := all[idx].IdForNetwork
+	if filter[id] || len(leading) == 0 {
+		return []crypto.Hash{id}
+	}
+
+	idx = new(big.Int).Mod(ib, big.NewInt(int64(len(leading)))).Int64()
+	lid := leading[idx].IdForNetwork
+	logger.Debugf("findRandomHeadNodeWithPossibleTail(%s, %d, %d) => %s %s", hash, len(all), len(leading), id, lid)
+	return []crypto.Hash{id, lid}
 }
 
 func (node *Node) QueueState() (uint64, uint64, map[string][2]uint64) {
