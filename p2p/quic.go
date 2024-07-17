@@ -68,11 +68,11 @@ func NewQuicConsumer(ctx context.Context, relayer string) (*QuicClient, error) {
 		KeepAlivePeriod:      IdleTimeout / 2,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("quic.DialAddr(%s) => %v", relayer, err)
 	}
 	stm, err := sess.OpenStreamSync(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("quic.OpenStreamSync(%s, %v) => %v", relayer, sess, err)
 	}
 	return &QuicClient{
 		session: sess,
@@ -87,11 +87,11 @@ func (t *QuicRelayer) Close() error {
 func (t *QuicRelayer) Accept(ctx context.Context) (Client, error) {
 	sess, err := t.listener.Accept(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("quic.Accept() => %v", err)
 	}
 	stm, err := sess.AcceptStream(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("quic.AcceptStream(%v) => %v", sess, err)
 	}
 	return &QuicClient{
 		session: sess,
