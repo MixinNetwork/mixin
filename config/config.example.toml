@@ -4,10 +4,10 @@ signer-key = "8bcfad3959892e8334fa287a3c9755fed017cd7a9e8c68d7540dc9e69fa4a00d"
 # the period in seconds to check some mint and election kernel opportunities
 kernel-operation-period = 700
 # the maximum cache size in MB
-memory-cache-size = 4096
+memory-cache-size = 1024
 # how many seconds to keep unconfirmed transactions in the cache storage
 # this also limits the confirmed snapshots finalization cache to peer
-cache-ttl = 7200
+cache-ttl = 3600
 
 [storage]
 # enable badger value log gc will reduce disk storage usage
