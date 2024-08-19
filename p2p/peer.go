@@ -188,9 +188,6 @@ func (me *Peer) ListenConsumers() error {
 	me.remoteRelayers = &relayersMap{m: make(map[crypto.Hash][]*remoteRelayer)}
 
 	go func() {
-		ticker := time.NewTicker(time.Duration(config.SnapshotRoundGap))
-		defer ticker.Stop()
-
 		for !me.closing {
 			neighbors := me.Neighbors()
 			msg := me.buildConsumersMessage()
@@ -201,7 +198,7 @@ func (me *Peer) ListenConsumers() error {
 				me.offerToPeerWithCacheCheck(p, MsgPriorityNormal, &ChanMsg{nil, msg})
 			}
 
-			<-ticker.C
+			time.Sleep(time.Duration(config.SnapshotRoundGap))
 		}
 	}()
 

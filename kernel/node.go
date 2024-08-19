@@ -490,9 +490,6 @@ func (node *Node) ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round
 }
 
 func (node *Node) sendGraphToConcensusNodesAndPeers() {
-	graphTicker := time.NewTicker(time.Duration(config.SnapshotRoundGap / 2))
-	defer graphTicker.Stop()
-
 	for {
 		nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
 		neighbors := node.Peer.Neighbors()
@@ -506,7 +503,7 @@ func (node *Node) sendGraphToConcensusNodesAndPeers() {
 		for id := range peers {
 			node.Peer.SendGraphMessage(id)
 		}
-		<-graphTicker.C
+		time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
 	}
 }
 
