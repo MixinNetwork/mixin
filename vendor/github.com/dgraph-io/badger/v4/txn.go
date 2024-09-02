@@ -661,7 +661,9 @@ func (txn *Txn) Commit() error {
 	// txn.conflictKeys can be zero if conflict detection is turned off. So we
 	// should check txn.pendingWrites.
 	if len(txn.pendingWrites) == 0 {
-		return nil // Nothing to do.
+		// Discard the transaction so that the read is marked done.
+		txn.Discard()
+		return nil
 	}
 	// Precheck before discarding txn.
 	if err := txn.commitPrecheck(); err != nil {
@@ -716,6 +718,8 @@ func (txn *Txn) CommitWith(cb func(error)) {
 		// callback might be acquiring the same locks. Instead run the callback
 		// from another goroutine.
 		go runTxnCallback(&txnCb{user: cb, err: nil})
+		// Discard the transaction so that the read is marked done.
+		txn.Discard()
 		return
 	}
 

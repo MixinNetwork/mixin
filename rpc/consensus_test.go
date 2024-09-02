@@ -1182,8 +1182,8 @@ func electSnapshotNode(nodes []*Node, node *kernel.Node, operation byte, now uin
 	return nil
 }
 
-func newCache(conf *config.Custom) *ristretto.Cache {
-	cache, err := ristretto.NewCache(&ristretto.Config{
+func newCache(conf *config.Custom) *ristretto.Cache[[]byte, any] {
+	cache, err := ristretto.NewCache(&ristretto.Config[[]byte, any]{
 		NumCounters: 1e7, // number of keys to track frequency of (10M).
 		MaxCost:     int64(conf.Node.MemoryCacheSize) * 1024 * 1024,
 		BufferItems: 64, // number of keys per Get buffer.

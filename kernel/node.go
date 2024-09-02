@@ -45,7 +45,7 @@ type Node struct {
 	startAt         time.Time
 	networkId       crypto.Hash
 	persistStore    storage.Store
-	cacheStore      *ristretto.Cache
+	cacheStore      *ristretto.Cache[[]byte, any]
 	custom          *config.Custom
 
 	done chan struct{}
@@ -69,7 +69,7 @@ type CNode struct {
 	ConsensusIndex int
 }
 
-func SetupNode(custom *config.Custom, store storage.Store, cache *ristretto.Cache, gns *common.Genesis) (*Node, error) {
+func SetupNode(custom *config.Custom, store storage.Store, cache *ristretto.Cache[[]byte, any], gns *common.Genesis) (*Node, error) {
 	node := &Node{
 		SyncPoints:      &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*p2p.SyncPoint)},
 		chains:          &chainsMap{m: make(map[crypto.Hash]*Chain)},
@@ -428,7 +428,7 @@ func (node *Node) Uptime() time.Duration {
 	return clock.Now().Sub(node.startAt)
 }
 
-func (node *Node) GetCacheStore() *ristretto.Cache {
+func (node *Node) GetCacheStore() *ristretto.Cache[[]byte, any] {
 	return node.cacheStore
 }
 

@@ -110,7 +110,7 @@ func setupTestNode(require *require.Assertions, dir string) *Node {
 	gns, err := common.ReadGenesis(dir + "/genesis.json")
 	require.Nil(err)
 
-	cache, err := ristretto.NewCache(&ristretto.Config{
+	cache, err := ristretto.NewCache(&ristretto.Config[[]byte, any]{
 		NumCounters: 1e7, // number of keys to track frequency of (10M).
 		MaxCost:     1 << 30,
 		BufferItems: 64, // number of keys per Get buffer.

@@ -64,7 +64,7 @@ type AuthToken struct {
 }
 
 type SyncHandle interface {
-	GetCacheStore() *ristretto.Cache
+	GetCacheStore() *ristretto.Cache[[]byte, any]
 	SignData(data []byte) crypto.Signature
 	BuildAuthenticationMessage(relayerId crypto.Hash) []byte
 	AuthenticateAs(recipientId crypto.Hash, msg []byte, timeoutSec int64) (*AuthToken, error)

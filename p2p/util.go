@@ -11,7 +11,7 @@ import (
 )
 
 type confirmMap struct {
-	cache *ristretto.Cache
+	cache *ristretto.Cache[[]byte, any]
 }
 
 func (m *confirmMap) contains(key []byte, duration time.Duration) bool {
