@@ -45,17 +45,17 @@ func GetAssetCapacity(id crypto.Hash) Integer {
 	case BitcoinAssetId:
 		return NewIntegerFromString("3000")
 	case EthereumAssetId:
-		return NewIntegerFromString("4000")
+		return NewIntegerFromString("5000")
 	case XINAssetId:
 		return NewIntegerFromString("1000000")
 	case BOXAssetId:
 		return NewIntegerFromString("200000000")
 	case MOBAssetId:
-		return NewIntegerFromString("50000000")
+		return NewIntegerFromString("40000000")
 	case USDTEthereumAssetId:
 		return NewIntegerFromString("10000000")
 	case USDTTronAssetId:
-		return NewIntegerFromString("10000000")
+		return NewIntegerFromString("7000000")
 	case PandoUSDAssetId:
 		return NewIntegerFromString("1000000000000")
 	case USDCAssetId:
