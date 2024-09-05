@@ -93,6 +93,14 @@ func main() {
 					Name:  "spend",
 					Usage: "the private spend key `HEX` instead of a random one",
 				},
+				&cli.StringFlag{
+					Name:  "prefix",
+					Usage: "a string prefix the final address should have",
+				},
+				&cli.StringFlag{
+					Name:  "suffix",
+					Usage: "a string suffix the final address should have",
+				},
 			},
 		},
 		{

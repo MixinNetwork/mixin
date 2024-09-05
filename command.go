@@ -21,33 +21,40 @@ import (
 )
 
 func createAddressCmd(c *cli.Context) error {
-	seed := make([]byte, 64)
-	crypto.ReadRand(seed)
-	addr := common.NewAddressFromSeed(seed)
-	if view := c.String("view"); len(view) > 0 {
-		key, err := hex.DecodeString(view)
-		if err != nil {
-			return err
+	for {
+		seed := make([]byte, 64)
+		crypto.ReadRand(seed)
+		addr := common.NewAddressFromSeed(seed)
+		if view := c.String("view"); len(view) > 0 {
+			key, err := hex.DecodeString(view)
+			if err != nil {
+				return err
+			}
+			copy(addr.PrivateViewKey[:], key)
+			addr.PublicViewKey = addr.PrivateViewKey.Public()
 		}
-		copy(addr.PrivateViewKey[:], key)
-		addr.PublicViewKey = addr.PrivateViewKey.Public()
-	}
-	if spend := c.String("spend"); len(spend) > 0 {
-		key, err := hex.DecodeString(spend)
-		if err != nil {
-			return err
+		if spend := c.String("spend"); len(spend) > 0 {
+			key, err := hex.DecodeString(spend)
+			if err != nil {
+				return err
+			}
+			copy(addr.PrivateSpendKey[:], key)
+			addr.PublicSpendKey = addr.PrivateSpendKey.Public()
 		}
-		copy(addr.PrivateSpendKey[:], key)
-		addr.PublicSpendKey = addr.PrivateSpendKey.Public()
+		if c.Bool("public") {
+			addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
+			addr.PublicViewKey = addr.PrivateViewKey.Public()
+		}
+		m := addr.String()[3:]
+		p := c.String("prefix")
+		s := c.String("suffix")
+		if strings.HasPrefix(m, p) && strings.HasSuffix(m, s) {
+			fmt.Printf("address:\t%s\n", addr.String())
+			fmt.Printf("view key:\t%s\n", addr.PrivateViewKey.String())
+			fmt.Printf("spend key:\t%s\n", addr.PrivateSpendKey.String())
+			return nil
+		}
 	}
-	if c.Bool("public") {
-		addr.PrivateViewKey = addr.PublicSpendKey.DeterministicHashDerive()
-		addr.PublicViewKey = addr.PrivateViewKey.Public()
-	}
-	fmt.Printf("address:\t%s\n", addr.String())
-	fmt.Printf("view key:\t%s\n", addr.PrivateViewKey.String())
-	fmt.Printf("spend key:\t%s\n", addr.PrivateSpendKey.String())
-	return nil
 }
 
 func decodeAddressCmd(c *cli.Context) error {
