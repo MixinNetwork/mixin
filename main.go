@@ -18,6 +18,11 @@ import (
 )
 
 func main() {
+	defaultRPC := os.Getenv("MIXIN_KERNEL_RPC")
+	if defaultRPC == "" {
+		defaultRPC = "127.0.0.1:6860"
+	}
+
 	app := cli.NewApp()
 	app.Name = "mixin"
 	app.Usage = "A free, lightning fast and decentralized network for transferring digital assets."
@@ -26,7 +31,7 @@ func main() {
 		&cli.StringFlag{
 			Name:    "node",
 			Aliases: []string{"n"},
-			Value:   "127.0.0.1:6860",
+			Value:   defaultRPC,
 			Usage:   "the node RPC endpoint",
 		},
 		&cli.StringFlag{
