@@ -32,7 +32,7 @@ func main() {
 			Name:    "node",
 			Aliases: []string{"n"},
 			Value:   defaultRPC,
-			Usage:   "the node RPC endpoint",
+			Usage:   "the RPC endpoint, and the default value is read from environment variable MIXIN_KERNEL_RPC",
 		},
 		&cli.StringFlag{
 			Name:    "dir",
