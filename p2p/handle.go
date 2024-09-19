@@ -588,38 +588,3 @@ func unmarshalSyncPoints(b []byte) ([]*SyncPoint, error) {
 	}
 	return points, nil
 }
-
-func marshalPeers(peers []string) []byte {
-	enc := common.NewMinimumEncoder()
-	enc.WriteInt(len(peers))
-	for _, p := range peers {
-		enc.WriteInt(len(p))
-		enc.Write([]byte(p))
-	}
-	return enc.Bytes()
-}
-
-func unmarshalPeers(b []byte) ([]string, error) {
-	dec, err := common.NewMinimumDecoder(b)
-	if err != nil {
-		return nil, err
-	}
-	count, err := dec.ReadInt()
-	if err != nil {
-		return nil, err
-	}
-	peers := make([]string, count)
-	for i := range peers {
-		as, err := dec.ReadInt()
-		if err != nil {
-			return nil, err
-		}
-		addr := make([]byte, as)
-		err = dec.Read(addr)
-		if err != nil {
-			return nil, err
-		}
-		peers[i] = string(addr)
-	}
-	return peers, nil
-}

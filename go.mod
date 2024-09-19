@@ -7,7 +7,7 @@ replace github.com/dgraph-io/badger/v4 => github.com/MixinNetwork/badger/v4 v4.3
 require (
 	filippo.io/edwards25519 v1.1.0
 	github.com/dgraph-io/badger/v4 v4.3.0
-	github.com/dgraph-io/ristretto v0.1.2-0.20240116140435-c67e07994f91
+	github.com/dgraph-io/ristretto v1.0.0
 	github.com/pelletier/go-toml v1.9.5
 	github.com/quic-go/quic-go v0.47.0
 	github.com/shopspring/decimal v1.4.0
@@ -19,7 +19,7 @@ require (
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
