@@ -28,7 +28,7 @@ VERSION:
 
 COMMANDS:
    kernel, k                    Start the Mixin Kernel daemon
-   clone                        Clone a graph to intialize the kernel
+   clone                        Clone a graph to initialize the kernel
    setuptestnet                 Setup the test nodes and genesis
    createaddress                Create a new Mixin address
    decodeaddress                Decode an address as public view key and public spend key

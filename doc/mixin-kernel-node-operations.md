@@ -20,7 +20,7 @@ To boot a fresh Mixin Kernel Full Node, you need to generate your keys, send the
 
 6. Send the pledge transaction to any other running Kernel Node, if it fails due to pending node operations, wait and try again.
 
-7. If your pledge transaction succeed, you can run the daemon `mixin kernel -d ~/mixin`.
+7. If your pledge transaction succeeds, you can run the daemon `mixin kernel -d ~/mixin`.
 
 ## Kernel Concepts
 

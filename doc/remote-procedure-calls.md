@@ -28,7 +28,7 @@ Mixin Kernel RPCs accept multiple subcommand and interactive with the network.
 
 #### Global Options
 
-mixin kernel glbal options.
+mixin kernel global options.
 
 *Parameter*
 
@@ -147,7 +147,7 @@ Decode a raw transaction as JSON.
   "hash": "hash", (string) HEX representation of a 32 bytes hash, which is the unique transaction identifier.
   "inputs": [
     {
-      "hash": "input hash", (string) input transction hash
+      "hash": "input hash", (string) input transaction hash
       "index": index (integer) input transaction index
     }
   ], (array) an array of input objects, which may be the outputs of previous transactions, Kernel mint reward, Domain deposit or Genesis.
@@ -815,7 +815,7 @@ mixin -n 127.0.0.1:8239 listmintdistributions \
 
 #### listallnodes
 
-List all nodes ever existed.
+List all nodes that ever existed.
 
 *Parameter*
 
