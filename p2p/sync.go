@@ -99,7 +99,10 @@ func (me *Peer) syncHeadRoundToRemote(local, remote map[crypto.Hash]*SyncPoint, 
 	for i := remoteFinal; i <= remoteFinal+config.SnapshotReferenceThreshold+2; i++ {
 		ss, _ := me.cacheReadSnapshotsForNodeRound(nodeId, i)
 		for _, s := range ss {
-			me.SendSnapshotFinalizationMessage(p.IdForNetwork, s.Snapshot)
+			err := me.SendSnapshotFinalizationMessage(p.IdForNetwork, s.Snapshot)
+			if err != nil {
+				logger.Verbosef("network.sync SendSnapshotFinalizationMessage %s %v\n", p.IdForNetwork, err)
+			}
 		}
 	}
 }

@@ -221,7 +221,7 @@ func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.Vers
 	return nil
 }
 
-func (chain *Chain) checkNodeAcceptPossibility(timestamp uint64, s *common.Snapshot, finalized bool) error {
+func (chain *Chain) checkNodeAcceptPossibility(timestamp uint64, finalized bool) error {
 	ci, epoch := chain.ConsensusInfo, chain.node.Epoch
 	if chain.State != nil {
 		return fmt.Errorf("invalid graph round %s %d", chain.ChainId, chain.State.CacheRound.Number)
@@ -263,8 +263,8 @@ func (chain *Chain) checkNodeAcceptPossibility(timestamp uint64, s *common.Snaps
 	return nil
 }
 
-func (chain *Chain) buildNodeAcceptTransaction(timestamp uint64, s *common.Snapshot, finalized bool) (*common.VersionedTransaction, error) {
-	err := chain.checkNodeAcceptPossibility(timestamp, s, finalized)
+func (chain *Chain) buildNodeAcceptTransaction(timestamp uint64, finalized bool) (*common.VersionedTransaction, error) {
+	err := chain.checkNodeAcceptPossibility(timestamp, finalized)
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +300,7 @@ func (chain *Chain) buildNodeAcceptTransaction(timestamp uint64, s *common.Snaps
 
 func (chain *Chain) tryToSendAcceptTransaction() error {
 	now := uint64(clock.Now().UnixNano())
-	ver, err := chain.buildNodeAcceptTransaction(now, nil, false)
+	ver, err := chain.buildNodeAcceptTransaction(now, false)
 	if err != nil {
 		return err
 	}
@@ -319,8 +319,8 @@ func (chain *Chain) tryToSendAcceptTransaction() error {
 		NodeId:  chain.ChainId,
 	}
 	s.AddSoleTransaction(ver.PayloadHash())
-	chain.AppendSelfEmpty(s)
-	logger.Println("tryToSendAcceptTransaction", ver.PayloadHash(), hex.EncodeToString(ver.Marshal()))
+	err = chain.AppendSelfEmpty(s)
+	logger.Println("tryToSendAcceptTransaction", ver.PayloadHash(), hex.EncodeToString(ver.Marshal()), err)
 	return nil
 }
 
@@ -334,7 +334,7 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 
 	chain := node.getOrCreateChain(s.NodeId)
-	ver, err := chain.buildNodeAcceptTransaction(timestamp, s, finalized)
+	ver, err := chain.buildNodeAcceptTransaction(timestamp, finalized)
 	if err != nil {
 		return err
 	}

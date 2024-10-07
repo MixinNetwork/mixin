@@ -501,7 +501,10 @@ func (node *Node) sendGraphToConcensusNodesAndPeers() {
 			peers[p.IdForNetwork] = true
 		}
 		for id := range peers {
-			node.Peer.SendGraphMessage(id)
+			err := node.Peer.SendGraphMessage(id)
+			if err != nil {
+				logger.Debugf("SendGraphMessage(%s) => %v\n", id, err)
+			}
 		}
 		time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
 	}

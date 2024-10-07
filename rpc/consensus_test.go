@@ -72,7 +72,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 		require.Nil(err)
 		require.NotNil(store)
 		if i == 0 {
-			kernel.TestMockDiff(epoch.Sub(time.Now()))
+			kernel.TestMockDiff(time.Until(epoch))
 		}
 		node, err := kernel.SetupNode(custom, store, cache, gns)
 		require.Nil(err)

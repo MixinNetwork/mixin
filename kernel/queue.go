@@ -46,13 +46,10 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 	return tx.PayloadHash().String(), err
 }
 
-func (node *Node) loopCacheQueue() error {
+func (node *Node) loopCacheQueue() {
 	defer close(node.cqc)
 
-	for {
-		if node.waitOrDone(time.Duration(config.SnapshotRoundGap)) {
-			return nil
-		}
+	for !node.waitOrDone(time.Duration(config.SnapshotRoundGap)) {
 		caches, finals, _ := node.QueueState()
 		if caches > 1000 || finals > 500 {
 			logger.Printf("LoopCacheQueue QueueState too big %d %d\n", caches, finals)
@@ -63,11 +60,16 @@ func (node *Node) loopCacheQueue() error {
 		if len(allNodes) <= 0 {
 			continue
 		}
-		leadingNodes, leadingFilter := node.filterLeadingNodes(allNodes)
+
+		txs, err := node.persistStore.CacheRetrieveTransactions(100)
+		if err != nil {
+			logger.Printf("LoopCacheQueue CacheRetrieveTransactions ERROR %s\n", err)
+			continue
+		}
 
 		var stale []crypto.Hash
 		filter := make(map[crypto.Hash]bool)
-		txs, err := node.persistStore.CacheRetrieveTransactions(100)
+		leadingNodes, leadingFilter := node.filterLeadingNodes(allNodes)
 		for _, tx := range txs {
 			hash := tx.PayloadHash()
 			if filter[hash] {
@@ -102,9 +104,6 @@ func (node *Node) loopCacheQueue() error {
 				}
 			}
 		}
-		if err != nil {
-			logger.Printf("LoopCacheQueue CacheRetrieveTransactions ERROR %s\n", err)
-		}
 		err = node.persistStore.CacheRemoveTransactions(stale)
 		if err != nil {
 			logger.Printf("LoopCacheQueue CacheRemoveTransactions ERROR %s\n", err)
@@ -122,7 +121,8 @@ func (node *Node) sendTransactionToNode(hash, nbor crypto.Hash) {
 			NodeId:  node.IdForNetwork,
 		}
 		s.AddSoleTransaction(hash)
-		node.chain.AppendSelfEmpty(s)
+		err := node.chain.AppendSelfEmpty(s)
+		logger.Debugf("queue.AppendSelfEmpty(%v) => %v", s, err)
 	}
 }
 

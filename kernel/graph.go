@@ -72,7 +72,7 @@ func (chain *Chain) validateNewRound(cache *CacheRound, references *common.Round
 	return final, false, nil
 }
 
-func (chain *Chain) updateEmptyHeadRoundAndPersist(m *CosiAction, final *FinalRound, cache *CacheRound, references *common.RoundLink, timestamp uint64, strict bool) error {
+func (chain *Chain) updateEmptyHeadRoundAndPersist(final *FinalRound, cache *CacheRound, references *common.RoundLink, timestamp uint64, strict bool) error {
 	if len(cache.Snapshots) != 0 {
 		return fmt.Errorf("malformated head round references not empty")
 	}
