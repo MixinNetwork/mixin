@@ -57,6 +57,7 @@ type Chain struct {
 	CosiCommitments    map[crypto.Hash][]*crypto.Key
 	UsedCommitments    map[crypto.Key]bool
 	ComitmentsSentTime time.Time
+	CosiCommunicatedAt map[crypto.Hash]time.Time
 
 	CosiAggregators map[crypto.Hash]*CosiAggregator
 	CosiVerifiers   map[crypto.Hash]*CosiVerifier
@@ -78,22 +79,23 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 	logger.Printf("node.buildChain(%s)", chainId)
 
 	chain := &Chain{
-		node:             node,
-		ChainId:          chainId,
-		CosiRandoms:      make(map[crypto.Key]*crypto.Key),
-		UsedRandoms:      make(map[crypto.Hash]*crypto.Key),
-		CosiCommitments:  make(map[crypto.Hash][]*crypto.Key),
-		UsedCommitments:  make(map[crypto.Key]bool),
-		CosiAggregators:  make(map[crypto.Hash]*CosiAggregator),
-		CosiVerifiers:    make(map[crypto.Hash]*CosiVerifier),
-		CachePool:        make(chan *CosiAction, CachePoolSnapshotsLimit),
-		persistStore:     node.persistStore,
-		finalActionsRing: make(chan *CosiAction, FinalPoolSlotsLimit),
-		plc:              make(chan struct{}),
-		clc:              make(chan struct{}),
-		wlc:              make(chan struct{}),
-		slc:              make(chan struct{}),
-		running:          false,
+		node:               node,
+		ChainId:            chainId,
+		CosiRandoms:        make(map[crypto.Key]*crypto.Key),
+		UsedRandoms:        make(map[crypto.Hash]*crypto.Key),
+		CosiCommitments:    make(map[crypto.Hash][]*crypto.Key),
+		UsedCommitments:    make(map[crypto.Key]bool),
+		CosiCommunicatedAt: make(map[crypto.Hash]time.Time),
+		CosiAggregators:    make(map[crypto.Hash]*CosiAggregator),
+		CosiVerifiers:      make(map[crypto.Hash]*CosiVerifier),
+		CachePool:          make(chan *CosiAction, CachePoolSnapshotsLimit),
+		persistStore:       node.persistStore,
+		finalActionsRing:   make(chan *CosiAction, FinalPoolSlotsLimit),
+		plc:                make(chan struct{}),
+		clc:                make(chan struct{}),
+		wlc:                make(chan struct{}),
+		slc:                make(chan struct{}),
+		running:            false,
 	}
 
 	err := chain.loadState()

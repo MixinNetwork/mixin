@@ -395,7 +395,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 			continue
 		}
 		commitment := chain.cosiPopCommitment(peerId)
-		if commitment == nil {
+		if commitment == nil || chain.CosiCommunicatedAt[peerId].Before(clock.Now().Add(-time.Duration(config.SnapshotRoundGap)*10)) {
 			err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R, chain.node.Signer.PrivateSpendKey)
 			if err != nil {
 				logger.Verbosef("cosiSendAnnouncement SendSnapshotAnnouncementMessage(%s, %s) ERROR %v\n",
@@ -425,6 +425,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	if err != nil || !valid {
 		return err
 	}
+	chain.CosiCommunicatedAt[m.PeerId] = clock.Now()
 
 	s, cd := m.Snapshot, m.data
 	r := crypto.CosiCommit(crypto.RandReader())
@@ -613,6 +614,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 			m, sig, challenge)
 		return nil
 	}
+	chain.CosiCommunicatedAt[m.PeerId] = clock.Now()
 
 	priv := chain.node.Signer.PrivateSpendKey
 	response, err := m.Signature.Response(&priv, v.random, publics, m.SnapshotHash)
@@ -636,6 +638,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		logger.Verbosef("cosiHandleResponse %v REPEAT\n", m)
 		return nil
 	}
+	chain.CosiCommunicatedAt[m.PeerId] = clock.Now()
 	if len(agg.Responses) >= len(agg.Commitments) {
 		logger.Verbosef("cosiHandleResponse %v EXCEED\n", m)
 		return nil
@@ -840,6 +843,7 @@ func (chain *Chain) cosiAddCommitments(m *CosiAction) error {
 	if rn := chain.node.GetRemovingOrSlashingNode(m.PeerId); rn != nil {
 		return nil
 	}
+	chain.CosiCommunicatedAt[m.PeerId] = clock.Now()
 	var commitments []*crypto.Key
 	for _, k := range m.Commitments {
 		if !chain.UsedCommitments[*k] {
