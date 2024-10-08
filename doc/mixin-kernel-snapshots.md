@@ -4,7 +4,7 @@ Snapshot is the core of all Mixin Kernel stuffs, the Mixin Kernel BFT consensus 
 
 The current Kernel snapshot version is `0x01`, which is marshaled as a special msgpack format [https://github.com/MixinNetwork/msgpack](https://github.com/MixinNetwork/msgpack) before the snapshot hash calculation.
 
-All snapshot related API exposed externally have and should always have a consistent JSON representation as below.
+All snapshot-related API exposed externally have and should always have a consistent JSON representation as below.
 
 ```json
 {
@@ -32,7 +32,7 @@ All snapshot related API exposed externally have and should always have a consis
 
 - **timestamp**: a uint64 nanosecond since Unix epoch, which is provided by the leading node and agreed upon consensus.
 
-- **topology**: a uint64 number as the snapshot order in all snapshots, this value is the only node provided value, **NOT** included in the hash and not agreed by consensus.
+- **topology**: a uint64 number as the snapshot order in all snapshots, this value is the only node-provided value, **NOT** included in the hash and not agreed by consensus.
 
 - **transaction**: HEX representation of a 32 bytes hash, which is the transaction hash included by this snapshot.
 
