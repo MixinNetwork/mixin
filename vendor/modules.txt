@@ -11,8 +11,8 @@ github.com/cpuguy83/go-md2man/v2/md2man
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/dgraph-io/badger/v4 v4.3.0 => github.com/MixinNetwork/badger/v4 v4.3.0-F1
-## explicit; go 1.22.6
+# github.com/dgraph-io/badger/v4 v4.3.1 => github.com/MixinNetwork/badger/v4 v4.3.1-F1
+## explicit; go 1.23.2
 github.com/dgraph-io/badger/v4
 github.com/dgraph-io/badger/v4/fb
 github.com/dgraph-io/badger/v4/options
@@ -43,11 +43,11 @@ github.com/golang/protobuf/proto
 # github.com/google/flatbuffers v24.3.25+incompatible
 ## explicit
 github.com/google/flatbuffers/go
-# github.com/google/pprof v0.0.0-20240910150728-a0b0bb1d4134
+# github.com/google/pprof v0.0.0-20241008032058-148460133af7
 ## explicit; go 1.22
 github.com/google/pprof/profile
-# github.com/klauspost/compress v1.17.9
-## explicit; go 1.20
+# github.com/klauspost/compress v1.17.10
+## explicit; go 1.21
 github.com/klauspost/compress
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/huff0
@@ -136,7 +136,7 @@ github.com/zeebo/blake3/internal/utils
 ## explicit; go 1.20
 go.uber.org/mock/mockgen
 go.uber.org/mock/mockgen/model
-# golang.org/x/crypto v0.27.0
+# golang.org/x/crypto v0.28.0
 ## explicit; go 1.20
 golang.org/x/crypto/blake2b
 golang.org/x/crypto/chacha20
@@ -145,7 +145,7 @@ golang.org/x/crypto/hkdf
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
 golang.org/x/crypto/sha3
-# golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
+# golang.org/x/exp v0.0.0-20241004190924-225e2abe05e6
 ## explicit; go 1.22.0
 golang.org/x/exp/rand
 # golang.org/x/mod v0.21.0
@@ -154,7 +154,7 @@ golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/modfile
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.29.0
+# golang.org/x/net v0.30.0
 ## explicit; go 1.18
 golang.org/x/net/bpf
 golang.org/x/net/internal/iana
@@ -166,12 +166,12 @@ golang.org/x/net/trace
 # golang.org/x/sync v0.8.0
 ## explicit; go 1.18
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.25.0
+# golang.org/x/sys v0.26.0
 ## explicit; go 1.18
 golang.org/x/sys/cpu
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/tools v0.25.0
+# golang.org/x/tools v0.26.0
 ## explicit; go 1.22.0
 golang.org/x/tools/cover
 golang.org/x/tools/go/ast/astutil
@@ -185,8 +185,8 @@ golang.org/x/tools/internal/gocommand
 golang.org/x/tools/internal/gopathwalk
 golang.org/x/tools/internal/imports
 golang.org/x/tools/internal/stdlib
-# google.golang.org/protobuf v1.34.2
-## explicit; go 1.20
+# google.golang.org/protobuf v1.35.1
+## explicit; go 1.21
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
 google.golang.org/protobuf/internal/descfmt
@@ -220,4 +220,4 @@ google.golang.org/protobuf/types/gofeaturespb
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# github.com/dgraph-io/badger/v4 => github.com/MixinNetwork/badger/v4 v4.3.0-F1
+# github.com/dgraph-io/badger/v4 => github.com/MixinNetwork/badger/v4 v4.3.1-F1
