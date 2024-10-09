@@ -57,9 +57,9 @@ type CosiAggregator struct {
 }
 
 type CosiVerifier struct {
-	Snapshot   *common.Snapshot
-	Commitment *crypto.Key
-	random     *crypto.Key
+	Snapshot     *common.Snapshot
+	Announcement *crypto.Key
+	random       *crypto.Key
 }
 
 func (node *Node) cosiAcceptedNodesListShuffle(ts uint64) []*CNode {
@@ -429,7 +429,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 
 	s, cd := m.Snapshot, m.data
 	r := crypto.CosiCommit(crypto.RandReader())
-	v := &CosiVerifier{Snapshot: s, Commitment: m.Commitment, random: r}
+	v := &CosiVerifier{Snapshot: s, Announcement: m.Commitment, random: r}
 	chain.CosiVerifiers[s.Hash] = v
 	chain.CosiVerifiers[s.SoleTransaction()] = v
 	err = chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, r.Public(), cd.TX == nil)
@@ -515,7 +515,7 @@ func (chain *Chain) cosiHandleFullChallenge(m *CosiAction) error {
 	}
 
 	s := m.Snapshot
-	v := &CosiVerifier{Snapshot: s, Commitment: m.Commitment, random: m.random}
+	v := &CosiVerifier{Snapshot: s, Announcement: m.Commitment, random: m.random}
 	chain.CosiVerifiers[s.Hash] = v
 	chain.CosiVerifiers[s.SoleTransaction()] = v
 
@@ -600,7 +600,7 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	s, cd := v.Snapshot, m.data
 
 	var sig crypto.Signature
-	copy(sig[:], v.Commitment[:])
+	copy(sig[:], v.Announcement[:])
 	copy(sig[32:], m.Signature.Signature[32:])
 	pub := cd.CN.Signer.PublicSpendKey
 	_, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
@@ -643,6 +643,13 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		logger.Verbosef("cosiHandleResponse %v EXCEED\n", m)
 		return nil
 	}
+	cids, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
+	err := s.Signature.VerifyResponse(publics, cd.PN.ConsensusIndex, m.Response, m.SnapshotHash)
+	if err != nil {
+		logger.Verbosef("cosiHandleResponse %v RESPONSE ERROR %s\n", m, err)
+		return nil
+	}
+
 	base := chain.node.ConsensusThreshold(s.Timestamp, false)
 	agg.Responses[cd.PN.ConsensusIndex] = m.Response
 	logger.Verbosef("cosiHandleResponse %v NOW %d %d %d\n",
@@ -651,13 +658,6 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		return nil
 	}
 	logger.Verbosef("cosiHandleResponse %v ENOUGH\n", m)
-
-	cids, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
-	err := s.Signature.VerifyResponse(publics, cd.PN.ConsensusIndex, m.Response, m.SnapshotHash)
-	if err != nil {
-		logger.Verbosef("cosiHandleResponse %v RESPONSE ERROR %s\n", m, err)
-		return nil
-	}
 
 	err = s.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash, false)
 	if err != nil {
