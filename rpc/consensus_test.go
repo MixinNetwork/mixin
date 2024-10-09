@@ -206,7 +206,8 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Len(mints, 0)
 
 	logger.SetLevel(logger.ERROR)
-	logger.SetFilter("(?i)mint")
+	err = logger.SetFilter("(?i)mint")
+	require.Nil(err)
 
 	kernel.TestMockDiff(time.Hour * (24 + config.KernelMintTimeBegin))
 	tl, _ = testVerifySnapshots(require, nodes)
@@ -262,7 +263,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Nil(hr)
 
 	kernel.TestMockDiff(1 * time.Hour)
-	time.Sleep(5 * time.Second)
+	time.Sleep(7 * time.Second)
 	all = testListNodes(nodes[0].Host)
 	require.Len(all, NODES+1)
 	require.Equal(all[NODES].Signer.String(), pn.Signer.String())
@@ -983,6 +984,9 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 		false,
 		false,
 	})
+	if err != nil {
+		panic(err)
+	}
 
 	var rss []*struct {
 		Version      uint8                 `json:"version"`

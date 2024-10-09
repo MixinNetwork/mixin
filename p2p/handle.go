@@ -459,13 +459,14 @@ func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage
 	rk = crypto.Blake3Hash(append(rk[:], []byte("REMOTE")...))
 	for _, peer := range relayers {
 		if peer.IdForNetwork == relayerId {
-			return nil
+			continue
 		}
 		rk := crypto.Blake3Hash(append(rk[:], peer.IdForNetwork[:]...))
 		success := me.offerToPeerWithCacheCheck(peer, MsgPriorityNormal, &ChanMsg{rk[:], msg.Data})
-		if !success {
-			logger.Verbosef("me.offerToPeerWithCacheCheck(%s) relayer timeout\n", peer.IdForNetwork)
+		if success {
+			return nil
 		}
+		logger.Verbosef("me.offerToPeerWithCacheCheck(%s) relayer timeout\n", peer.IdForNetwork)
 	}
 	return nil
 }

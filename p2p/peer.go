@@ -142,7 +142,7 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, isRelayer
 		consumers:      &neighborMap{m: make(map[crypto.Hash]*Peer)},
 		highRing:       make(chan *ChanMsg, ringSize),
 		normalRing:     make(chan *ChanMsg, ringSize),
-		syncRing:       make(chan []*SyncPoint, 128),
+		syncRing:       make(chan []*SyncPoint, ringSize),
 		handle:         handle,
 		sentMetric:     &MetricPool{enabled: false},
 		receivedMetric: &MetricPool{enabled: false},
@@ -414,14 +414,12 @@ func (me *Peer) sendToPeer(to crypto.Hash, typ byte, key, data []byte, priority 
 	me.sentMetric.handle(typ)
 
 	nbrs := me.GetNeighbors(to)
-	if len(nbrs) > 0 {
-		for _, peer := range nbrs {
-			success := peer.offer(priority, &ChanMsg{key, data})
-			if !success {
-				logger.Verbosef("peer.offer(%s) send timeout\n", peer.IdForNetwork)
-			}
+	for _, peer := range nbrs {
+		success := peer.offer(priority, &ChanMsg{key, data})
+		if success { // no double send for the same message to avoid errors
+			return nil
 		}
-		return nil
+		logger.Verbosef("peer.offer(%s) send timeout\n", peer.IdForNetwork)
 	}
 
 	rm := me.buildRelayMessage(to, data)
@@ -437,9 +435,10 @@ func (me *Peer) sendToPeer(to crypto.Hash, typ byte, key, data []byte, priority 
 		}
 		rk := crypto.Blake3Hash(append(rk[:], peer.IdForNetwork[:]...))
 		success := me.offerToPeerWithCacheCheck(peer, priority, &ChanMsg{rk[:], rm})
-		if !success {
-			logger.Verbosef("me.offerToPeerWithCacheCheck(%s) send timeout\n", peer.IdForNetwork)
+		if success {
+			return nil
 		}
+		logger.Verbosef("me.offerToPeerWithCacheCheck(%s) send timeout\n", peer.IdForNetwork)
 	}
 	return nil
 }
