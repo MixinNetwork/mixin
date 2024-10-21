@@ -39,6 +39,9 @@ func TestMintBatchSize(t *testing.T) {
 	require.Equal(common.NewIntegerFromString("170.76575341"), mintMultiBatchesSize(1823, 1825))
 	require.Equal(common.NewIntegerFromString("251.65479450"), mintMultiBatchesSize(1823, 1826))
 	require.Equal(common.NewIntegerFromString("341.53150682"), mintMultiBatchesSize(1822, 1826))
+
+	require.Equal(common.NewIntegerFromString("194102.43834270"), mintMultiBatchesSize(0, 1707))
+	require.Equal(common.NewIntegerFromString("29443.61095650"), mintMultiBatchesSize(1707, 2058))
 }
 
 func TestPoolSize(t *testing.T) {
@@ -51,6 +54,8 @@ func TestPoolSize(t *testing.T) {
 	require.Equal(common.NewIntegerFromString("449876.71232877"), poolSizeUniversal(366))
 	require.Equal(common.NewIntegerFromString("307917.61644032"), poolSizeUniversal(1684))
 	require.Equal(common.NewIntegerFromString("305850.45205696"), poolSizeUniversal(1707))
+
+	require.True(common.NewInteger(500000).Sub(poolSizeUniversal(1707)).Cmp(mintMultiBatchesSize(0, 1707)) > 0)
 }
 
 func TestUniversalMintTransaction(t *testing.T) {
