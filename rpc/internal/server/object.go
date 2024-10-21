@@ -72,7 +72,7 @@ func parseDataURI(v string) ([]byte, string) {
 	ds[0] = ds[0][len(scheme):]
 
 	ms := strings.Split(ds[0], ";")
-	if len(ms) < 2 {
+	if len(ms) < 1 {
 		return []byte(ds[1]), defaultTextPlainType
 	}
 
@@ -84,7 +84,24 @@ func parseDataURI(v string) ([]byte, string) {
 	if mime == "" || !utf8.ValidString(mime) {
 		mime = decideContentType([]byte(data))
 	}
+	charset := findCharset(ms, data)
+	if charset != "" {
+		mime = mime + "; charset=" + charset
+	}
 	return []byte(data), mime
+}
+
+func findCharset(ms []string, data string) string {
+	for _, m := range ms[1:] {
+		mp := strings.Split(m, "=")
+		if len(mp) == 2 && mp[0] == "charset" {
+			return strings.ToLower(mp[1])
+		}
+	}
+	if utf8.ValidString(data) {
+		return "utf-8"
+	}
+	return ""
 }
 
 func decideContentType(extra []byte) string {
