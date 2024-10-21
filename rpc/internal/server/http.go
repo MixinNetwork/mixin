@@ -26,7 +26,7 @@ type Call struct {
 	Params []any  `json:"params"`
 }
 
-func handlePanic(w http.ResponseWriter, r *http.Request) {
+func handlePanic(w http.ResponseWriter, _ *http.Request) {
 	rcv := recover()
 	if rcv == nil {
 		return
@@ -62,9 +62,12 @@ func (r *Render) render(body map[string]any) {
 	if err != nil {
 		panic(err)
 	}
-	r.w.Header().Set("Content-Type", "application/json")
+	r.w.Header().Set("Content-Type", defaultJSONType)
 	r.w.WriteHeader(http.StatusOK)
-	r.w.Write(b)
+	_, err = r.w.Write(b)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (impl *RPC) renderInfo(rdr *Render) {

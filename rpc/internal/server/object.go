@@ -12,6 +12,11 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
+const (
+	defaultTextPlainType = "text/plain; charset=utf-8"
+	defaultJSONType      = "application/json; charset=utf-8"
+)
+
 func (impl *RPC) handleObject(w http.ResponseWriter, r *http.Request, rdr *Render) {
 	ps := strings.Split(r.URL.Path, "/")
 	if len(ps) < 3 || ps[1] != "objects" {
@@ -37,11 +42,11 @@ func (impl *RPC) handleObject(w http.ResponseWriter, r *http.Request, rdr *Rende
 	b := tx.Extra
 	w.Header().Set("Cache-Control", "max-age=31536000, public")
 	if len(tx.Extra) == 0 {
-		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-Type", defaultTextPlainType)
 	} else if m := parseJSON(tx.Extra); m == nil {
 		w.Header().Set("Content-Type", decideContentType(tx.Extra))
 	} else if len(ps) < 4 {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", defaultJSONType)
 	} else {
 		v, mime := parseDataURI(fmt.Sprint(m[ps[3]]))
 		w.Header().Set("Content-Type", mime)
@@ -49,23 +54,26 @@ func (impl *RPC) handleObject(w http.ResponseWriter, r *http.Request, rdr *Rende
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write(b)
+	_, err = w.Write(b)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func parseDataURI(v string) ([]byte, string) {
 	const scheme = "data:"
 	if !strings.HasPrefix(v, scheme) {
-		return []byte(v), "text/plain"
+		return []byte(v), defaultTextPlainType
 	}
 	ds := strings.Split(v, ",")
 	if len(ds) != 2 {
-		return []byte(v), "text/plain"
+		return []byte(v), defaultTextPlainType
 	}
 	ds[0] = ds[0][len(scheme):]
 
 	ms := strings.Split(ds[0], ";")
 	if len(ms) < 2 {
-		return []byte(ds[1]), "text/plain"
+		return []byte(ds[1]), defaultTextPlainType
 	}
 
 	mime, data := ms[0], ds[1]
@@ -81,7 +89,7 @@ func parseDataURI(v string) ([]byte, string) {
 
 func decideContentType(extra []byte) string {
 	if utf8.ValidString(string(extra)) {
-		return "text/plain"
+		return defaultTextPlainType
 	} else {
 		return "application/octet-stream"
 	}

@@ -8,7 +8,7 @@ import (
 )
 
 func GetDepositTransaction(rpc, chain, hash string, index uint64) (*common.VersionedTransaction, string, error) {
-	raw, err := callMixinRPC(rpc, "getdeposittransaction", []any{chain, hash, index})
+	raw, err := CallMixinRPC(rpc, "getdeposittransaction", []any{chain, hash, index})
 	if err != nil || raw == nil {
 		return nil, "", err
 	}

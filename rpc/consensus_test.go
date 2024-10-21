@@ -455,7 +455,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 	require.Nil(err)
 	require.True(hash.HasValue())
 
-	data, err := callMixinRPC("http://"+enode.Host, "listcustodianupdates", []any{})
+	data, err := CallMixinRPC("http://"+enode.Host, "listcustodianupdates", []any{})
 	require.Nil(err)
 	var curs []*struct {
 		Custodian   string `json:"custodian"`
@@ -978,7 +978,7 @@ func requireKeyEqual(require *require.Assertions, a, b map[string]*common.Snapsh
 }
 
 func testListSnapshots(node string) map[string]*common.Snapshot {
-	data, err := callMixinRPC("http://"+node, "listsnapshots", []any{
+	data, err := CallMixinRPC("http://"+node, "listsnapshots", []any{
 		0,
 		100000,
 		false,
@@ -1034,7 +1034,7 @@ type Node struct {
 }
 
 func testListNodes(node string) []*Node {
-	data, err := callMixinRPC("http://"+node, "listallnodes", []any{time.Now().UnixNano() * 2, false})
+	data, err := CallMixinRPC("http://"+node, "listallnodes", []any{time.Now().UnixNano() * 2, false})
 	if err != nil {
 		panic(err)
 	}
@@ -1053,7 +1053,7 @@ type HeadRound struct {
 }
 
 func testDumpGraphHead(node string, id crypto.Hash) *HeadRound {
-	data, err := callMixinRPC("http://"+node, "dumpgraphhead", []any{})
+	data, err := CallMixinRPC("http://"+node, "dumpgraphhead", []any{})
 	if err != nil {
 		panic(err)
 	}
@@ -1076,7 +1076,7 @@ type Info struct {
 }
 
 func testGetGraphInfo(node string) Info {
-	data, err := callMixinRPC("http://"+node, "getinfo", []any{})
+	data, err := CallMixinRPC("http://"+node, "getinfo", []any{})
 	if err != nil {
 		panic(err)
 	}

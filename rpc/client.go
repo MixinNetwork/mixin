@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func callMixinRPC(node, method string, params []any) ([]byte, error) {
+func CallMixinRPC(node, method string, params []any) ([]byte, error) {
 	client := &http.Client{Timeout: 20 * time.Second}
 
 	body, err := json.Marshal(map[string]any{
@@ -42,7 +42,7 @@ func callMixinRPC(node, method string, params []any) ([]byte, error) {
 		return nil, err
 	}
 	if result.Error != nil {
-		return nil, fmt.Errorf("callMixinRPC(%s, %s, %s) => %v", node, method, params, result.Error)
+		return nil, fmt.Errorf("CallMixinRPC(%s, %s, %s) => %v", node, method, params, result.Error)
 	}
 	if result.Data == nil {
 		return nil, nil

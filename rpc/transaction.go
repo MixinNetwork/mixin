@@ -9,7 +9,7 @@ import (
 )
 
 func GetTransaction(rpc, hash string) (*common.VersionedTransaction, string, error) {
-	raw, err := callMixinRPC(rpc, "gettransaction", []any{hash})
+	raw, err := CallMixinRPC(rpc, "gettransaction", []any{hash})
 	if err != nil || raw == nil {
 		return nil, "", err
 	}
@@ -33,7 +33,7 @@ func GetTransaction(rpc, hash string) (*common.VersionedTransaction, string, err
 }
 
 func SendRawTransaction(rpc, raw string) (crypto.Hash, error) {
-	body, err := callMixinRPC(rpc, "sendrawtransaction", []any{raw})
+	body, err := CallMixinRPC(rpc, "sendrawtransaction", []any{raw})
 	if err != nil {
 		return crypto.Hash{}, err
 	}

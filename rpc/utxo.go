@@ -33,7 +33,7 @@ func (ur *utxoKeysRPCReader) ReadDepositLock(deposit *common.DepositData) (crypt
 }
 
 func GetUTXO(rpc, hash string, index uint64) (*common.UTXOWithLock, error) {
-	data, err := callMixinRPC(rpc, "getutxo", []any{hash, index})
+	data, err := CallMixinRPC(rpc, "getutxo", []any{hash, index})
 	if err != nil {
 		return nil, err
 	}

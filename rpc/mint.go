@@ -7,7 +7,7 @@ import (
 )
 
 func ListMintDistributions(rpc string, offset, count uint64) ([]*common.VersionedTransaction, error) {
-	raw, err := callMixinRPC(rpc, "listmintdistributions", []any{offset, count, false})
+	raw, err := CallMixinRPC(rpc, "listmintdistributions", []any{offset, count, false})
 	if err != nil || raw == nil {
 		return nil, err
 	}
