@@ -260,6 +260,7 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func handleCORS(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Vary", "Origin")
 		origin := r.Header.Get("Origin")
 		if origin == "" {
 			handler.ServeHTTP(w, r)
