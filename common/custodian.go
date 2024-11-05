@@ -214,6 +214,6 @@ func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader, now u
 	return nil
 }
 
-func (tx *Transaction) validateCustodianSlashNodes(store DataStore) error {
+func (tx *Transaction) validateCustodianSlashNodes(_ DataStore) error {
 	return fmt.Errorf("not implemented %v", tx)
 }

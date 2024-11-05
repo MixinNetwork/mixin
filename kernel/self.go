@@ -8,9 +8,20 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/badger/v4"
 )
+
+func (node *Node) checkTxInStorage(id crypto.Hash) (*common.VersionedTransaction, string, error) {
+	tx, snap, err := node.persistStore.ReadTransaction(id)
+	if err != nil || tx != nil {
+		return tx, snap, err
+	}
+
+	tx, err = node.persistStore.CacheGetTransaction(id)
+	return tx, "", err
+}
 
 func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool) (*common.VersionedTransaction, bool, error) {
 	tx, snap, err := node.persistStore.ReadTransaction(s.SoleTransaction())

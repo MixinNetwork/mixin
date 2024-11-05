@@ -208,7 +208,7 @@ func (tx *SignedTransaction) validateInputs(store UTXOLockReader, hash crypto.Ha
 			}
 		}
 
-		err = validateUTXO(i, &utxo.UTXO, tx.SignaturesMap, tx.AggregatedSignature, hash, txType, keySigs, len(allKeys))
+		err = validateUTXO(i, &utxo.UTXO, tx.SignaturesMap, tx.AggregatedSignature, txType, keySigs, len(allKeys))
 		if err != nil {
 			return inputsFilter, inputAmount, err
 		}
@@ -314,7 +314,7 @@ func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, inpu
 	return nil
 }
 
-func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, as *AggregatedSignature, msg crypto.Hash, txType uint8, keySigs map[*crypto.Key]*crypto.Signature, offset int) error {
+func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, as *AggregatedSignature, txType uint8, keySigs map[*crypto.Key]*crypto.Signature, offset int) error {
 	switch utxo.Type {
 	case OutputTypeScript, OutputTypeNodeRemove:
 		if as != nil {
