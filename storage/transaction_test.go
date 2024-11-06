@@ -28,6 +28,7 @@ func TestTransaction(t *testing.T) {
 	require.Equal(uint64(0), seq)
 
 	gns, err := common.ReadGenesis("../config/genesis.json")
+	require.Nil(err)
 	rounds, snapshots, transactions, err := gns.BuildSnapshots()
 	require.Nil(err)
 	loaded, err := store.CheckGenesisLoad(snapshots)
@@ -39,6 +40,12 @@ func TestTransaction(t *testing.T) {
 	require.Nil(err)
 	require.True(loaded)
 	signers := []crypto.Hash{rounds[0].NodeId}
+
+	genesis := common.NewInteger(13439).Mul(27).Add(common.NewInteger(2700))
+	_, balance, err := store.ReadAssetWithBalance(common.XINAssetId)
+	require.Nil(err)
+	require.Equal(genesis.String(), balance.String())
+	require.Equal("365553.00000000", balance.String())
 
 	seed := make([]byte, 64)
 	crypto.ReadRand(seed)
@@ -72,6 +79,9 @@ func TestTransaction(t *testing.T) {
 	utxo, err := store.ReadUTXOLock(deposit.AsVersioned().PayloadHash(), 0)
 	require.Nil(err)
 	require.Nil(utxo)
+	_, balance, err = store.ReadAssetWithBalance(common.XINAssetId)
+	require.Nil(err)
+	require.Equal("365553.00000000", balance.String())
 
 	round, _ := store.ReadRound(rounds[0].NodeId)
 	require.Equal(uint64(1), round.Number)
@@ -92,6 +102,9 @@ func TestTransaction(t *testing.T) {
 	utxo, err = store.ReadUTXOLock(deposit.AsVersioned().PayloadHash(), 0)
 	require.Nil(err)
 	require.NotNil(utxo)
+	_, balance, err = store.ReadAssetWithBalance(common.XINAssetId)
+	require.Nil(err)
+	require.Equal("365563.00000000", balance.String())
 
 	submit := common.NewTransactionV5(common.XINAssetId)
 	submit.AddInput(deposit.AsVersioned().PayloadHash(), 0)
@@ -107,6 +120,9 @@ func TestTransaction(t *testing.T) {
 	require.Nil(err)
 	err = store.WriteTransaction(submit.AsVersioned())
 	require.Nil(err)
+	_, balance, err = store.ReadAssetWithBalance(common.XINAssetId)
+	require.Nil(err)
+	require.Equal("365563.00000000", balance.String())
 
 	snap = &common.Snapshot{
 		Version:      common.SnapshotVersionCommonEncoding,
@@ -122,6 +138,9 @@ func TestTransaction(t *testing.T) {
 	}
 	err = store.WriteSnapshot(topo, signers)
 	require.Nil(err)
+	_, balance, err = store.ReadAssetWithBalance(common.XINAssetId)
+	require.Nil(err)
+	require.Equal("365562.00000000", balance.String())
 
 	ver, ss, err := store.ReadWithdrawalClaim(submit.AsVersioned().PayloadHash())
 	require.Nil(err)
@@ -159,4 +178,8 @@ func TestTransaction(t *testing.T) {
 	require.Nil(err)
 	require.Equal(topo.PayloadHash().String(), ss)
 	require.Equal(claim.AsVersioned().PayloadHash(), ver.PayloadHash())
+
+	_, balance, err = store.ReadAssetWithBalance(common.XINAssetId)
+	require.Nil(err)
+	require.Equal("365562.00000000", balance.String())
 }

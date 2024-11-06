@@ -54,7 +54,11 @@ func writeTotalInAsset(txn *badger.Txn, ver *common.VersionedTransaction) error 
 	typ := ver.TransactionType()
 	switch { // TODO needs full test code for all kind of transactions
 	case typ == common.TransactionTypeWithdrawalSubmit:
-		total = total.Sub(ver.Outputs[0].Amount)
+		for _, o := range ver.Outputs {
+			if o.Type == common.OutputTypeWithdrawalSubmit {
+				total = total.Sub(o.Amount)
+			}
+		}
 	case typ == common.TransactionTypeDeposit:
 		total = total.Add(ver.DepositData().Amount)
 	case typ == common.TransactionTypeMint:
