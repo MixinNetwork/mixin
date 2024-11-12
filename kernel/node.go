@@ -17,7 +17,7 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/p2p"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/dgraph-io/ristretto"
+	"github.com/dgraph-io/ristretto/v2"
 )
 
 type Node struct {

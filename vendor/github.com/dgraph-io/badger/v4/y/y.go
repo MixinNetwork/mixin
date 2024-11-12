@@ -19,6 +19,7 @@ package y
 import (
 	"bytes"
 	"encoding/binary"
+	stderrors "errors"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -30,20 +31,18 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/pkg/errors"
-
 	"github.com/dgraph-io/badger/v4/pb"
-	"github.com/dgraph-io/ristretto/z"
+	"github.com/dgraph-io/ristretto/v2/z"
 )
 
 var (
 	// ErrEOF indicates an end of file when trying to read from a memory mapped file
 	// and encountering the end of slice.
-	ErrEOF = errors.New("ErrEOF: End of file")
+	ErrEOF = stderrors.New("ErrEOF: End of file")
 
 	// ErrCommitAfterFinish indicates that write batch commit was called after
 	// finish
-	ErrCommitAfterFinish = errors.New("Batch commit not permitted after finish")
+	ErrCommitAfterFinish = stderrors.New("Batch commit not permitted after finish")
 )
 
 type Flags int

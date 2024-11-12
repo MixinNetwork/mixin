@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/dgraph-io/ristretto"
+	"github.com/dgraph-io/ristretto/v2"
 )
 
 type confirmMap struct {

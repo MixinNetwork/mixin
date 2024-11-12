@@ -18,6 +18,7 @@ package badger
 
 import (
 	"bytes"
+	stderrors "errors"
 	"fmt"
 	"hash"
 	"hash/crc32"
@@ -31,7 +32,7 @@ import (
 	"sync/atomic"
 
 	"github.com/dgraph-io/badger/v4/y"
-	"github.com/dgraph-io/ristretto/z"
+	"github.com/dgraph-io/ristretto/v2/z"
 	"github.com/pkg/errors"
 )
 
@@ -60,8 +61,8 @@ const (
 	vlogHeaderSize = 20
 )
 
-var errStop = errors.New("Stop iteration")
-var errTruncate = errors.New("Do truncate")
+var errStop = stderrors.New("Stop iteration")
+var errTruncate = stderrors.New("Do truncate")
 
 type logEntry func(e Entry, vp valuePointer) error
 
@@ -832,7 +833,7 @@ func (vlog *valueLog) write(reqs []*request) error {
 	}
 
 	toDisk := func() error {
-		if vlog.woffset() > uint32(vlog.opt.ValueLogFileSize) ||
+		if int64(vlog.woffset()) > vlog.opt.ValueLogFileSize ||
 			vlog.numEntriesWritten > vlog.opt.ValueLogMaxEntries {
 			if err := curlf.doneWriting(vlog.woffset()); err != nil {
 				return err
@@ -1039,7 +1040,7 @@ LOOP:
 	return nil
 }
 
-func discardEntry(e Entry, vs y.ValueStruct, db *DB) bool {
+func discardEntry(e Entry, vs y.ValueStruct, _ *DB) bool {
 	if vs.Version != y.ParseTs(e.Key) {
 		// Version not found. Discard.
 		return true

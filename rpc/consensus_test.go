@@ -21,7 +21,7 @@ import (
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
-	"github.com/dgraph-io/ristretto"
+	"github.com/dgraph-io/ristretto/v2"
 	"github.com/stretchr/testify/require"
 )
 

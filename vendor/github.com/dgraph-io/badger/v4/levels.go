@@ -19,6 +19,7 @@ package badger
 import (
 	"bytes"
 	"encoding/hex"
+	stderrors "errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -34,7 +35,7 @@ import (
 	"github.com/dgraph-io/badger/v4/pb"
 	"github.com/dgraph-io/badger/v4/table"
 	"github.com/dgraph-io/badger/v4/y"
-	"github.com/dgraph-io/ristretto/z"
+	"github.com/dgraph-io/ristretto/v2/z"
 )
 
 type levelsController struct {
@@ -1500,7 +1501,7 @@ func tablesToString(tables []*table.Table) []string {
 	return res
 }
 
-var errFillTables = errors.New("Unable to fill tables")
+var errFillTables = stderrors.New("Unable to fill tables")
 
 // doCompact picks some table on level l and compacts it away to the next level.
 func (s *levelsController) doCompact(id int, p compactionPriority) error {
