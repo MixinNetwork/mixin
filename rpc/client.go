@@ -30,6 +30,9 @@ func CallMixinRPC(node, method string, params []any) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("CallMixinRPC(%s, %s, %s) => status %d", node, method, params, resp.StatusCode)
+	}
 
 	var result struct {
 		Data  any `json:"data"`
