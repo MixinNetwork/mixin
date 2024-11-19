@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -16,6 +14,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/rpc"
 	"github.com/MixinNetwork/mixin/storage"
 	"github.com/urfave/cli/v2"
 )
@@ -283,7 +282,7 @@ func buildRawTransactionCmd(c *cli.Context) error {
 	var raw signerInput
 	raw.Node = c.String("node")
 	isb, _ := json.Marshal(map[string]any{"inputs": inputs})
-	json.Unmarshal(isb, &raw)
+	_ = json.Unmarshal(isb, &raw)
 
 	tx := common.NewTransactionV5(asset)
 	for _, in := range inputs {
@@ -950,57 +949,8 @@ object-server = true
 	return nil
 }
 
-var httpClient *http.Client
-
-func callRPC(node, method string, params []any, pt bool) ([]byte, error) {
-	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 60 * time.Second}
-	}
-
-	body, err := json.Marshal(map[string]any{
-		"method": method,
-		"params": params,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	endpoint := "http://" + node
-	if strings.HasPrefix(node, "http") {
-		endpoint = node
-	}
-	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-
-	req.Close = true
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result struct {
-		Runtime string `json:"runtime"`
-		Data    any    `json:"data"`
-		Error   any    `json:"error"`
-	}
-	dec := json.NewDecoder(resp.Body)
-	dec.UseNumber()
-	err = dec.Decode(&result)
-	if err != nil {
-		return nil, err
-	}
-	if result.Error != nil {
-		return nil, fmt.Errorf("ERROR %s", result.Error)
-	}
-
-	if len(result.Runtime) > 0 && pt {
-		fmt.Printf("RUNTIME: %s\n\n", result.Runtime)
-	}
-	return json.Marshal(result.Data)
+func callRPC(node, method string, params []any, _ bool) ([]byte, error) {
+	return rpc.CallMixinRPC(node, method, params)
 }
 
 type signerInput struct {
