@@ -20,7 +20,7 @@ import (
 func main() {
 	defaultRPC := os.Getenv("MIXIN_KERNEL_RPC")
 	if defaultRPC == "" {
-		defaultRPC = "127.0.0.1:6860"
+		defaultRPC = "http://127.0.0.1:6860"
 	}
 
 	app := cli.NewApp()
