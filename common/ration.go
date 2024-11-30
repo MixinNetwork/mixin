@@ -12,6 +12,10 @@ type RationalNumber struct {
 	y big.Int
 }
 
+func (r RationalNumber) String() string {
+	return r.Product(NewInteger(1)).String()
+}
+
 func (x Integer) Ration(y Integer) (v RationalNumber) {
 	if x.Sign() < 0 || y.Sign() <= 0 {
 		panic(fmt.Sprint(x, y))
