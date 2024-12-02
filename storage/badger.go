@@ -56,7 +56,7 @@ func openDB(dir string, sync bool, custom *config.Custom) (*badger.DB, error) {
 
 	// these three options control the maximum database size
 	// for level up to max levels: sum(base * (multiplier ** level))
-	// increase the level to 8 when data grows big to execeed 16TB
+	// increase the level to 8 when data grows big to exceed 16TB
 	// the memory usage will increase for hours to compact when level up
 	// the max levels can not be decreased once up, so be cautious
 	opts = opts.WithBaseLevelSize(16 << 20)

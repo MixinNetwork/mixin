@@ -923,7 +923,7 @@ func (node *Node) CosiQueueExternalCommitments(peerId crypto.Hash, commitments [
 		return nil
 	}
 	if !peer.Signer.PublicSpendKey.Verify(crypto.Blake3Hash(data), *sig) {
-		logger.Printf("CosiQueueExternalCommitments(%s) invalid sigature\n", peerId)
+		logger.Printf("CosiQueueExternalCommitments(%s) invalid signature\n", peerId)
 		return nil
 	}
 
@@ -948,7 +948,7 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 	}
 	data := append(commitment[:], s.VersionedMarshal()...)
 	if !peer.Signer.PublicSpendKey.Verify(crypto.Blake3Hash(data), *sig) {
-		logger.Printf("CosiQueueExternalAnnouncement(%s, %v) invalid sigature\n", peerId, s)
+		logger.Printf("CosiQueueExternalAnnouncement(%s, %v) invalid signature\n", peerId, s)
 		return nil
 	}
 	chain := node.getOrCreateChain(s.NodeId)
@@ -976,7 +976,7 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 		return nil
 	}
 	if !peer.Signer.PublicSpendKey.Verify(crypto.Blake3Hash(data), *sig) {
-		logger.Printf("CosiAggregateSelfCommitments(%s, %s) invalid sigature\n", peerId, snap)
+		logger.Printf("CosiAggregateSelfCommitments(%s, %s) invalid signature\n", peerId, snap)
 		return nil
 	}
 

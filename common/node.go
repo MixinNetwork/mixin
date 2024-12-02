@@ -220,7 +220,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore, snapTime uint64) erro
 		return fmt.Errorf("invalid pledge utxo source %s", filter[acc.String()])
 	}
 	if !bytes.Equal(lastPledge.Extra, tx.Extra) {
-		return fmt.Errorf("invalid pledge and accpet key %s %s", hex.EncodeToString(lastPledge.Extra), hex.EncodeToString(tx.Extra))
+		return fmt.Errorf("invalid pledge and accept key %s %s", hex.EncodeToString(lastPledge.Extra), hex.EncodeToString(tx.Extra))
 	}
 	return nil
 }
