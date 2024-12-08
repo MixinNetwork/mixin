@@ -36,7 +36,7 @@ const (
 	// stops all future works. This can already be punished by large space and
 	// mint rewards, but we still need to add more measurements for this behavior.
 	// Because this stale snapshot y must be excluded from mint works
-	// calculation forever, but if this node contiues to work after a long time,
+	// calculation forever, but if this node continues to work after a long time,
 	// and the failure to identity this stale snapshot timely, could result in
 	// the full node sync failure of a fresh boot node. So the best punishment
 	// is to remove this node, together with the large round space check.
