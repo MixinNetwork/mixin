@@ -98,7 +98,7 @@ type Distribution struct {
 	// operation must be distribute
 	Operation string `json:"distribute"`
 
-	// sequence must monoticially increase from 0
+	// sequence must monotonically increase from 0
 	Sequence uint64 `json:"sequence"`
 }
 ```
