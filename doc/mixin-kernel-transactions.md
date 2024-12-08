@@ -2,7 +2,7 @@
 
 The current Kernel transaction version is `0x01`, which is marshaled as a special msgpack format [https://github.com/MixinNetwork/msgpack](https://github.com/MixinNetwork/msgpack) before the transaction hash calculation.
 
-All transaction related API exposed externally have and should always have a consistent JSON representation of inputs and outputs, a neat UTXO model.
+All transaction-related API exposed externally have and should always have a consistent JSON representation of inputs and outputs, a neat UTXO model.
 
 ```json
 {
@@ -51,7 +51,7 @@ All transaction related API exposed externally have and should always have a con
 
 - **version**: a uint8 number to hint the current transaction format.
 
-The genesis input is only used when the network boot from genesis.json, only those genesis Kernel Nodes accept transactions have this kind of inputs.
+The genesis input is only used when the network boot from genesis.json, only those genesis Kernel Nodes that accept transactions have this kind of inputs.
 
 ```json
 {
@@ -104,4 +104,4 @@ The output target is always masked and can be spent according to the type and sc
 
 - **script**: HEX representation of `{0xff, 0xfe, T}`, while `0 <= T <= 0x40`, where T is the required number of signatures from keys to spend this output.
 
-- **type**: a uint8 number to constraint when and how this output can be spent as an input, usually 0 which means it can be spent once the script fulfilled.
+- **type**: a uint8 number to constraint when and how this output can be spent as an input, usually 0 which means it can be spent once the script is fulfilled.

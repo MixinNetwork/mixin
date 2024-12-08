@@ -96,7 +96,7 @@ When a new Kernel Year starts or a resign transaction gets snapshot, the Kernel 
 
 - **inputs**: the single accept transaction output as the only input.
 
-- **outputs**: one single output with type `0xa6`, the exact accept transaction amount, script `0xfffe01`, keys and mask should be derived from the payee.
+- **outputs**: one single output with type `0xa6`, the exact accepted transaction amount, script `0xfffe01`, keys and mask should be derived from the payee.
 
 - **extra**: 64 bytes same as the accept transaction extra.
 
