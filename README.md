@@ -128,7 +128,7 @@ To start a node, create a directory `mixin` for the config and network data file
 
 The main net genesis.json, nodes.json and an example config.example.toml files can be obtained from [here](https://github.com/MixinNetwork/mixin/tree/master/config), you only need to put your own signer spend key in the config.toml file.
 
-Change the `consensus-only` option to `false` will allow the node to start in archive mode, which syncs all the graph data.
+Changing the `consensus-only` option to `false` will allow the node to start in archive mode, which syncs all the graph data.
 
 ```
 $ mixin help kernel
