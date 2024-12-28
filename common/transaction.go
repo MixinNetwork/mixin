@@ -42,8 +42,16 @@ const (
 	TransactionTypeNodeCancel           = 0x12
 	TransactionTypeCustodianUpdateNodes = 0x13
 	TransactionTypeCustodianSlashNodes  = 0x14
+	TransactionTypeSystemVote           = 0xfe
 	TransactionTypeUnknown              = 0xff
 )
+
+// vote transaction is for voting, slashing, 512 blocks checkpoint
+// the vote transaction has the asset empty, no inputs, no outputs
+// and references the previous votes? the vote details are in extra
+// and needs to be parsed by sequencer.
+//
+// The vote transaction signature is one AggregatedSignature
 
 type Input struct {
 	Hash    crypto.Hash
@@ -104,6 +112,22 @@ func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {
 }
 
 func (tx *SignedTransaction) TransactionType() uint8 {
+	if !tx.Asset.HasValue() {
+		if len(tx.Inputs) != 0 {
+			panic(len(tx.Inputs))
+		}
+		if len(tx.Outputs) != 0 {
+			panic(len(tx.Inputs))
+		}
+		if len(tx.References) == 0 {
+			panic(len(tx.References))
+		}
+		if len(tx.Extra) < 33 {
+			panic(len(tx.Extra))
+		}
+		return TransactionTypeSystemVote
+	}
+
 	for _, in := range tx.Inputs {
 		if in.Mint != nil {
 			return TransactionTypeMint

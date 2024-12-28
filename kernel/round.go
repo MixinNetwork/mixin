@@ -40,6 +40,9 @@ func (node *Node) LoadAllChainsAndGraphTimestamp(store storage.Store, networkId 
 		if t := chain.State.FinalRound.End; t > node.GraphTimestamp {
 			node.GraphTimestamp = t
 		}
+		if f := chain.State.CacheRound.asFinal(); f != nil && f.End > node.GraphTimestamp {
+			node.GraphTimestamp = f.End
+		}
 	}
 	logger.Printf("node.LoadAllChainsAndGraphTimestamp(%s) => %d %d", networkId, len(nodes), node.GraphTimestamp)
 

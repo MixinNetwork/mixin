@@ -152,9 +152,6 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 
 	chain.State.CacheRound = cache
 	chain.State.FinalRound = final
-	if final.End > chain.node.GraphTimestamp {
-		chain.node.GraphTimestamp = final.End
-	}
 
 	rounds := chain.State.RoundHistory
 	if n := rounds[len(rounds)-1].Number; n == final.Number {

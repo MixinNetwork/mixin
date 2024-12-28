@@ -72,6 +72,9 @@ func (node *Node) TopoWrite(s *common.Snapshot, signers []crypto.Hash) *common.S
 		TopologicalOrder: node.TopoCounter.seq,
 	}
 	err := node.persistStore.WriteSnapshot(topo, signers)
+	if topo.Timestamp > node.GraphTimestamp {
+		node.GraphTimestamp = topo.Timestamp
+	}
 	if err != nil {
 		panic(err)
 	}

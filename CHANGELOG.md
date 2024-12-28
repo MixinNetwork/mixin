@@ -2,6 +2,10 @@
 
 Semantic Versioning
 
+## v0.19 Sequenced Termites Jan 13, 2024
+
+A sequencer that globally orders all the snapshots in almost real time.
+
 ## v0.18 Stealth Phasmids Feb 13, 2024
 
 A new peer to peer network layer that improves security and privacy of the signer node.

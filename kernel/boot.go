@@ -16,6 +16,7 @@ func (node *Node) Loop() error {
 	go node.sendGraphToConcensusNodesAndPeers()
 	go node.loopCacheQueue()
 	go node.MintLoop()
+	go node.startSequencer()
 	node.ElectionLoop()
 	return nil
 }

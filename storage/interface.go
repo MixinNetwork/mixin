@@ -60,4 +60,11 @@ type Store interface {
 
 	RemoveGraphEntries(prefix string) (int, error)
 	ValidateGraphEntries(networkId crypto.Hash, depth uint64) (int, int, error)
+
+	ReadSequencedTopology() (uint64, error)
+	ReadLastBlock() (*common.Block, error)
+	ReadBlockWithTransactions(number uint64) (*common.BlockWithTransactions, error)
+	WriteBlock(b *common.Block) error
+	CheckSnapshotsSequencedIn(snapshots []crypto.Hash) (map[crypto.Hash]uint64, error)
+	ReadUnsequencedSnapshotsSinceTopology(nodeId crypto.Hash, offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, map[crypto.Hash]*common.VersionedTransaction, error)
 }

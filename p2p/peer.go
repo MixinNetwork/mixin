@@ -15,6 +15,7 @@ import (
 type Peer struct {
 	IdForNetwork crypto.Hash
 	Address      string
+	Signer       crypto.Key
 
 	sentMetric     *MetricPool
 	receivedMetric *MetricPool

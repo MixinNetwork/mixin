@@ -1,6 +1,6 @@
 # mixin
 
-The Mixin BFT-DAG network reference implementation, the Trusted Execution Environment is not integrated into this repository yet.
+The Mixin-BFT-DAG network reference implementation, the Trusted Execution Environment is not integrated into this repository yet.
 
 ## Get Started
 

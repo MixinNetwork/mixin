@@ -39,6 +39,7 @@ type Node struct {
 	nodeStateSequences         []*NodeStateSequence
 	acceptedNodeStateSequences []*NodeStateSequence
 	chain                      *Chain
+	sequencer                  *Sequencer
 
 	genesisNodesMap map[crypto.Hash]bool
 	genesisNodes    []crypto.Hash

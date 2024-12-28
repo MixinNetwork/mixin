@@ -29,6 +29,9 @@ const (
 	PeerMessageTypeCommitments          = 15
 	PeerMessageTypeFullChallenge        = 16
 
+	PeerMessageTypeSequencerBlockHeader = 20
+	PeerMessageTypeSequencerBlockSync   = 21
+
 	PeerMessageTypeRelay     = 200
 	PeerMessageTypeConsumers = 201
 
@@ -82,6 +85,21 @@ type SyncHandle interface {
 	CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Hash, response *[32]byte) error
 	VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error
 	CosiQueueExternalCommitments(peerId crypto.Hash, commitments []*crypto.Key, data []byte, sig *crypto.Signature) error
+	QueueBlockHeader(peerId crypto.Hash, data []byte) error
+	QueueBlocks(peerId crypto.Hash, data []byte) error
+}
+
+func (me *Peer) SendBlockHeaderMessage(idForNetwork crypto.Hash, height, syncRequest uint64) error {
+	msg := me.buildSequencerBlockHeaderMessage(height, syncRequest)
+	return me.sendHighToPeer(idForNetwork, PeerMessageTypeSequencerBlockHeader, nil, msg)
+}
+
+func (me *Peer) SendBlockSyncMessage(idForNetwork crypto.Hash, msgs [][]byte) error {
+	data := me.buildSequencerBlockSyncMessage(msgs)
+	hash := crypto.Blake3Hash(data)
+	key := append(idForNetwork[:], 'S', 'B')
+	key = append(key, hash[:]...)
+	return me.sendHighToPeer(idForNetwork, PeerMessageTypeSequencerBlockSync, key, data)
 }
 
 func (me *Peer) SendGraphMessage(idForNetwork crypto.Hash) error {
@@ -280,6 +298,33 @@ func (me *Peer) buildRelayMessage(peerId crypto.Hash, msg []byte) []byte {
 	return data
 }
 
+func (me *Peer) buildSequencerBlockHeaderMessage(height, syncRequest uint64) []byte {
+	data := []byte{PeerMessageTypeSequencerBlockHeader}
+	data = append(data, me.IdForNetwork[:]...)
+	data = binary.BigEndian.AppendUint64(data, height)
+	data = binary.BigEndian.AppendUint64(data, syncRequest)
+	return data
+}
+
+func (me *Peer) buildSequencerBlockSyncMessage(blocks [][]byte) []byte {
+	if len(blocks) > 512 {
+		panic(len(blocks))
+	}
+	data := []byte{PeerMessageTypeSequencerBlockSync}
+	data = binary.BigEndian.AppendUint16(data, uint16(len(blocks)))
+	for _, b := range blocks {
+		if len(b) > common.ExtraSizeStorageCapacity {
+			panic(len(b))
+		}
+		data = binary.BigEndian.AppendUint32(data, uint32(len(b)))
+		data = append(data, b...)
+	}
+	if len(data) > TransportMessageMaxSize {
+		panic(len(data))
+	}
+	return data
+}
+
 func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 	if len(data) < 1 {
 		return nil, errors.New("invalid message data")
@@ -425,6 +470,10 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		msg.Data = data
 	case PeerMessageTypeConsumers:
 		msg.Data = data[1:]
+	case PeerMessageTypeSequencerBlockHeader:
+		msg.Data = data[1:]
+	case PeerMessageTypeSequencerBlockSync:
+		msg.Data = data[1:]
 	}
 	return msg, nil
 }
@@ -545,6 +594,10 @@ func (me *Peer) handlePeerMessage(peerId crypto.Hash, msg *PeerMessage) error {
 	case PeerMessageTypeSnapshotFinalization:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotFinalization %s %s\n", peerId, msg.Snapshot.SoleTransaction())
 		return me.handle.VerifyAndQueueAppendSnapshotFinalization(peerId, msg.Snapshot)
+	case PeerMessageTypeSequencerBlockHeader:
+		return me.handle.QueueBlockHeader(peerId, msg.Data)
+	case PeerMessageTypeSequencerBlockSync:
+		return me.handle.QueueBlocks(peerId, msg.Data)
 	}
 	return nil
 }

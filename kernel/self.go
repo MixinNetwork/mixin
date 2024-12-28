@@ -71,6 +71,14 @@ func (node *Node) lockAndPersistTransaction(tx *common.VersionedTransaction, fin
 		tx.PayloadHash(), finalized))
 }
 
+// TODO a kernel transaction must always reference the last kernel transaction
+// thus will ensure a complete concensus chain, so accepted transaction
+// should reference the pledging transaction, etc
+//
+// a kernel snapshot must also always reference the last kernel snapshot
+//
+// and a kernel snapshot can only be referenced once, thus ensure no
+// concurrent kernel snapshot exists
 func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
 	if finalized && node.networkId.String() == config.KernelNetworkId &&
 		s.Timestamp < mainnetConsensusReferenceForkAt {

@@ -19,8 +19,8 @@ type Round struct {
 }
 
 type RoundLink struct {
-	Self     crypto.Hash
-	External crypto.Hash
+	Self     crypto.Hash // rename to Previous
+	External crypto.Hash // rename to Block
 }
 
 func (m *RoundLink) Equal(n *RoundLink) bool {

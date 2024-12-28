@@ -107,6 +107,14 @@ func (me *Peer) syncHeadRoundToRemote(local, remote map[crypto.Hash]*SyncPoint, 
 	}
 }
 
+// TODO remove this sync loop after:
+// 1. sequencer blockchain complete
+// 2. make snapshot reference block hash instead of another chain
+//
+// maybe not remove this sync completely, just keep the consensus
+// node sync its own chain snapshots to all other nodes by check
+// the other node sync point map, including consensus nodes and
+// relayers. but after the previous 2 conditions done.
 func (me *Peer) syncToNeighborLoop(p *Peer) {
 	defer close(p.stn)
 

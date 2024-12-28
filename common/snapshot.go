@@ -12,9 +12,13 @@ const (
 )
 
 type Snapshot struct {
-	Version      uint8
-	NodeId       crypto.Hash
-	References   *RoundLink
+	Version uint8
+	NodeId  crypto.Hash
+	// TODO
+	// after the blockchain is ready, we will remove round, the snapshot just reference
+	// previous snapshot in this chain, and a block hash, no round should be
+	// much faster
+	References   *RoundLink // one previous round, the external will be block hash, then no block vote snapshot required
 	RoundNumber  uint64
 	Timestamp    uint64
 	Signature    *crypto.CosiSignature
@@ -92,11 +96,14 @@ func (s *Snapshot) versionedPayload() []byte {
 }
 
 func (s *Snapshot) PayloadHash() crypto.Hash {
-	p := s.versionedPayload()
-	if s.Version < SnapshotVersionCommonEncoding {
-		panic(s.Version)
+	if !s.Hash.HasValue() {
+		p := s.versionedPayload()
+		if s.Version < SnapshotVersionCommonEncoding {
+			panic(s.Version)
+		}
+		s.Hash = crypto.Blake3Hash(p)
 	}
-	return crypto.Blake3Hash(p)
+	return s.Hash
 }
 
 func (tx *VersionedTransaction) LockInputs(locker UTXOLocker, fork bool) error {
