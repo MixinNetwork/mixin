@@ -8,6 +8,27 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
+func GetSnapshot(rpc, hash string) (*common.SnapshotWithTopologicalOrder, error) {
+	raw, err := CallMixinRPC(rpc, "getsnapshot", []any{hash})
+	if err != nil || raw == nil {
+		return nil, err
+	}
+	var signed map[string]any
+	err = json.Unmarshal(raw, &signed)
+	if err != nil {
+		panic(string(raw))
+	}
+	hex, err := hex.DecodeString(signed["hex"].(string))
+	if err != nil {
+		panic(string(raw))
+	}
+	ver, err := common.UnmarshalVersionedSnapshot(hex)
+	if err != nil {
+		panic(string(raw))
+	}
+	return ver, nil
+}
+
 func GetTransaction(rpc, hash string) (*common.VersionedTransaction, string, error) {
 	raw, err := CallMixinRPC(rpc, "gettransaction", []any{hash})
 	if err != nil || raw == nil {

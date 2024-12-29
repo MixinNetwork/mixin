@@ -323,6 +323,10 @@ func (node *Node) LoadConsensusNodes() error {
 	node.allNodesSortedWithState = cnodes
 	node.nodeStateSequences = node.buildNodeStateSequences(cnodes, false)
 	node.acceptedNodeStateSequences = node.buildNodeStateSequences(cnodes, true)
+	s, tx := node.persistStore.LastSnapshot()
+	if s != nil {
+		return node.reloadConsensusState(s.Snapshot, tx)
+	}
 	return nil
 }
 

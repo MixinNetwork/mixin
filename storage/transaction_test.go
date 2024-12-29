@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/dgraph-io/badger/v4"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,8 +25,8 @@ func TestTransaction(t *testing.T) {
 	store, _ := NewBadgerStore(custom, root)
 	defer store.Close()
 
-	seq := store.TopologySequence()
-	require.Equal(uint64(0), seq)
+	last, _ := store.LastSnapshot()
+	require.Nil(last)
 
 	gns, err := common.ReadGenesis("../config/genesis.json")
 	require.Nil(err)
@@ -182,4 +183,53 @@ func TestTransaction(t *testing.T) {
 	_, balance, err = store.ReadAssetWithBalance(common.XINAssetId)
 	require.Nil(err)
 	require.Equal("365562.00000000", balance.String())
+
+	cs, referencedBy, err := store.ReadLastConsensusSnapshot()
+	require.Nil(err)
+	require.Nil(referencedBy)
+	require.Equal(cs.PayloadHash(), snapshots[len(snapshots)-1].PayloadHash())
+
+	tx := common.NewTransactionV5(common.XINAssetId)
+	tx.AddUniversalMintInput(0, common.Zero)
+	tx.References = []crypto.Hash{cs.SoleTransaction()}
+	ver = tx.AsVersioned()
+	ncs := &common.Snapshot{
+		Version:   common.SnapshotVersionCommonEncoding,
+		Timestamp: uint64(time.Now().UnixNano()),
+	}
+	ncs.AddSoleTransaction(ver.PayloadHash())
+	err = store.WriteConsensusSnapshot(ncs, ver)
+	require.Nil(err)
+
+	oldCS, oldRB := store.readConsensusSnapshot(cs)
+	require.Equal(cs.PayloadHash(), oldCS.PayloadHash())
+	require.Equal(oldRB.String(), ver.PayloadHash().String())
+	oldnCS, oldnRB := store.readConsensusSnapshot(ncs)
+	require.Equal(ncs.PayloadHash(), oldnCS.PayloadHash())
+	require.Nil(oldnRB)
+}
+
+func (s *BadgerStore) readConsensusSnapshot(snap *common.Snapshot) (*common.Snapshot, *crypto.Hash) {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	key := graphConsensusSnapshotKey(snap.Timestamp, snap.PayloadHash())
+	item, err := txn.Get(key)
+	if err == badger.ErrKeyNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		panic(err)
+	}
+
+	val, err := item.ValueCopy(nil)
+	if err != nil {
+		panic(err)
+	}
+	if len(val) == 0 {
+		return snap, nil
+	}
+	var h crypto.Hash
+	copy(h[:], val)
+	return snap, &h
 }

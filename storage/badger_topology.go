@@ -79,10 +79,14 @@ func (s *BadgerStore) ReadSnapshotWithTransactionsSinceTopology(topologyOffset, 
 }
 
 func (s *BadgerStore) ReadSnapshotsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
-	snapshots := make([]*common.SnapshotWithTopologicalOrder, 0)
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
+	return readSnapshotsSinceTopology(txn, topologyOffset, count)
+}
+
+func readSnapshotsSinceTopology(txn *badger.Txn, topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
+	snapshots := make([]*common.SnapshotWithTopologicalOrder, 0)
 	opts := badger.DefaultIteratorOptions
 	opts.Prefix = []byte(graphPrefixTopology)
 	it := txn.NewIterator(opts)
@@ -116,7 +120,7 @@ func (s *BadgerStore) ReadSnapshotsSinceTopology(topologyOffset, count uint64) (
 	return snapshots, nil
 }
 
-func (s *BadgerStore) TopologySequence() uint64 {
+func (s *BadgerStore) LastSnapshot() (*common.SnapshotWithTopologicalOrder, *common.VersionedTransaction) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -128,11 +132,23 @@ func (s *BadgerStore) TopologySequence() uint64 {
 	defer it.Close()
 
 	it.Seek(graphTopologyKey(^uint64(0)))
-	if it.ValidForPrefix([]byte(graphPrefixTopology)) {
-		key := it.Item().KeyCopy(nil)
-		return graphTopologyOrder(key)
+	if !it.ValidForPrefix([]byte(graphPrefixTopology)) {
+		return nil, nil
 	}
-	return 0
+	key := it.Item().KeyCopy(nil)
+	topo := graphTopologyOrder(key)
+	snaps, err := readSnapshotsSinceTopology(txn, topo, 10)
+	if err != nil {
+		panic(err)
+	}
+	if len(snaps) != 1 {
+		panic(topo)
+	}
+	tx, err := readTransaction(txn, snaps[0].SoleTransaction())
+	if err != nil {
+		panic(err)
+	}
+	return snaps[0], tx
 }
 
 func writeTopology(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder) error {

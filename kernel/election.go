@@ -148,6 +148,13 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 			hex.EncodeToString(accept.Extra), signer, hex.EncodeToString(payee))
 	}
 
+	consensusSnap, referencedBy, err := node.persistStore.ReadLastConsensusSnapshot()
+	if err != nil {
+		return nil, err
+	}
+	if referencedBy != nil {
+		return nil, fmt.Errorf("invalid remove consensus reference %s", referencedBy)
+	}
 	tx := node.NewTransaction(common.XINAssetId)
 	tx.AddInput(candi.Transaction, 0)
 	tx.Extra = accept.Extra
@@ -156,6 +163,7 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 	si := crypto.Blake3Hash([]byte(candi.Payee.String() + in))
 	seed := append(si[:], si[:]...)
 	tx.AddOutputWithType(common.OutputTypeNodeRemove, []*common.Address{&candi.Payee}, script, accept.Outputs[0].Amount, seed)
+	tx.References = []crypto.Hash{consensusSnap.SoleTransaction()}
 
 	return tx.AsVersioned(), nil
 }
@@ -290,10 +298,18 @@ func (chain *Chain) buildNodeAcceptTransaction(timestamp uint64, finalized bool)
 			hex.EncodeToString(pledge.Extra[:len(signer)]), signer)
 	}
 
+	consensusSnap, referencedBy, err := chain.node.persistStore.ReadLastConsensusSnapshot()
+	if err != nil {
+		return nil, err
+	}
+	if referencedBy != nil {
+		return nil, fmt.Errorf("invalid accept consensus reference %s", referencedBy)
+	}
 	tx := chain.node.NewTransaction(common.XINAssetId)
 	tx.AddInput(ci.Transaction, 0)
 	tx.AddOutputWithType(common.OutputTypeNodeAccept, nil, common.Script{}, pledge.Outputs[0].Amount, []byte{})
 	tx.Extra = pledge.Extra
+	tx.References = []crypto.Hash{consensusSnap.SoleTransaction()}
 
 	return tx.AsVersioned(), nil
 }
@@ -352,13 +368,15 @@ func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedT
 			panic(node.LastMint)
 		}
 		node.LastMint = mint.Batch
-		return nil
+		return node.persistStore.WriteConsensusSnapshot(s, tx)
 	}
 	switch tx.TransactionType() {
 	case common.TransactionTypeNodePledge,
 		common.TransactionTypeNodeCancel,
 		common.TransactionTypeNodeAccept,
-		common.TransactionTypeNodeRemove:
+		common.TransactionTypeNodeRemove,
+		common.TransactionTypeCustodianUpdateNodes,
+		common.TransactionTypeCustodianSlashNodes:
 	default:
 		return nil
 	}
@@ -376,11 +394,18 @@ func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedT
 	if chain.ConsensusInfo == nil {
 		panic("should never be here")
 	}
+	switch tx.TransactionType() {
+	case common.TransactionTypeNodePledge:
+	case common.TransactionTypeNodeAccept:
+	case common.TransactionTypeNodeRemove:
+	default:
+		return node.persistStore.WriteConsensusSnapshot(s, tx)
+	}
 
 	signer := tx.NodeTransactionExtraAsSigner()
 	id := signer.Hash().ForNetwork(node.networkId)
 	if id == s.NodeId {
-		return nil
+		return node.persistStore.WriteConsensusSnapshot(s, tx)
 	}
 
 	chain = node.BootChain(id)
@@ -391,7 +416,7 @@ func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedT
 	if chain.ConsensusInfo == nil {
 		panic("should never be here")
 	}
-	return nil
+	return node.persistStore.WriteConsensusSnapshot(s, tx)
 }
 
 func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot, signers []crypto.Hash) error {

@@ -23,8 +23,8 @@ func TestBadger(t *testing.T) {
 	require.NotNil(store)
 	defer store.Close()
 
-	seq := store.TopologySequence()
-	require.Equal(uint64(0), seq)
+	snap, _ := store.LastSnapshot()
+	require.Nil(snap)
 
 	err = store.snapshotsDB.Update(func(txn *badger.Txn) error {
 		return txn.Delete([]byte("key-not-found"))

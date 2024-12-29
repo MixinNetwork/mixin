@@ -186,8 +186,19 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 		return nil
 	}
 
+	consensusSnap, referencedBy, err := node.persistStore.ReadLastConsensusSnapshot()
+	if err != nil {
+		logger.Printf("buildUniversalMintTransaction ERROR %s\n", err.Error())
+		return nil
+	}
+	if referencedBy != nil {
+		logger.Printf("buildUniversalMintTransaction consensus reference %s\n", referencedBy)
+		return nil
+	}
 	tx := node.NewTransaction(common.XINAssetId)
 	tx.AddUniversalMintInput(uint64(batch), amount)
+	tx.References = []crypto.Hash{consensusSnap.SoleTransaction()}
+
 	total := common.NewInteger(0)
 	for _, m := range mints {
 		in := fmt.Sprintf("MINTKERNELNODE%d", batch)

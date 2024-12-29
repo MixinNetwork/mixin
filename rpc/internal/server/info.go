@@ -13,6 +13,7 @@ import (
 )
 
 func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
+	cs, _, _ := store.ReadLastConsensusSnapshot()
 	info := map[string]any{
 		"network":   node.NetworkId(),
 		"node":      node.IdForNetwork,
@@ -20,6 +21,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
 		"uptime":    node.Uptime().String(),
 		"epoch":     time.Unix(0, int64(node.Epoch)),
 		"timestamp": time.Unix(0, int64(node.GraphTimestamp)),
+		"consensus": cs.PayloadHash(),
 	}
 	pool, err := node.PoolSize()
 	if err != nil {
@@ -49,6 +51,9 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
 		return info, err
 	}
 	spaces, err := store.ListAggregatedRoundSpaceCheckpoints(cids)
+	if err != nil {
+		return info, err
+	}
 	for _, n := range list {
 		switch n.State {
 		case common.NodeStateAccepted, common.NodeStatePledging:
@@ -90,7 +95,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
 	return info, nil
 }
 
-func dumpGraphHead(node *kernel.Node, params []any) (any, error) {
+func dumpGraphHead(node *kernel.Node, _ []any) (any, error) {
 	rounds := node.BuildGraph()
 	sort.Slice(rounds, func(i, j int) bool { return fmt.Sprint(rounds[i].NodeId) < fmt.Sprint(rounds[j].NodeId) })
 	return rounds, nil

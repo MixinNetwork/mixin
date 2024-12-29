@@ -73,8 +73,12 @@ func (node *Node) lockAndPersistTransaction(tx *common.VersionedTransaction, fin
 
 func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
 	if finalized && node.networkId.String() == config.KernelNetworkId &&
-		s.Timestamp < mainnetConsensusOperationElectionForkAt {
+		s.Timestamp < mainnetConsensusReferenceForkAt {
 		return nil
+	}
+	if s.NodeId != node.IdForNetwork && s.RoundNumber == 0 &&
+		tx.TransactionType() != common.TransactionTypeNodeAccept {
+		return fmt.Errorf("invalid initial transaction type %d", tx.TransactionType())
 	}
 	switch tx.TransactionType() {
 	case common.TransactionTypeMint:
@@ -125,10 +129,31 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 		}
 	case common.TransactionTypeCustodianSlashNodes:
 		return fmt.Errorf("not implemented %v", tx)
+	default:
+		return nil
 	}
-	if s.NodeId != node.IdForNetwork && s.RoundNumber == 0 &&
-		tx.TransactionType() != common.TransactionTypeNodeAccept {
-		return fmt.Errorf("invalid initial transaction type %d", tx.TransactionType())
+
+	if len(tx.References) < 1 {
+		return fmt.Errorf("invalid consensus reference count %s", tx.PayloadHash())
+	}
+	last, referencedBy, err := node.persistStore.ReadLastConsensusSnapshot()
+	if err != nil {
+		return err
+	}
+	if last.SoleTransaction() == tx.PayloadHash() {
+		return nil
+	}
+	if referencedBy != nil && referencedBy.String() == tx.PayloadHash().String() {
+		return nil
+	}
+	if referencedBy != nil {
+		return fmt.Errorf("invalid consensus reference %s %s", tx.PayloadHash(), referencedBy)
+	}
+	if tx.References[0] != last.SoleTransaction() {
+		return fmt.Errorf("invalid consensus reference %s %s", tx.PayloadHash(), last.SoleTransaction())
+	}
+	if s.Timestamp <= last.Timestamp {
+		return fmt.Errorf("invalid consensus timestamp %s %s", tx.PayloadHash(), last.SoleTransaction())
 	}
 	return nil
 }

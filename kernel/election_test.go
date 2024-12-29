@@ -63,7 +63,7 @@ func TestNodeRemovePossibility(t *testing.T) {
 	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, uint64(now.UnixNano()), nil)
 	require.Nil(err)
 	require.NotNil(tx)
-	require.Equal("c183ce86b5de6c35395371eebf9dbe7a27f06fa3bc5f8aae16a8e833bced422b", tx.PayloadHash().String())
+	require.Equal("d0d8438bf584c5bdbd9587a1bf034c6417d1599cf6ba023a0362cdc697109aaa", tx.PayloadHash().String())
 	require.Equal(uint8(5), tx.Version)
 	require.Equal(common.XINAssetId, tx.Asset)
 	require.Equal(common.KernelNodePledgeAmount, tx.Outputs[0].Amount)

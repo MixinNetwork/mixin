@@ -17,7 +17,9 @@ type Store interface {
 	WriteTransaction(tx *common.VersionedTransaction) error
 	StartNewRound(node crypto.Hash, number uint64, references *common.RoundLink, finalStart uint64) error
 	UpdateEmptyHeadRound(node crypto.Hash, number uint64, references *common.RoundLink) error
-	TopologySequence() uint64
+	LastSnapshot() (*common.SnapshotWithTopologicalOrder, *common.VersionedTransaction)
+	WriteConsensusSnapshot(snap *common.Snapshot, tx *common.VersionedTransaction) error
+	ReadLastConsensusSnapshot() (*common.Snapshot, *crypto.Hash, error)
 
 	ReadUTXOKeys(hash crypto.Hash, index uint) (*common.UTXOKeys, error)
 	ReadUTXOLock(hash crypto.Hash, index uint) (*common.UTXOWithLock, error)

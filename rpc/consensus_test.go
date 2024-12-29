@@ -383,6 +383,10 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 	tx := common.NewTransactionV5(common.XINAssetId)
 	require.NotNil(tx)
 
+	info := testGetGraphInfo(nodes[0].Host)
+	require.Equal("732075fd34914b7e14a589fb4109ee91e20de8d4e8863a861e8f64466a58eea2", info.Consensus.String())
+	cst := testGetSnapshotSoleTransaction(nodes[1].Host, info.Consensus.String())
+	require.Equal("1bdd5f4129b24279deaaecb18cf19ebf88e9c873a768b822471451dbcc24e1eb", cst.String())
 	domain := signers[0]
 
 	seed := make([]byte, 64)
@@ -415,6 +419,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 	sh := crypto.Blake3Hash(sortedExtra)
 	sig := domain.PrivateSpendKey.Sign(sh)
 	tx.Extra = append(sortedExtra, sig[:]...)
+	tx.References = []crypto.Hash{cst}
 
 	enode := electSnapshotNode(nodes, instances[0], common.TransactionTypeCustodianUpdateNodes, instances[0].GraphTimestamp)
 
@@ -437,11 +442,12 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 		"accounts": []string{domain.String()},
 	}}
 	rb, _ := json.Marshal(map[string]any{
-		"version": tx.Version,
-		"asset":   tx.Asset,
-		"inputs":  inputs,
-		"outputs": outputs,
-		"extra":   hex.EncodeToString(tx.Extra),
+		"version":    tx.Version,
+		"asset":      tx.Asset,
+		"inputs":     inputs,
+		"outputs":    outputs,
+		"extra":      hex.EncodeToString(tx.Extra),
+		"references": tx.References,
 	})
 	signed, err := testSignTransaction(enode.Host, domain, string(rb))
 	require.Nil(err)
@@ -614,8 +620,10 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 		panic(err)
 	}
 
+	info := testGetGraphInfo(nodes[0].Host)
+	cst := testGetSnapshotSoleTransaction(nodes[1].Host, info.Consensus.String())
 	raw, _ := json.Marshal(map[string]any{
-		"version": 2,
+		"version": 5,
 		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
 		"inputs": []map[string]any{{
 			"hash":  input,
@@ -625,13 +633,14 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 			"type":   common.OutputTypeNodePledge,
 			"amount": "13439",
 		}},
-		"extra": signer.PublicSpendKey.String() + payee.PublicSpendKey.String(),
+		"extra":      signer.PublicSpendKey.String() + payee.PublicSpendKey.String(),
+		"references": []crypto.Hash{cst},
 	})
 
 	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw))
 	require.Nil(err)
-	ver := common.VersionedTransaction{SignedTransaction: *tx}
-	testSendTransactionsToNodesWithRetry(t, nodes, []*common.VersionedTransaction{&ver})
+	ver := tx.AsVersioned()
+	testSendTransactionsToNodesWithRetry(t, nodes, []*common.VersionedTransaction{ver})
 
 	custom, err := config.Initialize(dir + "/config.toml")
 	require.Nil(err)
@@ -900,6 +909,7 @@ func testSignTransaction(node string, account common.Address, rawStr string) (*c
 		panic(err)
 	}
 	tx.Extra = extra
+	tx.References = raw.References
 
 	signed := &common.SignedTransaction{Transaction: *tx}
 	for i := range signed.Inputs {
@@ -1071,6 +1081,7 @@ func testDumpGraphHead(node string, id crypto.Hash) *HeadRound {
 }
 
 type Info struct {
+	Consensus crypto.Hash
 	Timestamp time.Time
 	PoolSize  common.Integer
 }
@@ -1081,7 +1092,8 @@ func testGetGraphInfo(node string) Info {
 		panic(err)
 	}
 	var info struct {
-		Timestamp string `json:"timestamp"`
+		Consensus crypto.Hash `json:"consensus"`
+		Timestamp string      `json:"timestamp"`
 		Mint      struct {
 			PoolSize common.Integer `json:"pool"`
 		} `json:"mint"`
@@ -1095,9 +1107,27 @@ func testGetGraphInfo(node string) Info {
 		panic(err)
 	}
 	return Info{
+		Consensus: info.Consensus,
 		Timestamp: t,
 		PoolSize:  info.Mint.PoolSize,
 	}
+}
+
+func testGetSnapshotSoleTransaction(node, hash string) crypto.Hash {
+	data, err := CallMixinRPC("http://"+node, "getsnapshot", []any{hash})
+	if err != nil {
+		panic(err)
+	}
+	var info struct {
+		Transactions []struct {
+			Hash crypto.Hash `json:"hash"`
+		} `json:"transactions"`
+	}
+	err = json.Unmarshal(data, &info)
+	if err != nil {
+		panic(string(data))
+	}
+	return info.Transactions[0].Hash
 }
 
 func testListMintDistributions(node string) []*common.VersionedTransaction {
@@ -1130,9 +1160,10 @@ type signerInput struct {
 		Script   common.Script     `json:"script"`
 		Accounts []*common.Address `json:"accounts"`
 	}
-	Asset crypto.Hash `json:"asset"`
-	Extra string      `json:"extra"`
-	Node  string      `json:"-"`
+	Asset      crypto.Hash   `json:"asset"`
+	Extra      string        `json:"extra"`
+	References []crypto.Hash `json:"references"`
+	Node       string        `json:"-"`
 }
 
 func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index uint) (*common.UTXOKeys, error) {

@@ -42,6 +42,13 @@ func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.Sn
 		}
 	}
 
+	cs := snapshots[len(snapshots)-1]
+	ct := transactions[len(snapshots)-1]
+	err = writeConsensusSnapshot(txn, cs.Snapshot, ct)
+	if err != nil {
+		return err
+	}
+
 	return txn.Commit()
 }
 

@@ -489,6 +489,14 @@ func pledgeNodeCmd(c *cli.Context) error {
 		return err
 	}
 	raw.Node = c.String("node")
+	info, err := rpc.GetInfo(raw.Node)
+	if err != nil {
+		return err
+	}
+	snap, err := rpc.GetSnapshot(raw.Node, info.Consensus.String())
+	if err != nil {
+		return err
+	}
 
 	amount := common.NewIntegerFromString(c.String("amount"))
 
@@ -496,6 +504,7 @@ func pledgeNodeCmd(c *cli.Context) error {
 	tx.AddInput(input, 0)
 	tx.AddOutputWithType(common.OutputTypeNodePledge, nil, common.Script{}, amount, seed)
 	tx.Extra = append(signer.PublicSpendKey[:], payee.PublicSpendKey[:]...)
+	tx.References = []crypto.Hash{snap.SoleTransaction()}
 
 	signed := tx.AsVersioned()
 	err = signed.SignInput(raw, 0, []*common.Address{&account})

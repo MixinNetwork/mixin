@@ -99,9 +99,12 @@ func (topo *TopologicalSequence) TopoStats(node *Node) {
 }
 
 func (node *Node) getTopologyCounter(store storage.Store) *TopologicalSequence {
+	s, _ := store.LastSnapshot()
 	topo := &TopologicalSequence{
-		seq:    store.TopologySequence(),
 		filter: make(map[crypto.Hash]bool),
+	}
+	if s != nil {
+		topo.seq = s.TopologicalOrder
 	}
 	topo.point = topo.seq
 	go topo.TopoStats(node)
