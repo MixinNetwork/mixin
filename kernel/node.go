@@ -109,6 +109,11 @@ func SetupNode(custom *config.Custom, store storage.Store, cache *ristretto.Cach
 	if err != nil {
 		return nil, fmt.Errorf("LoadConsensusNodes() => %v", err)
 	}
+	s, tx := node.persistStore.LastSnapshot()
+	err = node.reloadConsensusState(s.Snapshot, tx)
+	if err != nil {
+		return nil, fmt.Errorf("reloadConsensusState(%v) => %v", s, err)
+	}
 
 	err = node.LoadAllChainsAndGraphTimestamp(node.persistStore, node.networkId)
 	if err != nil {
@@ -323,10 +328,6 @@ func (node *Node) LoadConsensusNodes() error {
 	node.allNodesSortedWithState = cnodes
 	node.nodeStateSequences = node.buildNodeStateSequences(cnodes, false)
 	node.acceptedNodeStateSequences = node.buildNodeStateSequences(cnodes, true)
-	s, tx := node.persistStore.LastSnapshot()
-	if s != nil {
-		return node.reloadConsensusState(s.Snapshot, tx)
-	}
 	return nil
 }
 

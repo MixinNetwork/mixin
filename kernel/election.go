@@ -377,6 +377,10 @@ func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedT
 		common.TransactionTypeNodeRemove,
 		common.TransactionTypeCustodianUpdateNodes,
 		common.TransactionTypeCustodianSlashNodes:
+		err := node.persistStore.WriteConsensusSnapshot(s, tx)
+		if err != nil {
+			return err
+		}
 	default:
 		return nil
 	}
@@ -399,13 +403,13 @@ func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedT
 	case common.TransactionTypeNodeAccept:
 	case common.TransactionTypeNodeRemove:
 	default:
-		return node.persistStore.WriteConsensusSnapshot(s, tx)
+		return nil
 	}
 
 	signer := tx.NodeTransactionExtraAsSigner()
 	id := signer.Hash().ForNetwork(node.networkId)
 	if id == s.NodeId {
-		return node.persistStore.WriteConsensusSnapshot(s, tx)
+		return nil
 	}
 
 	chain = node.BootChain(id)
@@ -416,7 +420,7 @@ func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedT
 	if chain.ConsensusInfo == nil {
 		panic("should never be here")
 	}
-	return node.persistStore.WriteConsensusSnapshot(s, tx)
+	return nil
 }
 
 func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot, signers []crypto.Hash) error {
