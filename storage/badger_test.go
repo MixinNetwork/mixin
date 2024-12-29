@@ -23,9 +23,6 @@ func TestBadger(t *testing.T) {
 	require.NotNil(store)
 	defer store.Close()
 
-	snap, _ := store.LastSnapshot()
-	require.Nil(snap)
-
 	err = store.snapshotsDB.Update(func(txn *badger.Txn) error {
 		return txn.Delete([]byte("key-not-found"))
 	})

@@ -145,9 +145,6 @@ func (s *BadgerStore) LastSnapshot() (*common.SnapshotWithTopologicalOrder, *com
 	if err != nil {
 		panic(err)
 	}
-	if topo == 0 && len(snaps) == 0 {
-		return nil, nil
-	}
 	if len(snaps) != 1 {
 		panic(topo)
 	}

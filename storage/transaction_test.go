@@ -25,9 +25,6 @@ func TestTransaction(t *testing.T) {
 	store, _ := NewBadgerStore(custom, root)
 	defer store.Close()
 
-	last, _ := store.LastSnapshot()
-	require.Nil(last)
-
 	gns, err := common.ReadGenesis("../config/genesis.json")
 	require.Nil(err)
 	rounds, snapshots, transactions, err := gns.BuildSnapshots()
@@ -83,6 +80,10 @@ func TestTransaction(t *testing.T) {
 	_, balance, err = store.ReadAssetWithBalance(common.XINAssetId)
 	require.Nil(err)
 	require.Equal("365553.00000000", balance.String())
+
+	last, _ := store.LastSnapshot()
+	require.NotNil(last)
+	require.Equal(last.PayloadHash(), snapshots[len(snapshots)-1].PayloadHash())
 
 	round, _ := store.ReadRound(rounds[0].NodeId)
 	require.Equal(uint64(1), round.Number)
@@ -142,6 +143,10 @@ func TestTransaction(t *testing.T) {
 	_, balance, err = store.ReadAssetWithBalance(common.XINAssetId)
 	require.Nil(err)
 	require.Equal("365562.00000000", balance.String())
+
+	last, _ = store.LastSnapshot()
+	require.NotNil(last)
+	require.Equal(last.PayloadHash(), topo.PayloadHash())
 
 	ver, ss, err := store.ReadWithdrawalClaim(submit.AsVersioned().PayloadHash())
 	require.Nil(err)
@@ -207,6 +212,10 @@ func TestTransaction(t *testing.T) {
 	oldnCS, oldnRB := store.readConsensusSnapshot(ncs)
 	require.Equal(ncs.PayloadHash(), oldnCS.PayloadHash())
 	require.Nil(oldnRB)
+
+	last, _ = store.LastSnapshot()
+	require.NotNil(last)
+	require.Equal(last.PayloadHash(), topo.PayloadHash())
 }
 
 func (s *BadgerStore) readConsensusSnapshot(snap *common.Snapshot) (*common.Snapshot, *crypto.Hash) {
