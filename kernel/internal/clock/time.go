@@ -48,3 +48,7 @@ func Now() time.Time {
 	defer mutex.RUnlock()
 	return time.Now().Add(mockDiff)
 }
+
+func NowUnixNano() uint64 {
+	return uint64(Now().UnixNano())
+}

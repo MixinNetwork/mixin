@@ -186,11 +186,7 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 		return nil
 	}
 
-	consensusSnap, referencedBy, err := node.persistStore.ReadLastConsensusSnapshot()
-	if err != nil {
-		logger.Printf("buildUniversalMintTransaction ERROR %s\n", err.Error())
-		return nil
-	}
+	consensusSnap, referencedBy, _ := node.ReadLastConsensusSnapshotWithHack()
 	if referencedBy != nil {
 		logger.Printf("buildUniversalMintTransaction consensus reference %s\n", referencedBy)
 		return nil

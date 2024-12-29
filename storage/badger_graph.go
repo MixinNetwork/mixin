@@ -38,18 +38,18 @@ const (
 	graphPrefixConsensusSnapshot = "CONSENSUSSNAPSHOT"
 )
 
-func (s *BadgerStore) WriteConsensusSnapshot(snap *common.Snapshot, tx *common.VersionedTransaction) error {
+func (s *BadgerStore) WriteConsensusSnapshot(snap *common.Snapshot, tx *common.VersionedTransaction, hack *common.Snapshot) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 
-	err := writeConsensusSnapshot(txn, snap, tx)
+	err := writeConsensusSnapshot(txn, snap, tx, hack)
 	if err != nil {
 		return err
 	}
 	return txn.Commit()
 }
 
-func writeConsensusSnapshot(txn *badger.Txn, snap *common.Snapshot, tx *common.VersionedTransaction) error {
+func writeConsensusSnapshot(txn *badger.Txn, snap *common.Snapshot, tx *common.VersionedTransaction, hack *common.Snapshot) error {
 	if snap.SoleTransaction() != tx.PayloadHash() {
 		panic(snap.PayloadHash())
 	}
@@ -75,13 +75,17 @@ func writeConsensusSnapshot(txn *badger.Txn, snap *common.Snapshot, tx *common.V
 	if err != nil {
 		return err
 	}
-	if !isGenesis && last.SoleTransaction() == tx.PayloadHash() {
-		return nil
+	if hack != nil {
+		if last != nil {
+			panic(snap.PayloadHash())
+		}
+		last = hack
 	}
-	if referencedBy != nil {
-		panic(snap.PayloadHash())
-	}
+
 	if !isGenesis {
+		if last.SoleTransaction() == tx.PayloadHash() {
+			return nil
+		}
 		if last.SoleTransaction() != tx.References[0] {
 			panic(snap.PayloadHash())
 		}
@@ -94,6 +98,10 @@ func writeConsensusSnapshot(txn *badger.Txn, snap *common.Snapshot, tx *common.V
 		if err != nil {
 			return err
 		}
+	}
+
+	if referencedBy != nil {
+		panic(snap.PayloadHash())
 	}
 
 	key := graphConsensusSnapshotKey(snap.Timestamp, snap.PayloadHash())

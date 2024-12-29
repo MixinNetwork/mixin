@@ -198,7 +198,7 @@ func TestTransaction(t *testing.T) {
 		Timestamp: uint64(time.Now().UnixNano()),
 	}
 	ncs.AddSoleTransaction(ver.PayloadHash())
-	err = store.WriteConsensusSnapshot(ncs, ver)
+	err = store.WriteConsensusSnapshot(ncs, ver, nil)
 	require.Nil(err)
 
 	oldCS, oldRB := store.readConsensusSnapshot(cs)

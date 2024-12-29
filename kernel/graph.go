@@ -387,3 +387,73 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 	abase := chain.node.ConsensusThreshold(timestamp, true)
 	return chain.node.cacheVerifyCosi(s.Hash, s.Signature, acids, apublics, abase)
 }
+
+func (node *Node) ReadLastConsensusSnapshotWithHack() (*common.Snapshot, *crypto.Hash, bool) {
+	last, referencedBy, err := node.persistStore.ReadLastConsensusSnapshot()
+	if err != nil {
+		panic(err)
+	}
+	if last != nil {
+		return last, referencedBy, false
+	}
+	if node.networkId.String() != config.KernelNetworkId {
+		panic(node.networkId.String())
+	}
+
+	now := clock.NowUnixNano()
+	nodes := node.persistStore.ReadAllNodes(now, false)
+	ns := node.readSnapshotForTransaction(nodes[len(nodes)-1].Transaction)
+
+	dist, err := node.persistStore.ReadLastMintDistribution(^uint64(0))
+	if err != nil {
+		panic(err)
+	}
+	ds := node.readSnapshotForTransaction(dist.Transaction)
+
+	if ns.Timestamp > ds.Timestamp {
+		return ns, nil, true
+	}
+	return ds, nil, true
+}
+
+func (node *Node) readSnapshotForTransaction(h crypto.Hash) *common.Snapshot {
+	_, dsh, err := node.persistStore.ReadTransaction(h)
+	if err != nil {
+		panic(err)
+	}
+	h, err = crypto.HashFromString(dsh)
+	if err != nil {
+		panic(err)
+	}
+	snap, err := node.persistStore.ReadSnapshot(h)
+	if err != nil {
+		panic(err)
+	}
+	return snap.Snapshot
+}
+
+func (node *Node) WriteConsensusSnapshotWithHack(snap *common.Snapshot, tx *common.VersionedTransaction) error {
+	switch tx.TransactionType() {
+	case common.TransactionTypeNodePledge,
+		common.TransactionTypeNodeCancel,
+		common.TransactionTypeNodeAccept,
+		common.TransactionTypeNodeRemove,
+		common.TransactionTypeMint,
+		common.TransactionTypeCustodianUpdateNodes,
+		common.TransactionTypeCustodianSlashNodes:
+	default:
+		panic(tx.TransactionType())
+	}
+	last, _, hack := node.ReadLastConsensusSnapshotWithHack()
+	if !hack {
+		return node.persistStore.WriteConsensusSnapshot(snap, tx, nil)
+	}
+
+	if node.networkId.String() != config.KernelNetworkId {
+		panic(node.networkId.String())
+	}
+	if len(tx.References) == 0 {
+		return nil
+	}
+	return node.persistStore.WriteConsensusSnapshot(snap, tx, last)
+}

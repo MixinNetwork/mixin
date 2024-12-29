@@ -13,7 +13,7 @@ import (
 )
 
 func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
-	cs, _, _ := store.ReadLastConsensusSnapshot()
+	cs, _, _ := node.ReadLastConsensusSnapshotWithHack()
 	info := map[string]any{
 		"network":   node.NetworkId(),
 		"node":      node.IdForNetwork,

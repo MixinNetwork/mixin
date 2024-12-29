@@ -136,10 +136,7 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 	if len(tx.References) < 1 {
 		return fmt.Errorf("invalid consensus reference count %s", tx.PayloadHash())
 	}
-	last, referencedBy, err := node.persistStore.ReadLastConsensusSnapshot()
-	if err != nil {
-		return err
-	}
+	last, referencedBy, _ := node.ReadLastConsensusSnapshotWithHack()
 	if last.SoleTransaction() == tx.PayloadHash() {
 		return nil
 	}
