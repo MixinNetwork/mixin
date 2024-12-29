@@ -6,6 +6,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -21,6 +22,9 @@ func main() {
 	defaultRPC := os.Getenv("MIXIN_KERNEL_RPC")
 	if defaultRPC == "" {
 		defaultRPC = "http://127.0.0.1:6860"
+	}
+	if strings.Contains(config.BuildVersion, "BUILD_VERSION") {
+		panic("please build the application using make command.")
 	}
 
 	app := cli.NewApp()
