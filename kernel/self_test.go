@@ -19,10 +19,10 @@ func TestDetermineBestRound(t *testing.T) {
 	require.NotNil(node)
 
 	chain := node.BootChain(node.IdForNetwork)
-	best := chain.determineBestRound(uint64(clock.Now().UnixNano()))
+	best := chain.determineBestRound(clock.NowUnixNano())
 	require.Nil(best)
 
 	chain = node.BootChain(node.genesisNodes[0])
-	best = chain.determineBestRound(uint64(clock.Now().UnixNano()))
+	best = chain.determineBestRound(clock.NowUnixNano())
 	require.NotNil(best)
 }

@@ -12,7 +12,7 @@ import (
 func (node *Node) validateCustodianUpdateNodes(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
 	timestamp := s.Timestamp
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
-		timestamp = uint64(clock.Now().UnixNano())
+		timestamp = clock.NowUnixNano()
 	}
 	eid := node.electSnapshotNode(common.TransactionTypeCustodianUpdateNodes, timestamp)
 	if eid != s.NodeId {

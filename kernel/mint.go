@@ -301,7 +301,7 @@ func mintMultiBatchesSize(old, batch uint64) common.Integer {
 func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.VersionedTransaction) error {
 	timestamp := snap.Timestamp
 	if snap.Timestamp == 0 && snap.NodeId == node.IdForNetwork {
-		timestamp = uint64(clock.Now().UnixNano())
+		timestamp = clock.NowUnixNano()
 	}
 	eid := node.electSnapshotNode(common.TransactionTypeMint, timestamp)
 	if eid != snap.NodeId {

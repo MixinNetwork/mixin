@@ -123,7 +123,7 @@ func TestUniversalMintTransaction(t *testing.T) {
 		round: 1,
 	}} {
 		clock.MockDiff(tr.diff)
-		timestamp := uint64(clock.Now().UnixNano())
+		timestamp := clock.NowUnixNano()
 		for i := 0; i < 2; i++ {
 			snapshots := testBuildMintSnapshots(signers, tr.round, timestamp)
 			err = node.persistStore.WriteRoundWork(node.IdForNetwork, tr.round, snapshots, true)
@@ -154,7 +154,7 @@ func TestUniversalMintTransaction(t *testing.T) {
 		}
 	}
 
-	timestamp := uint64(clock.Now().UnixNano())
+	timestamp := clock.NowUnixNano()
 	cur := &common.CustodianUpdateRequest{Custodian: &custodian}
 	versioned = node.buildUniversalMintTransaction(cur, timestamp, false)
 	require.NotNil(versioned)
@@ -200,7 +200,7 @@ func TestMintWorks(t *testing.T) {
 	require.Equal(uint64(0), offset)
 
 	signers := append(node.genesisNodes, node.IdForNetwork)
-	timestamp := uint64(clock.Now().UnixNano())
+	timestamp := clock.NowUnixNano()
 	leaders := len(signers)*2/3 + 1
 	for i := 0; i < 2; i++ {
 		snapshots := testBuildMintSnapshots(signers[1:], 0, timestamp)
@@ -234,7 +234,7 @@ func TestMintWorks(t *testing.T) {
 		require.Equal(uint64(0), offset)
 	}
 
-	timestamp = uint64(clock.Now().UnixNano())
+	timestamp = clock.NowUnixNano()
 	snapshots := testBuildMintSnapshots(signers[1:], 1, timestamp)
 	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 1, snapshots[:98], true)
 	require.Nil(err)

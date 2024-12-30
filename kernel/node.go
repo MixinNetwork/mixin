@@ -232,7 +232,7 @@ func (node *Node) ListWorkingAcceptedNodes(timestamp uint64) []*CNode {
 }
 
 func (node *Node) GetAcceptedOrPledgingNode(id crypto.Hash) *CNode {
-	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), false)
+	nodes := node.NodesListWithoutState(clock.NowUnixNano(), false)
 	for _, cn := range nodes {
 		if cn.IdForNetwork == id && (cn.State == common.NodeStateAccepted || cn.State == common.NodeStatePledging) {
 			return cn
@@ -300,7 +300,7 @@ func (node *Node) ConsensusThreshold(timestamp uint64, final bool) int {
 }
 
 func (node *Node) LoadConsensusNodes() error {
-	threshold := uint64(clock.Now().UnixNano()) * 2
+	threshold := clock.NowUnixNano() * 2
 	nodes := node.persistStore.ReadAllNodes(threshold, true)
 	sort.Slice(nodes, func(i, j int) bool {
 		if nodes[i].Timestamp < nodes[j].Timestamp {
@@ -479,7 +479,7 @@ func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTr
 
 func (node *Node) ReadAllNodesWithoutState() []crypto.Hash {
 	var all []crypto.Hash
-	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), false)
+	nodes := node.NodesListWithoutState(clock.NowUnixNano(), false)
 	for _, cn := range nodes {
 		all = append(all, cn.IdForNetwork)
 	}
@@ -496,7 +496,7 @@ func (node *Node) ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round
 
 func (node *Node) sendGraphToConcensusNodesAndPeers() {
 	for {
-		nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
+		nodes := node.NodesListWithoutState(clock.NowUnixNano(), true)
 		neighbors := node.Peer.Neighbors()
 		peers := make(map[crypto.Hash]bool)
 		for _, cn := range nodes {
@@ -536,8 +536,8 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 	}
 
 	final, count := node.chain.State.FinalRound.Number, 1
-	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()), false)
-	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
+	threshold := node.ConsensusThreshold(clock.NowUnixNano(), false)
+	nodes := node.NodesListWithoutState(clock.NowUnixNano(), true)
 	for _, cn := range nodes {
 		remote := spm[cn.IdForNetwork]
 		if remote == nil {
@@ -556,11 +556,11 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 		return false
 	}
 
-	threshold := node.ConsensusThreshold(uint64(clock.Now().UnixNano()), false)
+	threshold := node.ConsensusThreshold(clock.NowUnixNano(), false)
 	cache, updated := node.chain.State.CacheRound, 1
 	final := node.chain.State.FinalRound.Number
 
-	nodes := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
+	nodes := node.NodesListWithoutState(clock.NowUnixNano(), true)
 	for _, cn := range nodes {
 		remote := spm[cn.IdForNetwork]
 		if remote == nil {
@@ -588,7 +588,7 @@ func (node *Node) CheckCatchUpWithPeers() bool {
 				cf.Hash, remote.Hash)
 			return false
 		}
-		if now := uint64(clock.Now().UnixNano()); cf.Start+config.SnapshotRoundGap*100 > now {
+		if now := clock.NowUnixNano(); cf.Start+config.SnapshotRoundGap*100 > now {
 			logger.Verbosef("CheckCatchUpWithPeers local start(%d)+%d > now(%d)\n",
 				cf.Start, config.SnapshotRoundGap*100, now)
 			return false

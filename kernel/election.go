@@ -196,7 +196,7 @@ func (node *Node) tryToSendRemoveTransaction() error {
 func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
 	timestamp := s.Timestamp
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
-		timestamp = uint64(clock.Now().UnixNano())
+		timestamp = clock.NowUnixNano()
 	}
 	eid := node.electSnapshotNode(common.TransactionTypeNodeRemove, timestamp)
 	if eid != s.NodeId {
@@ -309,7 +309,7 @@ func (chain *Chain) buildNodeAcceptTransaction(timestamp uint64, finalized bool)
 }
 
 func (chain *Chain) tryToSendAcceptTransaction() error {
-	now := uint64(clock.Now().UnixNano())
+	now := clock.NowUnixNano()
 	ver, err := chain.buildNodeAcceptTransaction(now, false)
 	if err != nil {
 		return err
@@ -337,7 +337,7 @@ func (chain *Chain) tryToSendAcceptTransaction() error {
 func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
 	timestamp := s.Timestamp
 	if timestamp == 0 && s.NodeId == node.IdForNetwork {
-		timestamp = uint64(clock.Now().UnixNano())
+		timestamp = clock.NowUnixNano()
 	}
 	if s.RoundNumber != 0 {
 		return fmt.Errorf("invalid snapshot round %d", s.RoundNumber)
@@ -490,7 +490,7 @@ func (node *Node) getInitialExternalReference(s *common.Snapshot) (*FinalRound, 
 func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
 	timestamp, totalNodes := s.Timestamp, 0
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
-		timestamp = uint64(clock.Now().UnixNano())
+		timestamp = clock.NowUnixNano()
 	}
 	eid := node.electSnapshotNode(common.TransactionTypeNodePledge, timestamp)
 	if eid != s.NodeId {
@@ -544,7 +544,7 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
 	timestamp := s.Timestamp
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
-		timestamp = uint64(clock.Now().UnixNano())
+		timestamp = clock.NowUnixNano()
 	}
 	if timestamp < node.Epoch {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)

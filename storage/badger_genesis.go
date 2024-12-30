@@ -44,6 +44,9 @@ func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.Sn
 
 	cs := snapshots[len(snapshots)-1]
 	ct := transactions[len(snapshots)-1]
+	if cs.TopologicalOrder+1 != uint64(len(snapshots)) {
+		panic(cs.TopologicalOrder)
+	}
 	err = writeConsensusSnapshot(txn, cs.Snapshot, ct, nil)
 	if err != nil {
 		return err

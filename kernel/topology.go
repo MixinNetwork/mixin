@@ -46,7 +46,7 @@ func (node *Node) WitnessSnapshot(s *common.SnapshotWithTopologicalOrder) *Snaps
 	sig := node.Signer.PrivateSpendKey.Sign(msg)
 	return &SnapshotWitness{
 		Signature: &sig,
-		Timestamp: uint64(clock.Now().UnixNano()),
+		Timestamp: clock.NowUnixNano(),
 	}
 }
 
@@ -101,10 +101,8 @@ func (topo *TopologicalSequence) TopoStats(node *Node) {
 func (node *Node) getTopologyCounter(store storage.Store) *TopologicalSequence {
 	s, _ := store.LastSnapshot()
 	topo := &TopologicalSequence{
+		seq:    s.TopologicalOrder,
 		filter: make(map[crypto.Hash]bool),
-	}
-	if s != nil {
-		topo.seq = s.TopologicalOrder
 	}
 	topo.point = topo.seq
 	go topo.TopoStats(node)

@@ -29,7 +29,7 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 		return old.PayloadHash().String(), node.persistStore.CachePutTransaction(tx)
 	}
 
-	err = tx.Validate(node.persistStore, uint64(clock.Now().UnixNano()), false)
+	err = tx.Validate(node.persistStore, clock.NowUnixNano(), false)
 	if err != nil {
 		return "", err
 	}
@@ -56,7 +56,7 @@ func (node *Node) loopCacheQueue() {
 			continue
 		}
 
-		allNodes := node.ListWorkingAcceptedNodes(uint64(clock.Now().UnixNano()))
+		allNodes := node.ListWorkingAcceptedNodes(clock.NowUnixNano())
 		if len(allNodes) <= 0 {
 			continue
 		}
@@ -131,7 +131,7 @@ func (node *Node) filterLeadingNodes(all []*CNode) ([]*CNode, map[crypto.Hash]bo
 	defer node.chains.RUnlock()
 
 	threshold := 5 * uint64(time.Minute)
-	now := uint64(clock.Now().UnixNano())
+	now := clock.NowUnixNano()
 
 	leading := make([]*CNode, 0)
 	filter := make(map[crypto.Hash]bool)
@@ -172,7 +172,7 @@ func (node *Node) QueueState() (uint64, uint64, map[string][2]uint64) {
 
 	var caches, finals uint64
 	state := make(map[string][2]uint64)
-	accepted := node.NodesListWithoutState(uint64(clock.Now().UnixNano()), true)
+	accepted := node.NodesListWithoutState(clock.NowUnixNano(), true)
 	for _, cn := range accepted {
 		chain := node.chains.m[cn.IdForNetwork]
 		sa := [2]uint64{

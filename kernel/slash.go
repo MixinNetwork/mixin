@@ -55,7 +55,7 @@ const (
 // loss, and the payee will get back the whole pledge. so the punishment to
 // a removing or slashing node is only drastically mint decline.
 func (node *Node) GetRemovingOrSlashingNode(id crypto.Hash) *CNode {
-	now := uint64(clock.Now().UnixNano())
+	now := clock.NowUnixNano()
 	now, ready := prepareNodeRemovalTime(now, node.Epoch)
 	if !ready {
 		return nil

@@ -242,7 +242,7 @@ func (chain *Chain) checkReferenceSanity(ec *Chain, external *common.Round, roun
 	}
 
 	cr, fr := ec.State.CacheRound, ec.State.FinalRound
-	if now := uint64(clock.Now().UnixNano()); fr.Start > now {
+	if now := clock.NowUnixNano(); fr.Start > now {
 		return fmt.Errorf("external hint round timestamp too future %d %d",
 			fr.Start, clock.Now().UnixNano())
 	}

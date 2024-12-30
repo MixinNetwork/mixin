@@ -163,7 +163,7 @@ func (ab ActionBuffer) Poll() *CosiAction {
 }
 
 func (chain *Chain) loadIdentity() *CNode {
-	now := uint64(clock.Now().UnixNano())
+	now := clock.NowUnixNano()
 	for _, n := range chain.node.NodesListWithoutState(now, false) {
 		if chain.ChainId == n.IdForNetwork {
 			return n
@@ -219,7 +219,7 @@ func (chain *Chain) loadState() error {
 	state.RoundHistory = loadRoundHistoryForNode(chain.persistStore, final)
 	cache.Timestamp = final.Start + config.SnapshotRoundGap
 
-	allNodes := chain.node.NodesListWithoutState(uint64(clock.Now().UnixNano()), false)
+	allNodes := chain.node.NodesListWithoutState(clock.NowUnixNano(), false)
 	for _, cn := range allNodes {
 		if chain.ChainId == cn.IdForNetwork {
 			continue

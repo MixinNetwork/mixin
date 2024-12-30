@@ -136,7 +136,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		if s.Signature != nil || s.Timestamp != 0 {
 			return fmt.Errorf("only empty snapshot can be announced")
 		}
-		s.Timestamp = uint64(clock.Now().UnixNano())
+		s.Timestamp = clock.NowUnixNano()
 	case CosiActionSelfCommitment, CosiActionSelfFullCommitment, CosiActionSelfResponse:
 		if chain.ChainId != chain.node.IdForNetwork {
 			return fmt.Errorf("self action aggregation chain %s %s", chain.ChainId, chain.node.IdForNetwork)
@@ -236,7 +236,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 			return fmt.Errorf("invalid snapshot hash %s %s", m.SnapshotHash, s.Hash)
 		}
 		threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-		if s.Timestamp > uint64(clock.Now().UnixNano())+threshold {
+		if s.Timestamp > clock.NowUnixNano()+threshold {
 			return fmt.Errorf("future snapshot timestamp %d", s.Timestamp)
 		}
 		if s.Timestamp+threshold*2 < chain.node.GraphTimestamp {
