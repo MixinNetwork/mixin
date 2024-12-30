@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"sort"
 
@@ -71,7 +72,7 @@ func writeConsensusSnapshot(txn *badger.Txn, snap *common.Snapshot, tx *common.V
 	}
 
 	isGenesis := len(tx.Inputs) == 1 && tx.Inputs[0].Genesis != nil
-	last, referencedBy, err := readLastConsensusSnapshot(txn)
+	last, err := readLastConsensusSnapshot(txn)
 	if err != nil {
 		return err
 	}
@@ -100,22 +101,18 @@ func writeConsensusSnapshot(txn *badger.Txn, snap *common.Snapshot, tx *common.V
 		}
 	}
 
-	if referencedBy != nil {
-		panic(snap.PayloadHash())
-	}
-
 	key := graphConsensusSnapshotKey(snap.Timestamp, snap.PayloadHash())
 	return txn.Set(key, []byte{})
 }
 
-func (s *BadgerStore) ReadLastConsensusSnapshot() (*common.Snapshot, *crypto.Hash, error) {
+func (s *BadgerStore) ReadLastConsensusSnapshot() (*common.Snapshot, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
 	return readLastConsensusSnapshot(txn)
 }
 
-func readLastConsensusSnapshot(txn *badger.Txn) (*common.Snapshot, *crypto.Hash, error) {
+func readLastConsensusSnapshot(txn *badger.Txn) (*common.Snapshot, error) {
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = false
 	opts.Reverse = true
@@ -125,14 +122,14 @@ func readLastConsensusSnapshot(txn *badger.Txn) (*common.Snapshot, *crypto.Hash,
 
 	it.Seek(graphConsensusSnapshotKey(^uint64(0), crypto.Hash{}))
 	if !it.ValidForPrefix([]byte(graphPrefixConsensusSnapshot)) {
-		return nil, nil, nil
+		return nil, nil
 	}
 	var h crypto.Hash
 	key := it.Item().KeyCopy(nil)
 	copy(h[:], key[len(graphPrefixConsensusSnapshot)+8:])
 	snap, err := readSnapshotWithTopo(txn, h)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	ts := binary.BigEndian.Uint64(key[len(graphPrefixConsensusSnapshot):])
 	if snap.Timestamp != ts {
@@ -141,13 +138,12 @@ func readLastConsensusSnapshot(txn *badger.Txn) (*common.Snapshot, *crypto.Hash,
 
 	val, err := it.Item().ValueCopy(nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	if len(val) == 0 {
-		return snap.Snapshot, nil, nil
+	if len(val) > 0 {
+		panic(hex.EncodeToString(val))
 	}
-	copy(h[:], val)
-	return snap.Snapshot, &h, nil
+	return snap.Snapshot, nil
 }
 
 func (s *BadgerStore) RemoveGraphEntries(prefix string) (int, error) {

@@ -186,11 +186,7 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 		return nil
 	}
 
-	consensusSnap, referencedBy, _ := node.ReadLastConsensusSnapshotWithHack()
-	if referencedBy != nil {
-		logger.Printf("buildUniversalMintTransaction consensus reference %s\n", referencedBy)
-		return nil
-	}
+	consensusSnap, _ := node.ReadLastConsensusSnapshotWithHack()
 	tx := node.NewTransaction(common.XINAssetId)
 	tx.AddUniversalMintInput(uint64(batch), amount)
 	tx.References = []crypto.Hash{consensusSnap.SoleTransaction()}

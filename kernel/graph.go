@@ -388,13 +388,13 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 	return chain.node.cacheVerifyCosi(s.Hash, s.Signature, acids, apublics, abase)
 }
 
-func (node *Node) ReadLastConsensusSnapshotWithHack() (*common.Snapshot, *crypto.Hash, bool) {
-	last, referencedBy, err := node.persistStore.ReadLastConsensusSnapshot()
+func (node *Node) ReadLastConsensusSnapshotWithHack() (*common.Snapshot, bool) {
+	last, err := node.persistStore.ReadLastConsensusSnapshot()
 	if err != nil {
 		panic(err)
 	}
 	if last != nil {
-		return last, referencedBy, false
+		return last, false
 	}
 	if node.networkId.String() != config.KernelNetworkId {
 		panic(node.networkId.String())
@@ -411,9 +411,9 @@ func (node *Node) ReadLastConsensusSnapshotWithHack() (*common.Snapshot, *crypto
 	ds := node.readSnapshotForTransaction(dist.Transaction)
 
 	if ns.Timestamp > ds.Timestamp {
-		return ns, nil, true
+		return ns, true
 	}
-	return ds, nil, true
+	return ds, true
 }
 
 func (node *Node) readSnapshotForTransaction(h crypto.Hash) *common.Snapshot {
@@ -444,7 +444,7 @@ func (node *Node) WriteConsensusSnapshotWithHack(snap *common.Snapshot, tx *comm
 	default:
 		panic(tx.TransactionType())
 	}
-	last, _, hack := node.ReadLastConsensusSnapshotWithHack()
+	last, hack := node.ReadLastConsensusSnapshotWithHack()
 	if !hack {
 		return node.persistStore.WriteConsensusSnapshot(snap, tx, nil)
 	}

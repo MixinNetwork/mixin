@@ -148,10 +148,7 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 			hex.EncodeToString(accept.Extra), signer, hex.EncodeToString(payee))
 	}
 
-	consensusSnap, referencedBy, _ := node.ReadLastConsensusSnapshotWithHack()
-	if referencedBy != nil {
-		return nil, fmt.Errorf("invalid remove consensus reference %s", referencedBy)
-	}
+	consensusSnap, _ := node.ReadLastConsensusSnapshotWithHack()
 	tx := node.NewTransaction(common.XINAssetId)
 	tx.AddInput(candi.Transaction, 0)
 	tx.Extra = accept.Extra
@@ -295,10 +292,7 @@ func (chain *Chain) buildNodeAcceptTransaction(timestamp uint64, finalized bool)
 			hex.EncodeToString(pledge.Extra[:len(signer)]), signer)
 	}
 
-	consensusSnap, referencedBy, _ := chain.node.ReadLastConsensusSnapshotWithHack()
-	if referencedBy != nil {
-		return nil, fmt.Errorf("invalid accept consensus reference %s", referencedBy)
-	}
+	consensusSnap, _ := chain.node.ReadLastConsensusSnapshotWithHack()
 	tx := chain.node.NewTransaction(common.XINAssetId)
 	tx.AddInput(ci.Transaction, 0)
 	tx.AddOutputWithType(common.OutputTypeNodeAccept, nil, common.Script{}, pledge.Outputs[0].Amount, []byte{})

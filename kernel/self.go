@@ -136,15 +136,9 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 	if len(tx.References) < 1 {
 		return fmt.Errorf("invalid consensus reference count %s", tx.PayloadHash())
 	}
-	last, referencedBy, _ := node.ReadLastConsensusSnapshotWithHack()
+	last, _ := node.ReadLastConsensusSnapshotWithHack()
 	if last.SoleTransaction() == tx.PayloadHash() {
 		return nil
-	}
-	if referencedBy != nil && referencedBy.String() == tx.PayloadHash().String() {
-		return nil
-	}
-	if referencedBy != nil {
-		return fmt.Errorf("invalid consensus reference %s %s", tx.PayloadHash(), referencedBy)
 	}
 	if tx.References[0] != last.SoleTransaction() {
 		return fmt.Errorf("invalid consensus reference %s %s", tx.PayloadHash(), last.SoleTransaction())

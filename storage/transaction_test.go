@@ -189,9 +189,8 @@ func TestTransaction(t *testing.T) {
 	require.Nil(err)
 	require.Equal("365562.00000000", balance.String())
 
-	cs, referencedBy, err := store.ReadLastConsensusSnapshot()
+	cs, err := store.ReadLastConsensusSnapshot()
 	require.Nil(err)
-	require.Nil(referencedBy)
 	require.Equal(cs.PayloadHash(), snapshots[len(snapshots)-1].PayloadHash())
 
 	tx := common.NewTransactionV5(common.XINAssetId)
