@@ -186,7 +186,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Equal(transactionsCount, len(tl))
 	gt = testVerifyInfo(require, nodes)
 	require.Less(gt.Timestamp, epoch.Add(64*time.Second))
-	t.Logf("PLEDGE %s\n", input)
+	t.Logf("PLEDGE INPUT READY %s\n", input)
 
 	dummyAmount := common.NewIntegerFromString("3.5").Div(NODES).String()
 	dummyInputs := make([]*common.Input, NODES)
@@ -215,8 +215,16 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	gt = testVerifyInfo(require, nodes)
 	require.Less(gt.Timestamp, epoch.Add(legacy).Add(128*time.Second))
 
+	for i := 0; i < 5; i++ {
+		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
+		transactionsCount = transactionsCount + len(dummyInputs)
+	}
+	testCheckMintDistributions(require, nodes[0].Host)
+	t.Logf("MINT TEST DONE AT %s\n", time.Now())
+
+	kernel.TestMockDiff(time.Hour * 3) // pledge after mint
 	pn, pi, sv := testPledgeNewNode(t, nodes, accounts[0], gdata, plist, input, root)
-	t.Logf("PLEDGE %s %s\n", pn.Signer, pi.IdForNetwork)
+	t.Logf("PLEDGE NODE READY %s %s\n", pn.Signer, pi.IdForNetwork)
 	transactionsCount = transactionsCount + 1
 	defer pi.Teardown()
 	defer sv.Close()
@@ -225,8 +233,6 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
-
-	testCheckMintDistributions(require, nodes[0].Host)
 
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes)

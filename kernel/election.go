@@ -500,6 +500,10 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	if timestamp < node.Epoch {
 		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
 	}
+	if !node.checkConsensusPledgeHour(timestamp) {
+		hour := (timestamp - node.Epoch) / uint64(time.Hour) % 24
+		return fmt.Errorf("invalid node pledge hour %d", hour)
+	}
 	if tx.Outputs[0].Amount.Cmp(common.KernelNodePledgeAmount) != 0 {
 		return fmt.Errorf("invalid pledge amount %s", tx.Outputs[0].Amount.String())
 	}
@@ -583,4 +587,11 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 func (node *Node) checkConsensusAcceptHour(timestamp uint64) bool {
 	hour := (timestamp - node.Epoch) / uint64(time.Hour) % 24
 	return hour >= config.KernelNodeAcceptTimeBegin && hour <= config.KernelNodeAcceptTimeEnd
+}
+
+func (node *Node) checkConsensusPledgeHour(timestamp uint64) bool {
+	hour := (timestamp - node.Epoch) / uint64(time.Hour) % 24
+	isMint := hour >= config.KernelMintTimeBegin && hour <= config.KernelMintTimeEnd
+	isAccept := hour >= config.KernelNodeAcceptTimeBegin && hour <= config.KernelNodeAcceptTimeEnd
+	return !isMint && !isAccept
 }
