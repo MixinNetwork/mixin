@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -41,7 +42,16 @@ func queueTransaction(node *kernel.Node, params []any) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return node.QueueTransaction(ver)
+	for {
+		hash, err := node.QueueTransaction(ver)
+		if err == nil {
+			return hash, nil
+		}
+		if strings.Contains(err.Error(), "Transaction Conflict") {
+			continue
+		}
+		return hash, err
+	}
 }
 
 func getTransaction(store storage.Store, params []any) (map[string]any, error) {
