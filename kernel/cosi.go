@@ -1086,8 +1086,11 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 	}
 
 	chain := node.getOrCreateChain(s.NodeId)
-	if cs := chain.State; cs != nil && cs.CacheRound.index[s.Hash] {
-		return nil
+	if cs := chain.State; cs != nil {
+		_, found := cs.CacheRound.index.Load(s.Hash)
+		if found {
+			return nil
+		}
 	}
 	if _, finalized := chain.verifyFinalization(s); !finalized {
 		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization %s %v %d %t %v %v\n",

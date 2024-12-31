@@ -3,6 +3,7 @@ package kernel
 import (
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -18,7 +19,7 @@ type CacheRound struct {
 	Timestamp  uint64
 	References *common.RoundLink
 	Snapshots  []*common.Snapshot
-	index      map[crypto.Hash]bool
+	index      *sync.Map
 }
 
 type FinalRound struct {
@@ -96,7 +97,7 @@ func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*
 		Number:     meta.Number,
 		Timestamp:  meta.Timestamp,
 		References: meta.References,
-		index:      make(map[crypto.Hash]bool),
+		index:      new(sync.Map),
 	}
 	topos, err := store.ReadSnapshotsForNodeRound(round.NodeId, round.Number)
 	if err != nil {
@@ -106,7 +107,7 @@ func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*
 		s := t.Snapshot
 		s.Hash = s.PayloadHash()
 		round.Snapshots = append(round.Snapshots, s)
-		round.index[s.Hash] = true
+		round.index.Store(s.Hash, struct{}{})
 	}
 	return round, nil
 }
@@ -192,7 +193,7 @@ func (chain *Chain) AddSnapshot(final *FinalRound, cache *CacheRound, s *common.
 		panic(err)
 	}
 	chain.assignNewGraphRound(final, cache)
-	chain.State.CacheRound.index[s.Hash] = true
+	chain.State.CacheRound.index.Store(s.Hash, struct{}{})
 	return nil
 }
 

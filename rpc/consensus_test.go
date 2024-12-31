@@ -38,6 +38,7 @@ func TestConsensus(t *testing.T) {
 func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require := require.New(t)
 	kernel.TestMockReset()
+	startAt := time.Now()
 
 	level, _ := strconv.ParseInt(os.Getenv("LOG"), 10, 64)
 	enableElection, err := strconv.ParseBool(os.Getenv("ELECTION"))
@@ -49,7 +50,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	if inputs > 0 {
 		INPUTS = int(inputs)
 	}
-	t.Logf("TEST WITH %d INPUTS AT %s\n", INPUTS, time.Now())
+	t.Logf("TEST WITH %d INPUTS AT %s FOR %s\n", INPUTS, time.Now(), time.Since(startAt))
 
 	root, err := os.MkdirTemp("", "mixin-consensus-test")
 	require.Nil(err)
@@ -106,9 +107,9 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	tl, sl := testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
 	require.Equal(transactionsCount, len(sl))
-	gt := testVerifyInfo(require, nodes)
-	gts := epoch.Add(time.Second)
-	require.Truef(gt.Timestamp.Before(gts), "%s should before %s", gt.Timestamp, gts)
+	gt1 := testVerifyInfo(require, nodes)
+	gts := epoch.Add(time.Duration(config.SnapshotRoundGap))
+	require.Truef(gt1.Timestamp.Before(gts), "%s should before %s", gt1.Timestamp, gts)
 
 	genesisAmount := (13439 + 3.5) / float64(INPUTS)
 	domainAddress := accounts[0].String()
@@ -129,13 +130,13 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Equal(transactionsCount, len(tl))
 	testVerifyDeposits(require, nodes, deposits)
 
-	gt = testVerifyInfo(require, nodes)
-	gts = epoch.Add(20 * time.Second)
-	require.Truef(gt.Timestamp.Before(gts), "%s should before %s", gt.Timestamp, gts)
+	gt2 := testVerifyInfo(require, nodes)
+	gts = gt1.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
+	require.Truef(gt2.Timestamp.After(gts), "%s should after %s", gt2.Timestamp, gts)
 	hr := testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.GreaterOrEqual(hr.Round, uint64(0))
-	t.Logf("DEPOSIT TEST DONE AT %s\n", time.Now())
+	t.Logf("DEPOSIT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 
 	testRemovingNodePrediction(t, instances, true)
 
@@ -158,17 +159,17 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
 
-	gt = testVerifyInfo(require, nodes)
-	gts = epoch.Add(31 * time.Second)
-	require.Truef(gt.Timestamp.Before(gts), "%s should before %s", gt.Timestamp, gts)
+	gt3 := testVerifyInfo(require, nodes)
+	gts = gt2.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
+	require.Truef(gt3.Timestamp.After(gts), "%s should after %s", gt3.Timestamp, gts)
 	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
-	t.Logf("INPUT TEST DONE AT %s\n", time.Now())
+	t.Logf("INPUT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 
 	testCustodianUpdateNodes(t, nodes, instances, accounts, payees, instances[0].NetworkId())
 	transactionsCount = transactionsCount + 2
-	t.Logf("CUSTODIAN TEST DONE AT %s\n", time.Now())
+	t.Logf("CUSTODIAN TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 
 	if !enableElection {
 		return
@@ -184,8 +185,9 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
-	gt = testVerifyInfo(require, nodes)
-	require.Less(gt.Timestamp, epoch.Add(64*time.Second))
+	gt4 := testVerifyInfo(require, nodes)
+	gts = gt3.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
+	require.Truef(gt4.Timestamp.After(gts), "%s should after %s", gt4.Timestamp, gts)
 	t.Logf("PLEDGE INPUT READY %s\n", input)
 
 	dummyAmount := common.NewIntegerFromString("3.5").Div(NODES).String()
@@ -212,15 +214,16 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	kernel.TestMockDiff(time.Hour * (24 + config.KernelMintTimeBegin))
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
-	gt = testVerifyInfo(require, nodes)
-	require.Less(gt.Timestamp, epoch.Add(legacy).Add(128*time.Second))
+	gt5 := testVerifyInfo(require, nodes)
+	gts = gt4.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
+	require.Truef(gt5.Timestamp.After(gts), "%s should after %s", gt5.Timestamp, gts)
 
 	for i := 0; i < 5; i++ {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
 	testCheckMintDistributions(require, nodes[0].Host)
-	t.Logf("MINT TEST DONE AT %s\n", time.Now())
+	t.Logf("MINT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 
 	kernel.TestMockDiff(time.Hour * 3) // pledge after mint
 	pn, pi, sv := testPledgeNewNode(t, nodes, accounts[0], gdata, plist, input, root)
@@ -237,9 +240,10 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
-	gt = testVerifyInfo(require, nodes)
-	require.Greater(gt.Timestamp, epoch.Add((config.KernelMintTimeBegin+24)*time.Hour))
-	require.Equal("305850.45205696", gt.PoolSize.String())
+	gt6 := testVerifyInfo(require, nodes)
+	gts = gt5.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
+	require.Truef(gt6.Timestamp.After(gts), "%s should after %s", gt6.Timestamp, gts)
+	require.Equal("305850.45205696", gt6.PoolSize.String())
 	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
@@ -256,7 +260,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Equal(all[NODES].Signer.String(), pn.Signer.String())
 	require.Equal(all[NODES].Payee.String(), pn.Payee.String())
 	require.Equal("PLEDGING", all[NODES].State)
-	t.Logf("PLEDGE TEST DONE AT %s\n", time.Now())
+	t.Logf("PLEDGE TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 
 	kernel.TestMockDiff(29 * time.Hour)
 	time.Sleep(3 * time.Second)
@@ -295,10 +299,11 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
-	gt = testVerifyInfo(require, nodes)
-	require.Greater(gt.Timestamp, epoch.Add((config.KernelMintTimeBegin+24)*time.Hour))
-	require.Equal("305850.45205696", gt.PoolSize.String())
-	t.Logf("ACCEPT TEST DONE AT %s\n", time.Now())
+	gt7 := testVerifyInfo(require, nodes)
+	gts = gt6.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
+	require.Truef(gt7.Timestamp.After(gts), "%s should after %s", gt7.Timestamp, gts)
+	require.Equal("305850.45205696", gt7.PoolSize.String())
+	t.Logf("ACCEPT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 
 	kernel.TestMockDiff(24 * time.Hour)
 	time.Sleep(3 * time.Second)
@@ -348,6 +353,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 
 	removalInputs := []*common.Input{{Hash: all[NODES].Transaction, Index: 0}}
 	removalInputs = testSendDummyTransactionsWithRetry(t, nodes[:1], payee, removalInputs, "13439")
+	require.Len(removalInputs, 1)
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
@@ -358,7 +364,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 		require.Equal(all[NODES].Payee.String(), payee.String())
 		require.Equal("REMOVED", all[NODES].State)
 	}
-	t.Logf("REMOVE TEST DONE AT %s\n", time.Now())
+	t.Logf("REMOVE TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 
 	for _, node := range instances {
 		t.Log(node.IdForNetwork, node.Peer.Metric())
