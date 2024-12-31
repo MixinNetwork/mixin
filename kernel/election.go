@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -442,7 +441,7 @@ func (node *Node) finalizeNodeAcceptSnapshot(s *common.Snapshot, signers []crypt
 			Self:     final.Hash,
 			External: external.Hash,
 		},
-		index: new(sync.Map),
+		index: newRoundIndexCache(),
 	}
 	err = node.persistStore.StartNewRound(cache.NodeId, cache.Number, cache.References, final.Start)
 	if err != nil {

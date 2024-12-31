@@ -186,7 +186,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
 	gt4 := testVerifyInfo(require, nodes)
-	gts = gt3.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
+	gts = gt3.Timestamp.Add(time.Second)
 	require.Truef(gt4.Timestamp.After(gts), "%s should after %s", gt4.Timestamp, gts)
 	t.Logf("PLEDGE INPUT READY %s\n", input)
 

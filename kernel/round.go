@@ -19,7 +19,7 @@ type CacheRound struct {
 	Timestamp  uint64
 	References *common.RoundLink
 	Snapshots  []*common.Snapshot
-	index      *sync.Map
+	index      *roundIndexCache
 }
 
 type FinalRound struct {
@@ -97,7 +97,7 @@ func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*
 		Number:     meta.Number,
 		Timestamp:  meta.Timestamp,
 		References: meta.References,
-		index:      new(sync.Map),
+		index:      newRoundIndexCache(),
 	}
 	topos, err := store.ReadSnapshotsForNodeRound(round.NodeId, round.Number)
 	if err != nil {
@@ -107,7 +107,7 @@ func loadHeadRoundForNode(store storage.Store, nodeIdWithNetwork crypto.Hash) (*
 		s := t.Snapshot
 		s.Hash = s.PayloadHash()
 		round.Snapshots = append(round.Snapshots, s)
-		round.index.Store(s.Hash, struct{}{})
+		round.index.Store(s.Hash)
 	}
 	return round, nil
 }
@@ -193,7 +193,7 @@ func (chain *Chain) AddSnapshot(final *FinalRound, cache *CacheRound, s *common.
 		panic(err)
 	}
 	chain.assignNewGraphRound(final, cache)
-	chain.State.CacheRound.index.Store(s.Hash, struct{}{})
+	chain.State.CacheRound.index.Store(s.Hash)
 	return nil
 }
 
@@ -241,4 +241,31 @@ func (c *CacheRound) asFinal() *FinalRound {
 		Hash:   hash,
 	}
 	return round
+}
+
+type roundIndexCache struct {
+	lock *sync.RWMutex
+	m    map[crypto.Hash]struct{}
+}
+
+func newRoundIndexCache() *roundIndexCache {
+	return &roundIndexCache{
+		lock: new(sync.RWMutex),
+		m:    make(map[crypto.Hash]struct{}),
+	}
+}
+
+func (ric *roundIndexCache) Store(snap crypto.Hash) {
+	ric.lock.Lock()
+	defer ric.lock.Unlock()
+
+	ric.m[snap] = struct{}{}
+}
+
+func (ric *roundIndexCache) Check(snap crypto.Hash) bool {
+	ric.lock.RLock()
+	defer ric.lock.RUnlock()
+
+	_, found := ric.m[snap]
+	return found
 }

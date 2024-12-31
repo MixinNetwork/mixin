@@ -3,7 +3,6 @@ package kernel
 import (
 	"encoding/binary"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -26,7 +25,7 @@ func (chain *Chain) startNewRoundAndPersist(cache *CacheRound, references *commo
 		Number:     final.Number + 1,
 		Timestamp:  timestamp,
 		References: references.Copy(),
-		index:      new(sync.Map),
+		index:      newRoundIndexCache(),
 	}
 	if dummy {
 		cache.References.External = dummyExternal
