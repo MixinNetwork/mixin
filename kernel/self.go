@@ -80,6 +80,10 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 		tx.TransactionType() != common.TransactionTypeNodeAccept {
 		return fmt.Errorf("invalid initial transaction type %d", tx.TransactionType())
 	}
+	err := node.validateConsensusTransactionReferences(s, tx)
+	if err != nil {
+		return err
+	}
 	switch tx.TransactionType() {
 	case common.TransactionTypeMint:
 		if finalized && tx.Inputs[0].Mint.Batch < mainnetMintDayGapSkipForkBatch &&
@@ -129,6 +133,19 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 		}
 	case common.TransactionTypeCustodianSlashNodes:
 		return fmt.Errorf("not implemented %v", tx)
+	}
+	return nil
+}
+
+func (node *Node) validateConsensusTransactionReferences(s *common.Snapshot, tx *common.VersionedTransaction) error {
+	switch tx.TransactionType() {
+	case common.TransactionTypeMint:
+	case common.TransactionTypeNodePledge:
+	case common.TransactionTypeNodeCancel:
+	case common.TransactionTypeNodeAccept:
+	case common.TransactionTypeNodeRemove:
+	case common.TransactionTypeCustodianUpdateNodes:
+	case common.TransactionTypeCustodianSlashNodes:
 	default:
 		return nil
 	}
