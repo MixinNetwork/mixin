@@ -18,7 +18,7 @@ value-log-gc = true
 max-compaction-levels = 7
 
 [p2p]
-# the UDP port for communcation with other nodes
+# the UDP port for communication with other nodes
 port = 5850
 # the seed relayer nodes list
 seeds = [
