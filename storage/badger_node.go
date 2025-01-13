@@ -8,7 +8,6 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/logger"
 	"github.com/dgraph-io/badger/v4"
 )
 
@@ -80,7 +79,7 @@ func (s *BadgerStore) ReadAllNodes(threshold uint64, withState bool) []*common.N
 	return readAllNodes(txn, threshold, withState)
 }
 
-func (s *BadgerStore) AddNodeOperation(tx *common.VersionedTransaction, timestamp, threshold uint64) error {
+func (s *BadgerStore) AddNodeOperation(tx *common.VersionedTransaction, timestamp, threshold uint64, finalized bool) error {
 	txn := s.snapshotsDB.NewTransaction(true)
 	defer txn.Discard()
 
@@ -105,9 +104,7 @@ func (s *BadgerStore) AddNodeOperation(tx *common.VersionedTransaction, timestam
 		if lastOp == op && lastTx == hash {
 			return nil
 		}
-		if hash.String() == "12e3d4dbc8fe04888d080c6223f17e64886a7d8eb458704c74efb13cc6ce340f" {
-			logger.Printf("FORK invalid operation lock %s %s %d\n", lastTx, lastOp, lastTs)
-		} else {
+		if !finalized {
 			return fmt.Errorf("invalid operation lock %s %s %d", lastTx, lastOp, lastTs)
 		}
 	}

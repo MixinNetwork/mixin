@@ -481,7 +481,7 @@ func (node *Node) getInitialExternalReference(s *common.Snapshot) (*FinalRound, 
 	return loadFinalRoundForNode(node.persistStore, externalId, 0)
 }
 
-func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.VersionedTransaction) error {
+func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
 	timestamp, totalNodes := s.Timestamp, 0
 	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
 		timestamp = clock.NowUnixNano()
@@ -536,7 +536,7 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		return fmt.Errorf("maximum kernel nodes count reached because cosi signauture mask limit %s", tx.PayloadHash())
 	}
 	// FIXME the node operation lock threshold should be optimized on pledging period
-	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2)
+	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2, finalized)
 }
 
 func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
@@ -575,7 +575,7 @@ func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 
 	// FIXME the node operation lock threshold should be optimized on pledging period
-	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2)
+	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2, finalized)
 }
 
 func (node *Node) checkConsensusAcceptHour(timestamp uint64) bool {

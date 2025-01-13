@@ -97,7 +97,7 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 			return err
 		}
 	case common.TransactionTypeNodePledge:
-		err := node.validateNodePledgeSnapshot(s, tx)
+		err := node.validateNodePledgeSnapshot(s, tx, finalized)
 		if err != nil {
 			logger.Printf("validateNodePledgeSnapshot ERROR %v %s %s\n",
 				s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
