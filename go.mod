@@ -1,15 +1,15 @@
 module github.com/MixinNetwork/mixin
 
-go 1.23.4
+go 1.23.5
 
-replace github.com/dgraph-io/badger/v4 => github.com/MixinNetwork/badger/v4 v4.5.0-F1
+replace github.com/dgraph-io/badger/v4 => github.com/MixinNetwork/badger/v4 v4.5.1-F1
 
 require (
 	filippo.io/edwards25519 v1.1.0
-	github.com/dgraph-io/badger/v4 v4.5.0
+	github.com/dgraph-io/badger/v4 v4.5.1
 	github.com/dgraph-io/ristretto/v2 v2.1.0
 	github.com/pelletier/go-toml v1.9.5
-	github.com/quic-go/quic-go v0.48.2
+	github.com/quic-go/quic-go v0.49.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.10.0
 	github.com/urfave/cli/v2 v2.27.5
@@ -24,8 +24,8 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
-	github.com/google/flatbuffers v24.12.23+incompatible // indirect
-	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
+	github.com/google/flatbuffers v25.1.21+incompatible // indirect
+	github.com/google/pprof v0.0.0-20250121033306-997b0b79cac0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/onsi/ginkgo/v2 v2.22.2 // indirect
