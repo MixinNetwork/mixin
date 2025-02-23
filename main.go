@@ -343,6 +343,7 @@ func main() {
 				},
 				&cli.StringFlag{
 					Name:  "amount",
+					Value: common.KernelNodePledgeAmount.String(),
 					Usage: "the input amount",
 				},
 			},
@@ -719,11 +720,21 @@ func kernelCmd(c *cli.Context) error {
 
 	if p := custom.RPC.Port; p > 0 {
 		server := rpc.NewServer(custom, store, node, p)
-		go server.ListenAndServe()
+		go func() {
+			err := server.ListenAndServe()
+			if err != nil {
+				panic(err)
+			}
+		}()
 	}
 
 	if p := custom.Dev.Port; p > 0 {
-		go http.ListenAndServe(fmt.Sprintf(":%d", p), http.DefaultServeMux)
+		go func() {
+			err := http.ListenAndServe(fmt.Sprintf(":%d", p), http.DefaultServeMux)
+			if err != nil {
+				panic(err)
+			}
+		}()
 	}
 
 	return node.Loop()
