@@ -1,21 +1,17 @@
 package common
 
 import (
-	"bytes"
-
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
 type Block struct {
 	Number    uint64           // the previous block number plus one
-	Timestamp uint64           // monotonical increasing timestamp
+	Timestamp uint64           // the first snapshot timestamp or graph timestamp
 	Sequence  uint64           // all snapshots count in the blockchain
 	Snapshots []crypto.Hash    // the snapshots ordered by hash
 	Previous  crypto.Hash      // hash of the previous block
 	NodeId    crypto.Hash      // the block producing node id
 	Signature crypto.Signature // signature of all the fields above
-
-	hash crypto.Hash
 }
 
 type BlockWithTransactions struct {
@@ -25,23 +21,18 @@ type BlockWithTransactions struct {
 }
 
 func (b *Block) Verify(signer crypto.Key) bool {
-	if len(b.Snapshots) > 1 {
-		h := b.Snapshots[0]
-		for _, s := range b.Snapshots[1:] {
-			if bytes.Compare(s[:], h[:]) <= 0 {
-				return false
-			}
-			h = s
-		}
+	uniq := make(map[crypto.Hash]struct{})
+	for _, h := range b.Snapshots {
+		uniq[h] = struct{}{}
+	}
+	if len(uniq) != len(b.Snapshots) {
+		return false
 	}
 	return signer.Verify(b.PayloadHash(), b.Signature)
 }
 
 func (b *Block) PayloadHash() crypto.Hash {
-	if !b.hash.HasValue() {
-		b.hash = crypto.Blake3Hash(b.PayloadMarshal())
-	}
-	return b.hash
+	return crypto.Blake3Hash(b.PayloadMarshal())
 }
 
 func (b *Block) PayloadMarshal() []byte {

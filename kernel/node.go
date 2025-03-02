@@ -159,7 +159,7 @@ func (node *Node) NodesListWithoutState(threshold uint64, acceptedOnly bool) []*
 	}
 	for i := len(sequences); i > 0; i-- {
 		seq := sequences[i-1]
-		if seq.Timestamp < threshold {
+		if seq.Timestamp <= threshold {
 			return seq.NodesWithoutState
 		}
 	}
@@ -475,7 +475,7 @@ func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
 }
 
 func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTransaction) error {
-	return node.persistStore.CachePutTransaction(tx)
+	return node.cachePutTransaction(tx)
 }
 
 func (node *Node) ReadAllNodesWithoutState() []crypto.Hash {

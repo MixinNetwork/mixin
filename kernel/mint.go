@@ -159,7 +159,7 @@ func (node *Node) tryToMintUniversal(custodianRequest *common.CustodianUpdateReq
 	if err != nil {
 		return err
 	}
-	err = node.persistStore.CachePutTransaction(signed)
+	err = node.cachePutTransaction(signed)
 	if err != nil {
 		return err
 	}

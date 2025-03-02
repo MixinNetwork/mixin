@@ -177,7 +177,7 @@ func (node *Node) tryToSendRemoveTransaction() error {
 	if err != nil {
 		return err
 	}
-	err = node.persistStore.CachePutTransaction(tx)
+	err = node.cachePutTransaction(tx)
 	if err != nil {
 		return err
 	}
@@ -314,7 +314,7 @@ func (chain *Chain) tryToSendAcceptTransaction() error {
 	if err != nil {
 		return err
 	}
-	err = chain.node.persistStore.CachePutTransaction(ver)
+	err = chain.node.cachePutTransaction(ver)
 	if err != nil {
 		return err
 	}
@@ -328,7 +328,6 @@ func (chain *Chain) tryToSendAcceptTransaction() error {
 	return nil
 }
 
-// TODO accept snapshot must reference a block hash
 func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
 	timestamp := s.Timestamp
 	if timestamp == 0 && s.NodeId == node.IdForNetwork {

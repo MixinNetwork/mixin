@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"slices"
 	"sort"
 	"time"
@@ -15,6 +16,12 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/p2p"
 )
+
+// mainnet upgrade:
+// 1. block chain production, no strict validations or slashings
+// 2. remove node round, snapshot reference previous snap and block hash
+// 3. sync changes, remove the old topo sync, just keep block sync
+// 4. slashes enable
 
 // The sequencer will make a blockchain with a total order in
 // almost real time, according to the configured sequencing time,
@@ -197,6 +204,7 @@ func (node *Node) startSequencer() {
 			// I will start produce block from here if I have no blocks yet
 			// from incomingBblocks channel. Here I will produce a block, or
 			// empty block in any way
+			log.Println("========================================= what???")
 			seq.tryToProduceBlock()
 		}
 	}
@@ -207,9 +215,14 @@ func (seq *Sequencer) checkMyTurn() bool {
 		return false
 	}
 	next := seq.getNextProducer(seq.node.GraphTimestamp)
+	log.Println("======================== checkMyTurn", seq.node.IdForNetwork, next.IdForNetwork)
 	return next.IdForNetwork == seq.node.IdForNetwork
 }
 
+// THIS is most important, when pledging, removing, accepting
+// how to fix this order thing?
+// maybe for each nodes list change, we commit it to the snapshot?
+// and we ensure all the nodes accept this change with signature
 func (seq *Sequencer) getNextProducer(timestamp uint64) *CNode {
 	producers := seq.node.GetBlockProducers(timestamp)
 	if seq.CurrentBlock == nil {
@@ -313,6 +326,7 @@ func (seq *Sequencer) tryToProduceBlock() {
 	if !seq.checkMyTurn() {
 		return
 	}
+	log.Println("================================ mymy turn", seq.node.IdForNetwork)
 	b := &common.Block{
 		NodeId:    seq.node.IdForNetwork,
 		Timestamp: seq.node.GraphTimestamp,
@@ -346,12 +360,23 @@ func (seq *Sequencer) tryToProduceBlock() {
 		b.Snapshots = append(b.Snapshots, s.PayloadHash())
 		snaps[s.PayloadHash()] = s.Snapshot
 	}
-	sort.Slice(b.Snapshots, func(i, j int) bool { return bytes.Compare(b.Snapshots[i][:], b.Snapshots[j][:]) <= 0 })
-	b.Signature = seq.node.Signer.PrivateSpendKey.Sign(b.PayloadHash())
+	sort.Slice(b.Snapshots, func(i, j int) bool {
+		m := snaps[b.Snapshots[i]]
+		n := snaps[b.Snapshots[j]]
+		if m.Timestamp < n.Timestamp {
+			return true
+		}
+		if m.Timestamp > n.Timestamp {
+			return false
+		}
+		return bytes.Compare(b.Snapshots[i][:], b.Snapshots[j][:]) < 0
+	})
 	if len(b.Snapshots) > 0 {
 		b.Timestamp = snaps[b.Snapshots[0]].Timestamp
 	}
+	b.Signature = seq.node.Signer.PrivateSpendKey.Sign(b.PayloadHash())
 	err = seq.node.persistStore.WriteBlock(b)
+	log.Println("================================ WRITE BLOCK", b, err, b.PayloadHash().String(), b.Signature.String(), seq.node.Signer.PublicSpendKey)
 	if err != nil {
 		panic(err)
 	}
@@ -427,7 +452,8 @@ func (seq *Sequencer) validateAndProcessIncomingBlock(b *common.BlockWithTransac
 
 	producer := seq.getNextProducer(b.Timestamp)
 	if !b.Verify(producer.Signer.PublicSpendKey) {
-		return nil
+		panic(producer.Signer.PublicSpendKey.String())
+		// return nil
 	}
 	if producer.IdForNetwork != b.NodeId {
 		return seq.voteTheBlockSlash(b, 100)
@@ -435,12 +461,9 @@ func (seq *Sequencer) validateAndProcessIncomingBlock(b *common.BlockWithTransac
 	if b.Number > 0 && b.Previous != seq.CurrentBlock.PayloadHash() {
 		return seq.voteTheBlockSlash(b, 100)
 	}
-	if b.Timestamp <= seq.currentBlockTimestamp() {
-		return seq.voteTheBlockSlash(b, 100)
-	}
 
 	for _, tx := range b.Transactions {
-		err := seq.node.persistStore.CachePutTransaction(tx)
+		err := seq.node.cachePutTransaction(tx)
 		if err != nil {
 			panic(err)
 		}
@@ -491,6 +514,7 @@ func (seq *Sequencer) validateAndProcessIncomingBlock(b *common.BlockWithTransac
 	}
 
 	err = seq.node.persistStore.WriteBlock(&b.Block)
+	log.Println("I ALLL WWWWWWWWWWWWWWWW ====================================", seq.node.IdForNetwork, b.Number)
 	if err != nil {
 		panic(err)
 	}
@@ -547,7 +571,7 @@ func (seq *Sequencer) voteTheBlockSlash(b *common.BlockWithTransactions, amount 
 	// otherwise I will be slashed for adversary vote.
 	// During the wait, I could send some requests to other nodes
 	// or I could just produce an empty block? no empty block.
-	panic(b.Block.Number)
+	panic(seq.node.IdForNetwork)
 }
 
 func (node *Node) GetBlockProducers(blockTime uint64) []*CNode {

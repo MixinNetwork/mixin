@@ -19,7 +19,7 @@ type Snapshot struct {
 	// previous snapshot in this chain, and a block hash, no round should be
 	// much faster
 	References   *RoundLink // one previous round, the external will be block hash, then no block vote snapshot required
-	RoundNumber  uint64
+	RoundNumber  uint64     // remove this
 	Timestamp    uint64
 	Signature    *crypto.CosiSignature
 	Hash         crypto.Hash

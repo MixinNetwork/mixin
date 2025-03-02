@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"errors"
 	"math/big"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
+	"github.com/dgraph-io/badger/v4"
 )
 
 func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, error) {
@@ -26,14 +28,14 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 		return "", err
 	}
 	if old != nil {
-		return old.PayloadHash().String(), node.persistStore.CachePutTransaction(tx)
+		return old.PayloadHash().String(), node.cachePutTransaction(tx)
 	}
 
 	err = tx.Validate(node.persistStore, clock.NowUnixNano(), false)
 	if err != nil {
 		return "", err
 	}
-	err = node.persistStore.CachePutTransaction(tx)
+	err = node.cachePutTransaction(tx)
 	if err != nil {
 		return "", err
 	}
@@ -200,4 +202,15 @@ func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 	}
 	ns.AddSoleTransaction(s.SoleTransaction())
 	return chain.AppendSelfEmpty(ns)
+}
+
+func (node *Node) cachePutTransaction(tx *common.VersionedTransaction) error {
+	for {
+		err := node.persistStore.CachePutTransaction(tx)
+		if errors.Is(err, badger.ErrConflict) {
+			time.Sleep(time.Millisecond * 100)
+			continue
+		}
+		return err
+	}
 }
