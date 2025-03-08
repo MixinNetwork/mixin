@@ -2,7 +2,6 @@ package kernel
 
 import (
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -62,9 +61,7 @@ func TestUniversalMintTransaction(t *testing.T) {
 	require := require.New(t)
 	logger.SetLevel(0)
 
-	root, err := os.MkdirTemp("", "mixin-mint-test")
-	require.Nil(err)
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	internal.ToggleMockRunAggregators(true)
 	node := setupTestNode(require, root)
@@ -186,9 +183,7 @@ func TestUniversalMintTransaction(t *testing.T) {
 func TestMintWorks(t *testing.T) {
 	require := require.New(t)
 
-	root, err := os.MkdirTemp("", "mixin-mint-test")
-	require.Nil(err)
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	internal.ToggleMockRunAggregators(true)
 

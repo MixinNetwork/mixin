@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -18,9 +17,7 @@ func TestTransaction(t *testing.T) {
 	custom, err := config.Initialize("../config/config.example.toml")
 	require.Nil(err)
 
-	root, err := os.MkdirTemp("", "mixin-badger-test")
-	require.Nil(err)
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	store, _ := NewBadgerStore(custom, root)
 	defer store.Close()

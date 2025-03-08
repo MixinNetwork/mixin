@@ -1,7 +1,6 @@
 package kernel
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -12,9 +11,7 @@ import (
 func TestNodeRemovalTime(t *testing.T) {
 	require := require.New(t)
 
-	root, err := os.MkdirTemp("", "mixin-mint-test")
-	require.Nil(err)
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	node := setupTestNode(require, root)
 	require.Equal(uint64(1551312000000000000), node.Epoch)
