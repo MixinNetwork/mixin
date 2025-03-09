@@ -52,9 +52,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	}
 	t.Logf("TEST WITH %d INPUTS AT %s FOR %s\n", INPUTS, time.Now(), time.Since(startAt))
 
-	root, err := os.MkdirTemp("", "mixin-consensus-test")
-	require.Nil(err)
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	accounts, payees, gdata, plist := setupTestNet(root, extrenalRelayers)
 	require.Len(accounts, NODES)

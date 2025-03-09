@@ -1,7 +1,6 @@
 package kernel
 
 import (
-	"os"
 	"testing"
 
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
@@ -11,9 +10,7 @@ import (
 func TestDetermineBestRound(t *testing.T) {
 	require := require.New(t)
 
-	root, err := os.MkdirTemp("", "mixin-self-test")
-	require.Nil(err)
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	node := setupTestNode(require, root)
 	require.NotNil(node)

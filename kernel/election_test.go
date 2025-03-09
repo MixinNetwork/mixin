@@ -18,9 +18,7 @@ const mainnetId = "74c6cdb7d51af57037faa1f5544f8331ced001df5964331911ca51385993b
 func TestNodeElection(t *testing.T) {
 	require := require.New(t)
 
-	root, err := os.MkdirTemp("", "mixin-election-test")
-	require.Nil(err)
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	node := setupTestNode(require, root)
 	require.NotNil(node)
@@ -39,9 +37,7 @@ func TestNodeElection(t *testing.T) {
 func TestNodeRemovePossibility(t *testing.T) {
 	require := require.New(t)
 
-	root, err := os.MkdirTemp("", "mixin-election-test")
-	require.Nil(err)
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	node := setupTestNode(require, root)
 	require.NotNil(node)

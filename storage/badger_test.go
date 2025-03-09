@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"os"
 	"testing"
 
 	"github.com/MixinNetwork/mixin/config"
@@ -14,9 +13,7 @@ func TestBadger(t *testing.T) {
 	custom, err := config.Initialize("../config/config.example.toml")
 	require.Nil(err)
 
-	root, err := os.MkdirTemp("", "mixin-badger-test")
-	require.Nil(err)
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	store, err := NewBadgerStore(custom, root)
 	require.Nil(err)

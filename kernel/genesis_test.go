@@ -2,7 +2,6 @@ package kernel
 
 import (
 	"encoding/json"
-	"os"
 	"testing"
 	"time"
 
@@ -16,9 +15,7 @@ func TestGenesis(t *testing.T) {
 
 	require.Equal("13439.00000000", common.KernelNodePledgeAmount.String())
 
-	root, err := os.MkdirTemp("", "mixin-genesis-test")
-	require.Nil(err)
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	node := setupTestNode(require, root)
 	require.NotNil(node)
