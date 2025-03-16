@@ -9,6 +9,35 @@ import (
 	"github.com/dgraph-io/badger/v4"
 )
 
+func (s *BadgerStore) ReadSnapshots(hashes []crypto.Hash) (map[crypto.Hash]*common.Snapshot, map[crypto.Hash]*common.VersionedTransaction, error) {
+	snapshots := make(map[crypto.Hash]*common.Snapshot, len(hashes))
+	transactions := make(map[crypto.Hash]*common.VersionedTransaction)
+	if len(hashes) == 0 {
+		return snapshots, transactions, nil
+	}
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	for _, h := range hashes {
+		s, err := readSnapshotWithTopo(txn, h)
+		if err != nil {
+			return nil, nil, err
+		}
+		snapshots[s.Hash] = s.Snapshot
+		for _, h := range s.Transactions {
+			t, err := readTransaction(txn, h)
+			if err != nil {
+				return nil, nil, err
+			}
+			transactions[h] = t
+		}
+	}
+	if len(snapshots) != len(hashes) {
+		panic(len(snapshots))
+	}
+	return snapshots, transactions, nil
+}
+
 func (s *BadgerStore) ReadSnapshot(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
@@ -82,10 +111,10 @@ func (s *BadgerStore) ReadSnapshotsSinceTopology(topologyOffset, count uint64) (
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	return readSnapshotsSinceTopology(txn, topologyOffset, count, crypto.Hash{})
+	return readSnapshotsSinceTopology(txn, topologyOffset, count)
 }
 
-func readSnapshotsSinceTopology(txn *badger.Txn, topologyOffset, count uint64, checkSequenced crypto.Hash) ([]*common.SnapshotWithTopologicalOrder, error) {
+func readSnapshotsSinceTopology(txn *badger.Txn, topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
 	snapshots := make([]*common.SnapshotWithTopologicalOrder, 0)
 	opts := badger.DefaultIteratorOptions
 	opts.Prefix = []byte(graphPrefixTopology)
@@ -114,20 +143,7 @@ func readSnapshotsSinceTopology(txn *badger.Txn, topologyOffset, count uint64, c
 		}
 		snap.Hash = snap.PayloadHash()
 		snap.TopologicalOrder = topology
-		if !checkSequenced.HasValue() {
-			snapshots = append(snapshots, snap)
-			continue
-		}
-		if snap.NodeId == checkSequenced {
-			continue
-		}
-		block, _, err := readSnapshotSequence(txn, snap.Hash)
-		if err != nil {
-			return snapshots, err
-		}
-		if block == BlockNumberEmpty {
-			snapshots = append(snapshots, snap)
-		}
+		snapshots = append(snapshots, snap)
 	}
 
 	return snapshots, nil
@@ -154,7 +170,7 @@ func (s *BadgerStore) LastSnapshot() (*common.SnapshotWithTopologicalOrder, *com
 	defer txn.Discard()
 
 	topo := readLastTopology(txn)
-	snaps, err := readSnapshotsSinceTopology(txn, topo, 10, crypto.Hash{})
+	snaps, err := readSnapshotsSinceTopology(txn, topo, 10)
 	if err != nil {
 		panic(err)
 	}

@@ -13,6 +13,7 @@ import (
 type BadgerStore struct {
 	custom      *config.Custom
 	snapshotsDB *badger.DB
+	sequencerDB *badger.DB
 	cacheDB     *badger.DB
 	mutex       *sync.RWMutex
 	closing     bool
@@ -23,6 +24,10 @@ func NewBadgerStore(custom *config.Custom, dir string) (*BadgerStore, error) {
 	if err != nil {
 		return nil, err
 	}
+	sequencerDB, err := openDB(dir+"/sequencer", true, custom)
+	if err != nil {
+		return nil, err
+	}
 	cacheDB, err := openDB(dir+"/cache", false, custom)
 	if err != nil {
 		return nil, err
@@ -30,6 +35,7 @@ func NewBadgerStore(custom *config.Custom, dir string) (*BadgerStore, error) {
 	return &BadgerStore{
 		custom:      custom,
 		snapshotsDB: snapshotsDB,
+		sequencerDB: sequencerDB,
 		cacheDB:     cacheDB,
 		mutex:       new(sync.RWMutex),
 		closing:     false,
@@ -39,6 +45,10 @@ func NewBadgerStore(custom *config.Custom, dir string) (*BadgerStore, error) {
 func (store *BadgerStore) Close() error {
 	store.closing = true
 	err := store.snapshotsDB.Close()
+	if err != nil {
+		return err
+	}
+	err = store.sequencerDB.Close()
 	if err != nil {
 		return err
 	}

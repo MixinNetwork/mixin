@@ -196,6 +196,7 @@ func decodeTransactionCmd(c *cli.Context) error {
 		return err
 	}
 	m := transactionToMap(ver)
+	m["hex"] = hex.EncodeToString(ver.PayloadMarshal())
 	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return err

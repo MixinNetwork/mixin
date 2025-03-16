@@ -204,7 +204,7 @@ func (node *Node) startSequencer() {
 			// I will start produce block from here if I have no blocks yet
 			// from incomingBblocks channel. Here I will produce a block, or
 			// empty block in any way
-			log.Println("========================================= what???")
+			log.Printf("sequencer.tryToProduceBlock(%s) on ticker", seq.node.IdForNetwork)
 			seq.tryToProduceBlock()
 		}
 	}
@@ -212,10 +212,11 @@ func (node *Node) startSequencer() {
 
 func (seq *Sequencer) checkMyTurn() bool {
 	if !seq.checkSynced() {
+		// FIXME sometimes this is very slow for a node to become synced
 		return false
 	}
 	next := seq.getNextProducer(seq.node.GraphTimestamp)
-	log.Println("======================== checkMyTurn", seq.node.IdForNetwork, next.IdForNetwork)
+	log.Printf("sequenced.checkMyTurn(%s) => %s", seq.node.IdForNetwork, next.IdForNetwork)
 	return next.IdForNetwork == seq.node.IdForNetwork
 }
 
@@ -317,7 +318,7 @@ func (seq *Sequencer) broadcastHeader() {
 		}
 		err := seq.node.Peer.SendBlockHeaderMessage(id, number, syncRequest)
 		if err != nil {
-			logger.Debugf("SendBlockHeaderMessage(%s) => %v\n", id, err)
+			log.Printf("SendBlockHeaderMessage(%s) => %v\n", id, err)
 		}
 	}
 }
@@ -326,7 +327,7 @@ func (seq *Sequencer) tryToProduceBlock() {
 	if !seq.checkMyTurn() {
 		return
 	}
-	log.Println("================================ mymy turn", seq.node.IdForNetwork)
+	log.Printf("sequencer.tryToProduceBlock(%s) prepare", seq.node.IdForNetwork)
 	b := &common.Block{
 		NodeId:    seq.node.IdForNetwork,
 		Timestamp: seq.node.GraphTimestamp,
@@ -375,8 +376,8 @@ func (seq *Sequencer) tryToProduceBlock() {
 		b.Timestamp = snaps[b.Snapshots[0]].Timestamp
 	}
 	b.Signature = seq.node.Signer.PrivateSpendKey.Sign(b.PayloadHash())
-	err = seq.node.persistStore.WriteBlock(b)
-	log.Println("================================ WRITE BLOCK", b, err, b.PayloadHash().String(), b.Signature.String(), seq.node.Signer.PublicSpendKey)
+	err = seq.node.persistStore.WriteBlock(b, seq.SequencedTopology)
+	log.Printf("sequencer.tryToProduceBlock(%s) write %v %d", seq.node.IdForNetwork, b, seq.SequencedTopology)
 	if err != nil {
 		panic(err)
 	}
@@ -452,6 +453,8 @@ func (seq *Sequencer) validateAndProcessIncomingBlock(b *common.BlockWithTransac
 
 	producer := seq.getNextProducer(b.Timestamp)
 	if !b.Verify(producer.Signer.PublicSpendKey) {
+		// for now because the node pleding, removing accepting issue
+		// we don't have a correct order here
 		panic(producer.Signer.PublicSpendKey.String())
 		// return nil
 	}
@@ -513,8 +516,8 @@ func (seq *Sequencer) validateAndProcessIncomingBlock(b *common.BlockWithTransac
 		panic(err)
 	}
 
-	err = seq.node.persistStore.WriteBlock(&b.Block)
-	log.Println("I ALLL WWWWWWWWWWWWWWWW ====================================", seq.node.IdForNetwork, b.Number)
+	err = seq.node.persistStore.WriteBlock(&b.Block, 0)
+	logger.Printf("sequencer.validateAndProcessIncomingBlock(%s) => write %v", seq.node.IdForNetwork, b)
 	if err != nil {
 		panic(err)
 	}

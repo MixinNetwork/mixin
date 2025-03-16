@@ -17,7 +17,7 @@ const (
 )
 
 func (s *BadgerStore) ReadSequencedTopology() (uint64, error) {
-	txn := s.snapshotsDB.NewTransaction(false)
+	txn := s.sequencerDB.NewTransaction(false)
 	defer txn.Discard()
 
 	item, err := txn.Get([]byte(sequencerPrefixTopologyOffset))
@@ -35,7 +35,7 @@ func (s *BadgerStore) ReadSequencedTopology() (uint64, error) {
 }
 
 func (s *BadgerStore) ReadLastBlock() (*common.Block, error) {
-	txn := s.snapshotsDB.NewTransaction(false)
+	txn := s.sequencerDB.NewTransaction(false)
 	defer txn.Discard()
 
 	opts := badger.DefaultIteratorOptions
@@ -57,7 +57,24 @@ func (s *BadgerStore) ReadLastBlock() (*common.Block, error) {
 }
 
 func (s *BadgerStore) ReadBlockWithTransactions(number uint64) (*common.BlockWithTransactions, error) {
-	txn := s.snapshotsDB.NewTransaction(false)
+	block, err := s.ReadBlock(number)
+	if err != nil {
+		return nil, err
+	}
+	snapshots, transactions, err := s.ReadSnapshots(block.Snapshots)
+	if err != nil {
+		return nil, err
+	}
+	bws := &common.BlockWithTransactions{
+		Block:        *block,
+		Snapshots:    snapshots,
+		Transactions: transactions,
+	}
+	return bws, nil
+}
+
+func (s *BadgerStore) ReadBlock(number uint64) (*common.Block, error) {
+	txn := s.sequencerDB.NewTransaction(false)
 	defer txn.Discard()
 
 	key := sequencerBlockKey(number)
@@ -71,34 +88,11 @@ func (s *BadgerStore) ReadBlockWithTransactions(number uint64) (*common.BlockWit
 	if err != nil {
 		return nil, err
 	}
-	block, err := common.UnmarshalBlock(val)
-	if err != nil {
-		return nil, err
-	}
-	bws := &common.BlockWithTransactions{
-		Block:        *block,
-		Snapshots:    make(map[crypto.Hash]*common.Snapshot, len(block.Snapshots)),
-		Transactions: make(map[crypto.Hash]*common.VersionedTransaction),
-	}
-	for _, h := range block.Snapshots {
-		s, err := readSnapshotWithTopo(txn, h)
-		if err != nil {
-			return nil, err
-		}
-		bws.Snapshots[s.Hash] = s.Snapshot
-		for _, h := range s.Transactions {
-			t, err := readTransaction(txn, h)
-			if err != nil {
-				return nil, err
-			}
-			bws.Transactions[h] = t
-		}
-	}
-	return bws, nil
+	return common.UnmarshalBlock(val)
 }
 
-func (s *BadgerStore) WriteBlock(b *common.Block) error {
-	txn := s.snapshotsDB.NewTransaction(true)
+func (s *BadgerStore) WriteBlock(b *common.Block, topology uint64) error {
+	txn := s.sequencerDB.NewTransaction(true)
 	defer txn.Discard()
 
 	for i, h := range b.Snapshots {
@@ -117,12 +111,20 @@ func (s *BadgerStore) WriteBlock(b *common.Block) error {
 	if err != nil {
 		return err
 	}
+	if topology > 0 {
+		key := []byte(sequencerPrefixTopologyOffset)
+		val := binary.BigEndian.AppendUint64(nil, topology)
+		err := txn.Set(key, val)
+		if err != nil {
+			return err
+		}
+	}
 
 	return txn.Commit()
 }
 
 func (s *BadgerStore) CheckSnapshotsSequencedIn(snapshots []crypto.Hash) (map[crypto.Hash]uint64, error) {
-	txn := s.snapshotsDB.NewTransaction(false)
+	txn := s.sequencerDB.NewTransaction(false)
 	defer txn.Discard()
 
 	ssi := make(map[crypto.Hash]uint64)
@@ -139,16 +141,44 @@ func (s *BadgerStore) CheckSnapshotsSequencedIn(snapshots []crypto.Hash) (map[cr
 }
 
 func (s *BadgerStore) ReadUnsequencedSnapshotsSinceTopology(nodeId crypto.Hash, offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, map[crypto.Hash]*common.VersionedTransaction, error) {
+	var unsequenced []*common.SnapshotWithTopologicalOrder
+	for uint64(len(unsequenced)) < count {
+		snapshots, err := s.ReadSnapshotsSinceTopology(offset, count)
+		if err != nil {
+			return nil, nil, err
+		} else if len(snapshots) == 0 {
+			break
+		}
+		offset = offset + count
+		var candis []*common.SnapshotWithTopologicalOrder
+		var candiHashes []crypto.Hash
+		for _, s := range snapshots {
+			if s.NodeId == nodeId {
+				continue
+			}
+			candis = append(candis, s)
+			candiHashes = append(candiHashes, s.Hash)
+		}
+		if len(candis) == 0 {
+			continue
+		}
+		ssi, err := s.CheckSnapshotsSequencedIn(candiHashes)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, h := range candis {
+			if _, found := ssi[h.Hash]; found {
+				continue
+			}
+			unsequenced = append(unsequenced, h)
+		}
+	}
+
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	snapshots, err := readSnapshotsSinceTopology(txn, offset, count, nodeId)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	transactions := make(map[crypto.Hash]*common.VersionedTransaction)
-	for _, s := range snapshots {
+	for _, s := range unsequenced {
 		h := s.SoleTransaction()
 		tx, err := readTransaction(txn, h)
 		if err != nil {
@@ -156,7 +186,7 @@ func (s *BadgerStore) ReadUnsequencedSnapshotsSinceTopology(nodeId crypto.Hash, 
 		}
 		transactions[h] = tx
 	}
-	return snapshots, transactions, nil
+	return unsequenced, transactions, nil
 }
 
 func readSnapshotSequence(txn *badger.Txn, hash crypto.Hash) (uint64, uint64, error) {
