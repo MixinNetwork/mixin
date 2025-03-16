@@ -12,7 +12,8 @@ const (
 	BlockNumberEmpty = ^uint64(0)
 
 	sequencerPrefixTopologyOffset = "SEQUENCER:TOPOLOGY"
-	sequencerPrefixBlock          = "SEQUENCER:BLOCK"
+	sequencerPrefixBlockNumber    = "SEQUENCER:BLOCK:NUMBER"
+	sequencerPrefixBlockHash      = "SEQUENCER:BLOCK:HASH"
 	sequencerPrefixSnapshotBlock  = "SEQUENCER:SNAPSHOT"
 )
 
@@ -45,8 +46,8 @@ func (s *BadgerStore) ReadLastBlock() (*common.Block, error) {
 	it := txn.NewIterator(opts)
 	defer it.Close()
 
-	it.Seek(sequencerBlockKey(BlockNumberEmpty))
-	if !it.ValidForPrefix([]byte(sequencerPrefixBlock)) {
+	it.Seek(sequencerBlockNumberKey(BlockNumberEmpty))
+	if !it.ValidForPrefix([]byte(sequencerPrefixBlockNumber)) {
 		return nil, nil
 	}
 	val, err := it.Item().ValueCopy(nil)
@@ -54,6 +55,14 @@ func (s *BadgerStore) ReadLastBlock() (*common.Block, error) {
 		return nil, err
 	}
 	return common.UnmarshalBlock(val)
+}
+
+func (s *BadgerStore) ReadBlockByHash(hash crypto.Hash) (*common.BlockWithTransactions, error) {
+	number, err := s.ReadBlockNumber(hash)
+	if err != nil {
+		return nil, err
+	}
+	return s.ReadBlockWithTransactions(number)
 }
 
 func (s *BadgerStore) ReadBlockWithTransactions(number uint64) (*common.BlockWithTransactions, error) {
@@ -77,7 +86,7 @@ func (s *BadgerStore) ReadBlock(number uint64) (*common.Block, error) {
 	txn := s.sequencerDB.NewTransaction(false)
 	defer txn.Discard()
 
-	key := sequencerBlockKey(number)
+	key := sequencerBlockNumberKey(number)
 	item, err := txn.Get(key)
 	if err == badger.ErrKeyNotFound {
 		return nil, nil
@@ -105,9 +114,15 @@ func (s *BadgerStore) WriteBlock(b *common.Block, topology uint64) error {
 		}
 	}
 
-	key := sequencerBlockKey(b.Number)
+	key := sequencerBlockNumberKey(b.Number)
 	val := b.Marshal()
 	err := txn.Set(key, val)
+	if err != nil {
+		return err
+	}
+	key = sequencerBlockHashKey(b.PayloadHash())
+	val = binary.BigEndian.AppendUint64(nil, b.Number)
+	err = txn.Set(key, val)
 	if err != nil {
 		return err
 	}
@@ -121,6 +136,22 @@ func (s *BadgerStore) WriteBlock(b *common.Block, topology uint64) error {
 	}
 
 	return txn.Commit()
+}
+
+func (s *BadgerStore) ReadBlockNumber(hash crypto.Hash) (uint64, error) {
+	txn := s.sequencerDB.NewTransaction(false)
+	defer txn.Discard()
+
+	key := sequencerBlockHashKey(hash)
+	item, err := txn.Get(key)
+	if err != nil {
+		return 0, err
+	}
+	val, err := item.ValueCopy(nil)
+	if err != nil {
+		return 0, err
+	}
+	return binary.BigEndian.Uint64(val), nil
 }
 
 func (s *BadgerStore) CheckSnapshotsSequencedIn(snapshots []crypto.Hash) (map[crypto.Hash]uint64, error) {
@@ -206,9 +237,14 @@ func readSnapshotSequence(txn *badger.Txn, hash crypto.Hash) (uint64, uint64, er
 	return number, sequence, nil
 }
 
-func sequencerBlockKey(num uint64) []byte {
-	key := []byte(sequencerPrefixBlock)
+func sequencerBlockNumberKey(num uint64) []byte {
+	key := []byte(sequencerPrefixBlockNumber)
 	return binary.BigEndian.AppendUint64(key, num)
+}
+
+func sequencerBlockHashKey(hash crypto.Hash) []byte {
+	key := []byte(sequencerPrefixBlockHash)
+	return append(key, hash[:]...)
 }
 
 func sequencerSnapshotBlockKey(hash crypto.Hash) []byte {

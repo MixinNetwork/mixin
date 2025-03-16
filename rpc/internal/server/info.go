@@ -92,6 +92,22 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
 	info["metric"] = map[string]any{
 		"transport": node.Peer.Metric(),
 	}
+	sequencer := map[string]any{
+		"height":    0,
+		"sequence":  0,
+		"hash":      crypto.Hash{},
+		"timestamp": 0,
+	}
+	block, err := store.ReadLastBlock()
+	if err != nil {
+		return nil, err
+	}
+	if block != nil {
+		sequencer["height"] = block.Number
+		sequencer["sequence"] = block.Sequence
+		sequencer["hash"] = block.PayloadHash()
+		sequencer["timestamp"] = block.Timestamp
+	}
 	return info, nil
 }
 

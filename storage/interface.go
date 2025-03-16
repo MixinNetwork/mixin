@@ -63,6 +63,7 @@ type Store interface {
 
 	ReadSequencedTopology() (uint64, error)
 	ReadLastBlock() (*common.Block, error)
+	ReadBlockByHash(hash crypto.Hash) (*common.BlockWithTransactions, error)
 	ReadBlockWithTransactions(number uint64) (*common.BlockWithTransactions, error)
 	WriteBlock(b *common.Block, topology uint64) error
 	CheckSnapshotsSequencedIn(snapshots []crypto.Hash) (map[crypto.Hash]uint64, error)

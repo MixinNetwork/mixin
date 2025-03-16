@@ -253,6 +253,13 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			rdr.RenderData(map[string]any{"link": link})
 		}
+	case "getblock":
+		blk, err := getBlock(impl.Store, call.Params)
+		if err != nil {
+			rdr.RenderError(err)
+		} else {
+			rdr.RenderData(blk)
+		}
 	default:
 		rdr.RenderError(fmt.Errorf("invalid method %s", call.Method))
 	}
