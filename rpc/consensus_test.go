@@ -83,8 +83,8 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 
 		server := NewServer(custom, store, node, 18000+i+1)
 		defer server.Close()
-		go server.ListenAndServe()
-		go node.Loop()
+		goPanic(server.ListenAndServe)
+		goPanic(node.Loop)
 	}
 	defer func() {
 		var wg sync.WaitGroup
@@ -669,10 +669,10 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 	pnode, err := kernel.SetupNode(custom, store, cache, gns)
 	require.Nil(err)
 	require.NotNil(pnode)
-	go pnode.Loop()
+	goPanic(pnode.Loop)
 
 	server := NewServer(custom, store, pnode, 18099)
-	go server.ListenAndServe()
+	goPanic(server.ListenAndServe)
 
 	return Node{Signer: signer, Payee: payee, Host: "127.0.0.1:18099"}, pnode, server
 }
@@ -853,8 +853,8 @@ func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []commo
 			node, _ := kernel.SetupNode(custom, store, cache, gns)
 
 			server := NewServer(custom, store, node, rpcPort)
-			go server.ListenAndServe()
-			go node.Loop()
+			goPanic(server.ListenAndServe)
+			goPanic(node.Loop)
 		}
 	}
 
@@ -1218,4 +1218,13 @@ func newCache(conf *config.Custom) *ristretto.Cache[[]byte, any] {
 		panic(err)
 	}
 	return cache
+}
+
+func goPanic(f func() error) {
+	go func() {
+		err := f()
+		if err != nil {
+			panic(err)
+		}
+	}()
 }
