@@ -204,7 +204,7 @@ func (node *Node) startSequencer() {
 			// I will start produce block from here if I have no blocks yet
 			// from incomingBblocks channel. Here I will produce a block, or
 			// empty block in any way
-			log.Printf("sequencer.tryToProduceBlock(%s) on ticker", seq.node.IdForNetwork)
+			logger.Debugf("sequencer.tryToProduceBlock(%s) on ticker", seq.node.IdForNetwork)
 			seq.tryToProduceBlock()
 		}
 	}
@@ -216,7 +216,7 @@ func (seq *Sequencer) checkMyTurn() bool {
 		return false
 	}
 	next := seq.getNextProducer(seq.node.GraphTimestamp)
-	log.Printf("sequenced.checkMyTurn(%s) => %s", seq.node.IdForNetwork, next.IdForNetwork)
+	logger.Debugf("sequenced.checkMyTurn(%s) => %s", seq.node.IdForNetwork, next.IdForNetwork)
 	return next.IdForNetwork == seq.node.IdForNetwork
 }
 
@@ -318,7 +318,7 @@ func (seq *Sequencer) broadcastHeader() {
 		}
 		err := seq.node.Peer.SendBlockHeaderMessage(id, number, syncRequest)
 		if err != nil {
-			log.Printf("SendBlockHeaderMessage(%s) => %v\n", id, err)
+			logger.Printf("SendBlockHeaderMessage(%s) => %v\n", id, err)
 		}
 	}
 }
@@ -413,9 +413,7 @@ func (seq *Sequencer) checkSynced() bool {
 		if head == nil {
 			continue
 		}
-		if head.Number == BlockNumberEmpty || seq.nextBlockNumber() > head.Number {
-			updated += 1
-		}
+		updated += 1
 	}
 	return updated >= threshold
 	// check node synced

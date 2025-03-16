@@ -134,6 +134,9 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	hr := testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.GreaterOrEqual(hr.Round, uint64(0))
+	require.Greater(gt2.Sequencer.Height, uint64(0))
+	require.Greater(gt2.Sequencer.Timestamp, epoch)
+	require.Greater(gt2.Sequencer.Sequence, uint64(INPUTS))
 	t.Logf("DEPOSIT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 
 	testRemovingNodePrediction(t, instances, true)
@@ -163,6 +166,9 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
+	require.Greater(gt3.Sequencer.Height, uint64(0))
+	require.Greater(gt3.Sequencer.Timestamp, epoch)
+	require.Greater(gt3.Sequencer.Sequence, uint64(INPUTS*2))
 	t.Logf("INPUT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 
 	testCustodianUpdateNodes(t, nodes, instances, accounts, payees, instances[0].NetworkId())
@@ -241,7 +247,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	gt6 := testVerifyInfo(require, nodes)
 	gts = gt5.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt6.Timestamp.After(gts), "%s should after %s", gt6.Timestamp, gts)
-	require.Equal("305850.45205696", gt6.PoolSize.String())
+	require.Equal("305850.45205696", gt6.Mint.PoolSize.String())
 	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
@@ -300,7 +306,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	gt7 := testVerifyInfo(require, nodes)
 	gts = gt6.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt7.Timestamp.After(gts), "%s should after %s", gt7.Timestamp, gts)
-	require.Equal("305850.45205696", gt7.PoolSize.String())
+	require.Equal("305850.45205696", gt7.Mint.PoolSize.String())
 	t.Logf("ACCEPT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 
 	kernel.TestMockDiff(24 * time.Hour)
@@ -931,11 +937,11 @@ func testSignTransaction(node string, account common.Address, rawStr string) (*c
 	return signed, nil
 }
 
-func testVerifyInfo(require *require.Assertions, nodes []*Node) Info {
+func testVerifyInfo(require *require.Assertions, nodes []*Node) *KernelInfo {
 	info := testGetGraphInfo(nodes[0].Host)
 	for _, n := range nodes {
 		a := testGetGraphInfo(n.Host)
-		require.Equal(info.PoolSize, a.PoolSize)
+		require.Equal(info.Mint.PoolSize, a.Mint.PoolSize)
 	}
 	return info
 }
@@ -1090,37 +1096,12 @@ func testDumpGraphHead(node string, id crypto.Hash) *HeadRound {
 	return nil
 }
 
-type Info struct {
-	Consensus crypto.Hash
-	Timestamp time.Time
-	PoolSize  common.Integer
-}
-
-func testGetGraphInfo(node string) Info {
-	data, err := CallMixinRPC("http://"+node, "getinfo", []any{})
+func testGetGraphInfo(node string) *KernelInfo {
+	info, err := GetInfo("http://" + node)
 	if err != nil {
 		panic(err)
 	}
-	var info struct {
-		Consensus crypto.Hash `json:"consensus"`
-		Timestamp string      `json:"timestamp"`
-		Mint      struct {
-			PoolSize common.Integer `json:"pool"`
-		} `json:"mint"`
-	}
-	err = json.Unmarshal(data, &info)
-	if err != nil {
-		panic(err)
-	}
-	t, err := time.Parse(time.RFC3339Nano, info.Timestamp)
-	if err != nil {
-		panic(err)
-	}
-	return Info{
-		Consensus: info.Consensus,
-		Timestamp: t,
-		PoolSize:  info.Mint.PoolSize,
-	}
+	return info
 }
 
 func testGetSnapshotSoleTransaction(node, hash string) crypto.Hash {

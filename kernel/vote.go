@@ -19,6 +19,10 @@ const (
 // We still need this, it's very important to put this order
 // in the snapshots topology checkpoint, because the sequencer
 // is a independent loop from the cosi
+//
+// the first stage, we just put the sequencer up completely independent of
+// everything, and make it stable to produce blocks
+// then incorporate the sequencer to snapshot concensus
 type CheckpointVote struct {
 	NodeId crypto.Hash
 	Blocks [512]crypto.Hash
