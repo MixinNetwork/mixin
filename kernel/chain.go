@@ -56,7 +56,7 @@ type Chain struct {
 	UsedRandoms        map[crypto.Hash]*crypto.Key
 	CosiCommitments    map[crypto.Hash][]*crypto.Key
 	UsedCommitments    map[crypto.Key]bool
-	ComitmentsSentTime time.Time
+	CommitmentsSentTime time.Time
 	CosiCommunicatedAt map[crypto.Hash]time.Time
 
 	CosiAggregators map[crypto.Hash]*CosiAggregator
@@ -118,7 +118,7 @@ func (chain *Chain) bootLoops() {
 	threshold := uint64(config.KernelNodeAcceptPeriodMaximum)
 	if rn != nil && rn.Timestamp+threshold < chain.node.GraphTimestamp {
 		// FIXME the timestamp check is because we can't ensure the last
-		// round of a removed node yet thus will cause inconsistence when
+		// round of a removed node yet thus will cause inconsistency when
 		// calculate mint works
 		return
 	}
