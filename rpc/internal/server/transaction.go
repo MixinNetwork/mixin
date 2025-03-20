@@ -147,7 +147,7 @@ func getSnapshot(node *kernel.Node, store storage.Store, params []any) (map[stri
 	if err != nil {
 		return nil, err
 	}
-	return snapshotToMap(node, snap, tx, true), nil
+	return snapshotTopoToMap(node, snap, tx, true), nil
 }
 
 func listSnapshots(node *kernel.Node, store storage.Store, params []any) ([]map[string]any, error) {
@@ -184,15 +184,15 @@ func snapshotsToMap(node *kernel.Node, snapshots []*common.SnapshotWithTopologic
 	result := make([]map[string]any, len(snapshots))
 	for i, s := range snapshots {
 		if tx {
-			result[i] = snapshotToMap(node, s, transactions[i], sig)
+			result[i] = snapshotTopoToMap(node, s, transactions[i], sig)
 		} else {
-			result[i] = snapshotToMap(node, s, nil, sig)
+			result[i] = snapshotTopoToMap(node, s, nil, sig)
 		}
 	}
 	return result
 }
 
-func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx *common.VersionedTransaction, sig bool) map[string]any {
+func snapshotTopoToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx *common.VersionedTransaction, sig bool) map[string]any {
 	wn := node.WitnessSnapshot(s)
 	item := map[string]any{
 		"version":    s.Version,
@@ -213,6 +213,23 @@ func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx
 	} else {
 		item["transactions"] = []any{s.SoleTransaction()}
 	}
+	if sig {
+		item["signature"] = s.Signature
+	}
+	return item
+}
+
+func snapshotToMap(s *common.Snapshot, tx *common.VersionedTransaction, sig bool) map[string]any {
+	item := map[string]any{
+		"version":    s.Version,
+		"node":       s.NodeId,
+		"references": roundLinkToMap(s.References),
+		"round":      s.RoundNumber,
+		"timestamp":  s.Timestamp,
+		"hash":       s.Hash,
+		"hex":        hex.EncodeToString(s.VersionedMarshal()),
+	}
+	item["transactions"] = []any{transactionToMap(tx)}
 	if sig {
 		item["signature"] = s.Signature
 	}

@@ -246,13 +246,6 @@ func (seq *Sequencer) nextBlockNumber() uint64 {
 	return seq.CurrentBlock.Number + 1
 }
 
-func (seq *Sequencer) currentBlockTimestamp() uint64 {
-	if seq.CurrentBlock == nil {
-		return 0
-	}
-	return seq.CurrentBlock.Timestamp
-}
-
 // we never proactively send blocks to others, unless we are producing blocks
 // otherwise we send blocks because they requested
 func (seq *Sequencer) broadcastBlocksToNode(peerId crypto.Hash, height, count uint64) {
@@ -539,7 +532,7 @@ func (seq *Sequencer) validateAndProcessIncomingBlock(b *common.BlockWithTransac
 	// list at the block time, so what is the point of this param?
 }
 
-func (seq *Sequencer) voteTheBlockSlash(b *common.BlockWithTransactions, amount uint) error {
+func (seq *Sequencer) voteTheBlockSlash(_ *common.BlockWithTransactions, amount uint) error {
 	if !seq.checkSynced() {
 		return nil
 	}

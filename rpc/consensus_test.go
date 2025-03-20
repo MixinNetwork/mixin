@@ -170,6 +170,9 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Greater(gt3.Sequencer.Timestamp, epoch)
 	require.Greater(gt3.Sequencer.Sequence, uint64(INPUTS*2))
 	t.Logf("INPUT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
+	block, err := GetBlock("http://"+nodes[1].Host, gt3.Sequencer.Height)
+	require.Nil(err)
+	require.Equal(block.Number, gt3.Sequencer.Height)
 
 	testCustodianUpdateNodes(t, nodes, instances, accounts, payees, instances[0].NetworkId())
 	transactionsCount = transactionsCount + 2

@@ -33,10 +33,20 @@ func getBlock(store storage.Store, params []any) (map[string]any, error) {
 		}
 		block = bws
 	}
+	snapshots := make([]map[string]any, len(block.Snapshots))
+	for i, hash := range block.Block.Snapshots {
+		s := block.Snapshots[hash]
+		tx := block.Transactions[s.SoleTransaction()]
+		snapshots[i] = snapshotToMap(s, tx, true)
+	}
 	return map[string]any{
 		"number":    block.Number,
 		"sequence":  block.Sequence,
 		"hash":      block.PayloadHash(),
 		"timestamp": block.Timestamp,
+		"previous":  block.Previous,
+		"signature": block.Signature,
+		"node":      block.NodeId,
+		"snapshots": snapshots,
 	}, nil
 }
