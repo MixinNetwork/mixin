@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"maps"
 	"math"
 	"sort"
 	"strings"
@@ -628,9 +629,5 @@ func (s *syncMap) Map() map[crypto.Hash]*p2p.SyncPoint {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	m := make(map[crypto.Hash]*p2p.SyncPoint)
-	for k, p := range s.m {
-		m[k] = p
-	}
-	return m
+	return maps.Clone(s.m)
 }
