@@ -159,7 +159,7 @@ func (g CLIConfig) ComputedProcs() int {
 
 	n := 1
 	if g.Parallel {
-		n = runtime.NumCPU()
+		n = runtime.GOMAXPROCS(-1)
 		if n > 4 {
 			n = n - 1
 		}
@@ -172,7 +172,7 @@ func (g CLIConfig) ComputedNumCompilers() int {
 		return g.NumCompilers
 	}
 
-	return runtime.NumCPU()
+	return runtime.GOMAXPROCS(-1)
 }
 
 // Configuration for the Ginkgo CLI capturing available go flags
@@ -229,6 +229,10 @@ func NewDefaultGoFlagsConfig() GoFlagsConfig {
 
 func (g GoFlagsConfig) BinaryMustBePreserved() bool {
 	return g.BlockProfile != "" || g.CPUProfile != "" || g.MemProfile != "" || g.MutexProfile != ""
+}
+
+func (g GoFlagsConfig) NeedsSymbols() bool {
+	return g.BinaryMustBePreserved()
 }
 
 // Configuration that were deprecated in 2.0
@@ -519,7 +523,7 @@ var GoBuildFlags = GinkgoFlags{
 	{KeyPath: "Go.Race", Name: "race", SectionKey: "code-and-coverage-analysis",
 		Usage: "enable data race detection. Supported on linux/amd64, linux/ppc64le, linux/arm64, linux/s390x, freebsd/amd64, netbsd/amd64, darwin/amd64, darwin/arm64, and windows/amd64."},
 	{KeyPath: "Go.Vet", Name: "vet", UsageArgument: "list", SectionKey: "code-and-coverage-analysis",
-		Usage: `Configure the invocation of "go vet" during "go test" to use the comma-separated list of vet checks.  If list is empty, "go test" runs "go vet" with a curated list of checks believed to be always worth addressing.  If list is "off", "go test" does not run "go vet" at all.  Available checks can be found by running 'go doc cmd/vet'`},
+		Usage: `Configure the invocation of "go vet" during "go test" to use the comma-separated list of vet checks.  If list is empty (by explicitly passing --vet=""), "go test" runs "go vet" with a curated list of checks believed to be always worth addressing.  If list is "off", "go test" does not run "go vet" at all.  Available checks can be found by running 'go doc cmd/vet'`},
 	{KeyPath: "Go.Cover", Name: "cover", SectionKey: "code-and-coverage-analysis",
 		Usage: "Enable coverage analysis.	Note that because coverage works by annotating the source code before compilation, compilation and test failures with coverage enabled may report line numbers that don't correspond to the original sources."},
 	{KeyPath: "Go.CoverMode", Name: "covermode", UsageArgument: "set,count,atomic", SectionKey: "code-and-coverage-analysis",
@@ -640,7 +644,7 @@ func VetAndInitializeCLIAndGoConfig(cliConfig CLIConfig, goFlagsConfig GoFlagsCo
 }
 
 // GenerateGoTestCompileArgs is used by the Ginkgo CLI to generate command line arguments to pass to the go test -c command when compiling the test
-func GenerateGoTestCompileArgs(goFlagsConfig GoFlagsConfig, packageToBuild string, pathToInvocationPath string) ([]string, error) {
+func GenerateGoTestCompileArgs(goFlagsConfig GoFlagsConfig, packageToBuild string, pathToInvocationPath string, preserveSymbols bool) ([]string, error) {
 	// if the user has set the CoverProfile run-time flag make sure to set the build-time cover flag to make sure
 	// the built test binary can generate a coverprofile
 	if goFlagsConfig.CoverProfile != "" {
@@ -661,6 +665,10 @@ func GenerateGoTestCompileArgs(goFlagsConfig GoFlagsConfig, packageToBuild strin
 			}
 		}
 		goFlagsConfig.CoverPkg = strings.Join(adjustedCoverPkgs, ",")
+	}
+
+	if !goFlagsConfig.NeedsSymbols() && goFlagsConfig.LDFlags == "" && !preserveSymbols {
+		goFlagsConfig.LDFlags = "-w -s"
 	}
 
 	args := []string{"test", "-c", packageToBuild}
