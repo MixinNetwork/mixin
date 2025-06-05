@@ -3,7 +3,7 @@ package compress
 import "math"
 
 // Estimate returns a normalized compressibility estimate of block b.
-// Values close to zero are likely uncompressible.
+// Values close to zero are likely incompressible.
 // Values above 0.1 are likely to be compressible.
 // Values above 0.5 are very compressible.
 // Very small lengths will return 0.
