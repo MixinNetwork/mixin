@@ -31,8 +31,8 @@ const (
 )
 
 type QuicClient struct {
-	session quic.Connection
-	stream  quic.Stream
+	session *quic.Conn
+	stream  *quic.Stream
 }
 
 type QuicRelayer struct {
