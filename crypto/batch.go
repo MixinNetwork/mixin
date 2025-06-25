@@ -56,10 +56,7 @@ func (v *BatchVerifier) add(publicKey *Key, message, sig []byte) {
 	// R_bytes is the first 32 bytes of the signature, but because the signature
 	// is passed as a variable-length array it could be too short. In that case
 	// we'll fail in Verify, so just avoid a panic here.
-	n := 32
-	if len(sig) < n {
-		n = len(sig)
-	}
+	n := min(len(sig), 32)
 	h.Write(sig[:n])
 
 	h.Write(publicKey[:])
