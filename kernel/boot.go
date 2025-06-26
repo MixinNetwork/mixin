@@ -13,7 +13,7 @@ func (node *Node) Loop() error {
 	}
 
 	go node.listenConsumers()
-	go node.sendGraphToConcensusNodesAndPeers()
+	go node.sendGraphToConsensusNodesAndPeers()
 	go node.loopCacheQueue()
 	go node.MintLoop()
 	node.ElectionLoop()

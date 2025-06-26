@@ -495,7 +495,7 @@ func (node *Node) ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round
 	return node.persistStore.ReadSnapshotsForNodeRound(nodeIdWithNetwork, round)
 }
 
-func (node *Node) sendGraphToConcensusNodesAndPeers() {
+func (node *Node) sendGraphToConsensusNodesAndPeers() {
 	for {
 		nodes := node.NodesListWithoutState(clock.NowUnixNano(), true)
 		neighbors := node.Peer.Neighbors()

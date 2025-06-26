@@ -52,12 +52,12 @@ type Chain struct {
 
 	State *ChainState
 
-	CosiRandoms        map[crypto.Key]*crypto.Key
-	UsedRandoms        map[crypto.Hash]*crypto.Key
-	CosiCommitments    map[crypto.Hash][]*crypto.Key
-	UsedCommitments    map[crypto.Key]bool
-	ComitmentsSentTime time.Time
-	CosiCommunicatedAt map[crypto.Hash]time.Time
+	CosiRandoms         map[crypto.Key]*crypto.Key
+	UsedRandoms         map[crypto.Hash]*crypto.Key
+	CosiCommitments     map[crypto.Hash][]*crypto.Key
+	UsedCommitments     map[crypto.Key]bool
+	CommitmentsSentTime time.Time
+	CosiCommunicatedAt  map[crypto.Hash]time.Time
 
 	CosiAggregators map[crypto.Hash]*CosiAggregator
 	CosiVerifiers   map[crypto.Hash]*CosiVerifier
@@ -241,7 +241,7 @@ func (chain *Chain) QueuePollSnapshots() {
 
 	for chain.running {
 		final, cache, stale := 0, 0, false
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			index := (chain.FinalIndex + i) % FinalPoolSlotsLimit
 			round := chain.FinalPool[index]
 			if round == nil {
@@ -258,7 +258,7 @@ func (chain *Chain) QueuePollSnapshots() {
 			}
 			logger.Debugf("QueuePollSnapshots final round good %s %d %d %d\n",
 				chain.ChainId, chain.FinalIndex, round.Number, round.Size)
-			for j := 0; j < round.Size; j++ {
+			for j := range round.Size {
 				ps := round.Snapshots[j]
 				logger.Debugf("QueuePollSnapshots final snapshot %s %d %s %t %d\n",
 					chain.ChainId, chain.FinalIndex, ps.Snapshot.Hash, ps.finalized, len(ps.peers))
