@@ -3,6 +3,7 @@ package common
 import (
 	"bytes"
 	"encoding/hex"
+	"maps"
 	"testing"
 	"time"
 
@@ -120,9 +121,7 @@ func TestTransactionReferences(t *testing.T) {
 		if sm[i] == nil {
 			sm[i] = make(map[uint16]*crypto.Signature)
 		}
-		for j, s := range m {
-			sm[i][j] = s
-		}
+		maps.Copy(sm[i], m)
 	}
 	sm[0][1] = sm[0][0]
 	ver.SignaturesMap = sm
@@ -134,9 +133,7 @@ func TestTransactionReferences(t *testing.T) {
 		if sm[i] == nil {
 			sm[i] = make(map[uint16]*crypto.Signature)
 		}
-		for j, s := range m {
-			sm[i][j] = s
-		}
+		maps.Copy(sm[i], m)
 	}
 	sm[1][0] = sm[0][0]
 	ver.SignaturesMap = sm
