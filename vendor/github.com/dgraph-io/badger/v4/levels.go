@@ -1,17 +1,6 @@
 /*
- * Copyright 2017 Dgraph Labs, Inc. and Contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: © Hypermode Inc. <hello@hypermode.com>
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package badger
@@ -19,7 +8,7 @@ package badger
 import (
 	"bytes"
 	"encoding/hex"
-	stderrors "errors"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -29,8 +18,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/dgraph-io/badger/v4/pb"
 	"github.com/dgraph-io/badger/v4/table"
@@ -235,7 +222,7 @@ func (s *levelsController) dropTree() (int, error) {
 		}
 	}
 	changeSet := pb.ManifestChangeSet{Changes: changes}
-	if err := s.kv.manifest.addChanges(changeSet.Changes); err != nil {
+	if err := s.kv.manifest.addChanges(changeSet.Changes, s.kv.opt); err != nil {
 		return 0, err
 	}
 
@@ -337,6 +324,7 @@ func (s *levelsController) dropPrefixes(prefixes [][]byte) error {
 				return err
 			}
 		}
+
 	}
 	return nil
 }
@@ -1437,7 +1425,7 @@ func (s *levelsController) runCompactDef(id, l int, cd compactDef) (err error) {
 	changeSet := buildChangeSet(&cd, newTables)
 
 	// We write to the manifest _before_ we delete files (and after we created files)
-	if err := s.kv.manifest.addChanges(changeSet.Changes); err != nil {
+	if err := s.kv.manifest.addChanges(changeSet.Changes, s.kv.opt); err != nil {
 		return err
 	}
 
@@ -1501,7 +1489,7 @@ func tablesToString(tables []*table.Table) []string {
 	return res
 }
 
-var errFillTables = stderrors.New("Unable to fill tables")
+var errFillTables = errors.New("Unable to fill tables")
 
 // doCompact picks some table on level l and compacts it away to the next level.
 func (s *levelsController) doCompact(id int, p compactionPriority) error {
@@ -1558,7 +1546,7 @@ func (s *levelsController) addLevel0Table(t *table.Table) error {
 		// deletes the table.)
 		err := s.kv.manifest.addChanges([]*pb.ManifestChange{
 			newCreateChange(t.ID(), 0, t.KeyID(), t.CompressionType()),
-		})
+		}, s.kv.opt)
 		if err != nil {
 			return err
 		}
