@@ -73,18 +73,11 @@ func (mi *MessageInfo) makeOpaqueCoderMethods(t reflect.Type, si opaqueStructInf
 			presenceIndex: noPresence,
 		}
 
-		// TODO: Use presence for all fields.
-		//
-		// In some cases, such as maps, presence means only "might be set" rather
-		// than "is definitely set", but every field should have a presence bit to
-		// permit us to skip over definitely-unset fields at marshal time.
+		// Presence is now used for all fields.
+		cf.presenceIndex, mi.presenceSize = presenceIndex(mi.Desc, fd)
 
-		var hasPresence bool
-		hasPresence, cf.isLazy = usePresenceForField(si, fd)
-
-		if hasPresence {
-			cf.presenceIndex, mi.presenceSize = presenceIndex(mi.Desc, fd)
-		}
+		// isLazy is still determined as before
+		_, cf.isLazy = usePresenceForField(si, fd)
 
 		mi.orderedCoderFields = append(mi.orderedCoderFields, cf)
 		mi.coderFields[cf.num] = cf
