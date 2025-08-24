@@ -206,11 +206,11 @@ func (c *CacheRound) validateSnapshot(s *common.Snapshot, add bool) error {
 		panic(s)
 	}
 	for _, cs := range c.Snapshots {
-		if cs.Hash == s.Hash || cs.Timestamp == s.Timestamp || cs.SoleTransaction() == s.SoleTransaction() {
-			return fmt.Errorf("ValidateSnapshot error duplication %s %d %s", s.Hash, s.Timestamp, s.SoleTransaction())
+		if cs.Hash == s.Hash || cs.Timestamp == s.Timestamp {
+			return fmt.Errorf("ValidateSnapshot error duplication %s %d", s.Hash, s.Timestamp)
 		}
 		if cs.Timestamp/OneDay != s.Timestamp/OneDay {
-			return fmt.Errorf("ValidateSnapshot error round day leap %s %d %s", s.Hash, s.Timestamp, s.SoleTransaction())
+			return fmt.Errorf("ValidateSnapshot error round day leap %s %d", s.Hash, s.Timestamp)
 		}
 	}
 	if start, end := c.Gap(); start <= end {

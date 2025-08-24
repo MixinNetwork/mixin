@@ -51,11 +51,15 @@ func (s *BadgerStore) WriteConsensusSnapshot(snap *common.Snapshot, tx *common.V
 }
 
 func writeConsensusSnapshot(txn *badger.Txn, snap *common.Snapshot, tx *common.VersionedTransaction, hack *common.Snapshot) error {
-	if snap.SoleTransaction() != tx.PayloadHash() {
+	if len(snap.Transactions) != 1 {
+		panic(snap.PayloadHash())
+	}
+	sole := snap.Transactions[0]
+	if sole != tx.PayloadHash() {
 		panic(snap.PayloadHash())
 	}
 	if len(tx.Inputs) == 1 && tx.Inputs[0].Mint != nil {
-		logger.Printf("writeConsensusSnapshot(%s) => mint", snap.SoleTransaction())
+		logger.Printf("writeConsensusSnapshot(%s) => mint", sole)
 	} else {
 		out := tx.Outputs[0]
 		switch out.Type {
@@ -68,7 +72,7 @@ func writeConsensusSnapshot(txn *badger.Txn, snap *common.Snapshot, tx *common.V
 		default:
 			panic(out.Type)
 		}
-		logger.Printf("writeConsensusSnapshot(%s) => %d", snap.SoleTransaction(), out.Type)
+		logger.Printf("writeConsensusSnapshot(%s) => %d", sole, out.Type)
 	}
 
 	isGenesis := len(tx.Inputs) == 1 && tx.Inputs[0].Genesis != nil
@@ -84,10 +88,14 @@ func writeConsensusSnapshot(txn *badger.Txn, snap *common.Snapshot, tx *common.V
 	}
 
 	if !isGenesis {
-		if last.SoleTransaction() == tx.PayloadHash() {
+		if len(last.Transactions) != 1 {
+			panic(last.PayloadHash())
+		}
+		sole := last.Transactions[0]
+		if sole == tx.PayloadHash() {
 			return nil
 		}
-		if last.SoleTransaction() != tx.References[0] {
+		if sole != tx.References[0] {
 			panic(snap.PayloadHash())
 		}
 		if last.Timestamp >= snap.Timestamp {
@@ -227,35 +235,33 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder, s
 		if snap.RoundNumber > 0 && !snap.References.Equal(cache.References) {
 			panic("snapshot references assert error")
 		}
-		ver, err := readTransaction(txn, snap.SoleTransaction())
-		if err != nil {
-			return err
-		}
-		if ver == nil {
-			panic("snapshot transaction not exist")
-		}
-		key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.SoleTransaction())
+		key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.PayloadHash())
 		_, err = txn.Get(key)
 		if err == nil {
 			panic("snapshot duplication")
 		} else if err != badger.ErrKeyNotFound {
 			return err
 		}
-		key = graphUniqueKey(snap.NodeId, snap.SoleTransaction())
-		_, err = txn.Get(key)
-		if err == nil {
-			panic("snapshot duplication")
-		} else if err != badger.ErrKeyNotFound {
-			return err
+		for _, tx := range snap.Transactions {
+			ver, err := readTransaction(txn, tx)
+			if err != nil {
+				return err
+			}
+			if ver == nil {
+				panic("snapshot transaction not exist")
+			}
+			key = graphUniqueKey(snap.NodeId, tx)
+			_, err = txn.Get(key)
+			if err == nil {
+				panic("snapshot duplication")
+			} else if err != badger.ErrKeyNotFound {
+				return err
+			}
 		}
 	}
 	// end assert
 
-	ver, err := readTransaction(txn, snap.SoleTransaction())
-	if err != nil {
-		return err
-	}
-	err = writeSnapshot(txn, snap, ver)
+	err := writeSnapshot(txn, snap)
 	if err != nil {
 		return err
 	}
@@ -266,21 +272,27 @@ func (s *BadgerStore) WriteSnapshot(snap *common.SnapshotWithTopologicalOrder, s
 	return txn.Commit()
 }
 
-func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder, ver *common.VersionedTransaction) error {
-	err := finalizeTransaction(txn, ver, snap)
-	if err != nil {
-		return err
+func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder) error {
+	for _, tx := range snap.Transactions {
+		ver, err := readTransaction(txn, tx)
+		if err != nil {
+			return err
+		}
+		err = finalizeTransaction(txn, ver, snap)
+		if err != nil {
+			return err
+		}
+
+		key := graphUniqueKey(snap.NodeId, ver.PayloadHash())
+		err = txn.Set(key, []byte{})
+		if err != nil {
+			return err
+		}
 	}
 
-	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.SoleTransaction())
+	key := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.PayloadHash())
 	val := snap.VersionedMarshal()
-	err = txn.Set(key, val)
-	if err != nil {
-		return err
-	}
-
-	key = graphUniqueKey(snap.NodeId, snap.SoleTransaction())
-	err = txn.Set(key, []byte{})
+	err := txn.Set(key, val)
 	if err != nil {
 		return err
 	}

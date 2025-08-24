@@ -709,6 +709,7 @@ func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, ut
 }
 
 func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*common.VersionedTransaction) {
+	t.Logf("SEND TRANSACTIONS WITH RETRY %d", len(vers))
 	require := require.New(t)
 
 	var wg sync.WaitGroup
@@ -967,13 +968,19 @@ func testVerifySnapshots(require *require.Assertions, nodes []*Node) (map[string
 		m, n := make(map[string]bool), make(map[string]bool)
 		for k := range a {
 			s[k] = true
-			t[a[k].SoleTransaction().String()] = true
-			m[a[k].SoleTransaction().String()] = true
+			for _, tx := range a[k].Transactions {
+				id := tx.String()
+				t[id] = true
+				m[id] = true
+			}
 		}
 		for k := range b {
 			s[k] = true
-			t[b[k].SoleTransaction().String()] = true
-			n[b[k].SoleTransaction().String()] = true
+			for _, tx := range b[k].Transactions {
+				id := tx.String()
+				t[id] = true
+				n[id] = true
+			}
 		}
 		requireKeyEqual(require, a, b)
 		require.Equal(len(a), len(b))
