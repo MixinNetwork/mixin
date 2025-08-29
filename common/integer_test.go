@@ -67,4 +67,10 @@ func TestInteger(t *testing.T) {
 
 	m = NewIntegerFromString("0.00000192")
 	require.Equal("0.00000192", m.String())
+
+	i0 := NewIntegerFromString("0.003790547948714634")
+	require.Equal("0.00379054", i0.String())
+	i1 := NewIntegerFromString(i0.String())
+	require.Equal("0.00379054", i1.String())
+	require.Equal(i0, i1)
 }
