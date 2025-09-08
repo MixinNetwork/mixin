@@ -533,7 +533,7 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	}
 
 	if totalNodes >= MaxKernelNodesCount {
-		return fmt.Errorf("maximum kernel nodes count reached because cosi signauture mask limit %s", tx.PayloadHash())
+		return fmt.Errorf("maximum kernel nodes count reached because cosi signature mask limit %s", tx.PayloadHash())
 	}
 	// FIXME the node operation lock threshold should be optimized on pledging period
 	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2, finalized)
