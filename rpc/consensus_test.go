@@ -35,7 +35,7 @@ func TestConsensus(t *testing.T) {
 	testConsensus(t, false)
 }
 
-func testConsensus(t *testing.T, extrenalRelayers bool) {
+func testConsensus(t *testing.T, externalRelayers bool) {
 	require := require.New(t)
 	kernel.TestMockReset()
 	startAt := time.Now()
@@ -54,7 +54,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 
 	root := t.TempDir()
 
-	accounts, payees, gdata, plist := setupTestNet(root, extrenalRelayers)
+	accounts, payees, gdata, plist := setupTestNet(root, externalRelayers)
 	require.Len(accounts, NODES)
 
 	epoch := time.Unix(1551312000, 0)
@@ -771,7 +771,7 @@ func testDetermineAccountByIndex(i int, role string) common.Address {
 	return account
 }
 
-func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []common.Address, []byte, string) {
+func setupTestNet(root string, externalRelayers bool) ([]common.Address, []common.Address, []byte, string) {
 	var signers, payees, custodians []common.Address
 	var relayers []common.Address
 
@@ -816,7 +816,7 @@ func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []commo
 	peersListHead := `"` + strings.Join(peers[:len(peers)/3], `","`) + `"`
 	peersListTail := `"` + strings.Join(peers[len(peers)/2:], `","`) + `"`
 
-	if extrenalRelayers {
+	if externalRelayers {
 		peers := make([]string, len(relayers))
 		for i, s := range relayers {
 			id := s.Hash().ForNetwork(gns.NetworkId())
@@ -866,7 +866,7 @@ func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []commo
 		}
 		port := 17000 + i + 1
 		p2p := fmt.Sprint(port)
-		isRelayer := !extrenalRelayers && (strings.Contains(peersListHead, p2p) || strings.Contains(peersListTail, p2p))
+		isRelayer := !externalRelayers && (strings.Contains(peersListHead, p2p) || strings.Contains(peersListTail, p2p))
 		if isRelayer {
 			peersList = peersListHead
 		}
