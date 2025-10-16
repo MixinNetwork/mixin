@@ -24,10 +24,6 @@ func (node *Node) checkTxInStorage(id crypto.Hash) (*common.VersionedTransaction
 }
 
 func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool) (map[crypto.Hash]*common.VersionedTransaction, []crypto.Hash, error) {
-	if s.RoundNumber == 0 && len(s.Transactions) != 1 {
-		return nil, nil, fmt.Errorf("invalid first snapshot %s %d", s.NodeId, len(s.Transactions))
-	}
-
 	var (
 		missing []crypto.Hash
 		found   = make(map[crypto.Hash]*common.VersionedTransaction)
