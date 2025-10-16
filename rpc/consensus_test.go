@@ -114,7 +114,7 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	deposits := make([]*common.VersionedTransaction, 0)
 	for i := 0; i < INPUTS; i++ {
 		raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset_key":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
-		randT := int(time.Now().UnixNano()) % len(nodes)
+		randT := int(time.Now().UnixMicro()) % len(nodes)
 		tx, err := testSignTransaction(nodes[randT].Host, accounts[0], raw)
 		require.Nil(err)
 		require.NotNil(tx)
@@ -141,7 +141,7 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	utxos := make([]*common.VersionedTransaction, 0)
 	for _, d := range deposits {
 		raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, d.PayloadHash().String(), genesisAmount, domainAddress)
-		randT := int(time.Now().UnixNano()) % len(nodes)
+		randT := int(time.Now().UnixMicro()) % len(nodes)
 		tx, err := testSignTransaction(nodes[randT].Host, accounts[0], raw)
 		require.Nil(err)
 		require.NotNil(tx)
@@ -528,7 +528,7 @@ func testRemoveNode(nodes []*Node, r common.Address) []*Node {
 		}
 	}
 	for n := len(tmp); n > 0; n-- {
-		randIndex := int(time.Now().UnixNano()) % n
+		randIndex := int(time.Now().UnixMicro()) % n
 		tmp[n-1], tmp[randIndex] = tmp[randIndex], tmp[n-1]
 	}
 	return tmp
@@ -716,7 +716,7 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 	for _, ver := range vers {
 		wg.Add(1)
 		go func(ver *common.VersionedTransaction) {
-			node := nodes[int(time.Now().UnixNano())%len(nodes)].Host
+			node := nodes[int(time.Now().UnixMicro())%len(nodes)].Host
 			id, err := testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
 			require.Nil(err)
 			require.True(id.HasValue())
@@ -728,7 +728,7 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 
 	var missingTxs []*common.VersionedTransaction
 	for _, ver := range vers {
-		node := nodes[int(time.Now().UnixNano())%len(nodes)].Host
+		node := nodes[int(time.Now().UnixMicro())%len(nodes)].Host
 		_, snap, err := GetTransaction("http://"+node, ver.PayloadHash().String())
 		require.Nil(err)
 		hash, _ := crypto.HashFromString(snap)
