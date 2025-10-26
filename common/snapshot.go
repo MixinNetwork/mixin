@@ -3,6 +3,7 @@ package common
 import (
 	"encoding/hex"
 	"fmt"
+	"slices"
 
 	"github.com/MixinNetwork/mixin/crypto"
 )
@@ -33,24 +34,14 @@ type SnapshotWork struct {
 	Signers   []crypto.Hash
 }
 
-func (s *Snapshot) SoleTransaction() crypto.Hash {
+func (s *Snapshot) AddTransaction(tx crypto.Hash) {
 	if s.Version < SnapshotVersionCommonEncoding {
 		panic(s.Version)
 	}
-	if len(s.Transactions) != 1 {
-		panic(len(s.Transactions))
+	if slices.Contains(s.Transactions, tx) {
+		panic(tx)
 	}
-	return s.Transactions[0]
-}
-
-func (s *Snapshot) AddSoleTransaction(tx crypto.Hash) {
-	if s.Version < SnapshotVersionCommonEncoding {
-		panic(s.Version)
-	} else if len(s.Transactions) == 0 {
-		s.Transactions = []crypto.Hash{tx}
-	} else {
-		panic(s.Transactions[0])
-	}
+	s.Transactions = append(s.Transactions, tx)
 }
 
 func UnmarshalVersionedSnapshot(b []byte) (*SnapshotWithTopologicalOrder, error) {

@@ -35,7 +35,7 @@ func TestConsensus(t *testing.T) {
 	testConsensus(t, false)
 }
 
-func testConsensus(t *testing.T, extrenalRelayers bool) {
+func testConsensus(t *testing.T, externalRelayers bool) {
 	require := require.New(t)
 	kernel.TestMockReset()
 	startAt := time.Now()
@@ -54,7 +54,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 
 	root := t.TempDir()
 
-	accounts, payees, gdata, plist := setupTestNet(root, extrenalRelayers)
+	accounts, payees, gdata, plist := setupTestNet(root, externalRelayers)
 	require.Len(accounts, NODES)
 
 	epoch := time.Unix(1551312000, 0)
@@ -114,7 +114,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	deposits := make([]*common.VersionedTransaction, 0)
 	for i := 0; i < INPUTS; i++ {
 		raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset_key":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
-		randT := int(time.Now().UnixNano()) % len(nodes)
+		randT := int(time.Now().UnixMicro()) % len(nodes)
 		tx, err := testSignTransaction(nodes[randT].Host, accounts[0], raw)
 		require.Nil(err)
 		require.NotNil(tx)
@@ -141,7 +141,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	utxos := make([]*common.VersionedTransaction, 0)
 	for _, d := range deposits {
 		raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"hash":"%s","index":0}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, d.PayloadHash().String(), genesisAmount, domainAddress)
-		randT := int(time.Now().UnixNano()) % len(nodes)
+		randT := int(time.Now().UnixMicro()) % len(nodes)
 		tx, err := testSignTransaction(nodes[randT].Host, accounts[0], raw)
 		require.Nil(err)
 		require.NotNil(tx)
@@ -179,7 +179,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Equal("ACCEPTED", all[NODES-1].State)
 
 	input, _ := testBuildPledgeInput(t, nodes, accounts[0], utxos)
-	time.Sleep(3 * time.Second)
+	time.Sleep(20 * time.Second)
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
@@ -220,6 +220,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
+	time.Sleep(20 * time.Second)
 	testCheckMintDistributions(require, nodes[0].Host)
 	t.Logf("MINT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 
@@ -271,7 +272,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Nil(hr)
 
 	kernel.TestMockDiff(1 * time.Hour)
-	time.Sleep(7 * time.Second)
+	time.Sleep(20 * time.Second)
 	all = testListNodes(nodes[0].Host)
 	require.Len(all, NODES+1)
 	require.Equal(all[NODES].Signer.String(), pn.Signer.String())
@@ -528,7 +529,7 @@ func testRemoveNode(nodes []*Node, r common.Address) []*Node {
 		}
 	}
 	for n := len(tmp); n > 0; n-- {
-		randIndex := int(time.Now().UnixNano()) % n
+		randIndex := int(time.Now().UnixMicro()) % n
 		tmp[n-1], tmp[randIndex] = tmp[randIndex], tmp[n-1]
 	}
 	return tmp
@@ -709,13 +710,14 @@ func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, ut
 }
 
 func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*common.VersionedTransaction) {
+	t.Logf("SEND TRANSACTIONS WITH RETRY %d", len(vers))
 	require := require.New(t)
 
 	var wg sync.WaitGroup
 	for _, ver := range vers {
 		wg.Add(1)
 		go func(ver *common.VersionedTransaction) {
-			node := nodes[int(time.Now().UnixNano())%len(nodes)].Host
+			node := nodes[int(time.Now().UnixMicro())%len(nodes)].Host
 			id, err := testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
 			require.Nil(err)
 			require.True(id.HasValue())
@@ -727,15 +729,18 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 
 	var missingTxs []*common.VersionedTransaction
 	for _, ver := range vers {
-		node := nodes[int(time.Now().UnixNano())%len(nodes)].Host
-		_, snap, err := GetTransaction("http://"+node, ver.PayloadHash().String())
-		require.Nil(err)
-		hash, _ := crypto.HashFromString(snap)
-		if hash.HasValue() {
-			continue
+		hash := ver.PayloadHash().String()
+		for _, node := range nodes {
+			_, snap, err := GetTransaction("http://"+node.Host, hash)
+			require.Nil(err)
+			hash, _ := crypto.HashFromString(snap)
+			if hash.HasValue() {
+				continue
+			}
+			t.Logf("TX MISSING %s\n", ver.PayloadHash())
+			missingTxs = append(missingTxs, ver)
+			break
 		}
-		t.Logf("TX MISSING %s\n", ver.PayloadHash())
-		missingTxs = append(missingTxs, ver)
 	}
 	if len(missingTxs) == 0 {
 		return
@@ -770,7 +775,7 @@ func testDetermineAccountByIndex(i int, role string) common.Address {
 	return account
 }
 
-func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []common.Address, []byte, string) {
+func setupTestNet(root string, externalRelayers bool) ([]common.Address, []common.Address, []byte, string) {
 	var signers, payees, custodians []common.Address
 	var relayers []common.Address
 
@@ -815,7 +820,7 @@ func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []commo
 	peersListHead := `"` + strings.Join(peers[:len(peers)/3], `","`) + `"`
 	peersListTail := `"` + strings.Join(peers[len(peers)/2:], `","`) + `"`
 
-	if extrenalRelayers {
+	if externalRelayers {
 		peers := make([]string, len(relayers))
 		for i, s := range relayers {
 			id := s.Hash().ForNetwork(gns.NetworkId())
@@ -865,7 +870,7 @@ func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []commo
 		}
 		port := 17000 + i + 1
 		p2p := fmt.Sprint(port)
-		isRelayer := !extrenalRelayers && (strings.Contains(peersListHead, p2p) || strings.Contains(peersListTail, p2p))
+		isRelayer := !externalRelayers && (strings.Contains(peersListHead, p2p) || strings.Contains(peersListTail, p2p))
 		if isRelayer {
 			peersList = peersListHead
 		}
@@ -967,13 +972,19 @@ func testVerifySnapshots(require *require.Assertions, nodes []*Node) (map[string
 		m, n := make(map[string]bool), make(map[string]bool)
 		for k := range a {
 			s[k] = true
-			t[a[k].SoleTransaction().String()] = true
-			m[a[k].SoleTransaction().String()] = true
+			for _, tx := range a[k].Transactions {
+				id := tx.String()
+				t[id] = true
+				m[id] = true
+			}
 		}
 		for k := range b {
 			s[k] = true
-			t[b[k].SoleTransaction().String()] = true
-			n[b[k].SoleTransaction().String()] = true
+			for _, tx := range b[k].Transactions {
+				id := tx.String()
+				t[id] = true
+				n[id] = true
+			}
 		}
 		requireKeyEqual(require, a, b)
 		require.Equal(len(a), len(b))
