@@ -43,17 +43,17 @@ func (a *Asset) Verify() error {
 func GetAssetCapacity(id crypto.Hash) Integer {
 	switch id {
 	case BitcoinAssetId:
-		return NewIntegerFromString("2800")
+		return NewIntegerFromString("2500")
 	case EthereumAssetId:
-		return NewIntegerFromString("10000")
+		return NewIntegerFromString("5000")
 	case XINAssetId:
-		return NewIntegerFromString("700000")
+		return NewIntegerFromString("800000")
 	case BOXAssetId:
 		return NewIntegerFromString("200000000")
 	case MOBAssetId:
-		return NewIntegerFromString("40000000")
-	case USDTEthereumAssetId:
 		return NewIntegerFromString("30000000")
+	case USDTEthereumAssetId:
+		return NewIntegerFromString("20000000")
 	case USDTTRONAssetId:
 		return NewIntegerFromString("30000000")
 	case PandoUSDAssetId:
@@ -63,7 +63,7 @@ func GetAssetCapacity(id crypto.Hash) Integer {
 	case EOSAssetId:
 		return NewIntegerFromString("3500000")
 	case SOLAssetId:
-		return NewIntegerFromString("65000")
+		return NewIntegerFromString("60000")
 	case UNIAssetId:
 		return NewIntegerFromString("1100000")
 	case DOGEAssetId:
