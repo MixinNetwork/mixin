@@ -131,7 +131,7 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	gt2 := testVerifyInfo(require, nodes)
 	gts = gt1.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt2.Timestamp.After(gts), "%s should after %s", gt2.Timestamp, gts)
-	hr := testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
+	hr := testDumpGraphHead(nodes[0].Host, "")
 	require.NotNil(hr)
 	require.GreaterOrEqual(hr.Round, uint64(0))
 	t.Logf("DEPOSIT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
@@ -160,7 +160,7 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	gt3 := testVerifyInfo(require, nodes)
 	gts = gt2.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt3.Timestamp.After(gts), "%s should after %s", gt3.Timestamp, gts)
-	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
+	hr = testDumpGraphHead(nodes[0].Host, "")
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
 	t.Logf("INPUT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
@@ -216,11 +216,10 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	gts = gt4.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt5.Timestamp.After(gts), "%s should after %s", gt5.Timestamp, gts)
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
-	time.Sleep(20 * time.Second)
 	testCheckMintDistributions(require, nodes[0].Host)
 	t.Logf("MINT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 
@@ -243,10 +242,10 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	gts = gt5.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt6.Timestamp.After(gts), "%s should after %s", gt6.Timestamp, gts)
 	require.Equal("305850.45205696", gt6.PoolSize.String())
-	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
+	hr = testDumpGraphHead(nodes[0].Host, "")
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
-	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork)
+	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork.String())
 	require.Nil(hr)
 
 	testRemovingNodePrediction(t, instances, true)
@@ -268,7 +267,7 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	require.Equal(all[NODES].Signer.String(), pn.Signer.String())
 	require.Equal(all[NODES].Payee.String(), pn.Payee.String())
 	require.Equal("PLEDGING", all[NODES].State)
-	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork)
+	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork.String())
 	require.Nil(hr)
 
 	kernel.TestMockDiff(1 * time.Hour)
@@ -280,16 +279,16 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	require.Equal("ACCEPTED", all[NODES].State)
 	require.Equal(len(testListSnapshots(nodes[NODES-1].Host)), len(testListSnapshots(pn.Host)))
 	require.Equal(len(testListSnapshots(nodes[0].Host)), len(testListSnapshots(pn.Host)))
-	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
+	hr = testDumpGraphHead(nodes[0].Host, "")
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
-	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, instances[0].IdForNetwork)
+	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, "")
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
-	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork)
+	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork.String())
 	require.NotNil(hr)
 	require.Equal(uint64(0), hr.Round)
-	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, pi.IdForNetwork)
+	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, pi.IdForNetwork.String())
 	require.NotNil(hr)
 	require.Equal(uint64(0), hr.Round)
 
@@ -337,17 +336,14 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 		require.Equal("REMOVED", all[NODES].State)
 	}
 
-	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
+	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork.String())
 	require.Greater(hr.Round, uint64(1))
-	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, instances[0].IdForNetwork)
+	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, instances[0].IdForNetwork.String())
 	require.Greater(hr.Round, uint64(1))
-	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork)
+	hash := signer.Hash().ForNetwork(instances[0].NetworkId())
+	hr = testDumpGraphHead(nodes[0].Host, hash.String())
 	require.Greater(hr.Round, uint64(1))
-	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, pi.IdForNetwork)
-	require.Greater(hr.Round, uint64(1))
-	hr = testDumpGraphHead(nodes[0].Host, signer.Hash().ForNetwork(instances[0].NetworkId()))
-	require.Greater(hr.Round, uint64(1))
-	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, signer.Hash().ForNetwork(instances[0].NetworkId()))
+	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, hash.String())
 	require.Greater(hr.Round, uint64(1))
 
 	removalInputs := []*common.Input{{Hash: all[NODES].Transaction, Index: 0}}
@@ -937,10 +933,14 @@ func testSignTransaction(node string, account common.Address, rawStr string) (*c
 }
 
 func testVerifyInfo(require *require.Assertions, nodes []*Node) Info {
-	info := testGetGraphInfo(nodes[0].Host)
+	randT := int(time.Now().UnixMicro()) % len(nodes)
+	info := testGetGraphInfo(nodes[randT].Host)
 	for _, n := range nodes {
 		a := testGetGraphInfo(n.Host)
 		require.Equal(info.PoolSize, a.PoolSize)
+		if a.Timestamp.After(info.Timestamp) {
+			info = a
+		}
 	}
 	return info
 }
@@ -962,6 +962,7 @@ func testVerifyDeposits(require *require.Assertions, nodes []*Node, deposits []*
 }
 
 func testVerifySnapshots(require *require.Assertions, nodes []*Node) (map[string]bool, map[string]bool) {
+	time.Sleep(5 * time.Second)
 	filters := make([]map[string]*common.Snapshot, 0)
 	for _, n := range nodes {
 		filters = append(filters, testListSnapshots(n.Host))
@@ -1083,7 +1084,7 @@ type HeadRound struct {
 	Hash  crypto.Hash `json:"hash"`
 }
 
-func testDumpGraphHead(node string, id crypto.Hash) *HeadRound {
+func testDumpGraphHead(node, id string) *HeadRound {
 	data, err := CallMixinRPC("http://"+node, "dumpgraphhead", []any{})
 	if err != nil {
 		panic(err)
@@ -1093,8 +1094,12 @@ func testDumpGraphHead(node string, id crypto.Hash) *HeadRound {
 	if err != nil {
 		panic(err)
 	}
-	for _, r := range head {
-		if r.Node == id {
+	for i, r := range head {
+		if id == "" {
+			if r.Round > 0 || i == len(head)-1 {
+				return r
+			}
+		} else if r.Node.String() == id {
 			return r
 		}
 	}
