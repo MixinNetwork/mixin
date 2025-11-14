@@ -143,11 +143,15 @@ func getSnapshot(node *kernel.Node, store storage.Store, params []any) (map[stri
 	if err != nil || snap == nil {
 		return nil, err
 	}
-	tx, _, err := store.ReadTransaction(snap.SoleTransaction())
-	if err != nil {
-		return nil, err
+	txs := make([]*common.VersionedTransaction, len(snap.Transactions))
+	for i, h := range snap.Transactions {
+		tx, _, err := store.ReadTransaction(h)
+		if err != nil {
+			return nil, err
+		}
+		txs[i] = tx
 	}
-	return snapshotToMap(node, snap, tx, true), nil
+	return snapshotToMap(node, snap, txs, true), nil
 }
 
 func listSnapshots(node *kernel.Node, store storage.Store, params []any) ([]map[string]any, error) {
@@ -179,7 +183,7 @@ func listSnapshots(node *kernel.Node, store storage.Store, params []any) ([]map[
 	return snapshotsToMap(node, snapshots, nil, sig), err
 }
 
-func snapshotsToMap(node *kernel.Node, snapshots []*common.SnapshotWithTopologicalOrder, transactions []*common.VersionedTransaction, sig bool) []map[string]any {
+func snapshotsToMap(node *kernel.Node, snapshots []*common.SnapshotWithTopologicalOrder, transactions [][]*common.VersionedTransaction, sig bool) []map[string]any {
 	tx := len(transactions) == len(snapshots)
 	result := make([]map[string]any, len(snapshots))
 	for i, s := range snapshots {
@@ -192,7 +196,7 @@ func snapshotsToMap(node *kernel.Node, snapshots []*common.SnapshotWithTopologic
 	return result
 }
 
-func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx *common.VersionedTransaction, sig bool) map[string]any {
+func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, txs []*common.VersionedTransaction, sig bool) map[string]any {
 	wn := node.WitnessSnapshot(s)
 	item := map[string]any{
 		"version":    s.Version,
@@ -208,10 +212,14 @@ func snapshotToMap(node *kernel.Node, s *common.SnapshotWithTopologicalOrder, tx
 			"timestamp": wn.Timestamp,
 		},
 	}
-	if tx != nil {
-		item["transactions"] = []any{transactionToMap(tx)}
+	if len(txs) > 0 {
+		tm := make([]any, len(txs))
+		for i, tx := range txs {
+			tm[i] = transactionToMap(tx)
+		}
+		item["transactions"] = tm
 	} else {
-		item["transactions"] = []any{s.SoleTransaction()}
+		item["transactions"] = s.Transactions
 	}
 	if sig {
 		item["signature"] = s.Signature

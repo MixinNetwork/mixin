@@ -56,8 +56,11 @@ func (enc *Encoder) encodeSnapshotPayload(s *Snapshot, withSig bool) {
 	if s.Version < SnapshotVersionCommonEncoding {
 		panic(s)
 	}
-	if len(s.Transactions) != 1 { // FIXME allow more than one transactions
-		panic(s)
+	if s.RoundNumber == 0 && len(s.Transactions) != 1 {
+		panic(len(s.Transactions))
+	}
+	if len(s.Transactions) > 256 {
+		panic(len(s.Transactions))
 	}
 	if !withSig && s.Signature != nil {
 		panic(s.Signature)

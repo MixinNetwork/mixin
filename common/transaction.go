@@ -103,6 +103,18 @@ func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {
 	return outputs
 }
 
+func (tx *SignedTransaction) IsSnapshotBatchable() bool {
+	switch tx.TransactionType() {
+	case TransactionTypeScript:
+	case TransactionTypeDeposit:
+	case TransactionTypeWithdrawalSubmit:
+	case TransactionTypeWithdrawalClaim:
+	default:
+		return false
+	}
+	return true
+}
+
 func (tx *SignedTransaction) TransactionType() uint8 {
 	for _, in := range tx.Inputs {
 		if in.Mint != nil {
