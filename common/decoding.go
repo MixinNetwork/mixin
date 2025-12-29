@@ -61,9 +61,6 @@ func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, err
 	if err != nil {
 		return nil, err
 	}
-	if tl != 1 {
-		return nil, fmt.Errorf("invalid transactions count %d", tl)
-	}
 	for i := 0; i < tl; i++ {
 		var tx crypto.Hash
 		err = dec.Read(tx[:])

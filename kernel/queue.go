@@ -37,13 +37,7 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 	if err != nil {
 		return "", err
 	}
-	s := &common.Snapshot{
-		Version: common.SnapshotVersionCommonEncoding,
-		NodeId:  node.IdForNetwork,
-	}
-	s.AddSoleTransaction(tx.PayloadHash())
-	err = node.chain.AppendSelfEmpty(s)
-	return tx.PayloadHash().String(), err
+	return tx.PayloadHash().String(), nil
 }
 
 func (node *Node) loopCacheQueue() {
@@ -67,8 +61,9 @@ func (node *Node) loopCacheQueue() {
 			continue
 		}
 
-		var stale []crypto.Hash
+		now := clock.Now()
 		filter := make(map[crypto.Hash]bool)
+		var stale, batch, single []crypto.Hash
 		leadingNodes, leadingFilter := node.filterLeadingNodes(allNodes)
 		for _, tx := range txs {
 			hash := tx.PayloadHash()
@@ -85,7 +80,6 @@ func (node *Node) loopCacheQueue() {
 				stale = append(stale, hash)
 				continue
 			}
-			now := clock.Now()
 			err = tx.Validate(node.persistStore, uint64(now.UnixNano()), false)
 			if err != nil {
 				logger.Debugf("LoopCacheQueue Validate ERROR %s %s\n", hash, err)
@@ -93,15 +87,28 @@ func (node *Node) loopCacheQueue() {
 				// but we need some way to mitigate cache transaction DoS attack from nodes
 				continue
 			}
-
 			nbor := node.electSnapshotNode(tx.TransactionType(), uint64(now.UnixNano()))
 			if nbor.HasValue() {
-				node.sendTransactionToNode(hash, nbor)
+				node.sendTransactionsToNode([]crypto.Hash{hash}, nbor)
+				continue
+			}
+			if tx.IsSnapshotBatchable() {
+				batch = append(batch, hash)
 			} else {
-				nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now, hash)
-				for _, nbor := range nbors {
-					node.sendTransactionToNode(hash, nbor)
-				}
+				single = []crypto.Hash{hash}
+				break
+			}
+		}
+		if len(batch) > 0 {
+			nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now, batch[0])
+			for _, nbor := range nbors {
+				node.sendTransactionsToNode(batch, nbor)
+			}
+		}
+		if len(single) > 0 {
+			nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now, single[0])
+			for _, nbor := range nbors {
+				node.sendTransactionsToNode(single, nbor)
 			}
 		}
 		err = node.persistStore.CacheRemoveTransactions(stale)
@@ -111,19 +118,40 @@ func (node *Node) loopCacheQueue() {
 	}
 }
 
-func (node *Node) sendTransactionToNode(hash, nbor crypto.Hash) {
+func (node *Node) sendTransactionsToNode(txs []crypto.Hash, nbor crypto.Hash) {
 	if nbor != node.IdForNetwork {
-		err := node.SendTransactionToPeer(nbor, hash)
-		logger.Debugf("queue.SendTransactionToPeer(%s, %s) => %v", hash, nbor, err)
+		for _, hash := range txs {
+			err := node.SendTransactionToPeer(nbor, hash)
+			logger.Debugf("queue.SendTransactionToPeer(%s, %s) => %v", hash, nbor, err)
+		}
+	} else if !node.canBatchSelfTransactions() {
+		for _, hash := range txs {
+			s := &common.Snapshot{
+				Version: common.SnapshotVersionCommonEncoding,
+				NodeId:  node.IdForNetwork,
+			}
+			s.AddTransaction(hash)
+			err := node.chain.AppendSelfEmpty(s)
+			logger.Debugf("queue.AppendSelfEmpty(%v) => %v", s, err)
+		}
 	} else {
 		s := &common.Snapshot{
 			Version: common.SnapshotVersionCommonEncoding,
 			NodeId:  node.IdForNetwork,
 		}
-		s.AddSoleTransaction(hash)
+		for _, hash := range txs {
+			s.AddTransaction(hash)
+		}
 		err := node.chain.AppendSelfEmpty(s)
 		logger.Debugf("queue.AppendSelfEmpty(%v) => %v", s, err)
 	}
+}
+
+func (node *Node) canBatchSelfTransactions() bool {
+	if node.chain == nil || node.chain.State == nil || node.chain.State.FinalRound == nil {
+		return false
+	}
+	return node.chain.State.FinalRound.Number > 0
 }
 
 func (node *Node) filterLeadingNodes(all []*CNode) ([]*CNode, map[crypto.Hash]bool) {
@@ -198,6 +226,8 @@ func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 		Version: common.SnapshotVersionCommonEncoding,
 		NodeId:  s.NodeId,
 	}
-	ns.AddSoleTransaction(s.SoleTransaction())
+	for _, tx := range s.Transactions {
+		ns.AddTransaction(tx)
+	}
 	return chain.AppendSelfEmpty(ns)
 }

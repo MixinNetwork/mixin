@@ -49,7 +49,8 @@ func TestGenesis(t *testing.T) {
 		require.Equal(g.RoundNumber, s.RoundNumber)
 		require.Equal(g.Timestamp, s.Timestamp)
 		require.Equal(g.TopologicalOrder, s.TopologicalOrder)
-		require.Equal(g.Transactions[0].String(), s.SoleTransaction().String())
+		require.NotEmpty(s.Transactions)
+		require.Equal(g.Transactions[0].String(), s.Transactions[0].String())
 		require.Equal(g.Version, s.Version)
 	}
 
