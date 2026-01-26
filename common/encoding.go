@@ -92,12 +92,18 @@ func (enc *Encoder) EncodeTransaction(signed *SignedTransaction) []byte {
 	enc.Write(signed.Asset[:])
 
 	il := len(signed.Inputs)
+	if il > SliceCountLimit {
+		panic(il)
+	}
 	enc.WriteInt(il)
 	for _, in := range signed.Inputs {
 		enc.EncodeInput(in)
 	}
 
 	ol := len(signed.Outputs)
+	if ol > SliceCountLimit {
+		panic(ol)
+	}
 	enc.WriteInt(ol)
 	for _, out := range signed.Outputs {
 		enc.EncodeOutput(out)

@@ -330,6 +330,9 @@ func (tx *Transaction) AddInput(hash crypto.Hash, index uint) {
 		Index: index,
 	}
 	tx.Inputs = append(tx.Inputs, in)
+	if len(tx.Inputs) > SliceCountLimit {
+		panic(len(tx.Inputs))
+	}
 }
 
 func (tx *Transaction) AddOutputWithType(ot uint8, accounts []*Address, s Script, amount Integer, seed []byte) {
@@ -350,6 +353,9 @@ func (tx *Transaction) AddOutputWithType(ot uint8, accounts []*Address, s Script
 	}
 
 	tx.Outputs = append(tx.Outputs, out)
+	if len(tx.Outputs) > SliceCountLimit {
+		panic(len(tx.Outputs))
+	}
 }
 
 func (tx *Transaction) AddScriptOutput(accounts []*Address, s Script, amount Integer, seed []byte) {
