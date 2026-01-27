@@ -190,7 +190,7 @@ func reduceHistory(rounds []*FinalRound) []*FinalRound {
 
 // the external round to be referenced should be as latest as possible,
 // this makes the graph stable. and to make the graph grow faster, it's
-// recommended to reference a round about ten minutes agao.
+// recommended to reference a round about ten minutes ago.
 //
 // it's also important to reference the first accepted node round even if
 // it's not consensus ready yet, because it's part of the graph.
@@ -311,7 +311,7 @@ func convertBytesToSigners(sig *crypto.CosiSignature, b []byte) []crypto.Hash {
 		return nil
 	}
 	signers := make([]crypto.Hash, len(sig.Keys()))
-	for i := 0; i < len(signers); i++ {
+	for i := range len(signers) {
 		var h crypto.Hash
 		copy(h[:], b[i*32:i*32+32])
 		signers[i] = h

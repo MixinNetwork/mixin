@@ -97,7 +97,7 @@ func TestUniversalMintTransaction(t *testing.T) {
 		Timestamp:   uint64(legacy.UnixNano()),
 		Signature:   &crypto.CosiSignature{Mask: 1},
 	}
-	snap.AddSoleTransaction(versioned.PayloadHash())
+	snap.AddTransaction(versioned.PayloadHash())
 	cache, err := loadHeadRoundForNode(node.persistStore, node.IdForNetwork)
 	require.Nil(err)
 	require.NotNil(cache)
