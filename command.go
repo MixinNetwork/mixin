@@ -504,7 +504,10 @@ func pledgeNodeCmd(c *cli.Context) error {
 	tx.AddInput(input, 0)
 	tx.AddOutputWithType(common.OutputTypeNodePledge, nil, common.Script{}, amount, seed)
 	tx.Extra = append(signer.PublicSpendKey[:], payee.PublicSpendKey[:]...)
-	tx.References = []crypto.Hash{snap.SoleTransaction()}
+	if len(snap.Transactions) != 1 {
+		return fmt.Errorf("unexpected consensus snapshot transactions %d", len(snap.Transactions))
+	}
+	tx.References = []crypto.Hash{snap.Transactions[0]}
 
 	signed := tx.AsVersioned()
 	err = signed.SignInput(raw, 0, []*common.Address{&account})

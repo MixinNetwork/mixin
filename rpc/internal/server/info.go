@@ -126,7 +126,7 @@ func filterRemovedRoundGraph(node *kernel.Node) (map[string]any, map[string]any)
 				"round":        s.RoundNumber,
 				"timestamp":    s.Timestamp,
 				"hash":         s.Hash,
-				"transactions": []any{s.SoleTransaction()},
+				"transactions": s.Transactions,
 				"signature":    s.Signature,
 			}
 		}

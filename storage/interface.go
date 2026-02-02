@@ -17,7 +17,7 @@ type Store interface {
 	WriteTransaction(tx *common.VersionedTransaction) error
 	StartNewRound(node crypto.Hash, number uint64, references *common.RoundLink, finalStart uint64) error
 	UpdateEmptyHeadRound(node crypto.Hash, number uint64, references *common.RoundLink) error
-	LastSnapshot() (*common.SnapshotWithTopologicalOrder, *common.VersionedTransaction)
+	LastSnapshot() (*common.SnapshotWithTopologicalOrder, []*common.VersionedTransaction)
 	WriteConsensusSnapshot(snap *common.Snapshot, tx *common.VersionedTransaction, hack *common.Snapshot) error
 	ReadLastConsensusSnapshot() (*common.Snapshot, error)
 
@@ -31,7 +31,7 @@ type Store interface {
 	LockGhostKeys(keys []*crypto.Key, tx crypto.Hash, fork bool) error
 	ReadSnapshot(hash crypto.Hash) (*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
-	ReadSnapshotWithTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, []*common.VersionedTransaction, error)
+	ReadSnapshotWithTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, [][]*common.VersionedTransaction, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadRound(hash crypto.Hash) (*common.Round, error)
 	ReadLink(from, to crypto.Hash) (uint64, error)

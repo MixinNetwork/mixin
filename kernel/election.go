@@ -157,7 +157,7 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 	si := crypto.Blake3Hash([]byte(candi.Payee.String() + in))
 	seed := append(si[:], si[:]...)
 	tx.AddOutputWithType(common.OutputTypeNodeRemove, []*common.Address{&candi.Payee}, script, accept.Outputs[0].Amount, seed)
-	tx.References = []crypto.Hash{consensusSnap.SoleTransaction()}
+	tx.References = consensusSnap.Transactions
 
 	return tx.AsVersioned(), nil
 }
@@ -186,7 +186,7 @@ func (node *Node) tryToSendRemoveTransaction() error {
 		Version: common.SnapshotVersionCommonEncoding,
 		NodeId:  node.IdForNetwork,
 	}
-	s.AddSoleTransaction(tx.PayloadHash())
+	s.AddTransaction(tx.PayloadHash())
 	return chain.AppendSelfEmpty(s)
 }
 
@@ -297,7 +297,7 @@ func (chain *Chain) buildNodeAcceptTransaction(timestamp uint64, finalized bool)
 	tx.AddInput(ci.Transaction, 0)
 	tx.AddOutputWithType(common.OutputTypeNodeAccept, nil, common.Script{}, pledge.Outputs[0].Amount, []byte{})
 	tx.Extra = pledge.Extra
-	tx.References = []crypto.Hash{consensusSnap.SoleTransaction()}
+	tx.References = consensusSnap.Transactions
 
 	return tx.AsVersioned(), nil
 }
@@ -322,7 +322,7 @@ func (chain *Chain) tryToSendAcceptTransaction() error {
 		Version: common.SnapshotVersionCommonEncoding,
 		NodeId:  chain.ChainId,
 	}
-	s.AddSoleTransaction(ver.PayloadHash())
+	s.AddTransaction(ver.PayloadHash())
 	err = chain.AppendSelfEmpty(s)
 	logger.Println("tryToSendAcceptTransaction", ver.PayloadHash(), hex.EncodeToString(ver.Marshal()), err)
 	return nil
@@ -350,6 +350,9 @@ func (node *Node) validateNodeAcceptSnapshot(s *common.Snapshot, tx *common.Vers
 }
 
 func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedTransaction) error {
+	if len(s.Transactions) != 1 {
+		panic(len(s.Transactions))
+	}
 	if tx.TransactionType() == common.TransactionTypeMint {
 		mint := node.lastMintDistribution()
 		if mint.Batch < node.LastMint {
