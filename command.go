@@ -240,7 +240,7 @@ func buildRawTransactionCmd(c *cli.Context) error {
 	}
 
 	inputs := make([]map[string]any, 0)
-	for _, in := range strings.Split(c.String("inputs"), ",") {
+	for in := range strings.SplitSeq(c.String("inputs"), ",") {
 		parts := strings.Split(in, ":")
 		if len(parts) != 2 {
 			return fmt.Errorf("invalid input %s", in)
@@ -260,7 +260,7 @@ func buildRawTransactionCmd(c *cli.Context) error {
 	}
 
 	outputs := make([]map[string]any, 0)
-	for _, out := range strings.Split(c.String("outputs"), ",") {
+	for out := range strings.SplitSeq(c.String("outputs"), ",") {
 		parts := strings.Split(out, ":")
 		if len(parts) != 2 {
 			return fmt.Errorf("invalid output %s", out)
@@ -484,7 +484,7 @@ func pledgeNodeCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal([]byte(fmt.Sprintf(`{"inputs":[{"hash":"%s","index":0}]}`, input.String())), &raw)
+	err = json.Unmarshal(fmt.Appendf(nil, `{"inputs":[{"hash":"%s","index":0}]}`, input.String()), &raw)
 	if err != nil {
 		return err
 	}
@@ -877,7 +877,7 @@ func setupTestNetCmd(c *cli.Context) error {
 		account.PublicViewKey = account.PrivateViewKey.Public()
 		return account
 	}
-	for i := 0; i < 7; i++ {
+	for range 7 {
 		signers = append(signers, randomPubAccount())
 		payees = append(payees, randomPubAccount())
 		custodians = append(custodians, randomPubAccount())
@@ -928,7 +928,7 @@ func setupTestNetCmd(c *cli.Context) error {
 			return err
 		}
 
-		var configData = []byte(fmt.Sprintf(`
+		var configData = fmt.Appendf(nil, `
 [node]
 signer-key = "%s"
 kernel-operation-period = 700
@@ -944,7 +944,7 @@ seeds = [%s]
 [rpc]
 port = 686%d
 object-server = true
-`, a.PrivateSpendKey.String(), i+1, seedsList, i+1))
+`, a.PrivateSpendKey.String(), i+1, seedsList, i+1)
 
 		err = os.WriteFile(dir+"/config.toml", configData, 0644)
 		if err != nil {

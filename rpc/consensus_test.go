@@ -197,7 +197,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 
 	legacy := time.Date(2023, time.Month(10), 31, 0, 0, 0, 0, time.UTC).Sub(epoch)
 	kernel.TestMockDiff(legacy)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
@@ -216,7 +216,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	gts = gt4.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt5.Timestamp.After(gts), "%s should after %s", gt5.Timestamp, gts)
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
@@ -230,7 +230,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	defer pi.Teardown()
 	defer sv.Close()
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
@@ -320,7 +320,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Equal("XINW6HTiMVmKHjfnk3DYbcWcTaTkKi4dr3wZgicyhKvKnyYEqD8PD5ZRfL13ZsouiMURM6atDh3Bdr3dqSVkYWEm7Kzp9Axt", signer.String())
 	require.Equal("XINCtoRSJYrNNQUv3xTsptxDKRqwHMwtNkvsQwFS58oFXYvgu9QhoetNwbmxUQ4JJGcjR1gnttMau1nCmGpkSimHR1dxrP8u", payee.String())
 	nodes = testRemoveNode(nodes, signer)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
@@ -405,7 +405,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 	custodian := common.NewAddressFromSeed(seed)
 
 	custodianNodes := make([]*common.CustodianNode, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		signer := signers[i]
 		payee := payees[i]
 		seed := make([]byte, 64)
@@ -620,7 +620,7 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 		panic(err)
 	}
 
-	configData := []byte(fmt.Sprintf(configDataTmpl, signer.PrivateSpendKey, 17099, plist, false, 18099))
+	configData := fmt.Appendf(nil, configDataTmpl, signer.PrivateSpendKey, 17099, plist, false, 18099)
 	err = os.WriteFile(dir+"/config.toml", configData, 0644)
 	if err != nil {
 		panic(err)
@@ -831,7 +831,7 @@ func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []commo
 			}
 
 			rpcPort := 26000 + i + 1
-			configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey, 16000+i+1, peersListHead, true, rpcPort))
+			configData := fmt.Appendf(nil, configDataTmpl, a.PrivateSpendKey, 16000+i+1, peersListHead, true, rpcPort)
 			err = os.WriteFile(dir+"/config.toml", configData, 0644)
 			if err != nil {
 				panic(err)
@@ -869,7 +869,7 @@ func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []commo
 		if isRelayer {
 			peersList = peersListHead
 		}
-		configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey, port, peersList, isRelayer, 18000+i+1))
+		configData := fmt.Appendf(nil, configDataTmpl, a.PrivateSpendKey, port, peersList, isRelayer, 18000+i+1)
 		err = os.WriteFile(dir+"/config.toml", configData, 0644)
 		if err != nil {
 			panic(err)

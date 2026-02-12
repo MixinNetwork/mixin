@@ -64,7 +64,7 @@ func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, err
 	if tl != 1 {
 		return nil, fmt.Errorf("invalid transactions count %d", tl)
 	}
-	for i := 0; i < tl; i++ {
+	for range tl {
 		var tx crypto.Hash
 		err = dec.Read(tx[:])
 		if err != nil {
@@ -540,7 +540,7 @@ func (dec *Decoder) ReadAggregatedSignature() (*AggregatedSignature, error) {
 			return nil, err
 		}
 		for i, ctr := range masks {
-			for j := byte(0); j < 8; j++ {
+			for j := range byte(8) {
 				k := byte(1) << j
 				if ctr&k == k {
 					js.Signers = append(js.Signers, i*8+int(j))

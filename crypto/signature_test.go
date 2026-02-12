@@ -10,14 +10,14 @@ import (
 func TestSignature(t *testing.T) {
 	require := require.New(t)
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		testSignature(require)
 	}
 }
 
 func testSignature(require *require.Assertions) {
 	seed := make([]byte, 64)
-	for i := 0; i < len(seed); i++ {
+	for i := range seed {
 		seed[i] = byte(i + 1)
 	}
 	key1 := NewKeyFromSeed(seed)

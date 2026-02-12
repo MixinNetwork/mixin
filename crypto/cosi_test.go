@@ -15,8 +15,8 @@ func TestCosi(t *testing.T) {
 
 	keys := make([]*Key, 31)
 	publics := make([]*Key, len(keys))
-	for i := 0; i < len(keys); i++ {
-		seed := Blake3Hash([]byte(fmt.Sprintf("%d", i)))
+	for i := range keys {
+		seed := Blake3Hash(fmt.Appendf(nil, "%d", i))
 		priv := NewKeyFromSeed(append(seed[:], seed[:]...))
 		pub := priv.Public()
 		keys[i] = &priv
@@ -41,7 +41,7 @@ func TestCosi(t *testing.T) {
 	randoms := make(map[int]*Key)
 	randKeys := make([]*Key, len(keys)*2/3+1)
 	masks := make([]int, 0)
-	for i := 0; i < 7; i++ {
+	for i := range 7 {
 		r := CosiCommit(randReader)
 		R := r.Public()
 		randKeys[i] = r

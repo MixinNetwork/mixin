@@ -14,7 +14,7 @@ func TestDeposit(t *testing.T) {
 	require := require.New(t)
 
 	accounts := make([]*Address, 0)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		seed := make([]byte, 64)
 		seed[i] = byte(i)
 		a := NewAddressFromSeed(seed)

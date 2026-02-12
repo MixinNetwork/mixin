@@ -167,7 +167,7 @@ func (c *CosiSignature) mark(i int) error {
 
 func (c *CosiSignature) Keys() []int {
 	keys := make([]int, 0)
-	for i := uint64(0); i < 64; i++ {
+	for i := range uint64(64) {
 		mask := uint64(1) << i
 		if c.Mask&mask == mask {
 			keys = append(keys, int(i))

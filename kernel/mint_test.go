@@ -121,7 +121,7 @@ func TestUniversalMintTransaction(t *testing.T) {
 	}} {
 		clock.MockDiff(tr.diff)
 		timestamp := clock.NowUnixNano()
-		for i := 0; i < 2; i++ {
+		for range 2 {
 			snapshots := testBuildMintSnapshots(signers, tr.round, timestamp)
 			err = node.persistStore.WriteRoundWork(node.IdForNetwork, tr.round, snapshots, true)
 			require.Nil(err)
@@ -197,7 +197,7 @@ func TestMintWorks(t *testing.T) {
 	signers := append(node.genesisNodes, node.IdForNetwork)
 	timestamp := clock.NowUnixNano()
 	leaders := len(signers)*2/3 + 1
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		snapshots := testBuildMintSnapshots(signers[1:], 0, timestamp)
 		err = node.persistStore.WriteRoundWork(node.IdForNetwork, 0, snapshots, true)
 		require.Nil(err)
@@ -338,7 +338,7 @@ func TestMintWorks(t *testing.T) {
 func testBuildMintSnapshots(signers []crypto.Hash, round, timestamp uint64) []*common.SnapshotWork {
 	snapshots := make([]*common.SnapshotWork, 100)
 	for i := range snapshots {
-		hash := []byte(fmt.Sprintf("MW%d%d%d", round, timestamp, i))
+		hash := fmt.Appendf(nil, "MW%d%d%d", round, timestamp, i)
 		s := common.SnapshotWork{
 			Timestamp: timestamp,
 			Hash:      crypto.Blake3Hash(hash),

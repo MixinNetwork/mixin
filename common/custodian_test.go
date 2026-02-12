@@ -29,7 +29,7 @@ func TestCustodianUpdateNodes(t *testing.T) {
 
 	mainnet, _ := crypto.HashFromString(mainnetId)
 	nodes := make([]*CustodianNode, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		signer := testBuildAddress(require)
 		payee := testBuildAddress(require)
 		custodian := testBuildAddress(require)

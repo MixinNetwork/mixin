@@ -299,7 +299,7 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		if len(data[67:]) != int(count)*32 {
 			return nil, fmt.Errorf("malformed commitments message %d %d", count, len(data[3:]))
 		}
-		for i := uint16(0); i < count; i++ {
+		for i := range count {
 			var key crypto.Key
 			copy(key[:], data[67+32*i:])
 			msg.Commitments = append(msg.Commitments, &key)

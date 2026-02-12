@@ -29,7 +29,7 @@ func (s *BadgerStore) ValidateGraphEntries(networkId crypto.Hash, depth uint64) 
 		}(n.IdForNetwork(networkId))
 	}
 	var total, invalid int
-	for i := 0; i < len(nodes); i++ {
+	for range nodes {
 		select {
 		case stat := <-stats:
 			total += stat[0]

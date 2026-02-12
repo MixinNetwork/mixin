@@ -10,7 +10,7 @@ func TestAddress(t *testing.T) {
 	require := require.New(t)
 
 	seed := make([]byte, 64)
-	for i := 0; i < len(seed); i++ {
+	for i := range seed {
 		seed[i] = byte(i + 1)
 	}
 	addr := "XIN8AJMgQUD11jZYN9ggbQDqkmozrha3zPEZxEkKxVFBufZpEVMtrR6PjtmgtNAH6jrg8dTUQFb9waqqw9euU7Ea8AC6DEu8"

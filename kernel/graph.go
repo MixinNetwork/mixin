@@ -311,7 +311,7 @@ func convertBytesToSigners(sig *crypto.CosiSignature, b []byte) []crypto.Hash {
 		return nil
 	}
 	signers := make([]crypto.Hash, len(sig.Keys()))
-	for i := 0; i < len(signers); i++ {
+	for i := range signers {
 		var h crypto.Hash
 		copy(h[:], b[i*32:i*32+32])
 		signers[i] = h
