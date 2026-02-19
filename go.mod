@@ -5,7 +5,7 @@ go 1.26.0
 replace github.com/dgraph-io/badger/v4 => github.com/MixinNetwork/badger/v4 v4.9.0-F1
 
 require (
-	filippo.io/edwards25519 v1.1.0
+	filippo.io/edwards25519 v1.2.0
 	github.com/dgraph-io/badger/v4 v4.9.0
 	github.com/dgraph-io/ristretto/v2 v2.4.0
 	github.com/pelletier/go-toml v1.9.5
