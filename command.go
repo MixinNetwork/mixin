@@ -16,6 +16,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/rpc"
 	"github.com/MixinNetwork/mixin/storage"
+	"github.com/shopspring/decimal"
 	"github.com/urfave/cli/v2"
 )
 
@@ -771,6 +772,79 @@ func getUTXOCmd(c *cli.Context) error {
 		fmt.Println(string(data))
 	}
 	return err
+}
+
+func initKey(s string) crypto.Key {
+	var key [32]byte
+	decodedKey, _ := hex.DecodeString(s)
+	copy(key[:], decodedKey)
+	return key
+}
+
+func getInputsCmd(c *cli.Context) error {
+
+	type InputForJson struct {
+		Hash  string `json:"hash"`
+		Index uint   `json:"index"`
+	}
+
+	addrs_str := c.String("addrs")
+	txs_str := c.String("txids")
+
+	addrs := strings.Split(addrs_str, ",")
+	txs := strings.Split(txs_str, ",")
+
+	for _, addr := range addrs {
+		sum := decimal.NewFromFloat(0)
+		inputs_arr := []InputForJson{}
+
+		address, _ := common.NewAddressFromString(addr)
+		pubspendkey := address.PublicSpendKey.String()
+		priviewkey := address.PublicSpendKey.DeterministicHashDerive()
+
+		fmt.Println(address)
+
+		for _, txhash := range txs {
+			var tx common.Transaction
+			for retryCount := 0; retryCount < 5; retryCount++ {
+				data, err := callRPC(c.String("node"), "gettransaction", []interface{}{txhash}, false)
+				if err == nil {
+					err = json.Unmarshal(data, &tx)
+					if err == nil {
+						break
+					}
+				}
+				time.Sleep(1 * time.Second)
+			}
+
+			total := decimal.NewFromFloat(0)
+			result := make([][]interface{}, 0)
+			for i, o := range tx.Outputs {
+				key := initKey(o.Keys[0].String())
+				mask := initKey(o.Mask.String())
+				amount := o.Amount.String()
+				if crypto.ViewGhostOutputKey(&key, &priviewkey, &mask, uint64(i)).String() == pubspendkey {
+					fmt.Println(txhash + "," + strconv.Itoa(i) + "," + amount)
+					result = append(result, []interface{}{txhash, i, amount})
+					inputs_arr = append(inputs_arr, InputForJson{Hash: txhash, Index: uint(i)})
+					amountDecimal, _ := decimal.NewFromString(amount)
+					total = total.Add(amountDecimal)
+				}
+			}
+
+			sum = sum.Add(total)
+
+		}
+		inputs_json, err := json.Marshal(inputs_arr)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("inputs:\n%s\n", string(inputs_json))
+		fmt.Println("sum:\n", sum)
+		fmt.Println("-----------------------------")
+	}
+
+	return nil
 }
 
 func getKeyCmd(c *cli.Context) error {
