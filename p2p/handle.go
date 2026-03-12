@@ -369,6 +369,9 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid full challenge snapshot %v", err)
 		}
+		if s.Snapshot.Signature == nil {
+			return nil, fmt.Errorf("invalid full challenge snapshot signature")
+		}
 		msg.Snapshot = s.Snapshot
 		offset = offset + size
 		if len(data[offset:]) < 256 {
