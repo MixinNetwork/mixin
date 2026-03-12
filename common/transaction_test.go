@@ -259,6 +259,38 @@ func TestTransactionRejectsInvalidOutputMask(t *testing.T) {
 	require.ErrorContains(err, "invalid output mask format")
 }
 
+func TestTransactionRejectsScriptOutputWithWithdrawalData(t *testing.T) {
+	require := require.New(t)
+
+	accounts := make([]*Address, 0, 2)
+	for i := range 2 {
+		seed := make([]byte, 64)
+		seed[i] = byte(i + 1)
+		account := NewAddressFromSeed(seed)
+		accounts = append(accounts, &account)
+	}
+
+	seed := make([]byte, 64)
+	seed[0] = 7
+	store := storeImpl{seed: seed, accounts: accounts}
+
+	ver := NewTransactionV5(XINAssetId).AsVersioned()
+	ver.AddInput(crypto.Hash{}, 0)
+	ver.AddScriptOutput(accounts[:1], NewThresholdScript(1), NewInteger(10000), bytes.Repeat([]byte{3}, 64))
+
+	var identity crypto.Key
+	identity[0] = 1
+	ver.Outputs[0].Keys = []*crypto.Key{&identity}
+	ver.Outputs[0].Mask = crypto.Key{}
+	ver.Outputs[0].Script = nil
+	ver.Outputs[0].Withdrawal = &WithdrawalData{Address: "bypass"}
+
+	err := ver.SignInput(store, 0, accounts[:1])
+	require.Nil(err)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
+	require.ErrorContains(err, "invalid output key format")
+}
+
 type storeImpl struct {
 	custodian *Address
 	seed      []byte

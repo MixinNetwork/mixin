@@ -257,11 +257,6 @@ func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, inpu
 			return fmt.Errorf("invalid output amount %s", o.Amount.String())
 		}
 
-		if o.Withdrawal != nil {
-			outputAmount = outputAmount.Add(o.Amount)
-			continue
-		}
-
 		for _, k := range o.Keys {
 			if ghostKeysFilter[*k] {
 				return fmt.Errorf("invalid output key %s", k.String())
