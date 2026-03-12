@@ -550,5 +550,9 @@ func (dec *Decoder) ReadAggregatedSignature() (*AggregatedSignature, error) {
 	default:
 		return nil, fmt.Errorf("invalid mask type %d", typ)
 	}
+	err = validateAggregatedSigners(js.Signers)
+	if err != nil {
+		return nil, err
+	}
 	return js, nil
 }

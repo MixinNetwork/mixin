@@ -297,6 +297,9 @@ func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, inpu
 			if !o.Mask.HasValue() {
 				return fmt.Errorf("invalid script output empty mask %s", o.Mask)
 			}
+			if !o.Mask.CheckKey() {
+				return fmt.Errorf("invalid output mask format %s", o.Mask)
+			}
 			if o.Withdrawal != nil {
 				return fmt.Errorf("invalid script output with withdrawal %s", o.Withdrawal.Address)
 			}
@@ -318,6 +321,9 @@ func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, as
 	switch utxo.Type {
 	case OutputTypeScript, OutputTypeNodeRemove:
 		if as != nil {
+			if err := validateAggregatedSigners(as.Signers); err != nil {
+				return err
+			}
 			signers, limit := 0, offset+len(utxo.Keys)
 			for _, m := range as.Signers {
 				if m >= limit {

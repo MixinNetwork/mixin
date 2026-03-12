@@ -8,15 +8,20 @@ import (
 
 func aggregatePublicKey(publics []*Key, signers []int) (*Key, error) {
 	P := edwards25519.NewIdentityPoint()
+	prev := -1
 	for _, i := range signers {
+		if i <= prev {
+			return nil, fmt.Errorf("invalid aggregation signer order %d <= %d", i, prev)
+		}
 		if i >= len(publics) {
 			return nil, fmt.Errorf("invalid aggregation signer index %d/%d", i, len(publics))
 		}
-		p, err := edwards25519.NewIdentityPoint().SetBytes(publics[i][:])
+		p, err := decodePoint(publics[i][:])
 		if err != nil {
 			return nil, err
 		}
 		P = P.Add(P, p)
+		prev = i
 	}
 	var key Key
 	copy(key[:], P.Bytes())

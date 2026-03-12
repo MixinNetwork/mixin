@@ -3,6 +3,7 @@ package common
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"sort"
 
 	"github.com/MixinNetwork/mixin/crypto"
@@ -321,13 +322,9 @@ func (enc *Encoder) EncodeAggregatedSignature(js *AggregatedSignature) {
 		enc.WriteInt(0)
 		return
 	}
-	for i, m := range js.Signers {
-		if i > 0 && m <= js.Signers[i-1] {
-			panic(js.Signers)
-		}
-		if m > MaximumEncodingInt {
-			panic(js.Signers)
-		}
+	err := validateAggregatedSigners(js.Signers)
+	if err != nil {
+		panic(err)
 	}
 
 	max := js.Signers[len(js.Signers)-1]
@@ -352,4 +349,15 @@ func (enc *Encoder) EncodeAggregatedSignature(js *AggregatedSignature) {
 type AggregatedSignature struct {
 	Signers   []int
 	Signature crypto.Signature
+}
+
+func validateAggregatedSigners(signers []int) error {
+	prev := -1
+	for _, signer := range signers {
+		if signer <= prev || signer > MaximumEncodingInt {
+			return fmt.Errorf("invalid aggregated signer order %d <= %d", signer, prev)
+		}
+		prev = signer
+	}
+	return nil
 }

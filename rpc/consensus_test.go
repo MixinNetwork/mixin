@@ -427,8 +427,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 	}
 
 	amount := common.NewInteger(100).Mul(count)
-	tx.AddScriptOutput([]*common.Address{&custodian}, common.NewThresholdScript(common.Operator64), amount, make([]byte, 64))
-	tx.Outputs[0].Type = common.OutputTypeCustodianUpdateNodes
+	tx.AddOutputWithType(common.OutputTypeCustodianUpdateNodes, []*common.Address{&custodian}, common.NewThresholdScript(common.Operator64), amount, bytes.Repeat([]byte{1}, 64))
 
 	sortedExtra := append(custodian.PublicSpendKey[:], custodian.PublicViewKey[:]...)
 	sort.Slice(custodianNodes, func(i, j int) bool {

@@ -14,12 +14,16 @@ import (
 func TestTransactionReferences(t *testing.T) {
 	require := require.New(t)
 
-	PM := "77770005a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc00020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000200000005e8d4a5100000004fe2a684e0e6c5e370ca0d89f5e2cb0da1e2ecd4028fa2d395fbca4e33f258050003fffe0d000000000005e8d4a51000001041cd5439a3a3caf43b5755facd2856b8eb8dd9c825ddbdc4c2fc283afd25d428d069468da7057e644259c5f82cea4f32b481844aff68409a2823e6a2e7d84ae59402e07b4e453035787231b6b9b5c53498573e22e7f0d1440741c95e4c51b96c81ef7ed772d8f864f4a0250478fbc3c2927b7dd5dc364d6ad49156eccdde902c139921b524d87fafa4e671e6f8d9a9b3bbb405573eef90df4ea9d966c1a81b2d99e4228582ee9001653cfb2d7eb61dfe14d243e0280db8ffe2741a89190f532fbbbbe72344c65127e697a246c5f70804342195b92835afa9d8edf7498ba083e407a579b53eb7ce1ee7e97f826e6b463e7ad160cb97c56b6166d125ffd8b6f021d3f4a6136aaddce4bdbfddae92f702c56ccb94edb2f6d93615887f0806900a65c0f230e2e2ae9358beb7e7299cf8a00bc2fd2038540f818db6e16dd4abf4dadce64dd745fe693b2ee41e4ff1b7fccff3f50819a7d41e76cb04fe1065059f3b2068a5f51863e976f65e7b2665045e3e8919b96cae80cbbbf9d33009094b5091dde31937cf61a9d7393c6d4b01f068725f233eb564bb00767138b1c83bd09cf148832f8e5303a3249cee3c707607eb8ea030c0b92777e3ed729fb2aee4c4298bd6dcd0d1c0eff1a06c68bf6459f35c8a047130b631b22bff252edeb03310cf7f2121f21afb2d299f7febc6a3eaa79e5e19bd3a5c299817b50262289e2bc382f173c6473159e19ed185b373e935081774e0c133b9416abdff319667187a71dff53e0003fffe0d00000000000000000000"
+	PM := "77770005a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc00020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000200000005e8d4a510000000c6473159e19ed185b373e935081774e0c133b9416abdff319667187a71dff53e0003fffe0d000000000005e8d4a5100000101a4df331aa9178f1a7f8d8627a6233090bfc2f1c154e4ce052c6e100cd6d511ed069468da7057e644259c5f82cea4f32b481844aff68409a2823e6a2e7d84ae59402e07b4e453035787231b6b9b5c53498573e22e7f0d1440741c95e4c51b96c81ef7ed772d8f864f4a0250478fbc3c2927b7dd5dc364d6ad49156eccdde902c139921b524d87fafa4e671e6f8d9a9b3bbb405573eef90df4ea9d966c1a81b2d99e4228582ee9001653cfb2d7eb61dfe14d243e0280db8ffe2741a89190f532fbbbbe72344c65127e697a246c5f70804342195b92835afa9d8edf7498ba083e407a579b53eb7ce1ee7e97f826e6b463e7ad160cb97c56b6166d125ffd8b6f021d3f4a6136aaddce4bdbfddae92f702c56ccb94edb2f6d93615887f0806900a65c0f230e2e2ae9358beb7e7299cf8a00bc2fd2038540f818db6e16dd4abf4dadce64dd745fe693b2ee41e4ff1b7fccff3f50819a7d41e76cb04fe1065059f3b2068a5f51863e976f65e7b2665045e3e8919b96cae80cbbbf9d33009094b5091dde31937cf61a9d7393c6d4b01f068725f233eb564bb00767138b1c83bd09cf148832f8e5303a3249cee3c707607eb8ea030c0b92777e3ed729fb2aee4c4298bd6dcd0d1c0eff1a06c68bf6459f35c8a047130b631b22bff252edeb03310cf7f2121f21afb2d299f7febc6a3eaa79e5e19bd3a5c299817b50262289e2bc382f173c6473159e19ed185b373e935081774e0c133b9416abdff319667187a71dff53e0003fffe0d00000000000000000000"
 
 	accounts := make([]*Address, 0)
 	for i := range 16 {
 		seed := make([]byte, 64)
-		seed[i] = byte(i)
+		if i == 0 {
+			seed[len(seed)-1] = 1
+		} else {
+			seed[i] = byte(i)
+		}
 		a := NewAddressFromSeed(seed)
 		accounts = append(accounts, &a)
 	}
@@ -29,6 +33,7 @@ func TestTransactionReferences(t *testing.T) {
 	genesisHash := crypto.Hash{}
 	script := Script{OperatorCmp, OperatorSum, 13}
 	store := storeImpl{seed: seed, accounts: accounts}
+	mask := crypto.NewKeyFromSeed(bytes.Repeat([]byte{1}, 64)).Public()
 
 	ver := NewTransactionV5(XINAssetId).AsVersioned()
 	require.Equal("814d45237cf84feb5be8cb60a3f985a019169a01a6d05924b74aa3493da02dd6", ver.PayloadHash().String())
@@ -38,12 +43,12 @@ func TestTransactionReferences(t *testing.T) {
 	ver.AddInput(genesisHash, 1)
 	ver.resetCache()
 	require.Equal("61f00c8f14383c0a174543f2ba775f10ca38c91cf9f6c0b28de9bb9579fc2c51", ver.PayloadHash().String())
-	ver.Outputs = append(ver.Outputs, &Output{Type: OutputTypeScript, Amount: NewInteger(10000), Script: script, Mask: crypto.NewKeyFromSeed(bytes.Repeat([]byte{1}, 64))})
+	ver.Outputs = append(ver.Outputs, &Output{Type: OutputTypeScript, Amount: NewInteger(10000), Script: script, Mask: mask})
 	ver.resetCache()
-	require.Equal("63a78e9776d6b4a0fe11702b825522554a68a5dcae6d0ca3aa7d4e9e5f66b0db", ver.PayloadHash().String())
+	require.Equal("4edf7bc13dc688d6ca45c9a6fe577a60e1f21e8474a324c06b7f94d8485681e7", ver.PayloadHash().String())
 	ver.AddScriptOutput(accounts, script, NewInteger(10000), bytes.Repeat([]byte{1}, 64))
 	ver.resetCache()
-	require.Equal("cf2f58aedcf4e85e12b533dfd39c396a2c5dd544f305b154f85c8c4fdfbda5bd", ver.PayloadHash().String())
+	require.Equal("f6f8c5fd92dfd697efa4903d70038577391514fd6ad2dfc4984ca072540b5612", ver.PayloadHash().String())
 
 	pm := ver.Marshal()
 	require.Equal(740, len(pm))
@@ -223,6 +228,35 @@ func TestTransactionReferences(t *testing.T) {
 	ver, _ = UnmarshalVersionedTransaction(pm)
 	require.Len(ver.References, 1)
 	require.Equal(ver.Inputs[0].Hash, ver.References[0])
+}
+
+func TestTransactionRejectsInvalidOutputMask(t *testing.T) {
+	require := require.New(t)
+
+	accounts := make([]*Address, 0, 2)
+	for i := range 2 {
+		seed := make([]byte, 64)
+		seed[i] = byte(i + 1)
+		account := NewAddressFromSeed(seed)
+		accounts = append(accounts, &account)
+	}
+
+	seed := make([]byte, 64)
+	seed[0] = 7
+	store := storeImpl{seed: seed, accounts: accounts}
+
+	ver := NewTransactionV5(XINAssetId).AsVersioned()
+	ver.AddInput(crypto.Hash{}, 0)
+	ver.AddScriptOutput(accounts[:1], NewThresholdScript(1), NewInteger(10000), bytes.Repeat([]byte{3}, 64))
+
+	var identity crypto.Key
+	identity[0] = 1
+	ver.Outputs[0].Mask = identity
+
+	err := ver.SignInput(store, 0, accounts[:1])
+	require.Nil(err)
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
+	require.ErrorContains(err, "invalid output mask format")
 }
 
 type storeImpl struct {

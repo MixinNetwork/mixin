@@ -36,7 +36,7 @@ func KeyFromString(s string) (Key, error) {
 }
 
 func (k Key) CheckKey() bool {
-	_, err := edwards25519.NewIdentityPoint().SetBytes(k[:])
+	_, err := decodePoint(k[:])
 	return err == nil
 }
 
@@ -62,7 +62,7 @@ func (k Key) DeterministicHashDerive() Key {
 }
 
 func KeyMultPubPriv(pub, priv *Key) *edwards25519.Point {
-	q, err := edwards25519.NewIdentityPoint().SetBytes(pub[:])
+	q, err := decodePoint(pub[:])
 	if err != nil {
 		panic(pub.String())
 	}
@@ -104,9 +104,22 @@ func HashScalar(k *edwards25519.Point, outputIndex uint64) *edwards25519.Scalar 
 	return x
 }
 
-func DeriveGhostPublicKey(r, A, B *Key, outputIndex uint64) *Key {
+func DeriveGhostPublicKeyForInternalVanish(r, A, B *Key, outputIndex uint64) *Key {
 	x := HashScalar(KeyMultPubPriv(A, r), outputIndex)
 	p1, err := edwards25519.NewIdentityPoint().SetBytes(B[:])
+	if err != nil {
+		panic(B.String())
+	}
+	p2 := edwards25519.NewIdentityPoint().ScalarBaseMult(x)
+	p4 := edwards25519.NewIdentityPoint().Add(p1, p2)
+	var key Key
+	copy(key[:], p4.Bytes())
+	return &key
+}
+
+func DeriveGhostPublicKey(r, A, B *Key, outputIndex uint64) *Key {
+	x := HashScalar(KeyMultPubPriv(A, r), outputIndex)
+	p1, err := decodePoint(B[:])
 	if err != nil {
 		panic(B.String())
 	}
@@ -131,7 +144,7 @@ func DeriveGhostPrivateKey(R, a, b *Key, outputIndex uint64) *Key {
 
 func ViewGhostOutputKey(P, a, R *Key, outputIndex uint64) *Key {
 	x := HashScalar(KeyMultPubPriv(R, a), outputIndex)
-	p1, err := edwards25519.NewIdentityPoint().SetBytes(P[:])
+	p1, err := decodePoint(P[:])
 	if err != nil {
 		panic(P.String())
 	}

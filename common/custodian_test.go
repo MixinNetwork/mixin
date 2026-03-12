@@ -48,7 +48,7 @@ func TestCustodianUpdateNodes(t *testing.T) {
 
 	random := testBuildAddress(require)
 	amount := NewInteger(100).Mul(count - 1)
-	tx.AddScriptOutput([]*Address{&random}, NewThresholdScript(Operator64), amount, make([]byte, 64))
+	tx.AddScriptOutput([]*Address{&random}, NewThresholdScript(Operator64), amount, bytes.Repeat([]byte{1}, 64))
 	err = tx.validateCustodianUpdateNodes(store, uint64(time.Now().UnixNano()))
 	require.NotNil(err)
 	require.Contains(err.Error(), "output type")

@@ -130,17 +130,21 @@ func (v *BatchVerifier) Verify() bool {
 			return false
 		}
 
-		if _, err := Rs[i].SetBytes(entry.signature[:32]); err != nil {
+		R, err := decodePoint(entry.signature[:32])
+		if err != nil {
 			return false
 		}
+		Rs[i].Set(R)
 
-		if _, err := As[i].SetBytes(entry.pubkey[:]); err != nil {
+		A, err := decodePoint(entry.pubkey[:])
+		if err != nil {
 			return false
 		}
+		As[i].Set(A)
 
 		buf := make([]byte, 32)
 		ReadRand(buf[:16])
-		_, err := Rcoeffs[i].SetCanonicalBytes(buf)
+		_, err = Rcoeffs[i].SetCanonicalBytes(buf)
 		if err != nil {
 			return false
 		}

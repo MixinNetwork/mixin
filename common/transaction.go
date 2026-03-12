@@ -343,11 +343,17 @@ func (tx *Transaction) AddOutputWithType(ot uint8, accounts []*Address, s Script
 		Keys:   make([]*crypto.Key, 0),
 	}
 
-	if len(accounts) > 0 {
+	if l := len(accounts); l > 0 {
+		internalVanish := l == 1 && s.String() == "fffe40"
 		r := crypto.NewKeyFromSeed(seed)
 		out.Mask = r.Public()
 		for _, a := range accounts {
-			k := crypto.DeriveGhostPublicKey(&r, &a.PublicViewKey, &a.PublicSpendKey, uint64(len(tx.Outputs)))
+			var k *crypto.Key
+			if internalVanish {
+				k = crypto.DeriveGhostPublicKeyForInternalVanish(&r, &a.PublicViewKey, &a.PublicSpendKey, uint64(len(tx.Outputs)))
+			} else {
+				k = crypto.DeriveGhostPublicKey(&r, &a.PublicViewKey, &a.PublicSpendKey, uint64(len(tx.Outputs)))
+			}
 			out.Keys = append(out.Keys, k)
 		}
 	}

@@ -15,7 +15,11 @@ func TestTransactionExtraLimit(t *testing.T) {
 	accounts := make([]*Address, 0)
 	for i := range 16 {
 		seed := make([]byte, 64)
-		seed[i] = byte(i)
+		if i == 0 {
+			seed[len(seed)-1] = 1
+		} else {
+			seed[i] = byte(i)
+		}
 		a := NewAddressFromSeed(seed)
 		accounts = append(accounts, &a)
 	}
@@ -38,6 +42,12 @@ func TestTransactionExtraLimit(t *testing.T) {
 	require.Equal(ExtraSizeGeneralLimit, ver.GetExtraLimit())
 
 	ver, _ = UnmarshalVersionedTransaction(cm)
+	for i, out := range ver.Outputs {
+		if !out.Mask.HasValue() || out.Mask.CheckKey() {
+			continue
+		}
+		out.Mask = crypto.NewKeyFromSeed(bytes.Repeat([]byte{byte(i + 1)}, 64)).Public()
+	}
 	ver.Outputs[0].Amount = NewIntegerFromString("0.001")
 	require.Equal(ExtraSizeGeneralLimit, ver.GetExtraLimit())
 	ver.Outputs[0].Script = NewThresholdScript(64)

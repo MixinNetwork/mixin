@@ -1,7 +1,6 @@
 package crypto
 
 import (
-	"bytes"
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
@@ -64,18 +63,22 @@ func (privateKey *Key) Sign(message Hash) Signature {
 }
 
 func (publicKey *Key) VerifyWithChallenge(sig Signature, a *edwards25519.Scalar) bool {
-	p, err := edwards25519.NewIdentityPoint().SetBytes(publicKey[:])
+	p, err := decodePoint(publicKey[:])
 	if err != nil {
 		return false
 	}
 	A := edwards25519.NewIdentityPoint().Negate(p)
+	Rs, err := decodePoint(sig[:32])
+	if err != nil {
+		return false
+	}
 
 	b, err := edwards25519.NewScalar().SetCanonicalBytes(sig[32:])
 	if err != nil {
 		return false
 	}
 	R := edwards25519.NewIdentityPoint().VarTimeDoubleScalarBaseMult(a, A, b)
-	return bytes.Equal(sig[:32], R.Bytes())
+	return R.Equal(Rs) == 1
 }
 
 func (publicKey *Key) Verify(message Hash, sig Signature) bool {

@@ -113,6 +113,20 @@ func TestAggregatedSignatureEncoding(t *testing.T) {
 	}
 }
 
+func TestAggregatedSignatureDecodingRejectsDuplicateSigners(t *testing.T) {
+	require := require.New(t)
+
+	enc := NewEncoder()
+	enc.Write(make([]byte, len(crypto.Signature{})))
+	_ = enc.WriteByte(AggregatedSignatureSparseMask)
+	enc.WriteInt(2)
+	enc.WriteInt(0)
+	enc.WriteInt(0)
+
+	_, err := NewDecoder(enc.Bytes()).ReadAggregatedSignature()
+	require.ErrorContains(err, "invalid aggregated signer order")
+}
+
 func TestCommonDataEncoding(t *testing.T) {
 	require := require.New(t)
 
