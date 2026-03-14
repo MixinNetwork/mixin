@@ -22,11 +22,11 @@ func decodePoint(src []byte) (*edwards25519.Point, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(src, p.Bytes()) {
-		return nil, fmt.Errorf("invalid point encoding")
-	}
 	if !isPrimeOrderPoint(p) {
 		return nil, fmt.Errorf("invalid point subgroup")
+	}
+	if !bytes.Equal(src, p.Bytes()) {
+		return nil, fmt.Errorf("invalid point encoding")
 	}
 	return p, nil
 }

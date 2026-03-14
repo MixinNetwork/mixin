@@ -316,7 +316,8 @@ func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, as
 	switch utxo.Type {
 	case OutputTypeScript, OutputTypeNodeRemove:
 		if as != nil {
-			if err := validateAggregatedSigners(as.Signers); err != nil {
+			err := validateAggregatedSigners(as.Signers)
+			if err != nil {
 				return err
 			}
 			signers, limit := 0, offset+len(utxo.Keys)
