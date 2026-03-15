@@ -164,7 +164,7 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	require.Len(msg.Commitments, 2)
 	require.NotNil(msg.signature)
 
-	msg, err = parseNetworkMessage(7, buildFullChanllengeMessage(snapshot, &commitment, &challenge, fullVer))
+	msg, err = parseNetworkMessage(7, buildFullChallengeMessage(snapshot, &commitment, &challenge, fullVer))
 	require.Nil(err)
 	require.Equal(snapshot.PayloadHash(), msg.Snapshot.PayloadHash())
 	require.Equal(snapshot.Signature.Mask, msg.Cosi.Mask)
@@ -240,7 +240,7 @@ func TestP2PMessageAndPeerEdgeCases(t *testing.T) {
 
 	_, err = parseNetworkMessage(7, bytes.Repeat([]byte{PeerMessageTypeFullChallenge}, 10))
 	require.ErrorContains(err, "invalid full challenge message size")
-	full := buildFullChanllengeMessage(snapshot, &commitment, &challenge, fullVer)
+	full := buildFullChallengeMessage(snapshot, &commitment, &challenge, fullVer)
 	badFullSnapshot := append([]byte{}, full...)
 	binary.BigEndian.PutUint32(badFullSnapshot[1:5], 1<<20)
 	_, err = parseNetworkMessage(7, badFullSnapshot)

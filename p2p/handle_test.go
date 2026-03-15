@@ -30,7 +30,7 @@ func TestParseNetworkMessageRejectsUnsignedFullChallenge(t *testing.T) {
 	challenge := crypto.NewKeyFromSeed(seed).Public()
 
 	tx := common.NewTransactionV5(common.XINAssetId).AsVersioned()
-	msg := buildFullChanllengeMessage(s, &commitment, &challenge, tx)
+	msg := buildFullChallengeMessage(s, &commitment, &challenge, tx)
 
 	parsed, err := parseNetworkMessage(0, msg)
 	require.Nil(parsed)

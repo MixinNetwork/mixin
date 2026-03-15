@@ -481,7 +481,7 @@ func (dec *Decoder) ReadRoundReferences() (*RoundLink, error) {
 		return nil, err
 	}
 	if rc != 2 {
-		return nil, fmt.Errorf("invalid referces count %d", rc)
+		return nil, fmt.Errorf("invalid references count %d", rc)
 	}
 	rl := &RoundLink{}
 	err = dec.Read(rl.Self[:])
