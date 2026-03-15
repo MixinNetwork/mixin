@@ -329,8 +329,6 @@ func TestPanicMessagesDoNotLeakKeyMaterial(t *testing.T) {
 	// This is hard to trigger since Sign() creates a valid scalar from a valid private key.
 	// Instead, verify the cosi.Response path
 	keys, publics, randoms, cosi, message := buildCosiFixture(require)
-	_ = keys
-	_ = randoms
 
 	assertPanicDoesNotContainKey(func() {
 		cosi.Response(&invalid, randoms[0], publics, message)
