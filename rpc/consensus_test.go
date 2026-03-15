@@ -183,9 +183,9 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Len(all, NODES)
 	require.Equal("ACCEPTED", all[NODES-1].State)
 
-	input, _ := testBuildPledgeInput(t, nodes, accounts[0], utxos)
+	input, pledgeTransactions, _ := testBuildPledgeInput(t, nodes, accounts[0], utxos)
 	time.Sleep(3 * time.Second)
-	transactionsCount = transactionsCount + 1
+	transactionsCount = transactionsCount + pledgeTransactions
 	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
 	gt4 := testVerifyInfoAfter(require, nodes, gt3.Timestamp.Add(time.Second))
@@ -276,14 +276,13 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Nil(hr)
 
 	kernel.TestMockDiff(1 * time.Hour)
-	time.Sleep(7 * time.Second)
-	all = testListNodes(nodes[0].Host)
+	all = testListNodesUntilState(t, nodes[0].Host, pn.Signer, common.NodeStateAccepted, 5*time.Minute)
 	require.Len(all, NODES+1)
 	require.Equal(all[NODES].Signer.String(), pn.Signer.String())
 	require.Equal(all[NODES].Payee.String(), pn.Payee.String())
 	require.Equal("ACCEPTED", all[NODES].State)
-	require.Equal(len(testListSnapshots(nodes[NODES-1].Host)), len(testListSnapshots(pn.Host)))
-	require.Equal(len(testListSnapshots(nodes[0].Host)), len(testListSnapshots(pn.Host)))
+	acceptNodes := append(slices.Clone(nodes), &pn)
+	testVerifySnapshots(require, acceptNodes, transactionsCount+1)
 	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
@@ -449,6 +448,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 	require.NotNil(deposit)
 	deposits := []*common.VersionedTransaction{{SignedTransaction: *deposit}}
 	testSendTransactionsToNodesWithRetry(t, nodes, deposits)
+	testWaitTransactionsVisibleOnNodes(t, nodes, []crypto.Hash{deposit.AsVersioned().PayloadHash()})
 
 	inputs := []map[string]any{{
 		"hash":  deposit.AsVersioned().PayloadHash(),
@@ -647,8 +647,10 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 		panic(err)
 	}
 
+	referenceNode := nodes[1].Host
 	info := testGetGraphInfo(nodes[0].Host)
-	cst := testGetSnapshotSoleTransaction(nodes[1].Host, info.Consensus.String())
+	cst := testGetSnapshotSoleTransaction(referenceNode, info.Consensus.String())
+	testWaitTransactionsVisibleOnNodes(t, nodes, []crypto.Hash{cst})
 	raw, _ := json.Marshal(map[string]any{
 		"version": 5,
 		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
@@ -664,7 +666,7 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 		"references": []crypto.Hash{cst},
 	})
 
-	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw))
+	tx, err := testSignTransaction(referenceNode, domain, string(raw))
 	require.Nil(err)
 	ver := tx.AsVersioned()
 	testSendTransactionsToNodesWithRetry(t, nodes, []*common.VersionedTransaction{ver})
@@ -688,13 +690,87 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 	return Node{Signer: signer, Payee: payee, Host: "127.0.0.1:18099"}, pnode, server
 }
 
-func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, utxos []*common.VersionedTransaction) (string, error) {
-	require := require.New(t)
-	inputs := []map[string]any{}
+type testSpendableInput struct {
+	Input  *common.Input
+	Amount common.Integer
+}
+
+func testMakeSpendableInputs(utxos []*common.VersionedTransaction) []testSpendableInput {
+	inputs := make([]testSpendableInput, 0, len(utxos))
 	for _, tx := range utxos {
+		inputs = append(inputs, testSpendableInput{
+			Input:  &common.Input{Hash: tx.PayloadHash(), Index: 0},
+			Amount: tx.Outputs[0].Amount,
+		})
+	}
+	return inputs
+}
+
+func testConsolidateSpendableInputs(t *testing.T, nodes []*Node, domain common.Address, inputs []testSpendableInput) ([]testSpendableInput, int) {
+	require := require.New(t)
+	transactions := 0
+	for len(inputs) > common.SliceCountLimit {
+		t.Logf("CONSOLIDATE %d INPUTS INTO %d TRANSACTIONS\n", len(inputs), (len(inputs)+common.SliceCountLimit-1)/common.SliceCountLimit)
+
+		next := make([]testSpendableInput, 0, (len(inputs)+common.SliceCountLimit-1)/common.SliceCountLimit)
+		vers := make([]*common.VersionedTransaction, 0, cap(next))
+		for start := 0; start < len(inputs); start += common.SliceCountLimit {
+			end := start + common.SliceCountLimit
+			if end > len(inputs) {
+				end = len(inputs)
+			}
+
+			chunk := inputs[start:end]
+			rawInputs := make([]map[string]any, 0, len(chunk))
+			total := common.Zero
+			for _, in := range chunk {
+				rawInputs = append(rawInputs, map[string]any{
+					"hash":  in.Input.Hash.String(),
+					"index": in.Input.Index,
+				})
+				total = total.Add(in.Amount)
+			}
+
+			raw, _ := json.Marshal(map[string]any{
+				"version": 2,
+				"asset":   common.XINAssetId,
+				"inputs":  rawInputs,
+				"outputs": []map[string]any{{
+					"type":     0,
+					"amount":   total,
+					"script":   "fffe01",
+					"accounts": []string{domain.String()},
+				}},
+			})
+			tx, err := testSignTransaction(nodes[0].Host, domain, string(raw))
+			require.Nil(err)
+			ver := common.VersionedTransaction{SignedTransaction: *tx}
+			vers = append(vers, &ver)
+			next = append(next, testSpendableInput{
+				Input:  &common.Input{Hash: ver.PayloadHash(), Index: 0},
+				Amount: total,
+			})
+		}
+
+		testSendTransactionsToNodesWithRetry(t, nodes, vers)
+		testWaitTransactionsVisibleOnNodes(t, nodes, testVersionedTransactionHashes(vers))
+		transactions += len(vers)
+		inputs = next
+	}
+
+	return inputs, transactions
+}
+
+func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, utxos []*common.VersionedTransaction) (string, int, error) {
+	require := require.New(t)
+	spendable := testMakeSpendableInputs(utxos)
+	spendable, transactions := testConsolidateSpendableInputs(t, nodes, domain, spendable)
+
+	inputs := make([]map[string]any, 0, len(spendable))
+	for _, in := range spendable {
 		inputs = append(inputs, map[string]any{
-			"hash":  tx.PayloadHash().String(),
-			"index": 0,
+			"hash":  in.Input.Hash.String(),
+			"index": in.Input.Index,
 		})
 	}
 	outputs := []map[string]any{}
@@ -722,7 +798,8 @@ func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, ut
 	require.Nil(err)
 	ver := common.VersionedTransaction{SignedTransaction: *tx}
 	testSendTransactionsToNodesWithRetry(t, nodes, []*common.VersionedTransaction{&ver})
-	return ver.PayloadHash().String(), err
+	testWaitTransactionsVisibleOnNodes(t, nodes, []crypto.Hash{ver.PayloadHash()})
+	return ver.PayloadHash().String(), transactions + 1, err
 }
 
 func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*common.VersionedTransaction) {
@@ -758,6 +835,42 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 		return
 	}
 	testSendTransactionsToNodesWithRetry(t, nodes, missingTxs)
+}
+
+func testVersionedTransactionHashes(vers []*common.VersionedTransaction) []crypto.Hash {
+	hashes := make([]crypto.Hash, 0, len(vers))
+	for _, ver := range vers {
+		hashes = append(hashes, ver.PayloadHash())
+	}
+	return hashes
+}
+
+func testWaitTransactionsVisibleOnNodes(t *testing.T, nodes []*Node, hashes []crypto.Hash) {
+	require := require.New(t)
+	deadline := time.Now().Add(testStateSyncTimeout)
+	for {
+		missing := make(map[string][]string)
+		for _, hash := range hashes {
+			for _, node := range nodes {
+				ver, _, err := GetTransaction("http://"+node.Host, hash.String())
+				require.Nil(err)
+				if ver != nil {
+					continue
+				}
+				missing[hash.String()] = append(missing[hash.String()], node.Host)
+			}
+		}
+		if len(missing) == 0 {
+			return
+		}
+		if time.Now().After(deadline) {
+			for hash, hosts := range missing {
+				t.Logf("TX NOT VISIBLE %s %s\n", hash, strings.Join(hosts, ","))
+			}
+			require.FailNow("timed out waiting for transaction propagation")
+		}
+		time.Sleep(time.Second)
+	}
 }
 
 func testSendTransaction(node, raw string) (crypto.Hash, error) {
@@ -1143,6 +1256,34 @@ func testListNodes(node string) []*Node {
 		panic(err)
 	}
 	return nodes
+}
+
+func testListNodesUntilState(t *testing.T, node string, signer common.Address, state string, timeout time.Duration) []*Node {
+	deadline := time.Now().Add(timeout)
+	nextLog := time.Now().Add(15 * time.Second)
+	var nodes []*Node
+	for {
+		nodes = testListNodes(node)
+		current := ""
+		for _, n := range nodes {
+			if n.Signer.String() != signer.String() {
+				continue
+			}
+			current = n.State
+			if n.State == state {
+				return nodes
+			}
+		}
+		if time.Now().After(nextLog) {
+			t.Logf("WAIT NODE STATE %s %s CURRENT %s\n", signer, state, current)
+			nextLog = time.Now().Add(15 * time.Second)
+		}
+		if time.Now().After(deadline) {
+			t.Logf("WAIT NODE STATE %s %s TIMEOUT CURRENT %s\n", signer, state, current)
+			return nodes
+		}
+		time.Sleep(time.Second)
+	}
 }
 
 type HeadRound struct {
