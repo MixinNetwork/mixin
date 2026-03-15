@@ -2,6 +2,8 @@ package crypto
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"filippo.io/edwards25519"
@@ -266,4 +268,74 @@ type errReader struct{}
 
 func (errReader) Read(_ []byte) (int, error) {
 	return 0, errors.New("read failure")
+}
+
+func TestPanicMessagesDoNotLeakKeyMaterial(t *testing.T) {
+	require := require.New(t)
+
+	// Create an invalid key (all 0xff bytes are not a valid scalar)
+	var invalid Key
+	for i := range invalid {
+		invalid[i] = 0xff
+	}
+	invalidHex := invalid.String()
+
+	// Create valid keys for testing
+	validPriv := NewKeyFromSeed(testSeed(60))
+	validPub := validPriv.Public()
+	validPrivHex := validPriv.String()
+
+	// Helper to capture panic message and verify it doesn't contain key hex
+	assertPanicDoesNotContainKey := func(fn func(), forbiddenStrings ...string) {
+		var panicMsg string
+		func() {
+			defer func() {
+				r := recover()
+				require.NotNil(r)
+				panicMsg = fmt.Sprintf("%v", r)
+			}()
+			fn()
+		}()
+		for _, forbidden := range forbiddenStrings {
+			require.False(strings.Contains(panicMsg, forbidden),
+				"panic message should not contain key material: %s", panicMsg)
+		}
+	}
+
+	// Public() should not leak private key bytes
+	assertPanicDoesNotContainKey(func() {
+		invalid.Public()
+	}, invalidHex)
+
+	// KeyMultPubPriv should not leak public or private key bytes
+	assertPanicDoesNotContainKey(func() {
+		KeyMultPubPriv(&invalid, &validPriv)
+	}, invalidHex, validPrivHex)
+	assertPanicDoesNotContainKey(func() {
+		KeyMultPubPriv(&validPub, &invalid)
+	}, invalidHex, validPrivHex)
+
+	// DeriveGhostPublicKey should not leak key bytes
+	assertPanicDoesNotContainKey(func() {
+		DeriveGhostPublicKey(&validPriv, &validPub, &invalid, 0)
+	}, invalidHex)
+
+	// DeriveGhostPrivateKey should not leak private key bytes
+	assertPanicDoesNotContainKey(func() {
+		DeriveGhostPrivateKey(&validPub, &validPriv, &invalid, 0)
+	}, invalidHex, validPrivHex)
+
+	// Sign should not leak private key (need a valid private key that fails SetCanonicalBytes)
+	// This is hard to trigger since Sign() creates a valid scalar from a valid private key.
+	// Instead, verify the cosi.Response path
+	keys, publics, randoms, cosi, message := buildCosiFixture(require)
+	_ = keys
+	_ = randoms
+
+	assertPanicDoesNotContainKey(func() {
+		cosi.Response(&invalid, randoms[0], publics, message)
+	}, invalidHex)
+	assertPanicDoesNotContainKey(func() {
+		cosi.Response(keys[0], &invalid, publics, message)
+	}, invalidHex)
 }

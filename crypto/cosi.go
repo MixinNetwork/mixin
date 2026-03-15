@@ -117,11 +117,11 @@ func (c *CosiSignature) Response(privateKey, random *Key, publics []*Key, messag
 	}
 	y, err := edwards25519.NewScalar().SetCanonicalBytes(privateKey[:])
 	if err != nil {
-		panic(privateKey.String())
+		panic(fmt.Errorf("invalid private key scalar: %w", err))
 	}
 	z, err := edwards25519.NewScalar().SetCanonicalBytes(random[:])
 	if err != nil {
-		panic(random.String())
+		panic(fmt.Errorf("invalid random scalar: %w", err))
 	}
 	var s [32]byte
 	si := edwards25519.NewScalar().MultiplyAdd(x, y, z)

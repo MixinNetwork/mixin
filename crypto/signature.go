@@ -51,7 +51,7 @@ func (privateKey *Key) Sign(message Hash) Signature {
 
 	y, err := edwards25519.NewScalar().SetCanonicalBytes(privateKey[:])
 	if err != nil {
-		panic(privateKey.String())
+		panic(fmt.Errorf("invalid private key scalar: %w", err))
 	}
 	s := edwards25519.NewScalar().MultiplyAdd(x, y, z)
 

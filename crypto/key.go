@@ -43,7 +43,7 @@ func (k Key) CheckKey() bool {
 func (k Key) Public() Key {
 	x, err := edwards25519.NewScalar().SetCanonicalBytes(k[:])
 	if err != nil {
-		panic(k.String())
+		panic(fmt.Errorf("invalid scalar bytes: %w", err))
 	}
 	v := edwards25519.NewIdentityPoint().ScalarBaseMult(x)
 	var tmp Key
@@ -64,11 +64,11 @@ func (k Key) DeterministicHashDerive() Key {
 func KeyMultPubPriv(pub, priv *Key) *edwards25519.Point {
 	q, err := decodePoint(pub[:])
 	if err != nil {
-		panic(pub.String())
+		panic(fmt.Errorf("invalid public key point: %w", err))
 	}
 	x, err := edwards25519.NewScalar().SetCanonicalBytes(priv[:])
 	if err != nil {
-		panic(priv.String())
+		panic(fmt.Errorf("invalid private key scalar: %w", err))
 	}
 
 	v := edwards25519.NewIdentityPoint().ScalarMult(x, q)
@@ -108,7 +108,7 @@ func DeriveGhostPublicKeyForInternalVanish(r, A, B *Key, outputIndex uint64) *Ke
 	x := HashScalar(KeyMultPubPriv(A, r), outputIndex)
 	p1, err := edwards25519.NewIdentityPoint().SetBytes(B[:])
 	if err != nil {
-		panic(B.String())
+		panic(fmt.Errorf("invalid public spend key point: %w", err))
 	}
 	p2 := edwards25519.NewIdentityPoint().ScalarBaseMult(x)
 	p4 := edwards25519.NewIdentityPoint().Add(p1, p2)
@@ -121,7 +121,7 @@ func DeriveGhostPublicKey(r, A, B *Key, outputIndex uint64) *Key {
 	x := HashScalar(KeyMultPubPriv(A, r), outputIndex)
 	p1, err := decodePoint(B[:])
 	if err != nil {
-		panic(B.String())
+		panic(fmt.Errorf("invalid public spend key point: %w", err))
 	}
 	p2 := edwards25519.NewIdentityPoint().ScalarBaseMult(x)
 	p4 := edwards25519.NewIdentityPoint().Add(p1, p2)
@@ -134,7 +134,7 @@ func DeriveGhostPrivateKey(R, a, b *Key, outputIndex uint64) *Key {
 	x := HashScalar(KeyMultPubPriv(R, a), outputIndex)
 	y, err := edwards25519.NewScalar().SetCanonicalBytes(b[:])
 	if err != nil {
-		panic(b.String())
+		panic(fmt.Errorf("invalid private spend key scalar: %w", err))
 	}
 	t := edwards25519.NewScalar().Add(x, y)
 	var key Key
@@ -146,7 +146,7 @@ func ViewGhostOutputKey(P, a, R *Key, outputIndex uint64) *Key {
 	x := HashScalar(KeyMultPubPriv(R, a), outputIndex)
 	p1, err := decodePoint(P[:])
 	if err != nil {
-		panic(P.String())
+		panic(fmt.Errorf("invalid ghost output key point: %w", err))
 	}
 	p2 := edwards25519.NewIdentityPoint().ScalarBaseMult(x)
 	p4 := edwards25519.NewIdentityPoint().Subtract(p1, p2)

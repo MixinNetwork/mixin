@@ -300,11 +300,11 @@ func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [
 	for i, k := range privKeys {
 		y, err := edwards25519.NewScalar().SetCanonicalBytes(k[:])
 		if err != nil {
-			panic(k.String())
+			panic(fmt.Errorf("invalid private key scalar: %w", err))
 		}
 		z, err := edwards25519.NewScalar().SetCanonicalBytes(randoms[i][:])
 		if err != nil {
-			panic(randoms[i].String())
+			panic(fmt.Errorf("invalid random scalar: %w", err))
 		}
 		s := edwards25519.NewScalar().MultiplyAdd(x, y, z)
 		S = S.Add(S, s)
