@@ -51,7 +51,7 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 		return fmt.Errorf("invalid outputs count %d for pledge transaction", len(tx.Outputs))
 	}
 	if len(tx.Inputs) != 1 || len(inputs) != len(tx.Inputs) {
-		return fmt.Errorf("invalid inputs count %d for pledge transaction", len(tx.Outputs))
+		return fmt.Errorf("invalid inputs count %d for pledge transaction", len(tx.Inputs))
 	}
 	fk := fmt.Sprintf("%s:%d", tx.Inputs[0].Hash.String(), tx.Inputs[0].Index)
 	if inputs[fk].Type != OutputTypeScript && inputs[fk].Type != OutputTypeNodeRemove {
@@ -124,7 +124,7 @@ func (tx *Transaction) validateNodeCancel(store DataStore, payloadHash crypto.Ha
 		return fmt.Errorf("no pledging node needs to get cancelled")
 	}
 	if pledging.Transaction != tx.Inputs[0].Hash {
-		return fmt.Errorf("invalid plede utxo source %s %s", pledging.Transaction, tx.Inputs[0].Hash)
+		return fmt.Errorf("invalid pledge utxo source %s %s", pledging.Transaction, tx.Inputs[0].Hash)
 	}
 
 	lastPledge, _, err := store.ReadTransaction(tx.Inputs[0].Hash)
@@ -201,7 +201,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore, snapTime uint64) erro
 		return fmt.Errorf("no pledging node needs to get accepted")
 	}
 	if pledging.Transaction != tx.Inputs[0].Hash {
-		return fmt.Errorf("invalid plede utxo source %s %s", pledging.Transaction, tx.Inputs[0].Hash)
+		return fmt.Errorf("invalid pledge utxo source %s %s", pledging.Transaction, tx.Inputs[0].Hash)
 	}
 
 	lastPledge, _, err := store.ReadTransaction(tx.Inputs[0].Hash)

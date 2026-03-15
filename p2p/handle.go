@@ -113,7 +113,7 @@ func (me *Peer) SendTransactionChallengeMessage(idForNetwork crypto.Hash, snap c
 }
 
 func (me *Peer) SendFullChallengeMessage(idForNetwork crypto.Hash, s *common.Snapshot, commitment, challenge *crypto.Key, tx *common.VersionedTransaction) error {
-	data := buildFullChanllengeMessage(s, commitment, challenge, tx)
+	data := buildFullChallengeMessage(s, commitment, challenge, tx)
 	return me.sendSnapshotMessageToPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeFullChallenge, data)
 }
 
@@ -199,7 +199,7 @@ func buildTransactionChallengeMessage(snap crypto.Hash, cosi *crypto.CosiSignatu
 	return data
 }
 
-func buildFullChanllengeMessage(s *common.Snapshot, commitment, challenge *crypto.Key, tx *common.VersionedTransaction) []byte {
+func buildFullChallengeMessage(s *common.Snapshot, commitment, challenge *crypto.Key, tx *common.VersionedTransaction) []byte {
 	data := []byte{PeerMessageTypeFullChallenge}
 
 	pl := s.VersionedMarshal()
@@ -297,7 +297,7 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 			return nil, fmt.Errorf("too much commitments %d", count)
 		}
 		if len(data[67:]) != int(count)*32 {
-			return nil, fmt.Errorf("malformed commitments message %d %d", count, len(data[3:]))
+			return nil, fmt.Errorf("malformed commitments message %d %d", count, len(data[67:]))
 		}
 		for i := range count {
 			var key crypto.Key

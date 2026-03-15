@@ -111,8 +111,8 @@ func (s *BadgerStore) ReadGhostKeyLock(key crypto.Key) (*crypto.Hash, error) {
 }
 
 func (s *BadgerStore) LockGhostKeys(keys []*crypto.Key, tx crypto.Hash, fork bool) error {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
 		filter := make(map[crypto.Key]bool)

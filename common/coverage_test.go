@@ -25,7 +25,7 @@ func TestDecoderHelperErrors(t *testing.T) {
 	enc := NewEncoder()
 	enc.WriteInt(1)
 	_, err = NewDecoder(enc.Bytes()).ReadRoundReferences()
-	require.ErrorContains(err, "invalid referces count 1")
+	require.ErrorContains(err, "invalid references count 1")
 
 	enc = NewEncoder()
 	enc.Write(make([]byte, len(crypto.Signature{})))

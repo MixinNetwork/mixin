@@ -377,7 +377,7 @@ func TestNodePledgeAcceptRemoveCampaign(t *testing.T) {
 		State:       NodeStatePledging,
 		Transaction: crypto.Blake3Hash([]byte("other")),
 	}}
-	require.ErrorContains(accept.validateNodeAccept(store, 0), "invalid plede utxo source")
+	require.ErrorContains(accept.validateNodeAccept(store, 0), "invalid pledge utxo source")
 
 	store.readTxErr = errors.New("accept read failure")
 	store.nodes = []*Node{{
@@ -548,7 +548,7 @@ func TestNodeCancelCampaign(t *testing.T) {
 
 	mismatchStore, badTx, _, badSigs := buildNodeCancelScenario()
 	badTx.Inputs[0].Hash = crypto.Blake3Hash([]byte("wrong-source"))
-	require.ErrorContains(badTx.validateNodeCancel(mismatchStore, badTx.AsVersioned().PayloadHash(), badSigs, 0), "invalid plede utxo source")
+	require.ErrorContains(badTx.validateNodeCancel(mismatchStore, badTx.AsVersioned().PayloadHash(), badSigs, 0), "invalid pledge utxo source")
 
 	readErrStore, _, _, _ := buildNodeCancelScenario()
 	readErrStore.readTxErr = errors.New("cancel read failure")
