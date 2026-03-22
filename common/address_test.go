@@ -1,10 +1,30 @@
 package common
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestVanishAddress(t *testing.T) {
+	require := require.New(t)
+	require.Panics(func() {
+		_ = NewAddressFromSeed(bytes.Repeat([]byte{0}, 64))
+	})
+	require.NotPanics(func() {
+		_ = NewAddressFromSeed(bytes.Repeat([]byte{1}, 64))
+	})
+	sa := "XINSwYaJPnKiwBWqXm4i3e3My9GKguReMRyB1sRSexeHcQ7V66RWsicAiR2dokcQ5kiJsfY5QbEjTcqRQRCxkEyENBaz4AeB"
+	a := NewAddressFromSeed(bytes.Repeat([]byte{1}, 64))
+	require.Equal(sa, a.String())
+	require.NotPanics(func() {
+		_, _ = NewAddressFromString(sa)
+	})
+	a, err := NewAddressFromString(sa)
+	require.Nil(err)
+	require.Equal(sa, a.String())
+}
 
 func TestAddress(t *testing.T) {
 	require := require.New(t)
@@ -46,8 +66,8 @@ func TestAddress(t *testing.T) {
 	require.Equal("0000000000000000000000000000000000000000000000000000000000000000", b.PrivateSpendKey.String())
 	require.Equal("013ada6acca01c3ba1fce30afa922a029bb224d4ab158127428b9e85c7175c32", b.Hash().String())
 
-	z := NewAddressFromSeed(make([]byte, 64))
-	require.Equal("XIN8b7CsqwqaBP7576hvWzo7uDgbU9TB5KGU4jdgYpQTi2qrQGpBtrW49ENQiLGNrYU45e2wwKRD7dEUPtuaJYps2jbR4dH", z.String())
+	z := NewAddressFromSeed(bytes.Repeat([]byte{1}, 64))
+	require.Equal("XINSwYaJPnKiwBWqXm4i3e3My9GKguReMRyB1sRSexeHcQ7V66RWsicAiR2dokcQ5kiJsfY5QbEjTcqRQRCxkEyENBaz4AeB", z.String())
 	err = a.UnmarshalJSON([]byte("\"\""))
 	require.NotNil(err)
 }
