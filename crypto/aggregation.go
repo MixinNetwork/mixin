@@ -110,7 +110,7 @@ func AggregateSign(privKeys []*Key, publics []*Key, signers []int, seed []byte, 
 
 	A, coefficients, err := aggregateWeightedPublicKey(publics, signers)
 	if err != nil {
-		return nil, fmt.Errorf("AggregateSign aggregatePublicKey %v", err)
+		return nil, fmt.Errorf("AggregateSign aggregateWeightedPublicKey %v", err)
 	}
 
 	P := edwards25519.NewIdentityPoint()
@@ -128,11 +128,7 @@ func AggregateSign(privKeys []*Key, publics []*Key, signers []int, seed []byte, 
 		}
 		randoms = append(randoms, z)
 
-		R := r.Public()
-		p, err := edwards25519.NewIdentityPoint().SetBytes(R[:])
-		if err != nil {
-			return nil, err
-		}
+		p := edwards25519.NewIdentityPoint().ScalarBaseMult(z)
 		P = P.Add(P, p)
 	}
 
@@ -161,7 +157,7 @@ func AggregateSign(privKeys []*Key, publics []*Key, signers []int, seed []byte, 
 func AggregateVerify(sig *Signature, publics []*Key, signers []int, message Hash) error {
 	A, _, err := aggregateWeightedPublicKey(publics, signers)
 	if err != nil {
-		return fmt.Errorf("AggregateVerify aggregatePublicKey %v", err)
+		return fmt.Errorf("AggregateVerify aggregateWeightedPublicKey %v", err)
 	}
 	if !A.Verify(message, *sig) {
 		return fmt.Errorf("AggregateVerify signature verify failed")
