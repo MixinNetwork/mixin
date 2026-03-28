@@ -55,6 +55,38 @@ func TestAggregateVerifyRejectsRogueKeyForgery(t *testing.T) {
 	require.ErrorContains(err, "signature verify failed")
 }
 
+func TestAggregateSignSingleSigner(t *testing.T) {
+	require := require.New(t)
+
+	priv := NewKeyFromSeed(testSeed(70))
+	pub := priv.Public()
+	publics := []*Key{&pub}
+	signers := []int{0}
+	msg := Blake3Hash([]byte("single signer aggregate"))
+
+	sig, err := AggregateSign([]*Key{&priv}, publics, signers, testSeed(71), msg)
+	require.Nil(err)
+	err = AggregateVerify(sig, publics, signers, msg)
+	require.Nil(err)
+
+	wrong := Blake3Hash([]byte("wrong message"))
+	err = AggregateVerify(sig, publics, signers, wrong)
+	require.ErrorContains(err, "signature verify failed")
+}
+
+func TestAggregateSignRejectsKeyCountMismatch(t *testing.T) {
+	require := require.New(t)
+
+	k1 := NewKeyFromSeed(testSeed(72))
+	k2 := NewKeyFromSeed(testSeed(73))
+	p1 := k1.Public()
+	p2 := k2.Public()
+	msg := Blake3Hash([]byte("key count mismatch"))
+
+	_, err := AggregateSign([]*Key{&k1}, []*Key{&p1, &p2}, []int{0, 1}, testSeed(74), msg)
+	require.ErrorContains(err, "invalid aggregation private keys count")
+}
+
 func TestLowOrderKeysAreRejected(t *testing.T) {
 	require := require.New(t)
 
