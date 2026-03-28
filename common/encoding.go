@@ -140,7 +140,7 @@ func (enc *Encoder) EncodeTransaction(signed *SignedTransaction) []byte {
 }
 
 func (enc *Encoder) EncodeInput(in *Input) {
-	if in.Index > 1024 {
+	if in.Index > InputIndexLimit {
 		panic(in.Index)
 	}
 	enc.Write(in.Hash[:])

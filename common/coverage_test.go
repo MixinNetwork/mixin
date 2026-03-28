@@ -444,6 +444,31 @@ func TestVersionedTransactionAndUTXOEdgeCoverage(t *testing.T) {
 	require.ErrorContains(err, "data short")
 }
 
+func TestRejectOversizedInputIndex(t *testing.T) {
+	require := require.New(t)
+
+	tx := NewTransactionV5(XINAssetId)
+	tx.AddInput(crypto.Blake3Hash([]byte("oversized-input")), 0)
+	tx.Outputs = []*Output{{Type: OutputTypeNodePledge, Amount: NewInteger(1)}}
+
+	raw := tx.AsVersioned().Marshal()
+	mutated := append([]byte{}, raw...)
+	mutated[70] = 0x04
+	mutated[71] = 0x01
+
+	_, err := UnmarshalVersionedTransaction(mutated)
+	require.ErrorContains(err, "invalid input index 1025")
+
+	ver := NewTransactionV5(XINAssetId).AsVersioned()
+	ver.Inputs = []*Input{{Hash: crypto.Blake3Hash([]byte("oversized-input")), Index: InputIndexLimit + 1}}
+	ver.Outputs = []*Output{{Type: OutputTypeNodePledge, Amount: NewInteger(1)}}
+
+	require.NotPanics(func() {
+		err = ver.Validate(storeImpl{}, 0, false)
+	})
+	require.ErrorContains(err, "invalid input index 1025")
+}
+
 func mutateAddressForTest(addr string, mutate func([]byte)) string {
 	data := base58.Decode(addr[len(MainAddressPrefix):])
 	cloned := append([]byte{}, data...)

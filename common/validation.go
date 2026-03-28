@@ -29,6 +29,11 @@ func (ver *VersionedTransaction) Validate(store DataStore, snapTime uint64, fork
 		return fmt.Errorf("invalid tx inputs or outputs %d %d %d",
 			len(tx.Inputs), len(tx.Outputs), len(tx.References))
 	}
+	for _, in := range tx.Inputs {
+		if in.Index > InputIndexLimit {
+			return fmt.Errorf("invalid input index %d", in.Index)
+		}
+	}
 	if len(tx.Extra) > tx.GetExtraLimit() {
 		return fmt.Errorf("invalid extra size %d", len(tx.Extra))
 	}

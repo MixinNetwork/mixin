@@ -13,6 +13,7 @@ const (
 	TxVersionHashSignature = 0x05
 
 	ExtraSizeGeneralLimit    = 256
+	InputIndexLimit          = 1024
 	ExtraSizeStorageStep     = 1024
 	ExtraSizeStorageCapacity = 1024 * 1024 * 4
 	ExtraStoragePriceStep    = "0.0001"

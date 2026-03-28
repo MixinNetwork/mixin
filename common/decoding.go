@@ -215,6 +215,9 @@ func (dec *Decoder) ReadInput() (*Input, error) {
 	if err != nil {
 		return nil, err
 	}
+	if ii > InputIndexLimit {
+		return nil, fmt.Errorf("invalid input index %d", ii)
+	}
 	in.Index = uint(ii)
 
 	gb, err := dec.ReadBytes()
