@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	"filippo.io/edwards25519"
 	"github.com/stretchr/testify/require"
 )
 
@@ -58,16 +57,16 @@ func TestKeyHelpersAndAggregateVerify(t *testing.T) {
 	signers := []int{0, 2}
 	msg := Blake3Hash([]byte("aggregate verify"))
 
-	aggPriv := aggregatePrivateKeys(k1, k3)
-	sig := aggPriv.Sign(msg)
-	err = AggregateVerify(&sig, publics, signers, msg)
+	sig, err := AggregateSign([]*Key{&k1, &k3}, publics, signers, testSeed(13), msg)
+	require.Nil(err)
+	err = AggregateVerify(sig, publics, signers, msg)
 	require.Nil(err)
 
-	err = AggregateVerify(&sig, publics, []int{3}, msg)
+	err = AggregateVerify(sig, publics, []int{3}, msg)
 	require.ErrorContains(err, "invalid aggregation signer index")
 
 	sig[0] ^= 0xff
-	err = AggregateVerify(&sig, publics, signers, msg)
+	err = AggregateVerify(sig, publics, signers, msg)
 	require.ErrorContains(err, "signature verify failed")
 }
 
@@ -211,21 +210,6 @@ func TestReadRandBranches(t *testing.T) {
 	buf := make([]byte, 3)
 	ReadRand(buf)
 	require.NotEqual([]byte{0, 0, 0}, buf)
-}
-
-func aggregatePrivateKeys(keys ...Key) Key {
-	sum := edwards25519.NewScalar()
-	for _, key := range keys {
-		scalar, err := edwards25519.NewScalar().SetCanonicalBytes(key[:])
-		if err != nil {
-			panic(err)
-		}
-		sum = sum.Add(sum, scalar)
-	}
-
-	var aggregated Key
-	copy(aggregated[:], sum.Bytes())
-	return aggregated
 }
 
 func testSeed(base byte) []byte {

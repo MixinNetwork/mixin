@@ -29,6 +29,32 @@ func TestAggregateVerifyRejectsDuplicateSigners(t *testing.T) {
 	require.ErrorContains(err, "invalid aggregation signer order")
 }
 
+func TestAggregateVerifyRejectsRogueKeyForgery(t *testing.T) {
+	require := require.New(t)
+
+	victimPriv := NewKeyFromSeed(testSeed(60))
+	victimPub := victimPriv.Public()
+
+	attackerPriv := NewKeyFromSeed(testSeed(61))
+	attackerPub := attackerPriv.Public()
+
+	victimPoint, err := edwards25519.NewIdentityPoint().SetBytes(victimPub[:])
+	require.Nil(err)
+	attackerPoint, err := edwards25519.NewIdentityPoint().SetBytes(attackerPub[:])
+	require.Nil(err)
+
+	roguePoint := edwards25519.NewIdentityPoint().Subtract(attackerPoint, victimPoint)
+	var roguePub Key
+	copy(roguePub[:], roguePoint.Bytes())
+	require.True(roguePub.CheckKey())
+
+	msg := Blake3Hash([]byte("rogue aggregate verify"))
+	sig := attackerPriv.Sign(msg)
+
+	err = AggregateVerify(&sig, []*Key{&victimPub, &roguePub}, []int{0, 1}, msg)
+	require.ErrorContains(err, "signature verify failed")
+}
+
 func TestLowOrderKeysAreRejected(t *testing.T) {
 	require := require.New(t)
 
