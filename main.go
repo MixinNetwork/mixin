@@ -672,6 +672,28 @@ func main() {
 			Usage:  "Dump the graph head",
 			Action: dumpGraphHeadCmd,
 		},
+		{
+			Name:   "getinputs",
+			Usage:  "Get valid inputs by addresses and input transactions",
+			Action: getInputsCmd,
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:  "asset",
+					Value: "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
+					Usage: "Target asset, default is Xin",
+				},
+				&cli.StringFlag{
+					Name:  "txids",
+					Value: "",
+					Usage: "input hash of transactions divided by comma",
+				},
+				&cli.StringFlag{
+					Name:  "addrs",
+					Value: "",
+					Usage: "input addresses divided by comma",
+				},
+			},
+		},
 	}
 	err := app.Run(os.Args)
 	if err != nil {
