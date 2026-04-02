@@ -120,7 +120,7 @@ func AggregateSign(privKeys []*Key, publics []*Key, signers []int, seed []byte, 
 			return nil, fmt.Errorf("invalid aggregation signer index %d", signer)
 		}
 		buf := binary.BigEndian.AppendUint16(seed, uint16(signer))
-		s := Blake3Hash(buf)
+		s := Blake3Hash(append(buf, message[:]...))
 		r := NewKeyFromSeed(append(s[:], s[:]...))
 		z, err := edwards25519.NewScalar().SetCanonicalBytes(r[:])
 		if err != nil {
