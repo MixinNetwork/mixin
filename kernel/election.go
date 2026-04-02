@@ -308,6 +308,8 @@ func (chain *Chain) tryToSendAcceptTransaction() error {
 	if err != nil {
 		return err
 	}
+	sig := chain.node.Signer.PrivateSpendKey.Sign(ver.PayloadHash())
+	ver.SignaturesMap = []map[uint16]*crypto.Signature{{0: &sig}}
 	logger.Verbosef("tryToSendAcceptTransaction %s\n", ver.PayloadHash())
 
 	err = ver.Validate(chain.node.persistStore, now, false)

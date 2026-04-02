@@ -46,8 +46,7 @@ func (ver *VersionedTransaction) Validate(store DataStore, snapTime uint64, fork
 			return fmt.Errorf("invalid signatures map %d", len(tx.SignaturesMap))
 		}
 	} else {
-		if len(tx.Inputs) != len(tx.SignaturesMap) && txType != TransactionTypeNodeAccept &&
-			txType != TransactionTypeNodeRemove {
+		if len(tx.Inputs) != len(tx.SignaturesMap) && txType != TransactionTypeNodeRemove {
 			return fmt.Errorf("invalid tx signature number %d %d %d",
 				len(tx.Inputs), len(tx.SignaturesMap), txType)
 		}
@@ -85,7 +84,7 @@ func (ver *VersionedTransaction) Validate(store DataStore, snapTime uint64, fork
 	case TransactionTypeNodeCancel:
 		return tx.validateNodeCancel(store, ver.PayloadHash(), ver.SignaturesMap, snapTime)
 	case TransactionTypeNodeAccept:
-		return tx.validateNodeAccept(store, snapTime)
+		return tx.validateNodeAccept(store, ver.PayloadHash(), ver.SignaturesMap, snapTime)
 	case TransactionTypeNodeRemove:
 		return tx.validateNodeRemove(store)
 	case TransactionTypeCustodianUpdateNodes:

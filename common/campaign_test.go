@@ -349,35 +349,42 @@ func TestNodePledgeAcceptRemoveCampaign(t *testing.T) {
 		Outputs: []*Output{{Type: OutputTypeNodeAccept, Amount: KernelNodePledgeAmount}},
 		Extra:   append([]byte{}, lastPledge.Extra...),
 	}
-	require.Nil(accept.validateNodeAccept(store, 0))
+	acceptVer := accept.AsVersioned()
+	acceptSig := signer.PrivateSpendKey.Sign(acceptVer.PayloadHash())
+	acceptSigs := []map[uint16]*crypto.Signature{{0: &acceptSig}}
+	require.Nil(accept.validateNodeAccept(store, acceptVer.PayloadHash(), acceptSigs, 0))
+	require.ErrorContains(accept.validateNodeAccept(store, acceptVer.PayloadHash(), nil, 0), "invalid signatures")
+
+	badAcceptSig := payee.PrivateSpendKey.Sign(acceptVer.PayloadHash())
+	require.ErrorContains(accept.validateNodeAccept(store, acceptVer.PayloadHash(), []map[uint16]*crypto.Signature{{0: &badAcceptSig}}, 0), "invalid accept signature")
 
 	badAccept := *accept
 	badAccept.Asset = BitcoinAssetId
-	require.ErrorContains(badAccept.validateNodeAccept(store, 0), "invalid node asset")
+	require.ErrorContains(badAccept.validateNodeAccept(store, acceptVer.PayloadHash(), acceptSigs, 0), "invalid node asset")
 
 	badAccept = *accept
 	badAccept.Outputs = append(badAccept.Outputs, &Output{Type: OutputTypeNodeAccept, Amount: KernelNodePledgeAmount})
-	require.ErrorContains(badAccept.validateNodeAccept(store, 0), "invalid outputs count")
+	require.ErrorContains(badAccept.validateNodeAccept(store, acceptVer.PayloadHash(), acceptSigs, 0), "invalid outputs count")
 
 	badAccept = *accept
 	badAccept.Inputs = append(badAccept.Inputs, &Input{Hash: crypto.Blake3Hash([]byte("extra")), Index: 0})
-	require.ErrorContains(badAccept.validateNodeAccept(store, 0), "invalid inputs count")
+	require.ErrorContains(badAccept.validateNodeAccept(store, acceptVer.PayloadHash(), acceptSigs, 0), "invalid inputs count")
 
 	store.nodes = []*Node{
 		{Signer: deterministicAddress(13), State: NodeStatePledging},
 		{Signer: deterministicAddress(14), State: NodeStatePledging},
 	}
-	require.ErrorContains(accept.validateNodeAccept(store, 0), "invalid pledging nodes")
+	require.ErrorContains(accept.validateNodeAccept(store, acceptVer.PayloadHash(), acceptSigs, 0), "invalid pledging nodes")
 
 	store.nodes = nil
-	require.ErrorContains(accept.validateNodeAccept(store, 0), "no pledging node")
+	require.ErrorContains(accept.validateNodeAccept(store, acceptVer.PayloadHash(), acceptSigs, 0), "no pledging node")
 
 	store.nodes = []*Node{{
 		Signer:      *lastPledge.NodeTransactionExtraAsSigner(),
 		State:       NodeStatePledging,
 		Transaction: crypto.Blake3Hash([]byte("other")),
 	}}
-	require.ErrorContains(accept.validateNodeAccept(store, 0), "invalid pledge utxo source")
+	require.ErrorContains(accept.validateNodeAccept(store, acceptVer.PayloadHash(), acceptSigs, 0), "invalid pledge utxo source")
 
 	store.readTxErr = errors.New("accept read failure")
 	store.nodes = []*Node{{
@@ -385,7 +392,7 @@ func TestNodePledgeAcceptRemoveCampaign(t *testing.T) {
 		State:       NodeStatePledging,
 		Transaction: lastPledgeVer.PayloadHash(),
 	}}
-	require.ErrorIs(accept.validateNodeAccept(store, 0), store.readTxErr)
+	require.ErrorIs(accept.validateNodeAccept(store, acceptVer.PayloadHash(), acceptSigs, 0), store.readTxErr)
 	store.readTxErr = nil
 
 	store.txs[lastPledgeVer.PayloadHash().String()] = (&Transaction{
@@ -393,7 +400,7 @@ func TestNodePledgeAcceptRemoveCampaign(t *testing.T) {
 		Asset:   XINAssetId,
 		Outputs: []*Output{},
 	}).AsVersioned()
-	require.ErrorContains(accept.validateNodeAccept(store, 0), "invalid pledge utxo count")
+	require.ErrorContains(accept.validateNodeAccept(store, acceptVer.PayloadHash(), acceptSigs, 0), "invalid pledge utxo count")
 	store.txs[lastPledgeVer.PayloadHash().String()] = lastPledgeVer
 
 	store.txs[lastPledgeVer.PayloadHash().String()] = (&Transaction{
@@ -402,7 +409,7 @@ func TestNodePledgeAcceptRemoveCampaign(t *testing.T) {
 		Outputs: []*Output{{Type: OutputTypeScript, Amount: KernelNodePledgeAmount}},
 		Extra:   lastPledge.Extra,
 	}).AsVersioned()
-	require.ErrorContains(accept.validateNodeAccept(store, 0), "invalid pledge utxo type")
+	require.ErrorContains(accept.validateNodeAccept(store, acceptVer.PayloadHash(), acceptSigs, 0), "invalid pledge utxo type")
 	store.txs[lastPledgeVer.PayloadHash().String()] = lastPledgeVer
 
 	store.nodes = []*Node{{
@@ -410,7 +417,7 @@ func TestNodePledgeAcceptRemoveCampaign(t *testing.T) {
 		State:       NodeStatePledging,
 		Transaction: lastPledgeVer.PayloadHash(),
 	}}
-	require.ErrorContains(accept.validateNodeAccept(store, 0), "invalid pledge utxo source")
+	require.ErrorContains(accept.validateNodeAccept(store, acceptVer.PayloadHash(), acceptSigs, 0), "invalid pledge utxo source")
 
 	store.nodes = []*Node{{
 		Signer:      *lastPledge.NodeTransactionExtraAsSigner(),
@@ -420,17 +427,21 @@ func TestNodePledgeAcceptRemoveCampaign(t *testing.T) {
 	badAccept = *accept
 	badAccept.Extra = append([]byte{}, accept.Extra...)
 	badAccept.Extra[0] ^= 0xff
-	require.ErrorContains(badAccept.validateNodeAccept(store, 0), "invalid pledge and accept key")
+	require.ErrorContains(badAccept.validateNodeAccept(store, badAccept.AsVersioned().PayloadHash(), acceptSigs, 0), "invalid pledge and accept key")
 
 	store = &campaignStore{
 		txs: map[string]*VersionedTransaction{
-			accept.AsVersioned().PayloadHash().String(): accept.AsVersioned(),
+			acceptVer.PayloadHash().String(): func() *VersionedTransaction {
+				ver := accept.AsVersioned()
+				ver.SignaturesMap = acceptSigs
+				return ver
+			}(),
 		},
 	}
 	remove := &Transaction{
 		Version: TxVersionHashSignature,
 		Asset:   XINAssetId,
-		Inputs:  []*Input{{Hash: accept.AsVersioned().PayloadHash(), Index: 0}},
+		Inputs:  []*Input{{Hash: acceptVer.PayloadHash(), Index: 0}},
 		Outputs: []*Output{{Type: OutputTypeNodeRemove, Amount: KernelNodePledgeAmount}},
 		Extra:   append([]byte{}, accept.Extra...),
 	}
@@ -664,8 +675,8 @@ func TestValidationHelpersCampaign(t *testing.T) {
 	require.ErrorContains(ver.Validate(store, 0, false), "invalid tx signature number")
 
 	refTx := &SignedTransaction{}
-	for i := 0; i < ReferencesCountLimit+1; i++ {
-		refTx.References = append(refTx.References, crypto.Blake3Hash([]byte(fmt.Sprintf("ref-%d", i))))
+	for i := range ReferencesCountLimit + 1 {
+		refTx.References = append(refTx.References, crypto.Blake3Hash(fmt.Appendf(nil, "ref-%d", i)))
 	}
 	require.ErrorContains(validateReferences(store, refTx), "too many references")
 
@@ -1121,7 +1132,7 @@ func TestSigningAndValidateDispatchCampaign(t *testing.T) {
 	nodePayee := deterministicAddress(154)
 	nodeStore := &campaignStore{
 		utxos: map[string]*UTXOWithLock{
-			utxoRef(utxoHash, 0): &UTXOWithLock{UTXO: UTXO{
+			utxoRef(utxoHash, 0): {UTXO: UTXO{
 				Input:  utxo.Input,
 				Output: Output{Type: OutputTypeScript, Amount: KernelNodePledgeAmount, Keys: utxo.Keys, Mask: utxo.Mask, Script: NewThresholdScript(1)},
 				Asset:  XINAssetId,
@@ -1161,6 +1172,9 @@ func TestSigningAndValidateDispatchCampaign(t *testing.T) {
 	nodeAccept.Outputs = []*Output{{Type: OutputTypeNodeAccept, Amount: KernelNodePledgeAmount}}
 	nodeAccept.Extra = append([]byte{}, nodePledge.Extra...)
 	nodeAcceptVer := nodeAccept.AsVersioned()
+	require.ErrorContains(nodeAcceptVer.Validate(acceptStore, 0, false), "invalid tx signature number")
+	nodeAcceptSig := nodeSigner.PrivateSpendKey.Sign(nodeAcceptVer.PayloadHash())
+	nodeAcceptVer.SignaturesMap = []map[uint16]*crypto.Signature{{0: &nodeAcceptSig}}
 	require.Nil(nodeAcceptVer.Validate(acceptStore, 0, false))
 
 	nodeRemoveInput := &UTXOWithLock{UTXO: UTXO{
