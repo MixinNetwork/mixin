@@ -179,7 +179,7 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	require.Equal("ACCEPTED", all[NODES-1].State)
 
 	input, _ := testBuildPledgeInput(t, nodes, accounts[0], utxos)
-	time.Sleep(20 * time.Second)
+	time.Sleep(3 * time.Second)
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes)
 	require.Equal(transactionsCount, len(tl))
@@ -216,9 +216,12 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	gts = gt4.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt5.Timestamp.After(gts), "%s should after %s", gt5.Timestamp, gts)
 
-	for i := 0; i < 8; i++ {
+	for i := 0; i < 10; i++ {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
+		if len(testListMintDistributions(nodes[0].Host)) == 1 {
+			break
+		}
 	}
 	testCheckMintDistributions(require, nodes[0].Host)
 	t.Logf("MINT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
@@ -271,7 +274,7 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	require.Nil(hr)
 
 	kernel.TestMockDiff(1 * time.Hour)
-	time.Sleep(20 * time.Second)
+	time.Sleep(7 * time.Second)
 	all = testListNodes(nodes[0].Host)
 	require.Len(all, NODES+1)
 	require.Equal(all[NODES].Signer.String(), pn.Signer.String())
