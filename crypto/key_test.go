@@ -9,7 +9,7 @@ import (
 func TestKey(t *testing.T) {
 	require := require.New(t)
 	seed := make([]byte, 64)
-	for i := 0; i < len(seed); i++ {
+	for i := range seed {
 		seed[i] = byte(i + 1)
 	}
 	key := NewKeyFromSeed(seed)

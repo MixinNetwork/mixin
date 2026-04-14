@@ -11,7 +11,7 @@ func TestHash(t *testing.T) {
 	require := require.New(t)
 
 	seed := make([]byte, 64)
-	for i := 0; i < len(seed); i++ {
+	for i := range seed {
 		seed[i] = byte(i + 1)
 	}
 
@@ -46,7 +46,7 @@ func BenchmarkHashLegacy(b *testing.B) {
 func benchmarkHash(b *testing.B, legacy bool) {
 	msg := "We build open source software that always puts security, privacy and decentralization first."
 	for _, n := range []int{1, 2, 4, 8} {
-		for i := 0; i < n; i++ {
+		for range n {
 			msg = msg + msg
 		}
 		b.Run(fmt.Sprint(n), func(b *testing.B) {

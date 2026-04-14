@@ -95,6 +95,16 @@ func TestSnapshot(t *testing.T) {
 	require.Equal(uint64(345), s.TopologicalOrder)
 }
 
+func TestUnmarshalVersionedSnapshotRejectsInvalidVersion(t *testing.T) {
+	require := require.New(t)
+
+	require.NotPanics(func() {
+		s, err := UnmarshalVersionedSnapshot([]byte{0, 0, 0, 0})
+		require.Nil(s)
+		require.ErrorContains(err, "invalid snapshot version")
+	})
+}
+
 func BenchmarkSnapshotMarshal(b *testing.B) {
 	s := &SnapshotWithTopologicalOrder{Snapshot: &Snapshot{Version: SnapshotVersionCommonEncoding}}
 	s.Transactions = []crypto.Hash{crypto.Blake3Hash([]byte("tx-test-id"))}

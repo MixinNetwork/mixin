@@ -114,7 +114,7 @@ func Encode(b []byte) string {
 			}
 		} else {
 			m := mod.Int64()
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				answer = append(answer, alphabet[m%58])
 				m /= 58
 			}

@@ -3,6 +3,7 @@ package common
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"sort"
 
 	"github.com/MixinNetwork/mixin/crypto"
@@ -95,12 +96,18 @@ func (enc *Encoder) EncodeTransaction(signed *SignedTransaction) []byte {
 	enc.Write(signed.Asset[:])
 
 	il := len(signed.Inputs)
+	if il > SliceCountLimit {
+		panic(il)
+	}
 	enc.WriteInt(il)
 	for _, in := range signed.Inputs {
 		enc.EncodeInput(in)
 	}
 
 	ol := len(signed.Outputs)
+	if ol > SliceCountLimit {
+		panic(ol)
+	}
 	enc.WriteInt(ol)
 	for _, out := range signed.Outputs {
 		enc.EncodeOutput(out)
@@ -136,7 +143,7 @@ func (enc *Encoder) EncodeTransaction(signed *SignedTransaction) []byte {
 }
 
 func (enc *Encoder) EncodeInput(in *Input) {
-	if in.Index > 1024 {
+	if in.Index > InputIndexLimit {
 		panic(in.Index)
 	}
 	enc.Write(in.Hash[:])
@@ -318,13 +325,9 @@ func (enc *Encoder) EncodeAggregatedSignature(js *AggregatedSignature) {
 		enc.WriteInt(0)
 		return
 	}
-	for i, m := range js.Signers {
-		if i > 0 && m <= js.Signers[i-1] {
-			panic(js.Signers)
-		}
-		if m > MaximumEncodingInt {
-			panic(js.Signers)
-		}
+	err := validateAggregatedSigners(js.Signers)
+	if err != nil {
+		panic(err)
 	}
 
 	max := js.Signers[len(js.Signers)-1]
@@ -349,4 +352,15 @@ func (enc *Encoder) EncodeAggregatedSignature(js *AggregatedSignature) {
 type AggregatedSignature struct {
 	Signers   []int
 	Signature crypto.Signature
+}
+
+func validateAggregatedSigners(signers []int) error {
+	prev := -1
+	for _, signer := range signers {
+		if signer <= prev || signer > MaximumEncodingInt {
+			return fmt.Errorf("invalid aggregated signer order %d <= %d", signer, prev)
+		}
+		prev = signer
+	}
+	return nil
 }

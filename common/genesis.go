@@ -121,7 +121,7 @@ func buildCustodianSnapshot(networkId crypto.Hash, epoch uint64, gns *Genesis) (
 	tx := NewTransactionV5(XINAssetId)
 	si := crypto.Blake3Hash([]byte(gns.Custodian.String() + "CUSTODIANUPDATENODES"))
 	seed := append(si[:], si[:]...)
-	addr := NewAddressFromSeed(make([]byte, 64))
+	addr := NewAddressFromSeedInternalVanish(make([]byte, 64))
 	script := NewThresholdScript(64)
 	accounts := []*Address{&addr}
 	amount := NewInteger(100).Mul(len(gns.Nodes))

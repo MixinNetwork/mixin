@@ -29,6 +29,11 @@ func (ver *VersionedTransaction) Validate(store DataStore, snapTime uint64, fork
 		return fmt.Errorf("invalid tx inputs or outputs %d %d %d",
 			len(tx.Inputs), len(tx.Outputs), len(tx.References))
 	}
+	for _, in := range tx.Inputs {
+		if in.Index > InputIndexLimit {
+			return fmt.Errorf("invalid input index %d", in.Index)
+		}
+	}
 	if len(tx.Extra) > tx.GetExtraLimit() {
 		return fmt.Errorf("invalid extra size %d", len(tx.Extra))
 	}
@@ -41,8 +46,7 @@ func (ver *VersionedTransaction) Validate(store DataStore, snapTime uint64, fork
 			return fmt.Errorf("invalid signatures map %d", len(tx.SignaturesMap))
 		}
 	} else {
-		if len(tx.Inputs) != len(tx.SignaturesMap) && txType != TransactionTypeNodeAccept &&
-			txType != TransactionTypeNodeRemove {
+		if len(tx.Inputs) != len(tx.SignaturesMap) && txType != TransactionTypeNodeRemove {
 			return fmt.Errorf("invalid tx signature number %d %d %d",
 				len(tx.Inputs), len(tx.SignaturesMap), txType)
 		}
@@ -80,7 +84,7 @@ func (ver *VersionedTransaction) Validate(store DataStore, snapTime uint64, fork
 	case TransactionTypeNodeCancel:
 		return tx.validateNodeCancel(store, ver.PayloadHash(), ver.SignaturesMap, snapTime)
 	case TransactionTypeNodeAccept:
-		return tx.validateNodeAccept(store, snapTime)
+		return tx.validateNodeAccept(store, ver.PayloadHash(), ver.SignaturesMap, snapTime)
 	case TransactionTypeNodeRemove:
 		return tx.validateNodeRemove(store)
 	case TransactionTypeCustodianUpdateNodes:
@@ -257,11 +261,6 @@ func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, inpu
 			return fmt.Errorf("invalid output amount %s", o.Amount.String())
 		}
 
-		if o.Withdrawal != nil {
-			outputAmount = outputAmount.Add(o.Amount)
-			continue
-		}
-
 		for _, k := range o.Keys {
 			if ghostKeysFilter[*k] {
 				return fmt.Errorf("invalid output key %s", k.String())
@@ -297,6 +296,9 @@ func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, inpu
 			if !o.Mask.HasValue() {
 				return fmt.Errorf("invalid script output empty mask %s", o.Mask)
 			}
+			if !o.Mask.CheckKey() {
+				return fmt.Errorf("invalid output mask format %s", o.Mask)
+			}
 			if o.Withdrawal != nil {
 				return fmt.Errorf("invalid script output with withdrawal %s", o.Withdrawal.Address)
 			}
@@ -318,6 +320,10 @@ func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, as
 	switch utxo.Type {
 	case OutputTypeScript, OutputTypeNodeRemove:
 		if as != nil {
+			err := validateAggregatedSigners(as.Signers)
+			if err != nil {
+				return err
+			}
 			signers, limit := 0, offset+len(utxo.Keys)
 			for _, m := range as.Signers {
 				if m >= limit {

@@ -33,7 +33,7 @@ func CosiAggregateCommitment(randoms map[int]*Key) (*CosiSignature, error) {
 	cosi := &CosiSignature{commitments: make(map[int]*Key)}
 	P := edwards25519.NewIdentityPoint()
 	for i, R := range randoms {
-		p, err := edwards25519.NewIdentityPoint().SetBytes(R[:])
+		p, err := decodePoint(R[:])
 		if err != nil {
 			return nil, err
 		}
@@ -167,7 +167,7 @@ func (c *CosiSignature) mark(i int) error {
 
 func (c *CosiSignature) Keys() []int {
 	keys := make([]int, 0)
-	for i := uint64(0); i < 64; i++ {
+	for i := range uint64(64) {
 		mask := uint64(1) << i
 		if c.Mask&mask == mask {
 			keys = append(keys, int(i))

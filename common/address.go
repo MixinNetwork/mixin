@@ -19,7 +19,7 @@ type Address struct {
 	PublicViewKey   crypto.Key
 }
 
-func NewAddressFromSeed(seed []byte) Address {
+func NewAddressFromSeedInternalVanish(seed []byte) Address {
 	hash1 := crypto.Sha256Hash(seed)
 	hash2 := crypto.Sha256Hash(hash1[:])
 	src := append(hash1[:], hash2[:]...)
@@ -32,6 +32,18 @@ func NewAddressFromSeed(seed []byte) Address {
 		PublicSpendKey:  spend.Public(),
 		PublicViewKey:   view.Public(),
 	}
+}
+
+func NewAddressFromSeed(seed []byte) Address {
+	a := NewAddressFromSeedInternalVanish(seed)
+	aa, err := NewAddressFromString(a.String())
+	if err != nil {
+		panic(err)
+	}
+	if aa.String() != a.String() {
+		panic(aa.String())
+	}
+	return a
 }
 
 func NewAddressFromString(s string) (Address, error) {

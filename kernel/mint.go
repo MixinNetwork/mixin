@@ -218,7 +218,7 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 
 	// TODO use real light mint account when light node online
 	light := amount.Sub(total)
-	addr := common.NewAddressFromSeed(make([]byte, 64))
+	addr := common.NewAddressFromSeedInternalVanish(make([]byte, 64))
 	script = common.NewThresholdScript(common.Operator64)
 	in = fmt.Sprintf("MINTLIGHTACCOUNT%d", batch)
 	si = crypto.Blake3Hash([]byte(addr.String() + in))

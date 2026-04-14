@@ -1,11 +1,8 @@
 package common
 
 import (
-	"crypto/sha512"
-	"encoding/binary"
 	"fmt"
 
-	"filippo.io/edwards25519"
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
@@ -13,6 +10,7 @@ const (
 	TxVersionHashSignature = 0x05
 
 	ExtraSizeGeneralLimit    = 256
+	InputIndexLimit          = 1024
 	ExtraSizeStorageStep     = 1024
 	ExtraSizeStorageCapacity = 1024 * 1024 * 4
 	ExtraStoragePriceStep    = "0.0001"
@@ -241,7 +239,6 @@ func (signed *SignedTransaction) SignRaw(key crypto.Key) error {
 
 func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [][]*Address, seed []byte) error {
 	var signers []int
-	var randoms []*crypto.Key
 	var pubKeys, privKeys []*crypto.Key
 	for index, in := range signed.Inputs {
 		utxo, err := reader.ReadUTXOKeys(in.Hash, in.Index)
@@ -273,58 +270,14 @@ func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [
 		pubKeys = append(pubKeys, utxo.Keys...)
 	}
 
-	P := edwards25519.NewIdentityPoint()
-	A := edwards25519.NewIdentityPoint()
-	for _, m := range signers {
-		buf := binary.BigEndian.AppendUint16(seed, uint16(m))
-		s := crypto.Blake3Hash(buf)
-		r := crypto.NewKeyFromSeed(append(s[:], s[:]...))
-		randoms = append(randoms, &r)
-		R := r.Public()
-
-		p, err := edwards25519.NewIdentityPoint().SetBytes(R[:])
-		if err != nil {
-			return err
-		}
-		P = P.Add(P, p)
-
-		pub := pubKeys[m]
-		a, err := edwards25519.NewIdentityPoint().SetBytes(pub[:])
-		if err != nil {
-			return err
-		}
-		A = A.Add(A, a)
-	}
-
-	var hramDigest [64]byte
 	msg := signed.AsVersioned().PayloadHash()
-	h := sha512.New()
-	h.Write(P.Bytes())
-	h.Write(A.Bytes())
-	h.Write(msg[:])
-	h.Sum(hramDigest[:0])
-	x, err := edwards25519.NewScalar().SetUniformBytes(hramDigest[:])
+	sig, err := crypto.AggregateSign(privKeys, pubKeys, signers, seed, msg)
 	if err != nil {
 		return err
 	}
 
-	S := edwards25519.NewScalar()
-	for i, k := range privKeys {
-		y, err := edwards25519.NewScalar().SetCanonicalBytes(k[:])
-		if err != nil {
-			panic(k.String())
-		}
-		z, err := edwards25519.NewScalar().SetCanonicalBytes(randoms[i][:])
-		if err != nil {
-			panic(randoms[i].String())
-		}
-		s := edwards25519.NewScalar().MultiplyAdd(x, y, z)
-		S = S.Add(S, s)
-	}
-
 	as := &AggregatedSignature{Signers: signers}
-	copy(as.Signature[:32], P.Bytes())
-	copy(as.Signature[32:], S.Bytes())
+	copy(as.Signature[:], sig[:])
 	signed.AggregatedSignature = as
 	return nil
 }
@@ -342,6 +295,9 @@ func (tx *Transaction) AddInput(hash crypto.Hash, index uint) {
 		Index: index,
 	}
 	tx.Inputs = append(tx.Inputs, in)
+	if len(tx.Inputs) > SliceCountLimit {
+		panic(len(tx.Inputs))
+	}
 }
 
 func (tx *Transaction) AddOutputWithType(ot uint8, accounts []*Address, s Script, amount Integer, seed []byte) {
@@ -352,16 +308,25 @@ func (tx *Transaction) AddOutputWithType(ot uint8, accounts []*Address, s Script
 		Keys:   make([]*crypto.Key, 0),
 	}
 
-	if len(accounts) > 0 {
+	if l := len(accounts); l > 0 {
+		internalVanish := l == 1 && s.String() == "fffe40"
 		r := crypto.NewKeyFromSeed(seed)
 		out.Mask = r.Public()
 		for _, a := range accounts {
-			k := crypto.DeriveGhostPublicKey(&r, &a.PublicViewKey, &a.PublicSpendKey, uint64(len(tx.Outputs)))
+			var k *crypto.Key
+			if internalVanish {
+				k = crypto.DeriveGhostPublicKeyForInternalVanish(&r, &a.PublicViewKey, &a.PublicSpendKey, uint64(len(tx.Outputs)))
+			} else {
+				k = crypto.DeriveGhostPublicKey(&r, &a.PublicViewKey, &a.PublicSpendKey, uint64(len(tx.Outputs)))
+			}
 			out.Keys = append(out.Keys, k)
 		}
 	}
 
 	tx.Outputs = append(tx.Outputs, out)
+	if len(tx.Outputs) > SliceCountLimit {
+		panic(len(tx.Outputs))
+	}
 }
 
 func (tx *Transaction) AddScriptOutput(accounts []*Address, s Script, amount Integer, seed []byte) {

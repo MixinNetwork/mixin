@@ -1,7 +1,6 @@
 package common
 
 import (
-	"encoding/hex"
 	"fmt"
 	"slices"
 
@@ -46,7 +45,7 @@ func (s *Snapshot) AddTransaction(tx crypto.Hash) {
 
 func UnmarshalVersionedSnapshot(b []byte) (*SnapshotWithTopologicalOrder, error) {
 	if checkSnapVersion(b) < SnapshotVersionCommonEncoding {
-		panic(hex.EncodeToString(b))
+		return nil, fmt.Errorf("invalid snapshot version %x", b)
 	}
 	return NewDecoder(b).DecodeSnapshotWithTopo()
 }

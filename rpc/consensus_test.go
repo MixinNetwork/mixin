@@ -30,6 +30,8 @@ var (
 	INPUTS = 100
 )
 
+const testStateSyncTimeout = time.Minute
+
 func TestConsensus(t *testing.T) {
 	testConsensus(t, true)
 	testConsensus(t, false)
@@ -54,7 +56,7 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 
 	root := t.TempDir()
 
-	accounts, payees, gdata, plist := setupTestNet(root, externalRelayers)
+	accounts, payees, gdata, plist, relayerInstances, relayerServers := setupTestNet(root, extrenalRelayers)
 	require.Len(accounts, NODES)
 
 	epoch := time.Unix(1551312000, 0)
@@ -88,7 +90,10 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	}
 	defer func() {
 		var wg sync.WaitGroup
-		for _, n := range instances {
+		for _, server := range relayerServers {
+			server.Close()
+		}
+		for _, n := range append(instances, relayerInstances...) {
 			wg.Add(1)
 			go func(node *kernel.Node) {
 				node.Teardown()
@@ -102,10 +107,10 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	testRemovingNodePrediction(t, instances, true)
 
 	transactionsCount := NODES + 1
-	tl, sl := testVerifySnapshots(require, nodes)
+	tl, sl := testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
 	require.Equal(transactionsCount, len(sl))
-	gt1 := testVerifyInfo(require, nodes)
+	gt1 := testVerifyInfoAfter(require, nodes, epoch)
 	gts := epoch.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt1.Timestamp.Before(gts), "%s should before %s", gt1.Timestamp, gts)
 
@@ -124,11 +129,11 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	testSendTransactionsToNodesWithRetry(t, nodes, deposits[:INPUTS/2])
 	testSendTransactionsToNodesWithRetry(t, nodes, deposits[INPUTS/2:])
 	transactionsCount = transactionsCount + INPUTS
-	tl, _ = testVerifySnapshots(require, nodes)
+	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
 	testVerifyDeposits(require, nodes, deposits)
 
-	gt2 := testVerifyInfo(require, nodes)
+	gt2 := testVerifyInfoAfter(require, nodes, gt1.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
 	gts = gt1.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt2.Timestamp.After(gts), "%s should after %s", gt2.Timestamp, gts)
 	hr := testDumpGraphHead(nodes[0].Host, "")
@@ -154,10 +159,10 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	testSendTransactionsToNodesWithRetry(t, nodes, utxos[:INPUTS/2])
 	testSendTransactionsToNodesWithRetry(t, nodes, utxos[INPUTS/2:])
 	transactionsCount = transactionsCount + INPUTS
-	tl, _ = testVerifySnapshots(require, nodes)
+	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
 
-	gt3 := testVerifyInfo(require, nodes)
+	gt3 := testVerifyInfoAfter(require, nodes, gt2.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
 	gts = gt2.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt3.Timestamp.After(gts), "%s should after %s", gt3.Timestamp, gts)
 	hr = testDumpGraphHead(nodes[0].Host, "")
@@ -178,12 +183,12 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	require.Len(all, NODES)
 	require.Equal("ACCEPTED", all[NODES-1].State)
 
-	input, _ := testBuildPledgeInput(t, nodes, accounts[0], utxos)
+	input, pledgeTransactions, _ := testBuildPledgeInput(t, nodes, accounts[0], utxos)
 	time.Sleep(3 * time.Second)
-	transactionsCount = transactionsCount + 1
-	tl, _ = testVerifySnapshots(require, nodes)
+	transactionsCount = transactionsCount + pledgeTransactions
+	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
-	gt4 := testVerifyInfo(require, nodes)
+	gt4 := testVerifyInfoAfter(require, nodes, gt3.Timestamp.Add(time.Second))
 	gts = gt3.Timestamp.Add(time.Second)
 	require.Truef(gt4.Timestamp.After(gts), "%s should after %s", gt4.Timestamp, gts)
 	t.Logf("PLEDGE INPUT READY %s\n", input)
@@ -197,7 +202,7 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 
 	legacy := time.Date(2023, time.Month(10), 31, 0, 0, 0, 0, time.UTC).Sub(epoch)
 	kernel.TestMockDiff(legacy)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
@@ -210,13 +215,13 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	require.Nil(err)
 
 	kernel.TestMockDiff(time.Hour * (24 + config.KernelMintTimeBegin))
-	tl, _ = testVerifySnapshots(require, nodes)
+	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
-	gt5 := testVerifyInfo(require, nodes)
+	gt5 := testVerifyInfoAfter(require, nodes, gt4.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
 	gts = gt4.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt5.Timestamp.After(gts), "%s should after %s", gt5.Timestamp, gts)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
 		if len(testListMintDistributions(nodes[0].Host)) == 1 {
@@ -233,15 +238,15 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	defer pi.Teardown()
 	defer sv.Close()
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
 
 	transactionsCount = transactionsCount + 1
-	tl, _ = testVerifySnapshots(require, nodes)
+	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
-	gt6 := testVerifyInfo(require, nodes)
+	gt6 := testVerifyInfoAfter(require, nodes, gt5.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
 	gts = gt5.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt6.Timestamp.After(gts), "%s should after %s", gt6.Timestamp, gts)
 	require.Equal("305850.45205696", gt6.PoolSize.String())
@@ -274,14 +279,13 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	require.Nil(hr)
 
 	kernel.TestMockDiff(1 * time.Hour)
-	time.Sleep(7 * time.Second)
-	all = testListNodes(nodes[0].Host)
+	all = testListNodesUntilState(t, nodes[0].Host, pn.Signer, common.NodeStateAccepted, 5*time.Minute)
 	require.Len(all, NODES+1)
 	require.Equal(all[NODES].Signer.String(), pn.Signer.String())
 	require.Equal(all[NODES].Payee.String(), pn.Payee.String())
 	require.Equal("ACCEPTED", all[NODES].State)
-	require.Equal(len(testListSnapshots(nodes[NODES-1].Host)), len(testListSnapshots(pn.Host)))
-	require.Equal(len(testListSnapshots(nodes[0].Host)), len(testListSnapshots(pn.Host)))
+	acceptNodes := append(slices.Clone(nodes), &pn)
+	testVerifySnapshots(require, acceptNodes, transactionsCount+1)
 	hr = testDumpGraphHead(nodes[0].Host, "")
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
@@ -298,9 +302,9 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	testRemovingNodePrediction(t, instances, true)
 
 	transactionsCount = transactionsCount + 1
-	tl, _ = testVerifySnapshots(require, nodes)
+	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
-	gt7 := testVerifyInfo(require, nodes)
+	gt7 := testVerifyInfoAfter(require, nodes, gt6.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
 	gts = gt6.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt7.Timestamp.After(gts), "%s should after %s", gt7.Timestamp, gts)
 	require.Equal("305850.45205696", gt7.PoolSize.String())
@@ -308,7 +312,7 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 
 	kernel.TestMockDiff(24 * time.Hour)
 	time.Sleep(3 * time.Second)
-	tl, _ = testVerifySnapshots(require, nodes)
+	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
 	for i := range nodes {
 		all = testListNodes(nodes[i].Host)
@@ -323,13 +327,13 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	require.Equal("XINW6HTiMVmKHjfnk3DYbcWcTaTkKi4dr3wZgicyhKvKnyYEqD8PD5ZRfL13ZsouiMURM6atDh3Bdr3dqSVkYWEm7Kzp9Axt", signer.String())
 	require.Equal("XINCtoRSJYrNNQUv3xTsptxDKRqwHMwtNkvsQwFS58oFXYvgu9QhoetNwbmxUQ4JJGcjR1gnttMau1nCmGpkSimHR1dxrP8u", payee.String())
 	nodes = testRemoveNode(nodes, signer)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
 		transactionsCount = transactionsCount + len(dummyInputs)
 	}
 	transactionsCount = transactionsCount + 1
 
-	tl, _ = testVerifySnapshots(require, nodes)
+	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
 	for i := range nodes {
 		all = testListNodes(nodes[i].Host)
@@ -339,21 +343,30 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 		require.Equal("REMOVED", all[NODES].State)
 	}
 
-	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork.String())
+	hr = testDumpGraphHeadRoundAfter(nodes[0].Host, instances[0].IdForNetwork, 1)
+	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(1))
-	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, instances[0].IdForNetwork.String())
+	hr = testDumpGraphHeadRoundAfter(nodes[len(nodes)-1].Host, instances[0].IdForNetwork, 1)
+	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(1))
-	hash := signer.Hash().ForNetwork(instances[0].NetworkId())
-	hr = testDumpGraphHead(nodes[0].Host, hash.String())
+	hr = testDumpGraphHeadRoundAfter(nodes[0].Host, pi.IdForNetwork, 0)
+	require.NotNil(hr)
+	require.Greater(hr.Round, uint64(0))
+	hr = testDumpGraphHeadRoundAfter(nodes[len(nodes)-1].Host, pi.IdForNetwork, 0)
+	require.NotNil(hr)
+	require.Greater(hr.Round, uint64(0))
+	hr = testDumpGraphHeadRoundAfter(nodes[0].Host, signer.Hash().ForNetwork(instances[0].NetworkId()), 1)
+	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(1))
-	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, hash.String())
+	hr = testDumpGraphHeadRoundAfter(nodes[len(nodes)-1].Host, signer.Hash().ForNetwork(instances[0].NetworkId()), 1)
+	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(1))
 
 	removalInputs := []*common.Input{{Hash: all[NODES].Transaction, Index: 0}}
 	removalInputs = testSendDummyTransactionsWithRetry(t, nodes[:1], payee, removalInputs, "13439")
 	require.Len(removalInputs, 1)
 	transactionsCount = transactionsCount + 1
-	tl, _ = testVerifySnapshots(require, nodes)
+	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
 	for i := range nodes {
 		all = testListNodes(nodes[i].Host)
@@ -405,7 +418,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 	custodian := common.NewAddressFromSeed(seed)
 
 	custodianNodes := make([]*common.CustodianNode, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		signer := signers[i]
 		payee := payees[i]
 		seed := make([]byte, 64)
@@ -416,8 +429,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 	}
 
 	amount := common.NewInteger(100).Mul(count)
-	tx.AddScriptOutput([]*common.Address{&custodian}, common.NewThresholdScript(common.Operator64), amount, make([]byte, 64))
-	tx.Outputs[0].Type = common.OutputTypeCustodianUpdateNodes
+	tx.AddOutputWithType(common.OutputTypeCustodianUpdateNodes, []*common.Address{&custodian}, common.NewThresholdScript(common.Operator64), amount, bytes.Repeat([]byte{1}, 64))
 
 	sortedExtra := append(custodian.PublicSpendKey[:], custodian.PublicViewKey[:]...)
 	sort.Slice(custodianNodes, func(i, j int) bool {
@@ -439,6 +451,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 	require.NotNil(deposit)
 	deposits := []*common.VersionedTransaction{{SignedTransaction: *deposit}}
 	testSendTransactionsToNodesWithRetry(t, nodes, deposits)
+	testWaitTransactionsVisibleOnNodes(t, nodes, []crypto.Hash{deposit.AsVersioned().PayloadHash()})
 
 	inputs := []map[string]any{{
 		"hash":  deposit.AsVersioned().PayloadHash(),
@@ -538,6 +551,7 @@ func testSendDummyTransactionsWithRetry(t *testing.T, nodes []*Node, domain comm
 	outputs := testSendDummyTransactions(nodes, domain, inputs, amount)
 	time.Sleep(3 * time.Second)
 
+	var missingIndexes []int
 	var missingInputs []*common.Input
 	var missingNodes []*Node
 	for i, in := range outputs {
@@ -550,11 +564,17 @@ func testSendDummyTransactionsWithRetry(t *testing.T, nodes []*Node, domain comm
 		if ver == nil {
 			t.Logf("DUMMY UTXO %s MISSING IN %s AT %s\n", inputs[i].Hash, nodes[i].Host, time.Now())
 		}
+		missingIndexes = append(missingIndexes, i)
 		missingInputs = append(missingInputs, inputs[i])
 		missingNodes = append(missingNodes, nodes[i])
 	}
 	if len(missingInputs) > 0 {
-		testSendDummyTransactionsWithRetry(t, missingNodes, domain, missingInputs, amount)
+		retries := testSendDummyTransactionsWithRetry(t, missingNodes, domain, missingInputs, amount)
+		require := require.New(t)
+		require.Len(retries, len(missingIndexes))
+		for i, index := range missingIndexes {
+			outputs[index] = retries[i]
+		}
 	}
 	return outputs
 }
@@ -620,7 +640,7 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 		panic(err)
 	}
 
-	configData := []byte(fmt.Sprintf(configDataTmpl, signer.PrivateSpendKey, 17099, plist, false, 18099))
+	configData := fmt.Appendf(nil, configDataTmpl, signer.PrivateSpendKey, 17099, plist, false, 18099)
 	err = os.WriteFile(dir+"/config.toml", configData, 0644)
 	if err != nil {
 		panic(err)
@@ -630,8 +650,10 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 		panic(err)
 	}
 
+	referenceNode := nodes[1].Host
 	info := testGetGraphInfo(nodes[0].Host)
-	cst := testGetSnapshotSoleTransaction(nodes[1].Host, info.Consensus.String())
+	cst := testGetSnapshotSoleTransaction(referenceNode, info.Consensus.String())
+	testWaitTransactionsVisibleOnNodes(t, nodes, []crypto.Hash{cst})
 	raw, _ := json.Marshal(map[string]any{
 		"version": 5,
 		"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
@@ -647,7 +669,7 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 		"references": []crypto.Hash{cst},
 	})
 
-	tx, err := testSignTransaction(nodes[0].Host, domain, string(raw))
+	tx, err := testSignTransaction(referenceNode, domain, string(raw))
 	require.Nil(err)
 	ver := tx.AsVersioned()
 	testSendTransactionsToNodesWithRetry(t, nodes, []*common.VersionedTransaction{ver})
@@ -671,13 +693,87 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 	return Node{Signer: signer, Payee: payee, Host: "127.0.0.1:18099"}, pnode, server
 }
 
-func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, utxos []*common.VersionedTransaction) (string, error) {
-	require := require.New(t)
-	inputs := []map[string]any{}
+type testSpendableInput struct {
+	Input  *common.Input
+	Amount common.Integer
+}
+
+func testMakeSpendableInputs(utxos []*common.VersionedTransaction) []testSpendableInput {
+	inputs := make([]testSpendableInput, 0, len(utxos))
 	for _, tx := range utxos {
+		inputs = append(inputs, testSpendableInput{
+			Input:  &common.Input{Hash: tx.PayloadHash(), Index: 0},
+			Amount: tx.Outputs[0].Amount,
+		})
+	}
+	return inputs
+}
+
+func testConsolidateSpendableInputs(t *testing.T, nodes []*Node, domain common.Address, inputs []testSpendableInput) ([]testSpendableInput, int) {
+	require := require.New(t)
+	transactions := 0
+	for len(inputs) > common.SliceCountLimit {
+		t.Logf("CONSOLIDATE %d INPUTS INTO %d TRANSACTIONS\n", len(inputs), (len(inputs)+common.SliceCountLimit-1)/common.SliceCountLimit)
+
+		next := make([]testSpendableInput, 0, (len(inputs)+common.SliceCountLimit-1)/common.SliceCountLimit)
+		vers := make([]*common.VersionedTransaction, 0, cap(next))
+		for start := 0; start < len(inputs); start += common.SliceCountLimit {
+			end := start + common.SliceCountLimit
+			if end > len(inputs) {
+				end = len(inputs)
+			}
+
+			chunk := inputs[start:end]
+			rawInputs := make([]map[string]any, 0, len(chunk))
+			total := common.Zero
+			for _, in := range chunk {
+				rawInputs = append(rawInputs, map[string]any{
+					"hash":  in.Input.Hash.String(),
+					"index": in.Input.Index,
+				})
+				total = total.Add(in.Amount)
+			}
+
+			raw, _ := json.Marshal(map[string]any{
+				"version": 2,
+				"asset":   common.XINAssetId,
+				"inputs":  rawInputs,
+				"outputs": []map[string]any{{
+					"type":     0,
+					"amount":   total,
+					"script":   "fffe01",
+					"accounts": []string{domain.String()},
+				}},
+			})
+			tx, err := testSignTransaction(nodes[0].Host, domain, string(raw))
+			require.Nil(err)
+			ver := common.VersionedTransaction{SignedTransaction: *tx}
+			vers = append(vers, &ver)
+			next = append(next, testSpendableInput{
+				Input:  &common.Input{Hash: ver.PayloadHash(), Index: 0},
+				Amount: total,
+			})
+		}
+
+		testSendTransactionsToNodesWithRetry(t, nodes, vers)
+		testWaitTransactionsVisibleOnNodes(t, nodes, testVersionedTransactionHashes(vers))
+		transactions += len(vers)
+		inputs = next
+	}
+
+	return inputs, transactions
+}
+
+func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, utxos []*common.VersionedTransaction) (string, int, error) {
+	require := require.New(t)
+	spendable := testMakeSpendableInputs(utxos)
+	spendable, transactions := testConsolidateSpendableInputs(t, nodes, domain, spendable)
+
+	inputs := make([]map[string]any, 0, len(spendable))
+	for _, in := range spendable {
 		inputs = append(inputs, map[string]any{
-			"hash":  tx.PayloadHash().String(),
-			"index": 0,
+			"hash":  in.Input.Hash.String(),
+			"index": in.Input.Index,
 		})
 	}
 	outputs := []map[string]any{}
@@ -705,7 +801,8 @@ func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, ut
 	require.Nil(err)
 	ver := common.VersionedTransaction{SignedTransaction: *tx}
 	testSendTransactionsToNodesWithRetry(t, nodes, []*common.VersionedTransaction{&ver})
-	return ver.PayloadHash().String(), err
+	testWaitTransactionsVisibleOnNodes(t, nodes, []crypto.Hash{ver.PayloadHash()})
+	return ver.PayloadHash().String(), transactions + 1, err
 }
 
 func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*common.VersionedTransaction) {
@@ -747,6 +844,42 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 	testSendTransactionsToNodesWithRetry(t, nodes, missingTxs)
 }
 
+func testVersionedTransactionHashes(vers []*common.VersionedTransaction) []crypto.Hash {
+	hashes := make([]crypto.Hash, 0, len(vers))
+	for _, ver := range vers {
+		hashes = append(hashes, ver.PayloadHash())
+	}
+	return hashes
+}
+
+func testWaitTransactionsVisibleOnNodes(t *testing.T, nodes []*Node, hashes []crypto.Hash) {
+	require := require.New(t)
+	deadline := time.Now().Add(testStateSyncTimeout)
+	for {
+		missing := make(map[string][]string)
+		for _, hash := range hashes {
+			for _, node := range nodes {
+				ver, _, err := GetTransaction("http://"+node.Host, hash.String())
+				require.Nil(err)
+				if ver != nil {
+					continue
+				}
+				missing[hash.String()] = append(missing[hash.String()], node.Host)
+			}
+		}
+		if len(missing) == 0 {
+			return
+		}
+		if time.Now().After(deadline) {
+			for hash, hosts := range missing {
+				t.Logf("TX NOT VISIBLE %s %s\n", hash, strings.Join(hosts, ","))
+			}
+			require.FailNow("timed out waiting for transaction propagation")
+		}
+		time.Sleep(time.Second)
+	}
+}
+
 func testSendTransaction(node, raw string) (crypto.Hash, error) {
 	return SendRawTransaction("http://"+node, raw)
 }
@@ -777,6 +910,8 @@ func testDetermineAccountByIndex(i int, role string) common.Address {
 func setupTestNet(root string, externalRelayers bool) ([]common.Address, []common.Address, []byte, string) {
 	var signers, payees, custodians []common.Address
 	var relayers []common.Address
+	var relayerInstances []*kernel.Node
+	var relayerServers []*http.Server
 
 	for i := 0; i < NODES; i++ {
 		signers = append(signers, testDetermineAccountByIndex(i, "SIGNER"))
@@ -835,7 +970,7 @@ func setupTestNet(root string, externalRelayers bool) ([]common.Address, []commo
 			}
 
 			rpcPort := 26000 + i + 1
-			configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey, 16000+i+1, peersListHead, true, rpcPort))
+			configData := fmt.Appendf(nil, configDataTmpl, a.PrivateSpendKey, 16000+i+1, peersListHead, true, rpcPort)
 			err = os.WriteFile(dir+"/config.toml", configData, 0644)
 			if err != nil {
 				panic(err)
@@ -851,6 +986,8 @@ func setupTestNet(root string, externalRelayers bool) ([]common.Address, []commo
 			node, _ := kernel.SetupNode(custom, store, cache, gns)
 
 			server := NewServer(custom, store, node, rpcPort)
+			relayerInstances = append(relayerInstances, node)
+			relayerServers = append(relayerServers, server)
 			go server.ListenAndServe()
 			go node.Loop()
 		}
@@ -873,7 +1010,7 @@ func setupTestNet(root string, externalRelayers bool) ([]common.Address, []commo
 		if isRelayer {
 			peersList = peersListHead
 		}
-		configData := []byte(fmt.Sprintf(configDataTmpl, a.PrivateSpendKey, port, peersList, isRelayer, 18000+i+1))
+		configData := fmt.Appendf(nil, configDataTmpl, a.PrivateSpendKey, port, peersList, isRelayer, 18000+i+1)
 		err = os.WriteFile(dir+"/config.toml", configData, 0644)
 		if err != nil {
 			panic(err)
@@ -883,7 +1020,7 @@ func setupTestNet(root string, externalRelayers bool) ([]common.Address, []commo
 			panic(err)
 		}
 	}
-	return signers, payees, genesisData, peersListHead
+	return signers, payees, genesisData, peersListHead, relayerInstances, relayerServers
 }
 
 func testSignTransaction(node string, account common.Address, rawStr string) (*common.SignedTransaction, error) {
@@ -935,17 +1072,36 @@ func testSignTransaction(node string, account common.Address, rawStr string) (*c
 	return signed, nil
 }
 
-func testVerifyInfo(require *require.Assertions, nodes []*Node) Info {
-	randT := int(time.Now().UnixMicro()) % len(nodes)
-	info := testGetGraphInfo(nodes[randT].Host)
-	for _, n := range nodes {
+func testVerifyInfoAfter(require *require.Assertions, nodes []*Node, after time.Time) Info {
+	deadline := time.Now().Add(testStateSyncTimeout)
+	var info Info
+	var consistent bool
+	for {
+		info, consistent = testCollectConsistentInfo(nodes)
+		if consistent && info.Timestamp.After(after) {
+			return info
+		}
+		if time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	require.Truef(consistent, "graph info should converge within %s", testStateSyncTimeout)
+	require.Truef(info.Timestamp.After(after), "%s should after %s", info.Timestamp, after)
+	return info
+}
+
+func testCollectConsistentInfo(nodes []*Node) (Info, bool) {
+	info := testGetGraphInfo(nodes[0].Host)
+	consistent := true
+	for _, n := range nodes[1:] {
 		a := testGetGraphInfo(n.Host)
-		require.Equal(info.PoolSize, a.PoolSize)
-		if a.Timestamp.After(info.Timestamp) {
-			info = a
+		if info.PoolSize.Cmp(a.PoolSize) != 0 {
+			consistent = false
+			break
 		}
 	}
-	return info
+	return info, consistent
 }
 
 func testVerifyDeposits(require *require.Assertions, nodes []*Node, deposits []*common.VersionedTransaction) {
@@ -964,11 +1120,27 @@ func testVerifyDeposits(require *require.Assertions, nodes []*Node, deposits []*
 	}
 }
 
-func testVerifySnapshots(require *require.Assertions, nodes []*Node) (map[string]bool, map[string]bool) {
-	time.Sleep(5 * time.Second)
-	filters := make([]map[string]*common.Snapshot, 0)
-	for _, n := range nodes {
-		filters = append(filters, testListSnapshots(n.Host))
+func testVerifySnapshots(require *require.Assertions, nodes []*Node, expectedTransactions int) (map[string]bool, map[string]bool) {
+	var filters []map[string]*common.Snapshot
+	var txs, snapshots map[string]bool
+	deadline := time.Now().Add(testStateSyncTimeout)
+	for {
+		filters = make([]map[string]*common.Snapshot, 0, len(nodes))
+		for _, n := range nodes {
+			filters = append(filters, testListSnapshots(n.Host))
+		}
+		txs, snapshots = collectSnapshotSets(filters)
+		consistent := true
+		for i := 0; i < len(filters)-1; i++ {
+			if !snapshotKeysEqual(filters[i], filters[i+1]) {
+				consistent = false
+				break
+			}
+		}
+		if consistent && len(txs) == expectedTransactions || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(time.Second)
 	}
 	t, s := make(map[string]bool), make(map[string]bool)
 	for i := 0; i < len(filters)-1; i++ {
@@ -995,7 +1167,30 @@ func testVerifySnapshots(require *require.Assertions, nodes []*Node) (map[string
 		require.Equal(len(m), len(n))
 		require.Equal(len(filters[i]), len(filters[i+1]))
 	}
-	return t, s
+	return txs, snapshots
+}
+
+func snapshotKeysEqual(a, b map[string]*common.Snapshot) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k := range a {
+		if _, ok := b[k]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func collectSnapshotSets(filters []map[string]*common.Snapshot) (map[string]bool, map[string]bool) {
+	txs, snapshots := make(map[string]bool), make(map[string]bool)
+	for _, filter := range filters {
+		for k, snapshot := range filter {
+			snapshots[k] = true
+			txs[snapshot.SoleTransaction().String()] = true
+		}
+	}
+	return txs, snapshots
 }
 
 func requireKeyEqual(require *require.Assertions, a, b map[string]*common.Snapshot) {
@@ -1081,6 +1276,34 @@ func testListNodes(node string) []*Node {
 	return nodes
 }
 
+func testListNodesUntilState(t *testing.T, node string, signer common.Address, state string, timeout time.Duration) []*Node {
+	deadline := time.Now().Add(timeout)
+	nextLog := time.Now().Add(15 * time.Second)
+	var nodes []*Node
+	for {
+		nodes = testListNodes(node)
+		current := ""
+		for _, n := range nodes {
+			if n.Signer.String() != signer.String() {
+				continue
+			}
+			current = n.State
+			if n.State == state {
+				return nodes
+			}
+		}
+		if time.Now().After(nextLog) {
+			t.Logf("WAIT NODE STATE %s %s CURRENT %s\n", signer, state, current)
+			nextLog = time.Now().Add(15 * time.Second)
+		}
+		if time.Now().After(deadline) {
+			t.Logf("WAIT NODE STATE %s %s TIMEOUT CURRENT %s\n", signer, state, current)
+			return nodes
+		}
+		time.Sleep(time.Second)
+	}
+}
+
 type HeadRound struct {
 	Node  crypto.Hash `json:"node"`
 	Round uint64      `json:"round"`
@@ -1107,6 +1330,20 @@ func testDumpGraphHead(node, id string) *HeadRound {
 		}
 	}
 	return nil
+}
+
+func testDumpGraphHeadRoundAfter(node string, id crypto.Hash, round uint64) *HeadRound {
+	deadline := time.Now().Add(testStateSyncTimeout)
+	for {
+		hr := testDumpGraphHead(node, id)
+		if hr != nil && hr.Round > round {
+			return hr
+		}
+		if time.Now().After(deadline) {
+			return hr
+		}
+		time.Sleep(time.Second)
+	}
 }
 
 type Info struct {

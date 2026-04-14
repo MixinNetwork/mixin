@@ -5,6 +5,7 @@
 package base58_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/MixinNetwork/mixin/util/base58"
@@ -57,10 +58,10 @@ func TestBase58Check(t *testing.T) {
 	}
 	// case 2: invalid formats (string lengths below 5 mean the version byte and/or the checksum
 	// bytes are missing).
-	testString := ""
-	for len := 0; len < 4; len++ {
-		testString += "x"
-		_, _, err = base58.CheckDecode(testString)
+	var testString strings.Builder
+	for range 4 {
+		testString.WriteString("x")
+		_, _, err = base58.CheckDecode(testString.String())
 		if err != base58.ErrInvalidFormat {
 			t.Error("Checkdecode test failed, expected ErrInvalidFormat")
 		}

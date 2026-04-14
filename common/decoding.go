@@ -61,7 +61,7 @@ func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, err
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < tl; i++ {
+	for range tl {
 		var tx crypto.Hash
 		err = dec.Read(tx[:])
 		if err != nil {
@@ -211,6 +211,9 @@ func (dec *Decoder) ReadInput() (*Input, error) {
 	ii, err := dec.ReadUint16()
 	if err != nil {
 		return nil, err
+	}
+	if ii > InputIndexLimit {
+		return nil, fmt.Errorf("invalid input index %d", ii)
 	}
 	in.Index = uint(ii)
 
@@ -478,7 +481,7 @@ func (dec *Decoder) ReadRoundReferences() (*RoundLink, error) {
 		return nil, err
 	}
 	if rc != 2 {
-		return nil, fmt.Errorf("invalid referces count %d", rc)
+		return nil, fmt.Errorf("invalid references count %d", rc)
 	}
 	rl := &RoundLink{}
 	err = dec.Read(rl.Self[:])
@@ -537,7 +540,7 @@ func (dec *Decoder) ReadAggregatedSignature() (*AggregatedSignature, error) {
 			return nil, err
 		}
 		for i, ctr := range masks {
-			for j := byte(0); j < 8; j++ {
+			for j := range byte(8) {
 				k := byte(1) << j
 				if ctr&k == k {
 					js.Signers = append(js.Signers, i*8+int(j))
@@ -546,6 +549,10 @@ func (dec *Decoder) ReadAggregatedSignature() (*AggregatedSignature, error) {
 		}
 	default:
 		return nil, fmt.Errorf("invalid mask type %d", typ)
+	}
+	err = validateAggregatedSigners(js.Signers)
+	if err != nil {
+		return nil, err
 	}
 	return js, nil
 }
