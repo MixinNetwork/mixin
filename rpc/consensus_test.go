@@ -56,7 +56,7 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 
 	root := t.TempDir()
 
-	accounts, payees, gdata, plist, relayerInstances, relayerServers := setupTestNet(root, extrenalRelayers)
+	accounts, payees, gdata, plist, relayerInstances, relayerServers := setupTestNet(root, externalRelayers)
 	require.Len(accounts, NODES)
 
 	epoch := time.Unix(1551312000, 0)
@@ -136,7 +136,7 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	gt2 := testVerifyInfoAfter(require, nodes, gt1.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
 	gts = gt1.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt2.Timestamp.After(gts), "%s should after %s", gt2.Timestamp, gts)
-	hr := testDumpGraphHead(nodes[0].Host, "")
+	hr := testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.GreaterOrEqual(hr.Round, uint64(0))
 	t.Logf("DEPOSIT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
@@ -165,7 +165,7 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	gt3 := testVerifyInfoAfter(require, nodes, gt2.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
 	gts = gt2.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt3.Timestamp.After(gts), "%s should after %s", gt3.Timestamp, gts)
-	hr = testDumpGraphHead(nodes[0].Host, "")
+	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
 	t.Logf("INPUT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
@@ -250,10 +250,10 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	gts = gt5.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt6.Timestamp.After(gts), "%s should after %s", gt6.Timestamp, gts)
 	require.Equal("305850.45205696", gt6.PoolSize.String())
-	hr = testDumpGraphHead(nodes[0].Host, "")
+	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
-	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork.String())
+	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork)
 	require.Nil(hr)
 
 	testRemovingNodePrediction(t, instances, true)
@@ -275,7 +275,7 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	require.Equal(all[NODES].Signer.String(), pn.Signer.String())
 	require.Equal(all[NODES].Payee.String(), pn.Payee.String())
 	require.Equal("PLEDGING", all[NODES].State)
-	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork.String())
+	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork)
 	require.Nil(hr)
 
 	kernel.TestMockDiff(1 * time.Hour)
@@ -286,16 +286,16 @@ func testConsensus(t *testing.T, externalRelayers bool) {
 	require.Equal("ACCEPTED", all[NODES].State)
 	acceptNodes := append(slices.Clone(nodes), &pn)
 	testVerifySnapshots(require, acceptNodes, transactionsCount+1)
-	hr = testDumpGraphHead(nodes[0].Host, "")
+	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
-	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, "")
+	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, instances[0].IdForNetwork)
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
-	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork.String())
+	hr = testDumpGraphHead(nodes[0].Host, pi.IdForNetwork)
 	require.NotNil(hr)
 	require.Equal(uint64(0), hr.Round)
-	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, pi.IdForNetwork.String())
+	hr = testDumpGraphHead(nodes[len(nodes)-1].Host, pi.IdForNetwork)
 	require.NotNil(hr)
 	require.Equal(uint64(0), hr.Round)
 
@@ -907,7 +907,7 @@ func testDetermineAccountByIndex(i int, role string) common.Address {
 	return account
 }
 
-func setupTestNet(root string, externalRelayers bool) ([]common.Address, []common.Address, []byte, string) {
+func setupTestNet(root string, externalRelayers bool) ([]common.Address, []common.Address, []byte, string, []*kernel.Node, []*http.Server) {
 	var signers, payees, custodians []common.Address
 	var relayers []common.Address
 	var relayerInstances []*kernel.Node
@@ -1187,7 +1187,9 @@ func collectSnapshotSets(filters []map[string]*common.Snapshot) (map[string]bool
 	for _, filter := range filters {
 		for k, snapshot := range filter {
 			snapshots[k] = true
-			txs[snapshot.SoleTransaction().String()] = true
+			for _, tx := range snapshot.Transactions {
+				txs[tx.String()] = true
+			}
 		}
 	}
 	return txs, snapshots
@@ -1310,7 +1312,7 @@ type HeadRound struct {
 	Hash  crypto.Hash `json:"hash"`
 }
 
-func testDumpGraphHead(node, id string) *HeadRound {
+func testDumpGraphHead(node string, id crypto.Hash) *HeadRound {
 	data, err := CallMixinRPC("http://"+node, "dumpgraphhead", []any{})
 	if err != nil {
 		panic(err)
@@ -1320,12 +1322,8 @@ func testDumpGraphHead(node, id string) *HeadRound {
 	if err != nil {
 		panic(err)
 	}
-	for i, r := range head {
-		if id == "" {
-			if r.Round > 0 || i == len(head)-1 {
-				return r
-			}
-		} else if r.Node.String() == id {
+	for _, r := range head {
+		if r.Node == id {
 			return r
 		}
 	}
