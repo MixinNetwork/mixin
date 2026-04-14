@@ -28,13 +28,24 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 		missing []crypto.Hash
 		found   = make(map[crypto.Hash]*common.VersionedTransaction)
 	)
+	snapHash := ""
+	if s.Hash.HasValue() {
+		snapHash = s.Hash.String()
+	} else if s.Version >= common.SnapshotVersionCommonEncoding &&
+		(s.RoundNumber > 0 || len(s.Transactions) == 1) &&
+		len(s.Transactions) <= 256 {
+		snapHash = s.PayloadHash().String()
+	}
 
 	for _, txh := range s.Transactions {
-		tx, _, err := node.persistStore.ReadTransaction(txh)
+		tx, done, err := node.persistStore.ReadTransaction(txh)
 		if err != nil {
 			return nil, nil, err
 		}
 		if tx != nil {
+			if done != "" && done != snapHash {
+				return nil, nil, fmt.Errorf("transaction %s already finalized in snapshot %s", txh, done)
+			}
 			found[txh] = tx
 			continue
 		}
