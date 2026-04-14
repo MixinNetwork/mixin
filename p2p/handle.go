@@ -196,7 +196,7 @@ func buildTransactionChallengeMessage(snap crypto.Hash, cosi *crypto.CosiSignatu
 	return append(data, pl...)
 }
 
-func buildFullChallengeMessage(s *common.Snapshot, commitment, challenge *crypto.Key, tx *common.VersionedTransaction) []byte {
+func buildFullChallengeMessage(s *common.Snapshot, commitment, challenge *crypto.Key, txs []*common.VersionedTransaction) []byte {
 	data := []byte{PeerMessageTypeFullChallenge}
 
 	pl := s.VersionedMarshal()
@@ -225,16 +225,28 @@ func buildTransactionsPayload(txs []*common.VersionedTransaction) []byte {
 }
 
 func parseTransactionsPayload(data []byte) ([]*common.VersionedTransaction, error) {
+	if len(data) < 1 {
+		return nil, fmt.Errorf("invalid transactions payload size %d", len(data))
+	}
 	txs := make([]*common.VersionedTransaction, data[0])
 	data = data[1:]
 	for i := range txs {
+		if len(data) < 4 {
+			return nil, fmt.Errorf("invalid transactions payload size %d", len(data))
+		}
 		size := binary.BigEndian.Uint32(data[0:4])
+		if len(data[4:]) < int(size) {
+			return nil, fmt.Errorf("invalid transactions payload size %d %d", len(data[4:]), size)
+		}
 		tx, err := common.UnmarshalVersionedTransaction(data[4 : 4+size])
 		if err != nil {
 			return nil, err
 		}
 		txs[i] = tx
 		data = data[4+size:]
+	}
+	if len(data) > 0 {
+		return nil, fmt.Errorf("invalid transactions payload trailing data %d", len(data))
 	}
 	return txs, nil
 }
