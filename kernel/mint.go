@@ -167,7 +167,7 @@ func (node *Node) tryToMintUniversal(custodianRequest *common.CustodianUpdateReq
 		Version: common.SnapshotVersionCommonEncoding,
 		NodeId:  node.IdForNetwork,
 	}
-	s.AddSoleTransaction(signed.PayloadHash())
+	s.AddTransaction(signed.PayloadHash())
 	logger.Println("tryToMintUniversal", signed.PayloadHash(), hex.EncodeToString(signed.Marshal()))
 	return node.chain.AppendSelfEmpty(s)
 }
@@ -189,7 +189,7 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 	consensusSnap, _ := node.ReadLastConsensusSnapshotWithHack()
 	tx := node.NewTransaction(common.XINAssetId)
 	tx.AddUniversalMintInput(uint64(batch), amount)
-	tx.References = []crypto.Hash{consensusSnap.SoleTransaction()}
+	tx.References = consensusSnap.Transactions
 
 	total := common.NewInteger(0)
 	for _, m := range mints {

@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -71,41 +72,43 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash, depth u
 		}
 		for _, s := range snapshots {
 			total += 1
-			item, err := txn.Get(graphTransactionKey(s.SoleTransaction()))
-			if err != nil {
-				return total, invalid, err
-			}
-			val, err := item.ValueCopy(nil)
-			if err != nil {
-				return total, invalid, err
-			}
-			ver, err := common.UnmarshalVersionedTransaction(val)
-			if err != nil {
-				return total, invalid, err
-			}
-			if s.SoleTransaction().String() != ver.PayloadHash().String() {
-				logger.Printf("MALFORMED TRANSACTION %s %s %#v\n", s.SoleTransaction(), ver.PayloadHash(), ver)
-				invalid += 1
-			}
-			item, err = txn.Get(graphFinalizationKey(s.SoleTransaction()))
-			if err != nil {
-				return total, invalid, err
-			}
-			val, err = item.ValueCopy(nil)
-			if err != nil {
-				return total, invalid, err
-			}
-			if s.Hash.String() != hex.EncodeToString(val) {
-				logger.Printf("DUPLICATED FINALIZATION %s %s\n", s.Hash, hex.EncodeToString(val))
-			}
-			dup, _ := crypto.HashFromString(hex.EncodeToString(val))
-			topo, err := readSnapshotWithTopo(txn, dup)
-			if err != nil {
-				return total, invalid, err
-			}
-			if topo.SoleTransaction().String() != s.SoleTransaction().String() {
-				logger.Printf("MALFORMED FINALIZATION %s %s\n", s.Hash, topo.Hash)
-				invalid += 1
+			for _, tx := range s.Transactions {
+				item, err := txn.Get(graphTransactionKey(tx))
+				if err != nil {
+					return total, invalid, err
+				}
+				val, err := item.ValueCopy(nil)
+				if err != nil {
+					return total, invalid, err
+				}
+				ver, err := common.UnmarshalVersionedTransaction(val)
+				if err != nil {
+					return total, invalid, err
+				}
+				if tx != ver.PayloadHash() {
+					logger.Printf("MALFORMED TRANSACTION %s %s %#v\n", tx, ver.PayloadHash(), ver)
+					invalid += 1
+				}
+				item, err = txn.Get(graphFinalizationKey(tx))
+				if err != nil {
+					return total, invalid, err
+				}
+				val, err = item.ValueCopy(nil)
+				if err != nil {
+					return total, invalid, err
+				}
+				if s.Hash.String() != hex.EncodeToString(val) {
+					logger.Printf("DUPLICATED FINALIZATION %s %s\n", s.Hash, hex.EncodeToString(val))
+				}
+				dup, _ := crypto.HashFromString(hex.EncodeToString(val))
+				topo, err := readSnapshotWithTopo(txn, dup)
+				if err != nil {
+					return total, invalid, err
+				}
+				if !slices.Contains(topo.Transactions, tx) {
+					logger.Printf("MALFORMED FINALIZATION %s %s\n", s.Hash, topo.Hash)
+					invalid += 1
+				}
 			}
 		}
 		_, _, hash := computeRoundHash(nodeId, i, snapshots)

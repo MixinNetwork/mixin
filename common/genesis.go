@@ -66,7 +66,7 @@ func (gns *Genesis) BuildSnapshots() ([]*Round, []*SnapshotWithTopologicalOrder,
 			Timestamp:   epoch,
 		}
 		signed := tx.AsVersioned()
-		snapshot.AddSoleTransaction(signed.PayloadHash())
+		snapshot.AddTransaction(signed.PayloadHash())
 		snapshot.Hash = snapshot.PayloadHash()
 		topo := &SnapshotWithTopologicalOrder{
 			Snapshot:         snapshot,
@@ -157,7 +157,7 @@ func buildCustodianSnapshot(networkId crypto.Hash, epoch uint64, gns *Genesis) (
 		Timestamp:   epoch + 1,
 	}
 	signed := tx.AsVersioned()
-	snapshot.AddSoleTransaction(signed.PayloadHash())
+	snapshot.AddTransaction(signed.PayloadHash())
 	return &SnapshotWithTopologicalOrder{
 		Snapshot:         snapshot,
 		TopologicalOrder: uint64(len(gns.Nodes)),
