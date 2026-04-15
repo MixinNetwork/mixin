@@ -227,6 +227,22 @@ func graphFinalizationKey(hash crypto.Hash) []byte {
 	return append([]byte(graphPrefixFinalization), hash[:]...)
 }
 
+func (s *BadgerStore) CheckTransactionInNode(nodeId, tx crypto.Hash) (bool, error) {
+	txn := s.snapshotsDB.NewTransaction(false)
+	defer txn.Discard()
+
+	key := graphUniqueKey(nodeId, tx)
+	_, err := txn.Get(key)
+	switch err {
+	case nil:
+		return true, nil
+	case badger.ErrKeyNotFound:
+		return false, nil
+	default:
+		return false, err
+	}
+}
+
 func graphUniqueKey(nodeId, hash crypto.Hash) []byte {
 	key := append(hash[:], nodeId[:]...)
 	return append([]byte(graphPrefixUnique), key...)

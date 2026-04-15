@@ -36,6 +36,7 @@ type Store interface {
 	ReadRound(hash crypto.Hash) (*common.Round, error)
 	ReadLink(from, to crypto.Hash) (uint64, error)
 	WriteSnapshot(*common.SnapshotWithTopologicalOrder, []crypto.Hash) error
+	CheckTransactionInNode(nodeId, tx crypto.Hash) (bool, error)
 	ReadCustodian(ts uint64) (*common.CustodianUpdateRequest, error)
 	ListCustodianUpdates() ([]*common.CustodianUpdateRequest, error)
 

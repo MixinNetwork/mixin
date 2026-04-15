@@ -396,6 +396,14 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 			logger.Verbosef("cosiSendAnnouncement ERROR %s\n", err)
 			return nil
 		}
+		exist, err := chain.persistStore.CheckTransactionInNode(chain.ChainId, txh)
+		if err != nil {
+			return err
+		}
+		if exist {
+			logger.Verbosef("cosiSendAnnouncement transaction %s already in node %s\n", txh, chain.ChainId)
+			return nil
+		}
 	}
 
 	if len(cd.Transactions) != len(s.Transactions) {
