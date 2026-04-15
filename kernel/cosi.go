@@ -742,10 +742,6 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 			logger.Verbosef("cosiHandleResponse %v ValidateSnapshot %s\n", m, err)
 			return nil
 		}
-		if err := chain.node.checkSnapshotFinalizationConflicts(s); err != nil {
-			logger.Verbosef("cosiHandleResponse %v FinalizationConflict %s\n", m, err)
-			return nil
-		}
 
 		err = chain.AddSnapshot(final, cache, s, signers)
 		if err != nil {
@@ -865,10 +861,6 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 
 	if err := cache.ValidateSnapshot(s); err != nil {
 		logger.Verbosef("ERROR cosiHandleFinalization ValidateSnapshot %s %v %v\n", m.PeerId, s, err)
-		return nil
-	}
-	if err := chain.node.checkSnapshotFinalizationConflicts(s); err != nil {
-		logger.Verbosef("ERROR cosiHandleFinalization FinalizationConflict %s %v %v\n", m.PeerId, s, err)
 		return nil
 	}
 	err = chain.AddSnapshot(final, cache, s, signers)

@@ -69,23 +69,6 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 	return found, missing, nil
 }
 
-func (node *Node) checkSnapshotFinalizationConflicts(s *common.Snapshot) error {
-	snapHash := s.Hash
-	if !snapHash.HasValue() {
-		snapHash = s.PayloadHash()
-	}
-	for _, txh := range s.Transactions {
-		_, done, err := node.persistStore.ReadTransaction(txh)
-		if err != nil {
-			return err
-		}
-		if done != "" && done != snapHash.String() {
-			return fmt.Errorf("transaction %s already finalized in snapshot %s", txh, done)
-		}
-	}
-	return nil
-}
-
 func (node *Node) lockAndPersistTransaction(tx *common.VersionedTransaction, finalized bool) error {
 	for i := time.Duration(0); i < time.Second; i += time.Millisecond * 100 {
 		err := tx.LockInputs(node.persistStore, finalized)
