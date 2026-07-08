@@ -828,12 +828,12 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 		if hash.HasValue() {
 			continue
 		}
-		t.Logf("TX MISSING %s\n", ver.PayloadHash())
 		missingTxs = append(missingTxs, ver)
 	}
 	if len(missingTxs) == 0 {
 		return
 	}
+	t.Logf("TX PENDING %d AT %s\n", len(missingTxs), time.Now())
 	testSendTransactionsToNodesWithRetry(t, nodes, missingTxs)
 }
 
@@ -1139,10 +1139,14 @@ func testVerifySnapshots(require *require.Assertions, nodes []*Node, expectedTra
 		a, b := filters[i], filters[i+1]
 		m, n := make(map[string]bool), make(map[string]bool)
 		for k := range a {
-			m[a[k].SoleTransaction().String()] = true
+			for _, txh := range a[k].Transactions {
+				m[txh.String()] = true
+			}
 		}
 		for k := range b {
-			n[b[k].SoleTransaction().String()] = true
+			for _, txh := range b[k].Transactions {
+				n[txh.String()] = true
+			}
 		}
 		requireKeyEqual(require, a, b)
 		require.Equal(len(a), len(b))
@@ -1169,7 +1173,9 @@ func collectSnapshotSets(filters []map[string]*common.Snapshot) (map[string]bool
 	for _, filter := range filters {
 		for k, snapshot := range filter {
 			snapshots[k] = true
-			txs[snapshot.SoleTransaction().String()] = true
+			for _, txh := range snapshot.Transactions {
+				txs[txh.String()] = true
+			}
 		}
 	}
 	return txs, snapshots
@@ -1190,6 +1196,7 @@ func requireKeyEqual(require *require.Assertions, a, b map[string]*common.Snapsh
 }
 
 func testListSnapshots(node string) map[string]*common.Snapshot {
+	info := testGetGraphInfo(node)
 	data, err := CallMixinRPC("http://"+node, "listsnapshots", []any{
 		0,
 		100000,
@@ -1202,8 +1209,8 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 
 	var rss []*struct {
 		Version      uint8                 `json:"version"`
-		NodeId       crypto.Hash           `json:"node_id"`
-		RoundNumber  uint64                `json:"round_number"`
+		NodeId       crypto.Hash           `json:"node"`
+		RoundNumber  uint64                `json:"round"`
 		References   *common.RoundLink     `json:"references"`
 		Timestamp    uint64                `json:"timestamp"`
 		Transactions []crypto.Hash         `json:"transactions"`
@@ -1216,6 +1223,8 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 	}
 	filter := make(map[string]*common.Snapshot)
 	snapshots := make([]*common.Snapshot, len(rss))
+	rounds := make(map[string]int)
+	var sc, tc int
 	for i, s := range rss {
 		snapshots[i] = &common.Snapshot{
 			Version:      s.Version,
@@ -1233,6 +1242,15 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 			panic(s.Version)
 		}
 		filter[s.Hash.String()] = snapshots[i]
+		if s.NodeId == info.Node {
+			rounds[fmt.Sprintf("%s:%d", s.NodeId, s.RoundNumber)]++
+			tc += len(s.Transactions)
+			sc++
+		}
+	}
+	if len(snapshots) > 0 {
+		fmt.Printf("SNAPSHOT STATS %s snapshots=%d rounds=%d avg_snapshots_per_round=%.2f avg_transactions_per_snapshot=%.2f\n",
+			node, sc, len(rounds), float64(sc)/float64(len(rounds)), float64(tc)/float64(sc))
 	}
 	return filter
 }
@@ -1325,6 +1343,7 @@ func testDumpGraphHeadRoundAfter(node string, id crypto.Hash, round uint64) *Hea
 }
 
 type Info struct {
+	Node      crypto.Hash
 	Consensus crypto.Hash
 	Timestamp time.Time
 	PoolSize  common.Integer
@@ -1336,6 +1355,7 @@ func testGetGraphInfo(node string) Info {
 		panic(err)
 	}
 	var info struct {
+		Node      crypto.Hash `json:"node"`
 		Consensus crypto.Hash `json:"consensus"`
 		Timestamp string      `json:"timestamp"`
 		Mint      struct {
@@ -1351,6 +1371,7 @@ func testGetGraphInfo(node string) Info {
 		panic(err)
 	}
 	return Info{
+		Node:      info.Node,
 		Consensus: info.Consensus,
 		Timestamp: t,
 		PoolSize:  info.Mint.PoolSize,

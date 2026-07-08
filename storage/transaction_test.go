@@ -192,13 +192,13 @@ func TestTransaction(t *testing.T) {
 
 	tx := common.NewTransactionV5(common.XINAssetId)
 	tx.AddUniversalMintInput(0, common.Zero)
-	tx.References = []crypto.Hash{cs.SoleTransaction()}
+	tx.References = cs.Transactions
 	ver = tx.AsVersioned()
 	ncs := &common.Snapshot{
 		Version:   common.SnapshotVersionCommonEncoding,
 		Timestamp: uint64(time.Now().UnixNano()),
 	}
-	ncs.AddSoleTransaction(ver.PayloadHash())
+	ncs.AddTransaction(ver.PayloadHash())
 	err = store.WriteConsensusSnapshot(ncs, ver, nil)
 	require.Nil(err)
 

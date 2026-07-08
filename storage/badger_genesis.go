@@ -32,7 +32,7 @@ func (s *BadgerStore) LoadGenesis(rounds []*common.Round, snapshots []*common.Sn
 		if err != nil {
 			return err
 		}
-		err = writeSnapshot(txn, snap, transactions[i])
+		err = writeSnapshot(txn, snap)
 		if err != nil {
 			return err
 		}

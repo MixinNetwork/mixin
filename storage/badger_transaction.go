@@ -219,16 +219,16 @@ func writeUTXO(txn *badger.Txn, utxo *common.UTXOWithLock, ver *common.Versioned
 	return nil
 }
 
-func graphTransactionKey(hash crypto.Hash) []byte {
-	return append([]byte(graphPrefixTransaction), hash[:]...)
+func graphTransactionKey(txh crypto.Hash) []byte {
+	return append([]byte(graphPrefixTransaction), txh[:]...)
 }
 
-func graphFinalizationKey(hash crypto.Hash) []byte {
-	return append([]byte(graphPrefixFinalization), hash[:]...)
+func graphFinalizationKey(txh crypto.Hash) []byte {
+	return append([]byte(graphPrefixFinalization), txh[:]...)
 }
 
-func graphUniqueKey(nodeId, hash crypto.Hash) []byte {
-	key := append(hash[:], nodeId[:]...)
+func graphUniqueKey(nodeId, txh crypto.Hash) []byte {
+	key := append(txh[:], nodeId[:]...)
 	return append([]byte(graphPrefixUnique), key...)
 }
 

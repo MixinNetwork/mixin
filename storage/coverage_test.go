@@ -414,7 +414,7 @@ func TestTopologyAndTransactionReaders(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		return writeSnapshot(txn, snap, ver)
+		return writeSnapshot(txn, snap)
 	})
 	require.Nil(err)
 
@@ -432,7 +432,8 @@ func TestTopologyAndTransactionReaders(t *testing.T) {
 	require.Nil(err)
 	require.Len(snaps, 1)
 	require.Len(txs, 1)
-	require.Equal(ver.PayloadHash(), txs[0].PayloadHash())
+	require.Len(txs[0], 1)
+	require.Equal(ver.PayloadHash(), txs[0][0].PayloadHash())
 
 	_, _, err = store.ReadSnapshotWithTransactionsSinceTopology(1, 501)
 	require.ErrorContains(err, "maximum is 500")
@@ -447,7 +448,7 @@ func TestTopologyAndTransactionReaders(t *testing.T) {
 
 	lastSnap, lastTx := store.LastSnapshot()
 	require.Equal(snap.PayloadHash(), lastSnap.PayloadHash())
-	require.Equal(ver.PayloadHash(), lastTx.PayloadHash())
+	require.Equal(ver.PayloadHash(), lastTx[0].PayloadHash())
 
 	removed, err := store.RemoveGraphEntries(graphPrefixUnique)
 	require.Nil(err)
@@ -791,7 +792,7 @@ func TestCustodianAndValidationHelpers(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		err = writeSnapshot(txn, snap, signed)
+		err = writeSnapshot(txn, snap)
 		if err != nil {
 			return err
 		}
@@ -913,7 +914,7 @@ func TestTransactionWithdrawalAndConsensusEdges(t *testing.T) {
 			_ = writeWithdrawalClaim(txn, crypto.Blake3Hash([]byte("missing-withdrawal")), claimVer.PayloadHash())
 		})
 
-		err = writeSnapshot(txn, baseSnap, baseVer)
+		err = writeSnapshot(txn, baseSnap)
 		require.Nil(err)
 		require.Panics(func() {
 			_ = writeTopology(txn, baseSnap)
@@ -923,7 +924,7 @@ func TestTransactionWithdrawalAndConsensusEdges(t *testing.T) {
 
 		err = writeTransaction(txn, claimVer)
 		require.Nil(err)
-		err = writeSnapshot(txn, claimSnap, claimVer)
+		err = writeSnapshot(txn, claimSnap)
 		require.Nil(err)
 
 		err = writeTransaction(txn, depositVer)
@@ -933,7 +934,7 @@ func TestTransactionWithdrawalAndConsensusEdges(t *testing.T) {
 
 		err = writeTransaction(txn, mintVer)
 		require.Nil(err)
-		err = writeSnapshot(txn, mintSnap, mintVer)
+		err = writeSnapshot(txn, mintSnap)
 		require.Nil(err)
 
 		err = writeConsensusSnapshot(txn, baseSnap.Snapshot, baseVer, nil)
@@ -961,7 +962,7 @@ func TestTransactionWithdrawalAndConsensusEdges(t *testing.T) {
 
 	lastSnap, lastTx := store.LastSnapshot()
 	require.Equal(mintSnap.PayloadHash(), lastSnap.PayloadHash())
-	require.Equal(mintVer.PayloadHash(), lastTx.PayloadHash())
+	require.Equal(mintVer.PayloadHash(), lastTx[0].PayloadHash())
 }
 
 func TestPublicTransactionAndSnapshotWorkflows(t *testing.T) {
@@ -1262,7 +1263,7 @@ func TestRoundAssertionAndValidationEdges(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		err = writeSnapshot(txn, snap1, ver1)
+		err = writeSnapshot(txn, snap1)
 		if err != nil {
 			return err
 		}
@@ -1270,7 +1271,7 @@ func TestRoundAssertionAndValidationEdges(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		err = writeSnapshot(txn, snap2, ver2)
+		err = writeSnapshot(txn, snap2)
 		if err != nil {
 			return err
 		}
@@ -1455,7 +1456,7 @@ func TestGraphTopologyAndStoreEdges(t *testing.T) {
 		if err := writeTransaction(txn, ver); err != nil {
 			return err
 		}
-		if err := writeSnapshot(txn, validSnap, ver); err != nil {
+		if err := writeSnapshot(txn, validSnap); err != nil {
 			return err
 		}
 		return txn.Set(graphTransactionKey(ver.PayloadHash()), []byte{0})
@@ -1472,7 +1473,7 @@ func TestGraphTopologyAndStoreEdges(t *testing.T) {
 		if err := writeTransaction(txn, ver); err != nil {
 			return err
 		}
-		if err := writeSnapshot(txn, validSnap, ver); err != nil {
+		if err := writeSnapshot(txn, validSnap); err != nil {
 			return err
 		}
 		return txn.Set(graphConsensusSnapshotKey(validSnap.Timestamp+1, snapHash), []byte{})
@@ -1490,7 +1491,7 @@ func TestGraphTopologyAndStoreEdges(t *testing.T) {
 		if err := writeTransaction(txn, ver); err != nil {
 			return err
 		}
-		if err := writeSnapshot(txn, validSnap, ver); err != nil {
+		if err := writeSnapshot(txn, validSnap); err != nil {
 			return err
 		}
 		txHash := ver.PayloadHash()

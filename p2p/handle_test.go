@@ -21,7 +21,7 @@ func TestParseNetworkMessageRejectsUnsignedFullChallenge(t *testing.T) {
 		},
 		Timestamp: 2,
 	}
-	s.AddSoleTransaction(crypto.Blake3Hash([]byte("tx")))
+	s.AddTransaction(crypto.Blake3Hash([]byte("tx")))
 
 	seed := make([]byte, 64)
 	seed[0] = 1
@@ -30,7 +30,7 @@ func TestParseNetworkMessageRejectsUnsignedFullChallenge(t *testing.T) {
 	challenge := crypto.NewKeyFromSeed(seed).Public()
 
 	tx := common.NewTransactionV5(common.XINAssetId).AsVersioned()
-	msg := buildFullChallengeMessage(s, &commitment, &challenge, tx)
+	msg := buildFullChallengeMessage(s, &commitment, &challenge, []*common.VersionedTransaction{tx})
 
 	parsed, err := parseNetworkMessage(0, msg)
 	require.Nil(parsed)

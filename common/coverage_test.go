@@ -1,6 +1,7 @@
 package common
 
 import (
+	"io"
 	"testing"
 
 	"github.com/MixinNetwork/mixin/config"
@@ -176,32 +177,13 @@ func TestSnapshotHelpers(t *testing.T) {
 
 	tx := crypto.Blake3Hash([]byte("sole-transaction"))
 	s := &Snapshot{Version: SnapshotVersionCommonEncoding}
-	s.AddSoleTransaction(tx)
-	require.Equal(tx, s.SoleTransaction())
+	s.AddTransaction(tx)
+	require.Equal(tx, s.Transactions[0])
 
 	decoded, err := UnmarshalVersionedSnapshot(s.VersionedMarshal())
 	require.Nil(err)
-	require.Equal(tx, decoded.SoleTransaction())
+	require.Equal(tx, decoded.Transactions[0])
 	require.Equal(uint64(0), decoded.TopologicalOrder)
-
-	require.Panics(func() {
-		s.AddSoleTransaction(crypto.Blake3Hash([]byte("extra")))
-	})
-
-	require.Panics(func() {
-		(&Snapshot{Version: 1}).AddSoleTransaction(tx)
-	})
-
-	require.Panics(func() {
-		(&Snapshot{Version: 1}).SoleTransaction()
-	})
-
-	require.Panics(func() {
-		(&Snapshot{
-			Version:      SnapshotVersionCommonEncoding,
-			Transactions: []crypto.Hash{tx, crypto.Blake3Hash([]byte("second"))},
-		}).SoleTransaction()
-	})
 }
 
 func TestRationalAssetAndDepositHelpers(t *testing.T) {
@@ -387,7 +369,7 @@ func TestDecoderAndSnapshotEdgeCoverage(t *testing.T) {
 	})
 	enc.WriteInt(0)
 	_, err = NewDecoder(enc.Bytes()).DecodeSnapshotWithTopo()
-	require.ErrorContains(err, "invalid transactions count 0")
+	require.ErrorIs(err, io.EOF)
 
 	snapshot := &Snapshot{
 		Version:      SnapshotVersionCommonEncoding,
