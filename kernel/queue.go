@@ -110,7 +110,7 @@ func (node *Node) loopCacheQueue() {
 			if canSelf {
 				node.sendTransactionsToNode(batch, node.IdForNetwork)
 			}
-			if !canSelf || len(batch) < 4 {
+			if !canSelf || len(batch) < 3 {
 				nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now)
 				for _, nbor := range nbors {
 					node.sendTransactionsToNode(batch, nbor)
@@ -210,7 +210,7 @@ func (node *Node) filterLeadingNodes(all []*CNode) ([]*CNode, map[crypto.Hash]bo
 }
 
 func (node *Node) findRandomHeadNodeWithPossibleTail(all, leading []*CNode, filter map[crypto.Hash]bool, now time.Time) []crypto.Hash {
-	idx := now.UnixNano() / int64(time.Minute*3) % int64(len(all))
+	idx := now.UnixNano() / int64(time.Minute) % int64(len(all))
 	id := all[idx].IdForNetwork
 	if filter[id] || len(leading) == 0 {
 		return []crypto.Hash{id}
@@ -218,6 +218,9 @@ func (node *Node) findRandomHeadNodeWithPossibleTail(all, leading []*CNode, filt
 
 	idx = now.UnixNano() / int64(time.Minute) % int64(len(leading))
 	lid := leading[idx].IdForNetwork
+	if lid == id {
+		return []crypto.Hash{id}
+	}
 	logger.Debugf("findRandomHeadNodeWithPossibleTail(%d, %d) => %s %s", len(all), len(leading), id, lid)
 	return []crypto.Hash{id, lid}
 }
