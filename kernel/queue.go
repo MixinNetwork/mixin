@@ -62,7 +62,7 @@ func (node *Node) loopCacheQueue() {
 
 		now := clock.Now()
 		filter := make(map[crypto.Hash]bool)
-		var stale, batch, single []crypto.Hash
+		var stale, batch []crypto.Hash
 		leadingNodes, leadingFilter := node.filterLeadingNodes(allNodes)
 		for _, tx := range txs {
 			hash := tx.PayloadHash()
@@ -84,6 +84,10 @@ func (node *Node) loopCacheQueue() {
 				logger.Debugf("LoopCacheQueue Validate ERROR %s %s\n", hash, err)
 				// FIXME not mark invalid tx as stale is to ensure final graph sync
 				// but we need some way to mitigate cache transaction DoS attack from nodes
+				err = node.persistStore.CachePutTransaction(tx)
+				if err != nil {
+					logger.Debugf("LoopCacheQueue CachePutTransaction ERROR %s %s\n", hash, err)
+				}
 				continue
 			}
 			nbor := node.electSnapshotNode(tx.TransactionType(), uint64(now.UnixNano()))
@@ -93,25 +97,24 @@ func (node *Node) loopCacheQueue() {
 			}
 			if tx.IsSnapshotBatchable() {
 				batch = append(batch, hash)
-			} else {
-				single = []crypto.Hash{hash}
-				break
+				continue
 			}
-		}
-		if len(batch) > 0 {
-			nbors := node.findBatchSnapshotNodes(allNodes, leadingNodes)
-			groups := groupTransactionsBySnapshotNode(batch, nbors)
-			for _, nbor := range nbors {
-				if len(groups[nbor]) == 0 {
-					continue
-				}
-				node.sendTransactionsToNode(groups[nbor], nbor)
-			}
-		}
-		if len(single) > 0 {
 			nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now)
 			for _, nbor := range nbors {
-				node.sendTransactionsToNode(single, nbor)
+				node.sendTransactionsToNode([]crypto.Hash{hash}, nbor)
+			}
+			break
+		}
+		if len(batch) > 0 {
+			canSelf := node.canBatchSelfTransactions()
+			if canSelf {
+				node.sendTransactionsToNode(batch, node.IdForNetwork)
+			}
+			if !canSelf || len(batch) < 4 {
+				nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now)
+				for _, nbor := range nbors {
+					node.sendTransactionsToNode(batch, nbor)
+				}
 			}
 		}
 		err = node.persistStore.CacheRemoveTransactions(stale)
@@ -217,30 +220,6 @@ func (node *Node) findRandomHeadNodeWithPossibleTail(all, leading []*CNode, filt
 	lid := leading[idx].IdForNetwork
 	logger.Debugf("findRandomHeadNodeWithPossibleTail(%d, %d) => %s %s", len(all), len(leading), id, lid)
 	return []crypto.Hash{id, lid}
-}
-
-func (node *Node) findBatchSnapshotNodes(all, leading []*CNode) []crypto.Hash {
-	nodes := leading
-	if len(nodes) == 0 {
-		nodes = all
-	}
-	ids := make([]crypto.Hash, 0, len(nodes))
-	for _, n := range nodes {
-		ids = append(ids, n.IdForNetwork)
-	}
-	return ids
-}
-
-func groupTransactionsBySnapshotNode(txs []crypto.Hash, nodes []crypto.Hash) map[crypto.Hash][]crypto.Hash {
-	groups := make(map[crypto.Hash][]crypto.Hash)
-	if len(nodes) == 0 {
-		return groups
-	}
-	for _, tx := range txs {
-		node := nodes[int(tx[0])%len(nodes)]
-		groups[node] = append(groups[node], tx)
-	}
-	return groups
 }
 
 func (node *Node) QueueState() (uint64, uint64, map[string][2]uint64) {
