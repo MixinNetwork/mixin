@@ -498,11 +498,6 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 func testCheckMintDistributions(t *testing.T, node string) {
 	require := require.New(t)
 	mints := testListMintDistributions(node)
-	for len(mints) == 0 {
-		t.Logf("testListMintDistributions(%s) EMPTY", node)
-		time.Sleep(time.Second * 17)
-		mints = testListMintDistributions(node)
-	}
 	require.Len(mints, 1)
 	tx := mints[0]
 	require.Len(tx.Inputs, 1)
