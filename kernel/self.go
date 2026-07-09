@@ -24,11 +24,8 @@ func (node *Node) checkTxInStorage(id crypto.Hash) (*common.VersionedTransaction
 }
 
 func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool) (map[crypto.Hash]*common.VersionedTransaction, []crypto.Hash, error) {
-	var (
-		missing []crypto.Hash
-		found   = make(map[crypto.Hash]*common.VersionedTransaction)
-	)
-
+	var missing []crypto.Hash
+	found := make(map[crypto.Hash]*common.VersionedTransaction)
 	for _, txh := range s.Transactions {
 		tx, snap, err := node.persistStore.ReadTransaction(txh)
 		if err != nil {
@@ -39,6 +36,10 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 		}
 		if tx != nil {
 			found[txh] = tx
+			err := node.validateKernelSnapshot(s, found, finalized)
+			if err != nil {
+				return nil, nil, err
+			}
 			continue
 		}
 
@@ -56,19 +57,17 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 			return nil, nil, err
 		}
 
+		found[txh] = tx
+		err = node.validateKernelSnapshot(s, found, finalized)
+		if err != nil {
+			return nil, nil, err
+		}
 		err = node.lockAndPersistTransaction(tx, finalized)
 		if err != nil {
 			return nil, nil, err
 		}
-		found[txh] = tx
 	}
 
-	if len(found) == len(s.Transactions) {
-		err := node.validateKernelSnapshot(s, found, finalized)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
 	return found, missing, nil
 }
 
@@ -93,9 +92,6 @@ func (node *Node) lockAndPersistTransaction(tx *common.VersionedTransaction, fin
 }
 
 func (node *Node) validateKernelSnapshot(s *common.Snapshot, found map[crypto.Hash]*common.VersionedTransaction, finalized bool) error {
-	if len(found) != len(s.Transactions) {
-		panic(len(found))
-	}
 	if len(s.Transactions) > 1 {
 		for _, tx := range found {
 			if !tx.IsSnapshotBatchable() {
