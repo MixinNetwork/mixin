@@ -21,21 +21,23 @@ const (
 	PeerMessageTypeSnapshotConfirm    = 5
 	PeerMessageTypeTransactionRequest = 6
 	PeerMessageTypeTransaction        = 7
+	PeerMessageTypeTransactionBundle  = 8
 
-	PeerMessageTypeSnapshotAnnouncement = 10 // leader send snapshot to peer
-	PeerMessageTypeSnapshotCommitment   = 11 // peer generate ri based, send Ri to leader
-	PeerMessageTypeTransactionChallenge = 12 // leader send bitmask Z and aggregated R to peer
-	PeerMessageTypeSnapshotResponse     = 13 // peer generate A from nodes and Z, send response si = ri + H(R || A || M)ai to leader
-	PeerMessageTypeSnapshotFinalization = 14 // leader generate A, verify si B = ri B + H(R || A || M)ai B = Ri + H(R || A || M)Ai, then finalize based on threshold
-	PeerMessageTypePreCommitments       = 15
+	// TODO legacy messages, delete after all nodes upgraded
+	PeerMessageTypeSnapshotAnnouncement = 10
+	PeerMessageTypeSnapshotCommitment   = 11
+	PeerMessageTypeTransactionChallenge = 12
+	PeerMessageTypeSnapshotResponse     = 13
+	PeerMessageTypeSnapshotFinalization = 14
 	PeerMessageTypeFullChallenge        = 16
-	PeerMessageTypeTransactionBundle    = 17
 
-	PeerMessageTypeBatchSnapshotAnnouncement = 18
-	PeerMessageTypeBatchSnapshotCommitment   = 19
-	PeerMessageTypeBatchTransactionChallenge = 20
-	PeerMessageTypeBatchFullChallenge        = 21
-	PeerMessageTypeBatchSnapshotFinalization = 22
+	PeerMessageTypePreCommitments            = 15 // pre commitments so the round can just start from full challenge
+	PeerMessageTypeBatchSnapshotAnnouncement = 20 // leader send snapshot to peer
+	PeerMessageTypeBatchSnapshotCommitment   = 21 // peer generate ri based, send Ri to leader
+	PeerMessageTypeBatchTransactionChallenge = 22 // leader send bitmask Z and aggregated R to peer
+	PeerMessageTypeBatchSnapshotResponse     = 23 // peer generate A from nodes and Z, send response si = ri + H(R || A || M)ai to leader
+	PeerMessageTypeBatchFullChallenge        = 24 // full challenge can be the first round if there are pre commitments
+	PeerMessageTypeBatchSnapshotFinalization = 25 // leader generate A, verify si B = ri B + H(R || A || M)ai B = Ri + H(R || A || M)Ai, then finalize based on threshold
 
 	PeerMessageTypeRelay     = 200
 	PeerMessageTypeConsumers = 201
@@ -643,7 +645,7 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 			return nil, err
 		}
 		msg.Transactions = txs
-	case PeerMessageTypeSnapshotResponse:
+	case PeerMessageTypeSnapshotResponse, PeerMessageTypeBatchSnapshotResponse:
 		if len(data[1:]) != 64 {
 			return nil, fmt.Errorf("invalid response message size %d", len(data[1:]))
 		}
@@ -785,7 +787,7 @@ func (me *Peer) handlePeerMessage(peerId crypto.Hash, msg *PeerMessage) error {
 	case PeerMessageTypeFullChallenge, PeerMessageTypeBatchFullChallenge:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeFullChallenge %s %v %d\n", peerId, msg.Snapshot, len(msg.Transactions))
 		return me.handle.CosiQueueExternalFullChallenge(peerId, msg.Snapshot, &msg.Commitment, &msg.Challenge, &msg.Cosi, msg.Transactions)
-	case PeerMessageTypeSnapshotResponse:
+	case PeerMessageTypeSnapshotResponse, PeerMessageTypeBatchSnapshotResponse:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotResponse %s %s\n", peerId, msg.SnapshotHash)
 		return me.handle.CosiAggregateSelfResponses(peerId, msg.SnapshotHash, &msg.Response)
 	case PeerMessageTypeSnapshotFinalization, PeerMessageTypeBatchSnapshotFinalization:
