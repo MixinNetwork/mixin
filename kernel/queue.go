@@ -84,10 +84,6 @@ func (node *Node) loopCacheQueue() {
 				logger.Debugf("LoopCacheQueue Validate ERROR %s %s\n", hash, err)
 				// FIXME not mark invalid tx as stale is to ensure final graph sync
 				// but we need some way to mitigate cache transaction DoS attack from nodes
-				err = node.persistStore.CachePutTransaction(tx)
-				if err != nil {
-					logger.Debugf("LoopCacheQueue CachePutTransaction ERROR %s %s\n", hash, err)
-				}
 				continue
 			}
 			nbor := node.electSnapshotNode(tx.TransactionType(), uint64(now.UnixNano()))
