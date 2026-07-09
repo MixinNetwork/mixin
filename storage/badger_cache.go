@@ -89,17 +89,19 @@ func (s *BadgerStore) CacheRemoveTransactions(hashes []crypto.Hash) error {
 }
 
 func (s *BadgerStore) CachePutTransaction(tx *common.VersionedTransaction) error {
-	for {
-		err := s.cachePutTransaction(tx)
+	var err error
+	for i := range 3 {
+		err = s.cachePutTransaction(tx)
 		if err == nil {
 			return nil
 		}
 		if errors.Is(err, badger.ErrConflict) {
-			time.Sleep(time.Millisecond * 10)
+			time.Sleep(time.Millisecond * 50 * time.Duration(i+1))
 			continue
 		}
 		return err
 	}
+	return err
 }
 
 func (s *BadgerStore) cachePutTransaction(tx *common.VersionedTransaction) error {

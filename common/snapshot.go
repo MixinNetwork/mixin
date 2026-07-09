@@ -42,6 +42,9 @@ func (s *Snapshot) AddTransaction(tx crypto.Hash) {
 		panic(tx)
 	}
 	s.Transactions = append(s.Transactions, tx)
+	if len(s.Transactions) > SnapshotTransactionsMaximum {
+		panic(len(s.Transactions))
+	}
 }
 
 func UnmarshalVersionedSnapshot(b []byte) (*SnapshotWithTopologicalOrder, error) {

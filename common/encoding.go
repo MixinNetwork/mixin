@@ -60,8 +60,8 @@ func (enc *Encoder) encodeSnapshotPayload(s *Snapshot, withSig bool) {
 	if s.RoundNumber == 0 && len(s.Transactions) != 1 {
 		panic(len(s.Transactions))
 	}
-	if len(s.Transactions) > SnapshotTransactionsMaximum {
-		panic(len(s.Transactions))
+	if l := len(s.Transactions); l < 1 || l > SnapshotTransactionsMaximum {
+		panic(l)
 	}
 	if !withSig && s.Signature != nil {
 		panic(s.Signature)
