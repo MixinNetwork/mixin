@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/binary"
+	"errors"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -88,6 +89,20 @@ func (s *BadgerStore) CacheRemoveTransactions(hashes []crypto.Hash) error {
 }
 
 func (s *BadgerStore) CachePutTransaction(tx *common.VersionedTransaction) error {
+	for {
+		err := s.cachePutTransaction(tx)
+		if err == nil {
+			return nil
+		}
+		if errors.Is(err, badger.ErrConflict) {
+			time.Sleep(time.Millisecond * 10)
+			continue
+		}
+		return err
+	}
+}
+
+func (s *BadgerStore) cachePutTransaction(tx *common.VersionedTransaction) error {
 	txn := s.cacheDB.NewTransaction(true)
 	defer txn.Discard()
 

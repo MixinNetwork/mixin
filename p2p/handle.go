@@ -10,7 +10,6 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
-	"github.com/dgraph-io/badger/v4"
 	"github.com/dgraph-io/ristretto/v2"
 )
 
@@ -153,6 +152,7 @@ func (me *Peer) SendSnapshotResponseMessage(idForNetwork crypto.Hash, snap crypt
 	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeSnapshotResponse, data)
 }
 
+// TODO should we also send transactions together when do the sync
 func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *common.Snapshot) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
@@ -763,9 +763,6 @@ func (me *Peer) handlePeerMessage(peerId crypto.Hash, msg *PeerMessage) error {
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransaction %s %d\n", peerId, len(msg.Transactions))
 		for _, tx := range msg.Transactions {
 			err := me.handle.CachePutTransaction(peerId, tx)
-			if errors.Is(err, badger.ErrConflict) {
-				continue
-			}
 			if err != nil {
 				return err
 			}

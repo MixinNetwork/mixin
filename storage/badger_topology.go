@@ -151,13 +151,13 @@ func (s *BadgerStore) LastSnapshot() (*common.SnapshotWithTopologicalOrder, []*c
 	if len(snaps) != 1 {
 		panic(topo)
 	}
-	var txs []*common.VersionedTransaction
-	for _, h := range snaps[0].Transactions {
+	txs := make([]*common.VersionedTransaction, len(snaps[0].Transactions))
+	for i, h := range snaps[0].Transactions {
 		tx, err := readTransaction(txn, h)
 		if err != nil {
 			panic(err)
 		}
-		txs = append(txs, tx)
+		txs[i] = tx
 	}
 	return snaps[0], txs
 }

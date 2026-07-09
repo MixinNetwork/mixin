@@ -211,7 +211,7 @@ func (node *Node) filterLeadingNodes(all []*CNode) ([]*CNode, map[crypto.Hash]bo
 	return leading, filter
 }
 
-// need to think whether I need to group transactions by hash and time to different nodes
+// TODO need to think whether I need to group transactions by hash and time to different nodes
 func (node *Node) findRandomHeadNodeWithPossibleTail(all, leading []*CNode, filter map[crypto.Hash]bool, now time.Time) []crypto.Hash {
 	idx := now.UnixNano() / int64(time.Minute) % int64(len(all))
 	id := all[idx].IdForNetwork
