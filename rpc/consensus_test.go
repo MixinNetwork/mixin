@@ -221,10 +221,8 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	gts = gt4.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt5.Timestamp.After(gts), "%s should after %s", gt5.Timestamp, gts)
 
-	for range 5 {
-		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
-		transactionsCount = transactionsCount + len(dummyInputs)
-	}
+	dummyInputs, mintTransactions := testSendDummyTransactionsUntilMint(t, nodes, accounts[0], dummyInputs, dummyAmount)
+	transactionsCount = transactionsCount + mintTransactions
 	testCheckMintDistributions(t, nodes[0].Host)
 	t.Logf("MINT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 
@@ -497,15 +495,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 
 func testCheckMintDistributions(t *testing.T, node string) {
 	require := require.New(t)
-	deadline := time.Now().Add(testStateSyncTimeout)
-	var mints []*common.VersionedTransaction
-	for {
-		mints = testListMintDistributions(node)
-		if len(mints) >= 1 || time.Now().After(deadline) {
-			break
-		}
-		time.Sleep(time.Second)
-	}
+	mints := testWaitMintDistributions(t, node, 1)
 	require.Len(mints, 1)
 	tx := mints[0]
 	require.Len(tx.Inputs, 1)
@@ -537,6 +527,36 @@ func testCheckMintDistributions(t *testing.T, node string) {
 			require.Len(o.Keys, 1)
 		}
 	}
+}
+
+func testWaitMintDistributions(t *testing.T, node string, count int) []*common.VersionedTransaction {
+	require := require.New(t)
+	deadline := time.Now().Add(testStateSyncTimeout)
+	for {
+		mints := testListMintDistributions(node)
+		if len(mints) >= count {
+			return mints
+		}
+		if time.Now().After(deadline) {
+			require.Len(mints, count)
+		}
+		time.Sleep(time.Second)
+	}
+}
+
+func testSendDummyTransactionsUntilMint(t *testing.T, nodes []*Node, domain common.Address, inputs []*common.Input, amount string) ([]*common.Input, int) {
+	require := require.New(t)
+	deadline := time.Now().Add(5 * testStateSyncTimeout)
+	transactions := 0
+	for len(testListMintDistributions(nodes[0].Host)) == 0 {
+		if time.Now().After(deadline) {
+			require.FailNowf("timed out waiting for mint distribution", "sent %d extra dummy transactions", transactions)
+		}
+		t.Logf("MINT PENDING, SEND DUMMY ROUND AT %s\n", time.Now())
+		inputs = testSendDummyTransactionsWithRetry(t, nodes, domain, inputs, amount)
+		transactions = transactions + len(inputs)
+	}
+	return inputs, transactions
 }
 
 func testRemoveNode(nodes []*Node, r common.Address) []*Node {
@@ -1257,7 +1277,7 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 			sc++
 		}
 	}
-	if len(snapshots) > 0 {
+	if sc > 0 {
 		fmt.Printf("SNAPSHOT STATS %s snapshots=%d rounds=%d avg_snapshots_per_round=%.2f avg_transactions_per_snapshot=%.2f\n",
 			node, sc, len(rounds), float64(sc)/float64(len(rounds)), float64(tc)/float64(sc))
 	}
