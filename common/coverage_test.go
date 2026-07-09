@@ -367,7 +367,7 @@ func TestDecoderAndSnapshotEdgeCoverage(t *testing.T) {
 		Self:     crypto.Blake3Hash([]byte("self")),
 		External: crypto.Blake3Hash([]byte("external")),
 	})
-	enc.WriteInt(0)
+	enc.WriteInt(1)
 	_, err = NewDecoder(enc.Bytes()).DecodeSnapshotWithTopo()
 	require.ErrorIs(err, io.EOF)
 
