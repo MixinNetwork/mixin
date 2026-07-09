@@ -8,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
+	"github.com/MixinNetwork/mixin/p2p"
 )
 
 func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, error) {
@@ -62,6 +63,7 @@ func (node *Node) loopCacheQueue() {
 
 		now := clock.Now()
 		filter := make(map[crypto.Hash]bool)
+		var batchSize int
 		var stale, batch []crypto.Hash
 		leadingNodes, leadingFilter := node.filterLeadingNodes(allNodes)
 		for _, tx := range txs {
@@ -90,6 +92,10 @@ func (node *Node) loopCacheQueue() {
 			if nbor.HasValue() {
 				node.sendTransactionsToNode([]crypto.Hash{hash}, nbor)
 				continue
+			}
+			batchSize += tx.ValidatedSize()
+			if batchSize > p2p.TransportMessageMaxSize*2/3 {
+				break
 			}
 			if tx.IsSnapshotBatchable() {
 				batch = append(batch, hash)

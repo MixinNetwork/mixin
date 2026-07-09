@@ -37,7 +37,8 @@ func (ver *VersionedTransaction) Validate(store DataStore, snapTime uint64, fork
 	if len(tx.Extra) > tx.GetExtraLimit() {
 		return fmt.Errorf("invalid extra size %d", len(tx.Extra))
 	}
-	if len(ver.PayloadMarshal()) > config.TransactionMaximumSize {
+	ver.validatedSize = len(ver.PayloadMarshal())
+	if ver.validatedSize > config.TransactionMaximumSize {
 		return fmt.Errorf("invalid transaction size %d", len(ver.PayloadMarshal()))
 	}
 

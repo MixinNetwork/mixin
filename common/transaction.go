@@ -69,12 +69,21 @@ type Transaction struct {
 	Outputs    []*Output
 	References []crypto.Hash
 	Extra      []byte
+
+	validatedSize int
 }
 
 type SignedTransaction struct {
 	Transaction
 	AggregatedSignature *AggregatedSignature
 	SignaturesMap       []map[uint16]*crypto.Signature
+}
+
+func (tx *Transaction) ValidatedSize() int {
+	if tx.validatedSize == 0 {
+		panic(tx.AsVersioned().PayloadHash().String())
+	}
+	return tx.validatedSize
 }
 
 func (tx *Transaction) ViewGhostKey(a *crypto.Key) []*Output {
