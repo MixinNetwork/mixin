@@ -303,10 +303,9 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		return fmt.Errorf("cosi snapshot transaction error %v", err)
 	}
 	if m.Action != CosiActionExternalAnnouncement && len(found) != len(s.Transactions) {
-		return fmt.Errorf("no transaction found")
+		return fmt.Errorf("no transaction found %d %d", len(found), len(s.Transactions))
 	}
 
-	m.WantTxs = missing
 	m.Transactions = slices.Collect(maps.Values(found))
 	m.data = &CosiChainData{PN: pn, CN: cn, FoundTxs: found, WantTxs: missing}
 	return nil
@@ -421,7 +420,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		}
 	}
 	if len(cd.FoundTxs) != len(s.Transactions) {
-		return fmt.Errorf("missing transactions for announcement")
+		return fmt.Errorf("missing transactions for announcement %d %d", len(cd.FoundTxs), len(s.Transactions))
 	}
 
 	s.Hash = s.PayloadHash()
@@ -487,7 +486,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	for _, txh := range s.Transactions {
 		chain.CosiVerifiers[txh] = v
 	}
-	err = chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s.Hash, r.Public(), cd.WantTxs)
+	err = chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s, r.Public(), cd.WantTxs)
 	if err != nil {
 		logger.Verbosef("cosiHandleAnnouncement SendSnapshotCommitmentMessage(%s, %s) ERROR %v\n",
 			s.NodeId, s.Hash, err)
@@ -551,7 +550,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 			for i, h := range wantTxs {
 				rtxs[i] = cd.FoundTxs[h]
 			}
-			err = chain.node.Peer.SendTransactionChallengeMessage(id, m.SnapshotHash, cosi, rtxs)
+			err = chain.node.Peer.SendTransactionChallengeMessage(id, s, cosi, rtxs)
 		}
 		if err != nil {
 			logger.Verbosef("cosiHandleCommitment SendTransactionChallengeMessage(%s, %s) ERROR %v\n",
@@ -982,16 +981,16 @@ func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) err
 	return chain.node.Peer.SendCommitmentsMessage(peerId, commitments)
 }
 
-func (node *Node) CosiQueueExternalCommitments(peerId crypto.Hash, commitments []*crypto.Key, data []byte, sig *crypto.Signature) error {
-	logger.Debugf("CosiQueueExternalCommitments(%s, %d)\n", peerId, len(commitments))
+func (node *Node) CosiQueueExternalPreCommitments(peerId crypto.Hash, commitments []*crypto.Key, data []byte, sig *crypto.Signature) error {
+	logger.Debugf("CosiQueueExternalPreCommitments(%s, %d)\n", peerId, len(commitments))
 	peer := node.GetAcceptedOrPledgingNode(peerId)
 	if peer == nil {
-		logger.Verbosef("CosiQueueExternalCommitments(%s, %d) from malicious node\n",
+		logger.Verbosef("CosiQueueExternalPreCommitments(%s, %d) from malicious node\n",
 			peerId, len(commitments))
 		return nil
 	}
 	if !peer.Signer.PublicSpendKey.Verify(crypto.Blake3Hash(data), *sig) {
-		logger.Printf("CosiQueueExternalCommitments(%s) invalid signature\n", peerId)
+		logger.Printf("CosiQueueExternalPreCommitments(%s) invalid signature\n", peerId)
 		return nil
 	}
 
@@ -1002,7 +1001,7 @@ func (node *Node) CosiQueueExternalCommitments(peerId crypto.Hash, commitments [
 	}
 	err := node.chain.AppendCosiAction(m)
 	if err != nil {
-		logger.Verbosef("CosiQueueExternalCommitments(%v) => %v\n", m, err)
+		logger.Verbosef("CosiQueueExternalPreCommitments(%v) => %v\n", m, err)
 	}
 	return nil
 }
@@ -1047,6 +1046,7 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 		logger.Printf("CosiAggregateSelfCommitments(%s, %s) invalid signature\n", peerId, snap)
 		return nil
 	}
+	wantTxs = node.resolveLegacyWantTxs(snap, wantTxs)
 
 	m := &CosiAction{
 		PeerId:       peerId,
@@ -1060,6 +1060,20 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 		logger.Verbosef("CosiAggregateSelfCommitments(%v) => %v\n", m, err)
 	}
 	return nil
+}
+
+func (node *Node) resolveLegacyWantTxs(snap crypto.Hash, wantTxs []crypto.Hash) []crypto.Hash {
+	if wantTxs == nil || len(wantTxs) > 0 {
+		return wantTxs
+	}
+	if node.chain == nil {
+		return nil
+	}
+	agg := node.chain.CosiAggregators[snap]
+	if agg == nil || agg.Snapshot == nil || len(agg.Snapshot.Transactions) != 1 {
+		return nil
+	}
+	return []crypto.Hash{agg.Snapshot.Transactions[0]}
 }
 
 func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, txs []*common.VersionedTransaction) error {

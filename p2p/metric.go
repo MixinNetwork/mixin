@@ -20,8 +20,15 @@ type MetricPool struct {
 	PeerMessageTypeTransactionChallenge uint32 `json:"transaciton-challenge"`
 	PeerMessageTypeSnapshotResponse     uint32 `json:"snapshot-response"`
 	PeerMessageTypeSnapshotFinalization uint32 `json:"snapshot-finalization"`
-	PeerMessageTypeCommitments          uint32 `json:"commitments"`
+	PeerMessageTypePreCommitments       uint32 `json:"commitments"`
 	PeerMessageTypeFullChallenge        uint32 `json:"full-challenge"`
+	PeerMessageTypeTransactionBundle    uint32 `json:"transaction-bundle"`
+
+	PeerMessageTypeBatchSnapshotAnnouncement uint32 `json:"batch-snapshot-announcement"`
+	PeerMessageTypeBatchSnapshotCommitment   uint32 `json:"batch-snapshot-commitment"`
+	PeerMessageTypeBatchTransactionChallenge uint32 `json:"batch-transaction-challenge"`
+	PeerMessageTypeBatchFullChallenge        uint32 `json:"batch-full-challenge"`
+	PeerMessageTypeBatchSnapshotFinalization uint32 `json:"batch-snapshot-finalization"`
 
 	PeerMessageTypeRelay uint32 `json:"relay"`
 }
@@ -54,10 +61,22 @@ func (mp *MetricPool) handle(msg uint8) {
 		atomic.AddUint32(&mp.PeerMessageTypeSnapshotResponse, 1)
 	case PeerMessageTypeSnapshotFinalization:
 		atomic.AddUint32(&mp.PeerMessageTypeSnapshotFinalization, 1)
-	case PeerMessageTypeCommitments:
-		atomic.AddUint32(&mp.PeerMessageTypeCommitments, 1)
+	case PeerMessageTypePreCommitments:
+		atomic.AddUint32(&mp.PeerMessageTypePreCommitments, 1)
 	case PeerMessageTypeFullChallenge:
 		atomic.AddUint32(&mp.PeerMessageTypeFullChallenge, 1)
+	case PeerMessageTypeTransactionBundle:
+		atomic.AddUint32(&mp.PeerMessageTypeTransactionBundle, 1)
+	case PeerMessageTypeBatchSnapshotAnnouncement:
+		atomic.AddUint32(&mp.PeerMessageTypeBatchSnapshotAnnouncement, 1)
+	case PeerMessageTypeBatchSnapshotCommitment:
+		atomic.AddUint32(&mp.PeerMessageTypeBatchSnapshotCommitment, 1)
+	case PeerMessageTypeBatchTransactionChallenge:
+		atomic.AddUint32(&mp.PeerMessageTypeBatchTransactionChallenge, 1)
+	case PeerMessageTypeBatchFullChallenge:
+		atomic.AddUint32(&mp.PeerMessageTypeBatchFullChallenge, 1)
+	case PeerMessageTypeBatchSnapshotFinalization:
+		atomic.AddUint32(&mp.PeerMessageTypeBatchSnapshotFinalization, 1)
 	case PeerMessageTypeRelay:
 		atomic.AddUint32(&mp.PeerMessageTypeRelay, 1)
 	}

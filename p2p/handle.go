@@ -14,7 +14,6 @@ import (
 	"github.com/dgraph-io/ristretto/v2"
 )
 
-// TODO use new message type for the batch transactions
 const (
 	PeerMessageTypePing               = 1 // not used because too more than enough graph sync messages
 	PeerMessageTypeAuthentication     = 3
@@ -28,8 +27,15 @@ const (
 	PeerMessageTypeTransactionChallenge = 12 // leader send bitmask Z and aggregated R to peer
 	PeerMessageTypeSnapshotResponse     = 13 // peer generate A from nodes and Z, send response si = ri + H(R || A || M)ai to leader
 	PeerMessageTypeSnapshotFinalization = 14 // leader generate A, verify si B = ri B + H(R || A || M)ai B = Ri + H(R || A || M)Ai, then finalize based on threshold
-	PeerMessageTypeCommitments          = 15
+	PeerMessageTypePreCommitments       = 15
 	PeerMessageTypeFullChallenge        = 16
+	PeerMessageTypeTransactionBundle    = 17
+
+	PeerMessageTypeBatchSnapshotAnnouncement = 18
+	PeerMessageTypeBatchSnapshotCommitment   = 19
+	PeerMessageTypeBatchTransactionChallenge = 20
+	PeerMessageTypeBatchFullChallenge        = 21
+	PeerMessageTypeBatchSnapshotFinalization = 22
 
 	PeerMessageTypeRelay     = 200
 	PeerMessageTypeConsumers = 201
@@ -83,7 +89,7 @@ type SyncHandle interface {
 	CosiQueueExternalFullChallenge(peerId crypto.Hash, s *common.Snapshot, commitment, challenge *crypto.Key, cosi *crypto.CosiSignature, txs []*common.VersionedTransaction) error
 	CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Hash, response *[32]byte) error
 	VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error
-	CosiQueueExternalCommitments(peerId crypto.Hash, commitments []*crypto.Key, data []byte, sig *crypto.Signature) error
+	CosiQueueExternalPreCommitments(peerId crypto.Hash, commitments []*crypto.Key, data []byte, sig *crypto.Signature) error
 }
 
 func (me *Peer) SendGraphMessage(idForNetwork crypto.Hash) error {
@@ -96,27 +102,48 @@ func (me *Peer) SendCommitmentsMessage(idForNetwork crypto.Hash, commitments []*
 	hash := crypto.Blake3Hash(data)
 	key := append(idForNetwork[:], 'C', 'R')
 	key = append(key, hash[:]...)
-	return me.sendHighToPeer(idForNetwork, PeerMessageTypeCommitments, key, data)
+	return me.sendHighToPeer(idForNetwork, PeerMessageTypePreCommitments, key, data)
 }
 
 func (me *Peer) SendSnapshotAnnouncementMessage(idForNetwork crypto.Hash, s *common.Snapshot, R crypto.Key, spend crypto.Key) error {
-	data := buildSnapshotAnnouncementMessage(s, R, spend)
-	return me.sendSnapshotMessageToPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeSnapshotAnnouncement, data)
+	typ := batchSnapshotMessageType(s, PeerMessageTypeSnapshotAnnouncement, PeerMessageTypeBatchSnapshotAnnouncement)
+	data := buildSnapshotAnnouncementMessageWithType(typ, s, R, spend)
+	return me.sendSnapshotMessageToPeer(idForNetwork, s.PayloadHash(), typ, data)
 }
 
-func (me *Peer) SendSnapshotCommitmentMessage(idForNetwork crypto.Hash, snap crypto.Hash, R crypto.Key, wantTxs []crypto.Hash) error {
-	data := buildSnapshotCommitmentMessage(me.handle, snap, R, wantTxs)
-	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeSnapshotCommitment, data)
+func (me *Peer) SendSnapshotCommitmentMessage(idForNetwork crypto.Hash, s *common.Snapshot, R crypto.Key, wantTxs []crypto.Hash) error {
+	snap := snapshotHash(s)
+	typ := batchSnapshotMessageType(s, PeerMessageTypeSnapshotCommitment, PeerMessageTypeBatchSnapshotCommitment)
+	var data []byte
+	if typ == PeerMessageTypeSnapshotCommitment {
+		data = buildSnapshotCommitmentMessage(me.handle, snap, R, len(wantTxs) > 0)
+	} else {
+		data = buildBatchSnapshotCommitmentMessage(me.handle, snap, R, wantTxs)
+	}
+	return me.sendSnapshotMessageToPeer(idForNetwork, snap, typ, data)
 }
 
-func (me *Peer) SendTransactionChallengeMessage(idForNetwork crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, txs []*common.VersionedTransaction) error {
-	data := buildTransactionChallengeMessage(snap, cosi, txs)
-	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeTransactionChallenge, data)
+func (me *Peer) SendTransactionChallengeMessage(idForNetwork crypto.Hash, s *common.Snapshot, cosi *crypto.CosiSignature, txs []*common.VersionedTransaction) error {
+	snap := snapshotHash(s)
+	typ := batchSnapshotMessageType(s, PeerMessageTypeTransactionChallenge, PeerMessageTypeBatchTransactionChallenge)
+	var data []byte
+	if typ == PeerMessageTypeTransactionChallenge {
+		data = buildTransactionChallengeMessage(snap, cosi, soleTransaction(txs))
+	} else {
+		data = buildBatchTransactionChallengeMessage(snap, cosi, txs)
+	}
+	return me.sendSnapshotMessageToPeer(idForNetwork, snap, typ, data)
 }
 
 func (me *Peer) SendFullChallengeMessage(idForNetwork crypto.Hash, s *common.Snapshot, commitment, challenge *crypto.Key, txs []*common.VersionedTransaction) error {
-	data := buildFullChallengeMessage(s, commitment, challenge, txs)
-	return me.sendSnapshotMessageToPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeFullChallenge, data)
+	typ := batchSnapshotMessageType(s, PeerMessageTypeFullChallenge, PeerMessageTypeBatchFullChallenge)
+	var data []byte
+	if typ == PeerMessageTypeFullChallenge {
+		data = buildFullChallengeMessage(s, commitment, challenge, soleTransaction(txs))
+	} else {
+		data = buildBatchFullChallengeMessage(s, commitment, challenge, txs)
+	}
+	return me.sendSnapshotMessageToPeer(idForNetwork, snapshotHash(s), typ, data)
 }
 
 func (me *Peer) SendSnapshotResponseMessage(idForNetwork crypto.Hash, snap crypto.Hash, si *[32]byte) error {
@@ -135,8 +162,14 @@ func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *com
 		return nil
 	}
 
-	data := buildSnapshotFinalizationMessage(s)
-	return me.sendSnapshotMessageToPeer(idForNetwork, s.Hash, PeerMessageTypeSnapshotFinalization, data)
+	typ := batchSnapshotMessageType(s, PeerMessageTypeSnapshotFinalization, PeerMessageTypeBatchSnapshotFinalization)
+	var data []byte
+	if typ == PeerMessageTypeSnapshotFinalization {
+		data = buildSnapshotFinalizationMessage(s)
+	} else {
+		data = buildBatchSnapshotFinalizationMessage(s)
+	}
+	return me.sendSnapshotMessageToPeer(idForNetwork, s.Hash, typ, data)
 }
 
 func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash) error {
@@ -164,9 +197,9 @@ func (me *Peer) SendTransactionsMessage(idForNetwork crypto.Hash, txs []*common.
 	}
 	data := buildTransactionsMessage(txs)
 	hash := crypto.Blake3Hash(data)
-	key := append(idForNetwork[:], 'T', 'X', PeerMessageTypeTransaction)
+	key := append(idForNetwork[:], 'T', 'X', PeerMessageTypeTransactionBundle)
 	key = append(key, hash[:]...)
-	return me.sendHighToPeer(idForNetwork, PeerMessageTypeTransaction, key, data)
+	return me.sendHighToPeer(idForNetwork, PeerMessageTypeTransactionBundle, key, data)
 }
 
 func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash) {
@@ -180,36 +213,105 @@ func buildAuthenticationMessage(data []byte) []byte {
 	return append(header, data...)
 }
 
+func batchSnapshotMessageType(s *common.Snapshot, legacy, batch uint8) uint8 {
+	if len(s.Transactions) > 1 {
+		return batch
+	}
+	return legacy
+}
+
+func snapshotHash(s *common.Snapshot) crypto.Hash {
+	if s.Hash.HasValue() {
+		return s.Hash
+	}
+	return s.PayloadHash()
+}
+
+func soleTransaction(txs []*common.VersionedTransaction) *common.VersionedTransaction {
+	if len(txs) == 0 {
+		return nil
+	}
+	if len(txs) != 1 {
+		panic(len(txs))
+	}
+	return txs[0]
+}
+
 func buildSnapshotAnnouncementMessage(s *common.Snapshot, R, spend crypto.Key) []byte {
+	return buildSnapshotAnnouncementMessageWithType(PeerMessageTypeSnapshotAnnouncement, s, R, spend)
+}
+
+func buildBatchSnapshotAnnouncementMessage(s *common.Snapshot, R, spend crypto.Key) []byte {
+	return buildSnapshotAnnouncementMessageWithType(PeerMessageTypeBatchSnapshotAnnouncement, s, R, spend)
+}
+
+func buildSnapshotAnnouncementMessageWithType(typ uint8, s *common.Snapshot, R, spend crypto.Key) []byte {
 	data := s.VersionedMarshal()
 	data = append(R[:], data...)
 	sig := spend.Sign(crypto.Blake3Hash(data))
 	data = append(sig[:], data...)
-	return append([]byte{PeerMessageTypeSnapshotAnnouncement}, data...)
+	return append([]byte{typ}, data...)
 }
 
-func buildSnapshotCommitmentMessage(handle SyncHandle, snap crypto.Hash, R crypto.Key, wantTxs []crypto.Hash) []byte {
+func buildSnapshotCommitmentMessage(handle SyncHandle, snap crypto.Hash, R crypto.Key, wantTx bool) []byte {
 	data := append(snap[:], R[:]...)
-	for _, tx := range wantTxs {
-		data = append(data, tx[:]...)
+	if wantTx {
+		data = append(data, byte(1))
+	} else {
+		data = append(data, byte(0))
 	}
 	sig := handle.SignData(data)
 	data = append(sig[:], data...)
 	return append([]byte{PeerMessageTypeSnapshotCommitment}, data...)
 }
 
-func buildTransactionChallengeMessage(snap crypto.Hash, cosi *crypto.CosiSignature, txs []*common.VersionedTransaction) []byte {
+func buildBatchSnapshotCommitmentMessage(handle SyncHandle, snap crypto.Hash, R crypto.Key, wantTxs []crypto.Hash) []byte {
+	data := append(snap[:], R[:]...)
+	for _, tx := range wantTxs {
+		data = append(data, tx[:]...)
+	}
+	sig := handle.SignData(data)
+	data = append(sig[:], data...)
+	return append([]byte{PeerMessageTypeBatchSnapshotCommitment}, data...)
+}
+
+func buildTransactionChallengeMessage(snap crypto.Hash, cosi *crypto.CosiSignature, tx *common.VersionedTransaction) []byte {
 	data := []byte{PeerMessageTypeTransactionChallenge}
 	data = append(data, snap[:]...)
 	data = append(data, cosi.Signature[:]...)
 	data = binary.BigEndian.AppendUint64(data, cosi.Mask)
+	if tx != nil {
+		return append(data, tx.Marshal()...)
+	}
+	return data
+}
 
+func buildBatchTransactionChallengeMessage(snap crypto.Hash, cosi *crypto.CosiSignature, txs []*common.VersionedTransaction) []byte {
+	data := []byte{PeerMessageTypeBatchTransactionChallenge}
+	data = append(data, snap[:]...)
+	data = append(data, cosi.Signature[:]...)
+	data = binary.BigEndian.AppendUint64(data, cosi.Mask)
 	pl := buildTransactionsPayload(txs)
 	return append(data, pl...)
 }
 
-func buildFullChallengeMessage(s *common.Snapshot, commitment, challenge *crypto.Key, txs []*common.VersionedTransaction) []byte {
+func buildFullChallengeMessage(s *common.Snapshot, commitment, challenge *crypto.Key, tx *common.VersionedTransaction) []byte {
 	data := []byte{PeerMessageTypeFullChallenge}
+
+	pl := s.VersionedMarshal()
+	data = binary.BigEndian.AppendUint32(data, uint32(len(pl)))
+	data = append(data, pl[:]...)
+
+	data = append(data, commitment[:]...)
+	data = append(data, challenge[:]...)
+
+	pl = tx.Marshal()
+	data = binary.BigEndian.AppendUint32(data, uint32(len(pl)))
+	return append(data, pl...)
+}
+
+func buildBatchFullChallengeMessage(s *common.Snapshot, commitment, challenge *crypto.Key, txs []*common.VersionedTransaction) []byte {
+	data := []byte{PeerMessageTypeBatchFullChallenge}
 
 	pl := s.VersionedMarshal()
 	data = binary.BigEndian.AppendUint32(data, uint32(len(pl)))
@@ -274,6 +376,11 @@ func buildSnapshotFinalizationMessage(s *common.Snapshot) []byte {
 	return append([]byte{PeerMessageTypeSnapshotFinalization}, data...)
 }
 
+func buildBatchSnapshotFinalizationMessage(s *common.Snapshot) []byte {
+	data := s.VersionedMarshal()
+	return append([]byte{PeerMessageTypeBatchSnapshotFinalization}, data...)
+}
+
 func buildSnapshotConfirmMessage(snap crypto.Hash) []byte {
 	return append([]byte{PeerMessageTypeSnapshotConfirm}, snap[:]...)
 }
@@ -285,7 +392,7 @@ func buildTransactionMessage(ver *common.VersionedTransaction) []byte {
 
 func buildTransactionsMessage(txs []*common.VersionedTransaction) []byte {
 	data := buildTransactionsPayload(txs)
-	return append([]byte{PeerMessageTypeTransaction}, data...)
+	return append([]byte{PeerMessageTypeTransactionBundle}, data...)
 }
 
 func buildTransactionRequestMessage(tx crypto.Hash) []byte {
@@ -310,7 +417,7 @@ func buildCommitmentsMessage(handle SyncHandle, commitments []*crypto.Key) []byt
 	}
 	sig := handle.SignData(data)
 	data = append(sig[:], data...)
-	return append([]byte{PeerMessageTypeCommitments}, data...)
+	return append([]byte{PeerMessageTypePreCommitments}, data...)
 }
 
 func (me *Peer) buildConsumersMessage() []byte {
@@ -340,7 +447,7 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 	}
 	msg := &PeerMessage{Type: data[0], version: version}
 	switch msg.Type {
-	case PeerMessageTypeCommitments:
+	case PeerMessageTypePreCommitments:
 		if len(data) < 80 {
 			return nil, fmt.Errorf("invalid commitments message size %d", len(data))
 		}
@@ -376,19 +483,20 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 	case PeerMessageTypeSnapshotConfirm:
 		copy(msg.SnapshotHash[:], data[1:])
 	case PeerMessageTypeTransaction:
-		txs, err := parseTransactionsPayload(data[1:])
-		if err == nil {
-			msg.Transactions = txs
-		} else {
-			ver, err := common.UnmarshalVersionedTransaction(data[1:])
-			if err != nil {
-				return nil, err
-			}
-			msg.Transactions = []*common.VersionedTransaction{ver}
+		ver, err := common.UnmarshalVersionedTransaction(data[1:])
+		if err != nil {
+			return nil, err
 		}
+		msg.Transactions = []*common.VersionedTransaction{ver}
+	case PeerMessageTypeTransactionBundle:
+		txs, err := parseTransactionsPayload(data[1:])
+		if err != nil {
+			return nil, err
+		}
+		msg.Transactions = txs
 	case PeerMessageTypeTransactionRequest:
 		copy(msg.TransactionHash[:], data[1:])
-	case PeerMessageTypeSnapshotAnnouncement:
+	case PeerMessageTypeSnapshotAnnouncement, PeerMessageTypeBatchSnapshotAnnouncement:
 		if len(data[1:]) <= 99 {
 			return nil, fmt.Errorf("invalid announcement message size %d", len(data[1:]))
 		}
@@ -405,6 +513,19 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		msg.Snapshot = snap.Snapshot
 		msg.signature = &sig
 	case PeerMessageTypeSnapshotCommitment:
+		if len(data[1:]) != 129 {
+			return nil, fmt.Errorf("invalid commitment message size %d", len(data[1:]))
+		}
+		var sig crypto.Signature
+		copy(sig[:], data[1:65])
+		copy(msg.SnapshotHash[:], data[65:])
+		copy(msg.Commitment[:], data[97:])
+		if data[129] == 1 {
+			msg.WantTxs = []crypto.Hash{}
+		}
+		msg.signature = &sig
+		msg.unsigned = data[65:]
+	case PeerMessageTypeBatchSnapshotCommitment:
 		if len(data[1:]) < 128 {
 			return nil, fmt.Errorf("invalid commitment message size %d", len(data[1:]))
 		}
@@ -443,7 +564,45 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		}
 		msg.Snapshot = s.Snapshot
 		offset = offset + size
-		if len(data[offset:]) < 256 {
+		if len(data[offset:]) < 68 {
+			return nil, fmt.Errorf("invalid full challenge message size %d %d", offset, len(data[offset:]))
+		}
+		msg.Cosi = *s.Signature
+		msg.Snapshot.Signature = nil
+
+		copy(msg.Commitment[:], data[offset:offset+32])
+		offset = offset + 32
+		copy(msg.Challenge[:], data[offset:offset+32])
+		offset = offset + 32
+		size = int(binary.BigEndian.Uint32(data[offset : offset+4]))
+		offset = offset + 4
+		if len(data[offset:]) < size {
+			return nil, fmt.Errorf("invalid full challenge transaction size %d %d", len(data[offset:]), size)
+		}
+		ver, err := common.UnmarshalVersionedTransaction(data[offset : offset+size])
+		if err != nil {
+			return nil, fmt.Errorf("invalid full challenge transaction %v", err)
+		}
+		msg.Transactions = []*common.VersionedTransaction{ver}
+	case PeerMessageTypeBatchFullChallenge:
+		if len(data[1:]) < 256 {
+			return nil, fmt.Errorf("invalid full challenge message size %d", len(data[1:]))
+		}
+		offset := 1 + 4
+		size := int(binary.BigEndian.Uint32(data[1:offset]))
+		if len(data[offset:]) < size {
+			return nil, fmt.Errorf("invalid full challenge snapshot size %d %d", len(data[offset:]), size)
+		}
+		s, err := common.UnmarshalVersionedSnapshot(data[offset : offset+size])
+		if err != nil {
+			return nil, fmt.Errorf("invalid full challenge snapshot %v", err)
+		}
+		if s.Signature == nil {
+			return nil, fmt.Errorf("invalid full challenge snapshot signature")
+		}
+		msg.Snapshot = s.Snapshot
+		offset = offset + size
+		if len(data[offset:]) < 65 {
 			return nil, fmt.Errorf("invalid full challenge message size %d %d", offset, len(data[offset:]))
 		}
 		msg.Cosi = *s.Signature
@@ -466,19 +625,31 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		copy(msg.Cosi.Signature[:], data[33:])
 		msg.Cosi.Mask = binary.BigEndian.Uint64(data[97:105])
 		if len(data[1:]) > 104 {
-			txs, err := parseTransactionsPayload(data[105:])
+			ver, err := common.UnmarshalVersionedTransaction(data[105:])
 			if err != nil {
 				return nil, err
 			}
-			msg.Transactions = txs
+			msg.Transactions = []*common.VersionedTransaction{ver}
 		}
+	case PeerMessageTypeBatchTransactionChallenge:
+		if len(data[1:]) < 105 {
+			return nil, fmt.Errorf("invalid transaction challenge message size %d", len(data[1:]))
+		}
+		copy(msg.SnapshotHash[:], data[1:])
+		copy(msg.Cosi.Signature[:], data[33:])
+		msg.Cosi.Mask = binary.BigEndian.Uint64(data[97:105])
+		txs, err := parseTransactionsPayload(data[105:])
+		if err != nil {
+			return nil, err
+		}
+		msg.Transactions = txs
 	case PeerMessageTypeSnapshotResponse:
 		if len(data[1:]) != 64 {
 			return nil, fmt.Errorf("invalid response message size %d", len(data[1:]))
 		}
 		copy(msg.SnapshotHash[:], data[1:])
 		copy(msg.Response[:], data[33:])
-	case PeerMessageTypeSnapshotFinalization:
+	case PeerMessageTypeSnapshotFinalization, PeerMessageTypeBatchSnapshotFinalization:
 		snap, err := common.UnmarshalVersionedSnapshot(data[1:])
 		if err != nil {
 			return nil, err
@@ -566,9 +737,9 @@ func (me *Peer) handlePeerMessage(peerId crypto.Hash, msg *PeerMessage) error {
 	case PeerMessageTypeConsumers:
 		return me.updateRemoteRelayerConsumers(peerId, msg.Data)
 	case PeerMessageTypePing:
-	case PeerMessageTypeCommitments:
-		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeCommitments %s %d\n", peerId, len(msg.Commitments))
-		return me.handle.CosiQueueExternalCommitments(peerId, msg.Commitments, msg.unsigned, msg.signature)
+	case PeerMessageTypePreCommitments:
+		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypePreCommitments %s %d\n", peerId, len(msg.Commitments))
+		return me.handle.CosiQueueExternalPreCommitments(peerId, msg.Commitments, msg.unsigned, msg.signature)
 	case PeerMessageTypeGraph:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeGraph %s\n", peerId)
 		err := me.handle.UpdateSyncPoint(peerId, msg.Graph, msg.unsigned, msg.signature)
@@ -586,8 +757,8 @@ func (me *Peer) handlePeerMessage(peerId crypto.Hash, msg *PeerMessage) error {
 	case PeerMessageTypeTransactionRequest:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionRequest %s %s\n", peerId, msg.TransactionHash)
 		return me.handle.SendTransactionToPeer(peerId, msg.TransactionHash)
-	case PeerMessageTypeTransaction:
-		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransaction %s\n", peerId)
+	case PeerMessageTypeTransaction, PeerMessageTypeTransactionBundle:
+		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransaction %s %d\n", peerId, len(msg.Transactions))
 		for _, tx := range msg.Transactions {
 			err := me.handle.CachePutTransaction(peerId, tx)
 			if errors.Is(err, badger.ErrConflict) {
@@ -602,22 +773,22 @@ func (me *Peer) handlePeerMessage(peerId crypto.Hash, msg *PeerMessage) error {
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotConfirm %s %s\n", peerId, msg.SnapshotHash)
 		me.ConfirmSnapshotForPeer(peerId, msg.SnapshotHash)
 		return nil
-	case PeerMessageTypeSnapshotAnnouncement:
+	case PeerMessageTypeSnapshotAnnouncement, PeerMessageTypeBatchSnapshotAnnouncement:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotAnnouncement %s %s\n", peerId, msg.Snapshot.Transactions[0])
 		return me.handle.CosiQueueExternalAnnouncement(peerId, msg.Snapshot, &msg.Commitment, msg.signature)
-	case PeerMessageTypeSnapshotCommitment:
+	case PeerMessageTypeSnapshotCommitment, PeerMessageTypeBatchSnapshotCommitment:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotCommitment %s %s\n", peerId, msg.SnapshotHash)
 		return me.handle.CosiAggregateSelfCommitments(peerId, msg.SnapshotHash, &msg.Commitment, msg.WantTxs, msg.unsigned, msg.signature)
-	case PeerMessageTypeTransactionChallenge:
+	case PeerMessageTypeTransactionChallenge, PeerMessageTypeBatchTransactionChallenge:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransactionChallenge %s %s %d\n", peerId, msg.SnapshotHash, len(msg.Transactions))
 		return me.handle.CosiQueueExternalChallenge(peerId, msg.SnapshotHash, &msg.Cosi, msg.Transactions)
-	case PeerMessageTypeFullChallenge:
+	case PeerMessageTypeFullChallenge, PeerMessageTypeBatchFullChallenge:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeFullChallenge %s %v %d\n", peerId, msg.Snapshot, len(msg.Transactions))
 		return me.handle.CosiQueueExternalFullChallenge(peerId, msg.Snapshot, &msg.Commitment, &msg.Challenge, &msg.Cosi, msg.Transactions)
 	case PeerMessageTypeSnapshotResponse:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotResponse %s %s\n", peerId, msg.SnapshotHash)
 		return me.handle.CosiAggregateSelfResponses(peerId, msg.SnapshotHash, &msg.Response)
-	case PeerMessageTypeSnapshotFinalization:
+	case PeerMessageTypeSnapshotFinalization, PeerMessageTypeBatchSnapshotFinalization:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotFinalization %s %s\n", peerId, msg.Snapshot.Transactions[0])
 		return me.handle.VerifyAndQueueAppendSnapshotFinalization(peerId, msg.Snapshot)
 	}
