@@ -546,11 +546,15 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 		} else if wantTxs, found := ann.WantTxs[id]; !found {
 			continue
 		} else {
-			rtxs := make([]*common.VersionedTransaction, len(wantTxs))
-			for i, h := range wantTxs {
-				rtxs[i] = cd.FoundTxs[h]
+			var wtxs []*common.VersionedTransaction
+			for _, h := range wantTxs {
+				tx := cd.FoundTxs[h]
+				if tx == nil {
+					continue
+				}
+				wtxs = append(wtxs, tx)
 			}
-			err = chain.node.Peer.SendTransactionChallengeMessage(id, s, cosi, rtxs)
+			err = chain.node.Peer.SendTransactionChallengeMessage(id, s, cosi, wtxs)
 		}
 		if err != nil {
 			logger.Verbosef("cosiHandleCommitment SendTransactionChallengeMessage(%s, %s) ERROR %v\n",

@@ -301,10 +301,10 @@ func writeSnapshot(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder) e
 	return writeTopology(txn, snap)
 }
 
-func graphSnapshotKey(nodeId crypto.Hash, round uint64, snaph crypto.Hash) []byte {
+func graphSnapshotKey(nodeId crypto.Hash, round uint64, snap crypto.Hash) []byte {
 	key := append([]byte(graphPrefixSnapshot), nodeId[:]...)
 	key = binary.BigEndian.AppendUint64(key, round)
-	return append(key, snaph[:]...)
+	return append(key, snap[:]...)
 }
 
 func graphConsensusSnapshotKey(ts uint64, snap crypto.Hash) []byte {
