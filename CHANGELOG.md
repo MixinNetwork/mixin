@@ -2,6 +2,10 @@
 
 Semantic Versioning
 
+## v0.19 Fleet Fireflies July 15, 2026
+
+Faster transaction processing with optimized batched transactions.
+
 ## v0.18 Stealth Phasmids Feb 13, 2024
 
 A new peer to peer network layer that improves security and privacy of the signer node.
