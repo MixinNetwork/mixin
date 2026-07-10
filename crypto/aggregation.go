@@ -103,6 +103,22 @@ func aggregateChallenge(commitment, public []byte, message Hash) (*edwards25519.
 	return edwards25519.NewScalar().SetUniformBytes(digest[:])
 }
 
+// AggregateSign produces a MuSig-style aggregate Schnorr signature over the
+// given signers and message. The per-signer nonce is derived deterministically
+// from the seed, signer index, and message, so the same (seed, signers,
+// message) triple always yields the same nonce.
+//
+// The seed is an additional secret that must be protected alongside the
+// private keys. If the seed is disclosed, an attacker can recompute every
+// nonce and recover the private keys from the signature: a single-signer
+// signature reveals that signer's key directly, while multiple signatures with
+// different signer subsets yield a system of linear equations that can be
+// solved for all participating keys.
+//
+// Callers must generate a fresh, high-entropy seed for each signing operation
+// and must never persist, log, or transmit it. Reusing the same seed across
+// different messages is safe (the nonce changes with the message), but the
+// seed itself must never be disclosed.
 func AggregateSign(privKeys []*Key, publics []*Key, signers []int, seed []byte, message Hash) (*Signature, error) {
 	if len(privKeys) != len(signers) {
 		return nil, fmt.Errorf("invalid aggregation private keys count %d/%d", len(privKeys), len(signers))

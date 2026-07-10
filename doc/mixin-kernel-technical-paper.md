@@ -572,7 +572,6 @@ Mixin Kernel's speed does not remove its operating assumptions.
 - **Consensus-set size:** The CoSi signer mask is 64 bits, and node admission caps Kernel membership at 50.
 - **Fixed execution model:** Kernel supports audited transaction classes rather than a general smart-contract VM. This reduces execution complexity but deliberately limits programmability.
 - **Topology semantics:** The local topology counter is an index, not a globally signed total order.
-- **TEE scope:** The repository README states that Trusted Execution Environment integration is not present in this reference implementation.
 - **Custodian slashing:** The snapshot validation path identifies custodian-slash handling as not implemented; it should not be treated as a completed feature.
 
 ## 13. Protocol parameters and implementation bounds

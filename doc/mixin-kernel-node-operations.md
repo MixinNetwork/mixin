@@ -37,7 +37,7 @@ The active node operations are `pledge`, `cancel`, `accept`, and `remove`.
 | Maturity after non-genesis acceptance before ordinary signing | More than 12 hours |
 | Accept, cancel, and remove operation hours | Network-epoch hours 13 through 19 |
 
-Protocol hours are calculated from the epoch in `genesis.json`; they are not necessarily wall-clock UTC hour labels. Pledge snapshots are allowed outside the mint window at epoch hours 7–9 and the membership-operation window at hours 13–19. The protocol elects the node that may snapshot a pledge or removal at a given time and permits only one pending pledging node.
+Protocol hours are calculated from the epoch in `genesis.json`; they are not necessarily wall-clock UTC hour labels. Pledge snapshots are permitted only outside the mint window (epoch hours 7–9) and the membership-operation window (hours 13–19). The protocol elects the node that may snapshot a pledge or removal at a given time and permits only one pending pledging node.
 
 These rules are consensus validation rules, not scheduling promises. A submitted operation may remain cached or be retried until an eligible proposer, valid window, current graph, and quorum are all available.
 
