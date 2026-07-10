@@ -21,6 +21,7 @@ import (
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
+	"github.com/MixinNetwork/mixin/util"
 	"github.com/dgraph-io/ristretto/v2"
 	"github.com/stretchr/testify/require"
 )
@@ -84,14 +85,22 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 		t.Logf("NODES#%d %s %s\n", i, node.IdForNetwork, host)
 
 		server := NewServer(custom, store, node, 18000+i+1)
-		defer server.Close()
-		go server.ListenAndServe()
-		go node.Loop()
+		defer util.CloseOrPanic(server)
+		go func() {
+			if err := server.ListenAndServe(); err != nil {
+				panic(err)
+			}
+		}()
+		go func() {
+			if err := node.Loop(); err != nil {
+				panic(err)
+			}
+		}()
 	}
 	defer func() {
 		var wg sync.WaitGroup
 		for _, server := range relayerServers {
-			server.Close()
+			util.CloseOrPanic(server)
 		}
 		for _, n := range append(instances, relayerInstances...) {
 			wg.Add(1)
@@ -235,7 +244,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	t.Logf("PLEDGE NODE READY %s %s\n", pn.Signer, pi.IdForNetwork)
 	transactionsCount = transactionsCount + 1
 	defer pi.Teardown()
-	defer sv.Close()
+	defer util.CloseOrPanic(sv)
 
 	for range 5 {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
@@ -721,10 +730,18 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 	pnode, err := kernel.SetupNode(custom, store, cache, gns)
 	require.Nil(err)
 	require.NotNil(pnode)
-	go pnode.Loop()
+	go func() {
+		if err := pnode.Loop(); err != nil {
+			panic(err)
+		}
+	}()
 
 	server := NewServer(custom, store, pnode, 18099)
-	go server.ListenAndServe()
+	go func() {
+		if err := server.ListenAndServe(); err != nil {
+			panic(err)
+		}
+	}()
 
 	return Node{Signer: signer, Payee: payee, Host: "127.0.0.1:18099"}, pnode, server
 }
@@ -755,9 +772,7 @@ func testConsolidateSpendableInputs(t *testing.T, nodes []*Node, domain common.A
 		vers := make([]*common.VersionedTransaction, 0, cap(next))
 		for start := 0; start < len(inputs); start += common.SliceCountLimit {
 			end := start + common.SliceCountLimit
-			if end > len(inputs) {
-				end = len(inputs)
-			}
+			end = min(end, len(inputs))
 
 			chunk := inputs[start:end]
 			rawInputs := make([]map[string]any, 0, len(chunk))
@@ -1020,8 +1035,16 @@ func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []commo
 			server := NewServer(custom, store, node, rpcPort)
 			relayerInstances = append(relayerInstances, node)
 			relayerServers = append(relayerServers, server)
-			go server.ListenAndServe()
-			go node.Loop()
+			go func() {
+				if err := server.ListenAndServe(); err != nil {
+					panic(err)
+				}
+			}()
+			go func() {
+				if err := node.Loop(); err != nil {
+					panic(err)
+				}
+			}()
 		}
 	}
 

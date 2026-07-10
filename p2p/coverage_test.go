@@ -1305,11 +1305,10 @@ func (c *scriptedClient) Send(data []byte) error {
 	return nil
 }
 
-func (c *scriptedClient) Close(code string) error {
+func (c *scriptedClient) Close(code string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.closeCodes = append(c.closeCodes, code)
-	return nil
 }
 
 type stubAddr string

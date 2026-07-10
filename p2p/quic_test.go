@@ -36,8 +36,7 @@ func TestQuic(t *testing.T) {
 	err = client.Send([]byte("hello mixin"))
 	require.Nil(err)
 	<-wait
-	err = client.Close("done")
-	require.Nil(err)
+	client.Close("done")
 }
 
 func TestQuicErrors(t *testing.T) {
@@ -80,7 +79,7 @@ func TestQuicErrors(t *testing.T) {
 	require.Nil(err)
 	_, err = client.Receive()
 	require.ErrorContains(err, "invalid message version")
-	require.Nil(client.Close("version"))
+	client.Close("version")
 
 	serverTrans2, err := NewQuicRelayer("127.0.0.1:0")
 	require.Nil(err)
@@ -102,5 +101,5 @@ func TestQuicErrors(t *testing.T) {
 	require.Nil(err)
 	_, err = client2.Receive()
 	require.ErrorContains(err, "invalid message size")
-	require.Nil(client2.Close("size"))
+	client2.Close("size")
 }

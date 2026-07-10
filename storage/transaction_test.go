@@ -7,6 +7,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/util"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +21,7 @@ func TestTransaction(t *testing.T) {
 	root := t.TempDir()
 
 	store, _ := NewBadgerStore(custom, root)
-	defer store.Close()
+	defer util.CloseOrPanic(store)
 
 	gns, err := common.ReadGenesis("../config/genesis.json")
 	require.Nil(err)

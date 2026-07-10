@@ -21,7 +21,7 @@ type Client interface {
 	RemoteAddr() net.Addr
 	Receive() (*TransportMessage, error)
 	Send([]byte) error
-	Close(string) error
+	Close(string)
 }
 
 type Transport interface {
