@@ -159,6 +159,9 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 	if err != nil {
 		return nil, err
 	}
+	if el > ExtraSizeStorageCapacity {
+		return nil, fmt.Errorf("invalid extra size %d", el)
+	}
 	if el > 0 {
 		b := make([]byte, el)
 		err = dec.Read(b)

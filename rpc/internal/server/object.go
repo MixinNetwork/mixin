@@ -41,6 +41,8 @@ func (impl *RPC) handleObject(w http.ResponseWriter, r *http.Request, rdr *Rende
 
 	b := tx.Extra
 	w.Header().Set("Cache-Control", "max-age=31536000, public")
+	w.Header().Set("Content-Security-Policy", "sandbox")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	if len(tx.Extra) == 0 {
 		w.Header().Set("Content-Type", defaultTextPlainType)
 	} else if m := parseJSON(tx.Extra); m == nil {
