@@ -14,7 +14,6 @@
     - [Test](#test)
     - [Commit and push](#commit-and-push)
     - [Create a Pull Request](#create-a-pull-request)
-    - [Sign the CLA](#sign-the-cla)
     - [Get a code review](#get-a-code-review)
 
 ## Before you get started
@@ -37,10 +36,8 @@ Please make sure to read and observe our [Code of Conduct](./CODE_OF_CONDUCT.md)
 
 ### License Header
 
-Every new source file must begin with a license header.
-
-Most of Dgraph, Badger, and the Dgraph clients (dgo, dgraph-js, pydgraph and dgraph4j) are licensed
-under the Apache 2.0 license:
+Every new source file must begin with a license header. Ristretto is licensed under the Apache 2.0
+license:
 
 ```sh
 /*
@@ -52,28 +49,28 @@ under the Apache 2.0 license:
 ### Find a good first topic
 
 You can start by finding an existing issue with the
-[good first issue](https://github.com/dgraph-io/badger/labels/good%20first%20issue) or
-[help wanted](https://github.com/dgraph-io/badger/labels/help%20wanted) labels. These issues are
+[good first issue](https://github.com/dgraph-io/ristretto/labels/good%20first%20issue) or
+[help wanted](https://github.com/dgraph-io/ristretto/labels/help%20wanted) labels. These issues are
 well suited for new contributors.
 
 ## Setting up your development environment
 
-- [Install Go 1.25.0 or above](https://golang.org/doc/install).
+- [Install Go 1.24.0 or above](https://golang.org/doc/install). Go 1.25.0 or above is recommended.
 - Install
   [trunk](https://docs.trunk.io/code-quality/overview/getting-started/install#install-the-launcher).
   Our CI uses trunk to lint and check code, having it installed locally will save you time.
 
 ### Fork the project
 
-- Visit https://github.com/dgraph-io/badger
+- Visit https://github.com/dgraph-io/ristretto
 - Click the `Fork` button (top right) to create a fork of the repository
 
 ### Clone the project
 
 ```sh
-git clone https://github.com/$GITHUB_USER/badger
-cd badger
-git remote add upstream git@github.com:dgraph-io/badger.git
+git clone https://github.com/$GITHUB_USER/ristretto
+cd ristretto
+git remote add upstream git@github.com:dgraph-io/ristretto.git
 
 # Never push to the upstream main
 git remote set-url --push upstream no_push
@@ -102,7 +99,7 @@ And now you can finally add your changes to project.
 Build and run all tests:
 
 ```sh
-./test.sh
+go test -timeout=20m -race -covermode atomic -coverprofile=covprofile ./...
 ```
 
 ### Commit and push
@@ -121,13 +118,8 @@ git push origin my_new_feature
 
 ### Create a Pull Request
 
-Just open `https://github.com/$GITHUB_USER/badger/pull/new/my_new_feature` and fill the PR
+Just open `https://github.com/$GITHUB_USER/ristretto/pull/new/my_new_feature` and fill the PR
 description.
-
-### Sign the CLA
-
-Click the **Sign in with Github to agree** button to sign the CLA.
-[An example](https://cla-assistant.io/dgraph-io/badger?pullRequest=1377).
 
 ### Get a code review
 
