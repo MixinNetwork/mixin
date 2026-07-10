@@ -967,19 +967,14 @@ func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) err
 
 	// FIXME always generate new randoms, may bloat the memory
 	commitments := make([]*crypto.Key, maximum)
-	cm := make(map[crypto.Key]*crypto.Key, maximum)
+	if chain.CosiRandoms == nil {
+		chain.CosiRandoms = make(map[crypto.Key]*crypto.Key, maximum)
+	}
 	for i := range maximum {
 		r := crypto.CosiCommit(crypto.RandReader())
 		k := r.Public()
 		commitments[i] = &k
-		cm[k] = r
-	}
-
-	if chain.CosiRandoms == nil {
-		chain.CosiRandoms = make(map[crypto.Key]*crypto.Key)
-	}
-	for _, r := range cm {
-		chain.CosiRandoms[r.Public()] = r
+		chain.CosiRandoms[k] = r
 	}
 	chain.CommitmentsSentTime = clock.Now()
 	return chain.node.Peer.SendCommitmentsMessage(peerId, commitments)

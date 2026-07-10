@@ -450,7 +450,7 @@ func (node *Node) BuildGraph() []*p2p.SyncPoint {
 	node.chains.RLock()
 	defer node.chains.RUnlock()
 
-	points := make([]*p2p.SyncPoint, 0)
+	points := make([]*p2p.SyncPoint, 0, len(node.chains.m))
 	for _, chain := range node.chains.m {
 		if chain.State == nil {
 			continue

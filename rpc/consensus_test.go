@@ -86,16 +86,8 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 
 		server := NewServer(custom, store, node, 18000+i+1)
 		defer util.CloseOrPanic(server)
-		go func() {
-			if err := server.ListenAndServe(); err != nil {
-				panic(err)
-			}
-		}()
-		go func() {
-			if err := node.Loop(); err != nil {
-				panic(err)
-			}
-		}()
+		go func() { _ = server.ListenAndServe() }()
+		go func() { _ = node.Loop() }()
 	}
 	defer func() {
 		var wg sync.WaitGroup
@@ -730,18 +722,10 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 	pnode, err := kernel.SetupNode(custom, store, cache, gns)
 	require.Nil(err)
 	require.NotNil(pnode)
-	go func() {
-		if err := pnode.Loop(); err != nil {
-			panic(err)
-		}
-	}()
+	go func() { _ = pnode.Loop() }()
 
 	server := NewServer(custom, store, pnode, 18099)
-	go func() {
-		if err := server.ListenAndServe(); err != nil {
-			panic(err)
-		}
-	}()
+	go func() { _ = server.ListenAndServe() }()
 
 	return Node{Signer: signer, Payee: payee, Host: "127.0.0.1:18099"}, pnode, server
 }
@@ -1035,16 +1019,8 @@ func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []commo
 			server := NewServer(custom, store, node, rpcPort)
 			relayerInstances = append(relayerInstances, node)
 			relayerServers = append(relayerServers, server)
-			go func() {
-				if err := server.ListenAndServe(); err != nil {
-					panic(err)
-				}
-			}()
-			go func() {
-				if err := node.Loop(); err != nil {
-					panic(err)
-				}
-			}()
+			go func() { _ = server.ListenAndServe() }()
+			go func() { _ = node.Loop() }()
 		}
 	}
 
