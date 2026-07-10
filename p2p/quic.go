@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/util"
 	"github.com/quic-go/quic-go"
 )
 
@@ -150,9 +151,12 @@ func (c *QuicClient) Send(data []byte) error {
 	return err
 }
 
-func (c *QuicClient) Close(code string) error {
-	c.stream.Close()
-	return c.session.CloseWithError(0, code)
+func (c *QuicClient) Close(code string) {
+	util.CloseOrPanic(c.stream)
+	err := c.session.CloseWithError(0, code)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func generateTLSConfig() *tls.Config {

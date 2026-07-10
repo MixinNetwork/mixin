@@ -3,6 +3,7 @@ package storage
 import (
 	"encoding/binary"
 	"fmt"
+	"sync"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -25,7 +26,7 @@ func (s *BadgerStore) ListCustodianUpdates() ([]*common.CustodianUpdateRequest, 
 	var curs []*common.CustodianUpdateRequest
 	it.Seek(graphCustodianUpdateKey(0))
 	for ; it.ValidForPrefix([]byte(graphPrefixCustodianUpdate)); it.Next() {
-		cur, err := parseCustodianUpdateItem(txn, it, genesis)
+		cur, err := parseCustodianUpdateItem(txn, it, genesis, &s.custodians)
 		if err != nil {
 			return nil, err
 		}
@@ -39,10 +40,10 @@ func (s *BadgerStore) ReadCustodian(ts uint64) (*common.CustodianUpdateRequest, 
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
-	return readCustodianAccount(txn, ts)
+	return readCustodianAccount(txn, ts, &s.custodians)
 }
 
-func readCustodianAccount(txn *badger.Txn, ts uint64) (*common.CustodianUpdateRequest, error) {
+func readCustodianAccount(txn *badger.Txn, ts uint64, cache *sync.Map) (*common.CustodianUpdateRequest, error) {
 	opts := badger.DefaultIteratorOptions
 	opts.PrefetchValues = true
 	opts.Prefix = []byte(graphPrefixCustodianUpdate)
@@ -55,12 +56,13 @@ func readCustodianAccount(txn *badger.Txn, ts uint64) (*common.CustodianUpdateRe
 	var found *common.CustodianUpdateRequest
 	it.Seek(graphCustodianUpdateKey(0))
 	for ; it.ValidForPrefix([]byte(graphPrefixCustodianUpdate)); it.Next() {
-		cur, err := parseCustodianUpdateItem(txn, it, genesis)
+		key := it.Item().Key()
+		if graphCustodianAccountTimestamp(key) > ts {
+			break
+		}
+		cur, err := parseCustodianUpdateItem(txn, it, genesis, cache)
 		if err != nil {
 			return nil, err
-		}
-		if cur.Timestamp > ts {
-			break
 		}
 		found = cur
 		genesis = false
@@ -69,7 +71,12 @@ func readCustodianAccount(txn *badger.Txn, ts uint64) (*common.CustodianUpdateRe
 	return found, nil
 }
 
-func parseCustodianUpdateItem(txn *badger.Txn, it *badger.Iterator, genesis bool) (*common.CustodianUpdateRequest, error) {
+type custodianCacheKey struct {
+	transaction crypto.Hash
+	genesis     bool
+}
+
+func parseCustodianUpdateItem(txn *badger.Txn, it *badger.Iterator, genesis bool, cache *sync.Map) (*common.CustodianUpdateRequest, error) {
 	key := it.Item().KeyCopy(nil)
 	ts := graphCustodianAccountTimestamp(key)
 	val, err := it.Item().ValueCopy(nil)
@@ -82,6 +89,12 @@ func parseCustodianUpdateItem(txn *badger.Txn, it *badger.Iterator, genesis bool
 
 	var hash crypto.Hash
 	copy(hash[:], val)
+	cacheKey := custodianCacheKey{transaction: hash, genesis: genesis}
+	if cache != nil {
+		if cached, ok := cache.Load(cacheKey); ok {
+			return cloneCustodianUpdate(cached.(*common.CustodianUpdateRequest), hash, ts), nil
+		}
+	}
 	tx, err := readTransaction(txn, hash)
 	if err != nil {
 		return nil, err
@@ -90,9 +103,32 @@ func parseCustodianUpdateItem(txn *badger.Txn, it *badger.Iterator, genesis bool
 	if err != nil {
 		return nil, err
 	}
-	cur.Transaction = hash
-	cur.Timestamp = ts
-	return cur, nil
+	if cache != nil {
+		cached, _ := cache.LoadOrStore(cacheKey, cur)
+		cur = cached.(*common.CustodianUpdateRequest)
+	}
+	return cloneCustodianUpdate(cur, hash, ts), nil
+}
+
+func cloneCustodianUpdate(cur *common.CustodianUpdateRequest, hash crypto.Hash, ts uint64) *common.CustodianUpdateRequest {
+	cloned := *cur
+	cloned.Transaction = hash
+	cloned.Timestamp = ts
+	if cur.Custodian != nil {
+		custodian := *cur.Custodian
+		cloned.Custodian = &custodian
+	}
+	if cur.Signature != nil {
+		signature := *cur.Signature
+		cloned.Signature = &signature
+	}
+	cloned.Nodes = make([]*common.CustodianNode, len(cur.Nodes))
+	for i, node := range cur.Nodes {
+		clonedNode := *node
+		clonedNode.Extra = append([]byte(nil), node.Extra...)
+		cloned.Nodes[i] = &clonedNode
+	}
+	return &cloned
 }
 
 func writeCustodianNodes(txn *badger.Txn, snapTime uint64, utxo *common.UTXOWithLock, extra []byte, genesis bool) error {
@@ -103,7 +139,7 @@ func writeCustodianNodes(txn *badger.Txn, snapTime uint64, utxo *common.UTXOWith
 	if len(now.Nodes) > 50 {
 		panic(len(now.Nodes))
 	}
-	prev, err := readCustodianAccount(txn, snapTime)
+	prev, err := readCustodianAccount(txn, snapTime, nil)
 	if err != nil {
 		return err
 	}

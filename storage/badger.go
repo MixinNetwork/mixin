@@ -14,6 +14,7 @@ type BadgerStore struct {
 	custom      *config.Custom
 	snapshotsDB *badger.DB
 	cacheDB     *badger.DB
+	custodians  sync.Map
 	mutex       *sync.RWMutex
 	closing     bool
 }

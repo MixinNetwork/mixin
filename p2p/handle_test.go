@@ -21,7 +21,7 @@ func TestParseNetworkMessageRejectsUnsignedFullChallenge(t *testing.T) {
 		},
 		Timestamp: 2,
 	}
-	s.AddSoleTransaction(crypto.Blake3Hash([]byte("tx")))
+	s.AddTransaction(crypto.Blake3Hash([]byte("tx")))
 
 	seed := make([]byte, 64)
 	seed[0] = 1

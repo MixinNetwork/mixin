@@ -61,7 +61,7 @@ func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, err
 	if err != nil {
 		return nil, err
 	}
-	if tl != 1 {
+	if tl < 1 || tl > SnapshotTransactionsMaximum {
 		return nil, fmt.Errorf("invalid transactions count %d", tl)
 	}
 	for range tl {
@@ -363,7 +363,7 @@ func (dec *Decoder) ReadSignatures() (map[uint16]*crypto.Signature, error) {
 	}
 
 	sm := make(map[uint16]*crypto.Signature)
-	for i := 0; i < sc; i += 1 {
+	for range sc {
 		si, err := dec.ReadUint16()
 		if err != nil {
 			return nil, err

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
+	"github.com/MixinNetwork/mixin/util"
 )
 
 func (node *Node) Loop() error {
@@ -31,7 +32,7 @@ func (node *Node) Teardown() {
 	}
 	node.chains.RUnlock()
 	node.Peer.Teardown()
-	node.persistStore.Close()
+	util.CloseOrPanic(node.persistStore)
 	node.cacheStore.Clear()
 }
 

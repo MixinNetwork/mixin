@@ -23,31 +23,52 @@ func (node *Node) checkTxInStorage(id crypto.Hash) (*common.VersionedTransaction
 	return tx, "", err
 }
 
-func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool) (*common.VersionedTransaction, bool, error) {
-	tx, snap, err := node.persistStore.ReadTransaction(s.SoleTransaction())
-	if err == nil && tx != nil {
-		err = node.validateKernelSnapshot(s, tx, finalized)
-	}
-	if err != nil || tx != nil {
-		return tx, len(snap) > 0, err
+func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool) (map[crypto.Hash]*common.VersionedTransaction, []crypto.Hash, error) {
+	var missing []crypto.Hash
+	found := make(map[crypto.Hash]*common.VersionedTransaction)
+	for _, txh := range s.Transactions {
+		tx, snap, err := node.persistStore.ReadTransaction(txh)
+		if err != nil {
+			return nil, nil, err
+		}
+		if !finalized && len(snap) > 0 && snap != s.Hash.String() {
+			return nil, nil, fmt.Errorf("transaction %s finalized in snapshot %s", txh, snap)
+		}
+		if tx != nil {
+			found[txh] = tx
+			err := node.validateKernelSnapshot(s, found, finalized)
+			if err != nil {
+				return nil, nil, err
+			}
+			continue
+		}
+
+		tx, err = node.persistStore.CacheGetTransaction(txh)
+		if err != nil {
+			return nil, nil, err
+		}
+		if tx == nil {
+			missing = append(missing, txh)
+			continue
+		}
+
+		err = tx.Validate(node.persistStore, s.Timestamp, finalized)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		found[txh] = tx
+		err = node.validateKernelSnapshot(s, found, finalized)
+		if err != nil {
+			return nil, nil, err
+		}
+		err = node.lockAndPersistTransaction(tx, finalized)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
-	tx, err = node.persistStore.CacheGetTransaction(s.SoleTransaction())
-	if err != nil || tx == nil {
-		return nil, false, err
-	}
-
-	err = tx.Validate(node.persistStore, s.Timestamp, finalized)
-	if err != nil {
-		return nil, false, err
-	}
-	err = node.validateKernelSnapshot(s, tx, finalized)
-	if err != nil {
-		return nil, false, err
-	}
-
-	err = node.lockAndPersistTransaction(tx, finalized)
-	return tx, false, err
+	return found, missing, nil
 }
 
 func (node *Node) lockAndPersistTransaction(tx *common.VersionedTransaction, finalized bool) error {
@@ -67,15 +88,23 @@ func (node *Node) lockAndPersistTransaction(tx *common.VersionedTransaction, fin
 		}
 		return err
 	}
-	panic(fmt.Errorf("lockAndPersistTransaction timeout %v %v\n",
-		tx.PayloadHash(), finalized))
+	panic(fmt.Errorf("lockAndPersistTransaction timeout %v %v", tx.PayloadHash(), finalized))
 }
 
-func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
+func (node *Node) validateKernelSnapshot(s *common.Snapshot, found map[crypto.Hash]*common.VersionedTransaction, finalized bool) error {
+	if len(s.Transactions) > 1 {
+		for _, tx := range found {
+			if !tx.IsSnapshotBatchable() {
+				return fmt.Errorf("transaction %d is non batchable", tx.TransactionType())
+			}
+		}
+		return nil
+	}
 	if finalized && node.networkId.String() == config.KernelNetworkId &&
 		s.Timestamp < mainnetConsensusReferenceForkAt {
 		return nil
 	}
+	tx := found[s.Transactions[0]]
 	if s.NodeId != node.IdForNetwork && s.RoundNumber == 0 &&
 		tx.TransactionType() != common.TransactionTypeNodeAccept {
 		return fmt.Errorf("invalid initial transaction type %d", tx.TransactionType())
@@ -138,6 +167,9 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, tx *common.Versione
 }
 
 func (node *Node) validateConsensusTransactionReferences(s *common.Snapshot, tx *common.VersionedTransaction) error {
+	if len(s.Transactions) > 1 {
+		panic(s.Hash)
+	}
 	switch tx.TransactionType() {
 	case common.TransactionTypeMint:
 	case common.TransactionTypeNodePledge:
@@ -154,14 +186,18 @@ func (node *Node) validateConsensusTransactionReferences(s *common.Snapshot, tx 
 		return fmt.Errorf("invalid consensus reference count %s", tx.PayloadHash())
 	}
 	last, _ := node.ReadLastConsensusSnapshotWithHack()
-	if last.SoleTransaction() == tx.PayloadHash() {
+	if len(last.Transactions) > 1 {
+		return fmt.Errorf("invalid consensus snapshot with multiple transactions %s", last.PayloadHash())
+	}
+	ltx := last.Transactions[0]
+	if ltx == tx.PayloadHash() {
 		return nil
 	}
-	if tx.References[0] != last.SoleTransaction() {
-		return fmt.Errorf("invalid consensus reference %s %s", tx.PayloadHash(), last.SoleTransaction())
+	if tx.References[0] != ltx {
+		return fmt.Errorf("invalid consensus reference %s %s", tx.PayloadHash(), ltx)
 	}
 	if s.Timestamp <= last.Timestamp {
-		return fmt.Errorf("invalid consensus timestamp %s %s", tx.PayloadHash(), last.SoleTransaction())
+		return fmt.Errorf("invalid consensus timestamp %s %s", tx.PayloadHash(), ltx)
 	}
 	return nil
 }

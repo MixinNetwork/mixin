@@ -10,6 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/logger"
+	"github.com/MixinNetwork/mixin/util"
 )
 
 type Peer struct {
@@ -133,6 +134,11 @@ func (me *Peer) Metric() map[string]*MetricPool {
 	return metrics
 }
 
+func (me *Peer) SetMetricEnabled(enabled bool) {
+	me.sentMetric.enabled = enabled
+	me.receivedMetric.enabled = enabled
+}
+
 func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, isRelayer bool) *Peer {
 	ringSize := uint64(1024)
 	peer := &Peer{
@@ -160,7 +166,7 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, isRelayer
 func (me *Peer) Teardown() {
 	me.closing = true
 	if me.relayer != nil {
-		me.relayer.Close()
+		util.CloseOrPanic(me.relayer)
 	}
 	close(me.highRing)
 	close(me.normalRing)

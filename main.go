@@ -14,6 +14,7 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/rpc"
 	"github.com/MixinNetwork/mixin/storage"
+	"github.com/MixinNetwork/mixin/util"
 	"github.com/dgraph-io/ristretto/v2"
 	"github.com/urfave/cli/v2"
 )
@@ -711,7 +712,7 @@ func kernelCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	defer store.Close()
+	defer util.CloseOrPanic(store)
 
 	node, err := kernel.SetupNode(custom, store, cache, gns)
 	if err != nil {

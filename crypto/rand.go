@@ -3,6 +3,8 @@ package crypto
 import (
 	"crypto/rand"
 	"fmt"
+
+	"github.com/MixinNetwork/mixin/logger"
 )
 
 type randReader struct{}
@@ -17,6 +19,17 @@ func (r *randReader) Read(b []byte) (n int, err error) {
 }
 
 func ReadRand(buf []byte) {
+	err := readRand(buf)
+	if err != nil {
+		logger.Printf("crypto.ReadRand(%d) => %v", len(buf), err)
+		err = readRand(buf)
+	}
+	if err != nil {
+		panic(err)
+	}
+}
+
+func readRand(buf []byte) error {
 	if len(buf) == 0 {
 		panic(buf)
 	}
@@ -25,7 +38,7 @@ func ReadRand(buf []byte) {
 		panic(err)
 	}
 	if len(buf) < 4 {
-		return
+		return nil
 	}
 	set := make(map[byte]int)
 	for _, b := range buf {
@@ -35,6 +48,7 @@ func ReadRand(buf []byte) {
 		if v < len(buf)/3 {
 			continue
 		}
-		panic(fmt.Errorf("entropy not enough %d %d", k, v))
+		return fmt.Errorf("entropy not enough %d %d", k, v)
 	}
+	return nil
 }

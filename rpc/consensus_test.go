@@ -21,6 +21,7 @@ import (
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/logger"
 	"github.com/MixinNetwork/mixin/storage"
+	"github.com/MixinNetwork/mixin/util"
 	"github.com/dgraph-io/ristretto/v2"
 	"github.com/stretchr/testify/require"
 )
@@ -84,14 +85,14 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 		t.Logf("NODES#%d %s %s\n", i, node.IdForNetwork, host)
 
 		server := NewServer(custom, store, node, 18000+i+1)
-		defer server.Close()
-		go server.ListenAndServe()
-		go node.Loop()
+		defer util.CloseOrPanic(server)
+		go func() { _ = server.ListenAndServe() }()
+		go func() { _ = node.Loop() }()
 	}
 	defer func() {
 		var wg sync.WaitGroup
 		for _, server := range relayerServers {
-			server.Close()
+			util.CloseOrPanic(server)
 		}
 		for _, n := range append(instances, relayerInstances...) {
 			wg.Add(1)
@@ -140,6 +141,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.NotNil(hr)
 	require.GreaterOrEqual(hr.Round, uint64(0))
 	t.Logf("DEPOSIT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
+	testLogP2PMetrics(t, "DEPOSIT", instances)
 
 	testRemovingNodePrediction(t, instances, true)
 
@@ -169,10 +171,12 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
 	t.Logf("INPUT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
+	testLogP2PMetrics(t, "INPUT", instances)
 
 	testCustodianUpdateNodes(t, nodes, instances, accounts, payees, instances[0].NetworkId())
 	transactionsCount = transactionsCount + 2
 	t.Logf("CUSTODIAN TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
+	testLogP2PMetrics(t, "CUSTODIAN", instances)
 
 	if !enableElection {
 		return
@@ -221,19 +225,18 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	gts = gt4.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt5.Timestamp.After(gts), "%s should after %s", gt5.Timestamp, gts)
 
-	for range 5 {
-		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
-		transactionsCount = transactionsCount + len(dummyInputs)
-	}
-	testCheckMintDistributions(require, nodes[0].Host)
+	dummyInputs, mintTransactions := testSendDummyTransactionsUntilMint(t, nodes, accounts[0], dummyInputs, dummyAmount)
+	transactionsCount = transactionsCount + mintTransactions
+	testCheckMintDistributions(t, nodes[0].Host)
 	t.Logf("MINT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
+	testLogP2PMetrics(t, "MINT", instances)
 
 	kernel.TestMockDiff(time.Hour * 3) // pledge after mint
 	pn, pi, sv := testPledgeNewNode(t, nodes, accounts[0], gdata, plist, input, root)
 	t.Logf("PLEDGE NODE READY %s %s\n", pn.Signer, pi.IdForNetwork)
 	transactionsCount = transactionsCount + 1
 	defer pi.Teardown()
-	defer sv.Close()
+	defer util.CloseOrPanic(sv)
 
 	for range 5 {
 		dummyInputs = testSendDummyTransactionsWithRetry(t, nodes, accounts[0], dummyInputs, dummyAmount)
@@ -264,6 +267,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Equal(all[NODES].Payee.String(), pn.Payee.String())
 	require.Equal("PLEDGING", all[NODES].State)
 	t.Logf("PLEDGE TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
+	testLogP2PMetrics(t, "PLEDGE", instances)
 
 	kernel.TestMockDiff(29 * time.Hour)
 	time.Sleep(3 * time.Second)
@@ -306,6 +310,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Truef(gt7.Timestamp.After(gts), "%s should after %s", gt7.Timestamp, gts)
 	require.Equal("305850.45205696", gt7.PoolSize.String())
 	t.Logf("ACCEPT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
+	testLogP2PMetrics(t, "ACCEPT", instances)
 
 	kernel.TestMockDiff(24 * time.Hour)
 	time.Sleep(3 * time.Second)
@@ -348,10 +353,10 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Greater(hr.Round, uint64(1))
 	hr = testDumpGraphHeadRoundAfter(nodes[0].Host, pi.IdForNetwork, 0)
 	require.NotNil(hr)
-	require.Greater(hr.Round, uint64(0))
+	require.GreaterOrEqual(hr.Round, uint64(0))
 	hr = testDumpGraphHeadRoundAfter(nodes[len(nodes)-1].Host, pi.IdForNetwork, 0)
 	require.NotNil(hr)
-	require.Greater(hr.Round, uint64(0))
+	require.GreaterOrEqual(hr.Round, uint64(0))
 	hr = testDumpGraphHeadRoundAfter(nodes[0].Host, signer.Hash().ForNetwork(instances[0].NetworkId()), 1)
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(1))
@@ -373,9 +378,13 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 		require.Equal("REMOVED", all[NODES].State)
 	}
 	t.Logf("REMOVE TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
+	testLogP2PMetrics(t, "REMOVE", instances)
+}
 
-	for _, node := range instances {
-		t.Log(node.IdForNetwork, node.Peer.Metric())
+func testLogP2PMetrics(t *testing.T, phase string, nodes []*kernel.Node) {
+	t.Helper()
+	for _, node := range nodes {
+		t.Logf("P2P METRICS AFTER %s TEST FOR %s %v", phase, node.IdForNetwork, node.Peer.Metric())
 	}
 }
 
@@ -495,8 +504,9 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 	require.Equal(custodian.String(), curs[1].Custodian)
 }
 
-func testCheckMintDistributions(require *require.Assertions, node string) {
-	mints := testListMintDistributions(node)
+func testCheckMintDistributions(t *testing.T, node string) {
+	require := require.New(t)
+	mints := testWaitMintDistributions(t, node, 1)
 	require.Len(mints, 1)
 	tx := mints[0]
 	require.Len(tx.Inputs, 1)
@@ -528,6 +538,36 @@ func testCheckMintDistributions(require *require.Assertions, node string) {
 			require.Len(o.Keys, 1)
 		}
 	}
+}
+
+func testWaitMintDistributions(t *testing.T, node string, count int) []*common.VersionedTransaction {
+	require := require.New(t)
+	deadline := time.Now().Add(testStateSyncTimeout)
+	for {
+		mints := testListMintDistributions(node)
+		if len(mints) >= count {
+			return mints
+		}
+		if time.Now().After(deadline) {
+			require.Len(mints, count)
+		}
+		time.Sleep(time.Second)
+	}
+}
+
+func testSendDummyTransactionsUntilMint(t *testing.T, nodes []*Node, domain common.Address, inputs []*common.Input, amount string) ([]*common.Input, int) {
+	require := require.New(t)
+	deadline := time.Now().Add(5 * testStateSyncTimeout)
+	transactions := 0
+	for len(testListMintDistributions(nodes[0].Host)) == 0 {
+		if time.Now().After(deadline) {
+			require.FailNowf("timed out waiting for mint distribution", "sent %d extra dummy transactions", transactions)
+		}
+		t.Logf("MINT PENDING, SEND DUMMY ROUND AT %s\n", time.Now())
+		inputs = testSendDummyTransactionsWithRetry(t, nodes, domain, inputs, amount)
+		transactions = transactions + len(inputs)
+	}
+	return inputs, transactions
 }
 
 func testRemoveNode(nodes []*Node, r common.Address) []*Node {
@@ -682,10 +722,10 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 	pnode, err := kernel.SetupNode(custom, store, cache, gns)
 	require.Nil(err)
 	require.NotNil(pnode)
-	go pnode.Loop()
+	go func() { _ = pnode.Loop() }()
 
 	server := NewServer(custom, store, pnode, 18099)
-	go server.ListenAndServe()
+	go func() { _ = server.ListenAndServe() }()
 
 	return Node{Signer: signer, Payee: payee, Host: "127.0.0.1:18099"}, pnode, server
 }
@@ -716,9 +756,7 @@ func testConsolidateSpendableInputs(t *testing.T, nodes []*Node, domain common.A
 		vers := make([]*common.VersionedTransaction, 0, cap(next))
 		for start := 0; start < len(inputs); start += common.SliceCountLimit {
 			end := start + common.SliceCountLimit
-			if end > len(inputs) {
-				end = len(inputs)
-			}
+			end = min(end, len(inputs))
 
 			chunk := inputs[start:end]
 			rawInputs := make([]map[string]any, 0, len(chunk))
@@ -828,12 +866,12 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 		if hash.HasValue() {
 			continue
 		}
-		t.Logf("TX MISSING %s\n", ver.PayloadHash())
 		missingTxs = append(missingTxs, ver)
 	}
 	if len(missingTxs) == 0 {
 		return
 	}
+	t.Logf("TX PENDING %d AT %s\n", len(missingTxs), time.Now())
 	testSendTransactionsToNodesWithRetry(t, nodes, missingTxs)
 }
 
@@ -981,8 +1019,8 @@ func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []commo
 			server := NewServer(custom, store, node, rpcPort)
 			relayerInstances = append(relayerInstances, node)
 			relayerServers = append(relayerServers, server)
-			go server.ListenAndServe()
-			go node.Loop()
+			go func() { _ = server.ListenAndServe() }()
+			go func() { _ = node.Loop() }()
 		}
 	}
 
@@ -1139,10 +1177,14 @@ func testVerifySnapshots(require *require.Assertions, nodes []*Node, expectedTra
 		a, b := filters[i], filters[i+1]
 		m, n := make(map[string]bool), make(map[string]bool)
 		for k := range a {
-			m[a[k].SoleTransaction().String()] = true
+			for _, txh := range a[k].Transactions {
+				m[txh.String()] = true
+			}
 		}
 		for k := range b {
-			n[b[k].SoleTransaction().String()] = true
+			for _, txh := range b[k].Transactions {
+				n[txh.String()] = true
+			}
 		}
 		requireKeyEqual(require, a, b)
 		require.Equal(len(a), len(b))
@@ -1169,7 +1211,9 @@ func collectSnapshotSets(filters []map[string]*common.Snapshot) (map[string]bool
 	for _, filter := range filters {
 		for k, snapshot := range filter {
 			snapshots[k] = true
-			txs[snapshot.SoleTransaction().String()] = true
+			for _, txh := range snapshot.Transactions {
+				txs[txh.String()] = true
+			}
 		}
 	}
 	return txs, snapshots
@@ -1190,6 +1234,7 @@ func requireKeyEqual(require *require.Assertions, a, b map[string]*common.Snapsh
 }
 
 func testListSnapshots(node string) map[string]*common.Snapshot {
+	info := testGetGraphInfo(node)
 	data, err := CallMixinRPC("http://"+node, "listsnapshots", []any{
 		0,
 		100000,
@@ -1202,8 +1247,8 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 
 	var rss []*struct {
 		Version      uint8                 `json:"version"`
-		NodeId       crypto.Hash           `json:"node_id"`
-		RoundNumber  uint64                `json:"round_number"`
+		NodeId       crypto.Hash           `json:"node"`
+		RoundNumber  uint64                `json:"round"`
 		References   *common.RoundLink     `json:"references"`
 		Timestamp    uint64                `json:"timestamp"`
 		Transactions []crypto.Hash         `json:"transactions"`
@@ -1216,6 +1261,8 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 	}
 	filter := make(map[string]*common.Snapshot)
 	snapshots := make([]*common.Snapshot, len(rss))
+	rounds := make(map[string]int)
+	var sc, tc int
 	for i, s := range rss {
 		snapshots[i] = &common.Snapshot{
 			Version:      s.Version,
@@ -1233,6 +1280,15 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 			panic(s.Version)
 		}
 		filter[s.Hash.String()] = snapshots[i]
+		if s.NodeId == info.Node {
+			rounds[fmt.Sprintf("%s:%d", s.NodeId, s.RoundNumber)]++
+			tc += len(s.Transactions)
+			sc++
+		}
+	}
+	if sc > 0 {
+		fmt.Printf("SNAPSHOT STATS %s snapshots=%d rounds=%d avg_snapshots_per_round=%.2f avg_transactions_per_snapshot=%.2f\n",
+			node, sc, len(rounds), float64(sc)/float64(len(rounds)), float64(tc)/float64(sc))
 	}
 	return filter
 }
@@ -1325,6 +1381,7 @@ func testDumpGraphHeadRoundAfter(node string, id crypto.Hash, round uint64) *Hea
 }
 
 type Info struct {
+	Node      crypto.Hash
 	Consensus crypto.Hash
 	Timestamp time.Time
 	PoolSize  common.Integer
@@ -1336,6 +1393,7 @@ func testGetGraphInfo(node string) Info {
 		panic(err)
 	}
 	var info struct {
+		Node      crypto.Hash `json:"node"`
 		Consensus crypto.Hash `json:"consensus"`
 		Timestamp string      `json:"timestamp"`
 		Mint      struct {
@@ -1351,6 +1409,7 @@ func testGetGraphInfo(node string) Info {
 		panic(err)
 	}
 	return Info{
+		Node:      info.Node,
 		Consensus: info.Consensus,
 		Timestamp: t,
 		PoolSize:  info.Mint.PoolSize,

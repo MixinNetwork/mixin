@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/MixinNetwork/mixin/config"
+	"github.com/MixinNetwork/mixin/util"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +19,7 @@ func TestBadger(t *testing.T) {
 	store, err := NewBadgerStore(custom, root)
 	require.Nil(err)
 	require.NotNil(store)
-	defer store.Close()
+	defer util.CloseOrPanic(store)
 
 	err = store.snapshotsDB.Update(func(txn *badger.Txn) error {
 		return txn.Delete([]byte("key-not-found"))

@@ -28,8 +28,14 @@ jobs:
         run: |
           CGO_ENABLED=0 go build -o mixin .
 
-      - name: Testing
+      - name: Basic Testing
         if: ${{ matrix.os == 'ubuntu-latest' }}
         working-directory: .
         run: |
-          CGO_ENABLED=0 ELECTION=true INPUT=100 go test ./... -v
+          CGO_ENABLED=0 go test -skip TestConsensus -v ./...
+
+      - name: Consensus Testing
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        working-directory: .
+        run: |
+          CGO_ENABLED=0 ELECTION=true INPUT=1000 go test -timeout=20m -v ./rpc

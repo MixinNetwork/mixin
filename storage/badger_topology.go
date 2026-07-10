@@ -55,7 +55,7 @@ func readSnapshotWithTopo(txn *badger.Txn, hash crypto.Hash) (*common.SnapshotWi
 	return snap, nil
 }
 
-func (s *BadgerStore) ReadSnapshotWithTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, []*common.VersionedTransaction, error) {
+func (s *BadgerStore) ReadSnapshotWithTransactionsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, [][]*common.VersionedTransaction, error) {
 	if count > 500 {
 		return nil, nil, fmt.Errorf("count %d too large, the maximum is 500", count)
 	}
@@ -64,16 +64,19 @@ func (s *BadgerStore) ReadSnapshotWithTransactionsSinceTopology(topologyOffset, 
 		return nil, nil, err
 	}
 
-	transactions := make([]*common.VersionedTransaction, len(snapshots))
+	transactions := make([][]*common.VersionedTransaction, len(snapshots))
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
 	for i, s := range snapshots {
-		tx, err := readTransaction(txn, s.SoleTransaction())
-		if err != nil {
-			return nil, nil, err
+		transactions[i] = make([]*common.VersionedTransaction, len(s.Transactions))
+		for j, h := range s.Transactions {
+			tx, err := readTransaction(txn, h)
+			if err != nil {
+				return nil, nil, err
+			}
+			transactions[i][j] = tx
 		}
-		transactions[i] = tx
 	}
 	return snapshots, transactions, nil
 }
@@ -136,7 +139,7 @@ func readLastTopology(txn *badger.Txn) uint64 {
 	return 0
 }
 
-func (s *BadgerStore) LastSnapshot() (*common.SnapshotWithTopologicalOrder, *common.VersionedTransaction) {
+func (s *BadgerStore) LastSnapshot() (*common.SnapshotWithTopologicalOrder, []*common.VersionedTransaction) {
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
@@ -148,16 +151,20 @@ func (s *BadgerStore) LastSnapshot() (*common.SnapshotWithTopologicalOrder, *com
 	if len(snaps) != 1 {
 		panic(topo)
 	}
-	tx, err := readTransaction(txn, snaps[0].SoleTransaction())
-	if err != nil {
-		panic(err)
+	txs := make([]*common.VersionedTransaction, len(snaps[0].Transactions))
+	for i, h := range snaps[0].Transactions {
+		tx, err := readTransaction(txn, h)
+		if err != nil {
+			panic(err)
+		}
+		txs[i] = tx
 	}
-	return snaps[0], tx
+	return snaps[0], txs
 }
 
 func writeTopology(txn *badger.Txn, snap *common.SnapshotWithTopologicalOrder) error {
 	key := graphTopologyKey(snap.TopologicalOrder)
-	val := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.SoleTransaction())
+	val := graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.PayloadHash())
 	_, err := txn.Get(key)
 	if err != badger.ErrKeyNotFound {
 		panic(err)

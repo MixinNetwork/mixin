@@ -1,7 +1,6 @@
 package kernel
 
 import (
-	"math/big"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -9,6 +8,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/logger"
+	"github.com/MixinNetwork/mixin/p2p"
 )
 
 func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, error) {
@@ -37,19 +37,13 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 	if err != nil {
 		return "", err
 	}
-	s := &common.Snapshot{
-		Version: common.SnapshotVersionCommonEncoding,
-		NodeId:  node.IdForNetwork,
-	}
-	s.AddSoleTransaction(tx.PayloadHash())
-	err = node.chain.AppendSelfEmpty(s)
-	return tx.PayloadHash().String(), err
+	return tx.PayloadHash().String(), nil
 }
 
 func (node *Node) loopCacheQueue() {
 	defer close(node.cqc)
 
-	for !node.waitOrDone(time.Duration(config.SnapshotRoundGap)) {
+	for !node.waitOrDone(time.Duration(config.SnapshotRoundGap / 2)) {
 		caches, finals, _ := node.QueueState()
 		if caches > 1000 || finals > 500 {
 			logger.Printf("LoopCacheQueue QueueState too big %d %d\n", caches, finals)
@@ -61,14 +55,16 @@ func (node *Node) loopCacheQueue() {
 			continue
 		}
 
-		txs, err := node.persistStore.CacheRetrieveTransactions(100)
+		txs, err := node.persistStore.CacheRetrieveTransactions(common.SnapshotTransactionsMaximum)
 		if err != nil {
 			logger.Printf("LoopCacheQueue CacheRetrieveTransactions ERROR %s\n", err)
 			continue
 		}
 
-		var stale []crypto.Hash
+		now := clock.Now()
 		filter := make(map[crypto.Hash]bool)
+		var batchSize int
+		var stale, batch []crypto.Hash
 		leadingNodes, leadingFilter := node.filterLeadingNodes(allNodes)
 		for _, tx := range txs {
 			hash := tx.PayloadHash()
@@ -85,7 +81,6 @@ func (node *Node) loopCacheQueue() {
 				stale = append(stale, hash)
 				continue
 			}
-			now := clock.Now()
 			err = tx.Validate(node.persistStore, uint64(now.UnixNano()), false)
 			if err != nil {
 				logger.Debugf("LoopCacheQueue Validate ERROR %s %s\n", hash, err)
@@ -93,14 +88,30 @@ func (node *Node) loopCacheQueue() {
 				// but we need some way to mitigate cache transaction DoS attack from nodes
 				continue
 			}
-
 			nbor := node.electSnapshotNode(tx.TransactionType(), uint64(now.UnixNano()))
 			if nbor.HasValue() {
-				node.sendTransactionToNode(hash, nbor)
-			} else {
-				nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now, hash)
+				node.sendTransactionsToNode([]crypto.Hash{hash}, nbor)
+				continue
+			}
+			batchSize += tx.ValidatedSize()
+			if tx.IsSnapshotBatchable() && batchSize < p2p.TransportMessageMaxSize*2/3 {
+				batch = append(batch, hash)
+				continue
+			}
+			nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now)
+			for _, nbor := range nbors {
+				node.sendTransactionsToNode([]crypto.Hash{hash}, nbor)
+			}
+		}
+		if len(batch) > 0 {
+			canSelf := node.canBatchSelfTransactions()
+			if canSelf {
+				node.sendTransactionsToNode(batch, node.IdForNetwork)
+			}
+			if !canSelf || len(batch) < 3 {
+				nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now)
 				for _, nbor := range nbors {
-					node.sendTransactionToNode(hash, nbor)
+					node.sendTransactionsToNode(batch, nbor)
 				}
 			}
 		}
@@ -111,19 +122,65 @@ func (node *Node) loopCacheQueue() {
 	}
 }
 
-func (node *Node) sendTransactionToNode(hash, nbor crypto.Hash) {
+func (node *Node) sendTransactionsToNode(txs []crypto.Hash, nbor crypto.Hash) {
 	if nbor != node.IdForNetwork {
-		err := node.SendTransactionToPeer(nbor, hash)
-		logger.Debugf("queue.SendTransactionToPeer(%s, %s) => %v", hash, nbor, err)
+		err := node.SendTransactionsToPeer(nbor, txs)
+		logger.Debugf("queue.SendTransactionsToPeer(%d, %s) => %v", len(txs), nbor, err)
+	} else if !node.canBatchSelfTransactions() {
+		for _, hash := range txs {
+			s := &common.Snapshot{
+				Version: common.SnapshotVersionCommonEncoding,
+				NodeId:  node.IdForNetwork,
+			}
+			s.AddTransaction(hash)
+			err := node.chain.AppendSelfEmpty(s)
+			logger.Debugf("queue.AppendSelfEmpty(%v) => %v", s, err)
+		}
 	} else {
 		s := &common.Snapshot{
 			Version: common.SnapshotVersionCommonEncoding,
 			NodeId:  node.IdForNetwork,
 		}
-		s.AddSoleTransaction(hash)
+		for _, hash := range txs {
+			s.AddTransaction(hash)
+		}
 		err := node.chain.AppendSelfEmpty(s)
 		logger.Debugf("queue.AppendSelfEmpty(%v) => %v", s, err)
 	}
+}
+
+func (node *Node) requeueTransactions(hashes []crypto.Hash) {
+	for _, hash := range hashes {
+		tx, finalized, err := node.persistStore.ReadTransaction(hash)
+		if err != nil {
+			logger.Debugf("queue.requeueTransactions ReadTransaction(%s) => %v", hash, err)
+			continue
+		}
+		if len(finalized) > 0 {
+			continue
+		}
+		if tx == nil {
+			tx, err = node.persistStore.CacheGetTransaction(hash)
+			if err != nil {
+				logger.Debugf("queue.requeueTransactions CacheGetTransaction(%s) => %v", hash, err)
+				continue
+			}
+		}
+		if tx == nil {
+			continue
+		}
+		err = node.persistStore.CachePutTransaction(tx)
+		if err != nil {
+			logger.Debugf("queue.requeueTransactions CachePutTransaction(%s) => %v", hash, err)
+		}
+	}
+}
+
+func (node *Node) canBatchSelfTransactions() bool {
+	if node.chain == nil || node.chain.State == nil || node.chain.State.CacheRound == nil {
+		return false
+	}
+	return node.chain.State.CacheRound.Number > 0
 }
 
 func (node *Node) filterLeadingNodes(all []*CNode) ([]*CNode, map[crypto.Hash]bool) {
@@ -150,19 +207,20 @@ func (node *Node) filterLeadingNodes(all []*CNode) ([]*CNode, map[crypto.Hash]bo
 	return leading, filter
 }
 
-func (node *Node) findRandomHeadNodeWithPossibleTail(all, leading []*CNode, filter map[crypto.Hash]bool, now time.Time, hash crypto.Hash) []crypto.Hash {
-	hb := new(big.Int).SetBytes(hash[:])
-	mb := big.NewInt(now.UnixNano() / int64(time.Minute))
-	ib := new(big.Int).Add(hb, mb)
-	idx := new(big.Int).Mod(ib, big.NewInt(int64(len(all)))).Int64()
+// TODO need to think whether I need to group transactions by hash and time to different nodes
+func (node *Node) findRandomHeadNodeWithPossibleTail(all, leading []*CNode, filter map[crypto.Hash]bool, now time.Time) []crypto.Hash {
+	idx := now.UnixNano() / int64(time.Minute) % int64(len(all))
 	id := all[idx].IdForNetwork
 	if filter[id] || len(leading) == 0 {
 		return []crypto.Hash{id}
 	}
 
-	idx = new(big.Int).Mod(ib, big.NewInt(int64(len(leading)))).Int64()
+	idx = now.UnixNano() / int64(time.Minute) % int64(len(leading))
 	lid := leading[idx].IdForNetwork
-	logger.Debugf("findRandomHeadNodeWithPossibleTail(%s, %d, %d) => %s %s", hash, len(all), len(leading), id, lid)
+	if lid == id {
+		return []crypto.Hash{id}
+	}
+	logger.Debugf("findRandomHeadNodeWithPossibleTail(%d, %d) => %s %s", len(all), len(leading), id, lid)
 	return []crypto.Hash{id, lid}
 }
 
@@ -198,6 +256,8 @@ func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
 		Version: common.SnapshotVersionCommonEncoding,
 		NodeId:  s.NodeId,
 	}
-	ns.AddSoleTransaction(s.SoleTransaction())
+	for _, tx := range s.Transactions {
+		ns.AddTransaction(tx)
+	}
 	return chain.AppendSelfEmpty(ns)
 }

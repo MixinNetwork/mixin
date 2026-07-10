@@ -470,6 +470,9 @@ func (chain *Chain) AppendCosiAction(m *CosiAction) error {
 }
 
 func (chain *Chain) AppendSelfEmpty(s *common.Snapshot) error {
+	if len(s.Transactions) == 0 {
+		panic(s.NodeId)
+	}
 	return chain.AppendCosiAction(&CosiAction{
 		PeerId:   chain.node.IdForNetwork,
 		Action:   CosiActionSelfEmpty,

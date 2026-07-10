@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/MixinNetwork/mixin/util"
 )
 
 func CallMixinRPC(node, method string, params []any) ([]byte, error) {
@@ -29,7 +31,8 @@ func CallMixinRPC(node, method string, params []any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer util.CloseOrPanic(resp.Body)
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("CallMixinRPC(%s, %s, %s) => status %d", node, method, params, resp.StatusCode)
 	}

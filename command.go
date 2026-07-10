@@ -16,6 +16,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/rpc"
 	"github.com/MixinNetwork/mixin/storage"
+	"github.com/MixinNetwork/mixin/util"
 	"github.com/urfave/cli/v2"
 )
 
@@ -112,7 +113,7 @@ func updateHeadReference(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	defer store.Close()
+	defer util.CloseOrPanic(store)
 	node, err := crypto.HashFromString(c.String("id"))
 	if err != nil {
 		return err
@@ -145,7 +146,7 @@ func removeGraphEntries(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	defer store.Close()
+	defer util.CloseOrPanic(store)
 	removed, err := store.RemoveGraphEntries(c.String("prefix"))
 	fmt.Printf("removed %d entries with %v\n", removed, err)
 	return err
@@ -176,7 +177,7 @@ func validateGraphEntries(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	defer store.Close()
+	defer util.CloseOrPanic(store)
 
 	total, invalid, err := store.ValidateGraphEntries(networkId, c.Uint64("depth"))
 	if err != nil {
@@ -504,7 +505,10 @@ func pledgeNodeCmd(c *cli.Context) error {
 	tx.AddInput(input, 0)
 	tx.AddOutputWithType(common.OutputTypeNodePledge, nil, common.Script{}, amount, seed)
 	tx.Extra = append(signer.PublicSpendKey[:], payee.PublicSpendKey[:]...)
-	tx.References = []crypto.Hash{snap.SoleTransaction()}
+	if len(snap.Transactions) != 1 {
+		return fmt.Errorf("unexpected consensus snapshot transactions %d", len(snap.Transactions))
+	}
+	tx.References = []crypto.Hash{snap.Transactions[0]}
 
 	signed := tx.AsVersioned()
 	err = signed.SignInput(raw, 0, []*common.Address{&account})

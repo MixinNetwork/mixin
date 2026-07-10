@@ -110,10 +110,12 @@ func SetupNode(custom *config.Custom, store storage.Store, cache *ristretto.Cach
 	if err != nil {
 		return nil, fmt.Errorf("LoadConsensusNodes() => %v", err)
 	}
-	s, tx := node.persistStore.LastSnapshot()
-	err = node.reloadConsensusState(s.Snapshot, tx)
-	if err != nil {
-		return nil, fmt.Errorf("reloadConsensusState(%v) => %v", s, err)
+	s, txs := node.persistStore.LastSnapshot()
+	if len(txs) == 1 {
+		err = node.reloadConsensusState(s.Snapshot, txs[0])
+		if err != nil {
+			return nil, fmt.Errorf("reloadConsensusState(%v) => %v", s, err)
+		}
 	}
 
 	err = node.LoadAllChainsAndGraphTimestamp(node.persistStore, node.networkId)
@@ -344,6 +346,7 @@ func (node *Node) NewTransaction(assetId crypto.Hash) *common.Transaction {
 func (node *Node) addRelayersFromConfig() error {
 	addr := fmt.Sprintf(":%d", node.custom.P2P.Port)
 	node.Peer = p2p.NewPeer(node, node.IdForNetwork, addr, node.isRelayer)
+	node.Peer.SetMetricEnabled(node.custom.P2P.Metric)
 
 	for _, s := range node.custom.P2P.Seeds {
 		parts := strings.Split(s, "@")
@@ -447,7 +450,7 @@ func (node *Node) BuildGraph() []*p2p.SyncPoint {
 	node.chains.RLock()
 	defer node.chains.RUnlock()
 
-	points := make([]*p2p.SyncPoint, 0)
+	points := make([]*p2p.SyncPoint, 0, len(node.chains.m))
 	for _, chain := range node.chains.m {
 		if chain.State == nil {
 			continue
@@ -472,6 +475,20 @@ func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
 		return err
 	}
 	return node.Peer.SendTransactionMessage(peerId, tx)
+}
+
+func (node *Node) SendTransactionsToPeer(peerId crypto.Hash, hashes []crypto.Hash) error {
+	txs := make([]*common.VersionedTransaction, 0, len(hashes))
+	for _, hash := range hashes {
+		tx, _, err := node.checkTxInStorage(hash)
+		if err != nil {
+			return err
+		}
+		if tx != nil {
+			txs = append(txs, tx)
+		}
+	}
+	return node.Peer.SendTransactionsMessage(peerId, txs)
 }
 
 func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTransaction) error {

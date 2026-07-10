@@ -2,12 +2,14 @@ package common
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
 const (
 	SnapshotVersionCommonEncoding = 2
+	SnapshotTransactionsMaximum   = 255
 )
 
 type Snapshot struct {
@@ -32,23 +34,16 @@ type SnapshotWork struct {
 	Signers   []crypto.Hash
 }
 
-func (s *Snapshot) SoleTransaction() crypto.Hash {
+func (s *Snapshot) AddTransaction(tx crypto.Hash) {
 	if s.Version < SnapshotVersionCommonEncoding {
 		panic(s.Version)
 	}
-	if len(s.Transactions) != 1 {
+	if slices.Contains(s.Transactions, tx) {
+		panic(tx)
+	}
+	s.Transactions = append(s.Transactions, tx)
+	if len(s.Transactions) > SnapshotTransactionsMaximum {
 		panic(len(s.Transactions))
-	}
-	return s.Transactions[0]
-}
-
-func (s *Snapshot) AddSoleTransaction(tx crypto.Hash) {
-	if s.Version < SnapshotVersionCommonEncoding {
-		panic(s.Version)
-	} else if len(s.Transactions) == 0 {
-		s.Transactions = []crypto.Hash{tx}
-	} else {
-		panic(s.Transactions[0])
 	}
 }
 
