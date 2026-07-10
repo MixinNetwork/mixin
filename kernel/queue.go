@@ -94,10 +94,7 @@ func (node *Node) loopCacheQueue() {
 				continue
 			}
 			batchSize += tx.ValidatedSize()
-			if batchSize > p2p.TransportMessageMaxSize*2/3 {
-				break
-			}
-			if tx.IsSnapshotBatchable() {
+			if tx.IsSnapshotBatchable() && batchSize < p2p.TransportMessageMaxSize*2/3 {
 				batch = append(batch, hash)
 				continue
 			}
@@ -105,7 +102,6 @@ func (node *Node) loopCacheQueue() {
 			for _, nbor := range nbors {
 				node.sendTransactionsToNode([]crypto.Hash{hash}, nbor)
 			}
-			break
 		}
 		if len(batch) > 0 {
 			canSelf := node.canBatchSelfTransactions()
