@@ -11,7 +11,7 @@ import (
 func TestCosi(t *testing.T) {
 	require := require.New(t)
 
-	require.NotEqual(CosiCommit(RandReader()).String(), CosiCommit(RandReader()).String())
+	require.NotEqual(cosiCommit(RandReader()).String(), cosiCommit(RandReader()).String())
 
 	keys := make([]*Key, 31)
 	publics := make([]*Key, len(keys))
@@ -42,14 +42,14 @@ func TestCosi(t *testing.T) {
 	randKeys := make([]*Key, len(keys)*2/3+1)
 	masks := make([]int, 0)
 	for i := range 7 {
-		r := CosiCommit(randReader)
+		r := cosiCommit(randReader)
 		R := r.Public()
 		randKeys[i] = r
 		randoms[i] = &R
 		masks = append(masks, i)
 	}
 	for i := 10; i < len(randKeys)+3; i++ {
-		r := CosiCommit(randReader)
+		r := cosiCommit(randReader)
 		R := r.Public()
 		randKeys[i-3] = r
 		randoms[i] = &R

@@ -16,7 +16,11 @@ type CosiSignature struct {
 	commitments map[int]*Key
 }
 
-func CosiCommit(randReader io.Reader) *Key {
+func CosiCommitNonce(randReader io.Reader) *CosiNonce {
+	return newCosiNonce(cosiCommit(randReader))
+}
+
+func cosiCommit(randReader io.Reader) *Key {
 	var messageDigest [64]byte
 	n, err := randReader.Read(messageDigest[:])
 	if err != nil {

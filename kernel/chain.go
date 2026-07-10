@@ -52,8 +52,8 @@ type Chain struct {
 
 	State *ChainState
 
-	CosiRandoms         map[crypto.Key]*crypto.Key
-	UsedRandoms         map[crypto.Hash]*crypto.Key
+	CosiRandoms         map[crypto.Key]*crypto.CosiNonce
+	UsedRandoms         map[crypto.Hash]*crypto.CosiNonce
 	CosiCommitments     map[crypto.Hash][]*crypto.Key
 	UsedCommitments     map[crypto.Key]bool
 	CommitmentsSentTime time.Time
@@ -81,8 +81,8 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 	chain := &Chain{
 		node:               node,
 		ChainId:            chainId,
-		CosiRandoms:        make(map[crypto.Key]*crypto.Key),
-		UsedRandoms:        make(map[crypto.Hash]*crypto.Key),
+		CosiRandoms:        make(map[crypto.Key]*crypto.CosiNonce),
+		UsedRandoms:        make(map[crypto.Hash]*crypto.CosiNonce),
 		CosiCommitments:    make(map[crypto.Hash][]*crypto.Key),
 		UsedCommitments:    make(map[crypto.Key]bool),
 		CosiCommunicatedAt: make(map[crypto.Hash]time.Time),

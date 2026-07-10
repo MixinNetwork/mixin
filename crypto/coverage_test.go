@@ -97,11 +97,11 @@ func TestCosiCommitAndAggregateErrors(t *testing.T) {
 	require := require.New(t)
 
 	require.Panics(func() {
-		CosiCommit(shortReader{})
+		cosiCommit(shortReader{})
 	})
 
 	require.Panics(func() {
-		CosiCommit(errReader{})
+		cosiCommit(errReader{})
 	})
 
 	bad := Key{1}
