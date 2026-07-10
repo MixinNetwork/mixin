@@ -184,6 +184,99 @@ func TestBatchVerifierRejectsMalformedEntries(t *testing.T) {
 	require.False(verifier.Verify())
 }
 
+func TestAggregateAndCosiErrorBranches(t *testing.T) {
+	require := require.New(t)
+
+	message := Blake3Hash([]byte("aggregate error branches"))
+	private := NewKeyFromSeed(testSeed(34))
+	public := private.Public()
+	bad := Key{}
+	for i := range bad {
+		bad[i] = 0xff
+	}
+
+	_, err := AggregateSign([]*Key{&private}, []*Key{&bad}, []int{0}, testSeed(35), message)
+	require.Error(err)
+	_, err = AggregateSign([]*Key{&bad}, []*Key{&public}, []int{0}, testSeed(35), message)
+	require.Error(err)
+
+	publics := make([]*Key, 0x10001)
+	publics[0x10000] = &public
+	_, err = AggregateSign([]*Key{&private}, publics, []int{0x10000}, testSeed(35), message)
+	require.ErrorContains(err, "invalid aggregation signer index 65536")
+
+	var aggregateSignature Signature
+	err = AggregateVerify(&aggregateSignature, []*Key{&bad}, []int{0}, message)
+	require.Error(err)
+
+	response := &[32]byte{}
+	invalidMask := &CosiSignature{Mask: 2, commitments: map[int]*Key{}}
+	err = invalidMask.AggregateResponse([]*Key{&public}, map[int]*[32]byte{1: response}, message, false)
+	require.ErrorContains(err, "mask index 1/1")
+	err = invalidMask.VerifyResponse([]*Key{&public}, 1, response, message)
+	require.ErrorContains(err, "mask index 1/1")
+	err = invalidMask.FullVerify([]*Key{&public}, 1, message)
+	require.ErrorContains(err, "aggregatePublicKey")
+
+	random := NewKeyFromSeed(testSeed(36))
+	commitment := random.Public()
+	cosi, err := CosiAggregateCommitment(map[int]*Key{0: &commitment})
+	require.NoError(err)
+	delete(cosi.commitments, 0)
+	err = cosi.AggregateResponse([]*Key{&public}, map[int]*[32]byte{0: response}, message, false)
+	require.ErrorContains(err, "invalid cosi signature response")
+
+	cosi, err = CosiAggregateCommitment(map[int]*Key{0: &commitment})
+	require.NoError(err)
+	invalidResponse := &[32]byte{}
+	for i := range invalidResponse {
+		invalidResponse[i] = 0xff
+	}
+	err = cosi.AggregateResponse([]*Key{&public}, map[int]*[32]byte{0: invalidResponse}, message, false)
+	require.Error(err)
+
+	require.Panics(func() {
+		_, _ = cosi.Response(&bad, &random, []*Key{&public}, message)
+	})
+	require.Panics(func() {
+		_, _ = cosi.Response(&private, &bad, []*Key{&public}, message)
+	})
+
+	validSignature := private.Sign(message)
+	validChallenge, err := cosi.Challenge([]*Key{&public}, message)
+	require.NoError(err)
+	validSignature[32] = 0xff
+	for i := 33; i < len(validSignature); i++ {
+		validSignature[i] = 0xff
+	}
+	require.False(public.VerifyWithChallenge(validSignature, validChallenge))
+}
+
+func TestSerializationLengthAndSyntaxErrors(t *testing.T) {
+	require := require.New(t)
+
+	_, err := HashFromString("zz")
+	require.Error(err)
+	_, err = KeyFromString("zz")
+	require.Error(err)
+
+	var hash Hash
+	err = hash.UnmarshalJSON([]byte(`"00"`))
+	require.ErrorContains(err, "invalid hash length")
+	var key Key
+	err = key.UnmarshalJSON([]byte(`"00"`))
+	require.ErrorContains(err, "invalid key length")
+	var signature Signature
+	err = signature.UnmarshalJSON([]byte(`"00"`))
+	require.ErrorContains(err, "invalid signature length")
+
+	var cosi CosiSignature
+	err = cosi.UnmarshalJSON([]byte("not-json"))
+	require.Error(err)
+	err = cosi.UnmarshalJSON([]byte(`"zz"`))
+	require.Error(err)
+}
+
 func TestCosiStrictAggregationAndVerificationErrors(t *testing.T) {
 	require := require.New(t)
 
