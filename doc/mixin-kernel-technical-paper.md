@@ -1,18 +1,20 @@
 # Mixin Kernel: A Fast BFT-DAG Distributed Ledger
 
-> An implementation-oriented technical paper for Mixin Kernel v0.19, **Fleet Fireflies**
+> A technical introduction to the architecture, data model, and consensus protocol
 >
-> Draft — July 2026
+> July 2026
 
 ## Abstract
 
-Mixin Kernel is a distributed ledger for digital assets that combines a UTXO state model, per-validator chains, a cross-referenced directed acyclic graph (DAG), and Byzantine-fault-tolerant collective signing. It does not wait for one global block producer. Accepted nodes can propose snapshots concurrently on their own chains, while every post-genesis snapshot is finalized by a supermajority signature from the active consensus set. Short, hash-linked rounds summarize each node's history and add references to other nodes' rounds, joining the independent chains into a common graph.
+Mixin Kernel is a distributed ledger for digital assets that combines a UTXO state model, per-validator chains, a cross-referenced directed acyclic graph (DAG), and Byzantine-fault-tolerant collective signing. It does not wait for one global block producer. Accepted nodes propose snapshots concurrently on their own chains, while every post-genesis snapshot is finalized by a supermajority signature from the active consensus set. Short, hash-linked rounds summarize each node's history and reference rounds produced by other nodes, joining the independent chains into a common graph.
 
-Version 0.19 improves throughput by allowing one snapshot to commit a batch of transactions. Up to 255 eligible transactions share one snapshot hash and one consensus exchange. Transaction validation, UTXO conflict protection, and finalization records remain per transaction, while the expensive coordination and collective-signature work is amortized over the batch.
+A snapshot commits a bounded batch of transaction hashes. Up to 255 eligible transactions can share one snapshot hash and one consensus exchange. Each transaction still has its own authorization, UTXO validation, conflict protection, and finalization record; only the coordination and collective-signature work is shared. This separation gives Kernel both individual transaction auditability and efficient group finalization.
 
-This paper explains the implementation from the data model upward: transactions, snapshots, rounds, nodes, networking, consensus, storage, synchronization, and the performance properties produced by their composition. It describes the code in this repository rather than defining a separate wire-protocol standard. Constants are current implementation values and may change in later releases. The quorum discussion explains the implementation's security rationale; it is not a formal proof or a security audit.
+This paper develops the system from first principles: transactions describe state transitions, snapshots carry consensus, rounds organize each node's history, external references form the DAG, and collective signatures provide finality. It then follows the same objects through networking, persistence, synchronization, and recovery. The paper describes the implementation in this repository rather than defining a separate wire-protocol standard. Numeric limits are implementation parameters, and the quorum discussion is a security rationale rather than a formal proof or audit.
 
 ## 1. System at a glance
+
+The simplest mental model is a set of parallel ledger lanes, one for each accepted node. A node groups validated transactions into a snapshot and asks the consensus set to certify that snapshot. Certified snapshots accumulate in short rounds on the node's lane. Each new round points both to the preceding round on the same lane and to a round on another lane, weaving all lanes into one verifiable graph.
 
 Mixin Kernel separates asset state, consensus envelopes, and graph structure:
 
@@ -76,19 +78,28 @@ Safety requires honest nodes not to sign conflicting valid snapshots under the s
 
 ### 2.3 Cryptographic and encoding foundations
 
-Current transactions use encoding version `0x05`; snapshots use version `0x02`. Both use a deterministic binary encoder. BLAKE3 produces transaction, snapshot, round, network, and message identifiers where the corresponding code path calls for it. Signatures and public keys use Edwards25519 group operations.
+Transactions use encoding version `0x05`; snapshots use version `0x02`. Both use a deterministic binary encoder. BLAKE3 produces transaction, snapshot, round, network, and message identifiers where the corresponding code path calls for it. Signatures and public keys use Edwards25519 group operations.
 
 The distinction between payload and envelope is important:
 
 $$
-H_{tx} = \operatorname{BLAKE3}(\operatorname{Encode}(tx\text{ without authorizing signatures})),
+H_{tx} = \mathrm{BLAKE3}\bigl(\mathrm{EncodeUnsigned}(tx)\bigr),
 $$
 
 $$
-H_{snap} = \operatorname{BLAKE3}(\operatorname{Encode}(snapshot\text{ without CoSi signature or topology})).
+H_{snap} = \mathrm{BLAKE3}\bigl(\mathrm{EncodePayload}(snapshot)\bigr).
 $$
+
+Here, $\mathrm{EncodeUnsigned}$ omits transaction authorization signatures, while $\mathrm{EncodePayload}$ omits the snapshot's collective signature and local topological order.
 
 Signatures authorize stable content identifiers. They do not recursively change the identifiers they sign.
+
+These identifiers connect the protocol layers in one continuous commitment path:
+
+```text
+transaction payload → transaction hash → snapshot payload → snapshot hash
+                    → quorum certificate → round hash → cross-referenced DAG
+```
 
 ## 3. Transactions
 
@@ -98,7 +109,7 @@ A Mixin transaction consumes existing outputs and creates new outputs of one ass
 
 | Field | Meaning |
 | --- | --- |
-| `version` | Binary transaction format; currently version 5 |
+| `version` | Binary transaction format; version 5 |
 | `asset` | 32-byte identifier shared by every input and output |
 | `inputs` | Ordinary UTXO references or special genesis, deposit, or mint inputs |
 | `outputs` | Amounts, output types, threshold scripts, ghost keys, and masks |
@@ -146,7 +157,7 @@ Before a transaction can participate in a snapshot, a node checks all of the fol
 6. Referenced transactions exist and are finalized.
 7. Type-specific rules for deposits, minting, withdrawals, membership, and custodian operations hold.
 
-Ordinary input signatures are verified together through an Edwards25519 batch-verification equation. Version 5 also supports a compact aggregate signature across selected input keys. These optimizations concern authorization inside one transaction; they are separate from v0.19's batching of many transactions inside one snapshot.
+Transaction authorization can use per-input signature maps or a compact aggregate signature across selected input keys. Ordinary signatures in a transaction are checked together through an Edwards25519 batch-verification equation. These mechanisms reduce authorization overhead inside one transaction, while snapshot batching amortizes consensus overhead across many transactions.
 
 Input, deposit, mint, and ghost-key locks prevent conflicting candidates from advancing concurrently. Raw validated transactions may be durably stored before finality, but new spendable UTXOs and the transaction-to-snapshot finalization record are created only when the snapshot is committed.
 
@@ -183,6 +194,8 @@ The transaction type is inferred from special inputs or output types rather than
 
 Consensus-sensitive transactions remain alone in a snapshot. They form a serialized reference chain and can change the rules or participants used to validate later snapshots. Mixing them with unrelated transfers would make membership boundaries and protocol-state transitions harder to evaluate deterministically.
 
+Once a transaction has passed these rules, the snapshot layer can treat its hash as a compact commitment to the complete state-transition request.
+
 ## 4. Snapshots
 
 ### 4.1 Consensus envelope
@@ -207,20 +220,18 @@ The canonical transaction list contains between 1 and 255 hashes. Duplicate hash
 If the sorted transaction hashes are $t_1,\ldots,t_b$, then conceptually
 
 $$
-H_{snap}=\operatorname{BLAKE3}\left(
-  \operatorname{Encode}(v, node, round, refs, t_1,\ldots,t_b, timestamp)
-\right).
+H_{snap}=\mathrm{BLAKE3}\Bigl(
+  \mathrm{Encode}(v, node, round, refs, t_1,\ldots,t_b, timestamp)
+\Bigr).
 $$
 
 The collective signature is over $H_{snap}$, so one quorum decision covers the entire list without placing all transaction bodies inside the signed snapshot.
 
-### 4.2 Batched snapshots in v0.19
+### 4.2 Transaction batching
 
-Before v0.19, the snapshot-to-transaction relationship was one-to-one. The new design changes the snapshot payload from a sole transaction hash to a bounded list while retaining the same outer consensus object.
+A snapshot is a bounded commitment to a set of transactions. The queue retrieves at most 255 candidates at a time, revalidates each one against ledger state, separates consensus-sensitive operations, and accumulates eligible transaction hashes. The transaction bodies selected for a batch stay below roughly two thirds of the 32 MiB transport-message ceiling, leaving room for the snapshot, signature material, framing, and relay overhead. The batch is then sent to a node that can propose it on its chain.
 
-The queue retrieves at most 255 candidates at a time. It revalidates each candidate against current state, separates consensus-sensitive transactions, and accumulates eligible transaction hashes. The selected transaction bodies are kept below roughly two thirds of the 32 MiB transport-message ceiling, leaving room for the snapshot, signature material, framing, and relay overhead. The resulting batch is sent to a node that can propose it on its chain.
-
-The optimization preserves several invariants:
+Transaction batching is constrained by several invariants:
 
 - Every transaction retains its own payload hash, signatures, inputs, outputs, and validation result.
 - Only explicitly batchable transaction classes may appear when a snapshot contains more than one hash.
@@ -229,7 +240,7 @@ The optimization preserves several invariants:
 - A participant reports precisely which transaction hashes it lacks; the proposer sends only those bodies in the normal challenge path.
 - A receiving node that sees a valid finalization before receiving all bodies requests the missing transactions and delays application.
 - Durable snapshot application finalizes all included transactions in one Badger write transaction.
-- Single-transaction snapshots continue to use the legacy message forms during the upgrade transition.
+- A snapshot containing one transaction follows the same ledger and finality semantics as a larger batch.
 
 The main gain is amortization. If $C_c$ is the coordination and collective-signature cost for a snapshot, $C_v$ the average independent transaction-validation cost, and $b$ the batch size, the average work per transaction is approximately
 
@@ -248,21 +259,21 @@ Every accepted node owns a logical chain of numbered rounds. The live round is a
 Snapshots in one round must occupy a time span shorter than the configured three-second round gap:
 
 $$
-end_r < start_r + \Delta, \qquad \Delta = 3\text{ seconds}.
+end_r < start_r + \Delta, \qquad \Delta = 3\,\mathrm{s}.
 $$
 
-A round can therefore contain several separately finalized snapshots, and each of those snapshots may now contain several transactions. The round boundary is a graph and synchronization unit, not the transaction batch itself.
+A round can therefore contain several separately finalized snapshots, and each snapshot may contain several transactions. The round boundary is a graph and synchronization unit, not the transaction batch itself.
 
 ### 5.2 Round commitment
 
 To compute a final round hash, snapshots are sorted by `(timestamp, snapshot hash)`. Let $s_1,\ldots,s_k$ be the resulting snapshot hashes. The implementation computes
 
 $$
-r_0 = \operatorname{BLAKE3}(nodeId \parallel \operatorname{BE64}(roundNumber)),
+r_0 = \mathrm{BLAKE3}\bigl(nodeId \parallel \mathrm{BE64}(roundNumber)\bigr),
 $$
 
 $$
-r_i = \operatorname{BLAKE3}(r_{i-1} \parallel s_i), \qquad
+r_i = \mathrm{BLAKE3}\bigl(r_{i-1} \parallel s_i\bigr), \qquad
 H_{round}=r_k.
 $$
 
@@ -291,6 +302,8 @@ flowchart LR
 
 Arrows in the diagram run from a referenced round toward the later round that includes the reference. Consensus finalizes snapshots independently, while these edges record causal graph progress and give synchronization a compact way to compare histories.
 
+The graph is directed because every reference has a source and target, and it remains acyclic because a new round can reference only rounds that are already finalized while external link positions never move backward. Rounds do not receive a separate consensus vote: their integrity comes from deterministic hashing of quorum-certified snapshots and from later certified snapshots committing the round references.
+
 ### 5.4 Topological order is a storage cursor
 
 After a snapshot is verified and accepted, each node increments a local topological sequence and writes the snapshot at that position. This order supports pagination, statistics, and graph synchronization. It is intentionally excluded from $H_{snap}$ and from the collective signature.
@@ -304,11 +317,11 @@ Consequently, finality is defined by the signed snapshot and its valid round pos
 Each node has an address containing public spend and view keys. The signer spend key authenticates P2P messages and participates in collective signatures. The identifier is scoped to the genesis-derived network:
 
 $$
-NodeId = \operatorname{BLAKE3}(NetworkId \parallel AddressHash),
+NodeId = \mathrm{BLAKE3}\bigl(NetworkId \parallel AddressHash\bigr),
 $$
 
 $$
-NetworkId = \operatorname{BLAKE3}(\operatorname{JSON}(genesis)).
+NetworkId = \mathrm{BLAKE3}\bigl(\mathrm{JSON}(genesis)\bigr).
 $$
 
 Scoping prevents a signer identity from being confused across two Kernel networks with different genesis definitions.
@@ -329,9 +342,9 @@ stateDiagram-v2
 
 A new node pledges XIN and publishes signer and payee keys. Its acceptance is unusual: the new node proposes an initial round-zero snapshot, the existing consensus nodes collectively approve it, and the new node also participates in that round-zero signing set. Non-genesis accepted nodes mature for more than 12 hours before `ConsensusReady` allows them to sign ordinary snapshots. Membership operations are subject to additional timing and serialization rules so that all nodes reconstruct the same historical signer set at a snapshot timestamp.
 
-Current membership controls include:
+Membership is bounded by the following controls:
 
-| Control | Current implementation |
+| Control | Value |
 | --- | ---: |
 | Pledge amount | 13,439 XIN |
 | Minimum accepted nodes | 7 |
@@ -340,13 +353,13 @@ Current membership controls include:
 | Maximum pending acceptance period | 7 days |
 | Delay before a non-genesis accepted node can sign ordinary snapshots | More than 12 hours |
 
-The 50-node membership cap leaves headroom below the 64 indexes available in the current collective-signature mask.
+The 50-node membership cap leaves headroom below the 64 indexes available in the collective-signature mask.
 
 ### 6.3 One chain per node
 
-Every Kernel process tracks a `Chain` object for each current or historically relevant node. Each chain maintains:
+Every Kernel process tracks a `Chain` object for each active or historically relevant node. Each chain maintains:
 
-- the current cache round and preceding final round;
+- the active cache round and preceding final round;
 - recent round history and external-link positions;
 - pending and finalized snapshot queues;
 - collective-signature aggregators, verifiers, commitments, and responses;
@@ -370,7 +383,7 @@ Synchronization reuses the same finalization verification path as live consensus
 
 ### 7.1 Proposal model
 
-There is no single network-wide leader slot. A node leads snapshots on its own chain. Ordinary transactions are routed among working nodes, favoring nodes whose chain heads are current; protocol-sensitive operations use deterministic election rules. Concurrent node chains allow multiple proposals to be in flight without placing every transfer behind one producer.
+There is no single network-wide leader slot. A node leads snapshots on its own chain. Ordinary transactions are routed among working nodes, favoring nodes with up-to-date chain heads; protocol-sensitive operations use deterministic election rules. Concurrent node chains allow multiple proposals to be in flight without placing every transfer behind one producer.
 
 The snapshot leader first fixes the transaction hashes, round references, and timestamp. Validators sign only after reconstructing and validating the complete snapshot payload.
 
@@ -421,7 +434,7 @@ $$
 sG = R + cA_Q.
 $$
 
-The final snapshot carries one 64-byte signature and one 64-bit signer mask, rather than an array of validator signatures. The current mask represents at most 64 consensus indexes, and membership admission currently imposes a lower 50-node cap. Expanding beyond the mask requires an encoding and implementation change.
+The final snapshot carries one 64-byte signature and one 64-bit signer mask, rather than an array of validator signatures. The mask represents at most 64 consensus indexes, while membership admission imposes a lower 50-node cap. Supporting a larger set would require a wider signer-set encoding.
 
 ### 7.4 Quorum and Byzantine intersection
 
@@ -453,8 +466,8 @@ The complete fast path for an ordinary transfer is:
 
 1. A client constructs a version-5 UTXO transaction, derives ghost outputs, signs $H_{tx}$, and submits the encoded envelope through RPC.
 2. The receiving node decodes and validates it, then places it in a TTL-backed transaction cache.
-3. The queue periodically retrieves candidates, removes already-finalized entries, revalidates current locks, and routes batchable candidates to a current proposing node.
-4. The proposer creates a version-2 snapshot containing the sorted transaction hashes, current round number, self and external references, and timestamp.
+3. The queue periodically retrieves candidates, removes already-finalized entries, revalidates live locks, and routes batchable candidates to an eligible proposing node.
+4. The proposer creates a version-2 snapshot containing the sorted transaction hashes, active round number, self and external references, and timestamp.
 5. Consensus validators obtain any missing bodies and independently validate every transaction and the graph position.
 6. A supermajority CoSi exchange produces one compact signature over $H_{snap}$.
 7. The proposer and receiving validators verify the certificate and write the snapshot.
@@ -483,7 +496,7 @@ No single technique is responsible for performance. The design removes or amorti
 | --- | --- | --- |
 | Per-node proposal chains | Allows independent proposals to progress concurrently | Quorum validation of each snapshot |
 | Batched snapshots | Shares one consensus exchange among up to 255 transactions | Per-transaction signatures, bytes, and state checks |
-| Compact CoSi certificate | Makes final signatures constant-size for the current 64-bit mask | Commitment and response messages |
+| Compact CoSi certificate | Makes final signatures constant-size for the 64-bit signer mask | Commitment and response messages |
 | Precommitments | Can remove the fresh commitment round trip | Need for fresh, single-use nonce security |
 | Selective transaction delivery | Sends a validator only bodies it reports missing | Initial transaction dissemination |
 | Transaction bundles | Reduces framing and queue overhead | Payload bandwidth |
@@ -497,7 +510,7 @@ If a snapshot contains $b$ transactions, the number of collective-signature roun
 
 The three-second round gap is also not a promise that a transaction always finalizes in three seconds. It bounds the timestamp span used to summarize one node's round. End-to-end latency includes queueing, routing, validation, quorum communication, missing-data recovery, and durable storage.
 
-The implementation exposes both snapshots per second (`SPS`) and unique transactions per second (`TPS`). After batching, these metrics intentionally diverge: a low snapshot rate can carry a much higher transaction rate. This paper makes no benchmark claim because the repository does not define a hardware, topology, workload, or fault profile from which a reproducible headline number could be derived.
+The implementation exposes both snapshots per second (`SPS`) and unique transactions per second (`TPS`). Because one snapshot can carry many transactions, these metrics intentionally describe different quantities: a low snapshot rate can accompany a much higher transaction rate. This paper makes no benchmark claim because the repository does not define a hardware, topology, workload, or fault profile from which a reproducible headline number could be derived.
 
 ## 10. Persistence and crash recovery
 
@@ -556,17 +569,17 @@ Mixin Kernel's speed does not remove its operating assumptions.
 - **Clock behavior:** Snapshot and membership validation uses nanosecond timestamps and bounded past/future checks. Severe clock faults can impair liveness.
 - **External assets:** Deposit and withdrawal correctness also depends on the configured custodian and external-chain observation processes; BFT agreement cannot prove an off-ledger fact that was supplied incorrectly.
 - **Privacy scope:** Ghost keys reduce public address linkage, but transaction amounts, asset identifiers, references, and graph activity remain observable.
-- **Consensus-set size:** The current CoSi signer mask is 64 bits, and node admission currently caps Kernel membership at 50.
+- **Consensus-set size:** The CoSi signer mask is 64 bits, and node admission caps Kernel membership at 50.
 - **Fixed execution model:** Kernel supports audited transaction classes rather than a general smart-contract VM. This reduces execution complexity but deliberately limits programmability.
 - **Topology semantics:** The local topology counter is an index, not a globally signed total order.
 - **TEE scope:** The repository README states that Trusted Execution Environment integration is not present in this reference implementation.
-- **Custodian slashing:** The current snapshot validation path identifies custodian-slash handling as not implemented; it should not be described as a completed feature.
+- **Custodian slashing:** The snapshot validation path identifies custodian-slash handling as not implemented; it should not be treated as a completed feature.
 
-## 13. Current implementation limits
+## 13. Protocol parameters and implementation bounds
 
-These values document the v0.19 code path and are not promises for future versions.
+These parameters bound resource consumption and define the implementation described in this paper. They are not throughput or latency guarantees.
 
-| Parameter | Current value |
+| Parameter | Value |
 | --- | ---: |
 | Transaction encoding | 5 |
 | Snapshot encoding | 2 |
@@ -582,18 +595,18 @@ These values document the v0.19 code path and are not promises for future versio
 | Batch transaction-body target | Less than about 21.3 MiB |
 | Minimum consensus nodes | 7 |
 | Maximum Kernel nodes | 50 |
-| Current node pledge | 13,439 XIN |
+| Node pledge amount | 13,439 XIN |
 | Stable quorum threshold | $\lfloor 2n/3\rfloor+1$ |
-| Signers represented by current CoSi mask | Up to 64 |
+| Signers represented by CoSi mask | Up to 64 |
 | Non-genesis signer maturity | More than 12 hours |
 
 ## 14. Conclusion
 
-Mixin Kernel is fast because it does not force all work through one global block sequence. Accepted nodes advance their own short-round chains concurrently; external references merge those chains into a DAG; and a supermajority collective signature gives each snapshot Byzantine finality. The UTXO model keeps execution deterministic and bounded, while ghost keys provide recipient-specific one-time outputs.
+Mixin Kernel is fast because it does not force all work through one global block sequence. Accepted nodes advance their own short-round chains concurrently, external references weave those chains into a DAG, and a supermajority collective signature gives each snapshot Byzantine finality. The UTXO model keeps execution deterministic and bounded, while ghost keys provide recipient-specific one-time outputs.
 
-Version 0.19 extends the natural unit of consensus from one transaction to a bounded batch. The change leaves transaction semantics intact and amortizes proposal, commitment, challenge, response, finalization, and snapshot-storage overhead across many transfers. Selective body delivery and bundled P2P messages complement that change without weakening the requirement that every signer validate the full state transition.
+The snapshot is the bridge between individual transactions and distributed agreement. It commits a bounded batch by hash, lets validators request only the bodies they lack, and amortizes proposal, commitment, challenge, response, finalization, and storage overhead across the batch. Every signer reconstructs and validates the complete state transition before responding, so batching reduces coordination cost without changing the meaning of a valid transaction.
 
-The result is a ledger in which transactions remain individually auditable, snapshots remain compact and quorum-certified, rounds remain deterministic graph commitments, and nodes can make progress in parallel under a clear Byzantine fault threshold.
+Together, these mechanisms form a ledger in which transactions are individually auditable, snapshots are compact and quorum-certified, rounds are deterministic graph commitments, and nodes make progress in parallel under a clear Byzantine fault threshold.
 
 ## Appendix A. Implementation map
 
@@ -619,7 +632,7 @@ The following files are the primary sources for this paper:
 | P2P messages and batch wire forms | [`p2p/handle.go`](../p2p/handle.go) |
 | QUIC transport and graph sync | [`p2p/quic.go`](../p2p/quic.go), [`p2p/sync.go`](../p2p/sync.go) |
 | Durable snapshot application | [`storage/badger_graph.go`](../storage/badger_graph.go), [`storage/badger_transaction.go`](../storage/badger_transaction.go) |
-| Current configuration constants | [`config/reader.go`](../config/reader.go) |
+| Configuration constants | [`config/reader.go`](../config/reader.go) |
 
 ## Appendix B. Glossary
 
@@ -629,7 +642,7 @@ A bounded list of independently valid transactions committed by one snapshot.
 
 **Cache round**
 
-The current round of a node chain, still accepting finalized snapshots.
+The active round of a node chain, still accepting finalized snapshots.
 
 **CoSi**
 
