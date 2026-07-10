@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"bytes"
 	"errors"
 	"testing"
 
@@ -111,6 +112,76 @@ func TestCosiCommitAndAggregateErrors(t *testing.T) {
 	good := NewKeyFromSeed(testSeed(30)).Public()
 	_, err = CosiAggregateCommitment(map[int]*Key{64: &good})
 	require.ErrorContains(err, "invalid cosi signature mask index 64")
+}
+
+func TestCosiNonceConstructorAndChallengeError(t *testing.T) {
+	require := require.New(t)
+
+	seed := testSeed(31)
+	nonce := CosiCommitNonce(bytes.NewReader(seed))
+	expectedRandom := NewKeyFromSeed(seed)
+	require.Equal(expectedRandom.Public(), nonce.Public())
+
+	private := NewKeyFromSeed(testSeed(32))
+	public := private.Public()
+	publics := []*Key{&public}
+	message := Blake3Hash([]byte("cosi nonce constructor"))
+
+	response, err := nonce.Response(&CosiSignature{Mask: 2}, &private, publics, message)
+	require.Nil(response)
+	require.ErrorContains(err, "invalid aggregation signer index 1")
+
+	commitment := nonce.Public()
+	signature, err := CosiAggregateCommitment(map[int]*Key{0: &commitment})
+	require.Nil(err)
+	response, err = nonce.Response(signature, &private, publics, message)
+	require.Nil(err)
+	require.Nil(signature.VerifyResponse(publics, 0, response, message))
+
+	require.Panics(func() {
+		newCosiNonce(nil)
+	})
+}
+
+func TestBatchVerifierRejectsMalformedEntries(t *testing.T) {
+	require := require.New(t)
+
+	message := Blake3Hash([]byte("batch verification errors"))
+	private := NewKeyFromSeed(testSeed(33))
+	public := private.Public()
+	signature := private.Sign(message)
+
+	require.True(BatchVerify(message, []*Key{&public}, []*Signature{&signature}))
+	require.False(BatchVerify(message, []*Key{&public}, nil))
+	require.False(BatchVerify(message, nil, nil))
+
+	verifier := NewBatchVerifier()
+	verifier.add(&public, message[:], []byte{1})
+	require.False(verifier.Verify())
+
+	badR := signature
+	for i := range 32 {
+		badR[i] = 0xff
+	}
+	verifier = NewBatchVerifier()
+	verifier.add(&public, message[:], badR[:])
+	require.False(verifier.Verify())
+
+	badPublic := Key{}
+	for i := range badPublic {
+		badPublic[i] = 0xff
+	}
+	verifier = NewBatchVerifier()
+	verifier.add(&badPublic, message[:], signature[:])
+	require.False(verifier.Verify())
+
+	badS := signature
+	for i := 32; i < len(badS); i++ {
+		badS[i] = 0xff
+	}
+	verifier = NewBatchVerifier()
+	verifier.add(&public, message[:], badS[:])
+	require.False(verifier.Verify())
 }
 
 func TestCosiStrictAggregationAndVerificationErrors(t *testing.T) {

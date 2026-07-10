@@ -32,7 +32,8 @@ func TestCosiNonceIdenticalRetry(t *testing.T) {
 	first, err := nonce.Response(signature, &private, publics, message)
 	require.NoError(t, err)
 	require.NoError(t, signature.VerifyResponse(publics, 0, first, message))
-	require.Nil(t, nonce.random)
+	require.Nil(t, nonce.state.random)
+	require.Equal(t, Key{}, random)
 
 	retry, err := nonce.Response(signature, &private, publics, message)
 	require.NoError(t, err)
@@ -122,4 +123,34 @@ func TestCosiNonceConcurrentChallenges(t *testing.T) {
 	}
 	require.Equal(t, 1, succeeded)
 	require.Equal(t, 1, rejected)
+}
+
+func TestCosiNonceCopiesShareState(t *testing.T) {
+	private := testCosiKey(13)
+	public := private.Public()
+	peerPublic := testCosiKey(14).Public()
+	publics := []*Key{&public, &peerPublic}
+	random := testCosiKey(15)
+	nonce := newCosiNonce(&random)
+	nonceCopy := *nonce
+	commitment := nonce.Public()
+	peerRandom1 := testCosiKey(16).Public()
+	peerRandom2 := testCosiKey(17).Public()
+	firstSignature := testCosiAggregateCommitment(t, map[int]*Key{
+		0: &commitment,
+		1: &peerRandom1,
+	})
+	secondSignature := testCosiAggregateCommitment(t, map[int]*Key{
+		0: &commitment,
+		1: &peerRandom2,
+	})
+	message := Blake3Hash([]byte("copied cosi nonce handle"))
+
+	response, err := nonce.Response(firstSignature, &private, publics, message)
+	require.NoError(t, err)
+	require.NoError(t, firstSignature.VerifyResponse(publics, 0, response, message))
+
+	response, err = nonceCopy.Response(secondSignature, &private, publics, message)
+	require.ErrorIs(t, err, ErrCosiNonceReuse)
+	require.Nil(t, response)
 }
