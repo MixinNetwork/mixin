@@ -33,6 +33,8 @@ type MetricPool struct {
 	PeerMessageTypeRelay uint32 `json:"relay"`
 }
 
+type metricPoolJSON MetricPool
+
 func (mp *MetricPool) handle(msg uint8) {
 	if !mp.enabled {
 		return
@@ -83,9 +85,35 @@ func (mp *MetricPool) handle(msg uint8) {
 }
 
 func (mp *MetricPool) String() string {
-	b, err := json.Marshal(mp)
+	b, err := mp.MarshalJSON()
 	if err != nil {
 		panic(err)
 	}
 	return string(b)
+}
+
+func (mp *MetricPool) MarshalJSON() ([]byte, error) {
+	snapshot := MetricPool{
+		PeerMessageTypePing:                      atomic.LoadUint32(&mp.PeerMessageTypePing),
+		PeerMessageTypeAuthentication:            atomic.LoadUint32(&mp.PeerMessageTypeAuthentication),
+		PeerMessageTypeGraph:                     atomic.LoadUint32(&mp.PeerMessageTypeGraph),
+		PeerMessageTypeSnapshotConfirm:           atomic.LoadUint32(&mp.PeerMessageTypeSnapshotConfirm),
+		PeerMessageTypeTransactionRequest:        atomic.LoadUint32(&mp.PeerMessageTypeTransactionRequest),
+		PeerMessageTypeTransaction:               atomic.LoadUint32(&mp.PeerMessageTypeTransaction),
+		PeerMessageTypeSnapshotAnnouncement:      atomic.LoadUint32(&mp.PeerMessageTypeSnapshotAnnouncement),
+		PeerMessageTypeSnapshotCommitment:        atomic.LoadUint32(&mp.PeerMessageTypeSnapshotCommitment),
+		PeerMessageTypeTransactionChallenge:      atomic.LoadUint32(&mp.PeerMessageTypeTransactionChallenge),
+		PeerMessageTypeSnapshotResponse:          atomic.LoadUint32(&mp.PeerMessageTypeSnapshotResponse),
+		PeerMessageTypeSnapshotFinalization:      atomic.LoadUint32(&mp.PeerMessageTypeSnapshotFinalization),
+		PeerMessageTypePreCommitments:            atomic.LoadUint32(&mp.PeerMessageTypePreCommitments),
+		PeerMessageTypeFullChallenge:             atomic.LoadUint32(&mp.PeerMessageTypeFullChallenge),
+		PeerMessageTypeTransactionBundle:         atomic.LoadUint32(&mp.PeerMessageTypeTransactionBundle),
+		PeerMessageTypeBatchSnapshotAnnouncement: atomic.LoadUint32(&mp.PeerMessageTypeBatchSnapshotAnnouncement),
+		PeerMessageTypeBatchSnapshotCommitment:   atomic.LoadUint32(&mp.PeerMessageTypeBatchSnapshotCommitment),
+		PeerMessageTypeBatchTransactionChallenge: atomic.LoadUint32(&mp.PeerMessageTypeBatchTransactionChallenge),
+		PeerMessageTypeBatchFullChallenge:        atomic.LoadUint32(&mp.PeerMessageTypeBatchFullChallenge),
+		PeerMessageTypeBatchSnapshotFinalization: atomic.LoadUint32(&mp.PeerMessageTypeBatchSnapshotFinalization),
+		PeerMessageTypeRelay:                     atomic.LoadUint32(&mp.PeerMessageTypeRelay),
+	}
+	return json.Marshal((*metricPoolJSON)(&snapshot))
 }

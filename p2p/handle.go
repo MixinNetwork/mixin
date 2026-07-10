@@ -682,6 +682,7 @@ func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage
 		if err != nil {
 			return err
 		}
+		me.receivedMetric.handle(rm.Type)
 		return me.handlePeerMessage(from, rm)
 	}
 	if !me.IsRelayer() {

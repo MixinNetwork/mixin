@@ -3,6 +3,7 @@ package p2p
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -90,12 +91,27 @@ func TestMapAndMetricHelpers(t *testing.T) {
 	require.Equal(uint32(1), mp.PeerMessageTypeRelay)
 	require.Contains(mp.String(), `"relay":1`)
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for range 1000 {
+			mp.handle(PeerMessageTypePing)
+		}
+	}()
+	for range 1000 {
+		_, err := json.Marshal(mp)
+		require.NoError(err)
+	}
+	wg.Wait()
+
 	me := NewPeer(nil, crypto.Blake3Hash([]byte("me")), "127.0.0.1:9002", false)
-	me.sentMetric.enabled = true
-	me.receivedMetric.enabled = true
+	me.SetMetricEnabled(true)
 	metrics := me.Metric()
 	require.Contains(metrics, "sent")
 	require.Contains(metrics, "received")
+	me.SetMetricEnabled(false)
+	require.Empty(me.Metric())
 }
 
 func TestBuildAndParseNetworkMessages(t *testing.T) {
@@ -518,11 +534,28 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	require.Nil(err)
 	require.Equal(snap.PayloadHash(), handle.finalization.PayloadHash())
 
+	me.SetMetricEnabled(true)
 	relayParsed, err := parseNetworkMessage(9, me.buildRelayMessage(me.IdForNetwork, buildTransactionRequestMessage(tx.PayloadHash())))
 	require.Nil(err)
 	err = me.handlePeerMessage(peerID, relayParsed)
 	require.Nil(err)
 	require.Equal(tx.PayloadHash(), handle.requestedTx)
+
+	batchSnap := p2pTestBatchSnapshot(true)
+	for _, payload := range [][]byte{
+		buildFullChallengeMessage(snap, &commitment, &challenge, tx),
+		buildBatchFullChallengeMessage(batchSnap, &commitment, &challenge, []*common.VersionedTransaction{tx}),
+		buildSnapshotResponseMessage(snap.PayloadHash(), &response),
+	} {
+		relayParsed, err = parseNetworkMessage(9, me.buildRelayMessage(me.IdForNetwork, payload))
+		require.Nil(err)
+		err = me.handlePeerMessage(peerID, relayParsed)
+		require.Nil(err)
+	}
+	require.Equal(uint32(1), me.receivedMetric.PeerMessageTypeTransactionRequest)
+	require.Equal(uint32(1), me.receivedMetric.PeerMessageTypeFullChallenge)
+	require.Equal(uint32(1), me.receivedMetric.PeerMessageTypeBatchFullChallenge)
+	require.Equal(uint32(1), me.receivedMetric.PeerMessageTypeSnapshotResponse)
 
 	relayer := NewPeer(nil, peerID, "127.0.0.1:9012", true)
 	me.relayers.Set(peerID, relayer)
@@ -863,6 +896,7 @@ func TestPeerLoopAndSyncHelpers(t *testing.T) {
 	require.Equal(uint64(9), offset)
 
 	me6 := NewPeer(handle, crypto.Blake3Hash([]byte("relay-self")), "127.0.0.1:9050", true)
+	me6.SetMetricEnabled(true)
 	nextRelay := NewPeer(nil, crypto.Blake3Hash([]byte("relay-next")), "127.0.0.1:9051", true)
 	me6.relayers.Set(nextRelay.IdForNetwork, nextRelay)
 	err = me6.relayOrHandlePeerMessage(nextRelay.IdForNetwork, &PeerMessage{Data: []byte("short"), version: TransportMessageVersion})
@@ -872,6 +906,7 @@ func TestPeerLoopAndSyncHelpers(t *testing.T) {
 	relayData := me6.buildRelayMessage(target, buildTransactionRequestMessage(hash))
 	err = me6.relayOrHandlePeerMessage(crypto.Blake3Hash([]byte("relay-origin")), &PeerMessage{Data: relayData, version: TransportMessageVersion})
 	require.Nil(err)
+	require.Zero(me6.receivedMetric.PeerMessageTypeTransactionRequest)
 	select {
 	case forwarded := <-nextRelay.normalRing:
 		require.EqualValues(PeerMessageTypeRelay, forwarded.data[0])

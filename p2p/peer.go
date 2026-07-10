@@ -133,6 +133,11 @@ func (me *Peer) Metric() map[string]*MetricPool {
 	return metrics
 }
 
+func (me *Peer) SetMetricEnabled(enabled bool) {
+	me.sentMetric.enabled = enabled
+	me.receivedMetric.enabled = enabled
+}
+
 func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, isRelayer bool) *Peer {
 	ringSize := uint64(1024)
 	peer := &Peer{

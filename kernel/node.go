@@ -346,6 +346,7 @@ func (node *Node) NewTransaction(assetId crypto.Hash) *common.Transaction {
 func (node *Node) addRelayersFromConfig() error {
 	addr := fmt.Sprintf(":%d", node.custom.P2P.Port)
 	node.Peer = p2p.NewPeer(node, node.IdForNetwork, addr, node.isRelayer)
+	node.Peer.SetMetricEnabled(node.custom.P2P.Metric)
 
 	for _, s := range node.custom.P2P.Seeds {
 		parts := strings.Split(s, "@")

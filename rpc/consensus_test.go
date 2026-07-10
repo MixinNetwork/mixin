@@ -140,6 +140,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.NotNil(hr)
 	require.GreaterOrEqual(hr.Round, uint64(0))
 	t.Logf("DEPOSIT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
+	testLogP2PMetrics(t, "DEPOSIT", instances)
 
 	testRemovingNodePrediction(t, instances, true)
 
@@ -169,10 +170,12 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.NotNil(hr)
 	require.Greater(hr.Round, uint64(0))
 	t.Logf("INPUT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
+	testLogP2PMetrics(t, "INPUT", instances)
 
 	testCustodianUpdateNodes(t, nodes, instances, accounts, payees, instances[0].NetworkId())
 	transactionsCount = transactionsCount + 2
 	t.Logf("CUSTODIAN TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
+	testLogP2PMetrics(t, "CUSTODIAN", instances)
 
 	if !enableElection {
 		return
@@ -225,6 +228,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	transactionsCount = transactionsCount + mintTransactions
 	testCheckMintDistributions(t, nodes[0].Host)
 	t.Logf("MINT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
+	testLogP2PMetrics(t, "MINT", instances)
 
 	kernel.TestMockDiff(time.Hour * 3) // pledge after mint
 	pn, pi, sv := testPledgeNewNode(t, nodes, accounts[0], gdata, plist, input, root)
@@ -262,6 +266,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Equal(all[NODES].Payee.String(), pn.Payee.String())
 	require.Equal("PLEDGING", all[NODES].State)
 	t.Logf("PLEDGE TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
+	testLogP2PMetrics(t, "PLEDGE", instances)
 
 	kernel.TestMockDiff(29 * time.Hour)
 	time.Sleep(3 * time.Second)
@@ -304,6 +309,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require.Truef(gt7.Timestamp.After(gts), "%s should after %s", gt7.Timestamp, gts)
 	require.Equal("305850.45205696", gt7.PoolSize.String())
 	t.Logf("ACCEPT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
+	testLogP2PMetrics(t, "ACCEPT", instances)
 
 	kernel.TestMockDiff(24 * time.Hour)
 	time.Sleep(3 * time.Second)
@@ -371,9 +377,13 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 		require.Equal("REMOVED", all[NODES].State)
 	}
 	t.Logf("REMOVE TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
+	testLogP2PMetrics(t, "REMOVE", instances)
+}
 
-	for _, node := range instances {
-		t.Log(node.IdForNetwork, node.Peer.Metric())
+func testLogP2PMetrics(t *testing.T, phase string, nodes []*kernel.Node) {
+	t.Helper()
+	for _, node := range nodes {
+		t.Logf("P2P METRICS AFTER %s TEST FOR %s %v", phase, node.IdForNetwork, node.Peer.Metric())
 	}
 }
 
