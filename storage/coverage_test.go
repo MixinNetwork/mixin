@@ -747,6 +747,14 @@ func TestCustodianAndValidationHelpers(t *testing.T) {
 	cur, err := store.ReadCustodian(150)
 	require.Nil(err)
 	require.Equal(custodianVer1.PayloadHash(), cur.Transaction)
+	originalCustodian := *cur.Custodian
+	originalExtra := append([]byte(nil), cur.Nodes[0].Extra...)
+	cur.Custodian.PublicSpendKey = crypto.Key{}
+	cur.Nodes[0].Extra[0] ^= 0xff
+	cur, err = store.ReadCustodian(150)
+	require.Nil(err)
+	require.Equal(originalCustodian, *cur.Custodian)
+	require.Equal(originalExtra, cur.Nodes[0].Extra)
 	cur, err = store.ReadCustodian(250)
 	require.Nil(err)
 	require.Equal(custodianVer2.PayloadHash(), cur.Transaction)
