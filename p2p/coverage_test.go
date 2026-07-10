@@ -1073,6 +1073,7 @@ type p2pStubHandle struct {
 	updateErr        error
 	requestedTx      crypto.Hash
 	cachedTx         *common.VersionedTransaction
+	cacheErr         error
 	announcement     *common.Snapshot
 	wantTxs          []crypto.Hash
 	challengeTxs     []*common.VersionedTransaction
@@ -1162,7 +1163,7 @@ func (h *p2pStubHandle) SendTransactionToPeer(_ crypto.Hash, tx crypto.Hash) err
 
 func (h *p2pStubHandle) CachePutTransaction(_ crypto.Hash, ver *common.VersionedTransaction) error {
 	h.cachedTx = ver
-	return nil
+	return h.cacheErr
 }
 
 func (h *p2pStubHandle) CosiQueueExternalAnnouncement(_ crypto.Hash, s *common.Snapshot, _ *crypto.Key, _ *crypto.Signature) error {
