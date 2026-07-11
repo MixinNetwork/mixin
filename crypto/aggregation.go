@@ -8,7 +8,10 @@ import (
 	"filippo.io/edwards25519"
 )
 
-const aggregateCoefficientDomain = "mixin-aggregate-coefficient-v1"
+const (
+	aggregateCoefficientDomain = "mixin-aggregate-coefficient-v1"
+	aggregateNonceDomain       = "mixin-aggregate-nonce-v1"
+)
 
 type aggregateSigner struct {
 	index  int
@@ -17,6 +20,9 @@ type aggregateSigner struct {
 }
 
 func collectAggregateSigners(publics []*Key, signers []int) ([]aggregateSigner, []byte, error) {
+	if len(signers) == 0 {
+		return nil, nil, fmt.Errorf("empty aggregation signers")
+	}
 	selected := make([]aggregateSigner, 0, len(signers))
 	transcript := binary.BigEndian.AppendUint32(nil, uint32(len(signers)))
 	prev := -1
@@ -26,6 +32,9 @@ func collectAggregateSigners(publics []*Key, signers []int) ([]aggregateSigner, 
 		}
 		if i >= len(publics) {
 			return nil, nil, fmt.Errorf("invalid aggregation signer index %d/%d", i, len(publics))
+		}
+		if publics[i] == nil {
+			return nil, nil, fmt.Errorf("nil aggregation public key %d", i)
 		}
 		p, err := decodePoint(publics[i][:])
 		if err != nil {
@@ -70,10 +79,10 @@ func aggregatePublicKey(publics []*Key, signers []int) (*Key, error) {
 	return &key, nil
 }
 
-func aggregateWeightedPublicKey(publics []*Key, signers []int) (Key, []*edwards25519.Scalar, error) {
+func aggregateWeightedPublicKey(publics []*Key, signers []int) (Key, []*edwards25519.Scalar, []byte, error) {
 	selected, transcript, err := collectAggregateSigners(publics, signers)
 	if err != nil {
-		return Key{}, nil, err
+		return Key{}, nil, nil, err
 	}
 
 	P := edwards25519.NewIdentityPoint()
@@ -81,7 +90,7 @@ func aggregateWeightedPublicKey(publics []*Key, signers []int) (Key, []*edwards2
 	for _, signer := range selected {
 		coeff, err := aggregateCoefficient(transcript, signer)
 		if err != nil {
-			return Key{}, nil, err
+			return Key{}, nil, nil, err
 		}
 		weighted := edwards25519.NewIdentityPoint().ScalarMult(coeff, signer.point)
 		P = P.Add(P, weighted)
@@ -90,7 +99,7 @@ func aggregateWeightedPublicKey(publics []*Key, signers []int) (Key, []*edwards2
 
 	var key Key
 	copy(key[:], P.Bytes())
-	return key, coefficients, nil
+	return key, coefficients, transcript, nil
 }
 
 func aggregateChallenge(commitment, public []byte, message Hash) (*edwards25519.Scalar, error) {
@@ -104,41 +113,58 @@ func aggregateChallenge(commitment, public []byte, message Hash) (*edwards25519.
 }
 
 // AggregateSign produces a MuSig-style aggregate Schnorr signature over the
-// given signers and message. The per-signer nonce is derived deterministically
-// from the seed, signer index, and message, so the same (seed, signers,
-// message) triple always yields the same nonce.
-//
-// The seed is an additional secret that must be protected alongside the
-// private keys. If the seed is disclosed, an attacker can recompute every
-// nonce and recover the private keys from the signature: a single-signer
-// signature reveals that signer's key directly, while multiple signatures with
-// different signer subsets yield a system of linear equations that can be
-// solved for all participating keys.
-//
-// Callers must generate a fresh, high-entropy seed for each signing operation
-// and must never persist, log, or transmit it. Reusing the same seed across
-// different messages is safe (the nonce changes with the message), but the
-// seed itself must never be disclosed.
+// given signers and message. Each nonce is derived from the private key, at
+// least 32 bytes of caller-supplied entropy, the complete signer transcript,
+// aggregate public key, signer index, and message. Binding all of these values
+// prevents nonce reuse across changed signer sets and prevents disclosure of
+// the auxiliary seed from exposing a private key.
 func AggregateSign(privKeys []*Key, publics []*Key, signers []int, seed []byte, message Hash) (*Signature, error) {
 	if len(privKeys) != len(signers) {
 		return nil, fmt.Errorf("invalid aggregation private keys count %d/%d", len(privKeys), len(signers))
 	}
+	if len(seed) < 32 {
+		return nil, fmt.Errorf("invalid aggregation seed size %d", len(seed))
+	}
 
-	A, coefficients, err := aggregateWeightedPublicKey(publics, signers)
+	A, coefficients, transcript, err := aggregateWeightedPublicKey(publics, signers)
 	if err != nil {
 		return nil, fmt.Errorf("AggregateSign aggregateWeightedPublicKey %v", err)
 	}
 
 	P := edwards25519.NewIdentityPoint()
 	randoms := make([]*edwards25519.Scalar, 0, len(signers))
-	for _, signer := range signers {
+	privateScalars := make([]*edwards25519.Scalar, 0, len(privKeys))
+	for i, signer := range signers {
 		if signer > 0xFFFF {
 			return nil, fmt.Errorf("invalid aggregation signer index %d", signer)
 		}
-		buf := binary.BigEndian.AppendUint16(seed, uint16(signer))
-		s := Blake3Hash(append(buf, message[:]...))
-		r := NewKeyFromSeed(append(s[:], s[:]...))
-		z, err := edwards25519.NewScalar().SetCanonicalBytes(r[:])
+		private := privKeys[i]
+		if private == nil {
+			return nil, fmt.Errorf("nil aggregation private key %d", i)
+		}
+		y, err := edwards25519.NewScalar().SetCanonicalBytes(private[:])
+		if err != nil {
+			return nil, err
+		}
+		if private.Public() != *publics[signer] {
+			return nil, fmt.Errorf("aggregation private key %d does not match signer %d", i, signer)
+		}
+		privateScalars = append(privateScalars, y)
+
+		var digest [64]byte
+		var index [4]byte
+		binary.BigEndian.PutUint32(index[:], uint32(signer))
+		h := sha512.New()
+		h.Write([]byte(aggregateNonceDomain))
+		h.Write(private[:])
+		h.Write(binary.BigEndian.AppendUint32(nil, uint32(len(seed))))
+		h.Write(seed)
+		h.Write(transcript)
+		h.Write(A[:])
+		h.Write(index[:])
+		h.Write(message[:])
+		h.Sum(digest[:0])
+		z, err := edwards25519.NewScalar().SetUniformBytes(digest[:])
 		if err != nil {
 			return nil, err
 		}
@@ -154,11 +180,7 @@ func AggregateSign(privKeys []*Key, publics []*Key, signers []int, seed []byte, 
 	}
 
 	S := edwards25519.NewScalar()
-	for i, k := range privKeys {
-		y, err := edwards25519.NewScalar().SetCanonicalBytes(k[:])
-		if err != nil {
-			return nil, err
-		}
+	for i, y := range privateScalars {
 		weighted := edwards25519.NewScalar().Multiply(coefficients[i], y)
 		s := edwards25519.NewScalar().MultiplyAdd(x, weighted, randoms[i])
 		S = S.Add(S, s)
@@ -171,7 +193,10 @@ func AggregateSign(privKeys []*Key, publics []*Key, signers []int, seed []byte, 
 }
 
 func AggregateVerify(sig *Signature, publics []*Key, signers []int, message Hash) error {
-	A, _, err := aggregateWeightedPublicKey(publics, signers)
+	if sig == nil {
+		return fmt.Errorf("AggregateVerify nil signature")
+	}
+	A, _, _, err := aggregateWeightedPublicKey(publics, signers)
 	if err != nil {
 		return fmt.Errorf("AggregateVerify aggregateWeightedPublicKey %v", err)
 	}

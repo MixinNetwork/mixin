@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"sync/atomic"
 )
 
 const (
@@ -16,16 +17,17 @@ const (
 // FIXME GLOBAL VARIABLES
 
 var (
-	level  int
-	filter *regexp.Regexp
+	level  atomic.Int32
+	filter atomic.Pointer[regexp.Regexp]
 )
 
 func SetLevel(l int) {
-	level = l
+	level.Store(int32(l))
 }
 
 func SetFilter(pattern string) error {
 	if pattern == "" {
+		filter.Store(nil)
 		return nil
 	}
 	// https://github.com/google/re2/wiki/Syntax
@@ -33,18 +35,18 @@ func SetFilter(pattern string) error {
 	if err != nil {
 		return err
 	}
-	filter = reg
+	filter.Store(reg)
 	return nil
 }
 
 func Println(v ...any) {
-	if level >= INFO {
+	if level.Load() >= INFO {
 		log.Println(v...)
 	}
 }
 
 func Printf(format string, v ...any) {
-	if level >= INFO {
+	if level.Load() >= INFO {
 		log.Printf(format, v...)
 	}
 }
@@ -58,7 +60,7 @@ func Debugf(format string, v ...any) {
 }
 
 func printfAtLevel(l int, format string, v ...any) {
-	if level < l {
+	if level.Load() < int32(l) {
 		return
 	}
 	out := filterOutput(format, v...)
@@ -70,7 +72,8 @@ func printfAtLevel(l int, format string, v ...any) {
 
 func filterOutput(format string, v ...any) string {
 	out := fmt.Sprintf(format, v...)
-	if filter == nil || filter.MatchString(out) {
+	reg := filter.Load()
+	if reg == nil || reg.MatchString(out) {
 		return out
 	}
 	return ""

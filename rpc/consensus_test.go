@@ -1235,17 +1235,7 @@ func requireKeyEqual(require *require.Assertions, a, b map[string]*common.Snapsh
 
 func testListSnapshots(node string) map[string]*common.Snapshot {
 	info := testGetGraphInfo(node)
-	data, err := CallMixinRPC("http://"+node, "listsnapshots", []any{
-		0,
-		100000,
-		false,
-		false,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	var rss []*struct {
+	type rpcSnapshot struct {
 		Version      uint8                 `json:"version"`
 		NodeId       crypto.Hash           `json:"node"`
 		RoundNumber  uint64                `json:"round"`
@@ -1254,10 +1244,32 @@ func testListSnapshots(node string) map[string]*common.Snapshot {
 		Transactions []crypto.Hash         `json:"transactions"`
 		Signature    *crypto.CosiSignature `json:"signature"`
 		Hash         crypto.Hash           `json:"hash"`
+		Topology     uint64                `json:"topology"`
 	}
-	err = json.Unmarshal(data, &rss)
-	if err != nil {
-		panic(err)
+	var rss []*rpcSnapshot
+	for offset := uint64(0); ; {
+		data, err := CallMixinRPC("http://"+node, "listsnapshots", []any{
+			offset,
+			500,
+			false,
+			false,
+		})
+		if err != nil {
+			panic(err)
+		}
+		var page []*rpcSnapshot
+		if err := json.Unmarshal(data, &page); err != nil {
+			panic(err)
+		}
+		rss = append(rss, page...)
+		if len(page) < 500 {
+			break
+		}
+		next := page[len(page)-1].Topology + 1
+		if next <= offset {
+			panic(fmt.Errorf("invalid snapshot topology pagination %d %d", offset, next))
+		}
+		offset = next
 	}
 	filter := make(map[string]*common.Snapshot)
 	snapshots := make([]*common.Snapshot, len(rss))

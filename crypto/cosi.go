@@ -34,9 +34,15 @@ func cosiCommit(randReader io.Reader) *Key {
 }
 
 func CosiAggregateCommitment(randoms map[int]*Key) (*CosiSignature, error) {
+	if len(randoms) == 0 {
+		return nil, fmt.Errorf("empty cosi commitments")
+	}
 	cosi := &CosiSignature{commitments: make(map[int]*Key)}
 	P := edwards25519.NewIdentityPoint()
 	for i, R := range randoms {
+		if R == nil {
+			return nil, fmt.Errorf("nil cosi commitment %d", i)
+		}
 		p, err := decodePoint(R[:])
 		if err != nil {
 			return nil, err
@@ -134,6 +140,9 @@ func (c *CosiSignature) Response(privateKey, random *Key, publics []*Key, messag
 }
 
 func (c *CosiSignature) VerifyResponse(publics []*Key, signer int, s *[32]byte, message Hash) error {
+	if s == nil {
+		return fmt.Errorf("nil cosi response")
+	}
 	var a, R *Key
 	for _, k := range c.Keys() {
 		if k >= len(publics) {
@@ -189,6 +198,9 @@ func (c *CosiSignature) ThresholdVerify(threshold int) bool {
 }
 
 func (c *CosiSignature) FullVerify(publics []*Key, threshold int, message Hash) error {
+	if threshold <= 0 {
+		return fmt.Errorf("invalid cosi threshold %d", threshold)
+	}
 	if !c.ThresholdVerify(threshold) {
 		return fmt.Errorf("cosi.FullVerify publics %d threshold %d keys %d", len(publics), threshold, len(c.Keys()))
 	}

@@ -85,6 +85,16 @@ func TestAggregateSignRejectsKeyCountMismatch(t *testing.T) {
 
 	_, err := AggregateSign([]*Key{&k1}, []*Key{&p1, &p2}, []int{0, 1}, testSeed(74), msg)
 	require.ErrorContains(err, "invalid aggregation private keys count")
+
+	_, err = AggregateSign([]*Key{&k1}, []*Key{&p1}, []int{0}, make([]byte, 31), msg)
+	require.ErrorContains(err, "invalid aggregation seed size")
+
+	_, err = AggregateSign([]*Key{&k2}, []*Key{&p1}, []int{0}, testSeed(74), msg)
+	require.ErrorContains(err, "does not match signer")
+
+	_, err = AggregateSign(nil, nil, nil, testSeed(74), msg)
+	require.ErrorContains(err, "empty aggregation signers")
+	require.ErrorContains(AggregateVerify(nil, []*Key{&p1}, []int{0}, msg), "nil signature")
 }
 
 func TestLowOrderKeysAreRejected(t *testing.T) {

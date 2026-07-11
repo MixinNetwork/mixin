@@ -46,6 +46,6 @@ func TestLogger(t *testing.T) {
 	out = filterOutput("ethereum or bitcoin %d", time.Now().UnixNano())
 	require.NotContains(out, "mixin")
 
-	level = 0
-	filter = nil
+	SetLevel(0)
+	require.NoError(SetFilter(""))
 }

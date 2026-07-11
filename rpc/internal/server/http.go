@@ -102,6 +102,7 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var call Call
 	r.Body = http.MaxBytesReader(w, r.Body, maxRPCRequestBodySize)
 	dec := json.NewDecoder(r.Body)
+	dec.UseNumber()
 	if err := dec.Decode(&call); err != nil {
 		rdr.RenderError(fmt.Errorf("bad request %s", err.Error()))
 		return

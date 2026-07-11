@@ -55,7 +55,7 @@ func (x *xof) Reseed() {
 	} else {
 		x.key = x.key[0:128]
 	}
-	x.Read(x.key)
+	_, _ = x.Read(x.key)
 	y := NewBlake2bXOF(x.key)
 	// Steal the XOF implementation, and put it inside of x.
 	x.impl = y.impl

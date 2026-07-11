@@ -7,8 +7,13 @@ import (
 )
 
 func BatchVerify(msg Hash, keys []*Key, sigs []*Signature) bool {
-	if len(keys) != len(sigs) {
+	if len(keys) == 0 || len(keys) != len(sigs) {
 		return false
+	}
+	for i := range keys {
+		if keys[i] == nil || sigs[i] == nil {
+			return false
+		}
 	}
 	if len(keys) == 1 {
 		return keys[0].Verify(msg, *sigs[0])
