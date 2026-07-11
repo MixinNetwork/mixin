@@ -14,6 +14,9 @@ import (
 )
 
 const (
+	authenticationPayloadSize = 8 + len(crypto.Hash{}) + len(crypto.Key{}) + 1 + len(crypto.Signature{})
+	authenticationMessageSize = 1 + authenticationPayloadSize
+
 	PeerMessageTypePing               = 1 // not used because too more than enough graph sync messages
 	PeerMessageTypeAuthentication     = 3
 	PeerMessageTypeGraph              = 4
@@ -470,6 +473,10 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		msg.signature = &sig
 		msg.unsigned = data[65:]
 	case PeerMessageTypeGraph:
+		const minimumGraphMessageSize = 1 + len(crypto.Signature{}) + 4 + 2
+		if len(data) < minimumGraphMessageSize {
+			return nil, fmt.Errorf("invalid graph message size %d", len(data))
+		}
 		var sig crypto.Signature
 		copy(sig[:], data[1:])
 		points, err := unmarshalSyncPoints(data[65:])
@@ -480,9 +487,18 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		msg.signature = &sig
 		msg.unsigned = data[65:]
 	case PeerMessageTypePing:
+		if len(data) != 1 {
+			return nil, fmt.Errorf("invalid ping message size %d", len(data))
+		}
 	case PeerMessageTypeAuthentication:
+		if len(data) != authenticationMessageSize {
+			return nil, fmt.Errorf("invalid authentication message size %d", len(data))
+		}
 		msg.Data = data[1:]
 	case PeerMessageTypeSnapshotConfirm:
+		if len(data) != 1+len(crypto.Hash{}) {
+			return nil, fmt.Errorf("invalid snapshot confirmation message size %d", len(data))
+		}
 		copy(msg.SnapshotHash[:], data[1:])
 	case PeerMessageTypeTransaction:
 		ver, err := common.UnmarshalVersionedTransaction(data[1:])
@@ -497,6 +513,9 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		}
 		msg.Transactions = txs
 	case PeerMessageTypeTransactionRequest:
+		if len(data) != 1+len(crypto.Hash{}) {
+			return nil, fmt.Errorf("invalid transaction request message size %d", len(data))
+		}
 		copy(msg.TransactionHash[:], data[1:])
 	case PeerMessageTypeSnapshotAnnouncement, PeerMessageTypeBatchSnapshotAnnouncement:
 		if len(data[1:]) <= 99 {
@@ -661,6 +680,9 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		}
 		msg.Snapshot = snap.Snapshot
 	case PeerMessageTypeRelay:
+		if len(data) < 65 {
+			return nil, fmt.Errorf("invalid relay message size %d", len(data))
+		}
 		msg.Data = data
 	case PeerMessageTypeConsumers:
 		msg.Data = data[1:]
@@ -722,10 +744,10 @@ func (me *Peer) updateRemoteRelayerConsumers(relayerId crypto.Hash, data []byte)
 		copy(id[:], data[:32])
 		token, err := me.handle.AuthenticateAs(relayerId, data[32:pl], 0)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("remote peer authentication %w", err)
 		}
 		if token.PeerId != id {
-			panic(id)
+			return fmt.Errorf("remote peer authentication id malformed %s %s", token.PeerId, id)
 		}
 		me.remoteRelayers.Add(id, relayerId)
 		data = data[pl:]

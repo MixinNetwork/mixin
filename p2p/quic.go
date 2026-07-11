@@ -12,10 +12,10 @@ import (
 	"io"
 	"math/big"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/util"
 	"github.com/quic-go/quic-go"
 )
 
@@ -24,7 +24,8 @@ import (
 // net.core.wmem_max=8388608
 
 const (
-	MaxIncomingStreams = 1024
+	// Each peer connection uses exactly one bidirectional stream.
+	MaxIncomingStreams = 1
 	HandshakeTimeout   = 10 * time.Second
 	IdleTimeout        = 60 * time.Second
 	WriteDeadline      = 10 * time.Second
@@ -34,6 +35,7 @@ const (
 type QuicClient struct {
 	session *quic.Conn
 	stream  *quic.Stream
+	close   sync.Once
 }
 
 type QuicRelayer struct {
@@ -73,6 +75,7 @@ func NewQuicConsumer(ctx context.Context, relayer string) (*QuicClient, error) {
 	}
 	stm, err := sess.OpenStreamSync(ctx)
 	if err != nil {
+		_ = sess.CloseWithError(0, "open stream failed")
 		return nil, fmt.Errorf("quic.OpenStreamSync(%s, %v) => %v", relayer, sess, err)
 	}
 	return &QuicClient{
@@ -86,12 +89,27 @@ func (t *QuicRelayer) Close() error {
 }
 
 func (t *QuicRelayer) Accept(ctx context.Context) (Client, error) {
+	sess, err := t.acceptConnection(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return acceptQuicClient(ctx, sess)
+}
+
+func (t *QuicRelayer) acceptConnection(ctx context.Context) (*quic.Conn, error) {
 	sess, err := t.listener.Accept(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("quic.Accept() => %v", err)
 	}
-	stm, err := sess.AcceptStream(ctx)
+	return sess, nil
+}
+
+func acceptQuicClient(ctx context.Context, sess *quic.Conn) (*QuicClient, error) {
+	streamContext, cancel := context.WithTimeout(ctx, HandshakeTimeout)
+	defer cancel()
+	stm, err := sess.AcceptStream(streamContext)
 	if err != nil {
+		_ = sess.CloseWithError(0, "accept stream failed")
 		return nil, fmt.Errorf("quic.AcceptStream(%v) => %v", sess, err)
 	}
 	return &QuicClient{
@@ -105,6 +123,13 @@ func (c *QuicClient) RemoteAddr() net.Addr {
 }
 
 func (c *QuicClient) Receive() (*TransportMessage, error) {
+	return c.receiveWithLimit(TransportMessageMaxSize)
+}
+
+func (c *QuicClient) receiveWithLimit(maxSize uint32) (*TransportMessage, error) {
+	if maxSize == 0 || maxSize > TransportMessageMaxSize {
+		return nil, fmt.Errorf("quic receive invalid size limit %d", maxSize)
+	}
 	err := c.stream.SetReadDeadline(time.Now().Add(ReadDeadline))
 	if err != nil {
 		return nil, err
@@ -123,7 +148,7 @@ func (c *QuicClient) Receive() (*TransportMessage, error) {
 		return nil, fmt.Errorf("quic receive invalid message version %d", m.Version)
 	}
 	m.Size = binary.BigEndian.Uint32(header[2:])
-	if m.Size > TransportMessageMaxSize {
+	if m.Size > maxSize {
 		return nil, fmt.Errorf("quic receive invalid message size %d", m.Size)
 	}
 
@@ -143,20 +168,25 @@ func (c *QuicClient) Send(data []byte) error {
 	}
 	header := []byte{TransportMessageVersion, 0, 0, 0, 0, 0}
 	binary.BigEndian.PutUint32(header[2:], uint32(len(data)))
-	_, err = c.stream.Write(header)
+	n, err := c.stream.Write(header)
 	if err != nil {
 		return err
 	}
-	_, err = c.stream.Write(data)
+	if n != len(header) {
+		return io.ErrShortWrite
+	}
+	n, err = c.stream.Write(data)
+	if err == nil && n != len(data) {
+		return io.ErrShortWrite
+	}
 	return err
 }
 
 func (c *QuicClient) Close(code string) {
-	util.CloseOrPanic(c.stream)
-	err := c.session.CloseWithError(0, code)
-	if err != nil {
-		panic(err)
-	}
+	c.close.Do(func() {
+		_ = c.stream.Close()
+		_ = c.session.CloseWithError(0, code)
+	})
 }
 
 func generateTLSConfig() *tls.Config {

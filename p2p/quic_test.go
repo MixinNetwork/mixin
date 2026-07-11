@@ -14,7 +14,7 @@ func TestQuic(t *testing.T) {
 	serverTrans, err := NewQuicRelayer("127.0.0.1:0")
 	require.Nil(err)
 	require.NotNil(serverTrans)
-	defer serverTrans.Close()
+	defer func() { require.NoError(serverTrans.Close()) }()
 
 	listenAddr := serverTrans.listener.Addr().String()
 
@@ -37,6 +37,7 @@ func TestQuic(t *testing.T) {
 	require.Nil(err)
 	<-wait
 	client.Close("done")
+	client.Close("done again")
 }
 
 func TestQuicErrors(t *testing.T) {
@@ -52,6 +53,8 @@ func TestQuicErrors(t *testing.T) {
 	require.ErrorContains(err, "invalid message size 0")
 	err = (&QuicClient{}).Send(bytes.Repeat([]byte{1}, TransportMessageMaxSize+1))
 	require.ErrorContains(err, "invalid message size")
+	_, err = (&QuicClient{}).receiveWithLimit(0)
+	require.ErrorContains(err, "invalid size limit")
 
 	closedRelayer, err := NewQuicRelayer("127.0.0.1:0")
 	require.Nil(err)
@@ -62,7 +65,7 @@ func TestQuicErrors(t *testing.T) {
 	serverTrans, err := NewQuicRelayer("127.0.0.1:0")
 	require.Nil(err)
 	require.NotNil(serverTrans)
-	defer serverTrans.Close()
+	defer func() { require.NoError(serverTrans.Close()) }()
 
 	accept := make(chan *QuicClient, 1)
 	go func() {
@@ -84,7 +87,7 @@ func TestQuicErrors(t *testing.T) {
 	serverTrans2, err := NewQuicRelayer("127.0.0.1:0")
 	require.Nil(err)
 	require.NotNil(serverTrans2)
-	defer serverTrans2.Close()
+	defer func() { require.NoError(serverTrans2.Close()) }()
 
 	accept2 := make(chan *QuicClient, 1)
 	go func() {

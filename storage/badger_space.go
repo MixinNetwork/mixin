@@ -51,7 +51,7 @@ func (s *BadgerStore) ReadNodeRoundSpacesForBatch(nodeId crypto.Hash, batch uint
 			return nil, err
 		}
 		off := len(graphPrefixSpaceQueue)
-		if bytes.Compare(nodeId[:], item.Key()[off:off+32]) != 0 {
+		if !bytes.Equal(nodeId[:], item.Key()[off:off+32]) {
 			panic(nodeId)
 		}
 		if binary.BigEndian.Uint64(item.Key()[off+32:off+40]) != batch {

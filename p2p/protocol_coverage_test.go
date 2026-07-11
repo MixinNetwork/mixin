@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"slices"
 	"testing"
 	"time"
 
@@ -60,8 +61,12 @@ func TestProtocolPayloadValidationBranches(t *testing.T) {
 
 	messages := [][]byte{
 		{PeerMessageTypePreCommitments},
+		{PeerMessageTypeGraph},
+		{PeerMessageTypeAuthentication},
+		{PeerMessageTypeSnapshotConfirm},
 		{PeerMessageTypeTransaction, 0},
 		{PeerMessageTypeTransactionBundle},
+		{PeerMessageTypeTransactionRequest},
 		{PeerMessageTypeSnapshotCommitment},
 		{PeerMessageTypeBatchSnapshotCommitment},
 		malformedBatchCommitment,
@@ -69,6 +74,7 @@ func TestProtocolPayloadValidationBranches(t *testing.T) {
 		{PeerMessageTypeBatchTransactionChallenge},
 		malformedBatchChallenge,
 		{PeerMessageTypeSnapshotFinalization, 0},
+		{PeerMessageTypeRelay},
 	}
 	for _, message := range messages {
 		_, err := parseNetworkMessage(7, message)
@@ -144,6 +150,46 @@ func TestProtocolPayloadValidationBranches(t *testing.T) {
 	for i := range encodedPoints {
 		_, err := unmarshalSyncPoints(encodedPoints[:i])
 		require.Error(t, err)
+	}
+}
+
+func TestParseNetworkMessageNeverPanicsOnMalformedData(t *testing.T) {
+	types := []byte{
+		PeerMessageTypePing,
+		PeerMessageTypeAuthentication,
+		PeerMessageTypeGraph,
+		PeerMessageTypeSnapshotConfirm,
+		PeerMessageTypeTransactionRequest,
+		PeerMessageTypeTransaction,
+		PeerMessageTypeTransactionBundle,
+		PeerMessageTypeSnapshotAnnouncement,
+		PeerMessageTypeBatchSnapshotAnnouncement,
+		PeerMessageTypeSnapshotCommitment,
+		PeerMessageTypeBatchSnapshotCommitment,
+		PeerMessageTypeTransactionChallenge,
+		PeerMessageTypeBatchTransactionChallenge,
+		PeerMessageTypeFullChallenge,
+		PeerMessageTypeBatchFullChallenge,
+		PeerMessageTypeSnapshotResponse,
+		PeerMessageTypeBatchSnapshotResponse,
+		PeerMessageTypeSnapshotFinalization,
+		PeerMessageTypeBatchSnapshotFinalization,
+		PeerMessageTypePreCommitments,
+		PeerMessageTypeRelay,
+		PeerMessageTypeConsumers,
+		0xff,
+	}
+	for _, typ := range types {
+		for size := 1; size <= 512; size++ {
+			data := make([]byte, size)
+			data[0] = typ
+			for i := 1; i < len(data); i++ {
+				data[i] = byte(i*31 + size*17 + int(typ))
+			}
+			require.NotPanics(t, func() {
+				_, _ = parseNetworkMessage(TransportMessageVersion, data)
+			}, "type=%d size=%d", typ, size)
+		}
 	}
 }
 
@@ -233,21 +279,26 @@ func TestPeerRoutingAndSynchronizationBranches(t *testing.T) {
 	require.Error(t, err)
 
 	forward := NewPeer(handle, crypto.Blake3Hash([]byte("forward self")), "forward", true)
+	handle.authToken.PeerId = forward.IdForNetwork
 	forward.remoteRelayers = &relayersMap{m: make(map[crypto.Hash][]*remoteRelayer)}
 	forwardPeer := NewPeer(nil, target, "forward target", true)
 	forward.relayers.Set(target, forwardPeer)
 	relay := forward.buildRelayMessage(target, []byte{PeerMessageTypePing})
-	require.NoError(t, forward.relayOrHandlePeerMessage(crypto.Blake3Hash([]byte("source")), &PeerMessage{Data: relay}))
+	source := crypto.Blake3Hash([]byte("source"))
+	forward.relayers.Set(source, NewPeer(nil, source, "source", true))
+	require.NoError(t, forward.relayOrHandlePeerMessage(source, &PeerMessage{Data: relay}))
 	select {
 	case <-forwardPeer.normalRing:
 	default:
 		t.Fatal("forwarded relay was not queued")
 	}
 	require.NoError(t, forward.relayOrHandlePeerMessage(target, &PeerMessage{Data: relay}))
-	for range cap(forwardPeer.normalRing) {
+	for len(forwardPeer.normalRing) < cap(forwardPeer.normalRing) {
 		forwardPeer.normalRing <- &ChanMsg{data: []byte("full relay")}
 	}
-	require.NoError(t, forward.relayOrHandlePeerMessage(crypto.Blake3Hash([]byte("other source")), &PeerMessage{Data: relay}))
+	otherSource := crypto.Blake3Hash([]byte("other source"))
+	forward.relayers.Set(otherSource, NewPeer(nil, otherSource, "other source", true))
+	require.NoError(t, forward.relayOrHandlePeerMessage(otherSource, &PeerMessage{Data: relay}))
 
 }
 
@@ -265,12 +316,7 @@ func TestPeerReceiveAndAuthenticationFailures(t *testing.T) {
 	require.Eventually(t, func() bool {
 		receiveClient.mu.Lock()
 		defer receiveClient.mu.Unlock()
-		for _, code := range receiveClient.closeCodes {
-			if code == "handlePeerMessage" {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(receiveClient.closeCodes, "handlePeerMessage")
 	}, time.Second, time.Millisecond)
 	handle.cacheErr = nil
 
@@ -288,7 +334,7 @@ func TestPeerReceiveAndAuthenticationFailures(t *testing.T) {
 
 	handle.authErr = errors.New("authentication rejected")
 	_, err = me.authenticateNeighbor(&scriptedClient{receiveSteps: []receiveStep{{
-		msg: &TransportMessage{Version: 7, Data: buildAuthenticationMessage([]byte("auth"))},
+		msg: &TransportMessage{Version: 7, Data: buildAuthenticationMessage(bytes.Repeat([]byte("a"), authenticationPayloadSize))},
 	}}})
 	require.ErrorIs(t, err, handle.authErr)
 

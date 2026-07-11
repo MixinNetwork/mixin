@@ -92,13 +92,11 @@ func TestMapAndMetricHelpers(t *testing.T) {
 	require.Contains(mp.String(), `"relay":1`)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for range 1000 {
 			mp.handle(PeerMessageTypePing)
 		}
-	}()
+	})
 	for range 1000 {
 		_, err := json.Marshal(mp)
 		require.NoError(err)
@@ -128,10 +126,11 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	challenge := p2pTestPrivateKey(12).Public()
 	spend := p2pTestPrivateKey(13)
 
-	msg, err := parseNetworkMessage(7, buildAuthenticationMessage([]byte("auth-data")))
+	authData := handle.BuildAuthenticationMessage(crypto.Hash{})
+	msg, err := parseNetworkMessage(7, buildAuthenticationMessage(authData))
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeAuthentication, msg.Type)
-	require.Equal([]byte("auth-data"), msg.Data)
+	require.Equal(authData, msg.Data)
 
 	msg, err = parseNetworkMessage(7, buildSnapshotConfirmMessage(snapshot.PayloadHash()))
 	require.Nil(err)
@@ -245,7 +244,7 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	me := NewPeer(handle, crypto.Blake3Hash([]byte("relay-me")), "127.0.0.1:9003", true)
 	consumerID := crypto.Blake3Hash([]byte("consumer"))
 	consumer := NewPeer(nil, consumerID, "127.0.0.1:9004", false)
-	consumer.consumerAuth = &AuthToken{Data: bytes.Repeat([]byte{9}, 137)}
+	consumer.consumerAuth = &AuthToken{Data: bytes.Repeat([]byte{9}, authenticationPayloadSize)}
 	me.consumers.Set(consumerID, consumer)
 
 	msg, err = parseNetworkMessage(7, me.buildConsumersMessage())
@@ -353,14 +352,12 @@ func TestP2PMessageAndPeerEdgeCases(t *testing.T) {
 	consumerID := crypto.Blake3Hash([]byte("consumer"))
 	data := append(consumerID[:], bytes.Repeat([]byte{7}, 137)...)
 	handle.authErr = errors.New("authenticate failed")
-	require.Panics(func() {
-		relayer.updateRemoteRelayerConsumers(relayer.IdForNetwork, data)
-	})
+	err = relayer.updateRemoteRelayerConsumers(relayer.IdForNetwork, data)
+	require.ErrorIs(err, handle.authErr)
 	handle.authErr = nil
 	handle.authToken = &AuthToken{PeerId: crypto.Blake3Hash([]byte("other-consumer"))}
-	require.Panics(func() {
-		relayer.updateRemoteRelayerConsumers(relayer.IdForNetwork, data)
-	})
+	err = relayer.updateRemoteRelayerConsumers(relayer.IdForNetwork, data)
+	require.ErrorContains(err, "remote peer authentication id malformed")
 
 	handle.authToken = &AuthToken{PeerId: crypto.Blake3Hash([]byte("graph-consumer"))}
 	handle.updateErr = errors.New("update failed")
@@ -396,7 +393,7 @@ func TestP2PMessageAndPeerEdgeCases(t *testing.T) {
 	require.Nil(err)
 	require.Nil(NewPeer(handle, crypto.Blake3Hash([]byte("no-remote")), "127.0.0.1:0", true).GetRemoteRelayers(target))
 	require.Panics(func() {
-		sender.sendToPeer(target, PeerMessageTypeTransactionRequest, nil, buildTransactionRequestMessage(tx.PayloadHash()), MsgPriorityNormal)
+		_ = sender.sendToPeer(target, PeerMessageTypeTransactionRequest, nil, buildTransactionRequestMessage(tx.PayloadHash()), MsgPriorityNormal)
 	})
 
 	fallback := NewPeer(handle, crypto.Blake3Hash([]byte("fallback-sender")), "127.0.0.1:0", true)
@@ -561,7 +558,7 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	me.relayers.Set(peerID, relayer)
 	handle.authToken = &AuthToken{PeerId: crypto.Blake3Hash([]byte("consumer-id"))}
 	consumerPeer := NewPeer(nil, handle.authToken.PeerId, "127.0.0.1:9013", false)
-	consumerPeer.consumerAuth = &AuthToken{Data: bytes.Repeat([]byte{1}, 137)}
+	consumerPeer.consumerAuth = &AuthToken{Data: bytes.Repeat([]byte{1}, authenticationPayloadSize)}
 	msg, err := parseNetworkMessage(9, (&Peer{
 		consumers: &neighborMap{m: map[crypto.Hash]*Peer{handle.authToken.PeerId: consumerPeer}},
 	}).buildConsumersMessage())
@@ -801,7 +798,7 @@ func TestPeerLoopAndSyncHelpers(t *testing.T) {
 	authClient := &scriptedClient{
 		addr: stubAddr("auth-client"),
 		receiveSteps: []receiveStep{
-			{msg: &TransportMessage{Version: TransportMessageVersion, Data: buildAuthenticationMessage([]byte("auth"))}},
+			{msg: &TransportMessage{Version: TransportMessageVersion, Data: buildAuthenticationMessage(handle.BuildAuthenticationMessage(crypto.Hash{}))}},
 		},
 	}
 	me4 := NewPeer(handle, crypto.Blake3Hash([]byte("loop-self-4")), "127.0.0.1:9047", true)
@@ -944,7 +941,7 @@ func TestConnectRelayerAndListenConsumersIntegration(t *testing.T) {
 	serverHandle.authToken = &AuthToken{
 		PeerId:    clientID,
 		IsRelayer: true,
-		Data:      bytes.Repeat([]byte{8}, 137),
+		Data:      bytes.Repeat([]byte{8}, authenticationPayloadSize),
 	}
 
 	server := NewPeer(serverHandle, serverID, "127.0.0.1:0", true)
@@ -1117,7 +1114,10 @@ func (h *p2pStubHandle) SignData(data []byte) crypto.Signature {
 }
 
 func (h *p2pStubHandle) BuildAuthenticationMessage(relayerId crypto.Hash) []byte {
-	return append(relayerId[:], byte(1))
+	data := make([]byte, authenticationPayloadSize)
+	copy(data[8:], relayerId[:])
+	data[8+len(crypto.Hash{})+len(crypto.Key{})] = 1
+	return data
 }
 
 func (h *p2pStubHandle) AuthenticateAs(_ crypto.Hash, _ []byte, _ int64) (*AuthToken, error) {

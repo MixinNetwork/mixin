@@ -82,6 +82,9 @@ func (s *BadgerStore) ReadSnapshotWithTransactionsSinceTopology(topologyOffset, 
 }
 
 func (s *BadgerStore) ReadSnapshotsSinceTopology(topologyOffset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error) {
+	if count > 500 {
+		return nil, fmt.Errorf("count %d too large, the maximum is 500", count)
+	}
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
