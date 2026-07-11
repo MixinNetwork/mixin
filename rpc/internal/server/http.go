@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -13,6 +14,8 @@ import (
 	"github.com/MixinNetwork/mixin/kernel"
 	"github.com/MixinNetwork/mixin/storage"
 )
+
+const maxRPCRequestBodySize = 2*config.TransactionMaximumSize + 64*1024
 
 type RPC struct {
 	Store  storage.Store
@@ -97,10 +100,14 @@ func (impl *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var call Call
+	r.Body = http.MaxBytesReader(w, r.Body, maxRPCRequestBodySize)
 	dec := json.NewDecoder(r.Body)
-	dec.UseNumber()
 	if err := dec.Decode(&call); err != nil {
 		rdr.RenderError(fmt.Errorf("bad request %s", err.Error()))
+		return
+	}
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		rdr.RenderError(fmt.Errorf("bad request trailing data"))
 		return
 	}
 	rdr.id = call.Id
@@ -284,11 +291,12 @@ func NewServer(custom *config.Custom, store storage.Store, node *kernel.Node, po
 	handler := handleCORS(rpc)
 
 	server := &http.Server{
-		Addr:         fmt.Sprintf(":%d", port),
-		Handler:      handler,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Addr:              fmt.Sprintf(":%d", port),
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 	return server
 }

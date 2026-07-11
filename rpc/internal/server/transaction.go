@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -42,16 +43,18 @@ func queueTransaction(node *kernel.Node, params []any) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	for {
+	for attempt := range 3 {
 		hash, err := node.QueueTransaction(ver)
 		if err == nil {
 			return hash, nil
 		}
 		if strings.Contains(err.Error(), "Transaction Conflict") {
+			time.Sleep(time.Duration(attempt+1) * 10 * time.Millisecond)
 			continue
 		}
 		return hash, err
 	}
+	return "", errors.New("transaction conflict retry limit reached")
 }
 
 func getTransaction(store storage.Store, params []any) (map[string]any, error) {
