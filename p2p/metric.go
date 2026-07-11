@@ -6,7 +6,7 @@ import (
 )
 
 type MetricPool struct {
-	enabled bool
+	enabled atomic.Bool
 
 	PeerMessageTypePing               uint32 `json:"ping"`
 	PeerMessageTypeAuthentication     uint32 `json:"authentication"`
@@ -36,7 +36,7 @@ type MetricPool struct {
 type metricPoolJSON MetricPool
 
 func (mp *MetricPool) handle(msg uint8) {
-	if !mp.enabled {
+	if !mp.enabled.Load() {
 		return
 	}
 

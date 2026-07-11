@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/MixinNetwork/mixin/config"
@@ -28,11 +29,11 @@ type Peer struct {
 	highRing        chan *ChanMsg
 	normalRing      chan *ChanMsg
 	syncRing        chan []*SyncPoint
-	closing         bool
+	closing         atomic.Bool
 	ops             chan struct{}
 	stn             chan struct{}
 
-	relayer        *QuicRelayer
+	relayer        atomic.Pointer[QuicRelayer]
 	consumerAuth   *AuthToken
 	isRelayer      bool
 	remoteRelayers *relayersMap
@@ -60,11 +61,7 @@ func (me *Peer) ConnectRelayer(idForNetwork crypto.Hash, addr string) {
 	} else if a.Port < 80 || a.IP == nil {
 		panic(fmt.Errorf("invalid address %s %d %s", addr, a.Port, a.IP))
 	}
-	if me.isRelayer {
-		me.remoteRelayers = &relayersMap{m: make(map[crypto.Hash][]*remoteRelayer)}
-	}
-
-	for !me.closing {
+	for !me.closing.Load() {
 		time.Sleep(time.Duration(config.SnapshotRoundGap))
 		old := me.relayers.Get(idForNetwork)
 		if old != nil {
@@ -112,31 +109,27 @@ func (me *Peer) Neighbors() []*Peer {
 }
 
 func (p *Peer) disconnect() {
-	if p.closing {
+	if !p.closing.CompareAndSwap(false, true) {
 		return
 	}
-	p.closing = true
 	<-p.ops
-	close(p.highRing)
-	close(p.normalRing)
-	close(p.syncRing)
 	<-p.stn
 }
 
 func (me *Peer) Metric() map[string]*MetricPool {
 	metrics := make(map[string]*MetricPool)
-	if me.sentMetric.enabled {
+	if me.sentMetric.enabled.Load() {
 		metrics["sent"] = me.sentMetric
 	}
-	if me.receivedMetric.enabled {
+	if me.receivedMetric.enabled.Load() {
 		metrics["received"] = me.receivedMetric
 	}
 	return metrics
 }
 
 func (me *Peer) SetMetricEnabled(enabled bool) {
-	me.sentMetric.enabled = enabled
-	me.receivedMetric.enabled = enabled
+	me.sentMetric.enabled.Store(enabled)
+	me.receivedMetric.enabled.Store(enabled)
 }
 
 func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, isRelayer bool) *Peer {
@@ -150,13 +143,16 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, isRelayer
 		normalRing:     make(chan *ChanMsg, ringSize),
 		syncRing:       make(chan []*SyncPoint, ringSize),
 		handle:         handle,
-		sentMetric:     &MetricPool{enabled: false},
-		receivedMetric: &MetricPool{enabled: false},
+		sentMetric:     &MetricPool{},
+		receivedMetric: &MetricPool{},
 		ops:            make(chan struct{}),
 		stn:            make(chan struct{}),
 		isRelayer:      isRelayer,
 	}
 	peer.ctx = context.Background() // FIXME use real context
+	if isRelayer {
+		peer.remoteRelayers = &relayersMap{m: make(map[crypto.Hash][]*remoteRelayer)}
+	}
 	if handle != nil {
 		peer.snapshotsCaches = &confirmMap{cache: handle.GetCacheStore()}
 	}
@@ -164,13 +160,12 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, isRelayer
 }
 
 func (me *Peer) Teardown() {
-	me.closing = true
-	if me.relayer != nil {
-		util.CloseOrPanic(me.relayer)
+	if !me.closing.CompareAndSwap(false, true) {
+		return
 	}
-	close(me.highRing)
-	close(me.normalRing)
-	close(me.syncRing)
+	if relayer := me.relayer.Load(); relayer != nil {
+		util.CloseOrPanic(relayer)
+	}
 	peers := me.Neighbors()
 	var wg sync.WaitGroup
 	for _, p := range peers {
@@ -190,11 +185,10 @@ func (me *Peer) ListenConsumers() error {
 	if err != nil {
 		return err
 	}
-	me.relayer = relayer
-	me.remoteRelayers = &relayersMap{m: make(map[crypto.Hash][]*remoteRelayer)}
+	me.relayer.Store(relayer)
 
 	go func() {
-		for !me.closing {
+		for !me.closing.Load() {
 			neighbors := me.Neighbors()
 			msg := me.buildConsumersMessage()
 			for _, p := range neighbors {
@@ -208,8 +202,8 @@ func (me *Peer) ListenConsumers() error {
 		}
 	}()
 
-	for !me.closing {
-		c, err := me.relayer.Accept(me.ctx)
+	for !me.closing.Load() {
+		c, err := relayer.Accept(me.ctx)
 		logger.Printf("me.relayer.Accept(%s) => %v %v", me.Address, c, err)
 		if err != nil {
 			continue
@@ -249,7 +243,7 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 	defer close(p.ops)
 	defer consumer.Close("loopSendingStream")
 
-	for !me.closing && !p.closing {
+	for !me.closing.Load() && !p.closing.Load() {
 		hm := me.pollRingWithCache(p.highRing, 16)
 		nm := me.pollRingWithCache(p.normalRing, 16)
 		msgs := append(hm, nm...)
@@ -308,7 +302,7 @@ func (me *Peer) loopReceiveMessage(peer *Peer, client Client) {
 		}
 	}()
 
-	for !me.closing {
+	for !me.closing.Load() {
 		tm, err := client.Receive()
 		if err != nil {
 			logger.Printf("client.Receive %s %v", peer.Address, err)
@@ -388,7 +382,7 @@ func (me *Peer) offerToPeerWithCacheCheck(p *Peer, priority int, msg *ChanMsg) b
 }
 
 func (p *Peer) offer(priority int, msg *ChanMsg) bool {
-	if p.closing {
+	if p.closing.Load() {
 		return false
 	}
 	switch priority {

@@ -60,7 +60,8 @@ func TestMapAndMetricHelpers(t *testing.T) {
 	neighbors.Set(relayerID, peer)
 	require.Equal(peer, neighbors.Get(relayerID))
 
-	mp := &MetricPool{enabled: true}
+	mp := &MetricPool{}
+	mp.enabled.Store(true)
 	for _, typ := range []uint8{
 		PeerMessageTypePing,
 		PeerMessageTypeAuthentication,
@@ -454,7 +455,7 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 		TransactionHash: tx.PayloadHash(),
 	})
 	require.Nil(err)
-	require.Equal(tx.PayloadHash(), handle.requestedTx)
+	require.Equal(tx.PayloadHash(), handle.requestedTransaction())
 
 	err = me.handlePeerMessage(peerID, &PeerMessage{
 		Type:         PeerMessageTypeTransaction,
@@ -536,7 +537,7 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	require.Nil(err)
 	err = me.handlePeerMessage(peerID, relayParsed)
 	require.Nil(err)
-	require.Equal(tx.PayloadHash(), handle.requestedTx)
+	require.Equal(tx.PayloadHash(), handle.requestedTransaction())
 
 	batchSnap := p2pTestBatchSnapshot(true)
 	for _, payload := range [][]byte{
@@ -745,10 +746,10 @@ func TestPeerLoopAndSyncHelpers(t *testing.T) {
 	require.True(offerPeer.offer(MsgPriorityNormal, &ChanMsg{data: []byte("ok")}))
 	offerPeer.highRing = make(chan *ChanMsg, 1)
 	require.True(offerPeer.offer(MsgPriorityHigh, &ChanMsg{data: []byte("ok")}))
-	offerPeer.closing = true
+	offerPeer.closing.Store(true)
 	require.False(offerPeer.offer(MsgPriorityHigh, &ChanMsg{data: []byte("closed")}))
 	require.Panics(func() {
-		offerPeer.closing = false
+		offerPeer.closing.Store(false)
 		offerPeer.offer(99, &ChanMsg{})
 	})
 
@@ -758,7 +759,7 @@ func TestPeerLoopAndSyncHelpers(t *testing.T) {
 	streamClient := &scriptedClient{addr: stubAddr("stream-client")}
 	streamClient.sendHook = func([]byte) {
 		if len(streamClient.sent) == 2 {
-			me.closing = true
+			me.closing.Store(true)
 		}
 	}
 	peer.highRing <- &ChanMsg{key: []byte("stream-key"), data: []byte("high")}
@@ -787,11 +788,11 @@ func TestPeerLoopAndSyncHelpers(t *testing.T) {
 		},
 	}
 	me3 := NewPeer(handle, crypto.Blake3Hash([]byte("loop-self-3")), "127.0.0.1:9045", true)
-	me3.receivedMetric.enabled = true
+	me3.receivedMetric.enabled.Store(true)
 	peer3 := NewPeer(nil, crypto.Blake3Hash([]byte("loop-peer-3")), "127.0.0.1:9046", true)
 	me3.loopReceiveMessage(peer3, receiveClient)
 	require.Eventually(func() bool {
-		return handle.requestedTx == hash
+		return handle.requestedTransaction() == hash
 	}, time.Second, 10*time.Millisecond)
 	require.Equal(uint32(1), me3.receivedMetric.PeerMessageTypeTransactionRequest)
 
@@ -802,7 +803,7 @@ func TestPeerLoopAndSyncHelpers(t *testing.T) {
 		},
 	}
 	me4 := NewPeer(handle, crypto.Blake3Hash([]byte("loop-self-4")), "127.0.0.1:9047", true)
-	me4.receivedMetric.enabled = true
+	me4.receivedMetric.enabled.Store(true)
 	authPeer, err := me4.authenticateNeighbor(authClient)
 	require.Nil(err)
 	require.Equal(handle.authToken.PeerId, authPeer.IdForNetwork)
@@ -926,9 +927,9 @@ func TestPeerLoopAndSyncHelpers(t *testing.T) {
 	tear.relayers.Set(child1.IdForNetwork, child1)
 	tear.consumers.Set(child2.IdForNetwork, child2)
 	tear.Teardown()
-	require.True(tear.closing)
-	require.True(child1.closing)
-	require.True(child2.closing)
+	require.True(tear.closing.Load())
+	require.True(child1.closing.Load())
+	require.True(child2.closing.Load())
 }
 
 func TestConnectRelayerAndListenConsumersIntegration(t *testing.T) {
@@ -950,12 +951,13 @@ func TestConnectRelayerAndListenConsumersIntegration(t *testing.T) {
 		listenDone <- server.ListenConsumers()
 	}()
 	require.Eventually(func() bool {
-		return server.relayer != nil
+		return server.relayer.Load() != nil
 	}, time.Second, 10*time.Millisecond)
-	addr := server.relayer.listener.Addr().String()
+	serverRelayer := server.relayer.Load()
+	addr := serverRelayer.listener.Addr().String()
 
 	client := NewPeer(clientHandle, clientID, "127.0.0.1:0", true)
-	client.sentMetric.enabled = true
+	client.sentMetric.enabled.Store(true)
 	relay := NewPeer(nil, serverID, addr, true)
 	connectDone := make(chan error, 1)
 	go func() {
@@ -967,8 +969,8 @@ func TestConnectRelayerAndListenConsumersIntegration(t *testing.T) {
 	}, 3*time.Second, 20*time.Millisecond)
 	require.Equal(uint32(1), client.sentMetric.PeerMessageTypeAuthentication)
 
-	client.closing = true
-	relay.closing = true
+	client.closing.Store(true)
+	relay.closing.Store(true)
 	require.Eventually(func() bool {
 		select {
 		case <-connectDone:
@@ -978,8 +980,8 @@ func TestConnectRelayerAndListenConsumersIntegration(t *testing.T) {
 		}
 	}, 3*time.Second, 20*time.Millisecond)
 
-	server.closing = true
-	require.NoError(server.relayer.Close())
+	server.closing.Store(true)
+	require.NoError(serverRelayer.Close())
 	require.Eventually(func() bool {
 		select {
 		case err := <-listenDone:
@@ -991,7 +993,7 @@ func TestConnectRelayerAndListenConsumersIntegration(t *testing.T) {
 	}, 3*time.Second, 20*time.Millisecond)
 
 	top := NewPeer(newP2PStubHandle(t), crypto.Blake3Hash([]byte("top-connect")), "127.0.0.1:0", true)
-	top.closing = true
+	top.closing.Store(true)
 	top.ConnectRelayer(serverID, addr)
 	require.NotNil(top.remoteRelayers)
 
@@ -1046,7 +1048,7 @@ func TestSyncToNeighborLoop(t *testing.T) {
 		return len(peer.normalRing) > 0
 	}, 3*time.Second, 20*time.Millisecond)
 
-	me.closing = true
+	me.closing.Store(true)
 	select {
 	case <-done:
 	case <-time.After(3 * time.Second):
@@ -1055,6 +1057,7 @@ func TestSyncToNeighborLoop(t *testing.T) {
 }
 
 type p2pStubHandle struct {
+	mu    sync.RWMutex
 	cache *ristretto.Cache[[]byte, any]
 	key   crypto.Key
 
@@ -1157,8 +1160,16 @@ func (h *p2pStubHandle) ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash,
 }
 
 func (h *p2pStubHandle) SendTransactionToPeer(_ crypto.Hash, tx crypto.Hash) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	h.requestedTx = tx
 	return nil
+}
+
+func (h *p2pStubHandle) requestedTransaction() crypto.Hash {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.requestedTx
 }
 
 func (h *p2pStubHandle) CachePutTransaction(_ crypto.Hash, ver *common.VersionedTransaction) error {

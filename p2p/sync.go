@@ -110,7 +110,7 @@ func (me *Peer) syncHeadRoundToRemote(local, remote map[crypto.Hash]*SyncPoint, 
 func (me *Peer) syncToNeighborLoop(p *Peer) {
 	defer close(p.stn)
 
-	for !me.closing && !p.closing {
+	for !me.closing.Load() && !p.closing.Load() {
 		graph, offset := me.getSyncPointOffset(p)
 		logger.Verbosef("network.sync syncToNeighborLoop getSyncPointOffset %s %d %v\n", p.IdForNetwork, offset, graph != nil)
 		if graph == nil {
@@ -128,7 +128,7 @@ func (me *Peer) syncToNeighborLoop(p *Peer) {
 			me.syncHeadRoundToRemote(local, graph, p, n)
 		}
 
-		for !me.closing && !p.closing && offset > 0 {
+		for !me.closing.Load() && !p.closing.Load() && offset > 0 {
 			off, err := me.syncToNeighborSince(graph, p, offset)
 			if err != nil {
 				logger.Verbosef("network.sync syncToNeighborLoop syncToNeighborSince %s %d DONE with %s", p.IdForNetwork, offset, err)
@@ -144,7 +144,7 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 	var graph map[crypto.Hash]*SyncPoint
 
 	startAt := time.Now()
-	for !me.closing && !p.closing {
+	for !me.closing.Load() && !p.closing.Load() {
 		var g []*SyncPoint
 		select {
 		case g = <-p.syncRing:
