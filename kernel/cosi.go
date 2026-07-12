@@ -531,8 +531,10 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	priv := chain.node.Signer.PrivateSpendKey
 	_, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	response, err := v.nonce.Response(cosi, &priv, publics, m.SnapshotHash)
-	if err != nil {
-		return err
+	if err != nil { // TODO should slash the malicious node
+		logger.Printf("cosiHandleCommitment abandon %s after response failure: %v\n", s.Hash, err)
+		chain.abandonCosiSnapshot(s)
+		return nil
 	}
 	ann.Responses[cd.CN.ConsensusIndex] = response
 	copy(cosi.Signature[32:], response[:])
@@ -685,11 +687,13 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	if errors.Is(err, crypto.ErrCosiNonceReuse) { // TODO should slash the malicious node
 		logger.Printf("SECURITY cosiHandleChallenge rejected nonce reuse from %s for snapshot %s\n",
 			m.PeerId, m.SnapshotHash)
+		chain.abandonCosiSnapshot(s)
 		return nil
 	}
 	if err != nil {
 		logger.Verbosef("cosiHandleChallenge %v Response ERROR %s\n", m, err)
-		return err
+		chain.abandonCosiSnapshot(s)
+		return nil
 	}
 	err = chain.node.Peer.SendSnapshotResponseMessage(m.PeerId, m.SnapshotHash, response)
 	if err != nil {
@@ -730,11 +734,14 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 
 	err = s.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash, false)
 	if err != nil {
-		panic(err)
+		logger.Printf("cosiHandleResponse abandon %s after aggregate failure: %v\n", s.Hash, err)
+		chain.abandonCosiSnapshot(s)
+		return nil
 	}
 	signers, finalized := chain.node.cacheVerifyCosi(m.SnapshotHash, s.Signature, cids, publics, base)
 	if !finalized {
 		logger.Verbosef("cosiHandleResponse %v AGGREGATE ERROR\n", m)
+		chain.abandonCosiSnapshot(s)
 		return nil
 	}
 	logger.Verbosef("node.cacheVerifyCosi(%s, %s) FINAL\n", chain.node.Peer.Address, m.SnapshotHash)
@@ -791,6 +798,17 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	}
 	tx := slices.Collect(maps.Values(cd.FoundTxs))[0]
 	return chain.node.reloadConsensusState(s, tx)
+}
+
+func (chain *Chain) abandonCosiSnapshot(s *common.Snapshot) {
+	delete(chain.CosiAggregators, s.Hash)
+	verifier := chain.CosiVerifiers[s.Hash]
+	delete(chain.CosiVerifiers, s.Hash)
+	for _, tx := range s.Transactions {
+		if chain.CosiVerifiers[tx] == verifier {
+			delete(chain.CosiVerifiers, tx)
+		}
+	}
 }
 
 func (chain *Chain) prepareFinalization(m *CosiAction) (bool, error) {
@@ -906,8 +924,26 @@ func (chain *Chain) cosiPopCommitment(peerId crypto.Hash) *crypto.Key {
 	}
 	commitment := commitments[0]
 	chain.CosiCommitments[peerId] = commitments[1:]
-	chain.UsedCommitments[*commitment] = true
+	chain.markCosiCommitmentUsed(*commitment)
 	return commitment
+}
+
+func (chain *Chain) markCosiCommitmentUsed(commitment crypto.Key) {
+	const maximumRetainedCommitments = 1024 * 1024
+	if chain.UsedCommitments == nil {
+		chain.UsedCommitments = make(map[crypto.Key]bool)
+	}
+	if chain.UsedCommitments[commitment] {
+		return
+	}
+	chain.UsedCommitments[commitment] = true
+	chain.usedCommitmentsOrder = append(chain.usedCommitmentsOrder, commitment)
+	if len(chain.usedCommitmentsOrder) <= maximumRetainedCommitments {
+		return
+	}
+	oldest := chain.usedCommitmentsOrder[0]
+	chain.usedCommitmentsOrder = chain.usedCommitmentsOrder[1:]
+	delete(chain.UsedCommitments, oldest)
 }
 
 func (chain *Chain) cosiAddCommitments(m *CosiAction) error {
@@ -952,9 +988,26 @@ func (chain *Chain) cosiRetrieveRandom(snap crypto.Hash, peerId crypto.Hash, cha
 	if nonce == nil {
 		return nil
 	}
-	chain.UsedRandoms[snap] = nonce
+	chain.retainUsedCosiNonce(snap, nonce)
 	delete(chain.CosiRandoms, *challenge)
 	return nonce
+}
+
+func (chain *Chain) retainUsedCosiNonce(snapshot crypto.Hash, nonce *crypto.CosiNonce) {
+	const maximumRetainedNonces = 1024 * 128
+	if chain.UsedRandoms == nil {
+		chain.UsedRandoms = make(map[crypto.Hash]*crypto.CosiNonce)
+	}
+	if chain.UsedRandoms[snapshot] == nil {
+		chain.usedRandomsOrder = append(chain.usedRandomsOrder, snapshot)
+	}
+	chain.UsedRandoms[snapshot] = nonce
+	if len(chain.usedRandomsOrder) <= maximumRetainedNonces {
+		return
+	}
+	oldest := chain.usedRandomsOrder[0]
+	chain.usedRandomsOrder = chain.usedRandomsOrder[1:]
+	delete(chain.UsedRandoms, oldest)
 }
 
 func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) error {

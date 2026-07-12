@@ -52,12 +52,14 @@ type Chain struct {
 
 	State *ChainState
 
-	CosiRandoms         map[crypto.Key]*crypto.CosiNonce
-	UsedRandoms         map[crypto.Hash]*crypto.CosiNonce
-	CosiCommitments     map[crypto.Hash][]*crypto.Key
-	UsedCommitments     map[crypto.Key]bool
-	CommitmentsSentTime time.Time
-	CosiCommunicatedAt  map[crypto.Hash]time.Time
+	CosiRandoms          map[crypto.Key]*crypto.CosiNonce
+	UsedRandoms          map[crypto.Hash]*crypto.CosiNonce
+	usedRandomsOrder     []crypto.Hash
+	CosiCommitments      map[crypto.Hash][]*crypto.Key
+	UsedCommitments      map[crypto.Key]bool
+	usedCommitmentsOrder []crypto.Key
+	CommitmentsSentTime  time.Time
+	CosiCommunicatedAt   map[crypto.Hash]time.Time
 
 	CosiAggregators map[crypto.Hash]*CosiAggregator
 	CosiVerifiers   map[crypto.Hash]*CosiVerifier
