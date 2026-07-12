@@ -60,8 +60,8 @@ func (enc *Encoder) encodeSnapshotPayload(s *Snapshot, withSig bool) {
 	if s.RoundNumber == 0 && len(s.Transactions) != 1 {
 		panic(len(s.Transactions))
 	}
-	if l := len(s.Transactions); l < 1 || l > SnapshotTransactionsMaximum {
-		panic(l)
+	if err := s.ValidateTransactions(); err != nil {
+		panic(err)
 	}
 	if !withSig && s.Signature != nil {
 		panic(s.Signature)
@@ -355,6 +355,9 @@ type AggregatedSignature struct {
 }
 
 func validateAggregatedSigners(signers []int) error {
+	if len(signers) > MaximumEncodingInt {
+		return fmt.Errorf("too many aggregated signers %d", len(signers))
+	}
 	prev := -1
 	for _, signer := range signers {
 		if signer <= prev || signer > MaximumEncodingInt {

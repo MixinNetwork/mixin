@@ -326,7 +326,7 @@ func (me *Peer) loopReceiveMessage(peer *Peer, client Client) {
 
 func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 	var peer *Peer
-	auth := make(chan error)
+	auth := make(chan error, 1)
 	go func() {
 		tm, err := client.Receive()
 		if err != nil {

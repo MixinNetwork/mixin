@@ -78,7 +78,7 @@ Safety requires honest nodes not to sign conflicting valid snapshots under the s
 
 ### 2.3 Cryptographic and encoding foundations
 
-Transactions use encoding version `0x05`; snapshots use version `0x02`. Both use a deterministic binary encoder. BLAKE3 produces transaction, snapshot, round, network, and message identifiers where the corresponding code path calls for it. Signatures and public keys use Edwards25519 group operations.
+Transactions use encoding version `0x05`; snapshots use version `0x02`. Both use a deterministic binary encoder. BLAKE3 produces transaction, snapshot, round, network, and message identifiers where the corresponding code path calls for it. Signatures and public keys use Edwards25519 group operations. The Schnorr and CoSi Fiat-Shamir challenge scalars are derived with SHA-512, following the Edwards25519 convention; the ghost-key derivation scalar $H_s$ uses BLAKE3. Address hashes and checksums use SHA3-256.
 
 The distinction between payload and envelope is important:
 
@@ -90,7 +90,7 @@ $$
 H_{snap} = \mathrm{BLAKE3}\bigl(\mathrm{EncodePayload}(snapshot)\bigr).
 $$
 
-Here, $\mathrm{EncodeUnsigned}$ omits transaction authorization signatures, while $\mathrm{EncodePayload}$ omits the snapshot's collective signature and local topological order.
+Here, $\mathrm{EncodeUnsigned}$ omits transaction authorization signatures, while $\mathrm{EncodePayload}$ omits the snapshot's collective signature body and local topological order. The payload encoder writes a fixed zero-valued mask field in place of the omitted signature so that the encoding length is stable; this placeholder is deterministic and does not affect the hash.
 
 Signatures authorize stable content identifiers. They do not recursively change the identifiers they sign.
 
@@ -159,7 +159,7 @@ Before a transaction can participate in a snapshot, a node checks all of the fol
 
 Transaction authorization can use per-input signature maps or a compact aggregate signature across selected input keys. Ordinary signatures in a transaction are checked together through an Edwards25519 batch-verification equation. These mechanisms reduce authorization overhead inside one transaction, while snapshot batching amortizes consensus overhead across many transactions.
 
-Input, deposit, mint, and ghost-key locks prevent conflicting candidates from advancing concurrently. Raw validated transactions may be durably stored before finality, but new spendable UTXOs and the transaction-to-snapshot finalization record are created only when the snapshot is committed.
+Input, deposit, mint, and ghost-key locks prevent conflicting candidates from advancing concurrently. During the announcement phase the node validates each transaction against ledger state, acquires its input/deposit/mint/ghost-key locks in a separate durable write, and stores the raw transaction body. These locks survive a crash; if the proposal is abandoned the locks are released only when the transactions are requeued or the inputs are consumed by a competing finalized transaction. New spendable UTXOs and the transaction-to-snapshot finalization record are created only when the snapshot is committed.
 
 ```mermaid
 flowchart TD
@@ -294,13 +294,13 @@ flowchart LR
     B0[B round 0] -->|self ancestry| B1[B round 1] -->|self ancestry| B2[B round 2]
     C0[C round 0] -->|self ancestry| C1[C round 1] -->|self ancestry| C2[C round 2]
 
-    B0 -. external reference .-> A1
-    C0 -. external reference .-> B1
-    A1 -. external reference .-> C2
-    C1 -. external reference .-> A2
+    A1 -. includes external ref to .-> B0
+    B1 -. includes external ref to .-> C0
+    C2 -. includes external ref to .-> A1
+    A2 -. includes external ref to .-> C1
 ```
 
-Arrows in the diagram run from a referenced round toward the later round that includes the reference. Consensus finalizes snapshots independently, while these edges record causal graph progress and give synchronization a compact way to compare histories.
+In the diagram, solid arrows point from a parent round to its child within the same chain. Dotted arrows point from a round that **includes** an external reference toward the **referenced** (earlier) round on another chain. Consensus finalizes snapshots independently, while these edges record causal graph progress and give synchronization a compact way to compare histories.
 
 The graph is directed because every reference has a source and target, and it remains acyclic because a new round can reference only rounds that are already finalized while external link positions never move backward. Rounds do not receive a separate consensus vote: their integrity comes from deterministic hashing of quorum-certified snapshots and from later certified snapshots committing the round references.
 
@@ -318,6 +318,10 @@ Each node has an address containing public spend and view keys. The signer spend
 
 $$
 NodeId = \mathrm{BLAKE3}\bigl(NetworkId \parallel AddressHash\bigr),
+$$
+
+$$
+AddressHash = \mathrm{SHA3\text{-}256}\bigl(publicSpendKey \parallel publicViewKey\bigr),
 $$
 
 $$
@@ -421,7 +425,7 @@ R = \sum_{i\in Q} R_i, \qquad A_Q = \sum_{i\in Q} A_i,
 $$
 
 $$
-c = H(R \parallel A_Q \parallel H_{snap}),
+c = \mathrm{SHA512}\bigl(R \parallel A_Q \parallel H_{snap}\bigr),
 $$
 
 $$
@@ -445,6 +449,8 @@ $$
 $$
 
 members. Since at most $f$ are Byzantine, the intersection contains at least one honest signer. If honest nodes refuse conflicting snapshots, two conflicting quorum certificates cannot both be formed. This is the core quorum-intersection rationale; complete safety also depends on deterministic transaction validation, correct historical membership reconstruction, nonce safety, and enforcement of the round rules.
+
+The CoSi aggregate public key is a plain sum $A_Q = \sum A_i$ without per-signer key-prefixing coefficients. A rogue-key attack is prevented because every consensus public key is committed to the ledger through a pledge transaction before it can participate in signing; a Byzantine node cannot freely choose its key as a function of honest keys. The transaction-level aggregate signature, where signer keys come from arbitrary UTXO outputs, does apply MuSig-style coefficient weighting.
 
 ### 7.5 Finalization checks
 
@@ -519,7 +525,7 @@ Mixin Kernel uses two Badger databases:
 - The **snapshot database** uses synchronized writes and stores transactions, UTXOs, locks, snapshots, rounds, links, topology indexes, membership, mint, custodian, work, and space records.
 - The **cache database** stores transaction payloads, queue order, and TTL records without synchronized writes because these entries can be retransmitted or rebuilt.
 
-Final snapshot persistence is protected by a store mutex and a single Badger write transaction. For every transaction in the snapshot, it writes the finalization mapping and materializes unspent outputs; it then writes the snapshot, work records, and topology indexes. A failed database transaction does not expose a partially finalized batch.
+Final snapshot persistence is protected by a store mutex and a single Badger write transaction. For every transaction in the snapshot, it writes the finalization mapping and materializes unspent outputs; it then writes the snapshot, work records, and topology indexes. A failed database transaction does not expose a partially finalized batch. Input locks and raw transaction bodies are written in earlier, independent transactions during the announcement phase; these are durable on their own, and the atomic finalization write only adds the finalization record and new UTXOs.
 
 At startup, the node loads genesis, reconstructs membership, loads each chain's head and recent round history, obtains the last durable topology position, and validates recent graph entries. Unfinalized cached work is expendable. Finalized snapshots are recovered from the durable graph and can be synchronized again from peers.
 

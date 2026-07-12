@@ -14,8 +14,6 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
-const MaxKernelNodesCount = 50
-
 func (node *Node) ElectionLoop() {
 	defer close(node.elc)
 
@@ -537,7 +535,7 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		}
 	}
 
-	if totalNodes >= MaxKernelNodesCount {
+	if totalNodes >= config.KernelMaximumNodesCount {
 		return fmt.Errorf("maximum kernel nodes count reached because cosi signature mask limit %s", tx.PayloadHash())
 	}
 	// FIXME the node operation lock threshold should be optimized on pledging period

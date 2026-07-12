@@ -72,6 +72,14 @@ func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, err
 		}
 		s.Transactions = append(s.Transactions, tx)
 	}
+	for i := 1; i < len(s.Transactions); i++ {
+		if bytes.Compare(s.Transactions[i-1][:], s.Transactions[i][:]) >= 0 {
+			return nil, fmt.Errorf("non-canonical snapshot transaction order")
+		}
+	}
+	if err := s.ValidateTransactions(); err != nil {
+		return nil, err
+	}
 
 	ts, err := dec.ReadUint64()
 	if err != nil {
@@ -122,6 +130,9 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 	if err != nil {
 		return nil, err
 	}
+	if il > SliceCountLimit {
+		return nil, fmt.Errorf("too many transaction inputs %d", il)
+	}
 	for ; il > 0; il -= 1 {
 		in, err := dec.ReadInput()
 		if err != nil {
@@ -134,6 +145,9 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 	if err != nil {
 		return nil, err
 	}
+	if ol > SliceCountLimit {
+		return nil, fmt.Errorf("too many transaction outputs %d", ol)
+	}
 	for ; ol > 0; ol -= 1 {
 		o, err := dec.ReadOutput()
 		if err != nil {
@@ -145,6 +159,9 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 	rl, err := dec.ReadInt()
 	if err != nil {
 		return nil, err
+	}
+	if rl > SliceCountLimit {
+		return nil, fmt.Errorf("too many transaction references %d", rl)
 	}
 	for ; rl > 0; rl -= 1 {
 		var r crypto.Hash
@@ -315,6 +332,9 @@ func (dec *Decoder) ReadOutput() (*Output, error) {
 	kc, err := dec.ReadInt()
 	if err != nil {
 		return nil, err
+	}
+	if kc > SliceCountLimit {
+		return nil, fmt.Errorf("too many output keys %d", kc)
 	}
 	for ; kc > 0; kc -= 1 {
 		var k crypto.Key

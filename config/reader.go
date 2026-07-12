@@ -16,7 +16,6 @@ const (
 	SnapshotRoundGap           = uint64(3 * time.Second)
 	SnapshotReferenceThreshold = 10
 	SnapshotSyncRoundThreshold = 100
-	SnapshotRoundSize          = 200
 
 	CheckpointDuration        = 10 * time.Minute
 	CheckpointPunishmentGrade = 7
@@ -26,6 +25,7 @@ const (
 	GossipSize             = 3
 
 	KernelMinimumNodesCount = 7
+	KernelMaximumNodesCount = 50
 
 	KernelMintTimeBegin = 7
 	KernelMintTimeEnd   = 9

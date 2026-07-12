@@ -287,7 +287,7 @@ func (node *Node) cacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, c
 	value, found := node.cacheStore.Get(key)
 	if found {
 		signers := convertBytesToSigners(sig, value.([]byte))
-		return signers, len(signers) == len(sig.Keys())
+		return signers, len(signers) == len(sig.Keys()) && len(signers) > 0
 	}
 
 	err := sig.FullVerify(publics, threshold, snap)
@@ -351,7 +351,7 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 		return nil, false
 	}
 
-	if s.Signature == nil { // only genesis transaction can be valid at this situation
+	if s.Signature == nil || s.Signature.Mask == 0 { // only genesis transaction can be valid at this situation
 		return nil, false
 	}
 
