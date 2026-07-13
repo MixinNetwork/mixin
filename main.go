@@ -30,24 +30,19 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "mixin"
-	app.Usage = "A free, lightning fast and decentralized network for transferring digital assets."
+	app.Usage = "A privacy enhanced, BFT-DAG distributed ledger for digital assets."
 	app.Version = config.BuildVersion
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
 			Name:    "node",
 			Aliases: []string{"n"},
 			Value:   defaultRPC,
-			Usage:   "the RPC endpoint, and the default value is read from environment variable MIXIN_KERNEL_RPC",
+			Usage:   "the RPC endpoint (defaults to MIXIN_KERNEL_RPC or http://127.0.0.1:6860)",
 		},
 		&cli.StringFlag{
 			Name:    "dir",
 			Aliases: []string{"d"},
 			Usage:   "the data directory",
-		},
-		&cli.BoolFlag{
-			Name:  "time",
-			Value: false,
-			Usage: "print the runtime",
 		},
 	}
 	app.EnableBashCompletion = true
@@ -62,12 +57,6 @@ func main() {
 					Name:    "dir",
 					Aliases: []string{"d"},
 					Usage:   "the data directory",
-				},
-				&cli.IntFlag{
-					Name:    "port",
-					Aliases: []string{"p"},
-					Value:   123,
-					Usage:   "the peer port to listen",
 				},
 				&cli.IntFlag{
 					Name:    "log",
@@ -93,7 +82,7 @@ func main() {
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
 					Name:  "public",
-					Usage: "whether mark all my transactions public",
+					Usage: "derive the private view key from the public spend key",
 				},
 				&cli.StringFlag{
 					Name:  "view",
@@ -162,7 +151,7 @@ func main() {
 		},
 		{
 			Name:   "updateheadreference",
-			Usage:  "Update the cache round external reference, never use it unless agree by other nodes",
+			Usage:  "Update the cache-round external reference after coordinating with other node operators",
 			Action: updateHeadReference,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
@@ -192,7 +181,7 @@ func main() {
 		},
 		{
 			Name:   "validategraphentries",
-			Usage:  "Validate transaction hash integration",
+			Usage:  "Validate transaction-hash integrity",
 			Action: validateGraphEntries,
 			Flags: []cli.Flag{
 				&cli.Uint64Flag{
@@ -244,11 +233,11 @@ func main() {
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:  "raw",
-					Usage: "the JSON encoded raw transaction",
+					Usage: "the JSON-encoded transaction construction object",
 				},
 				&cli.StringSliceFlag{
 					Name:  "key",
-					Usage: "the private key to sign the raw transaction",
+					Usage: "a private view key followed by a private spend key, encoded as hex",
 				},
 				&cli.StringFlag{
 					Name:  "seed",
@@ -274,7 +263,7 @@ func main() {
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:  "raw",
-					Usage: "the JSON encoded raw transaction",
+					Usage: "the hex-encoded raw transaction",
 				},
 			},
 		},
@@ -468,7 +457,7 @@ func main() {
 					Name:    "count",
 					Aliases: []string{"c"},
 					Value:   10,
-					Usage:   "the up limit of the returned snapshots",
+					Usage:   "the maximum number of snapshots to return (up to 500)",
 				},
 				&cli.BoolFlag{
 					Name:  "sig",
@@ -494,7 +483,7 @@ func main() {
 		},
 		{
 			Name:   "gettransaction",
-			Usage:  "Get the finalized transaction by hash",
+			Usage:  "Get a durable transaction by hash",
 			Action: getTransactionCmd,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
@@ -622,7 +611,7 @@ func main() {
 					Name:    "count",
 					Aliases: []string{"c"},
 					Value:   10,
-					Usage:   "the up limit of the returned distributions",
+					Usage:   "the maximum number of distributions to return (up to 500)",
 				},
 				&cli.BoolFlag{
 					Name:  "tx",

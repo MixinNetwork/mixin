@@ -119,6 +119,9 @@ func unmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
 		return nil, err
 	}
 	ver := &VersionedTransaction{SignedTransaction: *signed}
+	if canonical := ver.marshal(); !bytes.Equal(canonical, val) {
+		return nil, fmt.Errorf("non-canonical transaction encoding")
+	}
 	return ver, nil
 }
 

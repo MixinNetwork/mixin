@@ -2,7 +2,7 @@
 
 Semantic Versioning
 
-## v0.19 Fleet Fireflies July 15, 2026
+## v0.19 Fleet Fireflies July 13, 2026
 
 Faster transaction processing with optimized batched transactions.
 
