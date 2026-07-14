@@ -2,7 +2,6 @@ package common
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/MixinNetwork/mixin/config"
@@ -41,13 +40,9 @@ func UnmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
 func (ver *VersionedTransaction) Marshal() []byte {
 	val := ver.marshal()
 	if config.Debug {
-		ret, err := unmarshalVersionedTransaction(val)
+		_, err := unmarshalVersionedTransaction(val)
 		if err != nil {
 			panic(err)
-		}
-		retv := ret.marshal()
-		if !bytes.Equal(retv, val) {
-			panic(fmt.Errorf("malformed %s %s", hex.EncodeToString(val), hex.EncodeToString(retv)))
 		}
 	}
 	return val
@@ -59,13 +54,9 @@ func (ver *VersionedTransaction) PayloadMarshal() []byte {
 	}
 	val := ver.payloadMarshal()
 	if config.Debug {
-		ret, err := unmarshalVersionedTransaction(val)
+		_, err := unmarshalVersionedTransaction(val)
 		if err != nil {
 			panic(err)
-		}
-		retv := ret.payloadMarshal()
-		if !bytes.Equal(retv, val) {
-			panic(fmt.Errorf("malformed %s %s", hex.EncodeToString(val), hex.EncodeToString(retv)))
 		}
 	}
 	ver.pmbytes = val
@@ -119,16 +110,20 @@ func unmarshalVersionedTransaction(val []byte) (*VersionedTransaction, error) {
 		return nil, err
 	}
 	ver := &VersionedTransaction{SignedTransaction: *signed}
-	if canonical := ver.marshal(); !bytes.Equal(canonical, val) {
+	if canonical := ver.marshalWithCapacity(len(val)); !bytes.Equal(canonical, val) {
 		return nil, fmt.Errorf("non-canonical transaction encoding")
 	}
 	return ver, nil
 }
 
 func (ver *VersionedTransaction) marshal() []byte {
+	return ver.marshalWithCapacity(0)
+}
+
+func (ver *VersionedTransaction) marshalWithCapacity(capacity int) []byte {
 	switch ver.Version {
 	case TxVersionHashSignature:
-		return NewEncoder().EncodeTransaction(&ver.SignedTransaction)
+		return newEncoder(capacity).EncodeTransaction(&ver.SignedTransaction)
 	default:
 		panic(ver.Version)
 	}

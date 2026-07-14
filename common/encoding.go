@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/MixinNetwork/mixin/crypto"
@@ -24,11 +25,15 @@ var (
 )
 
 type Encoder struct {
-	buf *bytes.Buffer
+	buf []byte
 }
 
 func NewEncoder() *Encoder {
-	return &Encoder{buf: new(bytes.Buffer)}
+	return new(Encoder)
+}
+
+func newEncoder(capacity int) *Encoder {
+	return &Encoder{buf: make([]byte, 0, capacity)}
 }
 
 func NewMinimumEncoder() *Encoder {
@@ -39,7 +44,7 @@ func NewMinimumEncoder() *Encoder {
 }
 
 func (enc *Encoder) Bytes() []byte {
-	return enc.buf.Bytes()
+	return enc.buf
 }
 
 func (enc *Encoder) EncodeSnapshotWithTopo(s *SnapshotWithTopologicalOrder) []byte {
@@ -60,8 +65,8 @@ func (enc *Encoder) encodeSnapshotPayload(s *Snapshot, withSig bool) {
 	if s.RoundNumber == 0 && len(s.Transactions) != 1 {
 		panic(len(s.Transactions))
 	}
-	if err := s.ValidateTransactions(); err != nil {
-		panic(err)
+	if l := len(s.Transactions); l < 1 || l > SnapshotTransactionsMaximum {
+		panic(fmt.Errorf("invalid transactions count %d", l))
 	}
 	if !withSig && s.Signature != nil {
 		panic(s.Signature)
@@ -75,9 +80,14 @@ func (enc *Encoder) encodeSnapshotPayload(s *Snapshot, withSig bool) {
 	enc.EncodeRoundReferences(s.References)
 
 	enc.WriteInt(len(s.Transactions))
-	sort.Slice(s.Transactions, func(i, j int) bool {
-		return bytes.Compare(s.Transactions[i][:], s.Transactions[j][:]) < 0
+	slices.SortFunc(s.Transactions, func(a, b crypto.Hash) int {
+		return bytes.Compare(a[:], b[:])
 	})
+	for i := 1; i < len(s.Transactions); i++ {
+		if s.Transactions[i-1] == s.Transactions[i] {
+			panic(fmt.Errorf("duplicate snapshot transaction %s", s.Transactions[i]))
+		}
+	}
 	for _, t := range s.Transactions {
 		enc.Write(t[:])
 	}
@@ -226,20 +236,11 @@ func (enc *Encoder) EncodeSignatures(sm map[uint16]*crypto.Signature) {
 }
 
 func (enc *Encoder) Write(b []byte) {
-	l, err := enc.buf.Write(b)
-	if err != nil {
-		panic(err)
-	}
-	if l != len(b) {
-		panic(b)
-	}
+	enc.buf = append(enc.buf, b...)
 }
 
 func (enc *Encoder) WriteByte(b byte) error {
-	err := enc.buf.WriteByte(b)
-	if err != nil {
-		panic(err)
-	}
+	enc.buf = append(enc.buf, b)
 	return nil
 }
 
@@ -247,50 +248,30 @@ func (enc *Encoder) WriteInt(d int) {
 	if d > MaximumEncodingInt {
 		panic(d)
 	}
-	b := uint16ToBytes(uint16(d))
-	enc.Write(b)
+	enc.WriteUint16(uint16(d))
 }
 
 func (enc *Encoder) WriteUint16(d uint16) {
 	if d > MaximumEncodingInt {
 		panic(d)
 	}
-	b := uint16ToBytes(d)
-	enc.Write(b)
+	enc.buf = binary.BigEndian.AppendUint16(enc.buf, d)
 }
 
 func (enc *Encoder) WriteUint32(d uint32) {
-	b := uint32ToBytes(d)
-	enc.Write(b)
+	enc.buf = binary.BigEndian.AppendUint32(enc.buf, d)
 }
 
 func (enc *Encoder) WriteUint64(d uint64) {
-	b := uint64ToBytes(d)
-	enc.Write(b)
+	enc.buf = binary.BigEndian.AppendUint64(enc.buf, d)
 }
 
 func (enc *Encoder) WriteInteger(d Integer) {
-	b := d.i.Bytes()
-	enc.WriteInt(len(b))
-	enc.Write(b)
-}
-
-func uint16ToBytes(d uint16) []byte {
-	b := make([]byte, 2)
-	binary.BigEndian.PutUint16(b, d)
-	return b
-}
-
-func uint32ToBytes(d uint32) []byte {
-	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, d)
-	return b
-}
-
-func uint64ToBytes(d uint64) []byte {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, d)
-	return b
+	size := (d.i.BitLen() + 7) / 8
+	enc.WriteInt(size)
+	start := len(enc.buf)
+	enc.buf = slices.Grow(enc.buf, size)[:start+size]
+	d.i.FillBytes(enc.buf[start:])
 }
 
 func (enc *Encoder) EncodeRoundReferences(r *RoundLink) {

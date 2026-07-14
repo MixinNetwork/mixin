@@ -27,7 +27,7 @@ func TestDecodedPointCacheEvictsOldestEntry(t *testing.T) {
 	var shard decodedPointShard
 	point := edwards25519.NewGeneratorPoint()
 	var first, last [32]byte
-	for i := range decodedPointCacheEntriesShard + 1 {
+	for i := range decodedPointCacheEntriesMaximum + 1 {
 		var key [32]byte
 		key[0] = byte(i >> 8)
 		key[1] = byte(i)
@@ -40,7 +40,7 @@ func TestDecodedPointCacheEvictsOldestEntry(t *testing.T) {
 
 	require.Nil(t, shard.load(first))
 	require.NotNil(t, shard.load(last))
-	require.Len(t, shard.points, decodedPointCacheEntriesShard)
+	require.Len(t, shard.points, decodedPointCacheEntriesMaximum)
 }
 
 func BenchmarkDecodePointCached(b *testing.B) {

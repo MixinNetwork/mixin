@@ -64,23 +64,18 @@ func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, err
 	if tl < 1 || tl > SnapshotTransactionsMaximum {
 		return nil, fmt.Errorf("invalid transactions count %d", tl)
 	}
-	for range tl {
-		var tx crypto.Hash
-		err = dec.Read(tx[:])
+	s.Transactions = make([]crypto.Hash, tl)
+	for i := range s.Transactions {
+		err = dec.Read(s.Transactions[i][:])
 		if err != nil {
 			return nil, err
 		}
-		s.Transactions = append(s.Transactions, tx)
 	}
 	for i := 1; i < len(s.Transactions); i++ {
 		if bytes.Compare(s.Transactions[i-1][:], s.Transactions[i][:]) >= 0 {
 			return nil, fmt.Errorf("non-canonical snapshot transaction order")
 		}
 	}
-	if err := s.ValidateTransactions(); err != nil {
-		return nil, err
-	}
-
 	ts, err := dec.ReadUint64()
 	if err != nil {
 		return nil, err
@@ -133,12 +128,13 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 	if il > SliceCountLimit {
 		return nil, fmt.Errorf("too many transaction inputs %d", il)
 	}
-	for ; il > 0; il -= 1 {
+	tx.Inputs = make([]*Input, il)
+	for i := range tx.Inputs {
 		in, err := dec.ReadInput()
 		if err != nil {
 			return nil, err
 		}
-		tx.Inputs = append(tx.Inputs, in)
+		tx.Inputs[i] = in
 	}
 
 	ol, err := dec.ReadInt()
@@ -148,12 +144,13 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 	if ol > SliceCountLimit {
 		return nil, fmt.Errorf("too many transaction outputs %d", ol)
 	}
-	for ; ol > 0; ol -= 1 {
+	tx.Outputs = make([]*Output, ol)
+	for i := range tx.Outputs {
 		o, err := dec.ReadOutput()
 		if err != nil {
 			return nil, err
 		}
-		tx.Outputs = append(tx.Outputs, o)
+		tx.Outputs[i] = o
 	}
 
 	rl, err := dec.ReadInt()
@@ -163,13 +160,14 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 	if rl > SliceCountLimit {
 		return nil, fmt.Errorf("too many transaction references %d", rl)
 	}
-	for ; rl > 0; rl -= 1 {
-		var r crypto.Hash
-		err := dec.Read(r[:])
-		if err != nil {
-			return nil, err
+	if rl > 0 {
+		tx.References = make([]crypto.Hash, rl)
+		for i := range tx.References {
+			err := dec.Read(tx.References[i][:])
+			if err != nil {
+				return nil, err
+			}
 		}
-		tx.References = append(tx.References, r)
 	}
 
 	el, err := dec.ReadUint32()
@@ -207,13 +205,14 @@ func (dec *Decoder) DecodeTransaction() (*SignedTransaction, error) {
 		default:
 			return nil, fmt.Errorf("invalid prefix %d", prefix)
 		}
-	} else {
-		for ; sl > 0; sl -= 1 {
+	} else if sl > 0 {
+		tx.SignaturesMap = make([]map[uint16]*crypto.Signature, min(sl, SliceCountLimit))
+		for i := range tx.SignaturesMap {
 			sm, err := dec.ReadSignatures()
 			if err != nil {
 				return nil, err
 			}
-			tx.SignaturesMap = append(tx.SignaturesMap, sm)
+			tx.SignaturesMap[i] = sm
 		}
 	}
 
@@ -336,13 +335,14 @@ func (dec *Decoder) ReadOutput() (*Output, error) {
 	if kc > SliceCountLimit {
 		return nil, fmt.Errorf("too many output keys %d", kc)
 	}
-	for ; kc > 0; kc -= 1 {
-		var k crypto.Key
+	o.Keys = make([]*crypto.Key, kc)
+	for i := range o.Keys {
+		k := new(crypto.Key)
 		err := dec.Read(k[:])
 		if err != nil {
 			return nil, err
 		}
-		o.Keys = append(o.Keys, &k)
+		o.Keys[i] = k
 	}
 
 	err = dec.Read(o.Mask[:])
@@ -385,7 +385,7 @@ func (dec *Decoder) ReadSignatures() (map[uint16]*crypto.Signature, error) {
 		return nil, err
 	}
 
-	sm := make(map[uint16]*crypto.Signature)
+	sm := make(map[uint16]*crypto.Signature, min(sc, SliceCountLimit))
 	for range sc {
 		si, err := dec.ReadUint16()
 		if err != nil {

@@ -34,20 +34,6 @@ type SnapshotWork struct {
 	Signers   []crypto.Hash
 }
 
-func (s *Snapshot) ValidateTransactions() error {
-	if l := len(s.Transactions); l < 1 || l > SnapshotTransactionsMaximum {
-		return fmt.Errorf("invalid transactions count %d", l)
-	}
-	seen := make(map[crypto.Hash]struct{}, len(s.Transactions))
-	for _, tx := range s.Transactions {
-		if _, found := seen[tx]; found {
-			return fmt.Errorf("duplicate snapshot transaction %s", tx)
-		}
-		seen[tx] = struct{}{}
-	}
-	return nil
-}
-
 func (s *Snapshot) AddTransaction(tx crypto.Hash) {
 	if s.Version < SnapshotVersionCommonEncoding {
 		panic(s.Version)
