@@ -10,9 +10,16 @@ import (
 	"github.com/MixinNetwork/mixin/util"
 )
 
-func CallMixinRPC(node, method string, params []any) ([]byte, error) {
-	client := &http.Client{Timeout: 20 * time.Second}
+var rpcHTTPClient = &http.Client{
+	Timeout: 20 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        1024,
+		MaxIdleConnsPerHost: 256,
+		IdleConnTimeout:     90 * time.Second,
+	},
+}
 
+func CallMixinRPC(node, method string, params []any) ([]byte, error) {
 	body, err := json.Marshal(map[string]any{
 		"method": method,
 		"params": params,
@@ -25,9 +32,8 @@ func CallMixinRPC(node, method string, params []any) ([]byte, error) {
 		return nil, err
 	}
 
-	req.Close = true
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := client.Do(req)
+	resp, err := rpcHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

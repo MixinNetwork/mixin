@@ -43,83 +43,91 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 func (node *Node) loopCacheQueue() {
 	defer close(node.cqc)
 
-	for !node.waitOrDone(time.Duration(config.SnapshotRoundGap / 2)) {
-		caches, finals, _ := node.QueueState()
-		if caches > 1000 || finals > 500 {
-			logger.Printf("LoopCacheQueue QueueState too big %d %d\n", caches, finals)
-			continue
-		}
-
-		allNodes := node.ListWorkingAcceptedNodes(clock.NowUnixNano())
-		if len(allNodes) <= 0 {
-			continue
-		}
-
-		txs, err := node.persistStore.CacheRetrieveTransactions(common.SnapshotTransactionsMaximum)
-		if err != nil {
-			logger.Printf("LoopCacheQueue CacheRetrieveTransactions ERROR %s\n", err)
-			continue
-		}
-
-		now := clock.Now()
-		filter := make(map[crypto.Hash]bool)
-		var batchSize int
-		var stale, batch []crypto.Hash
-		leadingNodes, leadingFilter := node.filterLeadingNodes(allNodes)
-		for _, tx := range txs {
-			hash := tx.PayloadHash()
-			if filter[hash] {
-				continue
-			}
-			filter[hash] = true
-			_, finalized, err := node.persistStore.ReadTransaction(hash)
-			if err != nil {
-				logger.Printf("LoopCacheQueue ReadTransaction ERROR %s %s\n", hash, err)
-				continue
-			}
-			if len(finalized) > 0 {
-				stale = append(stale, hash)
-				continue
-			}
-			err = tx.Validate(node.persistStore, uint64(now.UnixNano()), false)
-			if err != nil {
-				logger.Debugf("LoopCacheQueue Validate ERROR %s %s\n", hash, err)
-				// FIXME not mark invalid tx as stale is to ensure final graph sync
-				// but we need some way to mitigate cache transaction DoS attack from nodes
-				continue
-			}
-			nbor := node.electSnapshotNode(tx.TransactionType(), uint64(now.UnixNano()))
-			if nbor.HasValue() {
-				node.sendTransactionsToNode([]crypto.Hash{hash}, nbor)
-				continue
-			}
-			batchSize += tx.ValidatedSize()
-			if tx.IsSnapshotBatchable() && batchSize < p2p.TransportMessageMaxSize*2/3 {
-				batch = append(batch, hash)
-				continue
-			}
-			nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now)
-			for _, nbor := range nbors {
-				node.sendTransactionsToNode([]crypto.Hash{hash}, nbor)
-			}
-		}
-		if len(batch) > 0 {
-			canSelf := node.canBatchSelfTransactions()
-			if canSelf {
-				node.sendTransactionsToNode(batch, node.IdForNetwork)
-			}
-			if !canSelf || len(batch) < 3 {
-				nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now)
-				for _, nbor := range nbors {
-					node.sendTransactionsToNode(batch, nbor)
-				}
-			}
-		}
-		err = node.persistStore.CacheRemoveTransactions(stale)
-		if err != nil {
-			logger.Printf("LoopCacheQueue CacheRemoveTransactions ERROR %s\n", err)
+	for !node.waitOrDone(time.Duration(config.SnapshotRoundGap / 3)) {
+		popped := node.popAndProcessCacheQueue()
+		if popped < common.SnapshotTransactionsMaximum/2 {
+			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
 		}
 	}
+}
+
+func (node *Node) popAndProcessCacheQueue() int {
+	caches, finals, _ := node.QueueState()
+	if caches > 1000 || finals > 500 {
+		logger.Printf("LoopCacheQueue QueueState too big %d %d\n", caches, finals)
+		return 0
+	}
+
+	allNodes := node.ListWorkingAcceptedNodes(clock.NowUnixNano())
+	if len(allNodes) <= 0 {
+		return 0
+	}
+
+	txs, err := node.persistStore.CacheRetrieveTransactions(common.SnapshotTransactionsMaximum)
+	if err != nil {
+		logger.Printf("LoopCacheQueue CacheRetrieveTransactions ERROR %s\n", err)
+		return 0
+	}
+
+	now := clock.Now()
+	filter := make(map[crypto.Hash]bool)
+	var batchSize int
+	var stale, batch []crypto.Hash
+	leadingNodes, leadingFilter := node.filterLeadingNodes(allNodes)
+	for _, tx := range txs {
+		hash := tx.PayloadHash()
+		if filter[hash] {
+			continue
+		}
+		filter[hash] = true
+		_, finalized, err := node.persistStore.ReadTransaction(hash)
+		if err != nil {
+			logger.Printf("LoopCacheQueue ReadTransaction ERROR %s %s\n", hash, err)
+			continue
+		}
+		if len(finalized) > 0 {
+			stale = append(stale, hash)
+			continue
+		}
+		err = tx.Validate(node.persistStore, uint64(now.UnixNano()), false)
+		if err != nil {
+			logger.Debugf("LoopCacheQueue Validate ERROR %s %s\n", hash, err)
+			// FIXME not mark invalid tx as stale is to ensure final graph sync
+			// but we need some way to mitigate cache transaction DoS attack from nodes
+			continue
+		}
+		nbor := node.electSnapshotNode(tx.TransactionType(), uint64(now.UnixNano()))
+		if nbor.HasValue() {
+			node.sendTransactionsToNode([]crypto.Hash{hash}, nbor)
+			continue
+		}
+		batchSize += tx.ValidatedSize()
+		if tx.IsSnapshotBatchable() && batchSize < p2p.TransportMessageMaxSize*2/3 {
+			batch = append(batch, hash)
+			continue
+		}
+		nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now)
+		for _, nbor := range nbors {
+			node.sendTransactionsToNode([]crypto.Hash{hash}, nbor)
+		}
+	}
+	if len(batch) > 0 {
+		canSelf := node.canBatchSelfTransactions()
+		if canSelf {
+			node.sendTransactionsToNode(batch, node.IdForNetwork)
+		}
+		if !canSelf || len(batch) < 3 {
+			nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now)
+			for _, nbor := range nbors {
+				node.sendTransactionsToNode(batch, nbor)
+			}
+		}
+	}
+	err = node.persistStore.CacheRemoveTransactions(stale)
+	if err != nil {
+		logger.Printf("LoopCacheQueue CacheRemoveTransactions ERROR %s\n", err)
+	}
+	return len(txs)
 }
 
 func (node *Node) sendTransactionsToNode(txs []crypto.Hash, nbor crypto.Hash) {
