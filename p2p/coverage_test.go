@@ -69,17 +69,12 @@ func TestMapAndMetricHelpers(t *testing.T) {
 		PeerMessageTypeSnapshotConfirm,
 		PeerMessageTypeTransactionRequest,
 		PeerMessageTypeTransaction,
-		PeerMessageTypeSnapshotAnnouncement,
-		PeerMessageTypeSnapshotCommitment,
-		PeerMessageTypeTransactionChallenge,
-		PeerMessageTypeSnapshotResponse,
-		PeerMessageTypeSnapshotFinalization,
 		PeerMessageTypePreCommitments,
-		PeerMessageTypeFullChallenge,
 		PeerMessageTypeTransactionBundle,
 		PeerMessageTypeBatchSnapshotAnnouncement,
 		PeerMessageTypeBatchSnapshotCommitment,
 		PeerMessageTypeBatchTransactionChallenge,
+		PeerMessageTypeBatchSnapshotResponse,
 		PeerMessageTypeBatchFullChallenge,
 		PeerMessageTypeBatchSnapshotFinalization,
 		PeerMessageTypeRelay,
@@ -88,7 +83,12 @@ func TestMapAndMetricHelpers(t *testing.T) {
 	}
 	require.Equal(uint32(1), mp.PeerMessageTypePing)
 	require.Equal(uint32(1), mp.PeerMessageTypeTransactionBundle)
-	require.Equal(uint32(1), mp.PeerMessageTypeBatchSnapshotFinalization)
+	require.Equal(uint32(1), mp.PeerMessageTypeSnapshotAnnouncement)
+	require.Equal(uint32(1), mp.PeerMessageTypeSnapshotCommitment)
+	require.Equal(uint32(1), mp.PeerMessageTypeTransactionChallenge)
+	require.Equal(uint32(1), mp.PeerMessageTypeSnapshotResponse)
+	require.Equal(uint32(1), mp.PeerMessageTypeFullChallenge)
+	require.Equal(uint32(1), mp.PeerMessageTypeSnapshotFinalization)
 	require.Equal(uint32(1), mp.PeerMessageTypeRelay)
 	require.Contains(mp.String(), `"relay":1`)
 
@@ -153,8 +153,9 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	require.Equal(tx.PayloadHash(), msg.Transactions[0].PayloadHash())
 	require.Equal(fullVer.PayloadHash(), msg.Transactions[1].PayloadHash())
 
-	msg, err = parseNetworkMessage(7, buildSnapshotAnnouncementMessage(snapshot, commitment, spend))
+	msg, err = parseNetworkMessage(7, buildBatchSnapshotAnnouncementMessage(snapshot, commitment, spend))
 	require.Nil(err)
+	require.EqualValues(PeerMessageTypeBatchSnapshotAnnouncement, msg.Type)
 	require.Equal(snapshot.PayloadHash(), msg.Snapshot.PayloadHash())
 	require.Equal(commitment, msg.Commitment)
 	require.NotNil(msg.signature)
@@ -167,11 +168,11 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	require.Equal(commitment, msg.Commitment)
 	require.NotNil(msg.signature)
 
-	msg, err = parseNetworkMessage(7, buildSnapshotCommitmentMessage(handle, snapshot.PayloadHash(), commitment, true))
+	msg, err = parseNetworkMessage(7, buildBatchSnapshotCommitmentMessage(handle, snapshot.PayloadHash(), commitment, nil))
 	require.Nil(err)
+	require.EqualValues(PeerMessageTypeBatchSnapshotCommitment, msg.Type)
 	require.Equal(snapshot.PayloadHash(), msg.SnapshotHash)
 	require.Equal(commitment, msg.Commitment)
-	require.NotNil(msg.WantTxs)
 	require.Empty(msg.WantTxs)
 	require.NotNil(msg.signature)
 
@@ -184,13 +185,14 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	require.NotNil(msg.signature)
 
 	cosi := &crypto.CosiSignature{Mask: 3}
-	msg, err = parseNetworkMessage(7, buildTransactionChallengeMessage(snapshot.PayloadHash(), cosi, nil))
+	msg, err = parseNetworkMessage(7, buildBatchTransactionChallengeMessage(snapshot.PayloadHash(), cosi, nil))
 	require.Nil(err)
+	require.EqualValues(PeerMessageTypeBatchTransactionChallenge, msg.Type)
 	require.Equal(snapshot.PayloadHash(), msg.SnapshotHash)
 	require.Equal(cosi.Mask, msg.Cosi.Mask)
 	require.Empty(msg.Transactions)
 
-	msg, err = parseNetworkMessage(7, buildTransactionChallengeMessage(snapshot.PayloadHash(), cosi, tx))
+	msg, err = parseNetworkMessage(7, buildBatchTransactionChallengeMessage(snapshot.PayloadHash(), cosi, []*common.VersionedTransaction{tx}))
 	require.Nil(err)
 	require.Len(msg.Transactions, 1)
 	require.Equal(tx.PayloadHash(), msg.Transactions[0].PayloadHash())
@@ -203,10 +205,12 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 
 	msg, err = parseNetworkMessage(7, buildSnapshotResponseMessage(snapshot.PayloadHash(), &[32]byte{1, 2, 3}))
 	require.Nil(err)
+	require.EqualValues(PeerMessageTypeBatchSnapshotResponse, msg.Type)
 	require.Equal(byte(1), msg.Response[0])
 
-	msg, err = parseNetworkMessage(7, buildSnapshotFinalizationMessage(snapshot))
+	msg, err = parseNetworkMessage(7, buildBatchSnapshotFinalizationMessage(snapshot))
 	require.Nil(err)
+	require.EqualValues(PeerMessageTypeBatchSnapshotFinalization, msg.Type)
 	require.Equal(snapshot.PayloadHash(), msg.Snapshot.PayloadHash())
 
 	msg, err = parseNetworkMessage(7, buildBatchSnapshotFinalizationMessage(batchSnapshot))
@@ -227,8 +231,9 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	require.Len(msg.Commitments, 2)
 	require.NotNil(msg.signature)
 
-	msg, err = parseNetworkMessage(7, buildFullChallengeMessage(snapshot, &commitment, &challenge, fullVer))
+	msg, err = parseNetworkMessage(7, buildBatchFullChallengeMessage(snapshot, &commitment, &challenge, []*common.VersionedTransaction{fullVer}))
 	require.Nil(err)
+	require.EqualValues(PeerMessageTypeBatchFullChallenge, msg.Type)
 	require.Equal(snapshot.PayloadHash(), msg.Snapshot.PayloadHash())
 	require.Equal(snapshot.Signature.Mask, msg.Cosi.Mask)
 	require.Nil(msg.Snapshot.Signature)
@@ -266,7 +271,7 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 
 	_, err = parseNetworkMessage(7, nil)
 	require.ErrorContains(err, "invalid message data")
-	_, err = parseNetworkMessage(7, []byte{PeerMessageTypeSnapshotResponse, 1})
+	_, err = parseNetworkMessage(7, []byte{PeerMessageTypeBatchSnapshotResponse, 1})
 	require.ErrorContains(err, "invalid response message size")
 }
 
@@ -282,7 +287,7 @@ func TestP2PMessageAndPeerEdgeCases(t *testing.T) {
 	fullTx.Extra = bytes.Repeat([]byte{4}, 220)
 	fullVer := fullTx.AsVersioned()
 
-	msg, err := parseNetworkMessage(7, buildSnapshotCommitmentMessage(handle, snapshot.PayloadHash(), commitment, false))
+	msg, err := parseNetworkMessage(7, buildBatchSnapshotCommitmentMessage(handle, snapshot.PayloadHash(), commitment, nil))
 	require.Nil(err)
 	require.Empty(msg.WantTxs)
 
@@ -303,13 +308,13 @@ func TestP2PMessageAndPeerEdgeCases(t *testing.T) {
 	_, err = unmarshalSyncPoints([]byte{1})
 	require.Error(err)
 
-	_, err = parseNetworkMessage(7, bytes.Repeat([]byte{PeerMessageTypeSnapshotAnnouncement}, 10))
+	_, err = parseNetworkMessage(7, bytes.Repeat([]byte{PeerMessageTypeBatchSnapshotAnnouncement}, 10))
 	require.ErrorContains(err, "invalid announcement message size")
-	badAnnouncement := append([]byte{PeerMessageTypeSnapshotAnnouncement}, bytes.Repeat([]byte{1}, 100)...)
+	badAnnouncement := append([]byte{PeerMessageTypeBatchSnapshotAnnouncement}, bytes.Repeat([]byte{1}, 100)...)
 	_, err = parseNetworkMessage(7, badAnnouncement)
 	require.Error(err)
 
-	_, err = parseNetworkMessage(7, bytes.Repeat([]byte{PeerMessageTypeFullChallenge}, 10))
+	_, err = parseNetworkMessage(7, bytes.Repeat([]byte{PeerMessageTypeBatchFullChallenge}, 10))
 	require.ErrorContains(err, "invalid full challenge message size")
 	full := buildBatchFullChallengeMessage(snapshot, &commitment, &challenge, []*common.VersionedTransaction{fullVer})
 	badFullSnapshot := append([]byte{}, full...)
@@ -322,13 +327,13 @@ func TestP2PMessageAndPeerEdgeCases(t *testing.T) {
 	_, err = parseNetworkMessage(7, badFullTx)
 	require.ErrorContains(err, "invalid transactions payload size")
 
-	_, err = parseNetworkMessage(7, []byte{PeerMessageTypeTransactionChallenge, 1})
+	_, err = parseNetworkMessage(7, []byte{PeerMessageTypeBatchTransactionChallenge, 1})
 	require.ErrorContains(err, "invalid transaction challenge message size")
-	badChallenge := append(buildTransactionChallengeMessage(snapshot.PayloadHash(), &crypto.CosiSignature{Mask: 1}, nil), 0xff)
+	badChallenge := append(buildBatchTransactionChallengeMessage(snapshot.PayloadHash(), &crypto.CosiSignature{Mask: 1}, nil), 0xff)
 	_, err = parseNetworkMessage(7, badChallenge)
 	require.Error(err)
 
-	_, err = parseNetworkMessage(7, []byte{PeerMessageTypeSnapshotFinalization, 0})
+	_, err = parseNetworkMessage(7, []byte{PeerMessageTypeBatchSnapshotFinalization, 0})
 	require.Error(err)
 
 	manyCommitments := make([]*crypto.Key, 1025)
@@ -476,7 +481,7 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	require.True(me.snapshotsCaches.contains(confirmKey, time.Hour))
 
 	err = me.handlePeerMessage(peerID, &PeerMessage{
-		Type:       PeerMessageTypeSnapshotAnnouncement,
+		Type:       PeerMessageTypeBatchSnapshotAnnouncement,
 		Snapshot:   snap,
 		Commitment: commitment,
 		signature:  &sig,
@@ -485,7 +490,7 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	require.Equal(snap.PayloadHash(), handle.announcement.PayloadHash())
 
 	err = me.handlePeerMessage(peerID, &PeerMessage{
-		Type:         PeerMessageTypeSnapshotCommitment,
+		Type:         PeerMessageTypeBatchSnapshotCommitment,
 		SnapshotHash: snap.PayloadHash(),
 		Commitment:   commitment,
 		WantTxs:      []crypto.Hash{tx.PayloadHash()},
@@ -496,7 +501,7 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	require.Equal([]crypto.Hash{tx.PayloadHash()}, handle.wantTxs)
 
 	err = me.handlePeerMessage(peerID, &PeerMessage{
-		Type:         PeerMessageTypeTransactionChallenge,
+		Type:         PeerMessageTypeBatchTransactionChallenge,
 		SnapshotHash: snap.PayloadHash(),
 		Cosi:         crypto.CosiSignature{Mask: 5},
 		Transactions: []*common.VersionedTransaction{tx},
@@ -506,7 +511,7 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	require.Equal(tx.PayloadHash(), handle.challengeTxs[0].PayloadHash())
 
 	err = me.handlePeerMessage(peerID, &PeerMessage{
-		Type:         PeerMessageTypeFullChallenge,
+		Type:         PeerMessageTypeBatchFullChallenge,
 		Snapshot:     snap,
 		Commitment:   commitment,
 		Challenge:    challenge,
@@ -518,7 +523,7 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	require.Equal(tx.PayloadHash(), handle.fullChallengeTxs[0].PayloadHash())
 
 	err = me.handlePeerMessage(peerID, &PeerMessage{
-		Type:         PeerMessageTypeSnapshotResponse,
+		Type:         PeerMessageTypeBatchSnapshotResponse,
 		SnapshotHash: snap.PayloadHash(),
 		Response:     response,
 	})
@@ -526,7 +531,7 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	require.Equal(response, handle.snapshotResponse)
 
 	err = me.handlePeerMessage(peerID, &PeerMessage{
-		Type:     PeerMessageTypeSnapshotFinalization,
+		Type:     PeerMessageTypeBatchSnapshotFinalization,
 		Snapshot: snap,
 	})
 	require.Nil(err)
@@ -541,7 +546,6 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 
 	batchSnap := p2pTestBatchSnapshot(true)
 	for _, payload := range [][]byte{
-		buildFullChallengeMessage(snap, &commitment, &challenge, tx),
 		buildBatchFullChallengeMessage(batchSnap, &commitment, &challenge, []*common.VersionedTransaction{tx}),
 		buildSnapshotResponseMessage(snap.PayloadHash(), &response),
 	} {
@@ -552,7 +556,6 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	}
 	require.Equal(uint32(1), me.receivedMetric.PeerMessageTypeTransactionRequest)
 	require.Equal(uint32(1), me.receivedMetric.PeerMessageTypeFullChallenge)
-	require.Equal(uint32(1), me.receivedMetric.PeerMessageTypeBatchFullChallenge)
 	require.Equal(uint32(1), me.receivedMetric.PeerMessageTypeSnapshotResponse)
 
 	relayer := NewPeer(nil, peerID, "127.0.0.1:9012", true)
@@ -648,7 +651,7 @@ func TestSendMessageHelpers(t *testing.T) {
 
 	err = me.SendSnapshotAnnouncementMessage(target, snapshot, commitment, spend)
 	require.Nil(err)
-	require.EqualValues(PeerMessageTypeSnapshotAnnouncement, (<-neighbor.normalRing).data[0])
+	require.EqualValues(PeerMessageTypeBatchSnapshotAnnouncement, (<-neighbor.normalRing).data[0])
 
 	err = me.SendSnapshotAnnouncementMessage(target, batchSnapshot, commitment, spend)
 	require.Nil(err)
@@ -656,7 +659,7 @@ func TestSendMessageHelpers(t *testing.T) {
 
 	err = me.SendSnapshotCommitmentMessage(target, snapshot, commitment, []crypto.Hash{tx.PayloadHash()})
 	require.Nil(err)
-	require.EqualValues(PeerMessageTypeSnapshotCommitment, (<-neighbor.normalRing).data[0])
+	require.EqualValues(PeerMessageTypeBatchSnapshotCommitment, (<-neighbor.normalRing).data[0])
 
 	err = me.SendSnapshotCommitmentMessage(target, batchSnapshot, commitment, []crypto.Hash{tx.PayloadHash()})
 	require.Nil(err)
@@ -664,7 +667,7 @@ func TestSendMessageHelpers(t *testing.T) {
 
 	err = me.SendTransactionChallengeMessage(target, snapshot, cosi, []*common.VersionedTransaction{tx})
 	require.Nil(err)
-	require.EqualValues(PeerMessageTypeTransactionChallenge, (<-neighbor.normalRing).data[0])
+	require.EqualValues(PeerMessageTypeBatchTransactionChallenge, (<-neighbor.normalRing).data[0])
 
 	err = me.SendTransactionChallengeMessage(target, batchSnapshot, cosi, []*common.VersionedTransaction{tx, fullVer})
 	require.Nil(err)
@@ -672,7 +675,7 @@ func TestSendMessageHelpers(t *testing.T) {
 
 	err = me.SendFullChallengeMessage(target, snapshot, &commitment, &challenge, []*common.VersionedTransaction{fullVer})
 	require.Nil(err)
-	require.EqualValues(PeerMessageTypeFullChallenge, (<-neighbor.normalRing).data[0])
+	require.EqualValues(PeerMessageTypeBatchFullChallenge, (<-neighbor.normalRing).data[0])
 
 	err = me.SendFullChallengeMessage(target, batchSnapshot, &commitment, &challenge, []*common.VersionedTransaction{tx, fullVer})
 	require.Nil(err)
@@ -680,7 +683,7 @@ func TestSendMessageHelpers(t *testing.T) {
 
 	err = me.SendSnapshotResponseMessage(target, snapshot.PayloadHash(), response)
 	require.Nil(err)
-	require.EqualValues(PeerMessageTypeSnapshotResponse, (<-neighbor.normalRing).data[0])
+	require.EqualValues(PeerMessageTypeBatchSnapshotResponse, (<-neighbor.normalRing).data[0])
 
 	err = me.SendSnapshotConfirmMessage(target, snapshot.PayloadHash())
 	require.Nil(err)
@@ -840,7 +843,8 @@ func TestPeerLoopAndSyncHelpers(t *testing.T) {
 	}, peer5, 1)
 	require.ErrorContains(err, "EOF")
 	require.Equal(uint64(6), offset)
-	require.EqualValues(PeerMessageTypeSnapshotFinalization, (<-peer5.normalRing).data[0])
+	require.Equal(s2.Transactions, handle.requestedTxs)
+	require.EqualValues(PeerMessageTypeBatchSnapshotFinalization, (<-peer5.normalRing).data[0])
 
 	handle.sinceSnapshots = []*common.SnapshotWithTopologicalOrder{{
 		Snapshot: &common.Snapshot{
@@ -869,8 +873,8 @@ func TestPeerLoopAndSyncHelpers(t *testing.T) {
 		map[crypto.Hash]*SyncPoint{nodeID: {NodeId: nodeID, Number: 0}},
 		peer5, nodeID,
 	)
-	require.EqualValues(PeerMessageTypeSnapshotFinalization, (<-peer5.normalRing).data[0])
-	require.EqualValues(PeerMessageTypeSnapshotFinalization, (<-peer5.normalRing).data[0])
+	require.EqualValues(PeerMessageTypeBatchSnapshotFinalization, (<-peer5.normalRing).data[0])
+	require.EqualValues(PeerMessageTypeBatchSnapshotFinalization, (<-peer5.normalRing).data[0])
 
 	done := make(chan struct{})
 	go func() {
@@ -1072,6 +1076,7 @@ type p2pStubHandle struct {
 	updateSig        *crypto.Signature
 	updateErr        error
 	requestedTx      crypto.Hash
+	requestedTxs     []crypto.Hash
 	cachedTx         *common.VersionedTransaction
 	cacheErr         error
 	announcement     *common.Snapshot
@@ -1163,6 +1168,13 @@ func (h *p2pStubHandle) SendTransactionToPeer(_ crypto.Hash, tx crypto.Hash) err
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.requestedTx = tx
+	return nil
+}
+
+func (h *p2pStubHandle) SendTransactionsToPeer(_ crypto.Hash, txs []crypto.Hash) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.requestedTxs = append([]crypto.Hash(nil), txs...)
 	return nil
 }
 

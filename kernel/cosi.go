@@ -1104,7 +1104,6 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 		logger.Printf("CosiAggregateSelfCommitments(%s, %s) invalid signature\n", peerId, snap)
 		return nil
 	}
-	wantTxs = node.resolveLegacyWantTxs(snap, wantTxs)
 
 	m := &CosiAction{
 		PeerId:       peerId,
@@ -1118,20 +1117,6 @@ func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.H
 		logger.Verbosef("CosiAggregateSelfCommitments(%v) => %v\n", m, err)
 	}
 	return nil
-}
-
-func (node *Node) resolveLegacyWantTxs(snap crypto.Hash, wantTxs []crypto.Hash) []crypto.Hash {
-	if wantTxs == nil || len(wantTxs) > 0 {
-		return wantTxs
-	}
-	if node.chain == nil {
-		return nil
-	}
-	agg := node.chain.CosiAggregators[snap]
-	if agg == nil || agg.Snapshot == nil || len(agg.Snapshot.Transactions) != 1 {
-		return nil
-	}
-	return []crypto.Hash{agg.Snapshot.Transactions[0]}
 }
 
 func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, txs []*common.VersionedTransaction) error {

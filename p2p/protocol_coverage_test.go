@@ -46,12 +46,6 @@ func TestProtocolPayloadValidationBranches(t *testing.T) {
 
 	malformedBatchCommitment := make([]byte, 130)
 	malformedBatchCommitment[0] = PeerMessageTypeBatchSnapshotCommitment
-	malformedTransactionChallenge := buildTransactionChallengeMessage(
-		snapshot.PayloadHash(),
-		&crypto.CosiSignature{Mask: 1},
-		nil,
-	)
-	malformedTransactionChallenge = append(malformedTransactionChallenge, 0)
 	malformedBatchChallenge := buildBatchTransactionChallengeMessage(
 		snapshot.PayloadHash(),
 		&crypto.CosiSignature{Mask: 1},
@@ -67,13 +61,11 @@ func TestProtocolPayloadValidationBranches(t *testing.T) {
 		{PeerMessageTypeTransaction, 0},
 		{PeerMessageTypeTransactionBundle},
 		{PeerMessageTypeTransactionRequest},
-		{PeerMessageTypeSnapshotCommitment},
 		{PeerMessageTypeBatchSnapshotCommitment},
 		malformedBatchCommitment,
-		malformedTransactionChallenge,
 		{PeerMessageTypeBatchTransactionChallenge},
 		malformedBatchChallenge,
-		{PeerMessageTypeSnapshotFinalization, 0},
+		{PeerMessageTypeBatchSnapshotFinalization, 0},
 		{PeerMessageTypeRelay},
 	}
 	for _, message := range messages {
@@ -81,46 +73,11 @@ func TestProtocolPayloadValidationBranches(t *testing.T) {
 		require.Error(t, err)
 	}
 
-	full := buildFullChallengeMessage(snapshot, &commitment, &challenge, tx)
-	fullSnapshotSize := int(binary.BigEndian.Uint32(full[1:5]))
-	fullAfterSnapshot := 5 + fullSnapshotSize
-
-	badFullSnapshot := append([]byte(nil), full...)
-	binary.BigEndian.PutUint32(badFullSnapshot[1:5], 1)
-	badFullSnapshot[5] = 0
-	_, err := parseNetworkMessage(7, badFullSnapshot)
-	require.ErrorContains(t, err, "invalid full challenge snapshot")
-
-	badFullSnapshotSize := append([]byte(nil), full...)
-	binary.BigEndian.PutUint32(badFullSnapshotSize[1:5], uint32(len(full)))
-	_, err = parseNetworkMessage(7, badFullSnapshotSize)
-	require.ErrorContains(t, err, "invalid full challenge snapshot size")
-
-	unsignedFull := buildFullChallengeMessage(p2pTestSnapshot(false), &commitment, &challenge, tx)
-	_, err = parseNetworkMessage(7, unsignedFull)
-	require.ErrorContains(t, err, "snapshot signature")
-
-	shortFullTail := append([]byte(nil), full[:fullAfterSnapshot+67]...)
-	_, err = parseNetworkMessage(7, shortFullTail)
-	require.ErrorContains(t, err, "invalid full challenge message size")
-
-	badFullTransactionSize := append([]byte(nil), full...)
-	transactionSizeOffset := fullAfterSnapshot + 64
-	binary.BigEndian.PutUint32(badFullTransactionSize[transactionSizeOffset:transactionSizeOffset+4], 1<<20)
-	_, err = parseNetworkMessage(7, badFullTransactionSize)
-	require.ErrorContains(t, err, "transaction size")
-
-	badFullTransaction := append([]byte(nil), full[:transactionSizeOffset+5]...)
-	binary.BigEndian.PutUint32(badFullTransaction[transactionSizeOffset:transactionSizeOffset+4], 1)
-	badFullTransaction[transactionSizeOffset+4] = 0
-	_, err = parseNetworkMessage(7, badFullTransaction)
-	require.ErrorContains(t, err, "invalid full challenge transaction")
-
 	batch := buildBatchFullChallengeMessage(snapshot, &commitment, &challenge, []*common.VersionedTransaction{tx})
 	batchSnapshotSize := int(binary.BigEndian.Uint32(batch[1:5]))
 	batchAfterSnapshot := 5 + batchSnapshotSize
 
-	_, err = parseNetworkMessage(7, []byte{PeerMessageTypeBatchFullChallenge})
+	_, err := parseNetworkMessage(7, []byte{PeerMessageTypeBatchFullChallenge})
 	require.ErrorContains(t, err, "invalid full challenge message size")
 
 	badBatchSnapshot := append([]byte(nil), batch...)
@@ -128,6 +85,11 @@ func TestProtocolPayloadValidationBranches(t *testing.T) {
 	badBatchSnapshot[5] = 0
 	_, err = parseNetworkMessage(7, badBatchSnapshot)
 	require.ErrorContains(t, err, "invalid full challenge snapshot")
+
+	badBatchSnapshotSize := append([]byte(nil), batch...)
+	binary.BigEndian.PutUint32(badBatchSnapshotSize[1:5], uint32(len(batch)))
+	_, err = parseNetworkMessage(7, badBatchSnapshotSize)
+	require.ErrorContains(t, err, "invalid full challenge snapshot size")
 
 	unsignedBatch := buildBatchFullChallengeMessage(p2pTestSnapshot(false), &commitment, &challenge, []*common.VersionedTransaction{tx})
 	_, err = parseNetworkMessage(7, unsignedBatch)
@@ -162,17 +124,11 @@ func TestParseNetworkMessageNeverPanicsOnMalformedData(t *testing.T) {
 		PeerMessageTypeTransactionRequest,
 		PeerMessageTypeTransaction,
 		PeerMessageTypeTransactionBundle,
-		PeerMessageTypeSnapshotAnnouncement,
 		PeerMessageTypeBatchSnapshotAnnouncement,
-		PeerMessageTypeSnapshotCommitment,
 		PeerMessageTypeBatchSnapshotCommitment,
-		PeerMessageTypeTransactionChallenge,
 		PeerMessageTypeBatchTransactionChallenge,
-		PeerMessageTypeFullChallenge,
 		PeerMessageTypeBatchFullChallenge,
-		PeerMessageTypeSnapshotResponse,
 		PeerMessageTypeBatchSnapshotResponse,
-		PeerMessageTypeSnapshotFinalization,
 		PeerMessageTypeBatchSnapshotFinalization,
 		PeerMessageTypePreCommitments,
 		PeerMessageTypeRelay,
