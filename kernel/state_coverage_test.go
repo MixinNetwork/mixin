@@ -257,9 +257,17 @@ func TestChainQueueBoundaries(t *testing.T) {
 		require.ErrorContains(t, chain.AppendFinalSnapshot(peer("full"), snapshot("full queue", 2)), "ring full")
 
 		actionChain := newChain()
-		require.NoError(t, actionChain.AppendCosiAction(&CosiAction{Action: CosiActionSelfEmpty, PeerId: localID}))
-		// Cache pressure is intentionally lossy; callers should never block on it.
-		require.NoError(t, actionChain.AppendCosiAction(&CosiAction{Action: CosiActionSelfEmpty, PeerId: localID}))
+		require.NoError(t, actionChain.AppendCosiAction(&CosiAction{
+			Action:   CosiActionSelfEmpty,
+			PeerId:   localID,
+			Snapshot: snapshot("queued action", 0),
+		}))
+		// Cache pressure drops the action and requeues any transactions; callers never block.
+		require.NoError(t, actionChain.AppendCosiAction(&CosiAction{
+			Action:   CosiActionSelfEmpty,
+			PeerId:   localID,
+			Snapshot: snapshot("full queue action", 0),
+		}))
 		require.Panics(t, func() {
 			_ = actionChain.AppendCosiAction(&CosiAction{Action: CosiActionSelfEmpty, PeerId: remoteID})
 		})
