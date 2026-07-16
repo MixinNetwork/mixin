@@ -46,6 +46,45 @@ func TestCacheQueueDeduplicationAndCorruption(t *testing.T) {
 	require.Nil(t, got)
 }
 
+func TestCacheStoreTransactionRemainsUnqueuedUntilExplicitlyQueued(t *testing.T) {
+	store := newTestBadgerStore(t)
+	tx := common.NewTransactionV5(common.XINAssetId).AsVersioned()
+	firstSignature := crypto.Signature{1}
+	tx.SignaturesMap = []map[uint16]*crypto.Signature{{0: &firstSignature}}
+
+	replacement := common.NewTransactionV5(common.XINAssetId).AsVersioned()
+	replacementSignature := crypto.Signature{2}
+	replacement.SignaturesMap = []map[uint16]*crypto.Signature{{0: &replacementSignature}}
+	require.Equal(t, tx.PayloadHash(), replacement.PayloadHash())
+	require.NotEqual(t, tx.Marshal(), replacement.Marshal())
+
+	require.NoError(t, store.CacheStoreTransaction(tx))
+	cached, err := store.CacheGetTransaction(tx.PayloadHash())
+	require.NoError(t, err)
+	require.Equal(t, tx.Marshal(), cached.Marshal())
+
+	retrieved, err := store.CacheRetrieveTransactions(1)
+	require.NoError(t, err)
+	require.Empty(t, retrieved)
+
+	// Cache-only delivery is first-write-wins for an existing payload hash.
+	require.NoError(t, store.CacheStoreTransaction(replacement))
+	cached, err = store.CacheGetTransaction(tx.PayloadHash())
+	require.NoError(t, err)
+	require.Equal(t, tx.Marshal(), cached.Marshal())
+
+	// Explicit queueing adds scheduling records and refreshes the envelope.
+	require.NoError(t, store.CacheQueueTransaction(replacement))
+	retrieved, err = store.CacheRetrieveTransactions(1)
+	require.NoError(t, err)
+	require.Len(t, retrieved, 1)
+	require.Equal(t, replacement.Marshal(), retrieved[0].Marshal())
+
+	retrieved, err = store.CacheRetrieveTransactions(1)
+	require.NoError(t, err)
+	require.Empty(t, retrieved)
+}
+
 func TestCacheRemoveTransactionsInBatches(t *testing.T) {
 	store := newTestBadgerStore(t)
 	hashes := make([]crypto.Hash, 101)

@@ -453,7 +453,7 @@ R = \sum_{i\in Q} R_i, \qquad A_Q = \sum_{i\in Q} A_i,
 $$
 
 $$
-c = \operatorname{Scalar}\!\left(\mathrm{SHA512}\bigl(R \parallel A_Q \parallel H_{snap}\bigr)\right),
+c = \mathrm{Scalar}\!\left(\mathrm{SHA512}\bigl(R \parallel A_Q \parallel H_{snap}\bigr)\right),
 $$
 
 $$

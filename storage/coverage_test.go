@@ -396,9 +396,13 @@ func TestTopologyAndTransactionReaders(t *testing.T) {
 
 	snap := &common.SnapshotWithTopologicalOrder{
 		Snapshot: &common.Snapshot{
-			Version:      common.SnapshotVersionCommonEncoding,
-			NodeId:       nodeID,
-			RoundNumber:  1,
+			Version:     common.SnapshotVersionCommonEncoding,
+			NodeId:      nodeID,
+			RoundNumber: 1,
+			References: &common.RoundLink{
+				Self:     crypto.Blake3Hash([]byte("topology-self-reference")),
+				External: crypto.Blake3Hash([]byte("topology-external-reference")),
+			},
 			Timestamp:    2,
 			Transactions: []crypto.Hash{ver.PayloadHash()},
 		},
@@ -1221,6 +1225,8 @@ func TestRoundAssertionAndValidationEdges(t *testing.T) {
 		existing.Outputs = []*common.Output{{Type: common.OutputTypeScript, Amount: common.NewInteger(1)}}
 		existingVer := existing.AsVersioned()
 		existingSnap := snapshotWithTopoForTx(nodeID, 1, 1, 9, existingVer)
+		existingSnap.References = refs
+		existingSnap.Hash = existingSnap.PayloadHash()
 		err := store.snapshotsDB.Update(func(txn *badger.Txn) error {
 			if err := writeRound(txn, nodeID, &common.Round{Hash: nodeID, NodeId: nodeID, Number: 1, References: refs}); err != nil {
 				return err

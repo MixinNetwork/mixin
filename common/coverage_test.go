@@ -372,9 +372,13 @@ func TestDecoderAndSnapshotEdgeCoverage(t *testing.T) {
 	require.ErrorIs(err, io.EOF)
 
 	snapshot := &Snapshot{
-		Version:      SnapshotVersionCommonEncoding,
-		NodeId:       crypto.Blake3Hash([]byte("snapshot-node")),
-		RoundNumber:  9,
+		Version:     SnapshotVersionCommonEncoding,
+		NodeId:      crypto.Blake3Hash([]byte("snapshot-node")),
+		RoundNumber: 9,
+		References: &RoundLink{
+			Self:     crypto.Blake3Hash([]byte("snapshot-self-reference")),
+			External: crypto.Blake3Hash([]byte("snapshot-external-reference")),
+		},
 		Transactions: []crypto.Hash{crypto.Blake3Hash([]byte("snapshot-tx"))},
 		Timestamp:    11,
 	}

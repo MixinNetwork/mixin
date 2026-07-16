@@ -34,7 +34,7 @@ func (ur *utxoKeysRPCReader) ReadDepositLock(deposit *common.DepositData) (crypt
 
 func GetUTXO(rpc, hash string, index uint64) (*common.UTXOWithLock, error) {
 	data, err := CallMixinRPC(rpc, "getutxo", []any{hash, index})
-	if err != nil {
+	if err != nil || data == nil {
 		return nil, err
 	}
 	var out struct {

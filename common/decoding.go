@@ -76,6 +76,16 @@ func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, err
 			return nil, fmt.Errorf("non-canonical snapshot transaction order")
 		}
 	}
+
+	if s.RoundNumber == 0 {
+		if len(s.Transactions) != 1 || s.References != nil {
+			return nil, fmt.Errorf("invalid transactions %d or references %v for round 0",
+				len(s.Transactions), s.References)
+		}
+	} else if s.References == nil {
+		return nil, fmt.Errorf("no references for snapshot round %d", s.RoundNumber)
+	}
+
 	ts, err := dec.ReadUint64()
 	if err != nil {
 		return nil, err
