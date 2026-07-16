@@ -13,7 +13,7 @@ func TestCacheQueueDeduplicationAndCorruption(t *testing.T) {
 	store := newTestBadgerStore(t)
 	tx := common.NewTransactionV5(common.XINAssetId).AsVersioned()
 	hash := tx.PayloadHash()
-	require.NoError(t, store.CachePutTransaction(tx))
+	require.NoError(t, store.CacheQueueTransaction(tx))
 
 	orphan := crypto.Blake3Hash([]byte("orphan cache queue entry"))
 	err := store.cacheDB.Update(func(txn *badger.Txn) error {
@@ -79,12 +79,12 @@ func TestCacheRemoveTransactionsInBatches(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestCachePutTransactionAfterClose(t *testing.T) {
+func TestCacheQueueTransactionAfterClose(t *testing.T) {
 	store := newTestBadgerStore(t)
 	require.NoError(t, store.cacheDB.Close())
 
 	tx := common.NewTransactionV5(common.XINAssetId).AsVersioned()
-	err := store.CachePutTransaction(tx)
+	err := store.CacheQueueTransaction(tx)
 	require.Error(t, err)
 }
 

@@ -88,23 +88,51 @@ func (s *BadgerStore) CacheRemoveTransactions(hashes []crypto.Hash) error {
 	}
 }
 
-func (s *BadgerStore) CachePutTransaction(tx *common.VersionedTransaction) error {
+func (s *BadgerStore) CacheStoreTransaction(tx *common.VersionedTransaction) error {
 	var err error
 	for i := range 3 {
-		err = s.cachePutTransaction(tx)
-		if err == nil {
-			return nil
+		err = s.cacheStoreTransaction(tx)
+		if !errors.Is(err, badger.ErrConflict) {
+			return err
 		}
-		if errors.Is(err, badger.ErrConflict) {
-			time.Sleep(time.Millisecond * 50 * time.Duration(i+1))
-			continue
-		}
-		return err
+		time.Sleep(time.Millisecond * 50 * time.Duration(i+1))
 	}
 	return err
 }
 
-func (s *BadgerStore) cachePutTransaction(tx *common.VersionedTransaction) error {
+func (s *BadgerStore) cacheStoreTransaction(tx *common.VersionedTransaction) error {
+	txn := s.cacheDB.NewTransaction(true)
+	defer txn.Discard()
+
+	hash := tx.PayloadHash()
+	key := cacheTransactionCacheKey(hash)
+	_, err := txn.Get(key)
+	if err == nil {
+		return nil
+	}
+	val := tx.Marshal()
+	etr := badger.NewEntry(key, val).WithTTL(time.Duration(s.custom.Node.CacheTTL+60) * time.Second)
+	err = txn.SetEntry(etr)
+	if err != nil {
+		return err
+	}
+
+	return txn.Commit()
+}
+
+func (s *BadgerStore) CacheQueueTransaction(tx *common.VersionedTransaction) error {
+	var err error
+	for i := range 3 {
+		err = s.cacheQueueTransaction(tx)
+		if !errors.Is(err, badger.ErrConflict) {
+			return err
+		}
+		time.Sleep(time.Millisecond * 50 * time.Duration(i+1))
+	}
+	return err
+}
+
+func (s *BadgerStore) cacheQueueTransaction(tx *common.VersionedTransaction) error {
 	txn := s.cacheDB.NewTransaction(true)
 	defer txn.Discard()
 

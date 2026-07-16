@@ -9,6 +9,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/kernel/internal"
 	"github.com/MixinNetwork/mixin/kernel/internal/clock"
 	"github.com/MixinNetwork/mixin/p2p"
 	"github.com/stretchr/testify/require"
@@ -122,11 +123,11 @@ func TestCacheRoundValidationInvariants(t *testing.T) {
 		require.ErrorContains(t, after.ValidateSnapshot(newSnapshot("too late", 9, base+gap)), "gap end")
 
 		require.Panics(t, func() {
-			round.ValidateSnapshot(newSnapshot("wrong round", 10, base+gap/2))
+			_ = round.ValidateSnapshot(newSnapshot("wrong round", 10, base+gap/2))
 		})
 		missingHash := newSnapshot("missing hash", 9, base+gap/2)
 		missingHash.Hash = crypto.Hash{}
-		require.Panics(t, func() { round.ValidateSnapshot(missingHash) })
+		require.Panics(t, func() { _ = round.ValidateSnapshot(missingHash) })
 	})
 
 	t.Run("snapshot index", func(t *testing.T) {
@@ -247,7 +248,7 @@ func TestChainQueueBoundaries(t *testing.T) {
 		chain := newChain()
 		wrongNode := snapshot("wrong node", 0)
 		wrongNode.NodeId = remoteID
-		require.Panics(t, func() { chain.AppendFinalSnapshot(peer("peer"), wrongNode) })
+		require.Panics(t, func() { _ = chain.AppendFinalSnapshot(peer("peer"), wrongNode) })
 
 		chain.State = &ChainState{CacheRound: &CacheRound{Number: 2}}
 		require.NoError(t, chain.AppendFinalSnapshot(peer("old"), snapshot("old", 1)))
@@ -260,10 +261,10 @@ func TestChainQueueBoundaries(t *testing.T) {
 		// Cache pressure is intentionally lossy; callers should never block on it.
 		require.NoError(t, actionChain.AppendCosiAction(&CosiAction{Action: CosiActionSelfEmpty, PeerId: localID}))
 		require.Panics(t, func() {
-			actionChain.AppendCosiAction(&CosiAction{Action: CosiActionSelfEmpty, PeerId: remoteID})
+			_ = actionChain.AppendCosiAction(&CosiAction{Action: CosiActionSelfEmpty, PeerId: remoteID})
 		})
 		require.Panics(t, func() {
-			actionChain.AppendCosiAction(&CosiAction{Action: CosiActionSelfCommitment, PeerId: localID})
+			_ = actionChain.AppendCosiAction(&CosiAction{Action: CosiActionSelfCommitment, PeerId: localID})
 		})
 
 		external := newChain()
@@ -273,16 +274,16 @@ func TestChainQueueBoundaries(t *testing.T) {
 			PeerId: remoteID,
 		}))
 		require.Panics(t, func() {
-			external.AppendCosiAction(&CosiAction{Action: CosiActionExternalChallenge, PeerId: localID})
+			_ = external.AppendCosiAction(&CosiAction{Action: CosiActionExternalChallenge, PeerId: localID})
 		})
 		require.Panics(t, func() {
-			external.AppendCosiAction(&CosiAction{Action: CosiActionSelfResponse, PeerId: remoteID})
+			_ = external.AppendCosiAction(&CosiAction{Action: CosiActionSelfResponse, PeerId: remoteID})
 		})
 		require.Panics(t, func() {
-			external.AppendCosiAction(&CosiAction{Action: -1, PeerId: remoteID})
+			_ = external.AppendCosiAction(&CosiAction{Action: -1, PeerId: remoteID})
 		})
 
-		require.Panics(t, func() { actionChain.AppendSelfEmpty(snapshot("empty", 0)) })
+		require.Panics(t, func() { _ = actionChain.AppendSelfEmpty(snapshot("empty", 0)) })
 		withTransaction := snapshot("self", 0)
 		withTransaction.AddTransaction(crypto.Blake3Hash([]byte("self transaction")))
 		fresh := newChain()
@@ -373,7 +374,7 @@ func TestGraphHistoryAndReferenceInvariants(t *testing.T) {
 		chain := &Chain{ChainId: localID}
 		wrongChain := &CacheRound{NodeId: otherID}
 		require.Panics(t, func() {
-			chain.validateNewRound(wrongChain, &common.RoundLink{}, 0, false)
+			_, _, _ = chain.validateNewRound(wrongChain, &common.RoundLink{}, 0, false)
 		})
 
 		empty := &CacheRound{NodeId: localID, Number: 3}
@@ -684,6 +685,152 @@ func TestCosiActionSanityGuards(t *testing.T) {
 	})
 }
 
+func TestCosiAggregatorExpiryRequeuesTransactions(t *testing.T) {
+	wasMocked := internal.MockRunAggregators()
+	internal.ToggleMockRunAggregators(true)
+	defer internal.ToggleMockRunAggregators(wasMocked)
+
+	node := setupTestNode(require.New(t), t.TempDir())
+	defer func() {
+		node.cacheStore.Clear()
+		require.NoError(t, node.persistStore.Close())
+	}()
+
+	tx := common.NewTransactionV5(common.XINAssetId).AsVersioned()
+	txHash := tx.PayloadHash()
+	require.NoError(t, node.persistStore.CacheQueueTransaction(tx))
+	queued, err := node.persistStore.CacheRetrieveTransactions(1)
+	require.NoError(t, err)
+	require.Len(t, queued, 1)
+	require.Equal(t, txHash, queued[0].PayloadHash())
+
+	timestamp := uint64(time.Second)
+	snapshot := &common.Snapshot{
+		Version:      common.SnapshotVersionCommonEncoding,
+		NodeId:       node.IdForNetwork,
+		RoundNumber:  1,
+		Timestamp:    timestamp,
+		Transactions: []crypto.Hash{txHash},
+	}
+	snapshot.Hash = snapshot.PayloadHash()
+	verifier := &CosiVerifier{Snapshot: snapshot}
+	chain := &Chain{
+		node:            node,
+		ChainId:         node.IdForNetwork,
+		CosiAggregators: map[crypto.Hash]*CosiAggregator{snapshot.Hash: {Snapshot: snapshot}},
+		CosiVerifiers: map[crypto.Hash]*CosiVerifier{
+			snapshot.Hash: verifier,
+			txHash:        verifier,
+		},
+	}
+
+	external := &common.Snapshot{
+		Hash:         crypto.Blake3Hash([]byte("external cosi snapshot")),
+		Transactions: []crypto.Hash{txHash},
+	}
+	externalVerifier := &CosiVerifier{Snapshot: external}
+	chain.CosiVerifiers[external.Hash] = externalVerifier
+	chain.CosiVerifiers[txHash] = externalVerifier
+	chain.abandonCosiSnapshot(external)
+	queued, err = node.persistStore.CacheRetrieveTransactions(1)
+	require.NoError(t, err)
+	require.Empty(t, queued)
+
+	firstTimestamp := uint64(time.Hour)
+	chain.CachePool = make(chan *CosiAction, 2)
+	chain.State = &ChainState{
+		CacheRound: &CacheRound{
+			NodeId:     node.IdForNetwork,
+			Number:     2,
+			Timestamp:  firstTimestamp,
+			References: new(common.RoundLink),
+			Snapshots: []*common.Snapshot{{
+				NodeId:      node.IdForNetwork,
+				RoundNumber: 2,
+				Timestamp:   firstTimestamp,
+			}},
+		},
+		FinalRound: &FinalRound{NodeId: node.IdForNetwork, Number: 1},
+	}
+	late := &common.Snapshot{
+		Version:      common.SnapshotVersionCommonEncoding,
+		NodeId:       node.IdForNetwork,
+		Timestamp:    firstTimestamp + config.SnapshotRoundGap*9/10,
+		Transactions: []crypto.Hash{txHash},
+	}
+	valid, err := chain.prepareAnnouncement(&CosiAction{Snapshot: late})
+	require.NoError(t, err)
+	require.False(t, valid)
+	require.Empty(t, chain.CachePool)
+	queued, err = node.persistStore.CacheRetrieveTransactions(1)
+	require.NoError(t, err)
+	require.Len(t, queued, 1)
+	require.Equal(t, txHash, queued[0].PayloadHash())
+}
+
+func TestCacheStoreTransactionsDoesNotQueue(t *testing.T) {
+	node := setupTestNode(require.New(t), t.TempDir())
+	defer func() {
+		node.cacheStore.Clear()
+		require.NoError(t, node.persistStore.Close())
+	}()
+
+	tx := common.NewTransactionV5(common.XINAssetId).AsVersioned()
+	peer := crypto.Blake3Hash([]byte("transaction payload peer"))
+	require.NoError(t, node.CacheStoreTransactions(peer, []*common.VersionedTransaction{tx}))
+
+	cached, err := node.persistStore.CacheGetTransaction(tx.PayloadHash())
+	require.NoError(t, err)
+	require.NotNil(t, cached)
+	require.Equal(t, tx.PayloadHash(), cached.PayloadHash())
+	queued, err := node.persistStore.CacheRetrieveTransactions(1)
+	require.NoError(t, err)
+	require.Empty(t, queued)
+}
+
+func TestCosiRoundResetRequeuesOrphanedTransactions(t *testing.T) {
+	node := setupTestNode(require.New(t), t.TempDir())
+	defer func() {
+		node.cacheStore.Clear()
+		require.NoError(t, node.persistStore.Close())
+	}()
+
+	owned := common.NewTransactionV5(common.XINAssetId).AsVersioned()
+	orphaned := common.NewTransactionV5(crypto.Blake3Hash([]byte("orphaned cosi transaction"))).AsVersioned()
+	ownedHash := owned.PayloadHash()
+	orphanedHash := orphaned.PayloadHash()
+	require.NoError(t, node.persistStore.CacheQueueTransaction(owned))
+	require.NoError(t, node.persistStore.CacheQueueTransaction(orphaned))
+	queued, err := node.persistStore.CacheRetrieveTransactions(2)
+	require.NoError(t, err)
+	require.Len(t, queued, 2)
+
+	snapshot := &common.Snapshot{
+		Hash:         crypto.Blake3Hash([]byte("old round cosi snapshot")),
+		Transactions: []crypto.Hash{ownedHash, orphanedHash},
+	}
+	verifier := &CosiVerifier{Snapshot: snapshot}
+	chain := &Chain{
+		node: node,
+		CosiAggregators: map[crypto.Hash]*CosiAggregator{
+			snapshot.Hash: {Snapshot: snapshot},
+		},
+		CosiVerifiers: map[crypto.Hash]*CosiVerifier{
+			snapshot.Hash: verifier,
+			ownedHash:     verifier,
+			orphanedHash:  verifier,
+		},
+	}
+
+	chain.resetCosiStateForNewRound([]crypto.Hash{ownedHash})
+	require.Empty(t, chain.CosiAggregators)
+	require.Empty(t, chain.CosiVerifiers)
+	queued, err = node.persistStore.CacheRetrieveTransactions(2)
+	require.NoError(t, err)
+	require.Len(t, queued, 1)
+	require.Equal(t, orphanedHash, queued[0].PayloadHash())
+}
+
 func TestNodeStateAndQueueHelpers(t *testing.T) {
 	a := crypto.Blake3Hash([]byte("node a"))
 	b := crypto.Blake3Hash([]byte("node b"))
@@ -713,7 +860,9 @@ func TestNodeStateAndQueueHelpers(t *testing.T) {
 	require.Len(t, node.NodesListWithoutState(45, true), 1)
 	require.Equal(t, b, node.PledgingNode(25).IdForNetwork)
 	require.Nil(t, node.PledgingNode(45))
+	require.Equal(t, 1, node.getAcceptedOrPledgingNode(b, 25).ConsensusIndex)
 	require.Equal(t, b, node.GetAcceptedOrPledgingNode(b).IdForNetwork)
+	require.Equal(t, 0, node.GetAcceptedOrPledgingNode(b).ConsensusIndex)
 	require.Nil(t, node.GetAcceptedOrPledgingNode(a))
 	require.Equal(t, a, node.GetRemovedOrCancelledNode(a, 45).IdForNetwork)
 	require.Nil(t, node.GetRemovedOrCancelledNode(b, 45))
@@ -760,16 +909,29 @@ func TestNodeStateAndQueueHelpers(t *testing.T) {
 
 	t.Run("queue selection", func(t *testing.T) {
 		all := []*CNode{{IdForNetwork: a}, {IdForNetwork: b}}
+		node.IdForNetwork = a
 		now := time.Unix(0, 0)
 		require.Equal(t, []crypto.Hash{a}, node.findRandomHeadNodeWithPossibleTail(all, nil, nil, now))
 		require.Equal(t, []crypto.Hash{a}, node.findRandomHeadNodeWithPossibleTail(all, []*CNode{{IdForNetwork: b}}, map[crypto.Hash]bool{a: true}, now))
 		require.Equal(t, []crypto.Hash{a, b}, node.findRandomHeadNodeWithPossibleTail(all, []*CNode{{IdForNetwork: b}}, map[crypto.Hash]bool{b: true}, now))
 
 		require.False(t, node.canBatchSelfTransactions())
+		require.False(t, node.canProposeSnapshot(all))
 		node.chain = &Chain{State: &ChainState{CacheRound: &CacheRound{}}}
 		require.False(t, node.canBatchSelfTransactions())
+		require.False(t, node.canProposeSnapshot(all))
 		node.chain.State.CacheRound.Number = 1
 		require.True(t, node.canBatchSelfTransactions())
+		node.nodeStateSequences = []*NodeStateSequence{{Timestamp: 1, NodesWithoutState: consensusNodes}}
+		node.acceptedNodeStateSequences = []*NodeStateSequence{{Timestamp: 1, NodesWithoutState: consensusNodes}}
+		node.genesisNodesMap = genesis
+		node.chain.State.FinalRound = &FinalRound{}
+		node.SyncPointsMap = make(map[crypto.Hash]*p2p.SyncPoint)
+		for _, cn := range node.NodesListWithoutState(clock.NowUnixNano(), true) {
+			node.SyncPointsMap[cn.IdForNetwork] = &p2p.SyncPoint{}
+		}
+		require.True(t, node.canProposeSnapshot(all))
+		require.False(t, node.canProposeSnapshot(all[1:]))
 
 		nowNanos := clock.NowUnixNano()
 		node.chains = &chainsMap{m: map[crypto.Hash]*Chain{

@@ -17,13 +17,14 @@ const (
 	authenticationPayloadSize = 8 + len(crypto.Hash{}) + len(crypto.Key{}) + 1 + len(crypto.Signature{})
 	authenticationMessageSize = 1 + authenticationPayloadSize
 
-	PeerMessageTypePing               = 1 // not used because too more than enough graph sync messages
-	PeerMessageTypeAuthentication     = 3
-	PeerMessageTypeGraph              = 4
-	PeerMessageTypeSnapshotConfirm    = 5
-	PeerMessageTypeTransactionRequest = 6
-	PeerMessageTypeTransaction        = 7
-	PeerMessageTypeTransactionBundle  = 8
+	PeerMessageTypePing                       = 1 // not used because too more than enough graph sync messages
+	PeerMessageTypeAuthentication             = 3
+	PeerMessageTypeGraph                      = 4
+	PeerMessageTypeSnapshotConfirm            = 5
+	PeerMessageTypeTransactionRequest         = 6
+	PeerMessageTypeTransaction                = 7
+	PeerMessageTypeTransactionBundle          = 8
+	PeerMessageTypeFinalizedTransactionBundle = 9 // cache payloads sent before finalization without queueing them
 
 	PeerMessageTypePreCommitments            = 15 // pre commitments so the round can just start from full challenge
 	PeerMessageTypeBatchSnapshotAnnouncement = 20 // leader send snapshot to peer
@@ -78,8 +79,9 @@ type SyncHandle interface {
 	ReadSnapshotsSinceTopology(offset, count uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	ReadSnapshotsForNodeRound(nodeIdWithNetwork crypto.Hash, round uint64) ([]*common.SnapshotWithTopologicalOrder, error)
 	SendTransactionToPeer(peerId, tx crypto.Hash) error
-	SendTransactionsToPeer(peerId crypto.Hash, txs []crypto.Hash) error
-	CachePutTransaction(peerId crypto.Hash, ver *common.VersionedTransaction) error
+	SendTransactionsToPeer(peerId crypto.Hash, txs []crypto.Hash, finalized bool) error
+	CacheQueueTransactions(peerId crypto.Hash, ver []*common.VersionedTransaction) error
+	CacheStoreTransactions(peerId crypto.Hash, ver []*common.VersionedTransaction) error
 	CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot, R *crypto.Key, sig *crypto.Signature) error
 	CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTxs []crypto.Hash, data []byte, sig *crypto.Signature) error
 	CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Hash, cosi *crypto.CosiSignature, txs []*common.VersionedTransaction) error
@@ -129,7 +131,6 @@ func (me *Peer) SendSnapshotResponseMessage(idForNetwork crypto.Hash, snap crypt
 	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeBatchSnapshotResponse, data)
 }
 
-// TODO should we also send transactions together when do the sync
 func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *common.Snapshot) error {
 	if idForNetwork == me.IdForNetwork {
 		return nil
@@ -164,15 +165,19 @@ func (me *Peer) SendTransactionMessage(idForNetwork crypto.Hash, ver *common.Ver
 	return me.sendHighToPeer(idForNetwork, PeerMessageTypeTransaction, key, buildTransactionMessage(ver))
 }
 
-func (me *Peer) SendTransactionsMessage(idForNetwork crypto.Hash, txs []*common.VersionedTransaction) error {
+func (me *Peer) SendTransactionsMessage(idForNetwork crypto.Hash, txs []*common.VersionedTransaction, finalized bool) error {
 	if len(txs) == 0 {
 		return nil
 	}
-	data := buildTransactionsMessage(txs)
+	typ := byte(PeerMessageTypeTransactionBundle)
+	if finalized {
+		typ = PeerMessageTypeFinalizedTransactionBundle
+	}
+	data := buildTransactionsMessage(txs, typ)
 	hash := crypto.Blake3Hash(data)
-	key := append(idForNetwork[:], 'T', 'X', PeerMessageTypeTransactionBundle)
+	key := append(idForNetwork[:], 'T', 'X', typ)
 	key = append(key, hash[:]...)
-	return me.sendHighToPeer(idForNetwork, PeerMessageTypeTransactionBundle, key, data)
+	return me.sendHighToPeer(idForNetwork, typ, key, data)
 }
 
 func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash) {
@@ -305,9 +310,9 @@ func buildTransactionMessage(ver *common.VersionedTransaction) []byte {
 	return append([]byte{PeerMessageTypeTransaction}, data...)
 }
 
-func buildTransactionsMessage(txs []*common.VersionedTransaction) []byte {
+func buildTransactionsMessage(txs []*common.VersionedTransaction, typ byte) []byte {
 	data := buildTransactionsPayload(txs)
-	return append([]byte{PeerMessageTypeTransactionBundle}, data...)
+	return append([]byte{typ}, data...)
 }
 
 func buildTransactionRequestMessage(tx crypto.Hash) []byte {
@@ -416,7 +421,7 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 			return nil, err
 		}
 		msg.Transactions = []*common.VersionedTransaction{ver}
-	case PeerMessageTypeTransactionBundle:
+	case PeerMessageTypeTransactionBundle, PeerMessageTypeFinalizedTransactionBundle:
 		txs, err := parseTransactionsPayload(data[1:])
 		if err != nil {
 			return nil, err
@@ -629,13 +634,10 @@ func (me *Peer) handlePeerMessage(peerId crypto.Hash, msg *PeerMessage) error {
 		return me.handle.SendTransactionToPeer(peerId, msg.TransactionHash)
 	case PeerMessageTypeTransaction, PeerMessageTypeTransactionBundle:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeTransaction %s %d\n", peerId, len(msg.Transactions))
-		for _, tx := range msg.Transactions {
-			err := me.handle.CachePutTransaction(peerId, tx)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
+		return me.handle.CacheQueueTransactions(peerId, msg.Transactions)
+	case PeerMessageTypeFinalizedTransactionBundle:
+		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeFinalizedTransactionBundle %s %d\n", peerId, len(msg.Transactions))
+		return me.handle.CacheStoreTransactions(peerId, msg.Transactions)
 	case PeerMessageTypeSnapshotConfirm:
 		logger.Verbosef("network.handle handlePeerMessage PeerMessageTypeSnapshotConfirm %s %s\n", peerId, msg.SnapshotHash)
 		me.ConfirmSnapshotForPeer(peerId, msg.SnapshotHash)

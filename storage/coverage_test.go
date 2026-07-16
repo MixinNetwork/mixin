@@ -28,11 +28,11 @@ func TestCacheTransactionLifecycle(t *testing.T) {
 	require.Nil(err)
 	require.Nil(got)
 
-	err = store.CachePutTransaction(tx1)
+	err = store.CacheQueueTransaction(tx1)
 	require.Nil(err)
-	err = store.CachePutTransaction(ver2)
+	err = store.CacheQueueTransaction(ver2)
 	require.Nil(err)
-	err = store.CachePutTransaction(tx1)
+	err = store.CacheQueueTransaction(tx1)
 	require.Nil(err)
 
 	got, err = store.CacheGetTransaction(tx1.PayloadHash())

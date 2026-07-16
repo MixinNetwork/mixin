@@ -17,11 +17,14 @@ type TopologicalSequence struct {
 	seq   uint64
 	point uint64
 	sps   float64
+	spt   float64
 
 	filter map[crypto.Hash]bool
 	check  uint64
 	count  uint64
 	tps    float64
+
+	snapshotCounts map[crypto.Hash]uint64
 }
 
 func (node *Node) TopologicalOrder() uint64 {
@@ -30,6 +33,10 @@ func (node *Node) TopologicalOrder() uint64 {
 
 func (node *Node) SPS() float64 {
 	return node.TopoCounter.sps
+}
+
+func (node *Node) SPT() float64 {
+	return node.TopoCounter.spt
 }
 
 func (node *Node) TPS() float64 {
@@ -62,6 +69,7 @@ func (node *Node) TopoWrite(s *common.Snapshot, signers []crypto.Hash) *common.S
 		node.TopoCounter.filter = make(map[crypto.Hash]bool)
 	}
 	for _, tx := range s.Transactions {
+		node.TopoCounter.snapshotCounts[tx] += 1
 		if node.TopoCounter.filter[tx] {
 			continue
 		}
@@ -92,11 +100,25 @@ func (topo *TopologicalSequence) TopoStats(node *Node) {
 		case <-node.done:
 			return
 		case <-ticker.C:
-			topo.sps = float64(topo.seq-topo.point) / float64(durationSeconds)
+			topo.Lock()
+			snapshots := topo.seq - topo.point
+			transactions := topo.count - topo.check
+			topo.sps = float64(snapshots) / float64(durationSeconds)
 			topo.point = topo.seq
 
-			topo.tps = float64(topo.count-topo.check) / float64(durationSeconds)
+			topo.tps = float64(transactions) / float64(durationSeconds)
 			topo.check = topo.count
+
+			var snapshotCount uint64
+			for _, count := range topo.snapshotCounts {
+				snapshotCount += count
+			}
+			topo.spt = 0
+			if len(topo.snapshotCounts) > 0 {
+				topo.spt = float64(snapshotCount) / float64(len(topo.snapshotCounts))
+			}
+			topo.snapshotCounts = make(map[crypto.Hash]uint64)
+			topo.Unlock()
 		}
 	}
 }
@@ -104,8 +126,9 @@ func (topo *TopologicalSequence) TopoStats(node *Node) {
 func (node *Node) getTopologyCounter(store storage.Store) *TopologicalSequence {
 	s, _ := store.LastSnapshot()
 	topo := &TopologicalSequence{
-		seq:    s.TopologicalOrder,
-		filter: make(map[crypto.Hash]bool),
+		seq:            s.TopologicalOrder,
+		filter:         make(map[crypto.Hash]bool),
+		snapshotCounts: make(map[crypto.Hash]uint64),
 	}
 	topo.point = topo.seq
 	go topo.TopoStats(node)

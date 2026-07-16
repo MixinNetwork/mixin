@@ -175,7 +175,7 @@ func (node *Node) tryToSendRemoveTransaction() error {
 	if err != nil {
 		return err
 	}
-	err = node.persistStore.CachePutTransaction(tx)
+	err = node.persistStore.CacheQueueTransaction(tx)
 	if err != nil {
 		return err
 	}
@@ -314,7 +314,7 @@ func (chain *Chain) tryToSendAcceptTransaction() error {
 	if err != nil {
 		return err
 	}
-	err = chain.node.persistStore.CachePutTransaction(ver)
+	err = chain.node.persistStore.CacheQueueTransaction(ver)
 	if err != nil {
 		return err
 	}

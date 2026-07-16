@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"encoding/binary"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -26,14 +27,14 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 		return "", err
 	}
 	if old != nil {
-		return old.PayloadHash().String(), node.persistStore.CachePutTransaction(tx)
+		return old.PayloadHash().String(), node.persistStore.CacheQueueTransaction(tx)
 	}
 
 	err = tx.Validate(node.persistStore, clock.NowUnixNano(), false)
 	if err != nil {
 		return "", err
 	}
-	err = node.persistStore.CachePutTransaction(tx)
+	err = node.persistStore.CacheQueueTransaction(tx)
 	if err != nil {
 		return "", err
 	}
@@ -43,11 +44,38 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 func (node *Node) loopCacheQueue() {
 	defer close(node.cqc)
 
-	for !node.waitOrDone(time.Duration(config.SnapshotRoundGap / 3)) {
-		popped := node.popAndProcessCacheQueue()
-		if popped < common.SnapshotTransactionsMaximum/2 {
-			time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
+	for {
+		if node.waitCacheQueue(time.Duration(config.SnapshotRoundGap / 3)) {
+			return
 		}
+		// A short debounce preserves batching while avoiding the old multi-second
+		// delay for an otherwise idle queue.
+		if node.waitOrDone(50 * time.Millisecond) {
+			return
+		}
+		for node.popAndProcessCacheQueue() == common.SnapshotTransactionsMaximum {
+		}
+	}
+}
+
+func (node *Node) wakeCacheQueue() {
+	select {
+	case node.cqw <- struct{}{}:
+	default:
+	}
+}
+
+func (node *Node) waitCacheQueue(wait time.Duration) bool {
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+
+	select {
+	case <-node.done:
+		return true
+	case <-node.cqw:
+		return false
+	case <-timer.C:
+		return false
 	}
 }
 
@@ -70,10 +98,11 @@ func (node *Node) popAndProcessCacheQueue() int {
 	}
 
 	now := clock.Now()
+	leadingNodes, leadingFilter := node.filterLeadingNodes(allNodes)
+
 	filter := make(map[crypto.Hash]bool)
 	var batchSize int
 	var stale, batch []crypto.Hash
-	leadingNodes, leadingFilter := node.filterLeadingNodes(allNodes)
 	for _, tx := range txs {
 		hash := tx.PayloadHash()
 		if filter[hash] {
@@ -106,18 +135,21 @@ func (node *Node) popAndProcessCacheQueue() int {
 			batch = append(batch, hash)
 			continue
 		}
-		nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now)
+		nbors := node.findSnapshotNodes(allNodes, leadingNodes, leadingFilter, now, hash)
 		for _, nbor := range nbors {
 			node.sendTransactionsToNode([]crypto.Hash{hash}, nbor)
 		}
 	}
 	if len(batch) > 0 {
-		canSelf := node.canBatchSelfTransactions()
-		if canSelf {
+		if node.chainCanProposeSnapshot(allNodes, node.chain, uint64(now.UnixNano())) {
+			// if a node can propose, then it will not send the transactions to others
+			// because announcement and challenge transactions won't enter this node queue
+			// so won't cause redundant snapshot for those transactions.
+			// now the remaining issues are transactions sent before finalization snapshot
+			// they entered the queue again
 			node.sendTransactionsToNode(batch, node.IdForNetwork)
-		}
-		if !canSelf || len(batch) < 3 {
-			nbors := node.findRandomHeadNodeWithPossibleTail(allNodes, leadingNodes, leadingFilter, now)
+		} else {
+			nbors := node.findSnapshotNodes(allNodes, leadingNodes, leadingFilter, now, batch[0])
 			for _, nbor := range nbors {
 				node.sendTransactionsToNode(batch, nbor)
 			}
@@ -132,7 +164,7 @@ func (node *Node) popAndProcessCacheQueue() int {
 
 func (node *Node) sendTransactionsToNode(txs []crypto.Hash, nbor crypto.Hash) {
 	if nbor != node.IdForNetwork {
-		err := node.SendTransactionsToPeer(nbor, txs)
+		err := node.SendTransactionsToPeer(nbor, txs, false)
 		logger.Debugf("queue.SendTransactionsToPeer(%d, %s) => %v", len(txs), nbor, err)
 	} else if !node.canBatchSelfTransactions() {
 		for _, hash := range txs {
@@ -158,6 +190,7 @@ func (node *Node) sendTransactionsToNode(txs []crypto.Hash, nbor crypto.Hash) {
 }
 
 func (node *Node) requeueTransactions(hashes []crypto.Hash) {
+	requeued := false
 	for _, hash := range hashes {
 		tx, finalized, err := node.persistStore.ReadTransaction(hash)
 		if err != nil {
@@ -177,10 +210,15 @@ func (node *Node) requeueTransactions(hashes []crypto.Hash) {
 		if tx == nil {
 			continue
 		}
-		err = node.persistStore.CachePutTransaction(tx)
+		err = node.persistStore.CacheQueueTransaction(tx)
 		if err != nil {
-			logger.Debugf("queue.requeueTransactions CachePutTransaction(%s) => %v", hash, err)
+			logger.Debugf("queue.requeueTransactions CacheRequeueTransaction(%s) => %v", hash, err)
+		} else {
+			requeued = true
 		}
+	}
+	if requeued {
+		node.wakeCacheQueue()
 	}
 }
 
@@ -189,6 +227,81 @@ func (node *Node) canBatchSelfTransactions() bool {
 		return false
 	}
 	return node.chain.State.CacheRound.Number > 0
+}
+
+func (node *Node) canProposeSnapshot(all []*CNode) bool {
+	if !node.canBatchSelfTransactions() {
+		return false
+	}
+	for _, cn := range all {
+		if cn.IdForNetwork == node.IdForNetwork {
+			return node.CheckBroadcastedToPeers() && node.CheckCatchUpWithPeers()
+		}
+	}
+	return false
+}
+
+func (node *Node) findSnapshotNodes(all, leading []*CNode, filter map[crypto.Hash]bool, now time.Time, hash crypto.Hash) []crypto.Hash {
+	timestamp := uint64(now.UnixNano())
+	ready := make([]crypto.Hash, 0, len(all))
+	for _, cn := range all {
+		chain := node.getChain(cn.IdForNetwork)
+		local := cn.IdForNetwork == node.IdForNetwork
+		if local {
+			chain = node.chain
+		}
+		if node.chainCanProposeSnapshot(all, chain, timestamp) {
+			ready = append(ready, cn.IdForNetwork)
+		}
+	}
+	if len(ready) > 0 {
+		return []crypto.Hash{ready[cacheQueueIndex(hash, now, len(ready))]}
+	}
+	return node.findRandomHeadNodeWithPossibleTail(all, leading, filter, now)
+}
+
+func (node *Node) chainCanProposeSnapshot(all []*CNode, chain *Chain, timestamp uint64) bool {
+	if chain == nil {
+		return false
+	}
+	local := node.IdForNetwork == chain.ChainId
+	if local && !node.canProposeSnapshot(all) {
+		return false
+	}
+
+	chain.RLock()
+	if chain.State == nil || chain.State.CacheRound == nil || chain.State.CacheRound.Number == 0 {
+		chain.RUnlock()
+		return false
+	}
+	cache := chain.State.CacheRound
+	cacheTimestamp := cache.Timestamp
+	snapshots := append([]*common.Snapshot(nil), cache.Snapshots...)
+	chain.RUnlock()
+
+	if timestamp <= cacheTimestamp {
+		return false
+	}
+	if len(snapshots) == 0 {
+		return true
+	}
+
+	start := snapshots[0].Timestamp
+	for _, snapshot := range snapshots[1:] {
+		if snapshot.Timestamp < start {
+			start = snapshot.Timestamp
+		}
+	}
+	if timestamp < start+config.SnapshotRoundGap {
+		return timestamp <= start+config.SnapshotRoundGap*4/5 && timestamp/OneDay == start/OneDay
+	}
+	return chain.determineBestRound(timestamp) != nil
+}
+
+func cacheQueueIndex(hash crypto.Hash, now time.Time, size int) int {
+	bucket := uint64(now.UnixNano()) / config.SnapshotRoundGap
+	seed := binary.BigEndian.Uint64(hash[:8])
+	return int((seed + bucket) % uint64(size))
 }
 
 func (node *Node) filterLeadingNodes(all []*CNode) ([]*CNode, map[crypto.Hash]bool) {
@@ -254,18 +367,4 @@ func (node *Node) QueueState() (uint64, uint64, map[string][2]uint64) {
 		state[chain.ChainId.String()] = sa
 	}
 	return caches, finals, state
-}
-
-func (chain *Chain) clearAndQueueSnapshotOrPanic(s *common.Snapshot) error {
-	if chain.ChainId != s.NodeId {
-		panic("should never be here")
-	}
-	ns := &common.Snapshot{
-		Version: common.SnapshotVersionCommonEncoding,
-		NodeId:  s.NodeId,
-	}
-	for _, tx := range s.Transactions {
-		ns.AddTransaction(tx)
-	}
-	return chain.AppendSelfEmpty(ns)
 }

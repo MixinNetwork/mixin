@@ -53,6 +53,7 @@ type Node struct {
 	elc  chan struct{}
 	mlc  chan struct{}
 	cqc  chan struct{}
+	cqw  chan struct{}
 }
 
 type NodeStateSequence struct {
@@ -83,6 +84,7 @@ func SetupNode(custom *config.Custom, store storage.Store, cache *ristretto.Cach
 		elc:             make(chan struct{}),
 		mlc:             make(chan struct{}),
 		cqc:             make(chan struct{}),
+		cqw:             make(chan struct{}, 16),
 	}
 
 	node.loadNodeConfig()
@@ -235,7 +237,11 @@ func (node *Node) ListWorkingAcceptedNodes(timestamp uint64) []*CNode {
 }
 
 func (node *Node) GetAcceptedOrPledgingNode(id crypto.Hash) *CNode {
-	nodes := node.NodesListWithoutState(clock.NowUnixNano(), false)
+	return node.getAcceptedOrPledgingNode(id, clock.NowUnixNano())
+}
+
+func (node *Node) getAcceptedOrPledgingNode(id crypto.Hash, timestamp uint64) *CNode {
+	nodes := node.NodesListWithoutState(timestamp, false)
 	for _, cn := range nodes {
 		if cn.IdForNetwork == id && (cn.State == common.NodeStateAccepted || cn.State == common.NodeStatePledging) {
 			return cn
@@ -477,7 +483,7 @@ func (node *Node) SendTransactionToPeer(peerId, hash crypto.Hash) error {
 	return node.Peer.SendTransactionMessage(peerId, tx)
 }
 
-func (node *Node) SendTransactionsToPeer(peerId crypto.Hash, hashes []crypto.Hash) error {
+func (node *Node) SendTransactionsToPeer(peerId crypto.Hash, hashes []crypto.Hash, finalized bool) error {
 	txs := make([]*common.VersionedTransaction, 0, len(hashes))
 	for _, hash := range hashes {
 		tx, _, err := node.checkTxInStorage(hash)
@@ -488,11 +494,44 @@ func (node *Node) SendTransactionsToPeer(peerId crypto.Hash, hashes []crypto.Has
 			txs = append(txs, tx)
 		}
 	}
-	return node.Peer.SendTransactionsMessage(peerId, txs)
+	return node.Peer.SendTransactionsMessage(peerId, txs, finalized)
 }
 
-func (node *Node) CachePutTransaction(peerId crypto.Hash, tx *common.VersionedTransaction) error {
-	return node.persistStore.CachePutTransaction(tx)
+func (node *Node) CacheQueueTransactions(peerId crypto.Hash, txs []*common.VersionedTransaction) error {
+	for _, tx := range txs {
+		_, finalized, err := node.persistStore.ReadTransaction(tx.PayloadHash())
+		if err != nil {
+			return err
+		}
+		if len(finalized) > 0 {
+			continue
+		}
+		err = node.persistStore.CacheQueueTransaction(tx)
+		if err != nil {
+			return err
+		}
+	}
+	node.wakeCacheQueue()
+	return nil
+}
+
+// CacheStoreTransactions makes transaction payloads available to the snapshot
+// finalization that follows. It deliberately does not add them to the local
+// transaction queue or wake that queue, which avoids redundant proposals.
+func (node *Node) CacheStoreTransactions(peerId crypto.Hash, txs []*common.VersionedTransaction) error {
+	for _, tx := range txs {
+		old, _, err := node.persistStore.ReadTransaction(tx.PayloadHash())
+		if err != nil {
+			return err
+		}
+		if old != nil {
+			continue
+		}
+		if err := node.persistStore.CacheStoreTransaction(tx); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (node *Node) ReadAllNodesWithoutState() []crypto.Hash {

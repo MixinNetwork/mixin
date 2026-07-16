@@ -20,7 +20,7 @@ func TestCacheTransactionSizeErrors(t *testing.T) {
 			tx := common.NewTransactionV5(common.XINAssetId)
 			tx.Inputs = []*common.Input{{Genesis: []byte("limited cache")}}
 			tx.Extra = []byte{byte(target)}
-			err := store.CachePutTransaction(tx.AsVersioned())
+			err := store.CacheQueueTransaction(tx.AsVersioned())
 			require.ErrorIs(t, err, badger.ErrTxnTooBig)
 		})
 	}

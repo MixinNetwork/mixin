@@ -60,6 +60,7 @@ func TestProtocolPayloadValidationBranches(t *testing.T) {
 		{PeerMessageTypeSnapshotConfirm},
 		{PeerMessageTypeTransaction, 0},
 		{PeerMessageTypeTransactionBundle},
+		{PeerMessageTypeFinalizedTransactionBundle},
 		{PeerMessageTypeTransactionRequest},
 		{PeerMessageTypeBatchSnapshotCommitment},
 		malformedBatchCommitment,
@@ -124,6 +125,7 @@ func TestParseNetworkMessageNeverPanicsOnMalformedData(t *testing.T) {
 		PeerMessageTypeTransactionRequest,
 		PeerMessageTypeTransaction,
 		PeerMessageTypeTransactionBundle,
+		PeerMessageTypeFinalizedTransactionBundle,
 		PeerMessageTypeBatchSnapshotAnnouncement,
 		PeerMessageTypeBatchSnapshotCommitment,
 		PeerMessageTypeBatchTransactionChallenge,
@@ -154,7 +156,8 @@ func TestPeerRoutingAndSynchronizationBranches(t *testing.T) {
 	me := NewPeer(handle, crypto.Blake3Hash([]byte("routing self")), "127.0.0.1:0", true)
 	target := crypto.Blake3Hash([]byte("routing target"))
 
-	require.NoError(t, me.SendTransactionsMessage(target, nil))
+	require.NoError(t, me.SendTransactionsMessage(target, nil, false))
+	require.NoError(t, me.SendTransactionsMessage(target, nil, true))
 	require.Panics(t, func() {
 		me.ConnectRelayer(target, "127.0.0.1:79")
 	})

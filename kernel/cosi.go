@@ -238,7 +238,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 	}
 
 	for _, tx := range m.Transactions {
-		err := chain.node.CachePutTransaction(m.PeerId, tx)
+		err := chain.node.persistStore.CacheStoreTransaction(tx)
 		if err != nil {
 			return err
 		}
@@ -284,11 +284,11 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		return fmt.Errorf("peer node %s is removing or slashing", m.PeerId)
 	}
 
-	cn := chain.node.GetAcceptedOrPledgingNode(chain.ChainId)
+	cn := chain.node.getAcceptedOrPledgingNode(chain.ChainId, s.Timestamp)
 	if cn == nil {
 		return fmt.Errorf("chain node %s not found", chain.ChainId)
 	}
-	pn := chain.node.GetAcceptedOrPledgingNode(m.PeerId)
+	pn := chain.node.getAcceptedOrPledgingNode(m.PeerId, s.Timestamp)
 	if pn == nil {
 		return fmt.Errorf("peer node %s not found", m.PeerId)
 	}
@@ -341,7 +341,8 @@ func (chain *Chain) prepareAnnouncement(m *CosiAction) (bool, error) {
 		return false, nil
 	}
 	if s.Timestamp <= cache.Timestamp {
-		return false, chain.clearAndQueueSnapshotOrPanic(s)
+		chain.node.requeueTransactions(s.Transactions)
+		return false, nil
 	}
 
 	if len(cache.Snapshots) == 0 {
@@ -361,13 +362,15 @@ func (chain *Chain) prepareAnnouncement(m *CosiAction) (bool, error) {
 					m.PeerId, s.Hash, err)
 				return false, nil
 			}
-			return false, chain.clearAndQueueSnapshotOrPanic(s)
+			chain.node.requeueTransactions(s.Transactions)
+			return false, nil
 		}
 	} else if start, _ := cache.Gap(); s.Timestamp >= start+config.SnapshotRoundGap {
 		best := chain.determineBestRound(s.Timestamp)
 		if best == nil {
 			logger.Verbosef("cosiSendAnnouncement no best available\n")
-			return false, chain.clearAndQueueSnapshotOrPanic(s)
+			chain.node.requeueTransactions(s.Transactions)
+			return false, nil
 		}
 		if best.NodeId == final.NodeId {
 			panic("should never be here")
@@ -377,11 +380,11 @@ func (chain *Chain) prepareAnnouncement(m *CosiAction) (bool, error) {
 		if err != nil || nf == nil {
 			logger.Verbosef("cosiSendAnnouncement %s %v startNewRoundAndPersist %v %v\n",
 				m.PeerId, m.Snapshot, err, nf)
-			return false, chain.clearAndQueueSnapshotOrPanic(s)
+			chain.node.requeueTransactions(s.Transactions)
+			return false, nil
 		}
 		cache, final = nc, nf
-		chain.CosiAggregators = make(map[crypto.Hash]*CosiAggregator)
-		chain.CosiVerifiers = make(map[crypto.Hash]*CosiVerifier)
+		chain.resetCosiStateForNewRound(s.Transactions)
 	}
 	cache.Timestamp = s.Timestamp
 	if final.Number+1 != cache.Number {
@@ -391,10 +394,14 @@ func (chain *Chain) prepareAnnouncement(m *CosiAction) (bool, error) {
 	if len(cache.Snapshots) > 0 {
 		cft := cache.Snapshots[0].Timestamp
 		if s.Timestamp > cft+uint64(config.SnapshotRoundGap*4/5) {
-			return false, chain.clearAndQueueSnapshotOrPanic(s)
+			logger.Debugf("cosiSendAnnouncement defer %v after current round cutoff %d %d\n",
+				s.Transactions, s.Timestamp, cft)
+			chain.node.requeueTransactions(s.Transactions)
+			return false, nil
 		}
 		if s.Timestamp/OneDay != cft/OneDay {
-			return false, chain.clearAndQueueSnapshotOrPanic(s)
+			chain.node.requeueTransactions(s.Transactions)
+			return false, nil
 		}
 	}
 	s.RoundNumber = cache.Number
@@ -410,15 +417,25 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	}
 
 	s, cd := m.Snapshot, m.data
+	var duplicate bool
+	var retry []crypto.Hash
 	for _, txh := range s.Transactions {
 		ov := chain.CosiVerifiers[txh]
 		if ov != nil && s.RoundNumber > 0 && ov.Snapshot.RoundNumber == s.RoundNumber &&
 			s.Timestamp < ov.Snapshot.Timestamp+config.SnapshotRoundGap {
-			err := fmt.Errorf("a transaction %s only in one round %d of one chain %s",
-				txh, s.RoundNumber, chain.ChainId)
-			logger.Verbosef("cosiSendAnnouncement ERROR %s\n", err)
-			return nil
+			duplicate = true
+			continue
 		}
+		retry = append(retry, txh)
+	}
+	if duplicate {
+		// Transactions guarded by an existing verifier are already owned by
+		// that proposal. Retry only their unguarded batch companions; retrying
+		// every transaction here would create a hot duplicate-proposal loop.
+		chain.node.requeueTransactions(retry)
+		logger.Verbosef("cosiSendAnnouncement defer duplicate transactions in round %d of chain %s\n",
+			s.RoundNumber, chain.ChainId)
+		return nil
 	}
 	if len(cd.FoundTxs) != len(s.Transactions) {
 		return fmt.Errorf("missing transactions for announcement %d %d", len(cd.FoundTxs), len(s.Transactions))
@@ -503,6 +520,10 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	logger.Verbosef("cosiHandleCommitment %v\n", m)
 
 	ann := chain.CosiAggregators[m.SnapshotHash]
+	if ann == nil {
+		logger.Verbosef("cosiHandleCommitment %v EXPIRED\n", m)
+		return nil
+	}
 	s, cd := ann.Snapshot, m.data
 	if ann.Commitments[cd.PN.ConsensusIndex] != nil {
 		logger.Verbosef("cosiHandleCommitment %v REPEAT\n", m)
@@ -533,7 +554,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	response, err := v.nonce.Response(cosi, &priv, publics, m.SnapshotHash)
 	if err != nil { // TODO should slash the malicious node
 		logger.Printf("cosiHandleCommitment abandon %s after response failure: %v\n", s.Hash, err)
-		chain.abandonCosiSnapshot(s)
+		chain.retryCosiSnapshot(s)
 		return nil
 	}
 	ann.Responses[cd.CN.ConsensusIndex] = response
@@ -544,8 +565,14 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 		id := cn.IdForNetwork
 		txs := slices.Collect(maps.Values(cd.FoundTxs))
 		if ann.FullChallenges[id] {
-			err = chain.node.Peer.SendFullChallengeMessage(id, s, ann.Commitments[cd.CN.ConsensusIndex],
-				ann.Commitments[cn.ConsensusIndex], txs)
+			commitment := ann.Commitments[cd.CN.ConsensusIndex]
+			challenge := ann.Commitments[cn.ConsensusIndex]
+			if commitment == nil || challenge == nil {
+				logger.Printf("cosiHandleCommitment missing full challenge commitment %s %s %d %d\n",
+					s.Hash, id, cd.CN.ConsensusIndex, cn.ConsensusIndex)
+				continue
+			}
+			err = chain.node.Peer.SendFullChallengeMessage(id, s, commitment, challenge, txs)
 		} else if wantTxs, found := ann.WantTxs[id]; !found {
 			continue
 		} else {
@@ -735,13 +762,13 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	err = s.Signature.AggregateResponse(publics, agg.Responses, m.SnapshotHash, false)
 	if err != nil {
 		logger.Printf("cosiHandleResponse abandon %s after aggregate failure: %v\n", s.Hash, err)
-		chain.abandonCosiSnapshot(s)
+		chain.retryCosiSnapshot(s)
 		return nil
 	}
 	signers, finalized := chain.node.cacheVerifyCosi(m.SnapshotHash, s.Signature, cids, publics, base)
 	if !finalized {
 		logger.Verbosef("cosiHandleResponse %v AGGREGATE ERROR\n", m)
-		chain.abandonCosiSnapshot(s)
+		chain.retryCosiSnapshot(s)
 		return nil
 	}
 	logger.Verbosef("node.cacheVerifyCosi(%s, %s) FINAL\n", chain.node.Peer.Address, m.SnapshotHash)
@@ -759,15 +786,18 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		if s.RoundNumber < cache.Number {
 			logger.Verbosef("cosiHandleResponse %v EXPIRE %d %d\n",
 				m, s.RoundNumber, cache.Number)
+			chain.retryCosiSnapshot(s)
 			return nil
 		}
 		if !s.References.Equal(cache.References) {
 			logger.Verbosef("cosiHandleResponse %v REFERENCES %v %v\n",
 				m, s.References, cache.References)
+			chain.retryCosiSnapshot(s)
 			return nil
 		}
 		if err := cache.ValidateSnapshot(s); err != nil {
 			logger.Verbosef("cosiHandleResponse %v ValidateSnapshot %s\n", m, err)
+			chain.retryCosiSnapshot(s)
 			return nil
 		}
 
@@ -781,9 +811,9 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
 		if agg.Responses[cn.ConsensusIndex] == nil {
-			err := chain.node.SendTransactionsToPeer(id, s.Transactions)
+			err := chain.node.SendTransactionsToPeer(id, s.Transactions, true)
 			if err != nil {
-				logger.Verbosef("cosiHandleResponse SendTransactionsToPeer(%s, %s) ERROR %v\n",
+				logger.Verbosef("cosiHandleResponse SendFinalizedTransactionsToPeer(%s, %s) ERROR %v\n",
 					id, m.SnapshotHash, err)
 			}
 		}
@@ -808,6 +838,88 @@ func (chain *Chain) abandonCosiSnapshot(s *common.Snapshot) {
 		if chain.CosiVerifiers[tx] == verifier {
 			delete(chain.CosiVerifiers, tx)
 		}
+	}
+}
+
+// retryCosiSnapshot is for terminal failures of a locally aggregated proposal.
+// Removing the aggregator first prevents late commitments or responses from
+// reviving it, while CacheRequeueTransaction makes every still-unfinalized
+// transaction immediately eligible for another owner/proposal.
+func (chain *Chain) retryCosiSnapshot(s *common.Snapshot) {
+	chain.abandonCosiSnapshot(s)
+	chain.node.requeueTransactions(s.Transactions)
+}
+
+// resetCosiStateForNewRound retires old-round proposals that cannot complete
+// after a local round transition. Clearing the CoSi maps alone would lose their
+// transactions because those transactions have already been removed from the
+// cache queue, and the deleted aggregators could no longer expire and requeue
+// them.
+//
+// owned contains the transactions in the current snapshot that triggered the
+// transition. They are deliberately excluded from retry: after this method
+// returns, cosiSendAnnouncement installs a new-round aggregator that owns them.
+// Requeueing them here would leave the same transaction both in that active
+// aggregator and in the cache queue, allowing a redundant proposal. Any current
+// snapshot rejected before its aggregator is installed is requeued explicitly
+// by the caller; once installed, terminal-error and expiry paths requeue it.
+//
+// Transactions belonging only to discarded old-round aggregators are orphaned,
+// so this method deduplicates and requeues them before clearing all round-local
+// aggregator and verifier state.
+func (chain *Chain) resetCosiStateForNewRound(owned []crypto.Hash) {
+	keep := make(map[crypto.Hash]bool, len(owned))
+	for _, tx := range owned {
+		keep[tx] = true
+	}
+
+	seen := make(map[crypto.Hash]bool)
+	var retry []crypto.Hash
+	for _, agg := range chain.CosiAggregators {
+		for _, tx := range agg.Snapshot.Transactions {
+			if !keep[tx] && !seen[tx] {
+				seen[tx] = true
+				retry = append(retry, tx)
+			}
+		}
+	}
+	chain.CosiAggregators = make(map[crypto.Hash]*CosiAggregator)
+	chain.CosiVerifiers = make(map[crypto.Hash]*CosiVerifier)
+	chain.node.requeueTransactions(retry)
+}
+
+// expireCosiAggregators retries transactions from local snapshot proposals that
+// did not collect enough commitments or responses. It is called by
+// QueuePollSnapshots, which also processes all CoSi actions, so the aggregator
+// and verifier maps are inspected and modified by the same serialized loop.
+//
+// A self announcement gets its snapshot timestamp immediately before the
+// aggregator is created. SnapshotRoundGap is also the period during which a
+// verifier rejects another snapshot containing the same transaction, so
+// retrying before that gap expires would only cause the next proposal to be
+// rejected by peers.
+//
+// Completed aggregators remain in the map for the existing duplicate guards.
+// For an incomplete aggregator, abandonCosiSnapshot removes only the verifier
+// entries belonging to that proposal, and requeueTransactions skips already
+// finalized transactions before making the others eligible and waking the
+// cache queue.
+func (chain *Chain) expireCosiAggregators(now uint64) {
+	for _, agg := range chain.CosiAggregators {
+		s := agg.Snapshot
+		if now < s.Timestamp+config.SnapshotRoundGap {
+			continue
+		}
+		base := chain.node.ConsensusThreshold(s.Timestamp, false)
+		// Once the commitment threshold and every corresponding response have
+		// arrived, cosiHandleResponse owns finalization and this proposal must
+		// not be requeued by the timeout path.
+		if len(agg.Commitments) >= base && len(agg.Responses) == len(agg.Commitments) {
+			continue
+		}
+		logger.Debugf("expireCosiAggregators requeue %s after %d commitments and %d responses\n",
+			s.Hash, len(agg.Commitments), len(agg.Responses))
+		chain.retryCosiSnapshot(s)
 	}
 }
 

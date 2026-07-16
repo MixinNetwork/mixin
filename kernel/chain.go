@@ -318,6 +318,7 @@ func (chain *Chain) QueuePollSnapshots() {
 		}
 		logger.Debugf("QueuePollSnapshots cache pool end %s when final %d %d\n",
 			chain.ChainId, chain.FinalIndex, chain.FinalCount)
+		chain.expireCosiAggregators(clock.NowUnixNano())
 
 		if stale || final == 0 && cache == 0 {
 			time.Sleep(300 * time.Millisecond)
@@ -465,9 +466,13 @@ func (chain *Chain) AppendCosiAction(m *CosiAction) error {
 	}
 
 	err := chain.CachePool.Offer(m)
-	if err != nil {
-		logger.Verbosef("AppendCosiAction(%s) %v FULL\n", chain.ChainId, m)
+	if err == nil {
+		return nil
 	}
+	if m.Action == CosiActionSelfEmpty {
+		chain.node.requeueTransactions(m.Snapshot.Transactions)
+	}
+	logger.Verbosef("AppendCosiAction(%s) %v FULL\n", chain.ChainId, m)
 	return nil
 }
 

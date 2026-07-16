@@ -81,6 +81,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
 		"final":     finalGraph,
 		"topology":  node.TopologicalOrder(),
 		"sps":       node.SPS(),
+		"spt":       node.SPT(),
 		"tps":       node.TPS(),
 	}
 	caches, finals, state := node.QueueState()

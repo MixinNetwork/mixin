@@ -71,6 +71,7 @@ func TestMapAndMetricHelpers(t *testing.T) {
 		PeerMessageTypeTransaction,
 		PeerMessageTypePreCommitments,
 		PeerMessageTypeTransactionBundle,
+		PeerMessageTypeFinalizedTransactionBundle,
 		PeerMessageTypeBatchSnapshotAnnouncement,
 		PeerMessageTypeBatchSnapshotCommitment,
 		PeerMessageTypeBatchTransactionChallenge,
@@ -83,6 +84,7 @@ func TestMapAndMetricHelpers(t *testing.T) {
 	}
 	require.Equal(uint32(1), mp.PeerMessageTypePing)
 	require.Equal(uint32(1), mp.PeerMessageTypeTransactionBundle)
+	require.Equal(uint32(1), mp.PeerMessageTypeFinalizedTransactionBundle)
 	require.Equal(uint32(1), mp.PeerMessageTypeSnapshotAnnouncement)
 	require.Equal(uint32(1), mp.PeerMessageTypeSnapshotCommitment)
 	require.Equal(uint32(1), mp.PeerMessageTypeTransactionChallenge)
@@ -146,9 +148,16 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	require.Len(msg.Transactions, 1)
 	require.Equal(tx.PayloadHash(), msg.Transactions[0].PayloadHash())
 
-	msg, err = parseNetworkMessage(7, buildTransactionsMessage([]*common.VersionedTransaction{tx, fullVer}))
+	msg, err = parseNetworkMessage(7, buildTransactionsMessage([]*common.VersionedTransaction{tx, fullVer}, PeerMessageTypeTransactionBundle))
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeTransactionBundle, msg.Type)
+	require.Len(msg.Transactions, 2)
+	require.Equal(tx.PayloadHash(), msg.Transactions[0].PayloadHash())
+	require.Equal(fullVer.PayloadHash(), msg.Transactions[1].PayloadHash())
+
+	msg, err = parseNetworkMessage(7, buildTransactionsMessage([]*common.VersionedTransaction{tx, fullVer}, PeerMessageTypeFinalizedTransactionBundle))
+	require.Nil(err)
+	require.EqualValues(PeerMessageTypeFinalizedTransactionBundle, msg.Type)
 	require.Len(msg.Transactions, 2)
 	require.Equal(tx.PayloadHash(), msg.Transactions[0].PayloadHash())
 	require.Equal(fullVer.PayloadHash(), msg.Transactions[1].PayloadHash())
@@ -470,6 +479,13 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	require.Equal(tx.PayloadHash(), handle.cachedTx.PayloadHash())
 
 	err = me.handlePeerMessage(peerID, &PeerMessage{
+		Type:         PeerMessageTypeFinalizedTransactionBundle,
+		Transactions: []*common.VersionedTransaction{tx},
+	})
+	require.Nil(err)
+	require.Equal(tx.PayloadHash(), handle.storedTx.PayloadHash())
+
+	err = me.handlePeerMessage(peerID, &PeerMessage{
 		Type:         PeerMessageTypeSnapshotConfirm,
 		SnapshotHash: snap.PayloadHash(),
 	})
@@ -697,9 +713,13 @@ func TestSendMessageHelpers(t *testing.T) {
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeTransaction, (<-neighbor.highRing).data[0])
 
-	err = me.SendTransactionsMessage(target, []*common.VersionedTransaction{tx, fullVer})
+	err = me.SendTransactionsMessage(target, []*common.VersionedTransaction{tx, fullVer}, false)
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeTransactionBundle, (<-neighbor.highRing).data[0])
+
+	err = me.SendTransactionsMessage(target, []*common.VersionedTransaction{tx, fullVer}, true)
+	require.Nil(err)
+	require.EqualValues(PeerMessageTypeFinalizedTransactionBundle, (<-neighbor.highRing).data[0])
 
 	err = me.SendSnapshotFinalizationMessage(me.IdForNetwork, snapshot)
 	require.Nil(err)
@@ -843,7 +863,7 @@ func TestPeerLoopAndSyncHelpers(t *testing.T) {
 	}, peer5, 1)
 	require.ErrorContains(err, "EOF")
 	require.Equal(uint64(6), offset)
-	require.Equal(s2.Transactions, handle.requestedTxs)
+	require.Equal(s2.Transactions, handle.finalizedTxs)
 	require.EqualValues(PeerMessageTypeBatchSnapshotFinalization, (<-peer5.normalRing).data[0])
 
 	handle.sinceSnapshots = []*common.SnapshotWithTopologicalOrder{{
@@ -1077,7 +1097,9 @@ type p2pStubHandle struct {
 	updateErr        error
 	requestedTx      crypto.Hash
 	requestedTxs     []crypto.Hash
+	finalizedTxs     []crypto.Hash
 	cachedTx         *common.VersionedTransaction
+	storedTx         *common.VersionedTransaction
 	cacheErr         error
 	announcement     *common.Snapshot
 	wantTxs          []crypto.Hash
@@ -1171,10 +1193,14 @@ func (h *p2pStubHandle) SendTransactionToPeer(_ crypto.Hash, tx crypto.Hash) err
 	return nil
 }
 
-func (h *p2pStubHandle) SendTransactionsToPeer(_ crypto.Hash, txs []crypto.Hash) error {
+func (h *p2pStubHandle) SendTransactionsToPeer(_ crypto.Hash, txs []crypto.Hash, finalized bool) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.requestedTxs = append([]crypto.Hash(nil), txs...)
+	if finalized {
+		h.finalizedTxs = append([]crypto.Hash(nil), txs...)
+	} else {
+		h.requestedTxs = append([]crypto.Hash(nil), txs...)
+	}
 	return nil
 }
 
@@ -1184,8 +1210,13 @@ func (h *p2pStubHandle) requestedTransaction() crypto.Hash {
 	return h.requestedTx
 }
 
-func (h *p2pStubHandle) CachePutTransaction(_ crypto.Hash, ver *common.VersionedTransaction) error {
-	h.cachedTx = ver
+func (h *p2pStubHandle) CacheQueueTransactions(_ crypto.Hash, ver []*common.VersionedTransaction) error {
+	h.cachedTx = ver[0]
+	return h.cacheErr
+}
+
+func (h *p2pStubHandle) CacheStoreTransactions(_ crypto.Hash, ver []*common.VersionedTransaction) error {
+	h.storedTx = ver[0]
 	return h.cacheErr
 }
 

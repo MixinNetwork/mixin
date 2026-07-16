@@ -385,6 +385,8 @@ func testLogP2PMetrics(t *testing.T, phase string, nodes []*kernel.Node) {
 	t.Helper()
 	for _, node := range nodes {
 		t.Logf("P2P METRICS AFTER %s TEST FOR %s %v", phase, node.IdForNetwork, node.Peer.Metric())
+		t.Logf("KERNEL METRICS AFTER %s TEST FOR %s SPS:%f TPS:%f SPT:%f",
+			phase, node.IdForNetwork, node.SPS(), node.TPS(), node.SPT())
 	}
 }
 
@@ -597,9 +599,11 @@ func testSendDummyTransactionsWithRetry(t *testing.T, nodes []*Node, domain comm
 		if hash.HasValue() {
 			continue
 		}
-		t.Logf("DUMMY UTXO %s PENDING IN %s AT %s\n", inputs[i].Hash, nodes[i].Host, time.Now())
+		t.Logf("DUMMY UTXO %s:%d TRANSACTION %s PENDING IN %s AT %s\n",
+			inputs[i].Hash, inputs[i].Index, in.Hash, nodes[i].Host, time.Now())
 		if ver == nil {
-			t.Logf("DUMMY UTXO %s MISSING IN %s AT %s\n", inputs[i].Hash, nodes[i].Host, time.Now())
+			t.Logf("DUMMY UTXO %s:%d TRANSACTION %s MISSING IN %s AT %s\n",
+				inputs[i].Hash, inputs[i].Index, in.Hash, nodes[i].Host, time.Now())
 		}
 		missingIndexes = append(missingIndexes, i)
 		missingInputs = append(missingInputs, inputs[i])
@@ -847,11 +851,11 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 	for _, ver := range vers {
 		wg.Add(1)
 		go func(ver *common.VersionedTransaction) {
+			defer wg.Done()
 			node := nodes[int(time.Now().UnixNano())%len(nodes)].Host
 			id, err := testSendTransaction(node, hex.EncodeToString(ver.Marshal()))
 			require.Nil(err)
 			require.True(id.HasValue())
-			defer wg.Done()
 		}(ver)
 	}
 	wg.Wait()
