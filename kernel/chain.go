@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -497,6 +498,11 @@ func (node *Node) getOrCreateChain(id crypto.Hash) *Chain {
 	chain := node.getChain(id)
 	if chain != nil {
 		return chain
+	}
+	if id != node.IdForNetwork && !slices.ContainsFunc(node.allNodesSortedWithState, func(cn *CNode) bool {
+		return cn.IdForNetwork == id
+	}) { // TODO slash malicious node
+		return nil
 	}
 
 	node.chains.Lock()
