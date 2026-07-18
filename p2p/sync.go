@@ -156,7 +156,7 @@ func (me *Peer) getSyncPointOffset(p *Peer) (map[crypto.Hash]*SyncPoint, uint64)
 		select {
 		case g = <-p.syncRing:
 		default:
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(time.Second)
 			continue
 		}
 

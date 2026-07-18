@@ -391,6 +391,9 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		for i := range count {
 			var key crypto.Key
 			copy(key[:], data[67+32*i:])
+			if !key.CheckKey() { // TODO slash malicious node
+				return nil, fmt.Errorf("invalid commitment point")
+			}
 			msg.Commitments = append(msg.Commitments, &key)
 		}
 		msg.signature = &sig
@@ -447,6 +450,10 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		var sig crypto.Signature
 		copy(sig[:], data[1:65])
 		copy(msg.Commitment[:], data[65:])
+		if !msg.Commitment.CheckKey() { // TODO slash malicious node
+			return nil, fmt.Errorf("invalid commitment point")
+		}
+
 		snap, err := common.UnmarshalVersionedSnapshot(data[97:])
 		if err != nil {
 			return nil, err
@@ -464,6 +471,10 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		copy(sig[:], data[1:65])
 		copy(msg.SnapshotHash[:], data[65:])
 		copy(msg.Commitment[:], data[97:])
+		if !msg.Commitment.CheckKey() { // TODO slash malicious node
+			return nil, fmt.Errorf("invalid commitment point")
+		}
+
 		if data[129] == 1 {
 			msg.WantTxs = []crypto.Hash{}
 		}
@@ -477,6 +488,10 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		copy(sig[:], data[1:65])
 		copy(msg.SnapshotHash[:], data[65:])
 		copy(msg.Commitment[:], data[97:])
+		if !msg.Commitment.CheckKey() { // TODO slash malicious node
+			return nil, fmt.Errorf("invalid commitment point")
+		}
+
 		msg.signature = &sig
 		msg.unsigned = data[65:]
 		if txs := data[129:]; len(txs) > 0 {
@@ -515,8 +530,16 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		msg.Snapshot.Signature = nil
 
 		copy(msg.Commitment[:], data[offset:offset+32])
+		if !msg.Commitment.CheckKey() { // TODO slash malicious node
+			return nil, fmt.Errorf("invalid commitment point")
+		}
+
 		offset = offset + 32
 		copy(msg.Challenge[:], data[offset:offset+32])
+		if !msg.Challenge.CheckKey() { // TODO slash malicious node
+			return nil, fmt.Errorf("invalid challenge point")
+		}
+
 		offset = offset + 32
 		size = int(binary.BigEndian.Uint32(data[offset : offset+4]))
 		offset = offset + 4
@@ -553,8 +576,16 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		msg.Snapshot.Signature = nil
 
 		copy(msg.Commitment[:], data[offset:offset+32])
+		if !msg.Commitment.CheckKey() { // TODO slash malicious node
+			return nil, fmt.Errorf("invalid commitment point")
+		}
+
 		offset = offset + 32
 		copy(msg.Challenge[:], data[offset:offset+32])
+		if !msg.Challenge.CheckKey() { // TODO slash malicious node
+			return nil, fmt.Errorf("invalid challenge point")
+		}
+
 		offset = offset + 32
 		txs, err := parseTransactionsPayload(data[offset:])
 		if err != nil {

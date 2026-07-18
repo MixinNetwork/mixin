@@ -360,7 +360,8 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 		timestamp = timestamp - uint64(time.Minute)
 	}
 	if timestamp < chain.node.Epoch {
-		panic(timestamp)
+		// TODO slash the malicious node
+		return nil, false
 	}
 
 	cids, publics := chain.ConsensusKeys(s.RoundNumber, timestamp)
