@@ -1189,6 +1189,10 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 		return nil
 	}
 	chain := node.getOrCreateChain(s.NodeId)
+	if chain == nil {
+		logger.Verbosef("CosiQueueExternalAnnouncement(%s, %v) from malicious node\n", peerId, s)
+		return nil
+	}
 
 	s.Hash = s.PayloadHash()
 	m := &CosiAction{
@@ -1342,6 +1346,9 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 	}
 
 	chain := node.getOrCreateChain(s.NodeId)
+	if chain == nil {
+		return nil
+	}
 	if cs := chain.State; cs != nil && cs.CacheRound.index.Check(s.Hash) {
 		return nil
 	}

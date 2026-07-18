@@ -116,6 +116,64 @@ func TestProtocolPayloadValidationBranches(t *testing.T) {
 	}
 }
 
+func TestParseNetworkMessageRejectsInvalidCosiPoints(t *testing.T) {
+	handle := newP2PStubHandle(t)
+	snapshot := p2pTestSnapshot(true)
+	transaction := p2pTestTransaction()
+	commitment := p2pTestPrivateKey(211).Public()
+	challenge := p2pTestPrivateKey(212).Public()
+	spend := p2pTestPrivateKey(213)
+
+	legacyCommitment := buildBatchSnapshotCommitmentMessage(handle, snapshot.PayloadHash(), commitment, nil)
+	legacyCommitment[0] = PeerMessageTypeSnapshotCommitment
+	legacyCommitment = append(legacyCommitment, 0)
+
+	legacyFullChallenge := []byte{PeerMessageTypeFullChallenge}
+	snapshotPayload := snapshot.VersionedMarshal()
+	legacyFullChallenge = binary.BigEndian.AppendUint32(legacyFullChallenge, uint32(len(snapshotPayload)))
+	legacyFullChallenge = append(legacyFullChallenge, snapshotPayload...)
+	legacyFullChallenge = append(legacyFullChallenge, commitment[:]...)
+	legacyFullChallenge = append(legacyFullChallenge, challenge[:]...)
+	transactionPayload := transaction.Marshal()
+	legacyFullChallenge = binary.BigEndian.AppendUint32(legacyFullChallenge, uint32(len(transactionPayload)))
+	legacyFullChallenge = append(legacyFullChallenge, transactionPayload...)
+
+	preCommitments := buildCommitmentsMessage(handle, []*crypto.Key{&commitment})
+	announcement := buildBatchSnapshotAnnouncementMessage(snapshot, commitment, spend)
+	batchCommitment := buildBatchSnapshotCommitmentMessage(handle, snapshot.PayloadHash(), commitment, nil)
+	batchFullChallenge := buildBatchFullChallengeMessage(snapshot, &commitment, &challenge, []*common.VersionedTransaction{transaction})
+	fullChallengePointOffset := 1 + 4 + len(snapshotPayload)
+
+	tests := []struct {
+		name   string
+		valid  []byte
+		offset int
+		want   string
+	}{
+		{name: "pre-commitment", valid: preCommitments, offset: 67, want: "invalid commitment point"},
+		{name: "announcement commitment", valid: announcement, offset: 65, want: "invalid commitment point"},
+		{name: "legacy commitment", valid: legacyCommitment, offset: 97, want: "invalid commitment point"},
+		{name: "batch commitment", valid: batchCommitment, offset: 97, want: "invalid commitment point"},
+		{name: "legacy full challenge commitment", valid: legacyFullChallenge, offset: fullChallengePointOffset, want: "invalid commitment point"},
+		{name: "legacy full challenge challenge", valid: legacyFullChallenge, offset: fullChallengePointOffset + 32, want: "invalid challenge point"},
+		{name: "batch full challenge commitment", valid: batchFullChallenge, offset: fullChallengePointOffset, want: "invalid commitment point"},
+		{name: "batch full challenge challenge", valid: batchFullChallenge, offset: fullChallengePointOffset + 32, want: "invalid challenge point"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require := require.New(t)
+			_, err := parseNetworkMessage(TransportMessageVersion, test.valid)
+			require.NoError(err)
+
+			malformed := append([]byte(nil), test.valid...)
+			copy(malformed[test.offset:test.offset+len(crypto.Key{})], make([]byte, len(crypto.Key{})))
+			_, err = parseNetworkMessage(TransportMessageVersion, malformed)
+			require.ErrorContains(err, test.want)
+		})
+	}
+}
+
 func TestParseNetworkMessageNeverPanicsOnMalformedData(t *testing.T) {
 	types := []byte{
 		PeerMessageTypePing,

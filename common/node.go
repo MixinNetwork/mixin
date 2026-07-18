@@ -63,6 +63,9 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 
 	var signerSpend crypto.Key
 	copy(signerSpend[:], tx.Extra)
+	if !signerSpend.CheckKey() {
+		return fmt.Errorf("invalid public key %x for pledge transaction", tx.Extra)
+	}
 	nodes := store.ReadAllNodes(snapTime, false)
 	for _, n := range nodes {
 		if n.State != NodeStateAccepted && n.State != NodeStateCancelled && n.State != NodeStateRemoved {

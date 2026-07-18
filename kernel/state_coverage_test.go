@@ -409,6 +409,15 @@ func TestGraphHistoryAndReferenceInvariants(t *testing.T) {
 		signers, finalized = chain.verifyFinalization(&common.Snapshot{Version: common.SnapshotVersionCommonEncoding})
 		require.Nil(t, signers)
 		require.False(t, finalized)
+
+		chain.node = &Node{Epoch: 100}
+		signers, finalized = chain.verifyFinalization(&common.Snapshot{
+			Version:   common.SnapshotVersionCommonEncoding,
+			Timestamp: 99,
+			Signature: &crypto.CosiSignature{Mask: 1},
+		})
+		require.Nil(t, signers)
+		require.False(t, finalized)
 	})
 }
 
@@ -422,6 +431,8 @@ func TestElectionTransitionGuards(t *testing.T) {
 		ConsensusInfo: info,
 		State:         &ChainState{CacheRound: &CacheRound{Number: 4}},
 	}
+	require.ErrorContains(t, chain.checkNodeAcceptPossibility(clock.NowUnixNano()+uint64(2*time.Minute), false), "invalid accept timestamp")
+	require.ErrorContains(t, chain.checkNodeAcceptPossibility(clock.NowUnixNano()+uint64(30*time.Second), false), "invalid graph round")
 	require.ErrorContains(t, chain.checkNodeAcceptPossibility(50, false), "invalid graph round")
 
 	chain.State = nil
@@ -691,6 +702,46 @@ func TestCosiActionSanityGuards(t *testing.T) {
 			regular.PayloadHash():  regular,
 		})
 	})
+}
+
+func TestUnknownSnapshotNodeDoesNotCreateCosiChain(t *testing.T) {
+	require := require.New(t)
+	node := setupTestNode(require, t.TempDir())
+	defer func() {
+		node.cacheStore.Clear()
+		require.NoError(node.persistStore.Close())
+	}()
+	node.Peer = p2p.NewPeer(node, node.IdForNetwork, "test", false)
+
+	unknown := crypto.Blake3Hash([]byte("unknown cosi snapshot node"))
+	transaction := crypto.Blake3Hash([]byte("unknown cosi snapshot transaction"))
+	newSnapshot := func() *common.Snapshot {
+		return &common.Snapshot{
+			Version:      common.SnapshotVersionCommonEncoding,
+			NodeId:       unknown,
+			Transactions: []crypto.Hash{transaction},
+			Timestamp:    clock.NowUnixNano(),
+		}
+	}
+
+	announcement := newSnapshot()
+	commitment := node.Signer.PublicViewKey
+	data := append(append([]byte(nil), commitment[:]...), announcement.VersionedMarshal()...)
+	signature := node.Signer.PrivateSpendKey.Sign(crypto.Blake3Hash(data))
+	require.NoError(node.CosiQueueExternalAnnouncement(
+		node.IdForNetwork,
+		announcement,
+		&commitment,
+		&signature,
+	))
+	require.Nil(node.getChain(unknown))
+
+	var err error
+	require.NotPanics(func() {
+		err = node.VerifyAndQueueAppendSnapshotFinalization(node.IdForNetwork, newSnapshot())
+	})
+	require.NoError(err)
+	require.Nil(node.getChain(unknown))
 }
 
 func TestCosiAggregatorExpiryRequeuesTransactions(t *testing.T) {
