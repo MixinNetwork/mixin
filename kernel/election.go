@@ -222,6 +222,10 @@ func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.Vers
 }
 
 func (chain *Chain) checkNodeAcceptPossibility(timestamp uint64, finalized bool) error {
+	now := clock.NowUnixNano()
+	if timestamp+config.SnapshotRoundGap > now {
+		return fmt.Errorf("invalid accept timestamp %s %d %d", chain.ChainId, timestamp, now)
+	}
 	ci, epoch := chain.ConsensusInfo, chain.node.Epoch
 	if chain.State != nil {
 		return fmt.Errorf("invalid graph round %s %d", chain.ChainId, chain.State.CacheRound.Number)
