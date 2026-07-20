@@ -659,14 +659,16 @@ func (chain *Chain) checkAnnouncementOrChallenge(m *CosiAction) (bool, error) {
 				m.PeerId, m.Snapshot, err)
 			return false, nil
 		}
-		return false, chain.AppendCosiAction(m)
+		chain.requeueCosiAction(m)
+		return false, nil
 	}
 	if s.RoundNumber == cache.Number+1 {
 		nc, nf, _, err := chain.startNewRoundAndPersist(cache, s.References, s.Timestamp, false)
 		if err != nil {
 			logger.Verbosef("checkAnnouncementOrChallenge %s %v startNewRoundAndPersist %s\n",
 				m.PeerId, m.Snapshot, err)
-			return false, chain.AppendCosiAction(m)
+			chain.requeueCosiAction(m)
+			return false, nil
 		} else if nf == nil {
 			logger.Verbosef("checkAnnouncementOrChallenge %s %v startNewRoundAndPersist failed\n",
 				m.PeerId, m.Snapshot)

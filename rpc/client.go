@@ -44,8 +44,8 @@ func CallMixinRPC(node, method string, params []any) ([]byte, error) {
 	}
 
 	var result struct {
-		Data  any `json:"data"`
-		Error any `json:"error"`
+		Data  json.RawMessage `json:"data"`
+		Error any             `json:"error"`
 	}
 	dec := json.NewDecoder(resp.Body)
 	dec.UseNumber()
@@ -56,9 +56,9 @@ func CallMixinRPC(node, method string, params []any) ([]byte, error) {
 	if result.Error != nil {
 		return nil, fmt.Errorf("CallMixinRPC(%s, %s, %s) => %v", node, method, params, result.Error)
 	}
-	if result.Data == nil {
+	if len(result.Data) == 0 || string(result.Data) == "null" {
 		return nil, nil
 	}
 
-	return json.Marshal(result.Data)
+	return result.Data, nil
 }

@@ -49,11 +49,11 @@ type Node struct {
 	cacheStore      *ristretto.Cache[[]byte, any]
 	custom          *config.Custom
 
-	done chan struct{}
-	elc  chan struct{}
-	mlc  chan struct{}
-	cqc  chan struct{}
-	cqw  chan struct{}
+	done      chan struct{}
+	elc       chan struct{}
+	mlc       chan struct{}
+	cqc       chan struct{}
+	queueWake chan struct{}
 }
 
 type NodeStateSequence struct {
@@ -84,7 +84,7 @@ func SetupNode(custom *config.Custom, store storage.Store, cache *ristretto.Cach
 		elc:             make(chan struct{}),
 		mlc:             make(chan struct{}),
 		cqc:             make(chan struct{}),
-		cqw:             make(chan struct{}, 16),
+		queueWake:       make(chan struct{}, 1),
 	}
 
 	node.loadNodeConfig()
@@ -512,6 +512,7 @@ func (node *Node) CacheQueueTransactions(peerId crypto.Hash, txs []*common.Versi
 		}
 	}
 	node.wakeCacheQueue()
+	node.wakeAllChains()
 	return nil
 }
 
@@ -531,7 +532,20 @@ func (node *Node) CacheStoreTransactions(peerId crypto.Hash, txs []*common.Versi
 			return err
 		}
 	}
+	node.wakeAllChains()
 	return nil
+}
+
+// wakeAllChains nudges every chain's CoSi loop so that finalizations waiting
+// on newly arrived transaction bodies are retried immediately instead of at
+// the next poll tick. Signals coalesce per chain, so bursts cost at most one
+// extra drain iteration per chain.
+func (node *Node) wakeAllChains() {
+	node.chains.RLock()
+	defer node.chains.RUnlock()
+	for _, chain := range node.chains.m {
+		chain.wakeCosiLoop()
+	}
 }
 
 func (node *Node) ReadAllNodesWithoutState() []crypto.Hash {

@@ -167,6 +167,9 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 	chain.StepForward()
 	rounds = append(rounds, final.Copy())
 	chain.State.RoundHistory = reduceHistory(rounds)
+	// A new round on this chain can unblock announcements and challenges on
+	// other chains that were waiting to reference it.
+	chain.node.wakeAllChains()
 }
 
 func reduceHistory(rounds []*FinalRound) []*FinalRound {

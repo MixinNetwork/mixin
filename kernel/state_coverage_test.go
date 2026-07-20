@@ -159,6 +159,7 @@ func TestChainQueueBoundaries(t *testing.T) {
 			ChainId:          localID,
 			CachePool:        make(ActionBuffer, 1),
 			finalActionsRing: make(ActionBuffer, 1),
+			cosiWake:         make(chan struct{}, 1),
 		}
 	}
 
@@ -170,6 +171,13 @@ func TestChainQueueBoundaries(t *testing.T) {
 		require.Error(t, buffer.Offer(&CosiAction{}))
 		require.Same(t, message, buffer.Poll())
 		require.Nil(t, buffer.Poll())
+
+		chain := newChain()
+		existing := &CosiAction{Action: CosiActionExternalAnnouncement}
+		require.NoError(t, chain.CachePool.Offer(existing))
+		chain.requeueCosiAction(&CosiAction{Action: CosiActionExternalChallenge})
+		require.Same(t, existing, chain.CachePool.Poll())
+		require.Nil(t, chain.CachePool.Poll())
 	})
 
 	t.Run("state helpers", func(t *testing.T) {
@@ -212,6 +220,18 @@ func TestChainQueueBoundaries(t *testing.T) {
 		round := chain.FinalPool[0]
 		require.Equal(t, 1, round.Size)
 		require.Len(t, round.Snapshots[0].peers, 3)
+		require.True(t, chain.finalPoolDirty.Load())
+		require.Len(t, chain.cosiWake, 1)
+		chain.finalPoolDirty.Store(false)
+		<-chain.cosiWake
+
+		for _, id := range []crypto.Hash{peer("one"), peer("four")} {
+			retry, err := chain.appendFinalSnapshot(id, s)
+			require.False(t, retry)
+			require.NoError(t, err)
+		}
+		require.False(t, chain.finalPoolDirty.Load())
+		require.Empty(t, chain.cosiWake)
 
 		chain.FinalPool[1] = &ChainRound{Number: 99, Size: 3, index: map[crypto.Hash]int{}}
 		retry, err := chain.appendFinalSnapshot(peer("reset"), snapshot("reset", 1))

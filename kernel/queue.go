@@ -60,7 +60,7 @@ func (node *Node) loopCacheQueue() {
 
 func (node *Node) wakeCacheQueue() {
 	select {
-	case node.cqw <- struct{}{}:
+	case node.queueWake <- struct{}{}:
 	default:
 	}
 }
@@ -72,7 +72,7 @@ func (node *Node) waitCacheQueue(wait time.Duration) bool {
 	select {
 	case <-node.done:
 		return true
-	case <-node.cqw:
+	case <-node.queueWake:
 		return false
 	case <-timer.C:
 		return false
