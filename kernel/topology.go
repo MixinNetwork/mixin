@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -103,10 +104,10 @@ func (topo *TopologicalSequence) TopoStats(node *Node) {
 			topo.Lock()
 			snapshots := topo.seq - topo.point
 			transactions := topo.count - topo.check
-			topo.sps = float64(snapshots) / float64(durationSeconds)
+			topo.sps = math.Round(float64(snapshots)/float64(durationSeconds)*100) / 100
 			topo.point = topo.seq
 
-			topo.tps = float64(transactions) / float64(durationSeconds)
+			topo.tps = math.Round(float64(transactions)/float64(durationSeconds)*100) / 100
 			topo.check = topo.count
 
 			var snapshotCount uint64
@@ -115,7 +116,7 @@ func (topo *TopologicalSequence) TopoStats(node *Node) {
 			}
 			topo.spt = 0
 			if len(topo.snapshotCounts) > 0 {
-				topo.spt = float64(snapshotCount) / float64(len(topo.snapshotCounts))
+				topo.spt = math.Round(float64(snapshotCount)/float64(len(topo.snapshotCounts))*100) / 100
 			}
 			topo.snapshotCounts = make(map[crypto.Hash]uint64)
 			topo.Unlock()
