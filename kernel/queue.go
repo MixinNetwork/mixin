@@ -38,6 +38,7 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 	if err != nil {
 		return "", err
 	}
+	node.wakeCacheQueue()
 	return tx.PayloadHash().String(), nil
 }
 
@@ -58,6 +59,9 @@ func (node *Node) loopCacheQueue() {
 	}
 }
 
+// wakeCacheQueue signals loopCacheQueue that new transaction is available.
+// The channel has capacity one, so repeated signals coalesce into a single
+// immediate iteration instead of queueing up.
 func (node *Node) wakeCacheQueue() {
 	select {
 	case node.queueWake <- struct{}{}:
