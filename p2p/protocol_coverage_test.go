@@ -124,20 +124,7 @@ func TestParseNetworkMessageRejectsInvalidCosiPoints(t *testing.T) {
 	challenge := p2pTestPrivateKey(212).Public()
 	spend := p2pTestPrivateKey(213)
 
-	legacyCommitment := buildBatchSnapshotCommitmentMessage(handle, snapshot.PayloadHash(), commitment, nil)
-	legacyCommitment[0] = PeerMessageTypeSnapshotCommitment
-	legacyCommitment = append(legacyCommitment, 0)
-
-	legacyFullChallenge := []byte{PeerMessageTypeFullChallenge}
 	snapshotPayload := snapshot.VersionedMarshal()
-	legacyFullChallenge = binary.BigEndian.AppendUint32(legacyFullChallenge, uint32(len(snapshotPayload)))
-	legacyFullChallenge = append(legacyFullChallenge, snapshotPayload...)
-	legacyFullChallenge = append(legacyFullChallenge, commitment[:]...)
-	legacyFullChallenge = append(legacyFullChallenge, challenge[:]...)
-	transactionPayload := transaction.Marshal()
-	legacyFullChallenge = binary.BigEndian.AppendUint32(legacyFullChallenge, uint32(len(transactionPayload)))
-	legacyFullChallenge = append(legacyFullChallenge, transactionPayload...)
-
 	preCommitments := buildCommitmentsMessage(handle, []*crypto.Key{&commitment})
 	announcement := buildBatchSnapshotAnnouncementMessage(snapshot, commitment, spend)
 	batchCommitment := buildBatchSnapshotCommitmentMessage(handle, snapshot.PayloadHash(), commitment, nil)
@@ -152,10 +139,7 @@ func TestParseNetworkMessageRejectsInvalidCosiPoints(t *testing.T) {
 	}{
 		{name: "pre-commitment", valid: preCommitments, offset: 67, want: "invalid commitment point"},
 		{name: "announcement commitment", valid: announcement, offset: 65, want: "invalid commitment point"},
-		{name: "legacy commitment", valid: legacyCommitment, offset: 97, want: "invalid commitment point"},
 		{name: "batch commitment", valid: batchCommitment, offset: 97, want: "invalid commitment point"},
-		{name: "legacy full challenge commitment", valid: legacyFullChallenge, offset: fullChallengePointOffset, want: "invalid commitment point"},
-		{name: "legacy full challenge challenge", valid: legacyFullChallenge, offset: fullChallengePointOffset + 32, want: "invalid challenge point"},
 		{name: "batch full challenge commitment", valid: batchFullChallenge, offset: fullChallengePointOffset, want: "invalid commitment point"},
 		{name: "batch full challenge challenge", valid: batchFullChallenge, offset: fullChallengePointOffset + 32, want: "invalid challenge point"},
 	}

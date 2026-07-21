@@ -51,7 +51,7 @@ func (node *Node) loopCacheQueue() {
 		}
 		// A short debounce preserves batching while avoiding the old multi-second
 		// delay for an otherwise idle queue.
-		if node.waitOrDone(50 * time.Millisecond) {
+		if node.waitOrDone(300 * time.Millisecond) {
 			return
 		}
 		for node.popAndProcessCacheQueue() == common.SnapshotTransactionsMaximum {
