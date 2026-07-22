@@ -278,8 +278,15 @@ func (node *Node) ConsensusReady(cn *CNode, timestamp uint64) bool {
 
 func (node *Node) ConsensusThreshold(timestamp uint64, final bool) int {
 	consensusBase := 0
+	var removing *CNode
+	if node.usePredictiveNodeRemovalSignerSet(timestamp) {
+		removing = node.removingOrSlashingNodeAt(timestamp)
+	}
 	nodes := node.NodesListWithoutState(timestamp, false)
 	for _, cn := range nodes {
+		if removing != nil && cn.IdForNetwork == removing.IdForNetwork {
+			continue
+		}
 		threshold := config.SnapshotReferenceThreshold * config.SnapshotRoundGap
 		if threshold > uint64(3*time.Minute) {
 			panic("should never be here")

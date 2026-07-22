@@ -265,19 +265,17 @@ func historySinceRound(history []*FinalRound, link uint64) []*FinalRound {
 	return nil
 }
 
-// Nodes list change problem:
-// 1. Node A gets snapshot S signed by enough nodes, including B, at time 10, and finalized but not broadcasted to others yet.
-// Then node B is removed at time 9. Now A broadcasts S, and others will not be able to finalize S.
-// Solution: Because A has the ACK of node B, then A should include B when challenge all others, then others will record the
-// ACK timestamp of node B is time 10. So that if B has a conflict removal time of 9, then won't get ACKed at all.
-// What if A doesn't include B in the challenge, then A may be found evial and slashed.
-// Proof: With the solution, it's impossible to have B removed at 9, and S get finalized get 10. Because 2f+1 nodes know B ACK S
-// at 10, then they won't accept removal of B at 9.
-// 2. Node A initial accept snapshot I signed by enough nodes, at time 9, and finalized but not broadcasted to others yet.
-// Then snapshot S is finalized at time 10. Now A broadcasts I, and others will not be able to finalize S.
-// Solution: Now node A is evil and will be slashed.
-// 3. Node A pledge snapshot finalized but not broadcasted on time.
-// Solution: Evil and slash.
+// CoSi masks contain positions in the consensus key vector rather than node
+// identifiers. A removal learned concurrently with another finalization must
+// therefore not change that vector underneath the in-flight certificate.
+// consensusNodes handles the transition by excluding the predictable removal
+// candidate before the removal finalizes; the ledger state excludes the same
+// node afterward. Both sides consequently use the same keys and positions.
+//
+// Two other late-broadcast cases are handled through slashing: a finalized
+// initial node-accept snapshot withheld until a later snapshot has finalized,
+// and a finalized node-pledge snapshot not broadcast on time. In either case,
+// the node withholding the snapshot is considered malicious.
 
 func (node *Node) cacheVerifyCosi(snap crypto.Hash, sig *crypto.CosiSignature, cids []crypto.Hash, publics []*crypto.Key, threshold int) ([]crypto.Hash, bool) {
 	key := sig.Signature[:]
@@ -330,19 +328,39 @@ func convertSignersToBytes(signers []crypto.Hash) []byte {
 	return b
 }
 
-func (chain *Chain) ConsensusKeys(round, timestamp uint64) ([]crypto.Hash, []*crypto.Key) {
-	var signers []crypto.Hash
-	var publics []*crypto.Key
+func (chain *Chain) consensusNodes(round, timestamp uint64) []*CNode {
+	var participants []*CNode
+	var removing *CNode
+	if chain.node.usePredictiveNodeRemovalSignerSet(timestamp) {
+		removing = chain.node.removingOrSlashingNodeAt(timestamp)
+	}
 	nodes := chain.node.NodesListWithoutState(timestamp, false)
 	for _, cn := range nodes {
-		if chain.node.ConsensusReady(cn, timestamp) {
-			signers = append(signers, cn.IdForNetwork)
-			publics = append(publics, &cn.Signer.PublicSpendKey)
+		if removing != nil && cn.IdForNetwork == removing.IdForNetwork {
+			continue
 		}
+		if !chain.node.ConsensusReady(cn, timestamp) {
+			continue
+		}
+		participant := *cn
+		participant.ConsensusIndex = len(participants)
+		participants = append(participants, &participant)
 	}
 	if chain.IsPledging() && round == 0 {
-		signers = append(signers, chain.ChainId)
-		publics = append(publics, &chain.ConsensusInfo.Signer.PublicSpendKey)
+		participant := *chain.ConsensusInfo
+		participant.ConsensusIndex = len(participants)
+		participants = append(participants, &participant)
+	}
+	return participants
+}
+
+func (chain *Chain) ConsensusKeys(round, timestamp uint64) ([]crypto.Hash, []*crypto.Key) {
+	nodes := chain.consensusNodes(round, timestamp)
+	signers := make([]crypto.Hash, len(nodes))
+	publics := make([]*crypto.Key, len(nodes))
+	for i, cn := range nodes {
+		signers[i] = cn.IdForNetwork
+		publics[i] = &cn.Signer.PublicSpendKey
 	}
 	return signers, publics
 }
@@ -370,26 +388,26 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 	cids, publics := chain.ConsensusKeys(s.RoundNumber, timestamp)
 	base := chain.node.ConsensusThreshold(timestamp, true)
 	signers, finalized := chain.node.cacheVerifyCosi(s.Hash, s.Signature, cids, publics, base)
-	if finalized {
-		// FIXME we have an issue in determining the removing node
-		//if finalized || chain.node.networkId.String() != config.KernelNetworkId ||
-		//timestamp > mainnetConsensusNodeRemovalTimeForkAt {
+	if finalized || chain.node.usePredictiveNodeRemovalSignerSet(timestamp) {
 		return signers, finalized
 	}
 
-	logger.Printf("verifyFinalization(%v) node removal time fork check", s)
+	// Before the signer-set fork, a snapshot created before a concurrent
+	// removal could be verified after the removal was already visible. Retry
+	// with the node state from before the operation window, matching the legacy
+	// rule used to create historical mainnet certificates.
 	hour := (timestamp - chain.node.Epoch) / uint64(time.Hour) % 24
 	if hour < config.KernelNodeAcceptTimeBegin || hour > config.KernelNodeAcceptTimeEnd {
 		return signers, finalized
 	}
 	elapsed := hour + 1 - config.KernelNodeAcceptTimeBegin
-	timestamp = timestamp - elapsed*uint64(time.Hour)
-	acids, apublics := chain.ConsensusKeys(s.RoundNumber, timestamp)
-	if len(apublics) <= len(publics) {
+	legacyTimestamp := timestamp - elapsed*uint64(time.Hour)
+	legacyIDs, legacyPublics := chain.ConsensusKeys(s.RoundNumber, legacyTimestamp)
+	if len(legacyPublics) <= len(publics) {
 		return signers, finalized
 	}
-	abase := chain.node.ConsensusThreshold(timestamp, true)
-	return chain.node.cacheVerifyCosi(s.Hash, s.Signature, acids, apublics, abase)
+	legacyThreshold := chain.node.ConsensusThreshold(legacyTimestamp, true)
+	return chain.node.cacheVerifyCosi(s.Hash, s.Signature, legacyIDs, legacyPublics, legacyThreshold)
 }
 
 func (node *Node) ReadLastConsensusSnapshotWithHack() (*common.Snapshot, bool) {

@@ -28,7 +28,7 @@ func TestNodeRemovalTime(t *testing.T) {
 
 	now, ready = prepareNodeRemovalTime(1706274368204746053, node.Epoch)
 	require.True(ready)
-	require.Equal(uint64(1706274060000000000), now)
+	require.Equal(uint64(1706274000000000000), now)
 	require.True(node.checkConsensusAcceptHour(now))
 
 	for d := 0; d <= 3; d++ {
@@ -37,7 +37,7 @@ func TestNodeRemovalTime(t *testing.T) {
 			now := node.Epoch + uint64(time.Hour)*i + day
 			now, ready = prepareNodeRemovalTime(now, node.Epoch)
 			require.True(ready)
-			hours := uint64(config.KernelNodeAcceptTimeBegin*time.Hour + time.Minute)
+			hours := uint64(config.KernelNodeAcceptTimeBegin * time.Hour)
 			require.Equal(node.Epoch+day+hours, now)
 			require.True(node.checkConsensusAcceptHour(now))
 		}

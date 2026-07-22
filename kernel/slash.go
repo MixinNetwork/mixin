@@ -60,8 +60,8 @@ func (node *Node) GetRemovingOrSlashingNode(id crypto.Hash) *CNode {
 	if !ready {
 		return nil
 	}
-	rn, err := node.checkRemovePossibility(crypto.Hash{}, now, nil)
-	if err != nil || rn == nil {
+	rn := node.removingOrSlashingNodeAt(now)
+	if rn == nil {
 		return nil
 	}
 	if rn.IdForNetwork == id {
@@ -71,6 +71,9 @@ func (node *Node) GetRemovingOrSlashingNode(id crypto.Hash) *CNode {
 }
 
 func prepareNodeRemovalTime(now, epoch uint64) (uint64, bool) {
+	if now < epoch {
+		return 0, false
+	}
 	since := now - epoch
 	h := int(since / uint64(time.Hour) % 24)
 	b, e := config.KernelNodeAcceptTimeBegin, config.KernelNodeAcceptTimeEnd
@@ -80,7 +83,42 @@ func prepareNodeRemovalTime(now, epoch uint64) (uint64, bool) {
 	if h > e && h < b+12 {
 		return 0, false
 	}
+	// Keep this at the exact window boundary. Adding an offset can make an
+	// early removal visible here and incorrectly advance the prediction to the
+	// next accepted node while certificates for the first removal are in flight.
 	since = since/OneDay*OneDay + uint64(b)*uint64(time.Hour)
-	now = epoch + since + uint64(time.Minute)
+	now = epoch + since
 	return now, true
+}
+
+func (node *Node) usePredictiveNodeRemovalSignerSet(timestamp uint64) bool {
+	return node.networkId.String() != config.KernelNetworkId ||
+		timestamp >= mainnetConsensusNodeRemovalSignerSetForkAt
+}
+
+// removingOrSlashingNodeAt returns the node whose removal is already
+// predictable at the beginning of the node-operation window containing
+// timestamp. Using the window boundary, rather than the current graph head,
+// keeps the result stable after the removal snapshot is finalized.
+//
+// FIXME: The prediction stops when the node-operation window closes. If a
+// removal finalizes near that boundary but has not propagated to every node,
+// snapshots timestamped after the window can again derive different signer
+// vectors. A future consensus change should keep the signer set fixed across
+// a deterministic epoch, for example until the next operation window.
+// If node A is elected to do the removal, and it finalized the node removal
+// snapshot, then the node goes offline and the snapshot never broadcasted
+// and when the node A back online?
+func (node *Node) removingOrSlashingNodeAt(timestamp uint64) *CNode {
+	if timestamp < node.Epoch || !node.checkConsensusAcceptHour(timestamp) {
+		return nil
+	}
+	since := timestamp - node.Epoch
+	start := node.Epoch + since/OneDay*OneDay +
+		uint64(config.KernelNodeAcceptTimeBegin)*uint64(time.Hour)
+	rn, err := node.checkRemovePossibility(crypto.Hash{}, start, nil)
+	if err != nil {
+		return nil
+	}
+	return rn
 }
