@@ -66,15 +66,9 @@ type CosiVerifier struct {
 	nonce        *crypto.CosiNonce
 }
 
-func (chain *Chain) cosiAcceptedNodesListShuffle(round, ts uint64) []*CNode {
-	participants := chain.consensusNodes(round, ts)
-	nodes := make([]*CNode, 0, len(participants))
-	for _, cn := range participants {
-		if chain.IsPledging() && round == 0 && cn.IdForNetwork == chain.ChainId {
-			continue
-		}
-		nodes = append(nodes, cn)
-	}
+func (node *Node) cosiAcceptedNodesListShuffle(ts uint64) []*CNode {
+	var nodes []*CNode // copy the nodes list to avoid conflicts
+	nodes = append(nodes, node.NodesListWithoutState(ts, true)...)
 	for i := len(nodes) - 1; i > 0; i-- {
 		j := int(ts % uint64(i+1))
 		nodes[i], nodes[j] = nodes[j], nodes[i]
@@ -298,23 +292,12 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 	if pn == nil {
 		return fmt.Errorf("peer node %s not found", m.PeerId)
 	}
-	participants := chain.consensusNodes(s.RoundNumber, s.Timestamp)
-	var consensusChain, consensusPeer *CNode
-	for _, participant := range participants {
-		if participant.IdForNetwork == chain.ChainId {
-			consensusChain = participant
-		}
-		if participant.IdForNetwork == m.PeerId {
-			consensusPeer = participant
-		}
-	}
-	if consensusChain == nil {
+	if s.RoundNumber != 0 && !chain.node.ConsensusReady(cn, s.Timestamp) {
 		return fmt.Errorf("chain node %s not accepted", cn.IdForNetwork)
 	}
-	if consensusPeer == nil {
+	if s.RoundNumber != 0 && !chain.node.ConsensusReady(pn, s.Timestamp) {
 		return fmt.Errorf("peer node %s not accepted", pn.IdForNetwork)
 	}
-	cn, pn = consensusChain, consensusPeer
 
 	found, missing, err := chain.node.validateSnapshotTransaction(s, false)
 	if err != nil {
@@ -476,7 +459,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	}
 	agg.Commitments[cd.CN.ConsensusIndex] = &R
 	chain.CosiAggregators[s.Hash] = agg
-	nodes := chain.cosiAcceptedNodesListShuffle(s.RoundNumber, s.Timestamp)
+	nodes := chain.node.cosiAcceptedNodesListShuffle(s.Timestamp)
 	for _, cn := range nodes {
 		peerId := cn.IdForNetwork
 		if peerId == chain.ChainId {
@@ -577,7 +560,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	ann.Responses[cd.CN.ConsensusIndex] = response
 	copy(cosi.Signature[32:], response[:])
 
-	nodes := chain.cosiAcceptedNodesListShuffle(s.RoundNumber, s.Timestamp)
+	nodes := chain.node.cosiAcceptedNodesListShuffle(s.Timestamp)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
 		txs := slices.Collect(maps.Values(cd.FoundTxs))
@@ -826,7 +809,7 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 		}
 	}
 
-	nodes := chain.cosiAcceptedNodesListShuffle(s.RoundNumber, s.Timestamp)
+	nodes := chain.node.cosiAcceptedNodesListShuffle(s.Timestamp)
 	for _, cn := range nodes {
 		id := cn.IdForNetwork
 		if agg.Responses[cn.ConsensusIndex] == nil {
