@@ -11,8 +11,8 @@ github.com/cpuguy83/go-md2man/v2/md2man
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/dgraph-io/badger/v4 v4.9.4 => github.com/MixinNetwork/badger/v4 v4.9.4-F1
-## explicit; go 1.26.4
+# github.com/dgraph-io/badger/v4 v4.9.5 => github.com/MixinNetwork/badger/v4 v4.9.5-F1
+## explicit; go 1.26.5
 github.com/dgraph-io/badger/v4
 github.com/dgraph-io/badger/v4/fb
 github.com/dgraph-io/badger/v4/options
@@ -32,7 +32,7 @@ github.com/dustin/go-humanize
 # github.com/google/flatbuffers v25.12.19+incompatible
 ## explicit
 github.com/google/flatbuffers/go
-# github.com/klauspost/compress v1.19.0
+# github.com/klauspost/compress v1.19.1
 ## explicit; go 1.24
 github.com/klauspost/compress
 github.com/klauspost/compress/fse
@@ -54,12 +54,11 @@ github.com/pelletier/go-toml
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
-# github.com/quic-go/quic-go v0.60.0
+# github.com/quic-go/quic-go v0.61.0
 ## explicit; go 1.25.0
 github.com/quic-go/quic-go
 github.com/quic-go/quic-go/internal/ackhandler
 github.com/quic-go/quic-go/internal/congestion
-github.com/quic-go/quic-go/internal/flowcontrol
 github.com/quic-go/quic-go/internal/handshake
 github.com/quic-go/quic-go/internal/monotime
 github.com/quic-go/quic-go/internal/protocol
@@ -152,4 +151,4 @@ google.golang.org/protobuf/runtime/protoimpl
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# github.com/dgraph-io/badger/v4 => github.com/MixinNetwork/badger/v4 v4.9.4-F1
+# github.com/dgraph-io/badger/v4 => github.com/MixinNetwork/badger/v4 v4.9.5-F1
