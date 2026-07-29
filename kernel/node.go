@@ -54,6 +54,8 @@ type Node struct {
 	mlc       chan struct{}
 	cqc       chan struct{}
 	queueWake chan struct{}
+
+	txLatency *txLatencyTracker
 }
 
 type NodeStateSequence struct {
@@ -83,8 +85,9 @@ func SetupNode(custom *config.Custom, store storage.Store, cache *ristretto.Cach
 		done:            make(chan struct{}),
 		elc:             make(chan struct{}),
 		mlc:             make(chan struct{}),
-		cqc:             make(chan struct{}),
-		queueWake:       make(chan struct{}, 1),
+		cqc:           make(chan struct{}),
+		queueWake:     make(chan struct{}, 1),
+		txLatency:     newTxLatencyTracker(),
 	}
 
 	node.loadNodeConfig()
@@ -510,6 +513,7 @@ func (node *Node) CacheQueueTransactions(peerId crypto.Hash, txs []*common.Versi
 		if err != nil {
 			return err
 		}
+		node.txLatency.mark(tx.PayloadHash())
 	}
 	node.wakeCacheQueue()
 	node.wakeAllChains()
@@ -531,6 +535,7 @@ func (node *Node) CacheStoreTransactions(peerId crypto.Hash, txs []*common.Versi
 		if err := node.persistStore.CacheStoreTransaction(tx); err != nil {
 			return err
 		}
+		node.txLatency.mark(tx.PayloadHash())
 	}
 	node.wakeAllChains()
 	return nil

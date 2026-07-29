@@ -31,6 +31,12 @@ var (
 	INPUTS = 100
 )
 
+// tx -> snapshot client-observed latency measurement
+var (
+	txSendTimes       sync.Map // crypto.Hash -> time.Time of the first send attempt
+	txSnapshotLatency sync.Map // crypto.Hash -> time.Duration from send to first snapshot observation
+)
+
 const testStateSyncTimeout = time.Minute
 
 func TestConsensus(t *testing.T) {
@@ -41,6 +47,8 @@ func TestConsensus(t *testing.T) {
 func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require := require.New(t)
 	kernel.TestMockReset()
+	txSendTimes = sync.Map{}
+	txSnapshotLatency = sync.Map{}
 	startAt := time.Now()
 
 	level, _ := strconv.ParseInt(os.Getenv("LOG"), 10, 64)
@@ -127,14 +135,17 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 		deposits = append(deposits, &common.VersionedTransaction{SignedTransaction: *tx})
 	}
 
+	kernel.ResetTxSnapshotLatency()
 	testSendTransactionsToNodesWithRetry(t, nodes, deposits[:INPUTS/2])
 	testSendTransactionsToNodesWithRetry(t, nodes, deposits[INPUTS/2:])
+	testLogTxToSnapshotLatency(t, "DEPOSIT", deposits)
 	transactionsCount = transactionsCount + INPUTS
 	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
 	testVerifyDeposits(require, nodes, deposits)
 
-	gt2 := testVerifyInfoAfter(require, nodes, gt1.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
+	gt2, drivers := testVerifyInfoAfterWithTraffic(t, require, nodes, accounts[0], gt1.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
+	transactionsCount = transactionsCount + drivers
 	gts = gt1.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt2.Timestamp.After(gts), "%s should after %s", gt2.Timestamp, gts)
 	hr := testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
@@ -158,13 +169,16 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	}
 	require.Equal(INPUTS, len(utxos))
 
+	kernel.ResetTxSnapshotLatency()
 	testSendTransactionsToNodesWithRetry(t, nodes, utxos[:INPUTS/2])
 	testSendTransactionsToNodesWithRetry(t, nodes, utxos[INPUTS/2:])
+	testLogTxToSnapshotLatency(t, "INPUT", utxos)
 	transactionsCount = transactionsCount + INPUTS
 	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
 
-	gt3 := testVerifyInfoAfter(require, nodes, gt2.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
+	gt3, drivers := testVerifyInfoAfterWithTraffic(t, require, nodes, accounts[0], gt2.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
+	transactionsCount = transactionsCount + drivers
 	gts = gt2.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt3.Timestamp.After(gts), "%s should after %s", gt3.Timestamp, gts)
 	hr = testDumpGraphHead(nodes[0].Host, instances[0].IdForNetwork)
@@ -192,7 +206,8 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	transactionsCount = transactionsCount + pledgeTransactions
 	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
-	gt4 := testVerifyInfoAfter(require, nodes, gt3.Timestamp.Add(time.Second))
+	gt4, drivers := testVerifyInfoAfterWithTraffic(t, require, nodes, accounts[0], gt3.Timestamp.Add(time.Second))
+	transactionsCount = transactionsCount + drivers
 	gts = gt3.Timestamp.Add(time.Second)
 	require.Truef(gt4.Timestamp.After(gts), "%s should after %s", gt4.Timestamp, gts)
 	t.Logf("PLEDGE INPUT READY %s\n", input)
@@ -221,7 +236,8 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	kernel.TestMockDiff(time.Hour * (24 + config.KernelMintTimeBegin))
 	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
-	gt5 := testVerifyInfoAfter(require, nodes, gt4.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
+	gt5, drivers := testVerifyInfoAfterWithTraffic(t, require, nodes, accounts[0], gt4.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
+	transactionsCount = transactionsCount + drivers
 	gts = gt4.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt5.Timestamp.After(gts), "%s should after %s", gt5.Timestamp, gts)
 
@@ -246,7 +262,8 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
-	gt6 := testVerifyInfoAfter(require, nodes, gt5.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
+	gt6, drivers := testVerifyInfoAfterWithTraffic(t, require, nodes, accounts[0], gt5.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
+	transactionsCount = transactionsCount + drivers
 	gts = gt5.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt6.Timestamp.After(gts), "%s should after %s", gt6.Timestamp, gts)
 	require.Equal("305850.45205696", gt6.PoolSize.String())
@@ -305,7 +322,8 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
-	gt7 := testVerifyInfoAfter(require, nodes, gt6.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
+	gt7, drivers := testVerifyInfoAfterWithTraffic(t, require, nodes, accounts[0], gt6.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
+	transactionsCount = transactionsCount + drivers
 	gts = gt6.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt7.Timestamp.After(gts), "%s should after %s", gt7.Timestamp, gts)
 	require.Equal("305850.45205696", gt7.PoolSize.String())
@@ -849,6 +867,7 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 
 	var wg sync.WaitGroup
 	for _, ver := range vers {
+		txSendTimes.LoadOrStore(ver.PayloadHash(), time.Now())
 		wg.Add(1)
 		go func(ver *common.VersionedTransaction) {
 			defer wg.Done()
@@ -859,6 +878,9 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 		}(ver)
 	}
 	wg.Wait()
+	// Observe snapshot inclusion in the background without changing the
+	// original pacing of the test.
+	go testObserveSnapshotLatency(nodes, vers)
 	time.Sleep(3 * time.Second)
 
 	var missingTxs []*common.VersionedTransaction
@@ -877,6 +899,72 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 	}
 	t.Logf("TX PENDING %d AT %s\n", len(missingTxs), time.Now())
 	testSendTransactionsToNodesWithRetry(t, nodes, missingTxs)
+}
+
+// testObserveSnapshotLatency polls each transaction on a fixed node and
+// records the first moment it appears in a snapshot. It runs in the
+// background and must stay lightweight to not perturb consensus timing.
+func testObserveSnapshotLatency(nodes []*Node, vers []*common.VersionedTransaction) {
+	seen := make(map[crypto.Hash]bool)
+	pending := make([]crypto.Hash, 0, len(vers))
+	for _, ver := range vers {
+		h := ver.PayloadHash()
+		if seen[h] {
+			continue
+		}
+		seen[h] = true
+		if _, ok := txSnapshotLatency.Load(h); !ok {
+			pending = append(pending, h)
+		}
+	}
+	deadline := time.Now().Add(30 * time.Second)
+	for len(pending) > 0 && time.Now().Before(deadline) {
+		next := pending[:0]
+		for _, h := range pending {
+			node := nodes[int(h[0])%len(nodes)].Host
+			_, snap, err := GetTransaction("http://"+node, h.String())
+			if err == nil {
+				if sh, _ := crypto.HashFromString(snap); sh.HasValue() {
+					if at, ok := txSendTimes.Load(h); ok {
+						txSnapshotLatency.LoadOrStore(h, time.Since(at.(time.Time)))
+					}
+					continue
+				}
+			}
+			next = append(next, h)
+		}
+		pending = next
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func testLogTxToSnapshotLatency(t *testing.T, label string, vers []*common.VersionedTransaction) {
+	t.Helper()
+	ds := make([]time.Duration, 0, len(vers))
+	for _, ver := range vers {
+		if d, ok := txSnapshotLatency.Load(ver.PayloadHash()); ok {
+			ds = append(ds, d.(time.Duration))
+		}
+	}
+	if len(ds) == 0 {
+		t.Logf("TX TO SNAPSHOT LATENCY %s no samples yet", label)
+		return
+	}
+	sort.Slice(ds, func(i, j int) bool { return ds[i] < ds[j] })
+	var sum time.Duration
+	for _, d := range ds {
+		sum += d
+	}
+	pct := func(p int) time.Duration {
+		idx := (len(ds)*p + 99) / 100
+		if idx < 1 {
+			idx = 1
+		}
+		return ds[idx-1]
+	}
+	t.Logf("TX TO SNAPSHOT LATENCY %s samples=%d/%d min=%s p50=%s p90=%s p99=%s max=%s avg=%s",
+		label, len(ds), len(vers), ds[0], pct(50), pct(90), pct(99), ds[len(ds)-1], sum/time.Duration(len(ds)))
+	t.Logf("KERNEL SIDE %s %s", label, kernel.TxSnapshotLatencySummary())
 }
 
 func testVersionedTransactionHashes(vers []*common.VersionedTransaction) []crypto.Hash {
@@ -1108,23 +1196,55 @@ func testSignTransaction(node string, account common.Address, rawStr string) (*c
 }
 
 func testVerifyInfoAfter(require *require.Assertions, nodes []*Node, after time.Time) Info {
+	info, _ := testVerifyInfoAfterWithTraffic(nil, require, nodes, common.Address{}, after)
+	return info
+}
+
+// testVerifyInfoAfterWithTraffic waits for the graph timestamp to pass after,
+// and returns the number of driver transactions sent while waiting. The graph
+// only advances when there are transactions to snapshot, exactly like a real
+// deployment that always has traffic: whenever the graph looks stalled, a
+// small unique deposit is submitted to keep rounds advancing.
+func testVerifyInfoAfterWithTraffic(t *testing.T, require *require.Assertions, nodes []*Node, domain common.Address, after time.Time) (Info, int) {
+	drivers := 0
 	deadline := time.Now().Add(testStateSyncTimeout)
 	var info Info
 	var consistent bool
+	var last time.Time
+	stalled := 0
 	for {
 		info, consistent = testCollectConsistentInfo(nodes)
 		if consistent && info.Timestamp.After(after) {
-			return info
+			return info, drivers
 		}
 		if time.Now().After(deadline) {
 			break
+		}
+		if consistent && !info.Timestamp.After(last) {
+			stalled++
+		} else {
+			stalled = 0
+		}
+		last = info.Timestamp
+		if t != nil && stalled >= 2 && domain.PrivateSpendKey.HasValue() {
+			raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset_key":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xd7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"0.0001"}}],"outputs":[{"type":0,"amount":"0.0001","script":"fffe01","accounts":["%s"]}]}`, testDriverTransactionSeq, domain.String())
+			testDriverTransactionSeq++
+			tx, err := testSignTransaction(nodes[int(time.Now().UnixNano())%len(nodes)].Host, domain, raw)
+			require.Nil(err)
+			ver := &common.VersionedTransaction{SignedTransaction: *tx}
+			t.Logf("GRAPH DRIVER SEND %s AT %s AFTER %s\n", ver.PayloadHash(), time.Now(), after)
+			testSendTransactionsToNodesWithRetry(t, nodes, []*common.VersionedTransaction{ver})
+			drivers++
+			stalled = 0
 		}
 		time.Sleep(time.Second)
 	}
 	require.Truef(consistent, "graph info should converge within %s", testStateSyncTimeout)
 	require.Truef(info.Timestamp.After(after), "%s should after %s", info.Timestamp, after)
-	return info
+	return info, drivers
 }
+
+var testDriverTransactionSeq = 1000000
 
 func testCollectConsistentInfo(nodes []*Node) (Info, bool) {
 	info := testGetGraphInfo(nodes[0].Host)

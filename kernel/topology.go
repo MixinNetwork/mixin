@@ -87,6 +87,9 @@ func (node *Node) TopoWrite(s *common.Snapshot, signers []crypto.Hash) *common.S
 	if err != nil {
 		panic(err)
 	}
+	for _, tx := range s.Transactions {
+		node.txLatency.observe(tx)
+	}
 	return topo
 }
 

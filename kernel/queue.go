@@ -26,7 +26,11 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 		return "", err
 	}
 	if old != nil {
-		return old.PayloadHash().String(), node.persistStore.CacheQueueTransaction(tx)
+		err := node.persistStore.CacheQueueTransaction(tx)
+		if err == nil {
+			node.txLatency.mark(hash)
+		}
+		return old.PayloadHash().String(), err
 	}
 
 	err = tx.Validate(node.persistStore, clock.NowUnixNano(), false)
@@ -37,6 +41,7 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 	if err != nil {
 		return "", err
 	}
+	node.txLatency.mark(hash)
 	node.wakeCacheQueue()
 	return tx.PayloadHash().String(), nil
 }
@@ -50,7 +55,7 @@ func (node *Node) loopCacheQueue() {
 		}
 		// A short debounce preserves batching while avoiding the old multi-second
 		// delay for an otherwise idle queue.
-		if node.waitOrDone(300 * time.Millisecond) {
+		if node.waitOrDone(200 * time.Millisecond) {
 			return
 		}
 		for node.popAndProcessCacheQueue() == common.SnapshotTransactionsMaximum {

@@ -456,6 +456,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 	chain.CosiVerifiers[s.Hash] = v
 	for _, txh := range s.Transactions {
 		chain.CosiVerifiers[txh] = v
+		chain.node.txLatency.markAnnounced(txh)
 	}
 	agg.Commitments[cd.CN.ConsensusIndex] = &R
 	chain.CosiAggregators[s.Hash] = agg

@@ -32,6 +32,7 @@ type Peer struct {
 	closing         atomic.Bool
 	ops             chan struct{}
 	stn             chan struct{}
+	sendWake        chan struct{}
 
 	relayer        atomic.Pointer[QuicRelayer]
 	consumerAuth   *AuthToken
@@ -147,6 +148,7 @@ func NewPeer(handle SyncHandle, idForNetwork crypto.Hash, addr string, isRelayer
 		receivedMetric: &MetricPool{},
 		ops:            make(chan struct{}),
 		stn:            make(chan struct{}),
+		sendWake:       make(chan struct{}, 1),
 		isRelayer:      isRelayer,
 	}
 	peer.ctx = context.Background() // FIXME use real context
@@ -249,7 +251,15 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 		msgs := append(hm, nm...)
 
 		if len(msgs) == 0 {
-			time.Sleep(300 * time.Millisecond)
+			// Wait for new messages instead of polling on a fixed cadence,
+			// so every message hop avoids the average half-cadence delay.
+			// The timer is only a fallback to re-check the closing flags.
+			timer := time.NewTimer(300 * time.Millisecond)
+			select {
+			case <-p.sendWake:
+			case <-timer.C:
+			}
+			timer.Stop()
 			continue
 		}
 
@@ -385,23 +395,37 @@ func (p *Peer) offer(priority int, msg *ChanMsg) bool {
 	if p.closing.Load() {
 		return false
 	}
+	var ok bool
 	switch priority {
 	case MsgPriorityNormal:
 		select {
 		case p.normalRing <- msg:
-			return true
+			ok = true
 		default:
-			return false
 		}
 	case MsgPriorityHigh:
 		select {
 		case p.highRing <- msg:
-			return true
+			ok = true
 		default:
-			return false
 		}
+	default:
+		panic(priority)
 	}
-	panic(priority)
+	if ok {
+		p.wakeSendingStream()
+	}
+	return ok
+}
+
+// wakeSendingStream signals loopSendingStream that a new message is
+// available. The channel has capacity one, so repeated signals coalesce
+// into a single immediate iteration instead of queueing up.
+func (p *Peer) wakeSendingStream() {
+	select {
+	case p.sendWake <- struct{}{}:
+	default:
+	}
 }
 
 func (me *Peer) sendToPeer(to crypto.Hash, typ byte, key, data []byte, priority int) error {
