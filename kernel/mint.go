@@ -163,6 +163,7 @@ func (node *Node) tryToMintUniversal(custodianRequest *common.CustodianUpdateReq
 	if err != nil {
 		return err
 	}
+	node.txLatency.mark(signed.PayloadHash())
 	s := &common.Snapshot{
 		Version: common.SnapshotVersionCommonEncoding,
 		NodeId:  node.IdForNetwork,

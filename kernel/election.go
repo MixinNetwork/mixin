@@ -179,6 +179,7 @@ func (node *Node) tryToSendRemoveTransaction() error {
 	if err != nil {
 		return err
 	}
+	node.txLatency.mark(tx.PayloadHash())
 	chain := node.getOrCreateChain(node.IdForNetwork)
 	s := &common.Snapshot{
 		Version: common.SnapshotVersionCommonEncoding,
@@ -323,6 +324,7 @@ func (chain *Chain) tryToSendAcceptTransaction() error {
 	if err != nil {
 		return err
 	}
+	chain.node.txLatency.mark(ver.PayloadHash())
 	s := &common.Snapshot{
 		Version: common.SnapshotVersionCommonEncoding,
 		NodeId:  chain.ChainId,

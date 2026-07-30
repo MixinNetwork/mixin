@@ -242,6 +242,7 @@ func (chain *Chain) checkActionSanity(m *CosiAction) error {
 		if err != nil {
 			return err
 		}
+		chain.node.txLatency.mark(tx.PayloadHash())
 	}
 
 	if chain.IsPledging() && s.RoundNumber == 0 {
