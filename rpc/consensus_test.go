@@ -32,11 +32,32 @@ var (
 	INPUTS = 100
 )
 
-// tx -> snapshot client-observed latency measurement
-var (
-	txSendTimes       sync.Map // crypto.Hash -> time.Time of the first send attempt
-	txSnapshotLatency sync.Map // crypto.Hash -> time.Duration from send to first snapshot observation
-)
+// txLatencyObserver tracks client-observed transaction-to-snapshot latency
+// for a single testConsensus run. Background observer goroutines capture
+// this struct by pointer and are stopped and joined before the run ends,
+// so they never touch the next run's state.
+type txLatencyObserver struct {
+	sendTimes  sync.Map // crypto.Hash -> time.Time of the first send attempt
+	latencies  sync.Map // crypto.Hash -> time.Duration from send to first snapshot observation
+	sweep      atomic.Int64
+	stop       chan struct{}
+	wg         sync.WaitGroup
+}
+
+// txObserver is assigned once per testConsensus run by the main test
+// goroutine before any transaction is sent, and the previous run's
+// observers are always joined before the next run starts, so reads and
+// writes of this variable never race.
+var txObserver *txLatencyObserver
+
+func newTxLatencyObserver() *txLatencyObserver {
+	return &txLatencyObserver{stop: make(chan struct{})}
+}
+
+func (o *txLatencyObserver) close() {
+	close(o.stop)
+	o.wg.Wait()
+}
 
 const testStateSyncTimeout = time.Minute
 
@@ -48,8 +69,8 @@ func TestConsensus(t *testing.T) {
 func testConsensus(t *testing.T, extrenalRelayers bool) {
 	require := require.New(t)
 	kernel.TestMockReset()
-	txSendTimes = sync.Map{}
-	txSnapshotLatency = sync.Map{}
+	txObserver = newTxLatencyObserver()
+	defer txObserver.close()
 	startAt := time.Now()
 
 	level, _ := strconv.ParseInt(os.Getenv("LOG"), 10, 64)
@@ -866,9 +887,12 @@ func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, ut
 func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*common.VersionedTransaction) {
 	require := require.New(t)
 
+	obs := txObserver
 	var wg sync.WaitGroup
 	for _, ver := range vers {
-		txSendTimes.LoadOrStore(ver.PayloadHash(), time.Now())
+		if obs != nil {
+			obs.sendTimes.LoadOrStore(ver.PayloadHash(), time.Now())
+		}
 		wg.Add(1)
 		go func(ver *common.VersionedTransaction) {
 			defer wg.Done()
@@ -881,7 +905,9 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 	wg.Wait()
 	// Observe snapshot inclusion in the background without changing the
 	// original pacing of the test.
-	go testObserveSnapshotLatency(nodes, vers)
+	if obs != nil {
+		obs.observe(nodes, vers)
+	}
 	time.Sleep(3 * time.Second)
 
 	var missingTxs []*common.VersionedTransaction
@@ -902,13 +928,14 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 	testSendTransactionsToNodesWithRetry(t, nodes, missingTxs)
 }
 
-// testObserveSnapshotLatency polls each transaction on a fixed node and
-// records the first moment it appears in a snapshot. It runs in the
-// background and must stay lightweight to not perturb consensus timing.
-// Polling uses bounded parallelism so a single sweep stays fast even for
-// large batches; the per-transaction polling granularity is reported with
-// the latency summary as sweep duration.
-func testObserveSnapshotLatency(nodes []*Node, vers []*common.VersionedTransaction) {
+// observe polls each transaction on a fixed node and records the first
+// moment it appears in a snapshot. It runs in the background and must stay
+// lightweight to not perturb consensus timing. Polling uses bounded
+// parallelism so a single sweep stays fast even for large batches; the
+// per-transaction polling granularity is reported with the latency summary
+// as sweep duration. The goroutine is tracked by the observer's WaitGroup
+// and exits when the observer is closed.
+func (o *txLatencyObserver) observe(nodes []*Node, vers []*common.VersionedTransaction) {
 	seen := make(map[crypto.Hash]bool)
 	pending := make([]crypto.Hash, 0, len(vers))
 	for _, ver := range vers {
@@ -917,56 +944,74 @@ func testObserveSnapshotLatency(nodes []*Node, vers []*common.VersionedTransacti
 			continue
 		}
 		seen[h] = true
-		if _, ok := txSnapshotLatency.Load(h); !ok {
+		if _, ok := o.latencies.Load(h); !ok {
 			pending = append(pending, h)
 		}
 	}
-	const workers = 16
-	deadline := time.Now().Add(15 * time.Minute)
-	for len(pending) > 0 && time.Now().Before(deadline) {
-		sweepStart := time.Now()
-		missing := make([][]crypto.Hash, workers)
-		var wg sync.WaitGroup
-		for w := 0; w < workers; w++ {
-			from := w * len(pending) / workers
-			to := (w + 1) * len(pending) / workers
-			wg.Add(1)
-			go func(w int, chunk []crypto.Hash) {
-				defer wg.Done()
-				for _, h := range chunk {
-					node := nodes[int(h[0])%len(nodes)].Host
-					_, snap, err := GetTransaction("http://"+node, h.String())
-					if err == nil {
-						if sh, _ := crypto.HashFromString(snap); sh.HasValue() {
-							if at, ok := txSendTimes.Load(h); ok {
-								txSnapshotLatency.LoadOrStore(h, time.Since(at.(time.Time)))
-							}
-							continue
-						}
-					}
-					missing[w] = append(missing[w], h)
-				}
-			}(w, pending[from:to])
-		}
-		wg.Wait()
-		txObserverSweep.Store(time.Since(sweepStart).Nanoseconds())
-		pending = pending[:0]
-		for _, m := range missing {
-			pending = append(pending, m...)
-		}
-		if len(pending) > 0 {
-			time.Sleep(200 * time.Millisecond)
-		}
+	if len(pending) == 0 {
+		return
 	}
+	o.wg.Add(1)
+	go func() {
+		defer o.wg.Done()
+		const workers = 16
+		deadline := time.Now().Add(15 * time.Minute)
+		for len(pending) > 0 && time.Now().Before(deadline) {
+			select {
+			case <-o.stop:
+				return
+			default:
+			}
+			sweepStart := time.Now()
+			missing := make([][]crypto.Hash, workers)
+			var wg sync.WaitGroup
+			for w := 0; w < workers; w++ {
+				from := w * len(pending) / workers
+				to := (w + 1) * len(pending) / workers
+				wg.Add(1)
+				go func(w int, chunk []crypto.Hash) {
+					defer wg.Done()
+					for _, h := range chunk {
+						node := nodes[int(h[0])%len(nodes)].Host
+						_, snap, err := GetTransaction("http://"+node, h.String())
+						if err == nil {
+							if sh, _ := crypto.HashFromString(snap); sh.HasValue() {
+								if at, ok := o.sendTimes.Load(h); ok {
+									o.latencies.LoadOrStore(h, time.Since(at.(time.Time)))
+								}
+								continue
+							}
+						}
+						missing[w] = append(missing[w], h)
+					}
+				}(w, pending[from:to])
+			}
+			wg.Wait()
+			o.sweep.Store(time.Since(sweepStart).Nanoseconds())
+			pending = pending[:0]
+			for _, m := range missing {
+				pending = append(pending, m...)
+			}
+			if len(pending) > 0 {
+				select {
+				case <-o.stop:
+					return
+				case <-time.After(200 * time.Millisecond):
+				}
+			}
+		}
+	}()
 }
-
-var txObserverSweep atomic.Int64
 
 func testLogTxToSnapshotLatency(t *testing.T, label string, vers []*common.VersionedTransaction) {
 	t.Helper()
+	obs := txObserver
+	if obs == nil {
+		return
+	}
 	ds := make([]time.Duration, 0, len(vers))
 	for _, ver := range vers {
-		if d, ok := txSnapshotLatency.Load(ver.PayloadHash()); ok {
+		if d, ok := obs.latencies.Load(ver.PayloadHash()); ok {
 			ds = append(ds, d.(time.Duration))
 		}
 	}
@@ -988,7 +1033,7 @@ func testLogTxToSnapshotLatency(t *testing.T, label string, vers []*common.Versi
 	}
 	t.Logf("TX TO SNAPSHOT LATENCY %s samples=%d/%d min=%s p50=%s p90=%s p99=%s max=%s avg=%s sweep=%s",
 		label, len(ds), len(vers), ds[0], pct(50), pct(90), pct(99), ds[len(ds)-1], sum/time.Duration(len(ds)),
-		time.Duration(txObserverSweep.Load()))
+		time.Duration(obs.sweep.Load()))
 	t.Logf("KERNEL SIDE %s %s", label, kernel.TxSnapshotLatencySummary())
 }
 

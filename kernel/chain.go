@@ -118,10 +118,16 @@ func (chain *Chain) bootLoops() {
 	chain.Lock()
 	defer chain.Unlock()
 
-	// A chain must never restart its loops after teardown: late messages,
-	// e.g. delayed node accept finalizations, may still arrive and call
-	// BootChain while the node is shutting down, and restarting the loops
-	// here would close the loop channels a second time.
+	// A chain must never restart its loops once the node is shutting down:
+	// late messages, e.g. delayed node accept finalizations, may still
+	// arrive and call BootChain after node.done is closed but before every
+	// chain's Teardown has begun. Restarting the loops in that window would
+	// close the loop exit channels a second time and panic.
+	select {
+	case <-chain.node.done:
+		return
+	default:
+	}
 	if chain.running || chain.tornDown {
 		return
 	}
