@@ -66,7 +66,7 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 		pending = append(pending, tx)
 	}
 	if len(pending) > 0 {
-		err := node.lockAndPersistTransactions(pending, finalized)
+		err := node.lockAndPersistTransactions(pending, s.Timestamp, finalized)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -93,7 +93,29 @@ func (c *ghostLockCollector) LockGhostKeys(keys []*crypto.Key, tx crypto.Hash, f
 // until its inputs are finalized, so validating first and persisting the
 // batch afterwards keeps the same semantics with one fsync per snapshot
 // instead of two per transaction.
-func (node *Node) lockAndPersistTransactions(txs []*common.VersionedTransaction, finalized bool) error {
+func (node *Node) lockAndPersistTransactions(txs []*common.VersionedTransaction, snapTime uint64, finalized bool) error {
+	err := node.lockAndPersistTransactionBatch(txs, finalized)
+	if !errors.Is(err, badger.ErrTxnTooBig) {
+		return err
+	}
+
+	// A finalized snapshot can also replace many existing input locks, adding
+	// enough prune writes for the reduced batch to remain too large. Fall back
+	// to bounded commits, matching the persistence behavior before batching.
+	for _, tx := range txs {
+		err := tx.Validate(node.persistStore, snapTime, finalized)
+		if err != nil {
+			return err
+		}
+		err = node.lockAndPersistTransactionBatch([]*common.VersionedTransaction{tx}, finalized)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (node *Node) lockAndPersistTransactionBatch(txs []*common.VersionedTransaction, finalized bool) error {
 	for i := time.Duration(0); i < time.Second; i += time.Millisecond * 100 {
 		err := node.persistStore.LockAndPersistTransactions(txs, finalized)
 		if errors.Is(err, badger.ErrConflict) {
@@ -102,9 +124,7 @@ func (node *Node) lockAndPersistTransactions(txs []*common.VersionedTransaction,
 		}
 		return err
 	}
-	// TODO for badger.ErrTxnTooBig we should re-validate and persist each transaction
-	// one by one, so that some big transactions can also be persisted
-	panic(fmt.Errorf("lockAndPersistTransactions timeout %d %v", len(txs), finalized))
+	panic(fmt.Errorf("lockAndPersistTransactionBatch timeout %d %v", len(txs), finalized))
 }
 
 func (node *Node) validateKernelSnapshot(s *common.Snapshot, found map[crypto.Hash]*common.VersionedTransaction, finalized bool) error {

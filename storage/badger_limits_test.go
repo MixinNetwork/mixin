@@ -75,6 +75,46 @@ func TestCacheTransactionSizeErrors(t *testing.T) {
 }
 
 func TestStorageTransactionSizeErrors(t *testing.T) {
+	t.Run("retry batch after ghost prelock", func(t *testing.T) {
+		store := newTestBadgerStore(t)
+		require.NoError(t, store.snapshotsDB.Close())
+		store.snapshotsDB = openBadgerWithBatchCount(t, 6)
+
+		newMint := func(batch uint64, seed byte) (*common.VersionedTransaction, *crypto.Key) {
+			key := seededPublicKey(seed)
+			tx := common.NewTransactionV5(common.XINAssetId)
+			tx.AddUniversalMintInput(batch, common.NewInteger(1))
+			tx.Outputs = []*common.Output{{
+				Type:   common.OutputTypeScript,
+				Amount: common.NewInteger(1),
+				Keys:   []*crypto.Key{&key},
+				Mask:   seededPublicKey(seed + 32),
+				Script: common.NewThresholdScript(1),
+			}}
+			return tx.AsVersioned(), &key
+		}
+		first, firstKey := newMint(1, 1)
+		second, secondKey := newMint(2, 2)
+		txs := []*common.VersionedTransaction{first, second}
+
+		err := store.LockAndPersistTransactions(txs, false)
+		require.ErrorIs(t, err, badger.ErrTxnTooBig)
+		for _, tx := range txs {
+			persisted, _, err := store.ReadTransaction(tx.PayloadHash())
+			require.NoError(t, err)
+			require.Nil(t, persisted)
+		}
+
+		require.NoError(t, store.LockGhostKeys([]*crypto.Key{firstKey}, first.PayloadHash(), false))
+		require.NoError(t, store.LockGhostKeys([]*crypto.Key{secondKey}, second.PayloadHash(), false))
+		require.NoError(t, store.LockAndPersistTransactions(txs, false))
+		for _, tx := range txs {
+			persisted, _, err := store.ReadTransaction(tx.PayloadHash())
+			require.NoError(t, err)
+			require.NotNil(t, persisted)
+		}
+	})
+
 	t.Run("topology", func(t *testing.T) {
 		db := openBadgerWithBatchCount(t, 4)
 		txn := fullBadgerTransaction(t, db)
