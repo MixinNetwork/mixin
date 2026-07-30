@@ -80,6 +80,7 @@ type Chain struct {
 	wlc              chan struct{}
 	slc              chan struct{}
 	running          bool
+	tornDown         bool
 }
 
 func (node *Node) buildChain(chainId crypto.Hash) *Chain {
@@ -117,7 +118,11 @@ func (chain *Chain) bootLoops() {
 	chain.Lock()
 	defer chain.Unlock()
 
-	if chain.running {
+	// A chain must never restart its loops after teardown: late messages,
+	// e.g. delayed node accept finalizations, may still arrive and call
+	// BootChain while the node is shutting down, and restarting the loops
+	// here would close the loop channels a second time.
+	if chain.running || chain.tornDown {
 		return
 	}
 	chain.running = true
@@ -220,7 +225,10 @@ func (chain *Chain) loadIdentity() *CNode {
 }
 
 func (chain *Chain) Teardown() {
+	chain.Lock()
+	chain.tornDown = true
 	chain.running = false
+	chain.Unlock()
 	<-chain.clc
 	<-chain.plc
 	<-chain.wlc

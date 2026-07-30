@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -51,6 +52,14 @@ type ChanMsg struct {
 	key  []byte
 	data []byte
 }
+
+// artificialSendDelay simulates a wide area network round trip in tests,
+// enabled with MIXIN_P2P_ARTIFICIAL_DELAY, e.g. "150ms". It applies to
+// every message hop on the sending path. Zero in production.
+var artificialSendDelay = func() time.Duration {
+	d, _ := time.ParseDuration(os.Getenv("MIXIN_P2P_ARTIFICIAL_DELAY"))
+	return d
+}()
 
 func (me *Peer) IsRelayer() bool {
 	return me.isRelayer
@@ -263,6 +272,10 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 			continue
 		}
 
+		if artificialSendDelay > 0 {
+			// test-only WAN simulation, enabled with MIXIN_P2P_ARTIFICIAL_DELAY
+			time.Sleep(artificialSendDelay)
+		}
 		for _, m := range msgs {
 			err := consumer.Send(m.data)
 			if err != nil {

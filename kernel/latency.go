@@ -3,7 +3,7 @@ package kernel
 import (
 	"fmt"
 	"os"
-	"sort"
+	"slices"
 	"sync"
 	"time"
 
@@ -132,16 +132,14 @@ func (s *txLatencyStat) summary(label string) string {
 	if len(ds) == 0 {
 		return fmt.Sprintf("%s: no samples", label)
 	}
-	sort.Slice(ds, func(i, j int) bool { return ds[i] < ds[j] })
+	slices.Sort(ds)
 	var sum time.Duration
 	for _, d := range ds {
 		sum += d
 	}
 	pct := func(p float64) time.Duration {
 		idx := int(float64(len(ds))*p+0.5) - 1
-		if idx < 0 {
-			idx = 0
-		}
+		idx = max(idx, 0)
 		if idx >= len(ds) {
 			idx = len(ds) - 1
 		}
