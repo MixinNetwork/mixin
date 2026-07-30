@@ -78,7 +78,7 @@ func (node *Node) cosiAcceptedNodesListShuffle(ts uint64) []*CNode {
 
 func (chain *Chain) cosiHook(m *CosiAction) (bool, error) {
 	logger.Debugf("cosiHook(%s) %v\n", chain.ChainId, m)
-	if !chain.running {
+	if !chain.running.Load() {
 		return false, nil
 	}
 	err := chain.cosiHandleAction(m)

@@ -160,6 +160,10 @@ func TestChainQueueBoundaries(t *testing.T) {
 			CachePool:        make(ActionBuffer, 1),
 			finalActionsRing: make(ActionBuffer, 1),
 			cosiWake:         make(chan struct{}, 1),
+			plc:              make(chan struct{}),
+			clc:              make(chan struct{}),
+			wlc:              make(chan struct{}),
+			slc:              make(chan struct{}),
 		}
 	}
 
@@ -203,10 +207,27 @@ func TestChainQueueBoundaries(t *testing.T) {
 		require.Zero(t, chain.FinalIndex)
 		require.Equal(t, 8, chain.FinalCount)
 
-		chain.running = true
+		chain.running.Store(true)
 		close(chain.node.done)
 		chain.waitOrDone(time.Hour)
-		require.False(t, chain.running)
+		require.False(t, chain.running.Load())
+	})
+
+	t.Run("teardown before loops start", func(t *testing.T) {
+		chain := newChain()
+		close(chain.node.done)
+		chain.bootLoops()
+
+		done := make(chan struct{})
+		go func() {
+			chain.Teardown()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("chain teardown blocked although no loops were started")
+		}
 	})
 
 	t.Run("final snapshot pool", func(t *testing.T) {

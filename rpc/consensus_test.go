@@ -37,11 +37,11 @@ var (
 // this struct by pointer and are stopped and joined before the run ends,
 // so they never touch the next run's state.
 type txLatencyObserver struct {
-	sendTimes  sync.Map // crypto.Hash -> time.Time of the first send attempt
-	latencies  sync.Map // crypto.Hash -> time.Duration from send to first snapshot observation
-	sweep      atomic.Int64
-	stop       chan struct{}
-	wg         sync.WaitGroup
+	sendTimes sync.Map // crypto.Hash -> time.Time of the first send attempt
+	latencies sync.Map // crypto.Hash -> time.Duration from send to first snapshot observation
+	sweep     atomic.Int64
+	stop      chan struct{}
+	wg        sync.WaitGroup
 }
 
 // txObserver is assigned once per testConsensus run by the main test
@@ -308,7 +308,9 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	t.Logf("PLEDGE TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 	testLogP2PMetrics(t, "PLEDGE", instances)
 
-	kernel.TestMockDiff(29 * time.Hour)
+	// The pledge is created around hour 10. Stop at hour 12, immediately
+	// before the node-accept window opens at hour 13.
+	kernel.TestMockDiff(26 * time.Hour)
 	time.Sleep(3 * time.Second)
 	all = testListNodes(nodes[0].Host)
 	require.Len(all, NODES+1)
@@ -890,9 +892,7 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 	obs := txObserver
 	var wg sync.WaitGroup
 	for _, ver := range vers {
-		if obs != nil {
-			obs.sendTimes.LoadOrStore(ver.PayloadHash(), time.Now())
-		}
+		obs.sendTimes.LoadOrStore(ver.PayloadHash(), time.Now())
 		wg.Add(1)
 		go func(ver *common.VersionedTransaction) {
 			defer wg.Done()
@@ -905,9 +905,7 @@ func testSendTransactionsToNodesWithRetry(t *testing.T, nodes []*Node, vers []*c
 	wg.Wait()
 	// Observe snapshot inclusion in the background without changing the
 	// original pacing of the test.
-	if obs != nil {
-		obs.observe(nodes, vers)
-	}
+	obs.observe(nodes, vers)
 	time.Sleep(3 * time.Second)
 
 	var missingTxs []*common.VersionedTransaction
@@ -951,9 +949,7 @@ func (o *txLatencyObserver) observe(nodes []*Node, vers []*common.VersionedTrans
 	if len(pending) == 0 {
 		return
 	}
-	o.wg.Add(1)
-	go func() {
-		defer o.wg.Done()
+	o.wg.Go(func() {
 		const workers = 16
 		deadline := time.Now().Add(15 * time.Minute)
 		for len(pending) > 0 && time.Now().Before(deadline) {
@@ -965,7 +961,7 @@ func (o *txLatencyObserver) observe(nodes []*Node, vers []*common.VersionedTrans
 			sweepStart := time.Now()
 			missing := make([][]crypto.Hash, workers)
 			var wg sync.WaitGroup
-			for w := 0; w < workers; w++ {
+			for w := range workers {
 				from := w * len(pending) / workers
 				to := (w + 1) * len(pending) / workers
 				wg.Add(1)
@@ -1000,15 +996,12 @@ func (o *txLatencyObserver) observe(nodes []*Node, vers []*common.VersionedTrans
 				}
 			}
 		}
-	}()
+	})
 }
 
 func testLogTxToSnapshotLatency(t *testing.T, label string, vers []*common.VersionedTransaction) {
 	t.Helper()
 	obs := txObserver
-	if obs == nil {
-		return
-	}
 	ds := make([]time.Duration, 0, len(vers))
 	for _, ver := range vers {
 		if d, ok := obs.latencies.Load(ver.PayloadHash()); ok {
@@ -1019,16 +1012,14 @@ func testLogTxToSnapshotLatency(t *testing.T, label string, vers []*common.Versi
 		t.Logf("TX TO SNAPSHOT LATENCY %s no samples yet", label)
 		return
 	}
-	sort.Slice(ds, func(i, j int) bool { return ds[i] < ds[j] })
+	slices.Sort(ds)
 	var sum time.Duration
 	for _, d := range ds {
 		sum += d
 	}
 	pct := func(p int) time.Duration {
 		idx := (len(ds)*p + 99) / 100
-		if idx < 1 {
-			idx = 1
-		}
+		idx = max(idx, 1)
 		return ds[idx-1]
 	}
 	t.Logf("TX TO SNAPSHOT LATENCY %s samples=%d/%d min=%s p50=%s p90=%s p99=%s max=%s avg=%s sweep=%s",

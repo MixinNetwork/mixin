@@ -38,7 +38,7 @@ func (chain *Chain) AggregateMintWork() {
 
 	wait := time.Duration(chain.node.custom.Node.KernelOprationPeriod/2) * time.Second
 
-	for chain.running {
+	for chain.running.Load() {
 		if cs := chain.State; cs == nil {
 			logger.Printf("AggregateMintWork(%s) no state yet\n", chain.ChainId)
 			chain.waitOrDone(wait)
@@ -105,7 +105,7 @@ func (chain *Chain) checkRoundMature(round uint64) (uint64, bool) {
 func (chain *Chain) writeRoundWork(round uint64, works []*common.SnapshotWork, credit bool) error {
 	credit = credit || (chain.node.networkId.String() == config.KernelNetworkId &&
 		(works[0].Timestamp-chain.node.Epoch)/OneDay < mainnetMintDayGapSkipForkBatch)
-	for chain.running {
+	for chain.running.Load() {
 		err := chain.persistStore.WriteRoundWork(chain.ChainId, round, works, credit)
 		if err == nil {
 			return nil

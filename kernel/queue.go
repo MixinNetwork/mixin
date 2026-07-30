@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"encoding/binary"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -307,8 +308,8 @@ func (node *Node) chainCanProposeSnapshot(all []*CNode, chain *Chain, timestamp 
 }
 
 func cacheQueueIndex(hash crypto.Hash, now time.Time, size int) int {
-	bucket := uint64(now.UnixNano()) / config.SnapshotRoundGap
-	seed := uint64(hash[0] / 4)
+	bucket := uint64(now.UnixNano()) / uint64(time.Minute)
+	seed := binary.BigEndian.Uint64(hash[:8])
 	return int((seed + bucket) % uint64(size))
 }
 

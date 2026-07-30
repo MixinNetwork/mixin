@@ -79,7 +79,8 @@ type Chain struct {
 	clc              chan struct{}
 	wlc              chan struct{}
 	slc              chan struct{}
-	running          bool
+	running          atomic.Bool
+	loopsStarted     bool
 	tornDown         bool
 }
 
@@ -104,7 +105,6 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 		clc:                make(chan struct{}),
 		wlc:                make(chan struct{}),
 		slc:                make(chan struct{}),
-		running:            false,
 	}
 
 	err := chain.loadState()
@@ -128,10 +128,9 @@ func (chain *Chain) bootLoops() {
 		return
 	default:
 	}
-	if chain.running || chain.tornDown {
+	if chain.running.Load() || chain.loopsStarted || chain.tornDown {
 		return
 	}
-	chain.running = true
 
 	rn := chain.node.GetRemovedOrCancelledNode(chain.ChainId, chain.node.GraphTimestamp)
 	threshold := uint64(config.KernelNodeAcceptPeriodMaximum)
@@ -146,6 +145,8 @@ func (chain *Chain) bootLoops() {
 		return
 	}
 
+	chain.running.Store(true)
+	chain.loopsStarted = true
 	go chain.AggregateMintWork()
 	go chain.AggregateRoundSpace()
 	go chain.QueuePollSnapshots()
@@ -158,7 +159,7 @@ func (chain *Chain) waitOrDone(wait time.Duration) {
 
 	select {
 	case <-chain.node.done:
-		chain.running = false
+		chain.running.Store(false)
 	case <-timer.C:
 	}
 }
@@ -179,7 +180,7 @@ func (chain *Chain) waitCosiLoop(wait time.Duration) {
 
 	select {
 	case <-chain.node.done:
-		chain.running = false
+		chain.running.Store(false)
 	case <-chain.cosiWake:
 	case <-timer.C:
 	}
@@ -233,8 +234,12 @@ func (chain *Chain) loadIdentity() *CNode {
 func (chain *Chain) Teardown() {
 	chain.Lock()
 	chain.tornDown = true
-	chain.running = false
+	chain.running.Store(false)
+	started := chain.loopsStarted
 	chain.Unlock()
+	if !started {
+		return
+	}
 	<-chain.clc
 	<-chain.plc
 	<-chain.wlc
@@ -294,7 +299,7 @@ func (chain *Chain) QueuePollSnapshots() {
 	logger.Printf("QueuePollSnapshots(%s)\n", chain.ChainId)
 	defer close(chain.plc)
 
-	for chain.running {
+	for chain.running.Load() {
 		var cache int
 		// A newly appended final snapshot is processed immediately, while
 		// retries of snapshots still waiting for their transactions keep
@@ -394,11 +399,11 @@ func (chain *Chain) ConsumeFinalActions() {
 	logger.Printf("ConsumeFinalActions(%s)\n", chain.ChainId)
 	defer close(chain.clc)
 
-	for chain.running {
+	for chain.running.Load() {
 		var ps *CosiAction
 		select {
 		case <-chain.node.done:
-			chain.running = false
+			chain.running.Store(false)
 			return
 		case ps = <-chain.finalActionsRing:
 		}
@@ -406,7 +411,7 @@ func (chain *Chain) ConsumeFinalActions() {
 			continue
 		}
 		logger.Debugf("ConsumeFinalActions(%s) %s\n", chain.ChainId, ps.Snapshot.Hash)
-		for chain.running {
+		for chain.running.Load() {
 			retry, err := chain.appendFinalSnapshot(ps.PeerId, ps.Snapshot)
 			if err != nil {
 				panic(err)

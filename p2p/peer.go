@@ -260,15 +260,7 @@ func (me *Peer) loopSendingStream(p *Peer, consumer Client) (*ChanMsg, error) {
 		msgs := append(hm, nm...)
 
 		if len(msgs) == 0 {
-			// Wait for new messages instead of polling on a fixed cadence,
-			// so every message hop avoids the average half-cadence delay.
-			// The timer is only a fallback to re-check the closing flags.
-			timer := time.NewTimer(300 * time.Millisecond)
-			select {
-			case <-p.sendWake:
-			case <-timer.C:
-			}
-			timer.Stop()
+			p.waitSendingStream(300 * time.Millisecond)
 			continue
 		}
 
@@ -429,6 +421,19 @@ func (p *Peer) offer(priority int, msg *ChanMsg) bool {
 		p.wakeSendingStream()
 	}
 	return ok
+}
+
+// Wait for new messages instead of polling on a fixed cadence,
+// so every message hop avoids the average half-cadence delay.
+// The timer is only a fallback to re-check the closing flags.
+func (p *Peer) waitSendingStream(wait time.Duration) {
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+
+	select {
+	case <-p.sendWake:
+	case <-timer.C:
+	}
 }
 
 // wakeSendingStream signals loopSendingStream that a new message is
