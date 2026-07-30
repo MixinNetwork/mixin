@@ -308,7 +308,8 @@ func (node *Node) chainCanProposeSnapshot(all []*CNode, chain *Chain, timestamp 
 
 func cacheQueueIndex(hash crypto.Hash, now time.Time, size int) int {
 	bucket := uint64(now.UnixNano()) / config.SnapshotRoundGap
-	return int(bucket % uint64(size))
+	seed := uint64(hash[0] / 4)
+	return int((seed + bucket) % uint64(size))
 }
 
 func (node *Node) filterLeadingNodes(all []*CNode) ([]*CNode, map[crypto.Hash]bool) {
