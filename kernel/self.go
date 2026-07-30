@@ -25,6 +25,7 @@ func (node *Node) checkTxInStorage(id crypto.Hash) (*common.VersionedTransaction
 
 func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool) (map[crypto.Hash]*common.VersionedTransaction, []crypto.Hash, error) {
 	var missing []crypto.Hash
+	var pending []*common.VersionedTransaction
 	found := make(map[crypto.Hash]*common.VersionedTransaction)
 	for _, txh := range s.Transactions {
 		tx, snap, err := node.persistStore.ReadTransaction(txh)
@@ -52,7 +53,7 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 			continue
 		}
 
-		err = tx.Validate(node.persistStore, s.Timestamp, finalized)
+		err = tx.Validate(&ghostLockCollector{node.persistStore}, s.Timestamp, finalized)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -62,7 +63,10 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 		if err != nil {
 			return nil, nil, err
 		}
-		err = node.lockAndPersistTransaction(tx, finalized)
+		pending = append(pending, tx)
+	}
+	if len(pending) > 0 {
+		err := node.lockAndPersistTransactions(pending, finalized)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -71,24 +75,36 @@ func (node *Node) validateSnapshotTransaction(s *common.Snapshot, finalized bool
 	return found, missing, nil
 }
 
-func (node *Node) lockAndPersistTransaction(tx *common.VersionedTransaction, finalized bool) error {
-	for i := time.Duration(0); i < time.Second; i += time.Millisecond * 100 {
-		err := tx.LockInputs(node.persistStore, finalized)
-		if errors.Is(err, badger.ErrConflict) {
-			time.Sleep(i)
-			continue
-		} else if err != nil {
-			return err
-		}
+// ghostLockCollector skips the per-transaction ghost key commit during
+// validation. The same keys are locked by LockAndPersistTransactions in the
+// single batch commit, where any conflicting ownership still fails the
+// snapshot, so skipping the individual commits here changes no outcome.
+type ghostLockCollector struct {
+	common.DataStore
+}
 
-		err = node.persistStore.WriteTransaction(tx)
+func (c *ghostLockCollector) LockGhostKeys(keys []*crypto.Key, tx crypto.Hash, fork bool) error {
+	return nil
+}
+
+// lockAndPersistTransactions locks and persists a whole snapshot batch in a
+// single store commit. Transactions in one snapshot never depend on each
+// other: a dependent transaction would fail validation against the store
+// until its inputs are finalized, so validating first and persisting the
+// batch afterwards keeps the same semantics with one fsync per snapshot
+// instead of two per transaction.
+func (node *Node) lockAndPersistTransactions(txs []*common.VersionedTransaction, finalized bool) error {
+	for i := time.Duration(0); i < time.Second; i += time.Millisecond * 100 {
+		err := node.persistStore.LockAndPersistTransactions(txs, finalized)
 		if errors.Is(err, badger.ErrConflict) {
 			time.Sleep(i)
 			continue
 		}
 		return err
 	}
-	panic(fmt.Errorf("lockAndPersistTransaction timeout %v %v", tx.PayloadHash(), finalized))
+	// TODO for badger.ErrTxnTooBig we should re-validate and persist each transaction
+	// one by one, so that some big transactions can also be persisted
+	panic(fmt.Errorf("lockAndPersistTransactions timeout %d %v", len(txs), finalized))
 }
 
 func (node *Node) validateKernelSnapshot(s *common.Snapshot, found map[crypto.Hash]*common.VersionedTransaction, finalized bool) error {

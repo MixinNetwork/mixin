@@ -12,6 +12,149 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestLockAndPersistTransactions(t *testing.T) {
+	require := require.New(t)
+
+	custom, err := config.Initialize("../config/config.example.toml")
+	require.Nil(err)
+
+	root := t.TempDir()
+
+	store, _ := NewBadgerStore(custom, root)
+	defer util.CloseOrPanic(store)
+
+	gns, err := common.ReadGenesis("../config/genesis.json")
+	require.Nil(err)
+	rounds, snapshots, transactions, err := gns.BuildSnapshots()
+	require.Nil(err)
+	err = store.LoadGenesis(rounds, snapshots, transactions)
+	require.Nil(err)
+	signers := []crypto.Hash{rounds[0].NodeId}
+
+	seed := make([]byte, 64)
+	crypto.ReadRand(seed)
+	mixin := common.NewAddressFromSeed(seed)
+
+	asset, _, err := store.ReadAssetWithBalance(common.XINAssetId)
+	require.Nil(err)
+
+	newDeposit := func(nonce string) *common.Transaction {
+		tx := common.NewTransactionV5(common.XINAssetId)
+		tx.AddDepositInput(&common.DepositData{
+			Chain:       common.EthereumAssetId,
+			AssetKey:    asset.AssetKey,
+			Transaction: nonce,
+			Index:       0,
+			Amount:      common.NewInteger(10),
+		})
+		outputSeed := make([]byte, 64)
+		crypto.ReadRand(outputSeed)
+		tx.AddScriptOutput([]*common.Address{&mixin}, common.NewThresholdScript(1), common.NewInteger(10), outputSeed)
+		return tx
+	}
+
+	// independent transactions are locked and persisted in a single commit
+	d1, d2, d3 := newDeposit("0xBATCHONE"), newDeposit("0xBATCHTWO"), newDeposit("0xBATCHTHREE")
+	vers := []*common.VersionedTransaction{
+		d1.AsVersioned(), d2.AsVersioned(), d3.AsVersioned(),
+	}
+	err = store.LockAndPersistTransactions(vers, false)
+	require.Nil(err)
+	for _, ver := range vers {
+		tx, _, err := store.ReadTransaction(ver.PayloadHash())
+		require.Nil(err)
+		require.NotNil(tx)
+	}
+
+	// the batch is idempotent for the same transactions
+	err = store.LockAndPersistTransactions(vers, false)
+	require.Nil(err)
+
+	// a transaction whose deposit input is already locked by another fails
+	dup := newDeposit("0xBATCHONE")
+	dup.AddScriptOutput([]*common.Address{&mixin}, common.NewThresholdScript(1), common.NewInteger(1), seed)
+	require.NotEqual(d1.AsVersioned().PayloadHash(), dup.AsVersioned().PayloadHash())
+	err = store.LockAndPersistTransactions([]*common.VersionedTransaction{dup.AsVersioned()}, false)
+	require.NotNil(err)
+	require.Contains(err.Error(), "deposit locked for transaction")
+
+	// two unpersisted transactions claiming the same deposit input also
+	// fail within one batch
+	da := newDeposit("0xBATCHFOUR")
+	db := newDeposit("0xBATCHFOUR")
+	db.AddScriptOutput([]*common.Address{&mixin}, common.NewThresholdScript(1), common.NewInteger(1), seed)
+	require.NotEqual(da.AsVersioned().PayloadHash(), db.AsVersioned().PayloadHash())
+	err = store.LockAndPersistTransactions([]*common.VersionedTransaction{
+		da.AsVersioned(), db.AsVersioned(),
+	}, false)
+	require.NotNil(err)
+	require.Contains(err.Error(), "deposit locked for transaction")
+
+	// finalize the deposits in a snapshot to create spendable utxos
+	round, _ := store.ReadRound(rounds[0].NodeId)
+	snap := &common.Snapshot{
+		Version:     common.SnapshotVersionCommonEncoding,
+		NodeId:      signers[0],
+		RoundNumber: 1,
+		Timestamp:   uint64(time.Now().UnixNano()),
+		Transactions: []crypto.Hash{
+			d1.AsVersioned().PayloadHash(),
+			d2.AsVersioned().PayloadHash(),
+			d3.AsVersioned().PayloadHash(),
+		},
+		References: round.References,
+	}
+	topo := &common.SnapshotWithTopologicalOrder{
+		Snapshot:         snap,
+		TopologicalOrder: uint64(len(snapshots)),
+	}
+	err = store.WriteSnapshot(topo, signers)
+	require.Nil(err)
+
+	newSpend := func(input *common.Transaction, s []byte) *common.Transaction {
+		tx := common.NewTransactionV5(common.XINAssetId)
+		tx.AddInput(input.AsVersioned().PayloadHash(), 0)
+		tx.AddScriptOutput([]*common.Address{&mixin}, common.NewThresholdScript(1), common.NewInteger(10), s)
+		return tx
+	}
+	seed1 := make([]byte, 64)
+	crypto.ReadRand(seed1)
+	seed2 := make([]byte, 64)
+	crypto.ReadRand(seed2)
+
+	// two unpersisted transactions spending the same utxo must be rejected
+	// when batched together, while each is accepted alone
+	s1, s2 := newSpend(d1, seed1), newSpend(d1, seed2)
+	require.NotEqual(s1.AsVersioned().PayloadHash(), s2.AsVersioned().PayloadHash())
+	err = store.LockAndPersistTransactions([]*common.VersionedTransaction{
+		s1.AsVersioned(), s2.AsVersioned(),
+	}, false)
+	require.NotNil(err)
+	require.Contains(err.Error(), "utxo locked for transaction")
+
+	err = store.LockAndPersistTransactions([]*common.VersionedTransaction{s1.AsVersioned()}, false)
+	require.Nil(err)
+	err = store.LockAndPersistTransactions([]*common.VersionedTransaction{s2.AsVersioned()}, false)
+	require.NotNil(err)
+	require.Contains(err.Error(), "utxo locked for transaction")
+
+	// a transaction reusing ghost keys already locked by another fails
+	s3 := newSpend(d2, seed1)
+	err = store.LockAndPersistTransactions([]*common.VersionedTransaction{s3.AsVersioned()}, false)
+	require.NotNil(err)
+	require.Contains(err.Error(), "ghost key")
+
+	// two unpersisted transactions sharing a ghost key fail in one batch
+	seed4 := make([]byte, 64)
+	crypto.ReadRand(seed4)
+	s4, s5 := newSpend(d2, seed4), newSpend(d3, seed4)
+	err = store.LockAndPersistTransactions([]*common.VersionedTransaction{
+		s4.AsVersioned(), s5.AsVersioned(),
+	}, false)
+	require.NotNil(err)
+	require.Contains(err.Error(), "ghost key")
+}
+
 func TestTransaction(t *testing.T) {
 	require := require.New(t)
 

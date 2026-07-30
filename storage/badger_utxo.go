@@ -55,14 +55,18 @@ func (s *BadgerStore) LockUTXOs(inputs []*common.Input, tx crypto.Hash, fork boo
 	defer s.mutex.Unlock()
 
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
-		for _, in := range inputs {
-			err := lockUTXO(txn, in.Hash, in.Index, tx, fork)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
+		return lockUTXOs(txn, inputs, tx, fork)
 	})
+}
+
+func lockUTXOs(txn *badger.Txn, inputs []*common.Input, tx crypto.Hash, fork bool) error {
+	for _, in := range inputs {
+		err := lockUTXO(txn, in.Hash, in.Index, tx, fork)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func lockUTXO(txn *badger.Txn, hash crypto.Hash, index uint, tx crypto.Hash, fork bool) error {

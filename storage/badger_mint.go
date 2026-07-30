@@ -107,27 +107,31 @@ func (s *BadgerStore) LockMintInput(mint *common.MintData, tx crypto.Hash, fork 
 	defer s.mutex.Unlock()
 
 	return s.snapshotsDB.Update(func(txn *badger.Txn) error {
-		dist, err := readMintInput(txn, mint)
-		if err == badger.ErrKeyNotFound {
-			return writeMintDistribution(txn, mint, tx)
-		}
-		if err != nil {
-			return err
-		}
-
-		if dist.Transaction == tx && dist.Amount.Cmp(mint.Amount) == 0 {
-			return nil
-		}
-
-		if !fork {
-			return fmt.Errorf("mint locked for transaction %s amount %s", dist.Transaction.String(), dist.Amount.String())
-		}
-		err = pruneTransaction(txn, dist.Transaction)
-		if err != nil {
-			return err
-		}
-		return writeMintDistribution(txn, mint, tx)
+		return lockMintInput(txn, mint, tx, fork)
 	})
+}
+
+func lockMintInput(txn *badger.Txn, mint *common.MintData, tx crypto.Hash, fork bool) error {
+	dist, err := readMintInput(txn, mint)
+	if err == badger.ErrKeyNotFound {
+		return writeMintDistribution(txn, mint, tx)
+	}
+	if err != nil {
+		return err
+	}
+
+	if dist.Transaction == tx && dist.Amount.Cmp(mint.Amount) == 0 {
+		return nil
+	}
+
+	if !fork {
+		return fmt.Errorf("mint locked for transaction %s amount %s", dist.Transaction.String(), dist.Amount.String())
+	}
+	err = pruneTransaction(txn, dist.Transaction)
+	if err != nil {
+		return err
+	}
+	return writeMintDistribution(txn, mint, tx)
 }
 
 func readMintInput(txn *badger.Txn, mint *common.MintData) (*common.MintDistribution, error) {

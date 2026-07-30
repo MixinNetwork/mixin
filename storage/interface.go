@@ -15,6 +15,7 @@ type Store interface {
 	AddNodeOperation(tx *common.VersionedTransaction, timestamp, threshold uint64, finalized bool) error
 	ReadTransaction(hash crypto.Hash) (*common.VersionedTransaction, string, error)
 	WriteTransaction(tx *common.VersionedTransaction) error
+	LockAndPersistTransactions(txs []*common.VersionedTransaction, fork bool) error
 	StartNewRound(node crypto.Hash, number uint64, references *common.RoundLink, finalStart uint64) error
 	UpdateEmptyHeadRound(node crypto.Hash, number uint64, references *common.RoundLink) error
 	LastSnapshot() (*common.SnapshotWithTopologicalOrder, []*common.VersionedTransaction)
