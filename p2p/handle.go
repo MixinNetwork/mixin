@@ -132,18 +132,24 @@ func (me *Peer) SendSnapshotResponseMessage(idForNetwork crypto.Hash, snap crypt
 }
 
 func (me *Peer) SendSnapshotFinalizationMessage(idForNetwork crypto.Hash, s *common.Snapshot) error {
-	if idForNetwork == me.IdForNetwork {
-		return nil
-	}
-
-	key := append(idForNetwork[:], s.Hash[:]...)
-	key = append(key, 'S', 'C', 'O')
-	if me.snapshotsCaches.contains(key, time.Hour) {
+	if me.hasSnapshotFinalization(idForNetwork, s.Hash) {
 		return nil
 	}
 
 	data := buildBatchSnapshotFinalizationMessage(s)
 	return me.sendSnapshotMessageToPeer(idForNetwork, s.Hash, PeerMessageTypeBatchSnapshotFinalization, data)
+}
+
+func (me *Peer) hasSnapshotFinalization(idForNetwork, snap crypto.Hash) bool {
+	if idForNetwork == me.IdForNetwork {
+		return true
+	}
+	return me.snapshotsCaches.contains(snapshotFinalizationCacheKey(idForNetwork, snap), time.Hour)
+}
+
+func snapshotFinalizationCacheKey(idForNetwork, snap crypto.Hash) []byte {
+	key := append(idForNetwork[:], snap[:]...)
+	return append(key, 'S', 'C', 'O')
 }
 
 func (me *Peer) SendSnapshotConfirmMessage(idForNetwork crypto.Hash, snap crypto.Hash) error {
@@ -181,9 +187,7 @@ func (me *Peer) SendTransactionsMessage(idForNetwork crypto.Hash, txs []*common.
 }
 
 func (me *Peer) ConfirmSnapshotForPeer(idForNetwork, snap crypto.Hash) {
-	key := append(idForNetwork[:], snap[:]...)
-	key = append(key, 'S', 'C', 'O')
-	me.snapshotsCaches.store(key, time.Now())
+	me.snapshotsCaches.store(snapshotFinalizationCacheKey(idForNetwork, snap), time.Now())
 }
 
 func buildAuthenticationMessage(data []byte) []byte {

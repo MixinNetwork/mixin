@@ -85,6 +85,9 @@ func (me *Peer) syncToNeighborSince(graph map[crypto.Hash]*SyncPoint, p *Peer, o
 }
 
 func (me *Peer) sendSnapshotFinalizationForSync(peerId crypto.Hash, snapshot *common.Snapshot) error {
+	if me.hasSnapshotFinalization(peerId, snapshot.Hash) {
+		return nil
+	}
 	if err := me.handle.SendTransactionsToPeer(peerId, snapshot.Transactions, true); err != nil {
 		return err
 	}

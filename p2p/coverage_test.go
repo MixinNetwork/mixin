@@ -726,6 +726,7 @@ func TestSendMessageHelpers(t *testing.T) {
 
 	me.ConfirmSnapshotForPeer(target, snapshot.Hash)
 	me.snapshotsCaches.cache.Wait()
+	require.True(me.hasSnapshotFinalization(target, snapshot.Hash))
 	err = me.SendSnapshotFinalizationMessage(target, snapshot)
 	require.Nil(err)
 	require.Empty(neighbor.normalRing)
@@ -895,6 +896,13 @@ func TestPeerLoopAndSyncHelpers(t *testing.T) {
 	)
 	require.EqualValues(PeerMessageTypeBatchSnapshotFinalization, (<-peer5.normalRing).data[0])
 	require.EqualValues(PeerMessageTypeBatchSnapshotFinalization, (<-peer5.normalRing).data[0])
+
+	confirmed := crypto.Blake3Hash([]byte("already-confirmed-sync"))
+	handle.finalizedTxs = []crypto.Hash{confirmed}
+	me5.ConfirmSnapshotForPeer(peer5.IdForNetwork, s1.Hash)
+	me5.snapshotsCaches.cache.Wait()
+	require.NoError(me5.sendSnapshotFinalizationForSync(peer5.IdForNetwork, s1))
+	require.Equal([]crypto.Hash{confirmed}, handle.finalizedTxs)
 
 	done := make(chan struct{})
 	go func() {

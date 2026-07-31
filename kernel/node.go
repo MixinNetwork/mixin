@@ -85,9 +85,9 @@ func SetupNode(custom *config.Custom, store storage.Store, cache *ristretto.Cach
 		done:            make(chan struct{}),
 		elc:             make(chan struct{}),
 		mlc:             make(chan struct{}),
-		cqc:           make(chan struct{}),
-		queueWake:     make(chan struct{}, 1),
-		txLatency:     newTxLatencyTracker(),
+		cqc:             make(chan struct{}),
+		queueWake:       make(chan struct{}, 1),
+		txLatency:       newTxLatencyTracker(),
 	}
 
 	node.loadNodeConfig()
