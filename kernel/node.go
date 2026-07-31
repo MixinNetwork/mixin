@@ -17,6 +17,31 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
+const (
+	// MainnetConsensusNodesForkTimestamp is 2026-08-07T00:00:00Z.
+	MainnetConsensusNodesForkTimestamp = uint64(1786060800000000000)
+	MainnetConsensusThreshold          = 3
+)
+
+var mainnetConsensusNodeIds = [...]crypto.Hash{
+	// http://mixin-node-02.b1.run:8239
+	mustConsensusNodeId("39bceaabac634eb52f8abcf4060f322e2483c3f38074cc46acc467ff881e104c"),
+	// http://mixin-node3.exinpool.com:8239
+	mustConsensusNodeId("4ec10efe2fb52ed1810c692ce77c57ad42231547f7850c13e8b0aac5252d1a30"),
+	// http://node-42.f1ex.io:8239
+	mustConsensusNodeId("7545dd38d46ad6838cd7c0edf73db0c00fde44794c997385a2c61898f6ef1823"),
+	// https://rpc.mixin.dev
+	mustConsensusNodeId("932b05f4fc915c5edeb6a1c86fbf6dacb633f19868abb2cb7b3fa26bc553deba"),
+}
+
+func mustConsensusNodeId(value string) crypto.Hash {
+	id, err := crypto.HashFromString(value)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 type Node struct {
 	IdForNetwork crypto.Hash
 	Signer       common.Address
@@ -35,6 +60,7 @@ type Node struct {
 	allNodesSortedWithState    []*CNode
 	nodeStateSequences         []*NodeStateSequence
 	acceptedNodeStateSequences []*NodeStateSequence
+	mainnetConsensusNodes      []*CNode
 	chain                      *Chain
 
 	genesisNodesMap map[crypto.Hash]bool
@@ -156,6 +182,12 @@ func (node *Node) buildNodeStateSequences(allNodesSortedWithState []*CNode, acce
 }
 
 func (node *Node) NodesListWithoutState(threshold uint64, acceptedOnly bool) []*CNode {
+	if node.isMainnet() && threshold >= MainnetConsensusNodesForkTimestamp {
+		// Return a distinct slice because callers may reorder the consensus
+		// nodes while selecting aggregators.
+		return append([]*CNode(nil), node.mainnetConsensusNodes...)
+	}
+
 	sequences := node.nodeStateSequences
 	if acceptedOnly {
 		sequences = node.acceptedNodeStateSequences
@@ -261,6 +293,10 @@ func (node *Node) ConsensusReady(cn *CNode, timestamp uint64) bool {
 }
 
 func (node *Node) ConsensusThreshold(timestamp uint64, final bool) int {
+	if node.isMainnet() && timestamp >= MainnetConsensusNodesForkTimestamp {
+		return MainnetConsensusThreshold
+	}
+
 	consensusBase := 0
 	nodes := node.NodesListWithoutState(timestamp, false)
 	for _, cn := range nodes {
@@ -319,9 +355,41 @@ func (node *Node) LoadConsensusNodes() error {
 		logger.Printf("LoadConsensusNode %v\n", cnodes[i])
 	}
 	node.allNodesSortedWithState = cnodes
+	node.loadMainnetConsensusNodes()
 	node.nodeStateSequences = node.buildNodeStateSequences(cnodes, false)
 	node.acceptedNodeStateSequences = node.buildNodeStateSequences(cnodes, true)
 	return nil
+}
+
+func (node *Node) loadMainnetConsensusNodes() {
+	node.mainnetConsensusNodes = nil
+	if !node.isMainnet() {
+		return
+	}
+
+	accepted := make(map[crypto.Hash]*CNode)
+	for _, cn := range node.allNodesSortedWithState {
+		if cn.Timestamp >= MainnetConsensusNodesForkTimestamp {
+			break
+		}
+		if cn.State == common.NodeStateAccepted {
+			accepted[cn.IdForNetwork] = cn
+		}
+	}
+
+	fixedNodes := make([]*CNode, len(mainnetConsensusNodeIds))
+	for index, id := range mainnetConsensusNodeIds {
+		cn := accepted[id]
+		if cn == nil {
+			// Never activate a partial set with the three-signature threshold.
+			return
+		}
+		fixed := *cn
+		fixed.State = common.NodeStateAccepted
+		fixed.ConsensusIndex = index
+		fixedNodes[index] = &fixed
+	}
+	node.mainnetConsensusNodes = fixedNodes
 }
 
 func (node *Node) SnapshotVersion() uint8 {
@@ -351,7 +419,7 @@ func (node *Node) PingNeighborsFromConfig() error {
 		if s == node.Listener {
 			continue
 		}
-		node.Peer.PingNeighbor(s)
+		_ = node.Peer.PingNeighbor(s)
 	}
 	return nil
 }
@@ -361,7 +429,7 @@ func (node *Node) UpdateNeighbors(neighbors []string) error {
 		if in == node.Listener {
 			continue
 		}
-		node.Peer.PingNeighbor(in)
+		_ = node.Peer.PingNeighbor(in)
 	}
 	return nil
 }
