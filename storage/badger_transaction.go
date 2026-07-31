@@ -85,7 +85,7 @@ func (s *BadgerStore) LockAndPersistTransactions(vers []*common.VersionedTransac
 			}
 		}
 		for _, ver := range vers {
-			err := lockTransactionGhosts(txn, claims, ver, fork)
+			err := lockTransactionGhosts(txn, claims, ver)
 			if err != nil {
 				return err
 			}
@@ -159,7 +159,7 @@ func lockTransactionInputs(txn *badger.Txn, claims *batchClaims, ver *common.Ver
 	return nil
 }
 
-func lockTransactionGhosts(txn *badger.Txn, claims *batchClaims, ver *common.VersionedTransaction, fork bool) error {
+func lockTransactionGhosts(txn *badger.Txn, claims *batchClaims, ver *common.VersionedTransaction) error {
 	tx := ver.PayloadHash()
 	for _, o := range ver.Outputs {
 		for _, k := range o.Keys {
@@ -167,7 +167,7 @@ func lockTransactionGhosts(txn *badger.Txn, claims *batchClaims, ver *common.Ver
 			if ok {
 				return fmt.Errorf("duplicated ghost key %s", k.String())
 			}
-			err := lockGhostKey(txn, k, tx, fork)
+			err := lockGhostKey(txn, k, tx)
 			if err != nil {
 				return err
 			}
@@ -320,7 +320,7 @@ func finalizeTransaction(txn *badger.Txn, ver *common.VersionedTransaction, snap
 
 func writeUTXO(txn *badger.Txn, utxo *common.UTXOWithLock, ver *common.VersionedTransaction, timestamp uint64, genesis bool) error {
 	for _, k := range utxo.Keys {
-		err := lockGhostKey(txn, k, utxo.Hash, true)
+		err := lockGhostKey(txn, k, utxo.Hash)
 		if err != nil {
 			return err
 		}

@@ -152,10 +152,6 @@ func TestTransactionFinalizationAndOutputBranches(t *testing.T) {
 				},
 			}}
 			require.Error(t, writeUTXO(txn, utxo, ver, 1, false))
-
-			compat, err := crypto.HashFromString("c63b6373652def5999c1d951fcb8f064db67b7d18565847b921b21639e15dddd")
-			require.NoError(t, err)
-			require.NoError(t, lockGhostKey(txn, &ghost, compat, true))
 			return nil
 		})
 		require.NoError(t, err)

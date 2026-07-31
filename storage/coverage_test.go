@@ -370,7 +370,7 @@ func TestDepositUTXOAndGhostLockHelpers(t *testing.T) {
 	})
 	require.Nil(err)
 	err = store.snapshotsDB.View(func(txn *badger.Txn) error {
-		return lockGhostKey(txn, &public2, lock1, false)
+		return lockGhostKey(txn, &public2, lock1)
 	})
 	require.ErrorContains(err, "malformed lock")
 }

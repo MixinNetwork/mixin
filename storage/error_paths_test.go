@@ -84,7 +84,7 @@ func TestStorageHelpersPropagateDiscardedTransactionErrors(t *testing.T) {
 	requireDiscarded(err)
 	requireDiscarded(lockUTXO(discarded(store.snapshotsDB, true), id, 0, id, false))
 	ghost := seededPublicKey(211)
-	requireDiscarded(lockGhostKey(discarded(store.snapshotsDB, true), &ghost, id, false))
+	requireDiscarded(lockGhostKey(discarded(store.snapshotsDB, true), &ghost, id))
 
 	workKey := graphWorkOffsetKey(id)
 	_, _, err = graphReadWorkOffset(discarded(store.snapshotsDB, false), workKey)

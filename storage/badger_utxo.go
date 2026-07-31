@@ -2,7 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -125,7 +124,7 @@ func (s *BadgerStore) LockGhostKeys(keys []*crypto.Key, tx crypto.Hash, fork boo
 				return fmt.Errorf("duplicated ghost key %s", ghost.String())
 			}
 			filter[*ghost] = true
-			err := lockGhostKey(txn, ghost, tx, fork)
+			err := lockGhostKey(txn, ghost, tx)
 			if err != nil {
 				return err
 			}
@@ -134,7 +133,7 @@ func (s *BadgerStore) LockGhostKeys(keys []*crypto.Key, tx crypto.Hash, fork boo
 	})
 }
 
-func lockGhostKey(txn *badger.Txn, ghost *crypto.Key, tx crypto.Hash, fork bool) error {
+func lockGhostKey(txn *badger.Txn, ghost *crypto.Key, tx crypto.Hash) error {
 	key := graphGhostKey(*ghost)
 	item, err := txn.Get(key)
 	if err == badger.ErrKeyNotFound {
@@ -150,13 +149,6 @@ func lockGhostKey(txn *badger.Txn, ghost *crypto.Key, tx crypto.Hash, fork bool)
 	}
 	if len(val) != len(by) || !by.HasValue() {
 		return fmt.Errorf("ghost key %s malformed lock %x", ghost.String(), val)
-	}
-	if fork && slices.Contains([]string{
-		"c63b6373652def5999c1d951fcb8f064db67b7d18565847b921b21639e15dddd",
-		"60deaf2471bb0b6481efe9080d8852b020ab2941e7faae21989d2404f34284ee",
-		"a558b1efbe27eb6a6f902fd97d4b7e2e3099e6edde1fe6e8e41204e0685fe426",
-	}, tx.String()) {
-		return nil
 	}
 	if by != tx {
 		return fmt.Errorf("ghost key %s locked for transaction %s", ghost.String(), by.String())
