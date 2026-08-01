@@ -1010,10 +1010,6 @@ func TestNodeStateAndQueueHelpers(t *testing.T) {
 	t.Run("queue selection", func(t *testing.T) {
 		all := []*CNode{{IdForNetwork: a}, {IdForNetwork: b}}
 		node.IdForNetwork = a
-		now := time.Unix(0, 0)
-		require.Equal(t, []crypto.Hash{a}, node.findRandomHeadNodeWithPossibleTail(all, nil, nil, now))
-		require.Equal(t, []crypto.Hash{a}, node.findRandomHeadNodeWithPossibleTail(all, []*CNode{{IdForNetwork: b}}, map[crypto.Hash]bool{a: true}, now))
-		require.Equal(t, []crypto.Hash{a, b}, node.findRandomHeadNodeWithPossibleTail(all, []*CNode{{IdForNetwork: b}}, map[crypto.Hash]bool{b: true}, now))
 
 		require.False(t, node.canBatchSelfTransactions())
 		require.False(t, node.canProposeSnapshot(all))

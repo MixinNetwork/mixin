@@ -38,4 +38,4 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-latest' }}
         working-directory: .
         run: |
-          CGO_ENABLED=0 MIXIN_TX_SNAPSHOT_TRACE=1 ELECTION=true INPUT=1000 go test -timeout=10m -v ./rpc
+          CGO_ENABLED=0 MIXIN_TX_SNAPSHOT_TRACE=1 ELECTION=true METRICS=true INPUT=1000 go test -timeout=10m -v ./rpc

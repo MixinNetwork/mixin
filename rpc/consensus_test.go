@@ -471,6 +471,10 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 }
 
 func testLogP2PMetrics(t *testing.T, phase string, nodes []*kernel.Node) {
+	enableMetrics, _ := strconv.ParseBool(os.Getenv("METRICS"))
+	if !enableMetrics {
+		return
+	}
 	t.Helper()
 	for _, node := range nodes {
 		t.Logf("P2P METRICS AFTER %s TEST FOR %s %v", phase, node.IdForNetwork, node.Peer.Metric())
