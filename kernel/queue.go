@@ -154,8 +154,6 @@ func (node *Node) popAndProcessCacheQueue() int {
 			// if a node can propose, then it will not send the transactions to others
 			// because announcement and challenge transactions won't enter this node queue
 			// so won't cause redundant snapshot for those transactions.
-			// now the remaining issues are transactions sent before finalization snapshot
-			// they entered the queue again
 			node.sendTransactionsToNode(batch, node.IdForNetwork)
 		} else {
 			nbors := node.findSnapshotNodes(allNodes, leadingNodes, leadingFilter, now, batch[0])
@@ -252,8 +250,8 @@ func (node *Node) canProposeSnapshot(all []*CNode) bool {
 
 func (node *Node) findSnapshotNodes(all, leading []*CNode, filter map[crypto.Hash]bool, now time.Time, hash crypto.Hash) []crypto.Hash {
 	timestamp := uint64(now.UnixNano())
-	ready := make([]crypto.Hash, 0, len(all))
-	for _, cn := range all {
+	ready := make([]crypto.Hash, 0, len(leading))
+	for _, cn := range leading {
 		chain := node.getChain(cn.IdForNetwork)
 		local := cn.IdForNetwork == node.IdForNetwork
 		if local {
@@ -317,7 +315,7 @@ func (node *Node) filterLeadingNodes(all []*CNode) ([]*CNode, map[crypto.Hash]bo
 	node.chains.RLock()
 	defer node.chains.RUnlock()
 
-	threshold := 5 * uint64(time.Minute)
+	threshold := 3 * uint64(time.Minute)
 	now := clock.NowUnixNano()
 
 	leading := make([]*CNode, 0)
