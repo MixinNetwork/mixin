@@ -261,10 +261,15 @@ func (node *Node) findSnapshotNodes(all, leading []*CNode, filter map[crypto.Has
 			ready = append(ready, cn.IdForNetwork)
 		}
 	}
-	if len(ready) > 0 {
-		return []crypto.Hash{ready[cacheQueueIndex(hash, now, len(ready))]}
+	random := all[cacheQueueIndex(hash, now, len(all))]
+	if len(ready) == 0 {
+		return []crypto.Hash{random.IdForNetwork}
 	}
-	return node.findRandomHeadNodeWithPossibleTail(all, leading, filter, now)
+	rid := ready[cacheQueueIndex(hash, now, len(ready))]
+	if now.Minute()%5 == 1 && random.IdForNetwork != rid {
+		return []crypto.Hash{rid, random.IdForNetwork}
+	}
+	return []crypto.Hash{rid}
 }
 
 func (node *Node) chainCanProposeSnapshot(all []*CNode, chain *Chain, timestamp uint64) bool {
@@ -333,23 +338,6 @@ func (node *Node) filterLeadingNodes(all []*CNode) ([]*CNode, map[crypto.Hash]bo
 		filter[cn.IdForNetwork] = true
 	}
 	return leading, filter
-}
-
-// TODO need to think whether I need to group transactions by hash and time to different nodes
-func (node *Node) findRandomHeadNodeWithPossibleTail(all, leading []*CNode, filter map[crypto.Hash]bool, now time.Time) []crypto.Hash {
-	idx := now.UnixNano() / int64(time.Minute) % int64(len(all))
-	id := all[idx].IdForNetwork
-	if filter[id] || len(leading) == 0 {
-		return []crypto.Hash{id}
-	}
-
-	idx = now.UnixNano() / int64(time.Minute) % int64(len(leading))
-	lid := leading[idx].IdForNetwork
-	if lid == id {
-		return []crypto.Hash{id}
-	}
-	logger.Debugf("findRandomHeadNodeWithPossibleTail(%d, %d) => %s %s", len(all), len(leading), id, lid)
-	return []crypto.Hash{id, lid}
 }
 
 func (node *Node) QueueState() (uint64, uint64, map[string][2]uint64) {
