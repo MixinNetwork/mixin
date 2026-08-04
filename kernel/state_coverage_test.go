@@ -1036,9 +1036,8 @@ func TestNodeStateAndQueueHelpers(t *testing.T) {
 			c: {},
 		}}
 		node.chain.node = node
-		leading, filter := node.filterLeadingNodes([]*CNode{{IdForNetwork: a}, {IdForNetwork: b}, {IdForNetwork: c}})
+		leading := node.filterLeadingNodes([]*CNode{{IdForNetwork: a}, {IdForNetwork: b}, {IdForNetwork: c}})
 		require.Equal(t, []*CNode{{IdForNetwork: a}}, leading)
-		require.Equal(t, map[crypto.Hash]bool{a: true}, filter)
 	})
 
 	t.Run("node completion signal", func(t *testing.T) {

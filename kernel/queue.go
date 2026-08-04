@@ -107,7 +107,7 @@ func (node *Node) popAndProcessCacheQueue() int {
 	}
 
 	now := clock.Now()
-	leadingNodes, leadingFilter := node.filterLeadingNodes(allNodes)
+	leadingNodes := node.filterLeadingNodes(allNodes)
 
 	filter := make(map[crypto.Hash]bool)
 	var batchSize int
@@ -144,7 +144,7 @@ func (node *Node) popAndProcessCacheQueue() int {
 			batch = append(batch, hash)
 			continue
 		}
-		nbors := node.findSnapshotNodes(allNodes, leadingNodes, leadingFilter, now, hash)
+		nbors := node.findSnapshotNodes(allNodes, leadingNodes, now, hash)
 		for _, nbor := range nbors {
 			node.sendTransactionsToNode([]crypto.Hash{hash}, nbor)
 		}
@@ -156,7 +156,7 @@ func (node *Node) popAndProcessCacheQueue() int {
 			// so won't cause redundant snapshot for those transactions.
 			node.sendTransactionsToNode(batch, node.IdForNetwork)
 		} else {
-			nbors := node.findSnapshotNodes(allNodes, leadingNodes, leadingFilter, now, batch[0])
+			nbors := node.findSnapshotNodes(allNodes, leadingNodes, now, batch[0])
 			for _, nbor := range nbors {
 				node.sendTransactionsToNode(batch, nbor)
 			}
@@ -248,8 +248,11 @@ func (node *Node) canProposeSnapshot(all []*CNode) bool {
 	return false
 }
 
-func (node *Node) findSnapshotNodes(all, leading []*CNode, filter map[crypto.Hash]bool, now time.Time, hash crypto.Hash) []crypto.Hash {
+func (node *Node) findSnapshotNodes(all, leading []*CNode, now time.Time, hash crypto.Hash) []crypto.Hash {
 	timestamp := uint64(now.UnixNano())
+	if len(leading) < len(all)*2/3+1 {
+		leading = all
+	}
 	ready := make([]crypto.Hash, 0, len(leading))
 	for _, cn := range leading {
 		chain := node.getChain(cn.IdForNetwork)
@@ -316,15 +319,14 @@ func cacheQueueIndex(hash crypto.Hash, now time.Time, size int) int {
 	return int((seed + bucket) % uint64(size))
 }
 
-func (node *Node) filterLeadingNodes(all []*CNode) ([]*CNode, map[crypto.Hash]bool) {
+func (node *Node) filterLeadingNodes(all []*CNode) []*CNode {
 	node.chains.RLock()
 	defer node.chains.RUnlock()
 
-	threshold := 3 * uint64(time.Minute)
+	threshold := uint64(time.Minute)
 	now := clock.NowUnixNano()
 
 	leading := make([]*CNode, 0)
-	filter := make(map[crypto.Hash]bool)
 	for _, cn := range all {
 		chain := node.chain.node.chains.m[cn.IdForNetwork]
 		if chain.State == nil {
@@ -335,9 +337,8 @@ func (node *Node) filterLeadingNodes(all []*CNode) ([]*CNode, map[crypto.Hash]bo
 			continue
 		}
 		leading = append(leading, cn)
-		filter[cn.IdForNetwork] = true
 	}
-	return leading, filter
+	return leading
 }
 
 func (node *Node) QueueState() (uint64, uint64, map[string][2]uint64) {
