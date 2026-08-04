@@ -117,7 +117,7 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64, old *co
 	return candi, nil
 }
 
-func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint64, old *common.VersionedTransaction) (*common.VersionedTransaction, error) {
+func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint64, anchor crypto.Hash, old *common.VersionedTransaction) (*common.VersionedTransaction, error) {
 	candi, err := node.checkRemovePossibility(nodeId, timestamp, old)
 	if err != nil {
 		return nil, err
@@ -152,10 +152,13 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 	tx.Extra = accept.Extra
 	script := common.NewThresholdScript(1)
 	in := fmt.Sprintf("NODEREMOVE%s", candi.Signer.String())
-	si := crypto.Blake3Hash([]byte(candi.Payee.String() + in))
-	seed := append(si[:], si[:]...)
+	seed := protocolGhostSeed(candi.Payee.String()+in, anchor)
 	tx.AddOutputWithType(common.OutputTypeNodeRemove, []*common.Address{&candi.Payee}, script, accept.Outputs[0].Amount, seed)
-	tx.References = consensusSnap.Transactions
+	if anchor.HasValue() {
+		tx.References = append(append([]crypto.Hash{}, consensusSnap.Transactions...), anchor)
+	} else {
+		tx.References = consensusSnap.Transactions
+	}
 
 	return tx.AsVersioned(), nil
 }
@@ -165,7 +168,14 @@ func (node *Node) tryToSendRemoveTransaction() error {
 	if eid != node.IdForNetwork {
 		return fmt.Errorf("node remove operation at %d only by %s not me", node.GraphTimestamp, eid)
 	}
-	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, node.GraphTimestamp, nil)
+	if node.chain.State.FinalRound == nil {
+		return fmt.Errorf("node %s is not ready", eid)
+	}
+	anchor, err := node.ghostSeedReference(node.GraphTimestamp)
+	if err != nil {
+		return err
+	}
+	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, node.GraphTimestamp, anchor, nil)
 	if err != nil {
 		return err
 	}
@@ -212,7 +222,11 @@ func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.Vers
 			return nil
 		}
 	}
-	cantx, err := node.buildNodeRemoveTransaction(s.NodeId, timestamp, tx)
+	anchor, err := node.ghostSeedReferenceFromTx(tx.References, timestamp)
+	if err != nil {
+		return err
+	}
+	cantx, err := node.buildNodeRemoveTransaction(s.NodeId, timestamp, anchor, tx)
 	if err != nil {
 		return err
 	}

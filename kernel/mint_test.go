@@ -153,7 +153,7 @@ func TestUniversalMintTransaction(t *testing.T) {
 
 	timestamp := clock.NowUnixNano()
 	cur := &common.CustodianUpdateRequest{Custodian: &custodian}
-	versioned = node.buildUniversalMintTransaction(cur, timestamp, false)
+	versioned = node.buildUniversalMintTransaction(cur, timestamp, crypto.Hash{}, false)
 	require.NotNil(versioned)
 
 	amount = common.NewIntegerFromString("89.87671232")

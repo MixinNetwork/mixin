@@ -198,7 +198,10 @@ The remove transaction:
 - creates one `0xa6` threshold-one output for the full pledge amount;
 - derives that spendable output for the node's payee address;
 - preserves the signer and payee keys in `extra`;
+- references the last consensus transaction, plus a recent finalized transaction as ghost seed anchor;
 - appears alone in its snapshot.
+
+The output ghost key derives from the payee and signer keys mixed with that anchor transaction hash, so the key cannot be pre-computed and reserved by an outsider before the removal window; every validator still rebuilds the identical transaction from the anchor recorded in `references`.
 
 The resulting state is `REMOVED`. The payee controls the returned output with its keys. A node-remove output is also an eligible input type for a later ordinary transfer or node pledge.
 
