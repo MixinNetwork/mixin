@@ -165,10 +165,11 @@ func TestWithdrawalValidationCampaign(t *testing.T) {
 	}
 
 	claimData := []byte("claim-data")
-	claimHash := crypto.Blake3Hash(claimData)
+	submitHash := submitVer.PayloadHash()
+	claimHash := crypto.Blake3Hash(append(submitHash[:], claimData...))
 	claimSig := custodian.PrivateSpendKey.Sign(claimHash)
 	claim.Extra = append(claimSig[:], claimData...)
-	require.Nil(claim.validateWithdrawalClaim(store, validInputs, 1))
+	require.Nil(claim.validateWithdrawalClaim(store, validInputs, 1, false))
 
 	require.ErrorContains((&Transaction{
 		Asset:      XINAssetId,
@@ -177,14 +178,14 @@ func TestWithdrawalValidationCampaign(t *testing.T) {
 		Extra:      claim.Extra,
 	}).validateWithdrawalClaim(store, map[string]*UTXO{
 		"bad:0": {Output: Output{Type: OutputTypeNodeAccept}},
-	}, 1), "invalid utxo type")
+	}, 1, false), "invalid utxo type")
 
 	require.ErrorContains((&Transaction{
 		Asset:      BitcoinAssetId,
 		Outputs:    claim.Outputs,
 		References: claim.References,
 		Extra:      claim.Extra,
-	}).validateWithdrawalClaim(store, validInputs, 1), "invalid asset")
+	}).validateWithdrawalClaim(store, validInputs, 1, false), "invalid asset")
 
 	require.ErrorContains((&Transaction{
 		Asset: XINAssetId,
@@ -194,14 +195,14 @@ func TestWithdrawalValidationCampaign(t *testing.T) {
 		},
 		References: claim.References,
 		Extra:      claim.Extra,
-	}).validateWithdrawalClaim(store, validInputs, 1), "invalid change type")
+	}).validateWithdrawalClaim(store, validInputs, 1, false), "invalid change type")
 
 	require.ErrorContains((&Transaction{
 		Asset:      XINAssetId,
 		Outputs:    claim.Outputs,
 		References: nil,
 		Extra:      claim.Extra,
-	}).validateWithdrawalClaim(store, validInputs, 1), "invalid references count")
+	}).validateWithdrawalClaim(store, validInputs, 1, false), "invalid references count")
 
 	require.ErrorContains((&Transaction{
 		Asset: XINAssetId,
@@ -211,7 +212,7 @@ func TestWithdrawalValidationCampaign(t *testing.T) {
 		}},
 		References: claim.References,
 		Extra:      claim.Extra,
-	}).validateWithdrawalClaim(store, validInputs, 1), "invalid output type")
+	}).validateWithdrawalClaim(store, validInputs, 1, false), "invalid output type")
 
 	require.ErrorContains((&Transaction{
 		Asset: XINAssetId,
@@ -221,14 +222,14 @@ func TestWithdrawalValidationCampaign(t *testing.T) {
 		}},
 		References: claim.References,
 		Extra:      claim.Extra,
-	}).validateWithdrawalClaim(store, validInputs, 1), "invalid output amount")
+	}).validateWithdrawalClaim(store, validInputs, 1, false), "invalid output amount")
 
 	store.readTxErr = errors.New("read tx failure")
-	require.ErrorIs(claim.validateWithdrawalClaim(store, validInputs, 1), store.readTxErr)
+	require.ErrorIs(claim.validateWithdrawalClaim(store, validInputs, 1, false), store.readTxErr)
 	store.readTxErr = nil
 
 	delete(store.txs, submitVer.PayloadHash().String())
-	require.ErrorContains(claim.validateWithdrawalClaim(store, validInputs, 1), "invalid withdrawal submit data")
+	require.ErrorContains(claim.validateWithdrawalClaim(store, validInputs, 1, false), "invalid withdrawal submit data")
 	store.txs[submitVer.PayloadHash().String()] = submitVer
 
 	store.txs[submitVer.PayloadHash().String()] = (&Transaction{
@@ -236,23 +237,43 @@ func TestWithdrawalValidationCampaign(t *testing.T) {
 		Asset:   XINAssetId,
 		Outputs: []*Output{{Type: OutputTypeScript, Amount: NewInteger(1)}},
 	}).AsVersioned()
-	require.ErrorContains(claim.validateWithdrawalClaim(store, validInputs, 1), "invalid withdrawal submit data")
+	require.ErrorContains(claim.validateWithdrawalClaim(store, validInputs, 1, false), "invalid withdrawal submit data")
 	store.txs[submitVer.PayloadHash().String()] = submitVer
 
 	shortExtra := *claim
 	shortExtra.Extra = []byte{1, 2, 3}
-	require.ErrorContains(shortExtra.validateWithdrawalClaim(store, validInputs, 1), "invalid withdrawal claim information")
+	require.ErrorContains(shortExtra.validateWithdrawalClaim(store, validInputs, 1, false), "invalid withdrawal claim information")
+
+	store.readWithdrawalErr = errors.New("withdrawal read failure")
+	require.ErrorIs(claim.validateWithdrawalClaim(store, validInputs, 1, false), store.readWithdrawalErr)
+	store.readWithdrawalErr = nil
+
+	store.withdrawalClaims = map[string]*VersionedTransaction{
+		submitHash.String(): submitVer,
+	}
+	require.ErrorContains(claim.validateWithdrawalClaim(store, validInputs, 1, false), "already claimed")
+	store.withdrawalClaims = nil
 
 	store.custodianErr = errors.New("custodian read failure")
-	require.ErrorIs(claim.validateWithdrawalClaim(store, validInputs, 1), store.custodianErr)
+	require.ErrorIs(claim.validateWithdrawalClaim(store, validInputs, 1, false), store.custodianErr)
 	store.custodianErr = nil
 
 	other := deterministicAddress(2)
-	badHash := crypto.Blake3Hash(claimData)
-	badSig := other.PrivateSpendKey.Sign(badHash)
+	badSig := other.PrivateSpendKey.Sign(claimHash)
 	badClaim := *claim
 	badClaim.Extra = append(badSig[:], claimData...)
-	require.ErrorContains(badClaim.validateWithdrawalClaim(store, validInputs, 1), "invalid custodian signature")
+	require.ErrorContains(badClaim.validateWithdrawalClaim(store, validInputs, 1, false), "invalid custodian signature")
+
+	// claims signed without the reference binding are only accepted at
+	// finalization before the fork timestamp
+	legacyHash := crypto.Blake3Hash(claimData)
+	legacySig := custodian.PrivateSpendKey.Sign(legacyHash)
+	legacyClaim := *claim
+	legacyClaim.Extra = append(legacySig[:], claimData...)
+	require.ErrorContains(legacyClaim.validateWithdrawalClaim(store, validInputs, 1, false), "invalid custodian signature")
+	require.Nil(legacyClaim.validateWithdrawalClaim(store, validInputs, 1, true))
+	require.ErrorContains(legacyClaim.validateWithdrawalClaim(store, validInputs, 1788220800000000000, true), "invalid custodian signature")
+	require.Nil(claim.validateWithdrawalClaim(store, validInputs, 1788220800000000000, true))
 }
 
 func TestNodePledgeAcceptRemoveCampaign(t *testing.T) {
@@ -986,7 +1007,8 @@ func TestSigningAndValidateDispatchCampaign(t *testing.T) {
 	withdrawClaim.AddScriptOutput([]*Address{&account}, NewThresholdScript(1), utxo.Amount.Sub(fee), bytes.Repeat([]byte{8}, 64))
 	withdrawClaim.References = []crypto.Hash{withdrawSubmitVer.PayloadHash()}
 	claimData := []byte("withdraw-claim")
-	claimHash := crypto.Blake3Hash(claimData)
+	submitHash := withdrawSubmitVer.PayloadHash()
+	claimHash := crypto.Blake3Hash(append(submitHash[:], claimData...))
 	claimSig := custodian.PrivateSpendKey.Sign(claimHash)
 	withdrawClaim.Extra = append(claimSig[:], claimData...)
 	withdrawClaimVer := withdrawClaim.AsVersioned()
@@ -1252,20 +1274,22 @@ func TestVersionAndLimitEdgeCampaign(t *testing.T) {
 }
 
 type campaignStore struct {
-	asset        *Asset
-	balance      Integer
-	utxos        map[string]*UTXOWithLock
-	txs          map[string]*VersionedTransaction
-	nodes        []*Node
-	custodian    *CustodianUpdateRequest
-	mintDist     *MintDistribution
-	depositLock  crypto.Hash
-	ghostErr     error
-	readTxErr    error
-	readUTXOErr  error
-	custodianErr error
-	mintErr      error
-	assetErr     error
+	asset             *Asset
+	balance           Integer
+	utxos             map[string]*UTXOWithLock
+	txs               map[string]*VersionedTransaction
+	nodes             []*Node
+	custodian         *CustodianUpdateRequest
+	mintDist          *MintDistribution
+	depositLock       crypto.Hash
+	withdrawalClaims  map[string]*VersionedTransaction
+	ghostErr          error
+	readTxErr         error
+	readUTXOErr       error
+	custodianErr      error
+	mintErr           error
+	assetErr          error
+	readWithdrawalErr error
 }
 
 func (s *campaignStore) ReadAssetWithBalance(_ crypto.Hash) (*Asset, Integer, error) {
@@ -1317,6 +1341,17 @@ func (s *campaignStore) ReadAllNodes(_ uint64, _ bool) []*Node {
 
 func (s *campaignStore) ReadCustodian(_ uint64) (*CustodianUpdateRequest, error) {
 	return s.custodian, s.custodianErr
+}
+
+func (s *campaignStore) ReadWithdrawalClaim(hash crypto.Hash) (*VersionedTransaction, string, error) {
+	if s.readWithdrawalErr != nil {
+		return nil, "", s.readWithdrawalErr
+	}
+	tx := s.withdrawalClaims[hash.String()]
+	if tx == nil {
+		return nil, "", nil
+	}
+	return tx, tx.PayloadHash().String(), nil
 }
 
 func (s *campaignStore) ReadTransaction(hash crypto.Hash) (*VersionedTransaction, string, error) {

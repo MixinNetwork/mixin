@@ -45,7 +45,7 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 	return nil
 }
 
-func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[string]*UTXO, snapTime uint64) error {
+func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[string]*UTXO, snapTime uint64, fork bool) error {
 	for _, in := range inputs {
 		if in.Type != OutputTypeScript {
 			return fmt.Errorf("invalid utxo type %d", in.Type)
@@ -72,11 +72,11 @@ func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[strin
 		return fmt.Errorf("invalid output amount %s for withdrawal claim transaction", claim.Amount)
 	}
 
-	submit, _, err := store.ReadTransaction(tx.References[0])
+	submit, submitSnap, err := store.ReadTransaction(tx.References[0])
 	if err != nil {
 		return err
 	}
-	if submit == nil {
+	if submit == nil || len(submitSnap) != 64 {
 		return fmt.Errorf("invalid withdrawal submit data")
 	}
 	withdrawal := submit.Outputs[0].Withdrawal
@@ -84,18 +84,32 @@ func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[strin
 		return fmt.Errorf("invalid withdrawal submit data")
 	}
 
+	old, _, err := store.ReadWithdrawalClaim(submit.PayloadHash())
+	if err != nil {
+		return err
+	}
+	if old != nil {
+		return fmt.Errorf("already claimed by %s", old.PayloadHash())
+	}
+
 	var sig crypto.Signature
 	if len(tx.Extra) < len(sig) {
 		return fmt.Errorf("invalid withdrawal claim information")
 	}
 	copy(sig[:], tx.Extra[:len(sig)])
-	eh := crypto.Blake3Hash(tx.Extra[len(sig):])
 	cur, err := store.ReadCustodian(snapTime)
 	if err != nil {
 		return err
 	}
-	if !cur.Custodian.PublicSpendKey.Verify(eh, sig) {
-		return fmt.Errorf("invalid custodian signature for withdrawal claim")
+
+	withdrawalData := append([]byte{}, tx.References[0][:]...)
+	withdrawalData = append(withdrawalData, tx.Extra[len(sig):]...)
+	eh := crypto.Blake3Hash(withdrawalData)
+	if cur.Custodian.PublicSpendKey.Verify(eh, sig) {
+		return nil
 	}
-	return nil
+	if snapTime < 1788220800000000000 && fork {
+		return nil
+	}
+	return fmt.Errorf("invalid custodian signature for withdrawal claim")
 }

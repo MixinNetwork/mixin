@@ -79,7 +79,7 @@ func (ver *VersionedTransaction) Validate(store DataStore, snapTime uint64, fork
 	case TransactionTypeWithdrawalSubmit:
 		return tx.validateWithdrawalSubmit(inputsFilter)
 	case TransactionTypeWithdrawalClaim:
-		return tx.validateWithdrawalClaim(store, inputsFilter, snapTime)
+		return tx.validateWithdrawalClaim(store, inputsFilter, snapTime, fork)
 	case TransactionTypeNodePledge:
 		return tx.validateNodePledge(store, inputsFilter, snapTime)
 	case TransactionTypeNodeAccept:

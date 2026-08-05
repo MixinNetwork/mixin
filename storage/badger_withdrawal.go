@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/hex"
+	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -12,6 +13,10 @@ func (s *BadgerStore) ReadWithdrawalClaim(hash crypto.Hash) (*common.VersionedTr
 	txn := s.snapshotsDB.NewTransaction(false)
 	defer txn.Discard()
 
+	return readWithdrawalClaim(txn, hash)
+}
+
+func readWithdrawalClaim(txn *badger.Txn, hash crypto.Hash) (*common.VersionedTransaction, string, error) {
 	key := graphWithdrawalClaimKey(hash)
 	item, err := txn.Get(key)
 	if err == badger.ErrKeyNotFound {
@@ -33,6 +38,13 @@ func (s *BadgerStore) ReadWithdrawalClaim(hash crypto.Hash) (*common.VersionedTr
 }
 
 func writeWithdrawalClaim(txn *badger.Txn, hash, claim crypto.Hash) error {
+	old, _, err := readWithdrawalClaim(txn, hash)
+	if err != nil {
+		return err
+	}
+	if old != nil {
+		panic(fmt.Errorf("already claimed by %s", old.PayloadHash()))
+	}
 	tx, snap, err := readTransactionAndFinalization(txn, hash)
 	if err != nil {
 		return err

@@ -941,6 +941,10 @@ func TestTransactionWithdrawalAndConsensusEdges(t *testing.T) {
 		err = writeSnapshot(txn, claimSnap)
 		require.Nil(err)
 
+		require.Panics(func() {
+			_ = writeWithdrawalClaim(txn, baseVer.PayloadHash(), claimVer.PayloadHash())
+		})
+
 		err = writeTransaction(txn, depositVer)
 		require.Nil(err)
 		err = finalizeTransaction(txn, depositVer, depositSnap)

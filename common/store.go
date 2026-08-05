@@ -38,6 +38,10 @@ type AssetReader interface {
 	ReadAssetWithBalance(id crypto.Hash) (*Asset, Integer, error)
 }
 
+type WithdrawalReader interface {
+	ReadWithdrawalClaim(hash crypto.Hash) (*VersionedTransaction, string, error)
+}
+
 type DataStore interface {
 	TransactionReader
 	UTXOLockReader
@@ -46,4 +50,5 @@ type DataStore interface {
 	NodeReader
 	CustodianReader
 	AssetReader
+	WithdrawalReader
 }
