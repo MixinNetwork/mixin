@@ -280,6 +280,9 @@ func (node *Node) ConsensusReady(cn *CNode, timestamp uint64) bool {
 }
 
 func (node *Node) ConsensusThreshold(timestamp uint64, final bool) int {
+	if timestamp > clock.NowUnixNano()+uint64(time.Minute) {
+		panic(timestamp)
+	}
 	consensusBase := 0
 	nodes := node.NodesListWithoutState(timestamp, false)
 	for _, cn := range nodes {
