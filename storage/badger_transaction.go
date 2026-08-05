@@ -340,8 +340,6 @@ func writeUTXO(txn *badger.Txn, utxo *common.UTXOWithLock, ver *common.Versioned
 	switch utxo.Type {
 	case common.OutputTypeNodePledge:
 		return writeNodePledge(txn, signer, payee, utxo.Hash, timestamp)
-	case common.OutputTypeNodeCancel:
-		return writeNodeCancel(txn, signer, payee, utxo.Hash, timestamp)
 	case common.OutputTypeNodeAccept:
 		return writeNodeAccept(txn, signer, payee, utxo.Hash, timestamp, genesis)
 	case common.OutputTypeNodeRemove:

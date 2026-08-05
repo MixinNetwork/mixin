@@ -502,135 +502,6 @@ func TestNodePledgeAcceptRemoveCampaign(t *testing.T) {
 	require.ErrorContains(badRemove.validateNodeRemove(store), "invalid accept and remove key")
 }
 
-func TestNodeCancelCampaign(t *testing.T) {
-	require := require.New(t)
-
-	store, tx, hash, sigs := buildNodeCancelScenario()
-	require.Nil(tx.validateNodeCancel(store, hash, sigs, 0))
-
-	bad := *tx
-	bad.Asset = BitcoinAssetId
-	require.ErrorContains(bad.validateNodeCancel(store, hash, sigs, 0), "invalid node asset")
-
-	bad = *tx
-	bad.Outputs = bad.Outputs[:1]
-	require.ErrorContains(bad.validateNodeCancel(store, hash, sigs, 0), "invalid outputs count")
-
-	bad = *tx
-	bad.Inputs = nil
-	require.ErrorContains(bad.validateNodeCancel(store, hash, sigs, 0), "invalid inputs count")
-
-	require.ErrorContains(tx.validateNodeCancel(store, hash, nil, 0), "invalid signatures")
-
-	bad = *tx
-	bad.Extra = []byte{1}
-	require.ErrorContains(bad.validateNodeCancel(store, hash, sigs, 0), "invalid extra")
-
-	bad = *tx
-	bad.Outputs = []*Output{
-		{Type: OutputTypeNodeAccept, Amount: tx.Outputs[0].Amount},
-		tx.Outputs[1],
-	}
-	require.ErrorContains(bad.validateNodeCancel(store, hash, sigs, 0), "invalid outputs type")
-
-	bad = *tx
-	scriptCopy := *tx.Outputs[1]
-	scriptCopy.Keys = nil
-	bad.Outputs = []*Output{tx.Outputs[0], &scriptCopy}
-	require.ErrorContains(bad.validateNodeCancel(store, hash, sigs, 0), "invalid script output keys")
-
-	bad = *tx
-	scriptCopy = *tx.Outputs[1]
-	scriptCopy.Script = NewThresholdScript(2)
-	bad.Outputs = []*Output{tx.Outputs[0], &scriptCopy}
-	require.ErrorContains(bad.validateNodeCancel(store, hash, sigs, 0), "invalid script output script")
-
-	noNodeStore, _, _, _ := buildNodeCancelScenario()
-	noNodeStore.nodes = nil
-	require.ErrorContains(tx.validateNodeCancel(noNodeStore, hash, sigs, 0), "no pledging node")
-
-	dupNodeStore, _, _, _ := buildNodeCancelScenario()
-	dupNodeStore.nodes = append(dupNodeStore.nodes, &Node{
-		Signer:      deterministicAddress(40),
-		State:       NodeStatePledging,
-		Transaction: crypto.Blake3Hash([]byte("other-pledge")),
-	})
-	require.ErrorContains(tx.validateNodeCancel(dupNodeStore, hash, sigs, 0), "invalid pledging nodes")
-
-	mismatchStore, badTx, _, badSigs := buildNodeCancelScenario()
-	badTx.Inputs[0].Hash = crypto.Blake3Hash([]byte("wrong-source"))
-	require.ErrorContains(badTx.validateNodeCancel(mismatchStore, badTx.AsVersioned().PayloadHash(), badSigs, 0), "invalid pledge utxo source")
-
-	readErrStore, _, _, _ := buildNodeCancelScenario()
-	readErrStore.readTxErr = errors.New("cancel read failure")
-	require.ErrorIs(tx.validateNodeCancel(readErrStore, hash, sigs, 0), readErrStore.readTxErr)
-
-	countStore, _, _, _ := buildNodeCancelScenario()
-	lastPledgeHash := tx.Inputs[0].Hash
-	countStore.txs[lastPledgeHash.String()] = (&Transaction{
-		Version: TxVersionHashSignature,
-		Asset:   XINAssetId,
-		Outputs: []*Output{},
-		Extra:   countStore.txs[lastPledgeHash.String()].Extra,
-	}).AsVersioned()
-	require.ErrorContains(tx.validateNodeCancel(countStore, hash, sigs, 0), "invalid pledge utxo count")
-
-	typeStore, _, _, _ := buildNodeCancelScenario()
-	typeStore.txs[tx.Inputs[0].Hash.String()] = (&Transaction{
-		Version: TxVersionHashSignature,
-		Asset:   XINAssetId,
-		Inputs:  []*Input{{Hash: crypto.Blake3Hash([]byte("pit")), Index: 1}},
-		Outputs: []*Output{{Type: OutputTypeScript, Amount: NewInteger(100)}},
-		Extra:   typeStore.txs[tx.Inputs[0].Hash.String()].Extra,
-	}).AsVersioned()
-	require.ErrorContains(tx.validateNodeCancel(typeStore, hash, sigs, 0), "invalid pledge utxo type")
-
-	amountStore, _, _, _ := buildNodeCancelScenario()
-	bad = *tx
-	cancelCopy := *tx.Outputs[0]
-	cancelCopy.Amount = NewInteger(2)
-	bad.Outputs = []*Output{&cancelCopy, tx.Outputs[1]}
-	require.ErrorContains(bad.validateNodeCancel(amountStore, hash, sigs, 0), "invalid script output amount")
-
-	filterStore, _, _, _ := buildNodeCancelScenario()
-	filterStore.nodes = []*Node{{
-		Signer:      deterministicAddress(41),
-		State:       NodeStatePledging,
-		Transaction: tx.Inputs[0].Hash,
-	}}
-	require.ErrorContains(tx.validateNodeCancel(filterStore, hash, sigs, 0), "invalid pledge utxo source")
-
-	pitStore, _, _, _ := buildNodeCancelScenario()
-	delete(pitStore.txs, pitStore.txs[tx.Inputs[0].Hash.String()].Inputs[0].Hash.String())
-	require.ErrorContains(tx.validateNodeCancel(pitStore, hash, sigs, 0), "invalid pledge input source")
-
-	keysStore, _, _, _ := buildNodeCancelScenario()
-	last := keysStore.txs[tx.Inputs[0].Hash.String()]
-	pitHash := last.Inputs[0].Hash
-	pit := keysStore.txs[pitHash.String()]
-	pit.Outputs[1].Keys = nil
-	require.ErrorContains(tx.validateNodeCancel(keysStore, hash, sigs, 0), "invalid pledge input source keys")
-
-	keyStore, badKeyTx, badHash, badKeySigs := buildNodeCancelScenario()
-	badKeyTx.Extra = append([]byte{}, badKeyTx.Extra...)
-	badKeyTx.Extra[0] ^= 0xff
-	require.ErrorContains(badKeyTx.validateNodeCancel(keyStore, badHash, badKeySigs, 0), "invalid pledge and cancel key")
-
-	targetStore, badTargetTx, badTargetHash, badTargetSigs := buildNodeCancelScenario()
-	otherOwner := deterministicAddress(42)
-	otherUTXO, _ := makeScriptUTXO(otherOwner, crypto.Blake3Hash([]byte("other")), 1, NewInteger(99))
-	badTargetScript := *badTargetTx.Outputs[1]
-	badTargetScript.Keys = []*crypto.Key{otherUTXO.Keys[0]}
-	badTargetScript.Mask = otherUTXO.Mask
-	badTargetTx.Outputs = []*Output{badTargetTx.Outputs[0], &badTargetScript}
-	require.ErrorContains(badTargetTx.validateNodeCancel(targetStore, badTargetHash, badTargetSigs, 0), "invalid pledge and cancel target")
-
-	sigStore, _, _, _ := buildNodeCancelScenario()
-	badSigner := deterministicAddress(43)
-	badSig := badSigner.PrivateSpendKey.Sign(hash)
-	require.ErrorContains(tx.validateNodeCancel(sigStore, hash, []map[uint16]*crypto.Signature{{0: &badSig}}, 0), "invalid cancel signature")
-}
-
 func TestValidationHelpersCampaign(t *testing.T) {
 	require := require.New(t)
 
@@ -703,7 +574,6 @@ func TestValidationHelpersCampaign(t *testing.T) {
 	require.ErrorContains(validateUTXO(0, &UTXO{Output: Output{Type: OutputTypeNodePledge}}, nil, nil, TransactionTypeScript, map[*crypto.Key]*crypto.Signature{}, 0), "pledge input used")
 	require.Nil(validateUTXO(0, &UTXO{Output: Output{Type: OutputTypeNodeAccept}}, nil, nil, TransactionTypeNodeRemove, map[*crypto.Key]*crypto.Signature{}, 0))
 	require.ErrorContains(validateUTXO(0, &UTXO{Output: Output{Type: OutputTypeNodeAccept}}, nil, nil, TransactionTypeScript, map[*crypto.Key]*crypto.Signature{}, 0), "accept input used")
-	require.ErrorContains(validateUTXO(0, &UTXO{Output: Output{Type: OutputTypeNodeCancel}}, nil, nil, TransactionTypeScript, map[*crypto.Key]*crypto.Signature{}, 0), "should do more validation")
 	require.ErrorContains(validateUTXO(0, &UTXO{Output: Output{Type: OutputTypeWithdrawalSubmit}}, nil, nil, TransactionTypeScript, map[*crypto.Key]*crypto.Signature{}, 0), "invalid input type")
 
 	outputStore := &campaignStore{}
@@ -1197,27 +1067,6 @@ func TestSigningAndValidateDispatchCampaign(t *testing.T) {
 	nodeRemoveVer := nodeRemove.AsVersioned()
 	require.Nil(nodeRemoveVer.Validate(removeStore, 0, false))
 
-	cancelStore, cancelTx, cancelHash, cancelSigs := buildNodeCancelScenario()
-	cancelScript := *cancelTx.Outputs[1]
-	cancelUTXO := &UTXOWithLock{UTXO: UTXO{
-		Input: Input{Hash: cancelTx.Inputs[0].Hash, Index: 0},
-		Output: Output{
-			Type:   OutputTypeScript,
-			Amount: NewInteger(100),
-			Keys:   cancelScript.Keys,
-			Mask:   cancelScript.Mask,
-			Script: cancelScript.Script,
-		},
-		Asset: XINAssetId,
-	}}
-	cancelStore.utxos = map[string]*UTXOWithLock{
-		utxoRef(cancelTx.Inputs[0].Hash, 0): cancelUTXO,
-	}
-	cancelVer := cancelTx.AsVersioned()
-	cancelVer.hash = cancelHash
-	cancelVer.SignaturesMap = cancelSigs
-	require.Nil(cancelVer.Validate(cancelStore, 0, false))
-
 	slashStore := &campaignStore{
 		utxos: map[string]*UTXOWithLock{
 			utxoRef(utxoHash, 0): utxo,
@@ -1519,79 +1368,6 @@ func makeScriptUTXO(account Address, hash crypto.Hash, index uint, amount Intege
 	}
 	priv := crypto.DeriveGhostPrivateKey(&utxo.Mask, &account.PrivateViewKey, &account.PrivateSpendKey, uint64(index))
 	return utxo, priv
-}
-
-func buildNodeCancelScenario() (*campaignStore, *Transaction, crypto.Hash, []map[uint16]*crypto.Signature) {
-	owner := deterministicAddress(70)
-	signer := deterministicAddress(71)
-	payee := deterministicAddress(72)
-
-	pitHash := crypto.Blake3Hash([]byte("pit"))
-	pitUTXO, _ := makeScriptUTXO(owner, pitHash, 1, NewInteger(99))
-	pit := &Transaction{
-		Version: TxVersionHashSignature,
-		Asset:   XINAssetId,
-		Outputs: []*Output{
-			{
-				Type:   OutputTypeScript,
-				Amount: NewInteger(1),
-				Keys:   pitUTXO.Keys,
-				Mask:   pitUTXO.Mask,
-				Script: NewThresholdScript(1),
-			},
-			{
-				Type:   OutputTypeScript,
-				Amount: pitUTXO.Amount,
-				Keys:   pitUTXO.Keys,
-				Mask:   pitUTXO.Mask,
-				Script: NewThresholdScript(1),
-			},
-		},
-	}
-	pitVer := pit.AsVersioned()
-
-	extra := append(signer.PublicSpendKey[:], payee.PublicSpendKey[:]...)
-	lastPledge := &Transaction{
-		Version: TxVersionHashSignature,
-		Asset:   XINAssetId,
-		Inputs:  []*Input{{Hash: pitVer.PayloadHash(), Index: 1}},
-		Outputs: []*Output{{Type: OutputTypeNodePledge, Amount: NewInteger(100)}},
-		Extra:   extra,
-	}
-	lastPledgeVer := lastPledge.AsVersioned()
-
-	cancel := &Transaction{
-		Version: TxVersionHashSignature,
-		Asset:   XINAssetId,
-		Inputs:  []*Input{{Hash: lastPledgeVer.PayloadHash(), Index: 0}},
-		Outputs: []*Output{
-			{Type: OutputTypeNodeCancel, Amount: NewInteger(1)},
-			{
-				Type:   OutputTypeScript,
-				Amount: NewInteger(99),
-				Keys:   pitUTXO.Keys,
-				Mask:   pitUTXO.Mask,
-				Script: NewThresholdScript(1),
-			},
-		},
-		Extra: append(extra, owner.PrivateViewKey[:]...),
-	}
-	hash := cancel.AsVersioned().PayloadHash()
-	ghost := crypto.DeriveGhostPrivateKey(&pitUTXO.Mask, &owner.PrivateViewKey, &owner.PrivateSpendKey, 1)
-	sig := ghost.Sign(hash)
-
-	store := &campaignStore{
-		txs: map[string]*VersionedTransaction{
-			lastPledgeVer.PayloadHash().String(): lastPledgeVer,
-			pitVer.PayloadHash().String():        pitVer,
-		},
-		nodes: []*Node{{
-			Signer:      *lastPledge.NodeTransactionExtraAsSigner(),
-			State:       NodeStatePledging,
-			Transaction: lastPledgeVer.PayloadHash(),
-		}},
-	}
-	return store, cancel, hash, []map[uint16]*crypto.Signature{{0: &sig}}
 }
 
 func buildGenesisFixture() *Genesis {

@@ -140,24 +140,6 @@ func TestNodeTransitionRejections(t *testing.T) {
 	signer2, payee2 := seededAddress(3), seededAddress(4)
 	hash := func(label string) crypto.Hash { return crypto.Blake3Hash([]byte(label)) }
 
-	t.Run("cancel", func(t *testing.T) {
-		store := newTestBadgerStore(t)
-		err := store.snapshotsDB.Update(func(txn *badger.Txn) error {
-			require.NoError(t, writeNodeAccept(txn, signer1.PublicSpendKey, payee1.PublicSpendKey, hash("accepted"), 1, true))
-			require.Error(t, writeNodeCancel(txn, signer1.PublicSpendKey, payee1.PublicSpendKey, hash("cancel"), 2))
-			return nil
-		})
-		require.NoError(t, err)
-
-		store = newTestBadgerStore(t)
-		err = store.snapshotsDB.Update(func(txn *badger.Txn) error {
-			require.NoError(t, writeNodePledge(txn, signer1.PublicSpendKey, payee1.PublicSpendKey, hash("pledge"), 1))
-			require.Error(t, writeNodeCancel(txn, signer2.PublicSpendKey, payee2.PublicSpendKey, hash("cancel mismatch"), 2))
-			return nil
-		})
-		require.NoError(t, err)
-	})
-
 	t.Run("accept", func(t *testing.T) {
 		store := newTestBadgerStore(t)
 		err := store.snapshotsDB.Update(func(txn *badger.Txn) error {

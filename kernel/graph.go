@@ -439,7 +439,6 @@ func (node *Node) readSnapshotForTransaction(h crypto.Hash) *common.Snapshot {
 func (node *Node) WriteConsensusSnapshotWithHack(snap *common.Snapshot, tx *common.VersionedTransaction) error {
 	switch tx.TransactionType() {
 	case common.TransactionTypeNodePledge,
-		common.TransactionTypeNodeCancel,
 		common.TransactionTypeNodeAccept,
 		common.TransactionTypeNodeRemove,
 		common.TransactionTypeMint,

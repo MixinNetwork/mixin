@@ -471,7 +471,7 @@ func TestNodeRoundWorkAndSpaceHelpers(t *testing.T) {
 	payee3 := seededAddress(46)
 
 	tx1 := crypto.Blake3Hash([]byte("node-pledge-1"))
-	tx2 := crypto.Blake3Hash([]byte("node-cancel-1"))
+	tx2 := crypto.Blake3Hash([]byte("node-accept-1"))
 	tx3 := crypto.Blake3Hash([]byte("node-accept-2"))
 	tx4 := crypto.Blake3Hash([]byte("node-remove-2"))
 	tx5 := crypto.Blake3Hash([]byte("node-pledge-3"))
@@ -488,7 +488,7 @@ func TestNodeRoundWorkAndSpaceHelpers(t *testing.T) {
 		require.Len(nodes, 1)
 		require.Equal(common.NodeStatePledging, nodes[0].State)
 
-		err = writeNodeCancel(txn, signer1.PublicSpendKey, payee1.PublicSpendKey, tx2, 11)
+		err = writeNodeAccept(txn, signer1.PublicSpendKey, payee1.PublicSpendKey, tx2, 11, false)
 		require.Nil(err)
 
 		err = writeNodeAccept(txn, signer2.PublicSpendKey, payee2.PublicSpendKey, tx3, 20, true)
@@ -517,12 +517,14 @@ func TestNodeRoundWorkAndSpaceHelpers(t *testing.T) {
 
 	nodes := store.ReadAllNodes(^uint64(0), false)
 	require.Len(nodes, 3)
-	require.Equal(common.NodeStateCancelled, nodes[0].State)
+	require.Equal(common.NodeStateAccepted, nodes[0].State)
 	require.Equal(common.NodeStateRemoved, nodes[1].State)
 	require.Equal(common.NodeStateAccepted, nodes[2].State)
 
 	pledgeVer := nodeOpTransaction(common.OutputTypeNodePledge)
-	cancelVer := nodeOpTransaction(common.OutputTypeNodeCancel)
+	otherPledgeTx := common.NewTransactionV5(common.XINAssetId)
+	otherPledgeTx.Outputs = []*common.Output{{Type: common.OutputTypeNodePledge, Amount: common.NewInteger(2)}}
+	otherPledgeVer := otherPledgeTx.AsVersioned()
 	scriptVer := common.NewTransactionV5(common.XINAssetId).AsVersioned()
 
 	err = store.AddNodeOperation(scriptVer, 100, 10, false)
@@ -531,16 +533,16 @@ func TestNodeRoundWorkAndSpaceHelpers(t *testing.T) {
 	require.Nil(err)
 	err = store.AddNodeOperation(pledgeVer, 105, 10, false)
 	require.Nil(err)
-	err = store.AddNodeOperation(cancelVer, 105, 10, false)
+	err = store.AddNodeOperation(otherPledgeVer, 105, 10, false)
 	require.ErrorContains(err, "invalid operation lock")
-	err = store.AddNodeOperation(cancelVer, 105, 10, true)
+	err = store.AddNodeOperation(otherPledgeVer, 105, 10, true)
 	require.Nil(err)
 
 	err = store.snapshotsDB.View(func(txn *badger.Txn) error {
 		op, hash, ts, err := readLastNodeOperation(txn)
 		require.Nil(err)
-		require.Equal("CANCEL", op)
-		require.Equal(cancelVer.PayloadHash(), hash)
+		require.Equal("PLEDGE", op)
+		require.Equal(otherPledgeVer.PayloadHash(), hash)
 		require.Equal(uint64(105), ts)
 		return nil
 	})

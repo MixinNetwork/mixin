@@ -9,10 +9,9 @@ import (
 )
 
 const (
-	NodeStatePledging  = "PLEDGING"
-	NodeStateAccepted  = "ACCEPTED"
-	NodeStateRemoved   = "REMOVED"
-	NodeStateCancelled = "CANCELLED"
+	NodeStatePledging = "PLEDGING"
+	NodeStateAccepted = "ACCEPTED"
+	NodeStateRemoved  = "REMOVED"
 )
 
 type Node struct {
@@ -68,7 +67,7 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 	}
 	nodes := store.ReadAllNodes(snapTime, false)
 	for _, n := range nodes {
-		if n.State != NodeStateAccepted && n.State != NodeStateCancelled && n.State != NodeStateRemoved {
+		if n.State != NodeStateAccepted && n.State != NodeStateRemoved {
 			return fmt.Errorf("invalid node pending state %s %s", n.Signer.String(), n.State)
 		}
 		if n.Signer.PublicSpendKey.String() == signerSpend.String() {
@@ -79,100 +78,6 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 		}
 	}
 
-	return nil
-}
-
-func (tx *Transaction) validateNodeCancel(store DataStore, payloadHash crypto.Hash, sigs []map[uint16]*crypto.Signature, snapTime uint64) error {
-	if tx.Asset != XINAssetId {
-		return fmt.Errorf("invalid node asset %s", tx.Asset.String())
-	}
-	if len(tx.Outputs) != 2 {
-		return fmt.Errorf("invalid outputs count %d for cancel transaction", len(tx.Outputs))
-	}
-	if len(tx.Inputs) != 1 {
-		return fmt.Errorf("invalid inputs count %d for cancel transaction", len(tx.Inputs))
-	}
-	if len(sigs) != 1 || len(sigs[0]) != 1 || sigs[0][0] == nil {
-		return fmt.Errorf("invalid signatures %v for cancel transaction", sigs)
-	}
-	if len(tx.Extra) != len(crypto.Key{})*3 {
-		return fmt.Errorf("invalid extra %s for cancel transaction", hex.EncodeToString(tx.Extra))
-	}
-	cancel, script := tx.Outputs[0], tx.Outputs[1]
-	if cancel.Type != OutputTypeNodeCancel || script.Type != OutputTypeScript {
-		return fmt.Errorf("invalid outputs type %d %d for cancel transaction", cancel.Type, script.Type)
-	}
-	if len(script.Keys) != 1 {
-		return fmt.Errorf("invalid script output keys %d for cancel transaction", len(script.Keys))
-	}
-	if script.Script.String() != NewThresholdScript(1).String() {
-		return fmt.Errorf("invalid script output script %s for cancel transaction", script.Script)
-	}
-
-	var pledging *Node
-	filter := make(map[string]string)
-	nodes := store.ReadAllNodes(snapTime, false)
-	for _, n := range nodes {
-		filter[n.Signer.String()] = n.State
-		if n.State == NodeStateAccepted || n.State == NodeStateCancelled || n.State == NodeStateRemoved {
-			continue
-		}
-		if n.State == NodeStatePledging && pledging == nil {
-			pledging = n
-		} else {
-			return fmt.Errorf("invalid pledging nodes %s %s", pledging.Signer.String(), n.Signer.String())
-		}
-	}
-	if pledging == nil {
-		return fmt.Errorf("no pledging node needs to get cancelled")
-	}
-	if pledging.Transaction != tx.Inputs[0].Hash {
-		return fmt.Errorf("invalid pledge utxo source %s %s", pledging.Transaction, tx.Inputs[0].Hash)
-	}
-
-	lastPledge, _, err := store.ReadTransaction(tx.Inputs[0].Hash)
-	if err != nil {
-		return err
-	}
-	if len(lastPledge.Outputs) != 1 {
-		return fmt.Errorf("invalid pledge utxo count %d", len(lastPledge.Outputs))
-	}
-	po := lastPledge.Outputs[0]
-	if po.Type != OutputTypeNodePledge {
-		return fmt.Errorf("invalid pledge utxo type %d", po.Type)
-	}
-	if cancel.Amount.Cmp(po.Amount.Div(100)) != 0 {
-		return fmt.Errorf("invalid script output amount %s for cancel transaction", cancel.Amount)
-	}
-	acc := lastPledge.NodeTransactionExtraAsSigner()
-	if filter[acc.String()] != NodeStatePledging {
-		return fmt.Errorf("invalid pledge utxo source %s", filter[acc.String()])
-	}
-
-	pit, _, err := store.ReadTransaction(lastPledge.Inputs[0].Hash)
-	if err != nil {
-		return err
-	}
-	if pit == nil {
-		return fmt.Errorf("invalid pledge input source %s:%d", lastPledge.Inputs[0].Hash, lastPledge.Inputs[0].Index)
-	}
-	pi := pit.Outputs[lastPledge.Inputs[0].Index]
-	if len(pi.Keys) != 1 {
-		return fmt.Errorf("invalid pledge input source keys %d", len(pi.Keys))
-	}
-	var a crypto.Key
-	copy(a[:], tx.Extra[len(crypto.Key{})*2:])
-	pledgeSpend := crypto.ViewGhostOutputKey(pi.Keys[0], &a, &pi.Mask, uint64(lastPledge.Inputs[0].Index))
-	targetSpend := crypto.ViewGhostOutputKey(script.Keys[0], &a, &script.Mask, 1)
-	if !bytes.Equal(lastPledge.Extra, tx.Extra[:len(crypto.Key{})*2]) {
-		return fmt.Errorf("invalid pledge and cancel key %s %s", hex.EncodeToString(lastPledge.Extra), hex.EncodeToString(tx.Extra))
-	}
-	if !bytes.Equal(pledgeSpend[:], targetSpend[:]) {
-		return fmt.Errorf("invalid pledge and cancel target %s %s", pledgeSpend, targetSpend)
-	}
-	if !pi.Keys[0].Verify(payloadHash, *sigs[0][0]) {
-		return fmt.Errorf("invalid cancel signature %s", sigs[0][0])
-	}
 	return nil
 }
 
@@ -194,7 +99,7 @@ func (tx *Transaction) validateNodeAccept(store DataStore, payloadHash crypto.Ha
 	nodes := store.ReadAllNodes(snapTime, false)
 	for _, n := range nodes {
 		filter[n.Signer.String()] = n.State
-		if n.State == NodeStateAccepted || n.State == NodeStateCancelled || n.State == NodeStateRemoved {
+		if n.State == NodeStateAccepted || n.State == NodeStateRemoved {
 			continue
 		}
 		if n.State == NodeStatePledging && pledging == nil {

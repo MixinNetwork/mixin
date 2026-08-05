@@ -498,50 +498,6 @@ func TestElectionTransitionGuards(t *testing.T) {
 		require.ErrorContains(t, node.validateNodeAcceptSnapshot(snapshot, nil, false), "invalid snapshot round")
 	})
 
-	t.Run("node cancellation timing", func(t *testing.T) {
-		cancelSnapshot := func(timestamp uint64) *common.Snapshot {
-			return &common.Snapshot{NodeId: chainID, Timestamp: timestamp}
-		}
-		withPledgingNode := func(epoch, graphTimestamp, pledgingTimestamp uint64) *Node {
-			pledging := &CNode{
-				IdForNetwork: chainID,
-				State:        common.NodeStatePledging,
-				Timestamp:    pledgingTimestamp,
-			}
-			return &Node{
-				Epoch:          epoch,
-				GraphTimestamp: graphTimestamp,
-				nodeStateSequences: []*NodeStateSequence{{
-					Timestamp:         1,
-					NodesWithoutState: []*CNode{pledging},
-				}},
-			}
-		}
-
-		node := &Node{Epoch: 100}
-		require.ErrorContains(t, node.validateNodeCancelSnapshot(cancelSnapshot(50), nil, false), "invalid snapshot timestamp")
-
-		timestamp := uint64(14 * time.Hour)
-		node = &Node{}
-		require.ErrorContains(t, node.validateNodeCancelSnapshot(cancelSnapshot(timestamp), nil, false), "invalid consensus status")
-
-		node = withPledgingNode(0, 0, 1)
-		require.ErrorContains(t, node.validateNodeCancelSnapshot(cancelSnapshot(uint64(11*time.Hour)), nil, false), "invalid node cancel hour")
-
-		staleGraph := timestamp + config.SnapshotRoundGap*config.SnapshotReferenceThreshold*2 + 1
-		node = withPledgingNode(0, staleGraph, 1)
-		require.ErrorContains(t, node.validateNodeCancelSnapshot(cancelSnapshot(timestamp), nil, false), "invalid snapshot timestamp")
-
-		node = withPledgingNode(0, 0, timestamp+1)
-		require.ErrorContains(t, node.validateNodeCancelSnapshot(cancelSnapshot(timestamp), nil, false), "invalid snapshot timestamp")
-
-		node = withPledgingNode(0, 0, timestamp-uint64(time.Hour))
-		require.ErrorContains(t, node.validateNodeCancelSnapshot(cancelSnapshot(timestamp), nil, false), "invalid cancel period")
-
-		lateTimestamp := uint64(10*24*time.Hour + 14*time.Hour)
-		node = withPledgingNode(0, 0, uint64(time.Hour))
-		require.ErrorContains(t, node.validateNodeCancelSnapshot(cancelSnapshot(lateTimestamp), nil, false), "invalid cancel period")
-	})
 }
 
 func TestKernelSnapshotBatchGuards(t *testing.T) {
@@ -964,8 +920,8 @@ func TestNodeStateAndQueueHelpers(t *testing.T) {
 	require.Equal(t, b, node.GetAcceptedOrPledgingNode(b).IdForNetwork)
 	require.Equal(t, 0, node.GetAcceptedOrPledgingNode(b).ConsensusIndex)
 	require.Nil(t, node.GetAcceptedOrPledgingNode(a))
-	require.Equal(t, a, node.GetRemovedOrCancelledNode(a, 45).IdForNetwork)
-	require.Nil(t, node.GetRemovedOrCancelledNode(b, 45))
+	require.Equal(t, a, node.GetRemovedNode(a, 45).IdForNetwork)
+	require.Nil(t, node.GetRemovedNode(b, 45))
 
 	require.False(t, node.ConsensusReady(&CNode{IdForNetwork: a, State: common.NodeStatePledging}, 100))
 	require.True(t, node.ConsensusReady(&CNode{IdForNetwork: a, State: common.NodeStateAccepted}, 100))

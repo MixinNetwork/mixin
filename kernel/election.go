@@ -99,7 +99,6 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64, old *co
 		switch cn.State {
 		case common.NodeStateAccepted:
 			accepted = append(accepted, cn)
-		case common.NodeStateCancelled:
 		case common.NodeStateRemoved:
 		default:
 			return nil, fmt.Errorf("invalid node pending state %s %s", cn.Signer, cn.State)
@@ -384,7 +383,6 @@ func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedT
 	}
 	switch tx.TransactionType() {
 	case common.TransactionTypeNodePledge,
-		common.TransactionTypeNodeCancel,
 		common.TransactionTypeNodeAccept,
 		common.TransactionTypeNodeRemove,
 		common.TransactionTypeCustodianUpdateNodes,
@@ -550,7 +548,6 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		case common.NodeStateAccepted:
 			totalNodes = totalNodes + 1
 		case common.NodeStateRemoved:
-		case common.NodeStateCancelled:
 		default:
 			return fmt.Errorf("invalid node pending state %s %s", cn.Signer, cn.State)
 		}
@@ -559,45 +556,6 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	if totalNodes >= config.KernelMaximumNodesCount {
 		return fmt.Errorf("maximum kernel nodes count reached because cosi signature mask limit %s", tx.PayloadHash())
 	}
-	// FIXME the node operation lock threshold should be optimized on pledging period
-	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2, finalized)
-}
-
-func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
-	timestamp := s.Timestamp
-	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
-		timestamp = clock.NowUnixNano()
-	}
-	if timestamp < node.Epoch {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
-	}
-
-	pledging := node.PledgingNode(timestamp)
-	if pledging == nil {
-		return fmt.Errorf("invalid consensus status")
-	}
-
-	if !node.checkConsensusAcceptHour(timestamp) {
-		hour := (timestamp - node.Epoch) / uint64(time.Hour) % 24
-		return fmt.Errorf("invalid node cancel hour %d", hour)
-	}
-
-	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if !finalized && timestamp+threshold*2 < node.GraphTimestamp {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.GraphTimestamp, timestamp)
-	}
-
-	if timestamp < pledging.Timestamp {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", pledging.Timestamp, timestamp)
-	}
-	elapse := time.Duration(timestamp - pledging.Timestamp)
-	if elapse < config.KernelNodeAcceptPeriodMinimum {
-		return fmt.Errorf("invalid cancel period %d %d", config.KernelNodeAcceptPeriodMinimum, elapse)
-	}
-	if elapse > config.KernelNodeAcceptPeriodMaximum {
-		return fmt.Errorf("invalid cancel period %d %d", config.KernelNodeAcceptPeriodMaximum, elapse)
-	}
-
 	// FIXME the node operation lock threshold should be optimized on pledging period
 	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2, finalized)
 }

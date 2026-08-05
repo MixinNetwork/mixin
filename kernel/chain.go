@@ -132,7 +132,7 @@ func (chain *Chain) bootLoops() {
 		return
 	}
 
-	rn := chain.node.GetRemovedOrCancelledNode(chain.ChainId, chain.node.GraphTimestamp)
+	rn := chain.node.GetRemovedNode(chain.ChainId, chain.node.GraphTimestamp)
 	threshold := uint64(config.KernelNodeAcceptPeriodMaximum)
 	if rn != nil && rn.Timestamp+threshold < chain.node.GraphTimestamp {
 		// FIXME the timestamp check is because we can't ensure the last
