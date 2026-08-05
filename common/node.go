@@ -60,9 +60,10 @@ func (tx *Transaction) validateNodePledge(store DataStore, inputs map[string]*UT
 		return fmt.Errorf("invalid extra length %d for pledge transaction", len(tx.Extra))
 	}
 
-	var signerSpend crypto.Key
-	copy(signerSpend[:], tx.Extra)
-	if !signerSpend.CheckKey() {
+	var signerSpend, payeeSpend crypto.Key
+	copy(signerSpend[:], tx.Extra[:32])
+	copy(payeeSpend[:], tx.Extra[32:])
+	if !signerSpend.CheckKey() || !payeeSpend.CheckKey() {
 		return fmt.Errorf("invalid public key %x for pledge transaction", tx.Extra)
 	}
 	nodes := store.ReadAllNodes(snapTime, false)

@@ -2,7 +2,7 @@
 
 > A technical introduction to the architecture, data model, and consensus protocol
 >
-> July 2026, aligned with the v0.19 implementation
+> August 2026, aligned with the v0.19 implementation
 
 ## Abstract
 
@@ -62,7 +62,7 @@ where $U$ is the UTXO set, $G$ the used ghost-key set, $D$ deposit locks, $M$ mi
 
 Clients create and sign transactions. Kernel nodes validate transactions, propose snapshots, participate in collective signing, persist the graph, and serve synchronization and RPC requests. A node may also operate as a relayer for nodes that do not accept inbound connections.
 
-Consensus membership is ledger-managed rather than open per message. Genesis establishes the first accepted nodes. Later membership changes use special pledge, accept, cancel, and remove transactions that themselves pass through consensus. An address used as a node signer determines the network-scoped node identifier; a separate payee address separates consensus authority from reward ownership.
+Consensus membership is ledger-managed rather than open per message. Genesis establishes the first accepted nodes. Later membership changes use special pledge, accept, and remove transactions that themselves pass through consensus. An address used as a node signer determines the network-scoped node identifier; a separate payee address separates consensus authority from reward ownership.
 
 ### 2.2 Assumptions
 
@@ -149,6 +149,10 @@ $$
 
 The view key can identify and inspect outputs, while spending also requires the spend key. Ghost keys reduce address reuse on the ledger, but amounts and asset identifiers are not confidential in this implementation; ghost addressing should not be confused with a full confidential-transaction system.
 
+Mint and node-remove transactions are rebuilt deterministically by every validator. Their legacy output seeds therefore depended only on public protocol data and could be computed far in advance. The reference-seeded scheme additionally mixes in a transaction hash from the elected proposer's latest finalized round, records that anchor immediately after the serialized consensus-state reference, and requires validators to rebuild the same outputs from it. This preserves deterministic validation while preventing an outsider from reserving the protocol output keys long before the operation window.
+
+Reference-seeded protocol outputs are enabled on non-mainnet networks and on mainnet for snapshots at or after 2026-09-01 00:00:00 UTC. Earlier mainnet snapshots retain the legacy derivation and single consensus-state reference for ledger compatibility.
+
 ### 3.3 Validation pipeline
 
 Before a transaction can participate in a snapshot, a node checks all of the following:
@@ -198,10 +202,12 @@ The transaction type is inferred from special inputs or output types rather than
 | Withdrawal submit | Request an external withdrawal | Yes |
 | Withdrawal claim | Finalize withdrawal accounting | Yes |
 | Mint | Create a protocol mint distribution | No |
-| Node pledge, cancel, accept, remove | Change consensus membership | No |
+| Node pledge, accept, remove | Change consensus membership | No |
 | Custodian update or slash | Change custodian protocol state | No |
 
 Consensus-sensitive transactions remain alone in a snapshot. They form a serialized reference chain and can change the rules or participants used to validate later snapshots. Mixing them with unrelated transfers would make membership boundaries and protocol-state transitions harder to evaluate deterministically.
+
+A withdrawal claim references exactly one finalized withdrawal-submit transaction. For new candidates, the custodian signature covers `BLAKE3(submit transaction hash || claim data)`, where the claim data follows the 64-byte signature in `extra`. A durable index keyed by the submit hash permits at most one finalized claim for that submit. Finalized-history replay before 2026-09-01 00:00:00 UTC retains the legacy signature form for compatibility; new admission does not use that exception.
 
 Once a transaction has passed these rules, the snapshot layer can treat its hash as a compact commitment to the complete state-transition request.
 
@@ -224,7 +230,7 @@ A snapshot is the object on which Kernel consensus operates. Version 2 contains:
 | `hash` | Computed snapshot identifier | Computed |
 | `topology` | Local durable enumeration cursor | No |
 
-The canonical transaction list contains between 1 and 255 hashes and is strictly sorted, so duplicate hashes are rejected. The encoder additionally requires a round-zero snapshot to contain exactly one transaction because round zero is used for a node's initial acceptance path. The current decoder does not mirror that round-zero count check; this audit gap is described in Section 12 and must not be interpreted as a second valid wire form.
+The canonical transaction list contains between 1 and 255 hashes and is strictly sorted, so duplicate hashes are rejected. Both encoder and decoder require a round-zero snapshot to contain exactly one transaction and no references; they require references on every nonzero round. Malformed wire data is therefore rejected before later hashing or round-link code can rely on those shapes.
 
 If the sorted transaction hashes are $t_1,\ldots,t_b$, then conceptually
 
@@ -349,15 +355,13 @@ Scoping prevents a signer identity from being confused across two Kernel network
 
 ### 6.2 Membership lifecycle
 
-The durable membership states are `PLEDGING`, `ACCEPTED`, `CANCELLED`, and `REMOVED`.
+The durable membership states are `PLEDGING`, `ACCEPTED`, and `REMOVED`.
 
 ```mermaid
 stateDiagram-v2
     [*] --> PLEDGING: pledge transaction finalized
     PLEDGING --> ACCEPTED: node's round-0 accept snapshot finalized
-    PLEDGING --> CANCELLED: cancel transaction finalized
     ACCEPTED --> REMOVED: remove or protocol removal finalized
-    CANCELLED --> [*]
     REMOVED --> [*]
 ```
 
@@ -370,11 +374,11 @@ Membership is bounded by the following controls:
 | Pledge amount | 13,439 XIN |
 | Minimum usable threshold base | 7 |
 | Maximum Kernel nodes | 50 |
-| Delay before an accept or cancel operation | At least 12 hours |
-| Maximum pending acceptance period | 7 days |
+| Delay before an accept operation | At least 12 hours |
+| Maximum pledge-to-accept interval | 7 days |
 | Delay before a non-genesis accepted node can sign ordinary snapshots | More than 12 hours |
 
-The 50-node membership cap leaves headroom below the 64 indexes available in the collective-signature mask.
+A finalized pledge must be accepted within the seven-day window; the current membership state machine provides no cancellation or refund transition for a pledge that misses that window. The 50-node membership cap leaves headroom below the 64 indexes available in the collective-signature mask.
 
 ### 6.3 One chain per node
 
@@ -388,11 +392,15 @@ Every Kernel process tracks a `Chain` object for each active or historically rel
 
 The local node actively proposes on its own chain and verifies remote proposals on the corresponding remote chains. Separate processing loops let chains advance concurrently, while durable writes serialize the state changes that must be atomic.
 
+Inbound snapshot messages cannot allocate chains for arbitrary identifiers. A chain is reused if it already exists, but a new chain is created only for the local node or an identifier present in ledger-derived node history. Announcement and finalization ingress discard messages whose chain lookup is rejected.
+
 ### 6.4 P2P transport and relaying
 
 P2P streams use QUIC with TLS transport encryption. The TLS configuration uses an ephemeral self-signed certificate, so certificate PKI does not define node identity. Connecting consumers instead present a timestamped authentication message signed by their node signer, and protocol-critical messages are checked against ledger-known signer keys. The protocol supports directly connected relayers and consumers, plus forwarding through known relayers when the destination is not a direct neighbor.
 
 Messages have high- and normal-priority queues, bounded sizes, and short-lived deduplication records. Consensus messages include announcements, nonce commitments, challenges, responses, finalizations, transaction requests, transaction bundles, and signed graph summaries. The current wire protocol always uses the batch-capable announcement, commitment, challenge, response, and finalization forms, even when a snapshot contains one transaction; the legacy single-transaction CoSi message forms have been removed. The maximum transport message is 32 MiB.
+
+Point-valued CoSi commitments and challenges are decoded and checked as valid prime-order Edwards25519 points before consensus handling. This applies to precommitment lists and the current announcement, commitment, and full-challenge forms.
 
 Transaction bundles have two scheduling semantics. An ordinary bundle stores each unfinalized envelope, adds it to the receiver's proposal queue, and wakes that queue. A finalization-class bundle stores envelopes in the cache without scheduling them. Proposers and graph synchronization use the latter immediately before sending a finalization so the receiver can validate the snapshot without accidentally proposing the same transactions itself. As noted in Section 4.2, an individually requested fallback body currently returns through the ordinary single-transaction path.
 
@@ -406,9 +414,11 @@ Synchronization reuses the same finalization verification path as live consensus
 
 ### 7.1 Proposal model
 
-There is no single network-wide leader slot. A node leads snapshots on its own chain, and concurrent node chains allow multiple proposals to be in flight without placing every transfer behind one producer. Mint, node-pledge, node-remove, and custodian update/slash transactions use the deterministic type-specific owner election in `electSnapshotNode`. A node-accept transaction instead originates on the candidate's own round-zero chain, while cancel follows its own membership workflow; it is therefore too broad to describe every membership operation as using the same election function.
+There is no single network-wide leader slot. A node leads snapshots on its own chain, and concurrent node chains allow multiple proposals to be in flight without placing every transfer behind one producer. Mint, node-pledge, node-remove, and custodian update/slash transactions use the deterministic type-specific owner election in `electSnapshotNode`. A node-accept transaction instead originates on the candidate's own round-zero chain, so not every membership operation uses the election function.
 
-Ordinary transaction routing is readiness-aware and normally selects one temporary proposal owner. From the locally known working set, the router keeps chains whose cache round is initialized and whose timestamp can still fit the current round or advance through a valid external reference. The local chain has two additional requirements: a quorum of graph reports must show that its head has been broadcast, and a quorum must show that it is not behind. Among ready chains, the first eight bytes of the transaction hash plus the current round-gap time bucket select one owner. If the local node is selected, it keeps the batch instead of forwarding it elsewhere; otherwise it sends one ordinary transaction bundle to the selected node. If no chain appears ready, a minute-rotating fallback chooses an accepted node and may also include a recently advancing head.
+Ordinary transaction routing is readiness-aware. A node that can propose on its own initialized, nonzero cache round retains its local batch; the local chain additionally requires graph-report quorums showing that its head has been broadcast and is not behind. When forwarding is needed, the router first identifies chains whose final-round start is no more than one minute old. It restricts candidates to that leading set only when the set itself contains at least $\lfloor 2n/3\rfloor+1$ working nodes; otherwise it evaluates every working accepted node, preventing a recently advancing minority from monopolizing routing. It then keeps chains whose timestamp can fit the current round or advance through a valid external reference.
+
+Among ready candidates, the first eight bytes of the transaction hash plus a one-minute wall-clock bucket select one temporary owner. If no chain is ready, the same hash-and-minute rule selects a fallback from all working accepted nodes. During minutes whose minute field is congruent to `1 mod 5`, the router may also send to that full-set selection when it differs from the ready owner. This periodic second destination gives nodes outside the current leading view a chance to receive work.
 
 This owner selection is a queueing heuristic, not a consensus election. Nodes may have different readiness views, retries may choose a later owner, and fallback routing can duplicate delivery. Safety still comes from transaction conflict checks, per-chain duplicate guards, and quorum validation of every snapshot.
 
@@ -501,7 +511,7 @@ The complete fast path for an ordinary transfer is:
 1. A client constructs a version-5 UTXO transaction, derives ghost outputs, signs $H_{tx}$, and submits the encoded envelope through RPC.
 2. The receiving node decodes it, validates it, durably reserves its ghost output keys, and then stores its full authorization envelope plus proposal-order records in the TTL-backed cache.
 3. A timer or queue wake triggers a short batching debounce. The worker removes already-finalized entries, revalidates live locks, and groups eligible candidates.
-4. Readiness-aware routing retains the batch locally or sends it to a selected proposal owner. The owner creates a version-2 snapshot containing the sorted transaction hashes, active round number, self and external references, and timestamp.
+4. Readiness-aware routing retains the batch when the local chain can propose or sends it to a hash-and-minute-selected proposal owner. The owner creates a version-2 snapshot containing the sorted transaction hashes, active round number, self and external references, and timestamp.
 5. Consensus validators obtain any missing bodies and independently validate every transaction and the graph position.
 6. A supermajority CoSi exchange produces one compact signature over $H_{snap}$. Once an incomplete proposal has remained open for one round-gap window, or immediately after a terminal aggregation failure, its available unfinalized transactions are requeued.
 7. The proposer verifies the certificate and atomically writes its snapshot. Before notifying non-responders, it sends the transaction envelopes in a finalization-class bundle that does not enter their proposal queues.
@@ -573,6 +583,8 @@ The implementation repeatedly enforces the following invariants across admission
 - Every normally validated post-genesis transaction declares one asset and conserves the input amount exactly; the separate genesis loader is the exception to that validation path.
 - Candidate persistence assigns an ordinary UTXO, deposit, or mint slot to one unfinalized payload hash unless the finalized fork path replaces the earlier candidate.
 - A ghost output key cannot be reused by a different transaction, apart from explicit historical compatibility exceptions.
+- Reference-seeded mint and node-remove outputs commit their finalized anchor transaction in the transaction references and derive their ghost keys from that anchor.
+- A withdrawal submit can have at most one finalized claim, and a newly admitted claim's custodian signature binds both the submit hash and claim data.
 - Every ordinary scripted input supplies enough valid authorizing keys, and special inputs satisfy their type-specific authorization rules.
 - Transaction references point to finalized transactions.
 - Envelope presence in the transient cache is separate from proposal eligibility; finalization-class delivery never queues a new proposal.
@@ -580,7 +592,7 @@ The implementation repeatedly enforces the following invariants across admission
 
 ### Snapshot invariants
 
-- A decoded snapshot has one to 255 unique, canonically ordered transaction hashes; the encoder additionally requires exactly one at round zero, subject to the decoder gap in Section 12.
+- A decoded snapshot has one to 255 unique, canonically ordered transaction hashes, exactly one transaction and no references at round zero, and nonempty references on every later round.
 - Multi-transaction snapshots contain only batchable classes.
 - Storage keeps one canonical transaction-to-snapshot finalization mapping; proposal deduplication and per-node uniqueness indexes suppress repeats.
 - The CoSi signature covers the proposer, round, references, timestamp, and complete transaction-hash list.
@@ -605,7 +617,12 @@ The implementation repeatedly enforces the following invariants across admission
 
 ## 12. Security boundaries and limitations
 
-Mixin Kernel's speed does not remove its operating assumptions. The remaining security and operating boundaries are:
+Mixin Kernel's speed does not remove its operating assumptions. The implementation also retains several concrete hardening boundaries:
+
+- **Admission write ordering:** Output validation durably reserves ghost keys before type-specific deposit, mint, withdrawal, membership, or custodian validation finishes and before cache insertion. A later failure has no general rollback path, so a rejected submission can leave a ghost-key reservation behind.
+- **Authorization-envelope cache collisions:** Transaction identity intentionally excludes authorization signatures, while ordinary P2P envelopes can enter the payload-hash-keyed cache before semantic validation. Existing order or payload records are not replaced on every path, so an invalid envelope can temporarily displace a later valid envelope for the same unsigned payload.
+
+The remaining security and operating boundaries are:
 
 - **Byzantine bound:** Safety relies on fewer than one third of the effective consensus set violating the signing rules or losing key control.
 - **Availability:** A partition that prevents a quorum from communicating stops finality rather than safely choosing a minority history.
@@ -629,7 +646,7 @@ These parameters bound resource consumption and define the implementation descri
 | Transaction encoding | 5 |
 | Snapshot encoding | 2 |
 | Transactions per snapshot | 1–255 |
-| Transactions in a round-zero snapshot | Exactly 1 in the encoder; decoder gap noted in Section 12 |
+| Transactions in a round-zero snapshot | Exactly 1, with no references, in both encoder and decoder |
 | Round gap | 3 seconds |
 | Local in-round proposal cutoff | $4/5$ of round gap (2.4 seconds) |
 | Cache worker maximum timer wait | $1/3$ of round gap (1 second) |
@@ -657,6 +674,8 @@ These parameters bound resource consumption and define the implementation descri
 | Retained snapshot-to-nonce retry bindings | 131,072 |
 | Later accepted node enters threshold base | More than 30 seconds after acceptance |
 | Non-genesis signer maturity | More than 12 hours |
+| Mainnet reference-seeded protocol-output activation | 2026-09-01 00:00:00 UTC |
+| Legacy withdrawal-claim replay cutoff | 2026-09-01 00:00:00 UTC |
 
 ## 14. Conclusion
 
@@ -678,7 +697,8 @@ The following files are the primary sources for this paper:
 | Addresses, network ID, and genesis | [`common/address.go`](../common/address.go), [`common/genesis.go`](../common/genesis.go), [`crypto/hash.go`](../crypto/hash.go) |
 | Snapshot structure and hashing | [`common/snapshot.go`](../common/snapshot.go) |
 | Round hashing | [`common/round.go`](../common/round.go) |
-| Ghost-key derivation | [`crypto/key.go`](../crypto/key.go) |
+| User-output ghost-key derivation and protocol seed anchoring | [`crypto/key.go`](../crypto/key.go), [`kernel/ghost.go`](../kernel/ghost.go) |
+| Withdrawal validation and claim uniqueness | [`common/withdrawal.go`](../common/withdrawal.go), [`storage/badger_withdrawal.go`](../storage/badger_withdrawal.go) |
 | Input signature batching and aggregation | [`crypto/batch.go`](../crypto/batch.go), [`crypto/aggregation.go`](../crypto/aggregation.go) |
 | Collective signatures and nonce safety | [`crypto/cosi.go`](../crypto/cosi.go), [`crypto/nonce.go`](../crypto/nonce.go) |
 | Transaction queue, proposal routing, and snapshot batching | [`kernel/queue.go`](../kernel/queue.go), [`kernel/node.go`](../kernel/node.go) |

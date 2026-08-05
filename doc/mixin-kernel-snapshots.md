@@ -86,7 +86,7 @@ The following transaction classes may share a snapshot:
 | Withdrawal submit | Yes |
 | Withdrawal claim | Yes |
 | Mint | No |
-| Node pledge, cancel, accept, or remove | No |
+| Node pledge, accept, or remove | No |
 | Custodian update or slash | No |
 
 Consensus-sensitive transactions remain alone because they can change membership or protocol state used to validate later work.

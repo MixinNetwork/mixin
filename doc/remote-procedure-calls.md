@@ -82,7 +82,7 @@ Parameters are positional and must appear in the listed order. Hashes and keys a
 | `dumpgraphhead` | `[]` | One sync point per tracked node chain |
 | `listallnodes` | `[timestamp_ns, include_state_history]` | Membership records at or before the timestamp |
 
-`timestamp_ns = 0` makes `listallnodes` use the server's current time. With `include_state_history = false`, the result contains the latest state per signer; `true` returns the complete state sequence. Membership states are `PLEDGING`, `ACCEPTED`, `CANCELLED`, and `REMOVED`.
+`timestamp_ns = 0` makes `listallnodes` use the server's current time. With `include_state_history = false`, the result contains the latest state per signer; `true` returns the complete state sequence. Membership states are `PLEDGING`, `ACCEPTED`, and `REMOVED`.
 
 For privacy of network topology, `listpeers` and `listrelayers` return populated results only when the HTTP connection's remote address is IPv4 loopback (`127.0.0.1`). Other callers receive an empty array.
 

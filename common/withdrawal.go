@@ -108,7 +108,8 @@ func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[strin
 	if cur.Custodian.PublicSpendKey.Verify(eh, sig) {
 		return nil
 	}
-	if snapTime < 1788220800000000000 && fork {
+	const withdrawalClaimSignatureFork = uint64(1788220800000000000)
+	if snapTime < withdrawalClaimSignatureFork && fork {
 		return nil
 	}
 	return fmt.Errorf("invalid custodian signature for withdrawal claim")

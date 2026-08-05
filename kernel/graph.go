@@ -362,7 +362,8 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 	if s.Hash.String() == mainnetNodeRemovalHackSnapshotHash {
 		timestamp = timestamp - uint64(time.Minute)
 	}
-	if timestamp < chain.node.Epoch {
+	clockTs := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
+	if timestamp < chain.node.Epoch || timestamp > clock.NowUnixNano()+clockTs {
 		// TODO slash the malicious node
 		return nil, false
 	}

@@ -146,7 +146,6 @@ Some output types carry protocol data instead of an ordinary script. Current cat
 | Node accept | `0xa4` | Mark an accepted node pledge |
 | Node remove | `0xa6` | Return a removed node's pledge to its payee |
 | Withdrawal claim | `0xa9` | Complete withdrawal accounting |
-| Node cancel | `0xaa` | Record cancellation and refund a pending pledge |
 | Custodian update | `0xb1` | Change custodian protocol state |
 | Custodian slash | `0xb2` | Apply a custodian-state penalty |
 
@@ -208,7 +207,7 @@ Eligible transactions are grouped by hash into a version 2 snapshot. One snapsho
 | Withdrawal submit | Yes |
 | Withdrawal claim | Yes |
 | Mint | No |
-| Node pledge, cancel, accept, or remove | No |
+| Node pledge, accept, or remove | No |
 | Custodian update or slash | No |
 
 Consensus-sensitive operations remain alone because they can change membership or other protocol state used to validate subsequent work. For a batched snapshot, every included transaction still retains its own hash and UTXO effects; the transactions share only the snapshot envelope and collective-signature exchange.
