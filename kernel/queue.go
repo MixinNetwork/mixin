@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"encoding/binary"
+	"fmt"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -20,6 +21,19 @@ func (node *Node) QueueTransaction(tx *common.VersionedTransaction) (string, err
 	}
 	if len(finalized) > 0 {
 		return hash.String(), nil
+	}
+	switch tx.TransactionType() {
+	case common.TransactionTypeScript:
+	case common.TransactionTypeDeposit:
+	case common.TransactionTypeWithdrawalSubmit:
+	case common.TransactionTypeWithdrawalClaim:
+	case common.TransactionTypeNodePledge:
+	case common.TransactionTypeCustodianUpdateNodes:
+		if node.networkId.String() == config.KernelNetworkId {
+			return "", fmt.Errorf("unable to submit this transaction type")
+		}
+	default:
+		return "", fmt.Errorf("unable to submit this transaction type")
 	}
 
 	old, err := node.persistStore.CacheGetTransaction(hash)
