@@ -65,7 +65,7 @@ func (node *Node) loopCacheQueue() {
 	defer close(node.cqc)
 
 	for {
-		if node.waitCacheQueue(time.Duration(config.SnapshotRoundGap / 3)) {
+		if node.waitCacheQueue(300 * time.Millisecond) {
 			return
 		}
 		// A short debounce preserves batching while avoiding the old multi-second

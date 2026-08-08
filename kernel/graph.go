@@ -103,9 +103,11 @@ func (chain *Chain) updateEmptyHeadRoundAndPersist(final *FinalRound, cache *Cac
 
 func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, roundTime uint64, strict bool) error {
 	if final.NodeId == external.NodeId {
+		// TODO slash the malicious node
 		return fmt.Errorf("external reference self %s", final.NodeId)
 	}
 	if external.Number < chain.State.RoundLinks[external.NodeId] {
+		// TODO slash the malicious node
 		return fmt.Errorf("external reference back link %d %d",
 			external.Number, chain.State.RoundLinks[external.NodeId])
 	}
