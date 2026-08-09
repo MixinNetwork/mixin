@@ -3,6 +3,8 @@ package kernel
 import (
 	"encoding/binary"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -109,10 +111,13 @@ func (node *Node) popAndProcessCacheQueue() int {
 		return 0
 	}
 
-	allNodes := node.ListWorkingAcceptedNodes(clock.NowUnixNano())
+	allNodes := append([]*CNode{}, node.ListWorkingAcceptedNodes(clock.NowUnixNano())...)
 	if len(allNodes) <= 0 {
 		return 0
 	}
+	slices.SortStableFunc(allNodes, func(a, b *CNode) int {
+		return strings.Compare(a.IdForNetwork.String(), b.IdForNetwork.String())
+	})
 
 	txs, err := node.persistStore.CacheRetrieveTransactions(common.SnapshotTransactionsMaximum)
 	if err != nil {
