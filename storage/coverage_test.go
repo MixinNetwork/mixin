@@ -1606,7 +1606,7 @@ func seededNodeAddress(seed byte) common.Address {
 func buildCustodianUpdateTransaction(seed byte, networkID crypto.Hash) (*common.VersionedTransaction, []byte) {
 	current := seededAddress(seed)
 	nodes := make([][]byte, 0, 7)
-	for i := 0; i < 7; i += 1 {
+	for i := range 7 {
 		custodian := seededAddress(seed + byte(i*3+1))
 		payee := seededAddress(seed + byte(i*3+2))
 		signer := seededAddress(seed + byte(i*3+3))
