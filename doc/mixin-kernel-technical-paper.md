@@ -450,6 +450,8 @@ sequenceDiagram
 
 Validators can pre-publish nonce commitments. When the proposer has a usable precommitment, it can begin with a full challenge rather than waiting for a fresh announcement/commitment round trip. Each nonce handle is single-use: the first aggregate challenge permanently binds it, an identical retry may reuse the cached response, and a different challenge is rejected to prevent private-key disclosure. Consumed commitment keys and snapshot-to-nonce retry bindings are retained in bounded insertion-order histories; the consumed nonce itself is removed from the active precommitment pool.
 
+Announcements and commitment aggregation are restricted to `ConsensusReady` signers at the snapshot timestamp. A node that is accepted but has not passed the maturity delay is not part of the `ConsensusKeys` signer list, so its commitment mask index cannot align with that list; the proposer neither sends announcements to such a node nor admits its commitments, including commitments derived from prepublished precommitments. The node still receives finalizations and stays synchronized; it simply cannot co-sign ordinary snapshots until mature, and its precommitments remain unused until then.
+
 Proposal state is deliberately disposable, but transaction work is not. A local aggregator associates each transaction hash with its verifier, suppressing another proposal for that transaction on the same chain and round during the round-gap window. Recoverable self-announcement deferrals—such as graph-readiness, stale timestamp, round-cutoff, or external-reference refresh—return available, still-unfinalized transactions to the queue. Kernel does the same when a self-announcement cannot enter a full local action queue, aggregation reaches a terminal error, or an aggregator remains incomplete for one round gap. A round transition similarly deduplicates and requeues transactions owned only by discarded old-round aggregators while leaving the snapshot that triggered the new round under its new owner.
 
 Late commitments for an expired aggregator are ignored. If a candidate batch overlaps an existing verifier, only the unowned companion transactions are requeued; the already-owned hashes remain with their active proposal. These rules avoid both transaction loss and a hot loop of duplicate proposals without changing any snapshot validity or quorum requirement.
@@ -610,6 +612,7 @@ The implementation repeatedly enforces the following invariants across admission
 ### Membership invariants
 
 - Consensus keys are reconstructed from ledger state at the snapshot timestamp.
+- Every commitment admitted into an aggregation belongs to a `ConsensusReady` signer at the snapshot timestamp, so each signer-mask index aligns exactly with the `ConsensusKeys` public-key list.
 - Certificate keys, consensus indexes, and proposal-time membership/maturity checks are reconstructed for the snapshot timestamp. Some network ingress methods first require the sender to be accepted or pledging in the node's current view, so message admission is not exclusively historical.
 - A stable quorum is greater than two thirds of the effective membership.
 - Genesis nodes are immediately ready; later accepted nodes pass a maturity delay.

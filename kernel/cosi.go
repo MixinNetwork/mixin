@@ -467,6 +467,13 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		if peerId == chain.ChainId {
 			continue
 		}
+		if !chain.node.ConsensusReady(cn, s.Timestamp) {
+			// A node that is not consensus ready yet is excluded from the
+			// ConsensusKeys signer list, so its commitment would carry a
+			// mask index outside that list and abort every aggregation
+			// that includes it.
+			continue
+		}
 		commitment := chain.cosiPopCommitment(peerId)
 		if commitment == nil || chain.CosiCommunicatedAt[peerId].Before(clock.Now().Add(-time.Duration(config.SnapshotRoundGap)*10)) {
 			err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R, chain.node.Signer.PrivateSpendKey)
@@ -527,6 +534,14 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 		return nil
 	}
 	s, cd := ann.Snapshot, m.data
+	if !chain.node.ConsensusReady(cd.PN, s.Timestamp) {
+		// The peer is not in the ConsensusKeys signer list at the snapshot
+		// timestamp, so its commitment mask index cannot align with that
+		// list. Ignore the commitment instead of poisoning the aggregation,
+		// regardless of how the peer was engaged.
+		logger.Verbosef("cosiHandleCommitment %v NOT CONSENSUS READY %s\n", m, cd.PN.IdForNetwork)
+		return nil
+	}
 	if ann.Commitments[cd.PN.ConsensusIndex] != nil {
 		logger.Verbosef("cosiHandleCommitment %v REPEAT\n", m)
 		return nil
