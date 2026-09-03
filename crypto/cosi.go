@@ -127,7 +127,7 @@ func (c *CosiSignature) Response(privateKey, random *Key, publics []*Key, messag
 	}
 	y, err := edwards25519.NewScalar().SetCanonicalBytes(privateKey[:])
 	if err != nil {
-		panic(privateKey.String())
+		panic(privateKey.String()[:8])
 	}
 	z, err := edwards25519.NewScalar().SetCanonicalBytes(random[:])
 	if err != nil {
