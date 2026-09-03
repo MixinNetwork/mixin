@@ -829,14 +829,19 @@ func TestDepositAndCapacityCampaign(t *testing.T) {
 		{XINAssetId, "750000.00000000"},
 		{BOXAssetId, "200000000.00000000"},
 		{MOBAssetId, "30000000.00000000"},
-		{USDTEthereumAssetId, "12000000.00000000"},
-		{USDTTRONAssetId, "20000000.00000000"},
+		{USDTEthereumAssetId, "20000000.00000000"},
+		{USDTTRONAssetId, "25000000.00000000"},
+		{USDTBNBAssetId, "3000000.00000000"},
 		{PandoUSDAssetId, "1000000000000.00000000"},
-		{USDCAssetId, "3000000.00000000"},
+		{USDCEthereumAssetId, "3000000.00000000"},
+		{USDCSolanaAssetId, "3000000.00000000"},
 		{EOSAssetId, "3500000.00000000"},
 		{SOLAssetId, "60000.00000000"},
 		{UNIAssetId, "1100000.00000000"},
 		{DOGEAssetId, "25000000.00000000"},
+		{ZECAssetId, "5000.00000000"},
+		{XMRAssetId, "2000.00000000"},
+		{XRPAssetId, "1000000.00000000"},
 	} {
 		require.Equal(tc.want, GetAssetCapacity(tc.id).String())
 	}
