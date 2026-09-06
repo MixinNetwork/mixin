@@ -8,8 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseNetworkMessageRejectsUnsignedFullChallenge(t *testing.T) {
+func TestParseNetworkMessageRejectsFullChallengeWithoutCosiSignature(t *testing.T) {
 	require := require.New(t)
+	handle := newP2PStubHandle(t)
 
 	s := &common.Snapshot{
 		Version:     common.SnapshotVersionCommonEncoding,
@@ -30,7 +31,7 @@ func TestParseNetworkMessageRejectsUnsignedFullChallenge(t *testing.T) {
 	challenge := crypto.NewKeyFromSeed(seed).Public()
 
 	tx := common.NewTransactionV5(common.XINAssetId).AsVersioned()
-	msg := buildBatchFullChallengeMessage(s, &commitment, &challenge, []*common.VersionedTransaction{tx})
+	msg := buildBatchFullChallengeMessage(handle, s, &commitment, &challenge, []*common.VersionedTransaction{tx})
 
 	parsed, err := parseNetworkMessage(0, msg)
 	require.Nil(parsed)

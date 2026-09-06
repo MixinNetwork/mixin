@@ -240,7 +240,7 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	require.Len(msg.Commitments, 2)
 	require.NotNil(msg.signature)
 
-	msg, err = parseNetworkMessage(7, buildBatchFullChallengeMessage(snapshot, &commitment, &challenge, []*common.VersionedTransaction{fullVer}))
+	msg, err = parseNetworkMessage(7, buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, []*common.VersionedTransaction{fullVer}))
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeBatchFullChallenge, msg.Type)
 	require.Equal(snapshot.PayloadHash(), msg.Snapshot.PayloadHash())
@@ -249,7 +249,7 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	require.Len(msg.Transactions, 1)
 	require.Equal(fullVer.PayloadHash(), msg.Transactions[0].PayloadHash())
 
-	msg, err = parseNetworkMessage(7, buildBatchFullChallengeMessage(snapshot, &commitment, &challenge, []*common.VersionedTransaction{tx, fullVer}))
+	msg, err = parseNetworkMessage(7, buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, []*common.VersionedTransaction{tx, fullVer}))
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeBatchFullChallenge, msg.Type)
 	require.Equal(snapshot.PayloadHash(), msg.Snapshot.PayloadHash())
@@ -259,7 +259,7 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	me := NewPeer(handle, crypto.Blake3Hash([]byte("relay-me")), "127.0.0.1:9003", true)
 	consumerID := crypto.Blake3Hash([]byte("consumer"))
 	consumer := NewPeer(nil, consumerID, "127.0.0.1:9004", false)
-	consumer.consumerAuth = &AuthToken{Data: bytes.Repeat([]byte{9}, authenticationPayloadSize)}
+	consumer.authentication = &AuthToken{Data: bytes.Repeat([]byte{9}, authenticationPayloadSize)}
 	me.consumers.Set(consumerID, consumer)
 
 	msg, err = parseNetworkMessage(7, me.buildConsumersMessage())
@@ -325,13 +325,13 @@ func TestP2PMessageAndPeerEdgeCases(t *testing.T) {
 
 	_, err = parseNetworkMessage(7, bytes.Repeat([]byte{PeerMessageTypeBatchFullChallenge}, 10))
 	require.ErrorContains(err, "invalid full challenge message size")
-	full := buildBatchFullChallengeMessage(snapshot, &commitment, &challenge, []*common.VersionedTransaction{fullVer})
+	full := buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, []*common.VersionedTransaction{fullVer})
 	badFullSnapshot := append([]byte{}, full...)
-	binary.BigEndian.PutUint32(badFullSnapshot[1:5], 1<<20)
+	binary.BigEndian.PutUint32(badFullSnapshot[65:69], 1<<20)
 	_, err = parseNetworkMessage(7, badFullSnapshot)
 	require.ErrorContains(err, "invalid full challenge snapshot size")
 	badFullTx := append([]byte{}, full...)
-	offset := 1 + 4 + len(snapshot.VersionedMarshal()) + 32 + 32 + 1
+	offset := 65 + 4 + len(snapshot.VersionedMarshal()) + 32 + 32 + 1
 	binary.BigEndian.PutUint32(badFullTx[offset:offset+4], 1<<20)
 	_, err = parseNetworkMessage(7, badFullTx)
 	require.ErrorContains(err, "invalid transactions payload size")
@@ -375,15 +375,15 @@ func TestP2PMessageAndPeerEdgeCases(t *testing.T) {
 	require.ErrorContains(err, "remote peer authentication id malformed")
 
 	handle.authToken = &AuthToken{PeerId: crypto.Blake3Hash([]byte("graph-consumer"))}
-	handle.updateErr = errors.New("update failed")
+	handle.updateAccepted = false
 	err = me.handlePeerMessage(crypto.Blake3Hash([]byte("peer")), &PeerMessage{
 		Type:      PeerMessageTypeGraph,
 		Graph:     handle.graph,
 		unsigned:  []byte("graph"),
 		signature: func() *crypto.Signature { sig := handle.SignData([]byte("graph")); return &sig }(),
 	})
-	require.ErrorIs(err, handle.updateErr)
-	handle.updateErr = nil
+	require.NoError(err)
+	handle.updateAccepted = true
 
 	err = me.handlePeerMessage(crypto.Blake3Hash([]byte("peer")), &PeerMessage{Type: PeerMessageTypePing})
 	require.Nil(err)
@@ -435,27 +435,20 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	tx := p2pTestTransaction()
 	commitment := p2pTestPrivateKey(21).Public()
 	challenge := p2pTestPrivateKey(22).Public()
-	sig := handle.SignData([]byte("dispatch"))
 	response := [32]byte{7, 8, 9}
 
 	neighbor := NewPeer(nil, peerID, "127.0.0.1:9011", false)
 	me.relayers.Set(peerID, neighbor)
 
-	err := me.handlePeerMessage(peerID, &PeerMessage{
-		Type:        PeerMessageTypePreCommitments,
-		Commitments: []*crypto.Key{&commitment},
-		unsigned:    []byte("commitments"),
-		signature:   &sig,
-	})
+	parsed, err := parseNetworkMessage(TransportMessageVersion, buildCommitmentsMessage(handle, []*crypto.Key{&commitment}))
+	require.NoError(err)
+	err = me.handlePeerMessage(peerID, parsed)
 	require.Nil(err)
 	require.Len(handle.lastCommitments, 1)
 
-	err = me.handlePeerMessage(peerID, &PeerMessage{
-		Type:      PeerMessageTypeGraph,
-		Graph:     handle.graph,
-		unsigned:  []byte("graph"),
-		signature: &sig,
-	})
+	parsed, err = parseNetworkMessage(TransportMessageVersion, buildGraphMessage(handle))
+	require.NoError(err)
+	err = me.handlePeerMessage(peerID, parsed)
 	require.Nil(err)
 	select {
 	case graph := <-neighbor.syncRing:
@@ -496,23 +489,15 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	confirmKey = append(confirmKey, 'S', 'C', 'O')
 	require.True(me.snapshotsCaches.contains(confirmKey, time.Hour))
 
-	err = me.handlePeerMessage(peerID, &PeerMessage{
-		Type:       PeerMessageTypeBatchSnapshotAnnouncement,
-		Snapshot:   snap,
-		Commitment: commitment,
-		signature:  &sig,
-	})
+	parsed, err = parseNetworkMessage(TransportMessageVersion, buildBatchSnapshotAnnouncementMessage(snap, commitment, handle.key))
+	require.NoError(err)
+	err = me.handlePeerMessage(peerID, parsed)
 	require.Nil(err)
 	require.Equal(snap.PayloadHash(), handle.announcement.PayloadHash())
 
-	err = me.handlePeerMessage(peerID, &PeerMessage{
-		Type:         PeerMessageTypeBatchSnapshotCommitment,
-		SnapshotHash: snap.PayloadHash(),
-		Commitment:   commitment,
-		WantTxs:      []crypto.Hash{tx.PayloadHash()},
-		unsigned:     []byte("unsigned-commitment"),
-		signature:    &sig,
-	})
+	parsed, err = parseNetworkMessage(TransportMessageVersion, buildBatchSnapshotCommitmentMessage(handle, snap.PayloadHash(), commitment, []crypto.Hash{tx.PayloadHash()}))
+	require.NoError(err)
+	err = me.handlePeerMessage(peerID, parsed)
 	require.Nil(err)
 	require.Equal([]crypto.Hash{tx.PayloadHash()}, handle.wantTxs)
 
@@ -526,14 +511,9 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	require.Len(handle.challengeTxs, 1)
 	require.Equal(tx.PayloadHash(), handle.challengeTxs[0].PayloadHash())
 
-	err = me.handlePeerMessage(peerID, &PeerMessage{
-		Type:         PeerMessageTypeBatchFullChallenge,
-		Snapshot:     snap,
-		Commitment:   commitment,
-		Challenge:    challenge,
-		Cosi:         crypto.CosiSignature{Mask: 6},
-		Transactions: []*common.VersionedTransaction{tx},
-	})
+	parsed, err = parseNetworkMessage(TransportMessageVersion, buildBatchFullChallengeMessage(handle, snap, &commitment, &challenge, []*common.VersionedTransaction{tx}))
+	require.NoError(err)
+	err = me.handlePeerMessage(peerID, parsed)
 	require.Nil(err)
 	require.Len(handle.fullChallengeTxs, 1)
 	require.Equal(tx.PayloadHash(), handle.fullChallengeTxs[0].PayloadHash())
@@ -562,7 +542,7 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 
 	batchSnap := p2pTestBatchSnapshot(true)
 	for _, payload := range [][]byte{
-		buildBatchFullChallengeMessage(batchSnap, &commitment, &challenge, []*common.VersionedTransaction{tx}),
+		buildBatchFullChallengeMessage(handle, batchSnap, &commitment, &challenge, []*common.VersionedTransaction{tx}),
 		buildSnapshotResponseMessage(snap.PayloadHash(), &response),
 	} {
 		relayParsed, err = parseNetworkMessage(9, me.buildRelayMessage(me.IdForNetwork, payload))
@@ -578,7 +558,7 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	me.relayers.Set(peerID, relayer)
 	handle.authToken = &AuthToken{PeerId: crypto.Blake3Hash([]byte("consumer-id"))}
 	consumerPeer := NewPeer(nil, handle.authToken.PeerId, "127.0.0.1:9013", false)
-	consumerPeer.consumerAuth = &AuthToken{Data: bytes.Repeat([]byte{1}, authenticationPayloadSize)}
+	consumerPeer.authentication = &AuthToken{Data: bytes.Repeat([]byte{1}, authenticationPayloadSize)}
 	msg, err := parseNetworkMessage(9, (&Peer{
 		consumers: &neighborMap{m: map[crypto.Hash]*Peer{handle.authToken.PeerId: consumerPeer}},
 	}).buildConsumersMessage())
@@ -832,6 +812,9 @@ func TestPeerLoopAndSyncHelpers(t *testing.T) {
 	require.Nil(err)
 	require.Equal(handle.authToken.PeerId, authPeer.IdForNetwork)
 	require.Equal(handle.authToken.IsRelayer, authPeer.IsRelayer())
+	require.Equal(handle.authToken.PublicSpendKey, authPeer.authentication.PublicSpendKey)
+	require.Len(authClient.sent, 1)
+	require.Equal(buildAuthenticationMessage(handle.BuildAuthenticationMessage(authPeer.IdForNetwork)), authClient.sent[0])
 	require.Equal(uint32(1), me4.receivedMetric.PeerMessageTypeAuthentication)
 
 	badAuthClient := &scriptedClient{
@@ -969,15 +952,24 @@ func TestConnectRelayerAndListenConsumersIntegration(t *testing.T) {
 
 	serverHandle := newP2PStubHandle(t)
 	clientHandle := newP2PStubHandle(t)
+	clientHandle.key = p2pTestPrivateKey(92)
 	serverID := crypto.Blake3Hash([]byte("integration-server"))
 	clientID := crypto.Blake3Hash([]byte("integration-client"))
 	serverHandle.authToken = &AuthToken{
-		PeerId:    clientID,
-		IsRelayer: true,
-		Data:      bytes.Repeat([]byte{8}, authenticationPayloadSize),
+		PeerId:         clientID,
+		PublicSpendKey: clientHandle.key.Public(),
+		IsRelayer:      true,
+		Data:           bytes.Repeat([]byte{8}, authenticationPayloadSize),
+	}
+	clientHandle.authToken = &AuthToken{
+		PeerId:         serverID,
+		PublicSpendKey: serverHandle.key.Public(),
+		IsRelayer:      true,
+		Data:           bytes.Repeat([]byte{9}, authenticationPayloadSize),
 	}
 
 	server := NewPeer(serverHandle, serverID, "127.0.0.1:0", true)
+	server.sentMetric.enabled.Store(true)
 	listenDone := make(chan error, 1)
 	go func() {
 		listenDone <- server.ListenConsumers()
@@ -990,6 +982,7 @@ func TestConnectRelayerAndListenConsumersIntegration(t *testing.T) {
 
 	client := NewPeer(clientHandle, clientID, "127.0.0.1:0", true)
 	client.sentMetric.enabled.Store(true)
+	client.receivedMetric.enabled.Store(true)
 	relay := NewPeer(nil, serverID, addr, true)
 	connectDone := make(chan error, 1)
 	go func() {
@@ -1000,6 +993,14 @@ func TestConnectRelayerAndListenConsumersIntegration(t *testing.T) {
 		return client.relayers.Get(serverID) != nil && server.consumers.Get(clientID) != nil
 	}, 3*time.Second, 20*time.Millisecond)
 	require.Equal(uint32(1), client.sentMetric.PeerMessageTypeAuthentication)
+	require.Equal(uint32(1), client.receivedMetric.PeerMessageTypeAuthentication)
+	require.Equal(uint32(1), server.sentMetric.PeerMessageTypeAuthentication)
+	data := []byte("authenticated neighbor message")
+	serverSignature := serverHandle.SignData(data)
+	clientSignature := clientHandle.SignData(data)
+	require.True(client.verifyNeighborSignature(serverID, data, &serverSignature))
+	require.True(server.verifyNeighborSignature(clientID, data, &clientSignature))
+	require.False(client.verifyNeighborSignature(serverID, data, &clientSignature))
 
 	client.closing.Store(true)
 	relay.closing.Store(true)
@@ -1098,11 +1099,12 @@ type p2pStubHandle struct {
 	nodes     []crypto.Hash
 	authErr   error
 
+	consensusPeers map[crypto.Hash]crypto.Key
+
 	lastCommitments  []*crypto.Key
 	updatePoints     []*SyncPoint
-	updateData       []byte
-	updateSig        *crypto.Signature
-	updateErr        error
+	updateAccepted   bool
+	updatePeerID     crypto.Hash
 	requestedTx      crypto.Hash
 	requestedTxs     []crypto.Hash
 	finalizedTxs     []crypto.Hash
@@ -1113,6 +1115,7 @@ type p2pStubHandle struct {
 	wantTxs          []crypto.Hash
 	challengeTxs     []*common.VersionedTransaction
 	fullChallengeTxs []*common.VersionedTransaction
+	fullChallenge    *common.Snapshot
 	snapshotResponse [32]byte
 	finalization     *common.Snapshot
 
@@ -1128,11 +1131,13 @@ func newP2PStubHandle(t *testing.T) *p2pStubHandle {
 	cache := newP2PTestCache(t)
 	key := p2pTestPrivateKey(91)
 	return &p2pStubHandle{
-		cache: cache,
-		key:   key,
+		cache:          cache,
+		key:            key,
+		updateAccepted: true,
 		authToken: &AuthToken{
-			PeerId:    crypto.Blake3Hash([]byte("auth-peer")),
-			Timestamp: 1,
+			PeerId:         crypto.Blake3Hash([]byte("auth-peer")),
+			PublicSpendKey: key.Public(),
+			Timestamp:      1,
 		},
 		graph: []*SyncPoint{{
 			NodeId: crypto.Blake3Hash([]byte("graph-node")),
@@ -1149,6 +1154,21 @@ func (h *p2pStubHandle) GetCacheStore() *ristretto.Cache[[]byte, any] {
 
 func (h *p2pStubHandle) SignData(data []byte) crypto.Signature {
 	return h.key.Sign(crypto.Blake3Hash(data))
+}
+
+func (h *p2pStubHandle) VerifyConsensusPeerSignature(peerID crypto.Hash, unsigned []byte, sig *crypto.Signature) bool {
+	if sig == nil {
+		return false
+	}
+	public := h.key.Public()
+	if h.consensusPeers != nil {
+		var found bool
+		public, found = h.consensusPeers[peerID]
+		if !found {
+			return false
+		}
+	}
+	return public.Verify(crypto.Blake3Hash(unsigned), *sig)
 }
 
 func (h *p2pStubHandle) BuildAuthenticationMessage(relayerId crypto.Hash) []byte {
@@ -1169,11 +1189,10 @@ func (h *p2pStubHandle) BuildGraph() []*SyncPoint {
 	return h.graph
 }
 
-func (h *p2pStubHandle) UpdateSyncPoint(_ crypto.Hash, points []*SyncPoint, data []byte, sig *crypto.Signature) error {
+func (h *p2pStubHandle) UpdateSyncPoint(peerID crypto.Hash, points []*SyncPoint) bool {
 	h.updatePoints = points
-	h.updateData = data
-	h.updateSig = sig
-	return h.updateErr
+	h.updatePeerID = peerID
+	return h.updateAccepted
 }
 
 func (h *p2pStubHandle) ReadAllNodesWithoutState() []crypto.Hash {
@@ -1228,12 +1247,12 @@ func (h *p2pStubHandle) CacheStoreTransactions(_ crypto.Hash, ver []*common.Vers
 	return h.cacheErr
 }
 
-func (h *p2pStubHandle) CosiQueueExternalAnnouncement(_ crypto.Hash, s *common.Snapshot, _ *crypto.Key, _ *crypto.Signature) error {
+func (h *p2pStubHandle) CosiQueueExternalAnnouncement(_ crypto.Hash, s *common.Snapshot, _ *crypto.Key) error {
 	h.announcement = s
 	return nil
 }
 
-func (h *p2pStubHandle) CosiAggregateSelfCommitments(_ crypto.Hash, _ crypto.Hash, _ *crypto.Key, wantTxs []crypto.Hash, _ []byte, _ *crypto.Signature) error {
+func (h *p2pStubHandle) CosiAggregateSelfCommitments(_ crypto.Hash, _ crypto.Hash, _ *crypto.Key, wantTxs []crypto.Hash) error {
 	h.wantTxs = wantTxs
 	return nil
 }
@@ -1243,7 +1262,8 @@ func (h *p2pStubHandle) CosiQueueExternalChallenge(_ crypto.Hash, _ crypto.Hash,
 	return nil
 }
 
-func (h *p2pStubHandle) CosiQueueExternalFullChallenge(_ crypto.Hash, _ *common.Snapshot, _ *crypto.Key, _ *crypto.Key, _ *crypto.CosiSignature, txs []*common.VersionedTransaction) error {
+func (h *p2pStubHandle) CosiQueueExternalFullChallenge(_ crypto.Hash, snapshot *common.Snapshot, _ *crypto.Key, _ *crypto.Key, _ *crypto.CosiSignature, txs []*common.VersionedTransaction) error {
+	h.fullChallenge = snapshot
 	h.fullChallengeTxs = txs
 	return nil
 }
@@ -1258,7 +1278,7 @@ func (h *p2pStubHandle) VerifyAndQueueAppendSnapshotFinalization(_ crypto.Hash, 
 	return nil
 }
 
-func (h *p2pStubHandle) CosiQueueExternalPreCommitments(_ crypto.Hash, commitments []*crypto.Key, _ []byte, _ *crypto.Signature) error {
+func (h *p2pStubHandle) CosiQueueExternalPreCommitments(_ crypto.Hash, commitments []*crypto.Key) error {
 	h.lastCommitments = commitments
 	return nil
 }

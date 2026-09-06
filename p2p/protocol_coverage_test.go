@@ -15,6 +15,7 @@ import (
 )
 
 func TestProtocolPayloadValidationBranches(t *testing.T) {
+	handle := newP2PStubHandle(t)
 	tx := p2pTestTransaction()
 	snapshot := p2pTestSnapshot(true)
 	commitment := p2pTestPrivateKey(201).Public()
@@ -74,25 +75,25 @@ func TestProtocolPayloadValidationBranches(t *testing.T) {
 		require.Error(t, err)
 	}
 
-	batch := buildBatchFullChallengeMessage(snapshot, &commitment, &challenge, []*common.VersionedTransaction{tx})
-	batchSnapshotSize := int(binary.BigEndian.Uint32(batch[1:5]))
-	batchAfterSnapshot := 5 + batchSnapshotSize
+	batch := buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, []*common.VersionedTransaction{tx})
+	batchSnapshotSize := int(binary.BigEndian.Uint32(batch[65:69]))
+	batchAfterSnapshot := 69 + batchSnapshotSize
 
 	_, err := parseNetworkMessage(7, []byte{PeerMessageTypeBatchFullChallenge})
 	require.ErrorContains(t, err, "invalid full challenge message size")
 
 	badBatchSnapshot := append([]byte(nil), batch...)
-	binary.BigEndian.PutUint32(badBatchSnapshot[1:5], 1)
-	badBatchSnapshot[5] = 0
+	binary.BigEndian.PutUint32(badBatchSnapshot[65:69], 1)
+	badBatchSnapshot[69] = 0
 	_, err = parseNetworkMessage(7, badBatchSnapshot)
 	require.ErrorContains(t, err, "invalid full challenge snapshot")
 
 	badBatchSnapshotSize := append([]byte(nil), batch...)
-	binary.BigEndian.PutUint32(badBatchSnapshotSize[1:5], uint32(len(batch)))
+	binary.BigEndian.PutUint32(badBatchSnapshotSize[65:69], uint32(len(batch)))
 	_, err = parseNetworkMessage(7, badBatchSnapshotSize)
 	require.ErrorContains(t, err, "invalid full challenge snapshot size")
 
-	unsignedBatch := buildBatchFullChallengeMessage(p2pTestSnapshot(false), &commitment, &challenge, []*common.VersionedTransaction{tx})
+	unsignedBatch := buildBatchFullChallengeMessage(handle, p2pTestSnapshot(false), &commitment, &challenge, []*common.VersionedTransaction{tx})
 	_, err = parseNetworkMessage(7, unsignedBatch)
 	require.ErrorContains(t, err, "snapshot signature")
 
@@ -128,8 +129,8 @@ func TestParseNetworkMessageRejectsInvalidCosiPoints(t *testing.T) {
 	preCommitments := buildCommitmentsMessage(handle, []*crypto.Key{&commitment})
 	announcement := buildBatchSnapshotAnnouncementMessage(snapshot, commitment, spend)
 	batchCommitment := buildBatchSnapshotCommitmentMessage(handle, snapshot.PayloadHash(), commitment, nil)
-	batchFullChallenge := buildBatchFullChallengeMessage(snapshot, &commitment, &challenge, []*common.VersionedTransaction{transaction})
-	fullChallengePointOffset := 1 + 4 + len(snapshotPayload)
+	batchFullChallenge := buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, []*common.VersionedTransaction{transaction})
+	fullChallengePointOffset := 65 + 4 + len(snapshotPayload)
 
 	tests := []struct {
 		name   string

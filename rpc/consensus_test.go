@@ -256,7 +256,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	t.Logf("INPUT TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 	testLogP2PMetrics(t, "INPUT", instances)
 
-	testCustodianUpdateNodes(t, nodes, instances, accounts, payees, instances[0].NetworkId())
+	custodian := testCustodianUpdateNodes(t, nodes, instances, accounts, payees, instances[0].NetworkId())
 	transactionsCount = transactionsCount + 2
 	t.Logf("CUSTODIAN TEST DONE AT %s FOR %s\n", time.Now(), time.Since(startAt))
 	testLogP2PMetrics(t, "CUSTODIAN", instances)
@@ -275,7 +275,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	transactionsCount = transactionsCount + pledgeTransactions
 	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
-	gt4, drivers := testVerifyInfoAfterWithTraffic(t, require, nodes, accounts[0], gt3.Timestamp.Add(time.Second))
+	gt4, drivers := testVerifyInfoAfterWithTraffic(t, require, nodes, custodian, gt3.Timestamp.Add(time.Second))
 	transactionsCount = transactionsCount + drivers
 	gts = gt3.Timestamp.Add(time.Second)
 	require.Truef(gt4.Timestamp.After(gts), "%s should after %s", gt4.Timestamp, gts)
@@ -305,7 +305,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	kernel.TestMockDiff(time.Hour * (24 + config.KernelMintTimeBegin))
 	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
-	gt5, drivers := testVerifyInfoAfterWithTraffic(t, require, nodes, accounts[0], gt4.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
+	gt5, drivers := testVerifyInfoAfterWithTraffic(t, require, nodes, custodian, gt4.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
 	transactionsCount = transactionsCount + drivers
 	gts = gt4.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt5.Timestamp.After(gts), "%s should after %s", gt5.Timestamp, gts)
@@ -331,7 +331,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
-	gt6, drivers := testVerifyInfoAfterWithTraffic(t, require, nodes, accounts[0], gt5.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
+	gt6, drivers := testVerifyInfoAfterWithTraffic(t, require, nodes, custodian, gt5.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
 	transactionsCount = transactionsCount + drivers
 	gts = gt5.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt6.Timestamp.After(gts), "%s should after %s", gt6.Timestamp, gts)
@@ -393,7 +393,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	transactionsCount = transactionsCount + 1
 	tl, _ = testVerifySnapshots(require, nodes, transactionsCount)
 	require.Equal(transactionsCount, len(tl))
-	gt7, drivers := testVerifyInfoAfterWithTraffic(t, require, nodes, accounts[0], gt6.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
+	gt7, drivers := testVerifyInfoAfterWithTraffic(t, require, nodes, custodian, gt6.Timestamp.Add(time.Duration(config.SnapshotRoundGap)))
 	transactionsCount = transactionsCount + drivers
 	gts = gt6.Timestamp.Add(time.Duration(config.SnapshotRoundGap))
 	require.Truef(gt7.Timestamp.After(gts), "%s should after %s", gt7.Timestamp, gts)
@@ -502,7 +502,7 @@ func testRemovingNodePrediction(t *testing.T, instances []*kernel.Node, otherCon
 	}
 }
 
-func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.Node, signers, payees []common.Address, networkId crypto.Hash) {
+func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.Node, signers, payees []common.Address, networkId crypto.Hash) common.Address {
 	require := require.New(t)
 	tx := common.NewTransactionV5(common.XINAssetId)
 	require.NotNil(tx)
@@ -597,6 +597,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 	require.Len(curs, 2)
 	require.Equal(hash.String(), curs[1].Transaction)
 	require.Equal(custodian.String(), curs[1].Custodian)
+	return custodian
 }
 
 func testCheckMintDistributions(t *testing.T, node string) {
@@ -1385,8 +1386,9 @@ func testVerifyInfoAfter(require *require.Assertions, nodes []*Node, after time.
 // and returns the number of driver transactions sent while waiting. The graph
 // only advances when there are transactions to snapshot, exactly like a real
 // deployment that always has traffic: whenever the graph looks stalled, a
-// small unique deposit is submitted to keep rounds advancing.
-func testVerifyInfoAfterWithTraffic(t *testing.T, require *require.Assertions, nodes []*Node, domain common.Address, after time.Time) (Info, int) {
+// small unique deposit signed by the current custodian is submitted to keep
+// rounds advancing.
+func testVerifyInfoAfterWithTraffic(t *testing.T, require *require.Assertions, nodes []*Node, custodian common.Address, after time.Time) (Info, int) {
 	drivers := 0
 	deadline := time.Now().Add(testStateSyncTimeout)
 	var info Info
@@ -1407,10 +1409,10 @@ func testVerifyInfoAfterWithTraffic(t *testing.T, require *require.Assertions, n
 			stalled = 0
 		}
 		last = info.Timestamp
-		if t != nil && stalled >= 2 && domain.PrivateSpendKey.HasValue() {
-			raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset_key":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xd7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"0.0001"}}],"outputs":[{"type":0,"amount":"0.0001","script":"fffe01","accounts":["%s"]}]}`, testDriverTransactionSeq, domain.String())
+		if t != nil && stalled >= 2 && custodian.PrivateSpendKey.HasValue() {
+			raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset_key":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xd7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"0.0001"}}],"outputs":[{"type":0,"amount":"0.0001","script":"fffe01","accounts":["%s"]}]}`, testDriverTransactionSeq, custodian.String())
 			testDriverTransactionSeq++
-			tx, err := testSignTransaction(nodes[int(time.Now().UnixNano())%len(nodes)].Host, domain, raw)
+			tx, err := testSignTransaction(nodes[int(time.Now().UnixNano())%len(nodes)].Host, custodian, raw)
 			require.Nil(err)
 			ver := &common.VersionedTransaction{SignedTransaction: *tx}
 			t.Logf("GRAPH DRIVER SEND %s AT %s AFTER %s\n", ver.PayloadHash(), time.Now(), after)

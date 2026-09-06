@@ -723,13 +723,10 @@ func TestUnknownSnapshotNodeDoesNotCreateCosiChain(t *testing.T) {
 
 	announcement := newSnapshot()
 	commitment := node.Signer.PublicViewKey
-	data := append(append([]byte(nil), commitment[:]...), announcement.VersionedMarshal()...)
-	signature := node.Signer.PrivateSpendKey.Sign(crypto.Blake3Hash(data))
 	require.NoError(node.CosiQueueExternalAnnouncement(
 		node.IdForNetwork,
 		announcement,
 		&commitment,
-		&signature,
 	))
 	require.Nil(node.getChain(unknown))
 

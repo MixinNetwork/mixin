@@ -54,6 +54,8 @@ type Chain struct {
 
 	State *ChainState
 
+	graphSnapshot atomic.Pointer[chainGraphSnapshot]
+
 	CosiRandoms          map[crypto.Key]*crypto.CosiNonce
 	UsedRandoms          map[crypto.Hash]*crypto.CosiNonce
 	usedRandomsOrder     []crypto.Hash
@@ -291,6 +293,7 @@ func (chain *Chain) loadState() error {
 		state.RoundLinks[cn.IdForNetwork] = link
 	}
 
+	chain.publishGraphSnapshot(final)
 	chain.State = state
 	return nil
 }

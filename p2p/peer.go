@@ -36,7 +36,7 @@ type Peer struct {
 	sendWake        chan struct{}
 
 	relayer        atomic.Pointer[QuicRelayer]
-	consumerAuth   *AuthToken
+	authentication *AuthToken // Immutable after this peer is added to a neighbor map.
 	isRelayer      bool
 	remoteRelayers *relayersMap
 }
@@ -91,15 +91,11 @@ func (me *Peer) connectRelayer(relayer *Peer) error {
 		return err
 	}
 	defer client.Close("connectRelayer")
-	defer relayer.disconnect()
 
-	auth := me.handle.BuildAuthenticationMessage(relayer.IdForNetwork)
-	err = client.Send(buildAuthenticationMessage(auth))
-	logger.Printf("client.SendAuthenticationMessage(%x) => %v", auth, err)
-	if err != nil {
+	if err := me.authenticateRelayer(relayer, client); err != nil {
 		return err
 	}
-	me.sentMetric.handle(PeerMessageTypeAuthentication)
+	defer relayer.disconnect()
 	if !me.relayers.Put(relayer.IdForNetwork, relayer) {
 		panic(fmt.Errorf("ConnectRelayer(%s) => %s", relayer.IdForNetwork, relayer.Address))
 	}
@@ -110,6 +106,40 @@ func (me *Peer) connectRelayer(relayer *Peer) error {
 	_, err = me.loopSendingStream(relayer, client)
 	logger.Printf("me.loopSendingStream(%s, %s) => %v", me.Address, client.RemoteAddr().String(), err)
 	return err
+}
+
+func (me *Peer) authenticateRelayer(relayer *Peer, client Client) error {
+	auth := me.handle.BuildAuthenticationMessage(relayer.IdForNetwork)
+	if err := client.Send(buildAuthenticationMessage(auth)); err != nil {
+		return err
+	}
+	me.sentMetric.handle(PeerMessageTypeAuthentication)
+	token, err := me.receiveAuthentication(client)
+	if err != nil {
+		return err
+	}
+	if token.PeerId != relayer.IdForNetwork {
+		return fmt.Errorf("relayer authentication id mismatch %s %s", token.PeerId, relayer.IdForNetwork)
+	}
+	if !token.IsRelayer {
+		return fmt.Errorf("peer %s is not a relayer", token.PeerId)
+	}
+	relayer.authentication = token
+	return nil
+}
+
+func (me *Peer) verifyNeighborSignature(peerId crypto.Hash, data []byte, sig *crypto.Signature) bool {
+	if sig == nil {
+		return false
+	}
+	hash := crypto.Blake3Hash(data)
+	for _, peer := range me.GetNeighbors(peerId) {
+		auth := peer.authentication
+		if auth != nil && auth.PeerId == peerId && auth.PublicSpendKey.Verify(hash, *sig) {
+			return true
+		}
+	}
+	return false
 }
 
 func (me *Peer) Neighbors() []*Peer {
@@ -340,7 +370,22 @@ func (me *Peer) loopReceiveMessage(peer *Peer, client Client) {
 }
 
 func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
-	var peer *Peer
+	token, err := me.receiveAuthentication(client)
+	if err != nil {
+		return nil, err
+	}
+	auth := me.handle.BuildAuthenticationMessage(token.PeerId)
+	if err := client.Send(buildAuthenticationMessage(auth)); err != nil {
+		return nil, err
+	}
+	me.sentMetric.handle(PeerMessageTypeAuthentication)
+	peer := NewPeer(nil, token.PeerId, client.RemoteAddr().String(), token.IsRelayer)
+	peer.authentication = token
+	return peer, nil
+}
+
+func (me *Peer) receiveAuthentication(client Client) (*AuthToken, error) {
+	var token *AuthToken
 	auth := make(chan error, 1)
 	go func() {
 		tm, err := client.Receive()
@@ -359,16 +404,8 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 		}
 		me.receivedMetric.handle(PeerMessageTypeAuthentication)
 
-		token, err := me.handle.AuthenticateAs(me.IdForNetwork, msg.Data, int64(HandshakeTimeout/time.Second))
-		if err != nil {
-			auth <- err
-			return
-		}
-
-		addr := client.RemoteAddr().String()
-		peer = NewPeer(nil, token.PeerId, addr, token.IsRelayer)
-		peer.consumerAuth = token
-		auth <- nil
+		token, err = me.handle.AuthenticateAs(me.IdForNetwork, msg.Data, int64(HandshakeTimeout/time.Second))
+		auth <- err
 	}()
 
 	select {
@@ -377,9 +414,10 @@ func (me *Peer) authenticateNeighbor(client Client) (*Peer, error) {
 			return nil, err
 		}
 	case <-time.After(3 * time.Second):
+		client.Close("authenticate timeout")
 		return nil, fmt.Errorf("authenticate timeout")
 	}
-	return peer, nil
+	return token, nil
 }
 
 func (me *Peer) sendHighToPeer(to crypto.Hash, typ byte, key, data []byte) error {

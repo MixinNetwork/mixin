@@ -433,10 +433,11 @@ func (node *Node) AuthenticateAs(recipientId crypto.Hash, msg []byte, timeoutSec
 		return nil, fmt.Errorf("peer authentication message signature invalid %s", peerId)
 	}
 	token := &p2p.AuthToken{
-		PeerId:    peerId,
-		Timestamp: ts,
-		IsRelayer: msg[72] == byte(1),
-		Data:      bytes.Clone(msg),
+		PeerId:         peerId,
+		PublicSpendKey: signer.PublicSpendKey,
+		Timestamp:      ts,
+		IsRelayer:      msg[72] == byte(1),
+		Data:           bytes.Clone(msg),
 	}
 	return token, nil
 }
@@ -458,23 +459,34 @@ func (node *Node) SignData(data []byte) crypto.Signature {
 	return node.Signer.PrivateSpendKey.Sign(dh)
 }
 
+func (node *Node) VerifyConsensusPeerSignature(peerId crypto.Hash, unsigned []byte, sig *crypto.Signature) bool {
+	if sig == nil {
+		return false
+	}
+	peer := node.GetAcceptedOrPledgingNode(peerId)
+	if peer == nil {
+		return false
+	}
+	return peer.Signer.PublicSpendKey.Verify(crypto.Blake3Hash(unsigned), *sig)
+}
+
 func (node *Node) BuildGraph() []*p2p.SyncPoint {
 	node.chains.RLock()
 	defer node.chains.RUnlock()
 
 	points := make([]*p2p.SyncPoint, 0, len(node.chains.m))
 	for _, chain := range node.chains.m {
-		if chain.State == nil {
+		state := chain.graphSnapshot.Load()
+		if state == nil {
 			continue
 		}
-		f := chain.State.FinalRound
 		points = append(points, &p2p.SyncPoint{
 			NodeId: chain.ChainId,
-			Hash:   f.Hash,
-			Number: f.Number,
+			Hash:   state.Hash,
+			Number: state.Number,
 			Pool: map[string]int{
-				"index": chain.FinalIndex,
-				"count": chain.FinalCount,
+				"index": state.FinalIndex,
+				"count": state.FinalCount,
 			},
 		})
 	}
@@ -594,10 +606,13 @@ func (node *Node) sendGraphToConsensusNodesAndPeers() {
 	}
 }
 
-func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*p2p.SyncPoint, data []byte, sig *crypto.Signature) error {
+// UpdateSyncPoint admits a graph authenticated by P2P and reports whether it
+// may also be used for peer sync.
+func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*p2p.SyncPoint) bool {
 	peer := node.GetAcceptedOrPledgingNode(peerId)
-	if peer != nil && !peer.Signer.PublicSpendKey.Verify(crypto.Blake3Hash(data), *sig) {
-		return fmt.Errorf("invalid graph signature %s", peerId)
+	// Consensus nodes may also run as relayers, so use membership for this check.
+	if peer == nil && node.GetAcceptedOrPledgingNode(node.IdForNetwork) != nil && !node.isConfiguredRelayer(peerId) {
+		return false
 	}
 	for _, p := range points {
 		if p.NodeId == node.IdForNetwork {
@@ -605,7 +620,24 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*p2p.SyncPoint, d
 		}
 	}
 	node.SyncPointsMap = node.SyncPoints.Map()
-	return nil
+	return true
+}
+
+func (node *Node) isConfiguredRelayer(peerId crypto.Hash) bool {
+	if node.custom == nil {
+		return false
+	}
+	for _, seed := range node.custom.P2P.Seeds {
+		parts := strings.Split(seed, "@")
+		if len(parts) != 2 {
+			continue
+		}
+		id, err := crypto.HashFromString(parts[0])
+		if err == nil && id == peerId {
+			return true
+		}
+	}
+	return false
 }
 
 func (node *Node) CheckBroadcastedToPeers() bool {
