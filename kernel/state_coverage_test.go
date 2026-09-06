@@ -975,9 +975,9 @@ func TestNodeStateAndQueueHelpers(t *testing.T) {
 		node.acceptedNodeStateSequences = []*NodeStateSequence{{Timestamp: 1, NodesWithoutState: consensusNodes}}
 		node.genesisNodesMap = genesis
 		node.chain.State.FinalRound = &FinalRound{}
-		node.SyncPointsMap = make(map[crypto.Hash]*p2p.SyncPoint)
+		node.SyncPoints = &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*p2p.SyncPoint)}
 		for _, cn := range node.NodesListWithoutState(clock.NowUnixNano(), true) {
-			node.SyncPointsMap[cn.IdForNetwork] = &p2p.SyncPoint{}
+			node.SyncPoints.Set(cn.IdForNetwork, &p2p.SyncPoint{})
 		}
 		require.True(t, node.canProposeSnapshot(all))
 		require.False(t, node.canProposeSnapshot(all[1:]))

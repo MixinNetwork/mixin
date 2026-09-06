@@ -69,17 +69,16 @@ func TestUpdateSyncPointAdmission(t *testing.T) {
 					node.custom.P2P.Seeds = append(node.custom.P2P.Seeds, peerID.String()+"@127.0.0.1:17000")
 				}
 				before := node.SyncPoints.Map()
-				node.SyncPointsMap = node.SyncPoints.Map()
 
 				require.Equal(t, test.want, node.UpdateSyncPoint(peerID, points))
+				after := node.SyncPoints.Map()
 				if test.want {
-					require.Equal(t, points[0], node.SyncPointsMap[peerID])
-					require.Equal(t, before[otherID], node.SyncPointsMap[otherID])
-					require.Len(t, node.SyncPointsMap, len(before))
+					require.Equal(t, points[0], after[peerID])
+					require.Equal(t, before[otherID], after[otherID])
+					require.Len(t, after, len(before))
 				} else {
-					require.Equal(t, before, node.SyncPointsMap)
+					require.Equal(t, before, after)
 				}
-				require.Equal(t, node.SyncPointsMap, node.SyncPoints.Map())
 			})
 		}
 	}

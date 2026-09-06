@@ -26,10 +26,9 @@ type Node struct {
 	Signer       common.Address
 	isRelayer    bool
 
-	Peer          *p2p.Peer
-	TopoCounter   *TopologicalSequence
-	SyncPoints    *syncMap
-	SyncPointsMap map[crypto.Hash]*p2p.SyncPoint
+	Peer        *p2p.Peer
+	TopoCounter *TopologicalSequence
+	SyncPoints  *syncMap
 
 	GraphTimestamp uint64
 	Epoch          uint64
@@ -619,7 +618,6 @@ func (node *Node) UpdateSyncPoint(peerId crypto.Hash, points []*p2p.SyncPoint) b
 			node.SyncPoints.Set(peerId, p)
 		}
 	}
-	node.SyncPointsMap = node.SyncPoints.Map()
 	return true
 }
 
@@ -641,7 +639,7 @@ func (node *Node) isConfiguredRelayer(peerId crypto.Hash) bool {
 }
 
 func (node *Node) CheckBroadcastedToPeers() bool {
-	spm := node.SyncPointsMap
+	spm := node.SyncPoints.Map()
 	if len(spm) == 0 || node.chain.State == nil {
 		return false
 	}
@@ -662,7 +660,7 @@ func (node *Node) CheckBroadcastedToPeers() bool {
 }
 
 func (node *Node) CheckCatchUpWithPeers() bool {
-	spm := node.SyncPointsMap
+	spm := node.SyncPoints.Map()
 	if len(spm) == 0 || node.chain.State == nil {
 		return false
 	}
