@@ -792,7 +792,7 @@ func testPledgeNewNode(t *testing.T, nodes []*Node, domain common.Address, genes
 	}
 
 	configData := fmt.Appendf(nil, configDataTmpl, signer.PrivateSpendKey, 17099, plist, false, 18099)
-	err = os.WriteFile(dir+"/config.toml", configData, 0644)
+	err = os.WriteFile(dir+"/config.toml", configData, 0o600)
 	if err != nil {
 		panic(err)
 	}
@@ -1276,7 +1276,7 @@ func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []commo
 
 			rpcPort := 26000 + i + 1
 			configData := fmt.Appendf(nil, configDataTmpl, a.PrivateSpendKey, 16000+i+1, peersListHead, true, rpcPort)
-			err = os.WriteFile(dir+"/config.toml", configData, 0644)
+			err = os.WriteFile(dir+"/config.toml", configData, 0o600)
 			if err != nil {
 				panic(err)
 			}
@@ -1316,7 +1316,7 @@ func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []commo
 			peersList = peersListHead
 		}
 		configData := fmt.Appendf(nil, configDataTmpl, a.PrivateSpendKey, port, peersList, isRelayer, 18000+i+1)
-		err = os.WriteFile(dir+"/config.toml", configData, 0644)
+		err = os.WriteFile(dir+"/config.toml", configData, 0o600)
 		if err != nil {
 			panic(err)
 		}

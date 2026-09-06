@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestKey(t *testing.T) {
+func TestKeySerializationRoundTrip(t *testing.T) {
 	require := require.New(t)
 	seed := make([]byte, 64)
 	for i := range seed {
@@ -19,10 +19,11 @@ func TestKey(t *testing.T) {
 	j, err := key.MarshalJSON()
 	require.Nil(err)
 	require.Equal("\"c91e0907d114fd83c1edc396490bb2dafa43c19815b0354e70dc80c317c3cb0a\"", string(j))
-	err = key.UnmarshalJSON(j)
+	var decoded Key
+	err = decoded.UnmarshalJSON(j)
 	require.Nil(err)
-	require.Equal("c91e0907d114fd83c1edc396490bb2dafa43c19815b0354e70dc80c317c3cb0a", key.String())
-	require.Equal("36bb0e309e7e9a82f1527df2c6b0e48181589097fe90c1282c558207ea27ce66", key.Public().String())
+	require.Equal(key, decoded)
+	require.Equal("36bb0e309e7e9a82f1527df2c6b0e48181589097fe90c1282c558207ea27ce66", decoded.Public().String())
 }
 
 func TestGhostKey(t *testing.T) {

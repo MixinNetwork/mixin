@@ -26,7 +26,7 @@ func TestVanishAddress(t *testing.T) {
 	require.Equal(sa, a.String())
 }
 
-func TestAddress(t *testing.T) {
+func TestAddressDerivationAndSerialization(t *testing.T) {
 	require := require.New(t)
 
 	seed := make([]byte, 64)

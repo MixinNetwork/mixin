@@ -93,7 +93,7 @@ ring-final-size = 16384
 listener = "mixin-node.example.com:7239"`)
 
 func setupTestNode(require *require.Assertions, dir string) *Node {
-	err := os.WriteFile(dir+"/config.toml", configData, 0644)
+	err := os.WriteFile(dir+"/config.toml", configData, 0o600)
 	require.Nil(err)
 
 	data, err := os.ReadFile("../config/genesis.json")

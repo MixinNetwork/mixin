@@ -8,10 +8,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCosi(t *testing.T) {
-	require := require.New(t)
+func TestCosiCommitGeneratesDistinctNonces(t *testing.T) {
+	first := cosiCommit(RandReader())
+	second := cosiCommit(RandReader())
+	require.NotEqual(t, *first, *second)
+}
 
-	require.NotEqual(cosiCommit(RandReader()).String(), cosiCommit(RandReader()).String())
+func TestCosiAggregateSigning(t *testing.T) {
+	require := require.New(t)
 
 	keys := make([]*Key, 31)
 	publics := make([]*Key, len(keys))

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestConfig(t *testing.T) {
+func TestConfigParsing(t *testing.T) {
 	require := require.New(t)
 
 	custom, err := Initialize("./config.example.toml")

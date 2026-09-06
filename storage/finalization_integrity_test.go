@@ -1,83 +1,81 @@
 package storage
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/MixinNetwork/mixin/common"
-	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/MixinNetwork/mixin/util"
 	"github.com/dgraph-io/badger/v4"
 	"github.com/stretchr/testify/require"
 )
 
-func auditStore(t *testing.T) *BadgerStore {
-	custom, err := config.Initialize("../config/config.example.toml")
-	require.NoError(t, err)
-	store, err := NewBadgerStore(custom, t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { util.CloseOrPanic(store) })
-	return store
-}
-
-// Q0: does badger Txn.Get see its own pending writes? The comment in
-// badger_transaction.go claims it does not. This determines whether
-// same-snapshot double withdrawal claims panic or silently succeed.
-func TestAuditBadgerGetReadsPendingWrites(t *testing.T) {
-	store := auditStore(t)
-	key := []byte("audit-pending-key")
+func TestBadgerTransactionReadsPendingWrites(t *testing.T) {
+	store := newTestBadgerStore(t)
+	key := []byte("pending-write-key")
 	err := store.snapshotsDB.Update(func(txn *badger.Txn) error {
-		require.NoError(t, txn.Set(key, []byte("v1")))
+		require.NoError(t, txn.Set(key, []byte("first")))
 		item, err := txn.Get(key)
-		if err == badger.ErrKeyNotFound {
-			t.Log("RESULT: Get does NOT see pending writes")
-			return nil
-		}
 		require.NoError(t, err)
-		val, err := item.ValueCopy(nil)
+		value, err := item.ValueCopy(nil)
 		require.NoError(t, err)
-		t.Logf("RESULT: Get SEES pending writes: %s", string(val))
+		require.Equal(t, "first", string(value))
+
+		require.NoError(t, txn.Set(key, []byte("second")))
+		item, err = txn.Get(key)
+		require.NoError(t, err)
+		value, err = item.ValueCopy(nil)
+		require.NoError(t, err)
+		require.Equal(t, "second", string(value))
+
+		require.NoError(t, txn.Delete(key))
+		_, err = txn.Get(key)
+		require.ErrorIs(t, err, badger.ErrKeyNotFound)
 		return nil
 	})
 	require.NoError(t, err)
+	batchIntegrityRequireMissing(t, store, key)
 }
 
-func auditSnap(store *BadgerStore, nodeId crypto.Hash, round uint64, ts uint64) *common.SnapshotWithTopologicalOrder {
+func finalizationTestSnapshot(nodeId crypto.Hash, round uint64, ts uint64) *common.SnapshotWithTopologicalOrder {
 	s := &common.Snapshot{
 		Version:     common.SnapshotVersionCommonEncoding,
 		NodeId:      nodeId,
 		RoundNumber: round,
 		Timestamp:   ts,
-		References:  &common.RoundLink{},
+	}
+	if round > 0 {
+		s.References = &common.RoundLink{}
 	}
 	return &common.SnapshotWithTopologicalOrder{Snapshot: s, TopologicalOrder: round}
 }
 
-// auditFinalize runs the same writeSnapshot WriteSnapshot uses, minus the
-// debug-only round asserts that require full kernel round setup.
-func auditFinalize(store *BadgerStore, snap *common.SnapshotWithTopologicalOrder) error {
+// finalizeTestSnapshot exercises storage finalization with canonical wire data.
+// It omits the public wrapper's round assertions, which require kernel setup.
+func finalizeTestSnapshot(store *BadgerStore, snap *common.SnapshotWithTopologicalOrder) error {
+	decoded, err := common.UnmarshalVersionedSnapshot(snap.VersionedMarshal())
+	if err != nil {
+		return err
+	}
 	return store.snapshotsDB.Update(func(txn *badger.Txn) error {
-		return writeSnapshot(txn, snap)
+		return writeSnapshot(txn, decoded)
 	})
 }
 
-func auditPutAssetTotal(t *testing.T, store *BadgerStore, total string) {
+func putFinalizationTestAssetTotal(t *testing.T, store *BadgerStore, total string) {
 	t.Helper()
 	require.NoError(t, store.snapshotsDB.Update(func(txn *badger.Txn) error {
 		return txn.Set(graphAssetTotalKey(common.XINAssetId), []byte(total))
 	}))
 }
 
-// Q1: double-spend of a UTXO by two transactions where the first is FINALIZED.
-// The second must be rejected even on the fork=true finalization path.
-func TestAuditDoubleSpendAfterFinalization(t *testing.T) {
+func TestFinalizedSpendRejectsConflictingFork(t *testing.T) {
 	require := require.New(t)
-	store := auditStore(t)
+	store := newTestBadgerStore(t)
 
-	funding, utxo := batchIntegrityFunding(1)
+	_, utxo := batchIntegrityFunding(1)
 	batchIntegrityPutAsset(t, store)
 	batchIntegrityPutUTXO(t, store, utxo)
-	_ = funding
 
 	spend1 := batchIntegritySpend(utxo, 2)
 	spend2 := batchIntegritySpend(utxo, 3)
@@ -86,11 +84,11 @@ func TestAuditDoubleSpendAfterFinalization(t *testing.T) {
 	// persist + lock spend1
 	require.NoError(store.LockAndPersistTransactions([]*common.VersionedTransaction{spend1}, false))
 
-	// finalize spend1 via WriteSnapshot
+	// Finalize spend1 so its input lock cannot be replaced.
 	nodeId := crypto.Blake3Hash([]byte("node-a"))
-	snap := auditSnap(store, nodeId, 0, 100)
+	snap := finalizationTestSnapshot(nodeId, 0, 100)
 	snap.Transactions = []crypto.Hash{spend1.PayloadHash()}
-	require.NoError(auditFinalize(store, snap))
+	require.NoError(finalizeTestSnapshot(store, snap))
 
 	// spend1 must be finalized now
 	_, fin, err := store.ReadTransaction(spend1.PayloadHash())
@@ -99,7 +97,6 @@ func TestAuditDoubleSpendAfterFinalization(t *testing.T) {
 
 	// attempt to lock+persist spend2 on the fork=true finalization path
 	err = store.LockAndPersistTransactions([]*common.VersionedTransaction{spend2}, true)
-	t.Logf("RESULT: conflicting finalized spend lock attempt err=%v", err)
 	require.Error(err)
 
 	// spend2 must not be persisted
@@ -113,10 +110,9 @@ func TestAuditDoubleSpendAfterFinalization(t *testing.T) {
 	require.Equal(spend1.PayloadHash(), out.LockHash)
 }
 
-// Q1b: same-batch conflicting spends must be rejected.
-func TestAuditDoubleSpendSameBatch(t *testing.T) {
+func TestTransactionBatchRejectsDoubleSpend(t *testing.T) {
 	require := require.New(t)
-	store := auditStore(t)
+	store := newTestBadgerStore(t)
 	_, utxo := batchIntegrityFunding(1)
 	batchIntegrityPutAsset(t, store)
 	batchIntegrityPutUTXO(t, store, utxo)
@@ -125,7 +121,6 @@ func TestAuditDoubleSpendSameBatch(t *testing.T) {
 	spend2 := batchIntegritySpend(utxo, 3)
 
 	err := store.LockAndPersistTransactions([]*common.VersionedTransaction{spend1, spend2}, false)
-	t.Logf("RESULT: same-batch double spend err=%v", err)
 	require.Error(err)
 
 	// neither should be persisted (atomic rollback)
@@ -133,17 +128,14 @@ func TestAuditDoubleSpendSameBatch(t *testing.T) {
 	batchIntegrityRequireTransactionMissing(t, store, spend2)
 }
 
-// Q4: two withdrawal-claim transactions for the same withdrawal submit in the
-// SAME snapshot/badger txn. Panic (crash) or silent double-claim (theft)?
-func TestAuditDoubleWithdrawalClaimSameSnapshot(t *testing.T) {
+func TestSnapshotRejectsDuplicateWithdrawalClaimsAtomically(t *testing.T) {
 	require := require.New(t)
-	store := auditStore(t)
+	store := newTestBadgerStore(t)
 	batchIntegrityPutAsset(t, store)
-	auditPutAssetTotal(t, store, "100")
+	putFinalizationTestAssetTotal(t, store, "100")
 
 	// withdrawal submit tx (funded from a genesis-like utxo)
-	funding, utxo := batchIntegrityFunding(10)
-	_ = funding
+	_, utxo := batchIntegrityFunding(10)
 	batchIntegrityPutUTXO(t, store, utxo)
 
 	submit := common.NewTransactionV5(common.XINAssetId)
@@ -158,9 +150,9 @@ func TestAuditDoubleWithdrawalClaimSameSnapshot(t *testing.T) {
 	// lock+persist+finalize the submit
 	require.NoError(store.LockAndPersistTransactions([]*common.VersionedTransaction{submitVer}, false))
 	nodeId := crypto.Blake3Hash([]byte("node-a"))
-	snap0 := auditSnap(store, nodeId, 0, 100)
+	snap0 := finalizationTestSnapshot(nodeId, 0, 100)
 	snap0.Transactions = []crypto.Hash{submitVer.PayloadHash()}
-	require.NoError(auditFinalize(store, snap0))
+	require.NoError(finalizeTestSnapshot(store, snap0))
 
 	// two claim txs, each funded by their own utxo, both referencing submit
 	mkClaim := func(seed byte) *common.VersionedTransaction {
@@ -180,40 +172,48 @@ func TestAuditDoubleWithdrawalClaimSameSnapshot(t *testing.T) {
 	claim2 := mkClaim(12)
 	require.NotEqual(claim1.PayloadHash(), claim2.PayloadHash())
 
-	// lock+persist both claims (batchClaims has no withdrawal claim tracking)
-	err := store.LockAndPersistTransactions([]*common.VersionedTransaction{claim1, claim2}, false)
-	t.Logf("RESULT: batch lock of two claims err=%v", err)
-	if err != nil {
-		return // rejected at lock time; safe
-	}
-
-	// finalize both in one WriteSnapshot (one badger txn)
-	snap1 := auditSnap(store, nodeId, 1, 200)
-	snap1.Transactions = []crypto.Hash{claim1.PayloadHash(), claim2.PayloadHash()}
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				t.Logf("RESULT: WriteSnapshot with two claims PANICS: %v", r)
-			}
-		}()
-		err := auditFinalize(store, snap1)
-		t.Logf("RESULT: WriteSnapshot with two claims err=%v", err)
-		require.NoError(err)
-	}()
-
-	// check claim record and finalization state
-	claimRec, _, err := store.ReadWithdrawalClaim(submitVer.PayloadHash())
+	// Claim uniqueness is enforced during finalization, after both candidates persist.
+	require.NoError(store.LockAndPersistTransactions([]*common.VersionedTransaction{claim1, claim2}, false))
+	_, balanceBefore, err := store.ReadAssetWithBalance(common.XINAssetId)
 	require.NoError(err)
-	t.Logf("RESULT: claim record=%v", claimRec != nil)
-	_, fin1, _ := store.ReadTransaction(claim1.PayloadHash())
-	_, fin2, _ := store.ReadTransaction(claim2.PayloadHash())
-	t.Logf("RESULT: claim1 finalized=%q claim2 finalized=%q", fin1, fin2)
+
+	snap1 := finalizationTestSnapshot(nodeId, 1, 200)
+	snap1.Transactions = []crypto.Hash{claim1.PayloadHash(), claim2.PayloadHash()}
+	snap1.Hash = snap1.PayloadHash()
+	require.PanicsWithError("already claimed by "+snap1.Transactions[0].String(), func() {
+		require.NoError(finalizeTestSnapshot(store, snap1))
+	})
+
+	claimRec, claimFinalization, err := store.ReadWithdrawalClaim(submitVer.PayloadHash())
+	require.NoError(err)
+	require.Nil(claimRec)
+	require.Empty(claimFinalization)
+	requireSnapshotNotFinalized(t, store, snap1)
+	_, balanceAfter, err := store.ReadAssetWithBalance(common.XINAssetId)
+	require.NoError(err)
+	require.Equal(balanceBefore, balanceAfter)
+
+	// A single claim remains finalizable after the failed batch.
+	single := finalizationTestSnapshot(nodeId, 1, 201)
+	single.Transactions = []crypto.Hash{claim1.PayloadHash()}
+	require.NoError(finalizeTestSnapshot(store, single))
+	claimRec, claimFinalization, err = store.ReadWithdrawalClaim(submitVer.PayloadHash())
+	require.NoError(err)
+	require.NotNil(claimRec)
+	require.Equal(claim1.PayloadHash(), claimRec.PayloadHash())
+	require.Equal(single.PayloadHash().String(), claimFinalization)
+
+	duplicate := finalizationTestSnapshot(nodeId, 2, 202)
+	duplicate.Transactions = []crypto.Hash{claim2.PayloadHash()}
+	require.PanicsWithError("already claimed by "+claim1.PayloadHash().String(), func() {
+		require.NoError(finalizeTestSnapshot(store, duplicate))
+	})
+	requireSnapshotNotFinalized(t, store, duplicate)
 }
 
-// Q5: deposit replay after finalization.
-func TestAuditDepositReplayAfterFinalization(t *testing.T) {
+func TestDepositLocksRejectReplay(t *testing.T) {
 	require := require.New(t)
-	store := auditStore(t)
+	store := newTestBadgerStore(t)
 	batchIntegrityPutAsset(t, store)
 
 	dep1 := batchIntegrityDeposit("external-tx-1", 1, "0xa974c709cfb4566686553a20790685a47aceaa33")
@@ -224,26 +224,23 @@ func TestAuditDepositReplayAfterFinalization(t *testing.T) {
 
 	require.NoError(store.LockAndPersistTransactions([]*common.VersionedTransaction{dep1}, false))
 	nodeId := crypto.Blake3Hash([]byte("node-a"))
-	snap := auditSnap(store, nodeId, 0, 100)
+	snap := finalizationTestSnapshot(nodeId, 0, 100)
 	snap.Transactions = []crypto.Hash{dep1.PayloadHash()}
-	require.NoError(auditFinalize(store, snap))
+	require.NoError(finalizeTestSnapshot(store, snap))
 
 	err := store.LockAndPersistTransactions([]*common.VersionedTransaction{dep2}, true)
-	t.Logf("RESULT: deposit replay after finalization err=%v", err)
 	require.Error(err)
 
 	// same batch replay
 	dep3 := batchIntegrityDeposit("external-tx-2", 3, "0xa974c709cfb4566686553a20790685a47aceaa33")
 	dep4 := batchIntegrityDeposit("external-tx-2", 4, "0xa974c709cfb4566686553a20790685a47aceaa33")
 	err = store.LockAndPersistTransactions([]*common.VersionedTransaction{dep3, dep4}, false)
-	t.Logf("RESULT: same-batch deposit replay err=%v", err)
 	require.Error(err)
 }
 
-// Q6: mint double distribution.
-func TestAuditMintDoubleDistribution(t *testing.T) {
+func TestMintLocksRejectDuplicateDistribution(t *testing.T) {
 	require := require.New(t)
-	store := auditStore(t)
+	store := newTestBadgerStore(t)
 	batchIntegrityPutAsset(t, store)
 
 	mint1 := batchIntegrityMint(7, 1)
@@ -252,25 +249,22 @@ func TestAuditMintDoubleDistribution(t *testing.T) {
 
 	require.NoError(store.LockAndPersistTransactions([]*common.VersionedTransaction{mint1}, false))
 	nodeId := crypto.Blake3Hash([]byte("node-a"))
-	snap := auditSnap(store, nodeId, 0, 100)
+	snap := finalizationTestSnapshot(nodeId, 0, 100)
 	snap.Transactions = []crypto.Hash{mint1.PayloadHash()}
-	require.NoError(auditFinalize(store, snap))
+	require.NoError(finalizeTestSnapshot(store, snap))
 
 	err := store.LockAndPersistTransactions([]*common.VersionedTransaction{mint2}, true)
-	t.Logf("RESULT: mint double distribution after finalization err=%v", err)
 	require.Error(err)
 
 	mint3 := batchIntegrityMint(8, 3)
 	mint4 := batchIntegrityMint(8, 4)
 	err = store.LockAndPersistTransactions([]*common.VersionedTransaction{mint3, mint4}, false)
-	t.Logf("RESULT: same-batch mint double distribution err=%v", err)
 	require.Error(err)
 }
 
-// Q3: ghost key reuse in two transactions.
-func TestAuditGhostKeyReuse(t *testing.T) {
+func TestGhostLocksRejectReuseAcrossTransactions(t *testing.T) {
 	require := require.New(t)
-	store := auditStore(t)
+	store := newTestBadgerStore(t)
 	batchIntegrityPutAsset(t, store)
 
 	_, utxo1 := batchIntegrityFunding(1)
@@ -287,19 +281,16 @@ func TestAuditGhostKeyReuse(t *testing.T) {
 
 	// even on fork=true path, ghost reuse must fail
 	err := store.LockAndPersistTransactions([]*common.VersionedTransaction{spend2}, true)
-	t.Logf("RESULT: ghost reuse fork=true err=%v", err)
 	require.Error(err)
 
 	// same batch
 	err = store.LockAndPersistTransactions([]*common.VersionedTransaction{spend1, spend2}, false)
-	t.Logf("RESULT: ghost reuse same batch err=%v", err)
 	require.Error(err)
 }
 
-// Q1d: same-batch conflicting spends on the fork=true finalization path.
-func TestAuditDoubleSpendSameBatchFork(t *testing.T) {
+func TestTransactionBatchRejectsDoubleSpendWithFork(t *testing.T) {
 	require := require.New(t)
-	store := auditStore(t)
+	store := newTestBadgerStore(t)
 	_, utxo := batchIntegrityFunding(1)
 	batchIntegrityPutAsset(t, store)
 	batchIntegrityPutUTXO(t, store, utxo)
@@ -308,24 +299,24 @@ func TestAuditDoubleSpendSameBatchFork(t *testing.T) {
 	spend2 := batchIntegritySpend(utxo, 3)
 
 	err := store.LockAndPersistTransactions([]*common.VersionedTransaction{spend1, spend2}, true)
-	t.Logf("RESULT: same-batch double spend fork=true err=%v", err)
 	require.Error(err)
 	batchIntegrityRequireTransactionMissing(t, store, spend1)
 	batchIntegrityRequireTransactionMissing(t, store, spend2)
 }
 
-// Q1e: cross-snapshot scenario - spend1 persisted earlier (found-path skip),
-// then a finalized snapshot contains both spend1 and spend2. Verify the
-// outcome is a panic with atomic discard, never a double finalization.
-func TestAuditCrossSnapshotConflictFoundSkip(t *testing.T) {
+func TestSnapshotWithPrunedTransactionRollsBack(t *testing.T) {
 	require := require.New(t)
-	store := auditStore(t)
+	store := newTestBadgerStore(t)
 	_, utxo := batchIntegrityFunding(1)
 	batchIntegrityPutAsset(t, store)
 	batchIntegrityPutUTXO(t, store, utxo)
 
 	spend1 := batchIntegritySpend(utxo, 2)
 	spend2 := batchIntegritySpend(utxo, 3)
+	firstHash, secondHash := spend1.PayloadHash(), spend2.PayloadHash()
+	if bytes.Compare(firstHash[:], secondHash[:]) < 0 {
+		spend1, spend2 = spend2, spend1
+	}
 
 	// spend1 locked+persisted earlier, never finalized
 	require.NoError(store.LockAndPersistTransactions([]*common.VersionedTransaction{spend1}, false))
@@ -337,41 +328,32 @@ func TestAuditCrossSnapshotConflictFoundSkip(t *testing.T) {
 	require.NoError(err)
 	batchIntegrityRequireTransactionMissing(t, store, spend1)
 
-	// WriteSnapshot over [spend2, spend1] must not double-finalize
+	// The pruned envelope sorts after the valid candidate, so rejection must
+	// roll back finalization writes already staged for that candidate.
 	nodeId := crypto.Blake3Hash([]byte("node-a"))
-	snap := auditSnap(store, nodeId, 1, 100)
+	snap := finalizationTestSnapshot(nodeId, 1, 100)
 	snap.Transactions = []crypto.Hash{spend2.PayloadHash(), spend1.PayloadHash()}
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				t.Logf("RESULT: WriteSnapshot panics (atomic discard): %v", r)
-			}
-		}()
-		err := auditFinalize(store, snap)
-		t.Logf("RESULT: WriteSnapshot err=%v", err)
-	}()
+	require.Panics(func() {
+		require.NoError(finalizeTestSnapshot(store, snap))
+	})
+	requireSnapshotNotFinalized(t, store, snap)
 
-	// verify neither is finalized (atomic discard) and no double outputs
-	_, fin1, _ := store.ReadTransaction(spend1.PayloadHash())
-	_, fin2, _ := store.ReadTransaction(spend2.PayloadHash())
-	t.Logf("RESULT: spend1 finalized=%q spend2 finalized=%q", fin1, fin2)
-	require.Empty(fin1)
-	out, err := store.ReadUTXOLock(spend2.PayloadHash(), 0)
+	// The replacement candidate and its input lock survive the rejected snapshot.
+	batchIntegrityRequireTransaction(t, store, spend2)
+	out, err := store.ReadUTXOLock(utxo.Hash, utxo.Index)
 	require.NoError(err)
-	if fin2 == "" {
-		require.Nil(out) // spend2 outputs must not exist either
-		t.Log("RESULT: atomic discard confirmed, no double spend")
-	} else {
-		require.NotNil(out)
-		t.Log("RESULT: only spend2 finalized, single spend")
-	}
+	require.NotNil(out)
+	require.Equal(spend2.PayloadHash(), out.LockHash)
+
+	single := finalizationTestSnapshot(nodeId, 1, 101)
+	single.Transactions = []crypto.Hash{spend2.PayloadHash()}
+	require.NoError(finalizeTestSnapshot(store, single))
+	batchIntegrityRequireFinalizedTransaction(t, store, spend2)
 }
 
-// Q1c: fork=true path against an UNFINALIZED lock holder prunes it; check that
-// ghost keys of the pruned tx remain locked (burn) and that the winner can finalize.
-func TestAuditForkPruneUnfinalized(t *testing.T) {
+func TestForkPrunesUnfinalizedTransactionAndPreservesGhostLocks(t *testing.T) {
 	require := require.New(t)
-	store := auditStore(t)
+	store := newTestBadgerStore(t)
 	batchIntegrityPutAsset(t, store)
 	_, utxo := batchIntegrityFunding(1)
 	batchIntegrityPutUTXO(t, store, utxo)
@@ -389,14 +371,31 @@ func TestAuditForkPruneUnfinalized(t *testing.T) {
 
 	// spend2 finalizes fine
 	nodeId := crypto.Blake3Hash([]byte("node-a"))
-	snap := auditSnap(store, nodeId, 0, 100)
+	snap := finalizationTestSnapshot(nodeId, 0, 100)
 	snap.Transactions = []crypto.Hash{spend2.PayloadHash()}
-	require.NoError(auditFinalize(store, snap))
+	require.NoError(finalizeTestSnapshot(store, snap))
 
-	// spend1 ghost keys remain locked by spend1 (burned)
+	// The pruned candidate retains ownership of its ghost keys.
 	for _, k := range spend1.Outputs[0].Keys {
 		by, err := store.ReadGhostKeyLock(*k)
 		require.NoError(err)
-		t.Logf("RESULT: pruned tx ghost key locked by=%s (spend1=%s)", by, spend1.PayloadHash())
+		require.NotNil(by)
+		require.Equal(spend1.PayloadHash(), *by)
 	}
+}
+
+func requireSnapshotNotFinalized(t *testing.T, store *BadgerStore, snap *common.SnapshotWithTopologicalOrder) {
+	t.Helper()
+	for _, hash := range snap.Transactions {
+		_, finalized, err := store.ReadTransaction(hash)
+		require.NoError(t, err)
+		require.Empty(t, finalized)
+		output, err := store.ReadUTXOLock(hash, 0)
+		require.NoError(t, err)
+		require.Nil(t, output)
+		batchIntegrityRequireMissing(t, store, graphUniqueKey(snap.NodeId, hash))
+	}
+	batchIntegrityRequireMissing(t, store, graphSnapshotKey(snap.NodeId, snap.RoundNumber, snap.PayloadHash()))
+	batchIntegrityRequireMissing(t, store, graphSnapTopologyKey(snap.PayloadHash()))
+	batchIntegrityRequireMissing(t, store, graphTopologyKey(snap.TopologicalOrder))
 }
