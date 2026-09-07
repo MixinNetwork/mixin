@@ -170,11 +170,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 			util.CloseOrPanic(server)
 		}
 		for _, n := range append(instances, relayerInstances...) {
-			wg.Add(1)
-			go func(node *kernel.Node) {
-				node.Teardown()
-				wg.Done()
-			}(n)
+			wg.Go(n.Teardown)
 		}
 		wg.Wait()
 	}()
@@ -193,7 +189,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 	genesisAmount := (13439 + 3.5) / float64(INPUTS)
 	domainAddress := accounts[0].String()
 	deposits := make([]*common.VersionedTransaction, 0)
-	for i := 0; i < INPUTS; i++ {
+	for i := range INPUTS {
 		raw := fmt.Sprintf(`{"version":5,"asset":"a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc","inputs":[{"deposit":{"chain":"8dd50817c082cdcdd6f167514928767a4b52426997bd6d4930eca101c5ff8a27","asset_key":"0xa974c709cfb4566686553a20790685a47aceaa33","transaction":"0xc7c1132b58e1f64c263957d7857fe5ec5294fce95d30dcd64efef71da1%06d","index":0,"amount":"%f"}}],"outputs":[{"type":0,"amount":"%f","script":"fffe01","accounts":["%s"]}]}`, i, genesisAmount, genesisAmount, domainAddress)
 		randT := int(time.Now().UnixNano()) % len(nodes)
 		tx, err := testSignTransaction(nodes[randT].Host, accounts[0], raw)
@@ -735,8 +731,7 @@ func testSendDummyTransactions(nodes []*Node, domain common.Address, inputs []*c
 
 	var wg sync.WaitGroup
 	for i, node := range nodes {
-		wg.Add(1)
-		go func(i int, node *Node) {
+		wg.Go(func() {
 			raw, _ := json.Marshal(map[string]any{
 				"version": 2,
 				"asset":   "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc",
@@ -755,8 +750,7 @@ func testSendDummyTransactions(nodes []*Node, domain common.Address, inputs []*c
 			ver := common.VersionedTransaction{SignedTransaction: *tx}
 			hash, _ := testSendTransaction(node.Host, hex.EncodeToString(ver.Marshal()))
 			outputs[i] = &common.Input{Index: 0, Hash: hash}
-			wg.Done()
-		}(i, node)
+		})
 	}
 	wg.Wait()
 
@@ -926,7 +920,7 @@ func testBuildPledgeInput(t *testing.T, nodes []*Node, domain common.Address, ut
 		})
 	}
 	outputs := []map[string]any{}
-	for i := 0; i < NODES; i++ {
+	for range NODES {
 		outputs = append(outputs, map[string]any{
 			"type":     0,
 			"amount":   common.NewIntegerFromString("3.5").Div(NODES),
@@ -1218,7 +1212,7 @@ func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []commo
 	var relayerInstances []*kernel.Node
 	var relayerServers []*http.Server
 
-	for i := 0; i < NODES; i++ {
+	for i := range NODES {
 		signers = append(signers, testDetermineAccountByIndex(i, "SIGNER"))
 		payees = append(payees, testDetermineAccountByIndex(i, "PAYEE"))
 		custodians = append(custodians, testDetermineAccountByIndex(i, "CUSTODIAN"))
@@ -1469,7 +1463,7 @@ func testVerifySnapshots(require *require.Assertions, nodes []*Node, expectedTra
 		}
 		txs, snapshots = collectSnapshotSets(filters)
 		consistent := true
-		for i := 0; i < len(filters)-1; i++ {
+		for i := range len(filters) - 1 {
 			if !snapshotKeysEqual(filters[i], filters[i+1]) {
 				consistent = false
 				break
@@ -1480,7 +1474,7 @@ func testVerifySnapshots(require *require.Assertions, nodes []*Node, expectedTra
 		}
 		time.Sleep(time.Second)
 	}
-	for i := 0; i < len(filters)-1; i++ {
+	for i := range len(filters) - 1 {
 		a, b := filters[i], filters[i+1]
 		m, n := make(map[string]bool), make(map[string]bool)
 		for k := range a {

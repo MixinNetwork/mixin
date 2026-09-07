@@ -287,8 +287,8 @@ func TestMintRoundAndCustodianCorruption(t *testing.T) {
 		for i := range nodes {
 			node := make([]byte, 353)
 			node[0] = 1
-			for field := 0; field < 4; field++ {
-				for j := 0; j < 32; j++ {
+			for field := range 4 {
+				for j := range 32 {
 					node[1+field*32+j] = byte(i*4 + field + 1)
 				}
 			}
