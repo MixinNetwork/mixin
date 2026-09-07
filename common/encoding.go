@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"maps"
 	"slices"
-	"sort"
 
 	"github.com/MixinNetwork/mixin/crypto"
 )
@@ -217,21 +217,10 @@ func (enc *Encoder) EncodeOutput(o *Output) {
 }
 
 func (enc *Encoder) EncodeSignatures(sm map[uint16]*crypto.Signature) {
-	ss, off := make([]struct {
-		Index uint16
-		Sig   *crypto.Signature
-	}, len(sm)), 0
-	for j, sig := range sm {
-		ss[off].Index = j
-		ss[off].Sig = sig
-		off += 1
-	}
-	sort.Slice(ss, func(i, j int) bool { return ss[i].Index < ss[j].Index })
-
-	enc.WriteInt(len(ss))
-	for _, sp := range ss {
-		enc.WriteUint16(sp.Index)
-		enc.Write(sp.Sig[:])
+	enc.WriteInt(len(sm))
+	for _, index := range slices.Sorted(maps.Keys(sm)) {
+		enc.WriteUint16(index)
+		enc.Write(sm[index][:])
 	}
 }
 

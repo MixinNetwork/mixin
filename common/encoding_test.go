@@ -57,7 +57,7 @@ func BenchmarkTransactionCodec(b *testing.B) {
 
 	b.Run("Marshal", func(b *testing.B) {
 		b.ReportAllocs()
-		for range b.N {
+		for b.Loop() {
 			if len(ver.Marshal()) != len(encoded) {
 				b.Fatal("unexpected transaction size")
 			}
@@ -65,7 +65,7 @@ func BenchmarkTransactionCodec(b *testing.B) {
 	})
 	b.Run("Unmarshal", func(b *testing.B) {
 		b.ReportAllocs()
-		for range b.N {
+		for b.Loop() {
 			if _, err := UnmarshalVersionedTransaction(encoded); err != nil {
 				b.Fatal(err)
 			}
