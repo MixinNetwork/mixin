@@ -20,28 +20,28 @@ var (
 
 func BenchmarkBase58Encode_5K(b *testing.B) {
 	b.SetBytes(int64(len(raw5k)))
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		base58.Encode(raw5k)
 	}
 }
 
 func BenchmarkBase58Encode_100K(b *testing.B) {
 	b.SetBytes(int64(len(raw100k)))
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		base58.Encode(raw100k)
 	}
 }
 
 func BenchmarkBase58Decode_5K(b *testing.B) {
 	b.SetBytes(int64(len(encoded5k)))
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		base58.Decode(encoded5k)
 	}
 }
 
 func BenchmarkBase58Decode_100K(b *testing.B) {
 	b.SetBytes(int64(len(encoded100k)))
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		base58.Decode(encoded100k)
 	}
 }

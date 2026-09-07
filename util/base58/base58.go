@@ -131,7 +131,7 @@ func Encode(b []byte) string {
 
 	// reverse
 	alen := len(answer)
-	for i := 0; i < alen/2; i++ {
+	for i := range alen / 2 {
 		answer[i], answer[alen-1-i] = answer[alen-1-i], answer[i]
 	}
 
