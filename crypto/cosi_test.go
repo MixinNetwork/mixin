@@ -67,7 +67,7 @@ func TestCosiAggregateSigning(t *testing.T) {
 	require.Equal(masks, cosi.Keys())
 
 	responses := make(map[int]*[32]byte)
-	for i := 0; i < len(masks); i++ {
+	for i := range masks {
 		s, err := cosi.Response(keys[masks[i]], randKeys[i], publics, message)
 		require.Nil(err)
 		responses[masks[i]] = s
