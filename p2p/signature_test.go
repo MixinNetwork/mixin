@@ -17,8 +17,9 @@ func TestConsensusMessageSignatureDispatch(t *testing.T) {
 	unknown := crypto.Blake3Hash([]byte("unknown consensus sender"))
 	snapshot := p2pTestSnapshot(true)
 	transaction := p2pTestTransaction()
-	commitment := p2pTestPrivateKey(61).Public()
-	challenge := p2pTestPrivateKey(62).Public()
+	commitment := crypto.NewCosiCommitment(p2pTestPrivateKey(61).Public(), p2pTestPrivateKey(161).Public())
+	challenge := crypto.NewCosiCommitment(p2pTestPrivateKey(62).Public(), p2pTestPrivateKey(162).Public())
+	randoms := crypto.NewCosiCommitment(p2pTestPrivateKey(65).Public(), p2pTestPrivateKey(165).Public())
 	replacement := p2pTestPrivateKey(63).Public()
 	attacker := p2pTestPrivateKey(64)
 
@@ -31,7 +32,7 @@ func TestConsensusMessageSignatureDispatch(t *testing.T) {
 		{
 			name: "precommitments",
 			build: func(h *p2pStubHandle) []byte {
-				return buildCommitmentsMessage(h, []*crypto.Key{&commitment})
+				return buildCommitmentsMessage(h, []*crypto.CosiCommitment{&commitment})
 			},
 			commitmentOffset: 67,
 			dispatched:       func(h *p2pStubHandle) bool { return len(h.lastCommitments) != 0 },
@@ -55,7 +56,7 @@ func TestConsensusMessageSignatureDispatch(t *testing.T) {
 		{
 			name: "full challenge",
 			build: func(h *p2pStubHandle) []byte {
-				return buildBatchFullChallengeMessage(h, snapshot, &commitment, &challenge, []*common.VersionedTransaction{transaction})
+				return buildBatchFullChallengeMessage(h, snapshot, &commitment, &challenge, &randoms, []*common.VersionedTransaction{transaction})
 			},
 			commitmentOffset: 69 + len(snapshot.VersionedMarshal()),
 			dispatched:       func(h *p2pStubHandle) bool { return h.fullChallenge != nil },
@@ -109,10 +110,11 @@ func TestFullChallengeSignatureWireFormat(t *testing.T) {
 	handle.consensusPeers = map[crypto.Hash]crypto.Key{sender: handle.key.Public()}
 	me := NewPeer(handle, crypto.Blake3Hash([]byte("full challenge receiver")), "test", false)
 	snapshot := p2pTestSnapshot(true)
-	commitment := p2pTestPrivateKey(71).Public()
-	challenge := p2pTestPrivateKey(72).Public()
+	commitment := crypto.NewCosiCommitment(p2pTestPrivateKey(71).Public(), p2pTestPrivateKey(171).Public())
+	challenge := crypto.NewCosiCommitment(p2pTestPrivateKey(72).Public(), p2pTestPrivateKey(172).Public())
+	randoms := crypto.NewCosiCommitment(p2pTestPrivateKey(73).Public(), p2pTestPrivateKey(173).Public())
 	transaction := p2pTestTransaction()
-	wire := buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, []*common.VersionedTransaction{transaction})
+	wire := buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, &randoms, []*common.VersionedTransaction{transaction})
 
 	// All signed consensus messages authenticate the payload after the header.
 	unsigned := wire[65:]
@@ -171,9 +173,9 @@ func TestFullChallengeRejectsOtherSignedPayloads(t *testing.T) {
 	snapshot := p2pTestSnapshot(false)
 	snapshot.Transactions = nil
 	handle.graph = nil
-	var commitments []*crypto.Key
+	var commitments []*crypto.CosiCommitment
 	for i := byte(1); i <= 10; i++ {
-		commitment := p2pTestPrivateKey(i).Public()
+		commitment := crypto.NewCosiCommitment(p2pTestPrivateKey(i).Public(), p2pTestPrivateKey(i+100).Public())
 		commitments = append(commitments, &commitment)
 		hash := crypto.Blake3Hash([]byte{i})
 		snapshot.AddTransaction(hash)

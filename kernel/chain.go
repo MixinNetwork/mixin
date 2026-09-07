@@ -56,12 +56,12 @@ type Chain struct {
 
 	graphSnapshot atomic.Pointer[chainGraphSnapshot]
 
-	CosiRandoms          map[crypto.Key]*crypto.CosiNonce
+	CosiRandoms          map[crypto.CosiCommitment]*crypto.CosiNonce
 	UsedRandoms          map[crypto.Hash]*crypto.CosiNonce
 	usedRandomsOrder     []crypto.Hash
-	CosiCommitments      map[crypto.Hash][]*crypto.Key
-	UsedCommitments      map[crypto.Key]bool
-	usedCommitmentsOrder []crypto.Key
+	CosiCommitments      map[crypto.Hash][]*crypto.CosiCommitment
+	UsedCommitments      map[crypto.CosiCommitment]bool
+	usedCommitmentsOrder []crypto.CosiCommitment
 	CommitmentsSentTime  time.Time
 	CosiCommunicatedAt   map[crypto.Hash]time.Time
 
@@ -92,10 +92,10 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 	chain := &Chain{
 		node:               node,
 		ChainId:            chainId,
-		CosiRandoms:        make(map[crypto.Key]*crypto.CosiNonce),
+		CosiRandoms:        make(map[crypto.CosiCommitment]*crypto.CosiNonce),
 		UsedRandoms:        make(map[crypto.Hash]*crypto.CosiNonce),
-		CosiCommitments:    make(map[crypto.Hash][]*crypto.Key),
-		UsedCommitments:    make(map[crypto.Key]bool),
+		CosiCommitments:    make(map[crypto.Hash][]*crypto.CosiCommitment),
+		UsedCommitments:    make(map[crypto.CosiCommitment]bool),
 		CosiCommunicatedAt: make(map[crypto.Hash]time.Time),
 		CosiAggregators:    make(map[crypto.Hash]*CosiAggregator),
 		CosiVerifiers:      make(map[crypto.Hash]*CosiVerifier),

@@ -18,8 +18,9 @@ func TestProtocolPayloadValidationBranches(t *testing.T) {
 	handle := newP2PStubHandle(t)
 	tx := p2pTestTransaction()
 	snapshot := p2pTestSnapshot(true)
-	commitment := p2pTestPrivateKey(201).Public()
-	challenge := p2pTestPrivateKey(202).Public()
+	commitment := crypto.NewCosiCommitment(p2pTestPrivateKey(201).Public(), p2pTestPrivateKey(101).Public())
+	challenge := crypto.NewCosiCommitment(p2pTestPrivateKey(202).Public(), p2pTestPrivateKey(102).Public())
+	randoms := crypto.NewCosiCommitment(p2pTestPrivateKey(203).Public(), p2pTestPrivateKey(103).Public())
 
 	require.Nil(t, soleTransaction(nil))
 	require.Panics(t, func() {
@@ -47,9 +48,11 @@ func TestProtocolPayloadValidationBranches(t *testing.T) {
 
 	malformedBatchCommitment := make([]byte, 130)
 	malformedBatchCommitment[0] = PeerMessageTypeBatchSnapshotCommitment
+	malformedChallengeCosi := &crypto.CosiSignature{Mask: 1}
+	malformedChallengeCosi.SetRandoms(&randoms)
 	malformedBatchChallenge := buildBatchTransactionChallengeMessage(
 		snapshot.PayloadHash(),
-		&crypto.CosiSignature{Mask: 1},
+		malformedChallengeCosi,
 		nil,
 	)
 	malformedBatchChallenge[len(malformedBatchChallenge)-1] = 1
@@ -75,7 +78,7 @@ func TestProtocolPayloadValidationBranches(t *testing.T) {
 		require.Error(t, err)
 	}
 
-	batch := buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, []*common.VersionedTransaction{tx})
+	batch := buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, &randoms, []*common.VersionedTransaction{tx})
 	batchSnapshotSize := int(binary.BigEndian.Uint32(batch[65:69]))
 	batchAfterSnapshot := 69 + batchSnapshotSize
 
@@ -93,15 +96,15 @@ func TestProtocolPayloadValidationBranches(t *testing.T) {
 	_, err = parseNetworkMessage(7, badBatchSnapshotSize)
 	require.ErrorContains(t, err, "invalid full challenge snapshot size")
 
-	unsignedBatch := buildBatchFullChallengeMessage(handle, p2pTestSnapshot(false), &commitment, &challenge, []*common.VersionedTransaction{tx})
+	unsignedBatch := buildBatchFullChallengeMessage(handle, p2pTestSnapshot(false), &commitment, &challenge, &randoms, []*common.VersionedTransaction{tx})
 	_, err = parseNetworkMessage(7, unsignedBatch)
 	require.ErrorContains(t, err, "snapshot signature")
 
-	shortBatchTail := append([]byte(nil), batch[:batchAfterSnapshot+64]...)
+	shortBatchTail := append([]byte(nil), batch[:batchAfterSnapshot+192]...)
 	_, err = parseNetworkMessage(7, shortBatchTail)
 	require.ErrorContains(t, err, "invalid full challenge message size")
 
-	badBatchTransactions := append([]byte(nil), batch[:batchAfterSnapshot+64]...)
+	badBatchTransactions := append([]byte(nil), batch[:batchAfterSnapshot+192]...)
 	badBatchTransactions = append(badBatchTransactions, 1)
 	_, err = parseNetworkMessage(7, badBatchTransactions)
 	require.ErrorContains(t, err, "invalid transactions payload")
@@ -121,15 +124,16 @@ func TestParseNetworkMessageRejectsInvalidCosiPoints(t *testing.T) {
 	handle := newP2PStubHandle(t)
 	snapshot := p2pTestSnapshot(true)
 	transaction := p2pTestTransaction()
-	commitment := p2pTestPrivateKey(211).Public()
-	challenge := p2pTestPrivateKey(212).Public()
+	commitment := crypto.NewCosiCommitment(p2pTestPrivateKey(211).Public(), p2pTestPrivateKey(111).Public())
+	challenge := crypto.NewCosiCommitment(p2pTestPrivateKey(212).Public(), p2pTestPrivateKey(112).Public())
+	randoms := crypto.NewCosiCommitment(p2pTestPrivateKey(214).Public(), p2pTestPrivateKey(114).Public())
 	spend := p2pTestPrivateKey(213)
 
 	snapshotPayload := snapshot.VersionedMarshal()
-	preCommitments := buildCommitmentsMessage(handle, []*crypto.Key{&commitment})
+	preCommitments := buildCommitmentsMessage(handle, []*crypto.CosiCommitment{&commitment})
 	announcement := buildBatchSnapshotAnnouncementMessage(snapshot, commitment, spend)
 	batchCommitment := buildBatchSnapshotCommitmentMessage(handle, snapshot.PayloadHash(), commitment, nil)
-	batchFullChallenge := buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, []*common.VersionedTransaction{transaction})
+	batchFullChallenge := buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, &randoms, []*common.VersionedTransaction{transaction})
 	fullChallengePointOffset := 65 + 4 + len(snapshotPayload)
 
 	tests := []struct {
@@ -138,11 +142,17 @@ func TestParseNetworkMessageRejectsInvalidCosiPoints(t *testing.T) {
 		offset int
 		want   string
 	}{
-		{name: "pre-commitment", valid: preCommitments, offset: 67, want: "invalid commitment point"},
-		{name: "announcement commitment", valid: announcement, offset: 65, want: "invalid commitment point"},
-		{name: "batch commitment", valid: batchCommitment, offset: 97, want: "invalid commitment point"},
-		{name: "batch full challenge commitment", valid: batchFullChallenge, offset: fullChallengePointOffset, want: "invalid commitment point"},
-		{name: "batch full challenge challenge", valid: batchFullChallenge, offset: fullChallengePointOffset + 32, want: "invalid challenge point"},
+		{name: "pre-commitment", valid: preCommitments, offset: 67, want: "invalid key R1"},
+		{name: "pre-commitment second", valid: preCommitments, offset: 67 + 32, want: "invalid key R2"},
+		{name: "announcement commitment", valid: announcement, offset: 65, want: "invalid key R1"},
+		{name: "announcement commitment second", valid: announcement, offset: 65 + 32, want: "invalid key R2"},
+		{name: "batch commitment", valid: batchCommitment, offset: 97, want: "invalid key R1"},
+		{name: "batch commitment second", valid: batchCommitment, offset: 97 + 32, want: "invalid key R2"},
+		{name: "batch full challenge commitment", valid: batchFullChallenge, offset: fullChallengePointOffset, want: "invalid key R1"},
+		{name: "batch full challenge challenge", valid: batchFullChallenge, offset: fullChallengePointOffset + 64, want: "invalid key R1"},
+		{name: "batch full challenge challenge second", valid: batchFullChallenge, offset: fullChallengePointOffset + 64 + 32, want: "invalid key R2"},
+		{name: "batch full challenge randoms", valid: batchFullChallenge, offset: fullChallengePointOffset + 128, want: "invalid key R1"},
+		{name: "batch full challenge randoms second", valid: batchFullChallenge, offset: fullChallengePointOffset + 128 + 32, want: "invalid key R2"},
 	}
 
 	for _, test := range tests {

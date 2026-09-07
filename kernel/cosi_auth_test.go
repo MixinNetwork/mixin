@@ -33,10 +33,13 @@ func TestVerifyConsensusPeerSignatureRejectsForgedLeaderResponse(t *testing.T) {
 		Transactions: []crypto.Hash{crypto.Blake3Hash([]byte("full challenge transaction"))},
 	}
 	public := crypto.NewKeyFromSeed(bytes.Repeat([]byte{42}, 64)).Public()
-	commitment := crypto.NewKeyFromSeed(bytes.Repeat([]byte{43}, 64)).Public()
-	cosi, err := crypto.CosiAggregateCommitment(map[int]*crypto.Key{0: &commitment})
+	random1 := crypto.NewKeyFromSeed(bytes.Repeat([]byte{43}, 64))
+	random2 := crypto.NewKeyFromSeed(bytes.Repeat([]byte{45}, 64))
+	commitment := crypto.NewCosiCommitment(random1.Public(), random2.Public())
+	publics := []*crypto.Key{&public}
+	cosi, err := crypto.CosiAggregateCommitment(map[int]*crypto.CosiCommitment{0: &commitment}, publics, snapshot.PayloadHash())
 	require.NoError(t, err)
-	challenge, err := cosi.Challenge([]*crypto.Key{&public}, snapshot.PayloadHash())
+	challenge, err := cosi.Challenge(publics, snapshot.PayloadHash())
 	require.NoError(t, err)
 
 	// A full challenge supplies the leader's commitment along with its response.
@@ -66,7 +69,8 @@ func TestVerifyConsensusPeerSignatureRejectsForgedLeaderResponse(t *testing.T) {
 	data := binary.BigEndian.AppendUint32(nil, uint32(len(payload)))
 	data = append(data, payload...)
 	data = append(data, forgedCommitment[:]...)
-	data = append(data, commitment[:]...)
+	data = append(data, commitment.Bytes()...)
+	data = append(data, cosi.Randoms().Bytes()...)
 	data = append(data, 0) // no transaction bodies
 	attacker := crypto.NewKeyFromSeed(bytes.Repeat([]byte{44}, 64))
 	attackerSignature := attacker.Sign(crypto.Blake3Hash(data))

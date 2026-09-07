@@ -125,8 +125,9 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	fullVer := fullTx.AsVersioned()
 	snapshot := p2pTestSnapshot(true)
 	batchSnapshot := p2pTestBatchSnapshot(true)
-	commitment := p2pTestPrivateKey(11).Public()
-	challenge := p2pTestPrivateKey(12).Public()
+	commitment := crypto.NewCosiCommitment(p2pTestPrivateKey(11).Public(), p2pTestPrivateKey(111).Public())
+	challenge := crypto.NewCosiCommitment(p2pTestPrivateKey(12).Public(), p2pTestPrivateKey(112).Public())
+	randoms := crypto.NewCosiCommitment(p2pTestPrivateKey(14).Public(), p2pTestPrivateKey(114).Public())
 	spend := p2pTestPrivateKey(13)
 
 	authData := handle.BuildAuthenticationMessage(crypto.Hash{})
@@ -166,7 +167,7 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeBatchSnapshotAnnouncement, msg.Type)
 	require.Equal(snapshot.PayloadHash(), msg.Snapshot.PayloadHash())
-	require.Equal(commitment, msg.Commitment)
+	require.Equal(&commitment, msg.Commitment)
 	require.NotNil(msg.signature)
 
 	msg, err = parseNetworkMessage(7, buildBatchSnapshotAnnouncementMessage(batchSnapshot, commitment, spend))
@@ -174,14 +175,14 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	require.EqualValues(PeerMessageTypeBatchSnapshotAnnouncement, msg.Type)
 	require.Equal(batchSnapshot.PayloadHash(), msg.Snapshot.PayloadHash())
 	require.Len(msg.Snapshot.Transactions, 2)
-	require.Equal(commitment, msg.Commitment)
+	require.Equal(&commitment, msg.Commitment)
 	require.NotNil(msg.signature)
 
 	msg, err = parseNetworkMessage(7, buildBatchSnapshotCommitmentMessage(handle, snapshot.PayloadHash(), commitment, nil))
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeBatchSnapshotCommitment, msg.Type)
 	require.Equal(snapshot.PayloadHash(), msg.SnapshotHash)
-	require.Equal(commitment, msg.Commitment)
+	require.Equal(&commitment, msg.Commitment)
 	require.Empty(msg.WantTxs)
 	require.NotNil(msg.signature)
 
@@ -189,16 +190,18 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeBatchSnapshotCommitment, msg.Type)
 	require.Equal(snapshot.PayloadHash(), msg.SnapshotHash)
-	require.Equal(commitment, msg.Commitment)
+	require.Equal(&commitment, msg.Commitment)
 	require.Equal([]crypto.Hash{tx.PayloadHash()}, msg.WantTxs)
 	require.NotNil(msg.signature)
 
 	cosi := &crypto.CosiSignature{Mask: 3}
+	cosi.SetRandoms(&randoms)
 	msg, err = parseNetworkMessage(7, buildBatchTransactionChallengeMessage(snapshot.PayloadHash(), cosi, nil))
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeBatchTransactionChallenge, msg.Type)
 	require.Equal(snapshot.PayloadHash(), msg.SnapshotHash)
 	require.Equal(cosi.Mask, msg.Cosi.Mask)
+	require.Equal(randoms, *msg.Cosi.Randoms())
 	require.Empty(msg.Transactions)
 
 	msg, err = parseNetworkMessage(7, buildBatchTransactionChallengeMessage(snapshot.PayloadHash(), cosi, []*common.VersionedTransaction{tx}))
@@ -234,22 +237,25 @@ func TestBuildAndParseNetworkMessages(t *testing.T) {
 	require.NotNil(msg.signature)
 	require.Equal(handle.graph[0].NodeId, msg.Graph[0].NodeId)
 
-	commitments := []*crypto.Key{&commitment, &challenge}
+	commitments := []*crypto.CosiCommitment{&commitment, &challenge}
 	msg, err = parseNetworkMessage(7, buildCommitmentsMessage(handle, commitments))
 	require.Nil(err)
 	require.Len(msg.Commitments, 2)
 	require.NotNil(msg.signature)
 
-	msg, err = parseNetworkMessage(7, buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, []*common.VersionedTransaction{fullVer}))
+	msg, err = parseNetworkMessage(7, buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, &randoms, []*common.VersionedTransaction{fullVer}))
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeBatchFullChallenge, msg.Type)
 	require.Equal(snapshot.PayloadHash(), msg.Snapshot.PayloadHash())
 	require.Equal(snapshot.Signature.Mask, msg.Cosi.Mask)
+	require.Equal(&commitment, msg.Commitment)
+	require.Equal(&challenge, msg.Challenge)
+	require.Equal(randoms, *msg.Cosi.Randoms())
 	require.Nil(msg.Snapshot.Signature)
 	require.Len(msg.Transactions, 1)
 	require.Equal(fullVer.PayloadHash(), msg.Transactions[0].PayloadHash())
 
-	msg, err = parseNetworkMessage(7, buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, []*common.VersionedTransaction{tx, fullVer}))
+	msg, err = parseNetworkMessage(7, buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, &randoms, []*common.VersionedTransaction{tx, fullVer}))
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeBatchFullChallenge, msg.Type)
 	require.Equal(snapshot.PayloadHash(), msg.Snapshot.PayloadHash())
@@ -290,8 +296,9 @@ func TestP2PMessageAndPeerEdgeCases(t *testing.T) {
 	handle := newP2PStubHandle(t)
 	tx := p2pTestTransaction()
 	snapshot := p2pTestSnapshot(true)
-	commitment := p2pTestPrivateKey(61).Public()
-	challenge := p2pTestPrivateKey(62).Public()
+	commitment := crypto.NewCosiCommitment(p2pTestPrivateKey(61).Public(), p2pTestPrivateKey(161).Public())
+	challenge := crypto.NewCosiCommitment(p2pTestPrivateKey(62).Public(), p2pTestPrivateKey(162).Public())
+	randoms := crypto.NewCosiCommitment(p2pTestPrivateKey(63).Public(), p2pTestPrivateKey(163).Public())
 	fullTx := common.NewTransactionV5(common.XINAssetId)
 	fullTx.Extra = bytes.Repeat([]byte{4}, 220)
 	fullVer := fullTx.AsVersioned()
@@ -325,27 +332,29 @@ func TestP2PMessageAndPeerEdgeCases(t *testing.T) {
 
 	_, err = parseNetworkMessage(7, bytes.Repeat([]byte{PeerMessageTypeBatchFullChallenge}, 10))
 	require.ErrorContains(err, "invalid full challenge message size")
-	full := buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, []*common.VersionedTransaction{fullVer})
+	full := buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, &randoms, []*common.VersionedTransaction{fullVer})
 	badFullSnapshot := append([]byte{}, full...)
 	binary.BigEndian.PutUint32(badFullSnapshot[65:69], 1<<20)
 	_, err = parseNetworkMessage(7, badFullSnapshot)
 	require.ErrorContains(err, "invalid full challenge snapshot size")
 	badFullTx := append([]byte{}, full...)
-	offset := 65 + 4 + len(snapshot.VersionedMarshal()) + 32 + 32 + 1
+	offset := 65 + 4 + len(snapshot.VersionedMarshal()) + 64 + 64 + 64 + 1
 	binary.BigEndian.PutUint32(badFullTx[offset:offset+4], 1<<20)
 	_, err = parseNetworkMessage(7, badFullTx)
 	require.ErrorContains(err, "invalid transactions payload size")
 
 	_, err = parseNetworkMessage(7, []byte{PeerMessageTypeBatchTransactionChallenge, 1})
 	require.ErrorContains(err, "invalid transaction challenge message size")
-	badChallenge := append(buildBatchTransactionChallengeMessage(snapshot.PayloadHash(), &crypto.CosiSignature{Mask: 1}, nil), 0xff)
+	challengeCosi := &crypto.CosiSignature{Mask: 1}
+	challengeCosi.SetRandoms(&randoms)
+	badChallenge := append(buildBatchTransactionChallengeMessage(snapshot.PayloadHash(), challengeCosi, nil), 0xff)
 	_, err = parseNetworkMessage(7, badChallenge)
 	require.Error(err)
 
 	_, err = parseNetworkMessage(7, []byte{PeerMessageTypeBatchSnapshotFinalization, 0})
 	require.Error(err)
 
-	manyCommitments := make([]*crypto.Key, 1025)
+	manyCommitments := make([]*crypto.CosiCommitment, 1025)
 	for i := range manyCommitments {
 		manyCommitments[i] = &commitment
 	}
@@ -433,14 +442,15 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	peerID := crypto.Blake3Hash([]byte("peer-id"))
 	snap := p2pTestSnapshot(true)
 	tx := p2pTestTransaction()
-	commitment := p2pTestPrivateKey(21).Public()
-	challenge := p2pTestPrivateKey(22).Public()
+	commitment := crypto.NewCosiCommitment(p2pTestPrivateKey(21).Public(), p2pTestPrivateKey(121).Public())
+	challenge := crypto.NewCosiCommitment(p2pTestPrivateKey(22).Public(), p2pTestPrivateKey(122).Public())
+	randoms := crypto.NewCosiCommitment(p2pTestPrivateKey(23).Public(), p2pTestPrivateKey(123).Public())
 	response := [32]byte{7, 8, 9}
 
 	neighbor := NewPeer(nil, peerID, "127.0.0.1:9011", false)
 	me.relayers.Set(peerID, neighbor)
 
-	parsed, err := parseNetworkMessage(TransportMessageVersion, buildCommitmentsMessage(handle, []*crypto.Key{&commitment}))
+	parsed, err := parseNetworkMessage(TransportMessageVersion, buildCommitmentsMessage(handle, []*crypto.CosiCommitment{&commitment}))
 	require.NoError(err)
 	err = me.handlePeerMessage(peerID, parsed)
 	require.Nil(err)
@@ -504,14 +514,14 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	err = me.handlePeerMessage(peerID, &PeerMessage{
 		Type:         PeerMessageTypeBatchTransactionChallenge,
 		SnapshotHash: snap.PayloadHash(),
-		Cosi:         crypto.CosiSignature{Mask: 5},
+		Cosi:         &crypto.CosiSignature{Mask: 5},
 		Transactions: []*common.VersionedTransaction{tx},
 	})
 	require.Nil(err)
 	require.Len(handle.challengeTxs, 1)
 	require.Equal(tx.PayloadHash(), handle.challengeTxs[0].PayloadHash())
 
-	parsed, err = parseNetworkMessage(TransportMessageVersion, buildBatchFullChallengeMessage(handle, snap, &commitment, &challenge, []*common.VersionedTransaction{tx}))
+	parsed, err = parseNetworkMessage(TransportMessageVersion, buildBatchFullChallengeMessage(handle, snap, &commitment, &challenge, &randoms, []*common.VersionedTransaction{tx}))
 	require.NoError(err)
 	err = me.handlePeerMessage(peerID, parsed)
 	require.Nil(err)
@@ -542,7 +552,7 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 
 	batchSnap := p2pTestBatchSnapshot(true)
 	for _, payload := range [][]byte{
-		buildBatchFullChallengeMessage(handle, batchSnap, &commitment, &challenge, []*common.VersionedTransaction{tx}),
+		buildBatchFullChallengeMessage(handle, batchSnap, &commitment, &challenge, &randoms, []*common.VersionedTransaction{tx}),
 		buildSnapshotResponseMessage(snap.PayloadHash(), &response),
 	} {
 		relayParsed, err = parseNetworkMessage(9, me.buildRelayMessage(me.IdForNetwork, payload))
@@ -631,17 +641,19 @@ func TestSendMessageHelpers(t *testing.T) {
 	fullTx := common.NewTransactionV5(common.XINAssetId)
 	fullTx.Extra = bytes.Repeat([]byte{6}, 220)
 	fullVer := fullTx.AsVersioned()
-	commitment := p2pTestPrivateKey(41).Public()
-	challenge := p2pTestPrivateKey(42).Public()
+	commitment := crypto.NewCosiCommitment(p2pTestPrivateKey(41).Public(), p2pTestPrivateKey(141).Public())
+	challenge := crypto.NewCosiCommitment(p2pTestPrivateKey(42).Public(), p2pTestPrivateKey(142).Public())
+	randoms := crypto.NewCosiCommitment(p2pTestPrivateKey(44).Public(), p2pTestPrivateKey(144).Public())
 	spend := p2pTestPrivateKey(43)
 	cosi := &crypto.CosiSignature{Mask: 9}
+	cosi.SetRandoms(&randoms)
 	response := &[32]byte{4, 5, 6}
 
 	err := me.SendGraphMessage(target)
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeGraph, (<-neighbor.highRing).data[0])
 
-	err = me.SendCommitmentsMessage(target, []*crypto.Key{&commitment})
+	err = me.SendCommitmentsMessage(target, []*crypto.CosiCommitment{&commitment})
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypePreCommitments, (<-neighbor.highRing).data[0])
 
@@ -669,11 +681,11 @@ func TestSendMessageHelpers(t *testing.T) {
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeBatchTransactionChallenge, (<-neighbor.normalRing).data[0])
 
-	err = me.SendFullChallengeMessage(target, snapshot, &commitment, &challenge, []*common.VersionedTransaction{fullVer})
+	err = me.SendFullChallengeMessage(target, snapshot, &commitment, &challenge, &randoms, []*common.VersionedTransaction{fullVer})
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeBatchFullChallenge, (<-neighbor.normalRing).data[0])
 
-	err = me.SendFullChallengeMessage(target, batchSnapshot, &commitment, &challenge, []*common.VersionedTransaction{tx, fullVer})
+	err = me.SendFullChallengeMessage(target, batchSnapshot, &commitment, &challenge, &randoms, []*common.VersionedTransaction{tx, fullVer})
 	require.Nil(err)
 	require.EqualValues(PeerMessageTypeBatchFullChallenge, (<-neighbor.normalRing).data[0])
 
@@ -1101,7 +1113,7 @@ type p2pStubHandle struct {
 
 	consensusPeers map[crypto.Hash]crypto.Key
 
-	lastCommitments  []*crypto.Key
+	lastCommitments  []*crypto.CosiCommitment
 	updatePoints     []*SyncPoint
 	updateAccepted   bool
 	updatePeerID     crypto.Hash
@@ -1247,12 +1259,12 @@ func (h *p2pStubHandle) CacheStoreTransactions(_ crypto.Hash, ver []*common.Vers
 	return h.cacheErr
 }
 
-func (h *p2pStubHandle) CosiQueueExternalAnnouncement(_ crypto.Hash, s *common.Snapshot, _ *crypto.Key) error {
+func (h *p2pStubHandle) CosiQueueExternalAnnouncement(_ crypto.Hash, s *common.Snapshot, _ *crypto.CosiCommitment) error {
 	h.announcement = s
 	return nil
 }
 
-func (h *p2pStubHandle) CosiAggregateSelfCommitments(_ crypto.Hash, _ crypto.Hash, _ *crypto.Key, wantTxs []crypto.Hash) error {
+func (h *p2pStubHandle) CosiAggregateSelfCommitments(_ crypto.Hash, _ crypto.Hash, _ *crypto.CosiCommitment, wantTxs []crypto.Hash) error {
 	h.wantTxs = wantTxs
 	return nil
 }
@@ -1262,7 +1274,7 @@ func (h *p2pStubHandle) CosiQueueExternalChallenge(_ crypto.Hash, _ crypto.Hash,
 	return nil
 }
 
-func (h *p2pStubHandle) CosiQueueExternalFullChallenge(_ crypto.Hash, snapshot *common.Snapshot, _ *crypto.Key, _ *crypto.Key, _ *crypto.CosiSignature, txs []*common.VersionedTransaction) error {
+func (h *p2pStubHandle) CosiQueueExternalFullChallenge(_ crypto.Hash, snapshot *common.Snapshot, _, _ *crypto.CosiCommitment, _ *crypto.CosiSignature, txs []*common.VersionedTransaction) error {
 	h.fullChallenge = snapshot
 	h.fullChallengeTxs = txs
 	return nil
@@ -1278,7 +1290,7 @@ func (h *p2pStubHandle) VerifyAndQueueAppendSnapshotFinalization(_ crypto.Hash, 
 	return nil
 }
 
-func (h *p2pStubHandle) CosiQueueExternalPreCommitments(_ crypto.Hash, commitments []*crypto.Key) error {
+func (h *p2pStubHandle) CosiQueueExternalPreCommitments(_ crypto.Hash, commitments []*crypto.CosiCommitment) error {
 	h.lastCommitments = commitments
 	return nil
 }

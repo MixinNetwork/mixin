@@ -722,7 +722,7 @@ func TestUnknownSnapshotNodeDoesNotCreateCosiChain(t *testing.T) {
 	}
 
 	announcement := newSnapshot()
-	commitment := node.Signer.PublicViewKey
+	commitment := crypto.NewCosiCommitment(node.Signer.PublicViewKey, node.Signer.PublicViewKey)
 	require.NoError(node.CosiQueueExternalAnnouncement(
 		node.IdForNetwork,
 		announcement,
