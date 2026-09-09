@@ -544,7 +544,8 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 	require.Equal(snap.PayloadHash(), handle.finalization.PayloadHash())
 
 	me.SetMetricEnabled(true)
-	relayParsed, err := parseNetworkMessage(9, me.buildRelayMessage(me.IdForNetwork, buildTransactionRequestMessage(tx.PayloadHash())))
+	relaySender := NewPeer(nil, crypto.Blake3Hash([]byte("relay sender")), "127.0.0.1:9014", false)
+	relayParsed, err := parseNetworkMessage(9, relaySender.buildRelayMessage(me.IdForNetwork, buildTransactionRequestMessage(tx.PayloadHash())))
 	require.Nil(err)
 	err = me.handlePeerMessage(peerID, relayParsed)
 	require.Nil(err)
@@ -555,7 +556,7 @@ func TestHandlePeerMessageDispatch(t *testing.T) {
 		buildBatchFullChallengeMessage(handle, batchSnap, &commitment, &challenge, &randoms, []*common.VersionedTransaction{tx}),
 		buildSnapshotResponseMessage(snap.PayloadHash(), &response),
 	} {
-		relayParsed, err = parseNetworkMessage(9, me.buildRelayMessage(me.IdForNetwork, payload))
+		relayParsed, err = parseNetworkMessage(9, relaySender.buildRelayMessage(me.IdForNetwork, payload))
 		require.Nil(err)
 		err = me.handlePeerMessage(peerID, relayParsed)
 		require.Nil(err)

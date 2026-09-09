@@ -10,6 +10,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestRelayRejectsSpoofedSelfOrigin(t *testing.T) {
+	handle := &p2pStubHandle{key: p2pTestPrivateKey(71)}
+	me := NewPeer(handle, crypto.Blake3Hash([]byte("relay spoof victim")), "127.0.0.1:9060", true)
+
+	snap := crypto.Blake3Hash([]byte("relay spoof snapshot"))
+	var response [32]byte
+	copy(response[:], bytes.Repeat([]byte{9}, 32))
+
+	relayData := me.buildRelayMessage(me.IdForNetwork, buildSnapshotResponseMessage(snap, &response))
+	err := me.relayOrHandlePeerMessage(crypto.Blake3Hash([]byte("relay spoof relayer")), &PeerMessage{Data: relayData, version: TransportMessageVersion})
+	require.Nil(t, err)
+	require.Equal(t, [32]byte{}, handle.snapshotResponse)
+
+	sender := NewPeer(nil, crypto.Blake3Hash([]byte("relay spoof sender")), "127.0.0.1:9061", false)
+	relayData = sender.buildRelayMessage(me.IdForNetwork, buildSnapshotResponseMessage(snap, &response))
+	err = me.relayOrHandlePeerMessage(sender.IdForNetwork, &PeerMessage{Data: relayData, version: TransportMessageVersion})
+	require.Nil(t, err)
+	require.Equal(t, response, handle.snapshotResponse)
+}
+
 func TestConsensusMessageSignatureDispatch(t *testing.T) {
 	sender := crypto.Blake3Hash([]byte("consensus sender"))
 	receiver := crypto.Blake3Hash([]byte("consensus receiver"))

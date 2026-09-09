@@ -604,6 +604,9 @@ func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage
 	copy(from[:], msg.Data[1:33])
 	copy(to[:], msg.Data[33:65])
 	if to == me.IdForNetwork {
+		if from == me.IdForNetwork {
+			return nil
+		}
 		rm, err := parseNetworkMessage(msg.version, msg.Data[65:])
 		logger.Verbosef("me.relayOrHandlePeerMessage.ME(%s, %s) => %s %v %v", me.Address, me.IdForNetwork, from, rm, err)
 		if err != nil {
