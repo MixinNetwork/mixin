@@ -1,7 +1,9 @@
 package common
 
 import (
+	"bytes"
 	"testing"
+	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/stretchr/testify/require"
@@ -82,4 +84,37 @@ func TestScriptRejectsInvalidThresholdAndJSON(t *testing.T) {
 	var script Script
 	require.Error(t, script.UnmarshalJSON([]byte("not-json")))
 	require.Error(t, script.UnmarshalJSON([]byte(`"zz"`)))
+}
+
+func TestValidateRejectsNodeRemoveWithoutSignatureMap(t *testing.T) {
+	seed := make([]byte, 64)
+	crypto.ReadRand(seed)
+	accounts := make([]*Address, 4)
+	for i := range accounts {
+		s := make([]byte, 64)
+		s[i] = byte(i + 1)
+		a := NewAddressFromSeed(s)
+		accounts[i] = &a
+	}
+	store := storeImpl{seed: seed, accounts: accounts}
+	mask := crypto.NewKeyFromSeed(bytes.Repeat([]byte{1}, 64)).Public()
+
+	ver := NewTransactionV5(XINAssetId).AsVersioned()
+	ver.AddInput(crypto.Blake3Hash([]byte("node remove panic input")), 0)
+	ver.Outputs = append(ver.Outputs, &Output{
+		Type:   OutputTypeNodeRemove,
+		Amount: NewInteger(10000),
+		Script: Script{OperatorCmp, OperatorSum, 1},
+		Mask:   mask,
+	})
+	require.Equal(t, uint8(TransactionTypeNodeRemove), ver.TransactionType())
+
+	err := ver.Validate(store, uint64(time.Now().UnixNano()), false)
+	require.ErrorContains(t, err, "invalid signature map count 0 0")
+
+	ver.AddInput(crypto.Blake3Hash([]byte("node remove panic input 2")), 0)
+	ver.resetCache()
+	ver.SignaturesMap = []map[uint16]*crypto.Signature{{0: &crypto.Signature{}}}
+	err = ver.Validate(store, uint64(time.Now().UnixNano()), false)
+	require.ErrorContains(t, err, "invalid signature map count 1 1")
 }

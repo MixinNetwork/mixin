@@ -476,7 +476,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		}
 		commitment := chain.cosiPopCommitment(peerId)
 		if commitment == nil || chain.CosiCommunicatedAt[peerId].Before(clock.Now().Add(-time.Duration(config.SnapshotRoundGap)*10)) {
-			err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, *R, chain.node.Signer.PrivateSpendKey)
+			err := chain.node.Peer.SendSnapshotAnnouncementMessage(peerId, m.Snapshot, R, chain.node.Signer.PrivateSpendKey)
 			if err != nil {
 				logger.Verbosef("cosiSendAnnouncement SendSnapshotAnnouncementMessage(%s, %s) ERROR %v\n",
 					peerId, s.Hash, err)
@@ -513,7 +513,7 @@ func (chain *Chain) cosiHandleAnnouncement(m *CosiAction) error {
 	for _, txh := range s.Transactions {
 		chain.CosiVerifiers[txh] = v
 	}
-	err = chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s, *nonce.Public(), cd.WantTxs)
+	err = chain.node.Peer.SendSnapshotCommitmentMessage(s.NodeId, s, nonce.Public(), cd.WantTxs)
 	if err != nil {
 		logger.Verbosef("cosiHandleAnnouncement SendSnapshotCommitmentMessage(%s, %s) ERROR %v\n",
 			s.NodeId, s.Hash, err)
@@ -1178,6 +1178,9 @@ func (node *Node) CosiQueueExternalPreCommitments(peerId crypto.Hash, commitment
 
 func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot, commitment *crypto.CosiCommitment) error {
 	logger.Debugf("CosiQueueExternalAnnouncement(%s, %v)\n", peerId, s)
+	if s.NodeId != peerId { // TODO slash malicious node
+		return nil
+	}
 	chain := node.getOrCreateChain(s.NodeId)
 	if chain == nil {
 		logger.Verbosef("CosiQueueExternalAnnouncement(%s, %v) from malicious node\n", peerId, s)
@@ -1282,6 +1285,12 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
 	logger.Debugf("VerifyAndQueueAppendSnapshotFinalization(%s, %s)\n", peerId, s.Hash)
+
+	if s.Timestamp < node.Epoch || s.Timestamp > clock.NowUnixNano()+uint64(time.Minute) {
+		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization invalid timestamp %s %s %d\n",
+			peerId, s.Hash, s.Timestamp)
+		return nil
+	}
 
 	node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
 	err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)

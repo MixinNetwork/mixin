@@ -131,8 +131,8 @@ func TestParseNetworkMessageRejectsInvalidCosiPoints(t *testing.T) {
 
 	snapshotPayload := snapshot.VersionedMarshal()
 	preCommitments := buildCommitmentsMessage(handle, []*crypto.CosiCommitment{&commitment})
-	announcement := buildBatchSnapshotAnnouncementMessage(snapshot, commitment, spend)
-	batchCommitment := buildBatchSnapshotCommitmentMessage(handle, snapshot.PayloadHash(), commitment, nil)
+	announcement := buildBatchSnapshotAnnouncementMessage(snapshot, &commitment, spend)
+	batchCommitment := buildBatchSnapshotCommitmentMessage(handle, snapshot.PayloadHash(), &commitment, nil)
 	batchFullChallenge := buildBatchFullChallengeMessage(handle, snapshot, &commitment, &challenge, &randoms, []*common.VersionedTransaction{transaction})
 	fullChallengePointOffset := 65 + 4 + len(snapshotPayload)
 

@@ -40,7 +40,7 @@ func TestConsensusMessageSignatureDispatch(t *testing.T) {
 		{
 			name: "announcement",
 			build: func(h *p2pStubHandle) []byte {
-				return buildBatchSnapshotAnnouncementMessage(snapshot, commitment, h.key)
+				return buildBatchSnapshotAnnouncementMessage(snapshot, &commitment, h.key)
 			},
 			commitmentOffset: 65,
 			dispatched:       func(h *p2pStubHandle) bool { return h.announcement != nil },
@@ -48,7 +48,7 @@ func TestConsensusMessageSignatureDispatch(t *testing.T) {
 		{
 			name: "snapshot commitment",
 			build: func(h *p2pStubHandle) []byte {
-				return buildBatchSnapshotCommitmentMessage(h, snapshot.PayloadHash(), commitment, []crypto.Hash{transaction.PayloadHash()})
+				return buildBatchSnapshotCommitmentMessage(h, snapshot.PayloadHash(), &commitment, []crypto.Hash{transaction.PayloadHash()})
 			},
 			commitmentOffset: 97,
 			dispatched:       func(h *p2pStubHandle) bool { return len(h.wantTxs) != 0 },
@@ -188,8 +188,8 @@ func TestFullChallengeRejectsOtherSignedPayloads(t *testing.T) {
 	}{
 		{name: "graph", wire: buildGraphMessage(handle)},
 		{name: "precommitments", wire: buildCommitmentsMessage(handle, commitments)},
-		{name: "announcement", wire: buildBatchSnapshotAnnouncementMessage(snapshot, *commitments[0], handle.key)},
-		{name: "snapshot commitment", wire: buildBatchSnapshotCommitmentMessage(handle, snapshot.PayloadHash(), *commitments[0], snapshot.Transactions)},
+		{name: "announcement", wire: buildBatchSnapshotAnnouncementMessage(snapshot, commitments[0], handle.key)},
+		{name: "snapshot commitment", wire: buildBatchSnapshotCommitmentMessage(handle, snapshot.PayloadHash(), commitments[0], snapshot.Transactions)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			original, err := parseNetworkMessage(TransportMessageVersion, test.wire)

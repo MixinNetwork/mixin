@@ -419,7 +419,7 @@ The four signed CoSi message forms and graph summaries place the signature befor
 
 Messages have high- and normal-priority queues, bounded sizes, and short-lived deduplication records. Consensus messages include announcements, nonce commitments, challenges, responses, finalizations, transaction requests, transaction bundles, and signed graph summaries. The wire protocol uses batch-capable announcement, commitment, challenge, response, and finalization forms, including when a snapshot contains one transaction. The maximum transport message is 32 MiB.
 
-Point-valued CoSi commitments and challenges are decoded and checked as valid prime-order Edwards25519 points before consensus handling. This applies to precommitment lists and the current announcement, commitment, and full-challenge forms.
+Point-valued CoSi commitments and challenges are decoded and checked as valid prime-order Edwards25519 points before consensus handling. This applies to both components of every pair in precommitment lists and the current announcement, commitment, and full-challenge forms.
 
 Transaction bundles have two scheduling semantics. An ordinary bundle stores each unfinalized envelope, adds it to the receiver's proposal queue, and wakes that queue. A finalization-class bundle stores envelopes in the cache without scheduling them. Proposers and graph synchronization use the latter immediately before sending a finalization so the receiver can validate the snapshot without accidentally proposing the same transactions itself. As noted in Section 4.2, an individually requested fallback body currently returns through the ordinary single-transaction path.
 
@@ -457,11 +457,11 @@ sequenceDiagram
     participant V as Consensus validators
     participant L as Local durable ledger
 
-    P->>V: Announcement(snapshot, proposer commitment)
+    P->>V: Announcement(snapshot, proposer commitment pair)
     V->>V: Validate round, references, and available transactions
-    V-->>P: Commitment Ri + hashes of missing transactions
-    P->>P: Select quorum and aggregate commitments R
-    P->>V: Challenge(R, signer mask, only requested transaction bodies)
+    V-->>P: Commitment pair (R1i, R2i) + hashes of missing transactions
+    P->>P: Select quorum and aggregate commitment pairs (R1, R2)
+    P->>V: Challenge((R1, R2), signer mask, only requested transaction bodies)
     V->>V: Validate every transaction and aggregate challenge
     V-->>P: Response si
     P->>P: Verify responses and aggregate signature
@@ -483,10 +483,14 @@ Late commitments for an expired aggregator are ignored. If a candidate batch ove
 
 ### 7.3 Signature construction
 
-Let $G$ be the group base point. For signer $i$, let $a_i$ be its private key, $A_i=a_iG$ its public key, and $r_i$ a fresh nonce with commitment $R_i=r_iG$. For the selected quorum $Q$:
+Let $G$ be the group base point. For signer $i$, let $a_i$ be its private key and $A_i=a_iG$ its public key. Following the two-nonce [MuSig2](https://eprint.iacr.org/2020/1261) construction with $\nu=2$, each signer draws a fresh nonce pair $(r_{1i}, r_{2i})$ and advertises the commitment pair $(R_{1i}, R_{2i}) = (r_{1i}G, r_{2i}G)$. For the selected quorum $Q$:
 
 $$
-R = \sum_{i\in Q} R_i, \qquad A_Q = \sum_{i\in Q} A_i,
+R_1 = \sum_{i\in Q} R_{1i}, \qquad R_2 = \sum_{i\in Q} R_{2i}, \qquad A_Q = \sum_{i\in Q} A_i,
+$$
+
+$$
+b = \mathrm{Scalar}\!\left(\mathrm{SHA512}\bigl(\mathrm{DOM} \parallel R_1 \parallel R_2 \parallel A_Q \parallel H_{snap}\bigr)\right), \qquad R = R_1 + bR_2,
 $$
 
 $$
@@ -494,7 +498,7 @@ c = \mathrm{Scalar}\!\left(\mathrm{SHA512}\bigl(R \parallel A_Q \parallel H_{sna
 $$
 
 $$
-s_i = r_i + c a_i \pmod \ell, \qquad s = \sum_{i\in Q} s_i.
+s_i = r_{1i} + b\,r_{2i} + c\,a_i \pmod \ell, \qquad s = \sum_{i\in Q} s_i.
 $$
 
 Verification checks
@@ -502,6 +506,8 @@ Verification checks
 $$
 sG = R + cA_Q.
 $$
+
+The domain tag $\mathrm{DOM}$ (`MIXIN_COSI_NONCE_COEF_V1`) separates the nonce-coefficient hash from the challenge hash and every other SHA-512 usage in the protocol. Because $b$ commits to both aggregate nonce components, the aggregate key, and the snapshot hash, the effective nonce $R$ is unknowable when the commitments are published; this blocks the concurrent-session (ROS/Wagner) forgery class that a single commitment per session is exposed to. The final signature $(R, s)$ is a standard 64-byte Schnorr signature on $A_Q$: verifiers never need $b$, and the [upgrade design](mixin-kernel-cosi-nonce-pair-upgrade.md) keeps the on-ledger signature format and every offline validation path byte-for-byte identical.
 
 The final snapshot carries one 64-byte signature and one 64-bit signer mask, rather than an array of validator signatures. The mask represents at most 64 consensus indexes, while membership admission imposes a lower 50-node cap. Supporting a larger set would require a wider signer-set encoding.
 
@@ -517,7 +523,7 @@ members. Since at most $f$ are Byzantine, the intersection contains at least one
 
 The CoSi aggregate public key is a plain sum $A_Q = \sum A_i$ without per-signer key-prefixing coefficients. For a non-genesis member, the pledge commits the proposed key and the later accept transaction must be signed by that key before acceptance, so admission supplies the proof of possession needed to rule out a freely chosen rogue key. Genesis signer keys are instead part of the trusted genesis definition and must be vetted under that trust assumption. The transaction-level aggregate signature, where signer keys come from arbitrary UTXO outputs, does apply MuSig-style coefficient weighting.
 
-Neither proof of key possession nor the single-use nonce guard establishes security against an adversary combining responses from many distinct concurrent signing sessions. Full-challenge authentication verifies the leader's identity; it does not establish concurrent-signing security against a malicious eligible consensus participant. This remains an [unresolved cryptographic assurance question](release-security-audit-2026-09-06.md#remaining-assurance-limits).
+The nonce-pair construction removes the concurrent-session attack class structurally: the coefficient $b$ binds the whole session transcript, so an adversary combining responses from many distinct concurrently open sessions no longer faces a fixed linear relation it can solve. The single-use nonce guard remains as defense in depth, binding one nonce pair to exactly one session identifier $(b \parallel c)$. This applies a published, peer-reviewed construction rather than a new proof; the instantiation—with this repository's transcript domain, point encoding, and registered-key sum—has been cross-checked against independent reference vectors and should still receive external cryptographic review, as the [upgrade design](mixin-kernel-cosi-nonce-pair-upgrade.md) records.
 
 ### 7.5 Finalization checks
 
@@ -664,7 +670,7 @@ Mixin Kernel's speed does not remove its operating assumptions. The implementati
 - **Authorization-envelope cache collisions:** Transaction identity intentionally excludes authorization signatures, while ordinary P2P envelopes can enter the payload-hash-keyed cache before semantic validation. The cache keeps the first envelope stored for a payload hash, so a later envelope with different authorization cannot displace it. An invalid envelope can occupy that slot until expiry or finalized-transaction cleanup removes it.
 - **Batch wire-size accounting:** The batcher sums `ValidatedSize`, which measures unsigned transaction payloads, while transport carries signed envelopes and framing. Its two-thirds-of-32-MiB target therefore does not guarantee that the resulting wire message fits the transport limit. Rejection or retry from this boundary is not evidence of an unauthorized ledger transition.
 - **Concurrent state access:** `BuildGraph` reads immutable values published per chain. Shared-state races outside this access path remain unresolved; passing the kernel and P2P race tests does not establish that the whole node is race-free.
-- **Concurrent CoSi assurance:** Single-use nonce tests and authenticated message ingress do not prove aggregate-signature unforgeability across many distinct concurrent sessions. The release audit records this remaining assurance gap without claiming a demonstrated financial exploit.
+- **CoSi instantiation review:** The nonce-pair construction follows MuSig2 with this repository's own transcript domain, point encoding, and registered-key sum; applying a proven scheme is not itself a proof of the instantiation. Independent reference vectors cross-check the implementation, and external cryptographic review remains open, as the upgrade design records.
 
 These boundaries are not a list of confirmed theft or permanent-loss findings. The [release audit](release-security-audit-2026-09-06.md) applies the requested trusted-custodian model and excludes effects fully repairable by a software upgrade; it retains unresolved evidence without treating test success as a proof of financial safety.
 

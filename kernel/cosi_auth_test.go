@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"testing"
+	"time"
 
 	"filippo.io/edwards25519"
 	"github.com/MixinNetwork/mixin/common"
@@ -83,6 +84,26 @@ func TestVerifyConsensusPeerSignatureRejectsForgedLeaderResponse(t *testing.T) {
 	// The claimed leader must explicitly authorize the complete challenge.
 	signature := leaderPrivate.Sign(crypto.Blake3Hash(data))
 	require.True(t, node.VerifyConsensusPeerSignature(leaderID, data, &signature))
+}
+
+func TestConsensusThresholdPanicsOnFutureTimestamp(t *testing.T) {
+	node := &Node{}
+	future := uint64(time.Now().UnixNano()) + uint64(time.Hour)
+	require.Panics(t, func() { node.ConsensusThreshold(future, true) })
+}
+
+func TestVerifyFinalizationRejectsFutureTimestamp(t *testing.T) {
+	node := &Node{}
+	snapshot := &common.Snapshot{
+		Version:      common.SnapshotVersionCommonEncoding,
+		NodeId:       crypto.Blake3Hash([]byte("future timestamp finalization")),
+		RoundNumber:  1,
+		Timestamp:    uint64(time.Now().UnixNano()) + uint64(time.Hour),
+		Transactions: []crypto.Hash{crypto.Blake3Hash([]byte("future timestamp finalization tx"))},
+	}
+	require.NotPanics(t, func() {
+		require.Nil(t, node.VerifyAndQueueAppendSnapshotFinalization(crypto.Hash{}, snapshot))
+	})
 }
 
 func TestVerifyConsensusPeerSignature(t *testing.T) {

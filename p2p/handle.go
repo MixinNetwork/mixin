@@ -106,12 +106,12 @@ func (me *Peer) SendCommitmentsMessage(idForNetwork crypto.Hash, commitments []*
 	return me.sendHighToPeer(idForNetwork, PeerMessageTypePreCommitments, key, data)
 }
 
-func (me *Peer) SendSnapshotAnnouncementMessage(idForNetwork crypto.Hash, s *common.Snapshot, R crypto.CosiCommitment, spend crypto.Key) error {
+func (me *Peer) SendSnapshotAnnouncementMessage(idForNetwork crypto.Hash, s *common.Snapshot, R *crypto.CosiCommitment, spend crypto.Key) error {
 	data := buildBatchSnapshotAnnouncementMessage(s, R, spend)
 	return me.sendSnapshotMessageToPeer(idForNetwork, s.PayloadHash(), PeerMessageTypeBatchSnapshotAnnouncement, data)
 }
 
-func (me *Peer) SendSnapshotCommitmentMessage(idForNetwork crypto.Hash, s *common.Snapshot, R crypto.CosiCommitment, wantTxs []crypto.Hash) error {
+func (me *Peer) SendSnapshotCommitmentMessage(idForNetwork crypto.Hash, s *common.Snapshot, R *crypto.CosiCommitment, wantTxs []crypto.Hash) error {
 	snap := snapshotHash(s)
 	data := buildBatchSnapshotCommitmentMessage(me.handle, snap, R, wantTxs)
 	return me.sendSnapshotMessageToPeer(idForNetwork, snap, PeerMessageTypeBatchSnapshotCommitment, data)
@@ -214,14 +214,14 @@ func soleTransaction(txs []*common.VersionedTransaction) *common.VersionedTransa
 	return txs[0]
 }
 
-func buildBatchSnapshotAnnouncementMessage(s *common.Snapshot, R crypto.CosiCommitment, spend crypto.Key) []byte {
+func buildBatchSnapshotAnnouncementMessage(s *common.Snapshot, R *crypto.CosiCommitment, spend crypto.Key) []byte {
 	data := append(R.Bytes(), s.VersionedMarshal()...)
 	sig := spend.Sign(crypto.Blake3Hash(data))
 	data = append(sig[:], data...)
 	return append([]byte{PeerMessageTypeBatchSnapshotAnnouncement}, data...)
 }
 
-func buildBatchSnapshotCommitmentMessage(handle SyncHandle, snap crypto.Hash, R crypto.CosiCommitment, wantTxs []crypto.Hash) []byte {
+func buildBatchSnapshotCommitmentMessage(handle SyncHandle, snap crypto.Hash, R *crypto.CosiCommitment, wantTxs []crypto.Hash) []byte {
 	data := append(snap[:], R.Bytes()...)
 	for _, tx := range wantTxs {
 		data = append(data, tx[:]...)

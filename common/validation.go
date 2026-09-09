@@ -116,6 +116,9 @@ func (tx *SignedTransaction) GetExtraLimit() int {
 	if out.Amount.Cmp(step) < 0 {
 		return ExtraSizeGeneralLimit
 	}
+	if out.Amount.Cmp(GetAssetCapacity(tx.Asset)) > 0 {
+		return ExtraSizeGeneralLimit
+	}
 	cells := out.Amount.Count(step)
 	limit := cells * ExtraSizeStorageStep
 	if limit > ExtraSizeStorageCapacity {
@@ -334,6 +337,9 @@ func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, as
 			}
 			return utxo.Script.Validate(signers)
 		} else {
+			if index >= len(sigs) {
+				return fmt.Errorf("invalid signature map count %d %d", len(sigs), index)
+			}
 			for i, sig := range sigs[index] {
 				if int(i) >= len(utxo.Keys) {
 					return fmt.Errorf("invalid signature map index %d %d", i, len(utxo.Keys))
