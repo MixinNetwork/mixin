@@ -597,101 +597,93 @@ func TestValidationHelpersCampaign(t *testing.T) {
 	require.ErrorContains(validateUTXO(0, &UTXO{Output: Output{Type: OutputTypeNodeAccept}}, nil, nil, TransactionTypeScript, map[*crypto.Key]*crypto.Signature{}, 0), "accept input used")
 	require.ErrorContains(validateUTXO(0, &UTXO{Output: Output{Type: OutputTypeWithdrawalSubmit}}, nil, nil, TransactionTypeScript, map[*crypto.Key]*crypto.Signature{}, 0), "invalid input type")
 
-	outputStore := &campaignStore{}
-	require.ErrorContains((&Transaction{Outputs: []*Output{{
+	_, _, err := (&Transaction{Outputs: []*Output{{
 		Type:   OutputTypeScript,
 		Amount: NewInteger(1),
 		Keys:   make([]*crypto.Key, SliceCountLimit+1),
 		Mask:   utxo.Mask,
 		Script: NewThresholdScript(1),
-	}}}).validateOutputs(outputStore, crypto.Blake3Hash([]byte("out")), NewInteger(1), false), "invalid output keys count")
+	}}}).validateOutputs()
+	require.ErrorContains(err, "invalid output keys count")
 
-	require.ErrorContains((&Transaction{Outputs: []*Output{{
+	_, _, err = (&Transaction{Outputs: []*Output{{
 		Type:   OutputTypeScript,
 		Amount: Zero,
 		Keys:   utxo.Keys,
 		Mask:   utxo.Mask,
 		Script: NewThresholdScript(1),
-	}}}).validateOutputs(outputStore, crypto.Blake3Hash([]byte("out")), NewInteger(1), false), "invalid output amount")
+	}}}).validateOutputs()
+	require.ErrorContains(err, "invalid output amount")
 
-	require.ErrorContains((&Transaction{Outputs: []*Output{
+	_, _, err = (&Transaction{Outputs: []*Output{
 		{Type: OutputTypeScript, Amount: NewInteger(1), Keys: utxo.Keys, Mask: utxo.Mask, Script: NewThresholdScript(1)},
 		{Type: OutputTypeScript, Amount: NewInteger(1), Keys: utxo.Keys, Mask: utxo.Mask, Script: NewThresholdScript(1)},
-	}}).validateOutputs(outputStore, crypto.Blake3Hash([]byte("out")), NewInteger(2), false), "invalid output key")
+	}}).validateOutputs()
+	require.ErrorContains(err, "invalid output key")
 
 	var identity crypto.Key
 	identity[0] = 1
-	require.ErrorContains((&Transaction{Outputs: []*Output{{
+	_, _, err = (&Transaction{Outputs: []*Output{{
 		Type:   OutputTypeScript,
 		Amount: NewInteger(1),
 		Keys:   []*crypto.Key{&identity},
 		Mask:   utxo.Mask,
 		Script: NewThresholdScript(1),
-	}}}).validateOutputs(outputStore, crypto.Blake3Hash([]byte("out")), NewInteger(1), false), "invalid output key format")
+	}}}).validateOutputs()
+	require.ErrorContains(err, "invalid output key format")
 
-	require.ErrorContains((&Transaction{Outputs: []*Output{{
+	_, _, err = (&Transaction{Outputs: []*Output{{
 		Type:   OutputTypeNodeAccept,
 		Amount: NewInteger(1),
 		Keys:   utxo.Keys,
-	}}}).validateOutputs(outputStore, crypto.Blake3Hash([]byte("out")), NewInteger(1), false), "invalid output keys count")
+	}}}).validateOutputs()
+	require.ErrorContains(err, "invalid output keys count")
 
-	require.ErrorContains((&Transaction{Outputs: []*Output{{
+	_, _, err = (&Transaction{Outputs: []*Output{{
 		Type:   OutputTypeScript,
 		Amount: NewInteger(1),
 		Mask:   utxo.Mask,
 		Script: Script{1},
-	}}}).validateOutputs(outputStore, crypto.Blake3Hash([]byte("out")), NewInteger(1), false), "invalid script length")
+	}}}).validateOutputs()
+	require.ErrorContains(err, "invalid script length")
 
-	require.ErrorContains((&Transaction{Outputs: []*Output{{
+	_, _, err = (&Transaction{Outputs: []*Output{{
 		Type:   OutputTypeScript,
 		Amount: NewInteger(1),
 		Mask:   crypto.Key{},
 		Script: NewThresholdScript(1),
-	}}}).validateOutputs(outputStore, crypto.Blake3Hash([]byte("out")), NewInteger(1), false), "invalid script output empty mask")
+	}}}).validateOutputs()
+	require.ErrorContains(err, "invalid script output empty mask")
 
-	require.ErrorContains((&Transaction{Outputs: []*Output{{
+	_, _, err = (&Transaction{Outputs: []*Output{{
 		Type:   OutputTypeScript,
 		Amount: NewInteger(1),
 		Mask:   identity,
 		Script: NewThresholdScript(1),
-	}}}).validateOutputs(outputStore, crypto.Blake3Hash([]byte("out")), NewInteger(1), false), "invalid output mask format")
+	}}}).validateOutputs()
+	require.ErrorContains(err, "invalid output mask format")
 
-	require.ErrorContains((&Transaction{Outputs: []*Output{{
+	_, _, err = (&Transaction{Outputs: []*Output{{
 		Type:       OutputTypeScript,
 		Amount:     NewInteger(1),
 		Keys:       utxo.Keys,
 		Mask:       utxo.Mask,
 		Script:     NewThresholdScript(1),
 		Withdrawal: &WithdrawalData{Address: "bad"},
-	}}}).validateOutputs(outputStore, crypto.Blake3Hash([]byte("out")), NewInteger(1), false), "invalid script output with withdrawal")
+	}}}).validateOutputs()
+	require.ErrorContains(err, "invalid script output with withdrawal")
 
-	require.ErrorContains((&Transaction{Outputs: []*Output{{
-		Type:   OutputTypeScript,
-		Amount: NewInteger(1),
-		Keys:   utxo.Keys,
-		Mask:   utxo.Mask,
-		Script: NewThresholdScript(1),
-	}}}).validateOutputs(outputStore, crypto.Blake3Hash([]byte("out")), NewInteger(2), false), "invalid input output amount")
-
-	outputStore.ghostErr = errors.New("ghost lock failure")
-	require.ErrorIs((&Transaction{Outputs: []*Output{{
-		Type:   OutputTypeScript,
-		Amount: NewInteger(1),
-		Keys:   utxo.Keys,
-		Mask:   utxo.Mask,
-		Script: NewThresholdScript(1),
-	}}}).validateOutputs(outputStore, crypto.Blake3Hash([]byte("out")), NewInteger(1), false), outputStore.ghostErr)
-	outputStore.ghostErr = nil
-	require.Nil((&Transaction{Outputs: []*Output{{
-		Type:   OutputTypeScript,
-		Amount: NewInteger(1),
-		Keys:   utxo.Keys,
-		Mask:   utxo.Mask,
-		Script: NewThresholdScript(1),
-	}}}).validateOutputs(outputStore, crypto.Blake3Hash([]byte("out")), NewInteger(1), false))
+	other := deterministicAddress(51)
+	amount, keys, err := (&Transaction{Outputs: []*Output{
+		{Type: OutputTypeScript, Amount: NewInteger(1), Keys: utxo.Keys, Mask: utxo.Mask, Script: NewThresholdScript(1)},
+		{Type: OutputTypeScript, Amount: NewInteger(2), Keys: []*crypto.Key{&other.PublicSpendKey}, Mask: utxo.Mask, Script: NewThresholdScript(1)},
+	}}).validateOutputs()
+	require.NoError(err)
+	require.Equal(NewInteger(3), amount)
+	require.Equal([]*crypto.Key{utxo.Keys[0], &other.PublicSpendKey}, keys)
 
 	mintInput := &SignedTransaction{Transaction: Transaction{Inputs: []*Input{{Mint: &MintData{Batch: 1, Amount: NewInteger(7)}}}}}
-	_, amount, err := mintInput.validateInputs(store, crypto.Hash{}, TransactionTypeMint, false)
+	_, amount, err = mintInput.validateInputs(store, crypto.Hash{}, TransactionTypeMint, false)
 	require.Nil(err)
 	require.Equal(NewInteger(7), amount)
 
@@ -780,6 +772,48 @@ func TestValidationHelpersCampaign(t *testing.T) {
 	require.Contains(inputsFilter, utxoRef(utxoHash, 0))
 
 	require.Equal(ExtraSizeGeneralLimit, (&SignedTransaction{Transaction: Transaction{Version: TxVersionHashSignature, Asset: BitcoinAssetId}}).GetExtraLimit())
+}
+
+func TestValidateOutputChecks(t *testing.T) {
+	account := deterministicAddress(52)
+	utxoHash := crypto.Blake3Hash([]byte("validate-output-checks"))
+	utxo, ghost := makeScriptUTXO(account, utxoHash, 0, NewInteger(10))
+	lockError := errors.New("ghost lock failure")
+	for _, tc := range []struct {
+		name     string
+		amount   Integer
+		script   Script
+		ghostErr error
+		wantErr  string
+	}{
+		{"invalid output script", utxo.Amount, Script{1}, nil, "invalid script length"},
+		{"unbalanced amounts", NewInteger(1), NewThresholdScript(1), nil, "invalid input output amount"},
+		{"ghost lock failure", utxo.Amount, NewThresholdScript(1), lockError, ""},
+		{"valid transaction", utxo.Amount, NewThresholdScript(1), nil, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require := require.New(t)
+			store := &campaignStore{
+				utxos:    map[string]*UTXOWithLock{utxoRef(utxoHash, 0): utxo},
+				ghostErr: tc.ghostErr,
+			}
+			tx := NewTransactionV5(XINAssetId)
+			tx.AddInput(utxoHash, 0)
+			tx.AddScriptOutput([]*Address{&account}, tc.script, tc.amount, bytes.Repeat([]byte{53}, 64))
+			ver := tx.AsVersioned()
+			sig := ghost.Sign(ver.PayloadHash())
+			ver.SignaturesMap = []map[uint16]*crypto.Signature{{0: &sig}}
+
+			err := ver.Validate(store, 0, false)
+			if tc.ghostErr != nil {
+				require.ErrorIs(err, tc.ghostErr)
+			} else if tc.wantErr != "" {
+				require.ErrorContains(err, tc.wantErr)
+			} else {
+				require.NoError(err)
+			}
+		})
+	}
 }
 
 func TestSignUTXOAndTransactionTypeCampaign(t *testing.T) {
