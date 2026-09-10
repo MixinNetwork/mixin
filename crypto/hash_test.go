@@ -51,7 +51,7 @@ func benchmarkHash(b *testing.B, legacy bool) {
 		}
 		b.Run(fmt.Sprint(n), func(b *testing.B) {
 			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				if legacy {
 					Sha256Hash([]byte(msg))
 				} else {

@@ -20,7 +20,7 @@ func BenchmarkVerifyBatch(b *testing.B) {
 				pubs = append(pubs, &pub)
 				sigs = append(sigs, &sig)
 			}
-			for i := 0; i < b.N/n; i++ {
+			for b.Loop() {
 				if !BatchVerify(msg, pubs, sigs) {
 					b.Fatal("batch verification")
 				}

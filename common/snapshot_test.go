@@ -159,7 +159,7 @@ func benchmarkSnapshot(b *testing.B, s *SnapshotWithTopologicalOrder) {
 	for _, n := range []int{1, 4, 16, 64, 256} {
 		b.Run(fmt.Sprint(n), func(b *testing.B) {
 			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				buf := s.VersionedMarshal()
 				s, err := UnmarshalVersionedSnapshot(buf)
 				if err != nil {

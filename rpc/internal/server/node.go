@@ -1,9 +1,10 @@
 package server
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
 	"time"
 
@@ -44,7 +45,9 @@ func listAllNodes(store storage.Store, node *kernel.Node, params []any) ([]map[s
 }
 
 func peerNeighbors(peers []*p2p.Peer) []map[string]any {
-	sort.Slice(peers, func(i, j int) bool { return peers[i].IdForNetwork.String() < peers[j].IdForNetwork.String() })
+	slices.SortFunc(peers, func(a, b *p2p.Peer) int {
+		return cmp.Compare(a.IdForNetwork.String(), b.IdForNetwork.String())
+	})
 	data := make([]map[string]any, 0)
 	for _, p := range peers {
 		data = append(data, map[string]any{
