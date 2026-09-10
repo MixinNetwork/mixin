@@ -54,12 +54,14 @@ type Chain struct {
 
 	State *ChainState
 
-	CosiRandoms          map[crypto.Key]*crypto.CosiNonce
+	graphSnapshot atomic.Pointer[chainGraphSnapshot]
+
+	CosiRandoms          map[crypto.CosiCommitment]*crypto.CosiNonce
 	UsedRandoms          map[crypto.Hash]*crypto.CosiNonce
 	usedRandomsOrder     []crypto.Hash
-	CosiCommitments      map[crypto.Hash][]*crypto.Key
-	UsedCommitments      map[crypto.Key]bool
-	usedCommitmentsOrder []crypto.Key
+	CosiCommitments      map[crypto.Hash][]*crypto.CosiCommitment
+	UsedCommitments      map[crypto.CosiCommitment]bool
+	usedCommitmentsOrder []crypto.CosiCommitment
 	CommitmentsSentTime  time.Time
 	CosiCommunicatedAt   map[crypto.Hash]time.Time
 
@@ -90,10 +92,10 @@ func (node *Node) buildChain(chainId crypto.Hash) *Chain {
 	chain := &Chain{
 		node:               node,
 		ChainId:            chainId,
-		CosiRandoms:        make(map[crypto.Key]*crypto.CosiNonce),
+		CosiRandoms:        make(map[crypto.CosiCommitment]*crypto.CosiNonce),
 		UsedRandoms:        make(map[crypto.Hash]*crypto.CosiNonce),
-		CosiCommitments:    make(map[crypto.Hash][]*crypto.Key),
-		UsedCommitments:    make(map[crypto.Key]bool),
+		CosiCommitments:    make(map[crypto.Hash][]*crypto.CosiCommitment),
+		UsedCommitments:    make(map[crypto.CosiCommitment]bool),
 		CosiCommunicatedAt: make(map[crypto.Hash]time.Time),
 		CosiAggregators:    make(map[crypto.Hash]*CosiAggregator),
 		CosiVerifiers:      make(map[crypto.Hash]*CosiVerifier),
@@ -132,7 +134,7 @@ func (chain *Chain) bootLoops() {
 		return
 	}
 
-	rn := chain.node.GetRemovedOrCancelledNode(chain.ChainId, chain.node.GraphTimestamp)
+	rn := chain.node.GetRemovedNode(chain.ChainId, chain.node.GraphTimestamp)
 	threshold := uint64(config.KernelNodeAcceptPeriodMaximum)
 	if rn != nil && rn.Timestamp+threshold < chain.node.GraphTimestamp {
 		// FIXME the timestamp check is because we can't ensure the last
@@ -291,6 +293,7 @@ func (chain *Chain) loadState() error {
 		state.RoundLinks[cn.IdForNetwork] = link
 	}
 
+	chain.publishGraphSnapshot(final)
 	chain.State = state
 	return nil
 }

@@ -168,13 +168,6 @@ func (node *Node) validateKernelSnapshot(s *common.Snapshot, found map[crypto.Ha
 				s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
 			return err
 		}
-	case common.TransactionTypeNodeCancel:
-		err := node.validateNodeCancelSnapshot(s, tx, finalized)
-		if err != nil {
-			logger.Printf("validateNodeCancelSnapshot ERROR %v %s %s\n",
-				s, hex.EncodeToString(tx.PayloadMarshal()), err.Error())
-			return err
-		}
 	case common.TransactionTypeNodeAccept:
 		err := node.validateNodeAcceptSnapshot(s, tx, finalized)
 		if err != nil {
@@ -209,7 +202,6 @@ func (node *Node) validateConsensusTransactionReferences(s *common.Snapshot, tx 
 	switch tx.TransactionType() {
 	case common.TransactionTypeMint:
 	case common.TransactionTypeNodePledge:
-	case common.TransactionTypeNodeCancel:
 	case common.TransactionTypeNodeAccept:
 	case common.TransactionTypeNodeRemove:
 	case common.TransactionTypeCustodianUpdateNodes:

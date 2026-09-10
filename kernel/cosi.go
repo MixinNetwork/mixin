@@ -32,13 +32,13 @@ type CosiAction struct {
 	PeerId       crypto.Hash
 	SnapshotHash crypto.Hash
 	Snapshot     *common.Snapshot
-	Commitment   *crypto.Key
+	Commitment   *crypto.CosiCommitment
 	Signature    *crypto.CosiSignature
 	Response     *[32]byte
 	Transactions []*common.VersionedTransaction
 	WantTxs      []crypto.Hash
-	Commitments  []*crypto.Key
-	Challenge    *crypto.Key
+	Commitments  []*crypto.CosiCommitment
+	Challenge    *crypto.CosiCommitment
 	nonce        *crypto.CosiNonce
 	finalized    bool
 	data         *CosiChainData
@@ -56,13 +56,13 @@ type CosiAggregator struct {
 	Transactions   []*common.VersionedTransaction
 	WantTxs        map[crypto.Hash][]crypto.Hash
 	FullChallenges map[crypto.Hash]bool
-	Commitments    map[int]*crypto.Key
+	Commitments    map[int]*crypto.CosiCommitment
 	Responses      map[int]*[32]byte
 }
 
 type CosiVerifier struct {
 	Snapshot     *common.Snapshot
-	Announcement *crypto.Key
+	Announcement *crypto.CosiCommitment
 	nonce        *crypto.CosiNonce
 }
 
@@ -448,7 +448,7 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		Transactions:   slices.Collect(maps.Values(cd.FoundTxs)),
 		WantTxs:        make(map[crypto.Hash][]crypto.Hash),
 		FullChallenges: make(map[crypto.Hash]bool),
-		Commitments:    make(map[int]*crypto.Key),
+		Commitments:    make(map[int]*crypto.CosiCommitment),
 		Responses:      make(map[int]*[32]byte),
 	}
 
@@ -459,12 +459,19 @@ func (chain *Chain) cosiSendAnnouncement(m *CosiAction) error {
 		chain.CosiVerifiers[txh] = v
 		chain.node.txLatency.markAnnounced(txh)
 	}
-	agg.Commitments[cd.CN.ConsensusIndex] = &R
+	agg.Commitments[cd.CN.ConsensusIndex] = R
 	chain.CosiAggregators[s.Hash] = agg
 	nodes := chain.node.cosiAcceptedNodesListShuffle(s.Timestamp)
 	for _, cn := range nodes {
 		peerId := cn.IdForNetwork
 		if peerId == chain.ChainId {
+			continue
+		}
+		if !chain.node.ConsensusReady(cn, s.Timestamp) {
+			// A node that is not consensus ready yet is excluded from the
+			// ConsensusKeys signer list, so its commitment would carry a
+			// mask index outside that list and abort every aggregation
+			// that includes it.
 			continue
 		}
 		commitment := chain.cosiPopCommitment(peerId)
@@ -527,6 +534,14 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 		return nil
 	}
 	s, cd := ann.Snapshot, m.data
+	if !chain.node.ConsensusReady(cd.PN, s.Timestamp) {
+		// The peer is not in the ConsensusKeys signer list at the snapshot
+		// timestamp, so its commitment mask index cannot align with that
+		// list. Ignore the commitment instead of poisoning the aggregation,
+		// regardless of how the peer was engaged.
+		logger.Verbosef("cosiHandleCommitment %v NOT CONSENSUS READY %s\n", m, cd.PN.IdForNetwork)
+		return nil
+	}
 	if ann.Commitments[cd.PN.ConsensusIndex] != nil {
 		logger.Verbosef("cosiHandleCommitment %v REPEAT\n", m)
 		return nil
@@ -545,14 +560,14 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	}
 	logger.Verbosef("cosiHandleCommitment %v ENOUGH\n", m)
 
-	cosi, err := crypto.CosiAggregateCommitment(ann.Commitments)
+	_, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
+	cosi, err := crypto.CosiAggregateCommitment(ann.Commitments, publics, m.SnapshotHash)
 	if err != nil {
 		return err
 	}
 	s.Signature = cosi
 	v := chain.CosiVerifiers[m.SnapshotHash]
 	priv := chain.node.Signer.PrivateSpendKey
-	_, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
 	response, err := v.nonce.Response(cosi, &priv, publics, m.SnapshotHash)
 	if err != nil { // TODO should slash the malicious node
 		logger.Printf("cosiHandleCommitment abandon %s after response failure: %v\n", s.Hash, err)
@@ -574,7 +589,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 					s.Hash, id, cd.CN.ConsensusIndex, cn.ConsensusIndex)
 				continue
 			}
-			err = chain.node.Peer.SendFullChallengeMessage(id, s, commitment, challenge, txs)
+			err = chain.node.Peer.SendFullChallengeMessage(id, s, commitment, challenge, cosi.Randoms(), txs)
 		} else if wantTxs, found := ann.WantTxs[id]; !found {
 			continue
 		} else {
@@ -696,19 +711,11 @@ func (chain *Chain) cosiHandleChallenge(m *CosiAction) error {
 	v := chain.CosiVerifiers[m.SnapshotHash]
 	s, cd := v.Snapshot, m.data
 
-	var sig crypto.Signature
-	copy(sig[:], v.Announcement[:])
-	copy(sig[32:], m.Signature.Signature[32:])
 	pub := cd.CN.Signer.PublicSpendKey
 	_, publics := chain.ConsensusKeys(s.RoundNumber, s.Timestamp)
-	challenge, err := m.Signature.Challenge(publics, m.SnapshotHash)
+	err := m.Signature.VerifyAnnouncementResponse(&pub, v.Announcement, publics, m.SnapshotHash)
 	if err != nil {
-		logger.Verbosef("cosiHandleChallenge %v Challenge ERROR %s\n", m, err)
-		return nil
-	}
-	if !pub.VerifyWithChallenge(sig, challenge) {
-		logger.Verbosef("cosiHandleChallenge %v VerifyWithChallenge ERROR %v %v\n",
-			m, sig, challenge)
+		logger.Verbosef("cosiHandleChallenge %v VerifyAnnouncementResponse ERROR %s\n", m, err)
 		return nil
 	}
 	chain.CosiCommunicatedAt[m.PeerId] = clock.Now()
@@ -1027,7 +1034,7 @@ func (chain *Chain) cosiHandleFinalization(m *CosiAction) error {
 	return chain.node.reloadConsensusState(s, tx)
 }
 
-func (chain *Chain) cosiPopCommitment(peerId crypto.Hash) *crypto.Key {
+func (chain *Chain) cosiPopCommitment(peerId crypto.Hash) *crypto.CosiCommitment {
 	if chain.ChainId != chain.node.IdForNetwork {
 		panic(chain.ChainId)
 	}
@@ -1044,10 +1051,10 @@ func (chain *Chain) cosiPopCommitment(peerId crypto.Hash) *crypto.Key {
 	return commitment
 }
 
-func (chain *Chain) markCosiCommitmentUsed(commitment crypto.Key) {
+func (chain *Chain) markCosiCommitmentUsed(commitment crypto.CosiCommitment) {
 	const maximumRetainedCommitments = 1024 * 1024
 	if chain.UsedCommitments == nil {
-		chain.UsedCommitments = make(map[crypto.Key]bool)
+		chain.UsedCommitments = make(map[crypto.CosiCommitment]bool)
 	}
 	if chain.UsedCommitments[commitment] {
 		return
@@ -1073,7 +1080,7 @@ func (chain *Chain) cosiAddCommitments(m *CosiAction) error {
 		return nil
 	}
 	chain.CosiCommunicatedAt[m.PeerId] = clock.Now()
-	var commitments []*crypto.Key
+	var commitments []*crypto.CosiCommitment
 	for _, k := range m.Commitments {
 		if !chain.UsedCommitments[*k] {
 			commitments = append(commitments, k)
@@ -1085,7 +1092,7 @@ func (chain *Chain) cosiAddCommitments(m *CosiAction) error {
 	return nil
 }
 
-func (chain *Chain) cosiRetrieveRandom(snap crypto.Hash, peerId crypto.Hash, challenge *crypto.Key) *crypto.CosiNonce {
+func (chain *Chain) cosiRetrieveRandom(snap crypto.Hash, peerId crypto.Hash, challenge *crypto.CosiCommitment) *crypto.CosiNonce {
 	if chain.ChainId == chain.node.IdForNetwork {
 		panic(chain.ChainId)
 	}
@@ -1093,7 +1100,7 @@ func (chain *Chain) cosiRetrieveRandom(snap crypto.Hash, peerId crypto.Hash, cha
 		panic(peerId)
 	}
 	nonce := chain.UsedRandoms[snap]
-	if nonce != nil && nonce.Public() == *challenge {
+	if nonce != nil && *nonce.Public() == *challenge {
 		return nonce
 	}
 	cm := chain.CosiRandoms
@@ -1141,33 +1148,22 @@ func (chain *Chain) cosiPrepareRandomsAndSendCommitments(peerId crypto.Hash) err
 	}
 
 	// FIXME always generate new randoms, may bloat the memory
-	commitments := make([]*crypto.Key, maximum)
+	commitments := make([]*crypto.CosiCommitment, maximum)
 	if chain.CosiRandoms == nil {
-		chain.CosiRandoms = make(map[crypto.Key]*crypto.CosiNonce, maximum)
+		chain.CosiRandoms = make(map[crypto.CosiCommitment]*crypto.CosiNonce, maximum)
 	}
 	for i := range maximum {
 		nonce := crypto.CosiCommitNonce(crypto.RandReader())
 		k := nonce.Public()
-		commitments[i] = &k
-		chain.CosiRandoms[k] = nonce
+		commitments[i] = k
+		chain.CosiRandoms[*k] = nonce
 	}
 	chain.CommitmentsSentTime = clock.Now()
 	return chain.node.Peer.SendCommitmentsMessage(peerId, commitments)
 }
 
-func (node *Node) CosiQueueExternalPreCommitments(peerId crypto.Hash, commitments []*crypto.Key, data []byte, sig *crypto.Signature) error {
+func (node *Node) CosiQueueExternalPreCommitments(peerId crypto.Hash, commitments []*crypto.CosiCommitment) error {
 	logger.Debugf("CosiQueueExternalPreCommitments(%s, %d)\n", peerId, len(commitments))
-	peer := node.GetAcceptedOrPledgingNode(peerId)
-	if peer == nil {
-		logger.Verbosef("CosiQueueExternalPreCommitments(%s, %d) from malicious node\n",
-			peerId, len(commitments))
-		return nil
-	}
-	if !peer.Signer.PublicSpendKey.Verify(crypto.Blake3Hash(data), *sig) {
-		logger.Printf("CosiQueueExternalPreCommitments(%s) invalid signature\n", peerId)
-		return nil
-	}
-
 	m := &CosiAction{
 		PeerId:      peerId,
 		Action:      CosiActionExternalCommitments,
@@ -1180,16 +1176,9 @@ func (node *Node) CosiQueueExternalPreCommitments(peerId crypto.Hash, commitment
 	return nil
 }
 
-func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot, commitment *crypto.Key, sig *crypto.Signature) error {
+func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Snapshot, commitment *crypto.CosiCommitment) error {
 	logger.Debugf("CosiQueueExternalAnnouncement(%s, %v)\n", peerId, s)
-	peer := node.GetAcceptedOrPledgingNode(peerId)
-	if peer == nil {
-		logger.Verbosef("CosiQueueExternalAnnouncement(%s, %v) from malicious node\n", peerId, s)
-		return nil
-	}
-	data := append(commitment[:], s.VersionedMarshal()...)
-	if !peer.Signer.PublicSpendKey.Verify(crypto.Blake3Hash(data), *sig) {
-		logger.Printf("CosiQueueExternalAnnouncement(%s, %v) invalid signature\n", peerId, s)
+	if s.NodeId != peerId { // TODO slash malicious node
 		return nil
 	}
 	chain := node.getOrCreateChain(s.NodeId)
@@ -1213,18 +1202,8 @@ func (node *Node) CosiQueueExternalAnnouncement(peerId crypto.Hash, s *common.Sn
 	return nil
 }
 
-func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.Key, wantTxs []crypto.Hash, data []byte, sig *crypto.Signature) error {
+func (node *Node) CosiAggregateSelfCommitments(peerId crypto.Hash, snap crypto.Hash, commitment *crypto.CosiCommitment, wantTxs []crypto.Hash) error {
 	logger.Debugf("CosiAggregateSelfCommitments(%s, %s)\n", peerId, snap)
-	peer := node.GetAcceptedOrPledgingNode(peerId)
-	if peer == nil {
-		logger.Verbosef("CosiAggregateSelfCommitments(%s, %s) from malicious node\n", peerId, snap)
-		return nil
-	}
-	if !peer.Signer.PublicSpendKey.Verify(crypto.Blake3Hash(data), *sig) {
-		logger.Printf("CosiAggregateSelfCommitments(%s, %s) invalid signature\n", peerId, snap)
-		return nil
-	}
-
 	m := &CosiAction{
 		PeerId:       peerId,
 		Action:       CosiActionSelfCommitment,
@@ -1261,12 +1240,8 @@ func (node *Node) CosiQueueExternalChallenge(peerId crypto.Hash, snap crypto.Has
 	return nil
 }
 
-func (node *Node) CosiQueueExternalFullChallenge(peerId crypto.Hash, s *common.Snapshot, commitment, challenge *crypto.Key, cosi *crypto.CosiSignature, txs []*common.VersionedTransaction) error {
+func (node *Node) CosiQueueExternalFullChallenge(peerId crypto.Hash, s *common.Snapshot, commitment, challenge *crypto.CosiCommitment, cosi *crypto.CosiSignature, txs []*common.VersionedTransaction) error {
 	logger.Debugf("CosiQueueExternalFullChallenge(%s, %v)\n", peerId, s)
-	if node.GetAcceptedOrPledgingNode(peerId) == nil {
-		logger.Verbosef("CosiQueueExternalFullChallenge(%s, %v) from malicious node\n", peerId, s)
-		return nil
-	}
 	chain := node.getOrCreateChain(peerId)
 
 	s.Hash = s.PayloadHash()
@@ -1310,6 +1285,12 @@ func (node *Node) CosiAggregateSelfResponses(peerId crypto.Hash, snap crypto.Has
 func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s *common.Snapshot) error {
 	s.Hash = s.PayloadHash()
 	logger.Debugf("VerifyAndQueueAppendSnapshotFinalization(%s, %s)\n", peerId, s.Hash)
+
+	if s.Timestamp < node.Epoch || s.Timestamp > clock.NowUnixNano()+uint64(time.Minute) {
+		logger.Verbosef("ERROR VerifyAndQueueAppendSnapshotFinalization invalid timestamp %s %s %d\n",
+			peerId, s.Hash, s.Timestamp)
+		return nil
+	}
 
 	node.Peer.ConfirmSnapshotForPeer(peerId, s.Hash)
 	err := node.Peer.SendSnapshotConfirmMessage(peerId, s.Hash)

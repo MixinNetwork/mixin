@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 )
 
@@ -108,7 +109,11 @@ func ParseCustodianUpdateNodesExtra(extra []byte, genesis bool) (*CustodianUpdat
 	if len(nodesExtra)%custodianNodeExtraSize != 0 {
 		return nil, fmt.Errorf("invalid custodian update extra %x", extra)
 	}
-	nodes := make([]*CustodianNode, len(nodesExtra)/custodianNodeExtraSize)
+	nodesCount := len(nodesExtra) / custodianNodeExtraSize
+	if nodesCount > config.KernelMaximumNodesCount {
+		return nil, fmt.Errorf("invalid custodian nodes count %d", nodesCount)
+	}
+	nodes := make([]*CustodianNode, nodesCount)
 	uniqueKeys := make(map[crypto.Key]bool)
 	for i := range nodes {
 		cne := nodesExtra[i*custodianNodeExtraSize : (i+1)*custodianNodeExtraSize]
@@ -166,7 +171,7 @@ func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader, now u
 	if err != nil {
 		return err
 	}
-	if len(curs.Nodes) < custodianNodesMinimumCount {
+	if c := len(curs.Nodes); c < custodianNodesMinimumCount || c > config.KernelMaximumNodesCount {
 		return fmt.Errorf("invalid custodian nodes count %d", len(curs.Nodes))
 	}
 

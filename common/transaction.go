@@ -24,7 +24,7 @@ const (
 	outputTypeNodeResign           = 0xa5
 	OutputTypeNodeRemove           = 0xa6
 	OutputTypeWithdrawalClaim      = 0xa9
-	OutputTypeNodeCancel           = 0xaa
+	outputTypeNodeCancel           = 0xaa
 	OutputTypeCustodianUpdateNodes = 0xb1
 	OutputTypeCustodianSlashNodes  = 0xb2
 
@@ -37,7 +37,7 @@ const (
 	TransactionTypeNodeAccept           = 0x07
 	transactionTypeNodeResign           = 0x08
 	TransactionTypeNodeRemove           = 0x09
-	TransactionTypeNodeCancel           = 0x12
+	transactionTypeNodeCancel           = 0x12
 	TransactionTypeCustodianUpdateNodes = 0x13
 	TransactionTypeCustodianSlashNodes  = 0x14
 	TransactionTypeUnknown              = 0xff
@@ -144,8 +144,6 @@ func (tx *SignedTransaction) TransactionType() uint8 {
 			return TransactionTypeWithdrawalClaim
 		case OutputTypeNodePledge:
 			return TransactionTypeNodePledge
-		case OutputTypeNodeCancel:
-			return TransactionTypeNodeCancel
 		case OutputTypeNodeAccept:
 			return TransactionTypeNodeAccept
 		case OutputTypeNodeRemove:

@@ -100,10 +100,10 @@ func (s *BadgerStore) LockAndPersistTransactions(vers []*common.VersionedTransac
 	})
 }
 
-// batchClaims tracks lock ownership within a single batch commit. A badger
-// transaction does not read its own pending writes, so the per-transaction
-// lock conflict checks must be mirrored in memory to reject two transactions
-// in the same snapshot claiming the same input or ghost key.
+// batchClaims tracks lock ownership within a single batch commit. It rejects
+// conflicting input claims and duplicate ghost keys before transaction bodies
+// are written, including when fork handling permits replacing existing
+// unfinalized transactions.
 type batchClaims struct {
 	utxos    map[string]crypto.Hash
 	deposits map[crypto.Hash]crypto.Hash
@@ -340,8 +340,6 @@ func writeUTXO(txn *badger.Txn, utxo *common.UTXOWithLock, ver *common.Versioned
 	switch utxo.Type {
 	case common.OutputTypeNodePledge:
 		return writeNodePledge(txn, signer, payee, utxo.Hash, timestamp)
-	case common.OutputTypeNodeCancel:
-		return writeNodeCancel(txn, signer, payee, utxo.Hash, timestamp)
 	case common.OutputTypeNodeAccept:
 		return writeNodeAccept(txn, signer, payee, utxo.Hash, timestamp, genesis)
 	case common.OutputTypeNodeRemove:

@@ -99,7 +99,6 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64, old *co
 		switch cn.State {
 		case common.NodeStateAccepted:
 			accepted = append(accepted, cn)
-		case common.NodeStateCancelled:
 		case common.NodeStateRemoved:
 		default:
 			return nil, fmt.Errorf("invalid node pending state %s %s", cn.Signer, cn.State)
@@ -117,7 +116,7 @@ func (node *Node) checkRemovePossibility(nodeId crypto.Hash, now uint64, old *co
 	return candi, nil
 }
 
-func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint64, old *common.VersionedTransaction) (*common.VersionedTransaction, error) {
+func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint64, anchor crypto.Hash, old *common.VersionedTransaction) (*common.VersionedTransaction, error) {
 	candi, err := node.checkRemovePossibility(nodeId, timestamp, old)
 	if err != nil {
 		return nil, err
@@ -152,10 +151,13 @@ func (node *Node) buildNodeRemoveTransaction(nodeId crypto.Hash, timestamp uint6
 	tx.Extra = accept.Extra
 	script := common.NewThresholdScript(1)
 	in := fmt.Sprintf("NODEREMOVE%s", candi.Signer.String())
-	si := crypto.Blake3Hash([]byte(candi.Payee.String() + in))
-	seed := append(si[:], si[:]...)
+	seed := protocolGhostSeed(candi.Payee.String()+in, anchor)
 	tx.AddOutputWithType(common.OutputTypeNodeRemove, []*common.Address{&candi.Payee}, script, accept.Outputs[0].Amount, seed)
-	tx.References = consensusSnap.Transactions
+	if anchor.HasValue() {
+		tx.References = append(append([]crypto.Hash{}, consensusSnap.Transactions...), anchor)
+	} else {
+		tx.References = consensusSnap.Transactions
+	}
 
 	return tx.AsVersioned(), nil
 }
@@ -165,7 +167,14 @@ func (node *Node) tryToSendRemoveTransaction() error {
 	if eid != node.IdForNetwork {
 		return fmt.Errorf("node remove operation at %d only by %s not me", node.GraphTimestamp, eid)
 	}
-	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, node.GraphTimestamp, nil)
+	if node.chain.State.FinalRound == nil {
+		return fmt.Errorf("node %s is not ready", eid)
+	}
+	anchor, err := node.ghostSeedReference(node.GraphTimestamp)
+	if err != nil {
+		return err
+	}
+	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, node.GraphTimestamp, anchor, nil)
 	if err != nil {
 		return err
 	}
@@ -212,7 +221,11 @@ func (node *Node) validateNodeRemoveSnapshot(s *common.Snapshot, tx *common.Vers
 			return nil
 		}
 	}
-	cantx, err := node.buildNodeRemoveTransaction(s.NodeId, timestamp, tx)
+	anchor, err := node.ghostSeedReferenceFromTx(tx.References, timestamp)
+	if err != nil {
+		return err
+	}
+	cantx, err := node.buildNodeRemoveTransaction(s.NodeId, timestamp, anchor, tx)
 	if err != nil {
 		return err
 	}
@@ -370,7 +383,6 @@ func (node *Node) reloadConsensusState(s *common.Snapshot, tx *common.VersionedT
 	}
 	switch tx.TransactionType() {
 	case common.TransactionTypeNodePledge,
-		common.TransactionTypeNodeCancel,
 		common.TransactionTypeNodeAccept,
 		common.TransactionTypeNodeRemove,
 		common.TransactionTypeCustodianUpdateNodes,
@@ -536,7 +548,6 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 		case common.NodeStateAccepted:
 			totalNodes = totalNodes + 1
 		case common.NodeStateRemoved:
-		case common.NodeStateCancelled:
 		default:
 			return fmt.Errorf("invalid node pending state %s %s", cn.Signer, cn.State)
 		}
@@ -545,45 +556,6 @@ func (node *Node) validateNodePledgeSnapshot(s *common.Snapshot, tx *common.Vers
 	if totalNodes >= config.KernelMaximumNodesCount {
 		return fmt.Errorf("maximum kernel nodes count reached because cosi signature mask limit %s", tx.PayloadHash())
 	}
-	// FIXME the node operation lock threshold should be optimized on pledging period
-	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2, finalized)
-}
-
-func (node *Node) validateNodeCancelSnapshot(s *common.Snapshot, tx *common.VersionedTransaction, finalized bool) error {
-	timestamp := s.Timestamp
-	if s.Timestamp == 0 && s.NodeId == node.IdForNetwork {
-		timestamp = clock.NowUnixNano()
-	}
-	if timestamp < node.Epoch {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.Epoch, timestamp)
-	}
-
-	pledging := node.PledgingNode(timestamp)
-	if pledging == nil {
-		return fmt.Errorf("invalid consensus status")
-	}
-
-	if !node.checkConsensusAcceptHour(timestamp) {
-		hour := (timestamp - node.Epoch) / uint64(time.Hour) % 24
-		return fmt.Errorf("invalid node cancel hour %d", hour)
-	}
-
-	threshold := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
-	if !finalized && timestamp+threshold*2 < node.GraphTimestamp {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", node.GraphTimestamp, timestamp)
-	}
-
-	if timestamp < pledging.Timestamp {
-		return fmt.Errorf("invalid snapshot timestamp %d %d", pledging.Timestamp, timestamp)
-	}
-	elapse := time.Duration(timestamp - pledging.Timestamp)
-	if elapse < config.KernelNodeAcceptPeriodMinimum {
-		return fmt.Errorf("invalid cancel period %d %d", config.KernelNodeAcceptPeriodMinimum, elapse)
-	}
-	if elapse > config.KernelNodeAcceptPeriodMaximum {
-		return fmt.Errorf("invalid cancel period %d %d", config.KernelNodeAcceptPeriodMaximum, elapse)
-	}
-
 	// FIXME the node operation lock threshold should be optimized on pledging period
 	return node.persistStore.AddNodeOperation(tx, timestamp, uint64(config.KernelNodePledgePeriodMinimum)*2, finalized)
 }

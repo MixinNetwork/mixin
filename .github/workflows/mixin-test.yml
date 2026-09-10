@@ -17,12 +17,12 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: 1.26
+          go-version: 1.27
 
       - name: Build Mixin
         run: |
@@ -38,4 +38,4 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-latest' }}
         working-directory: .
         run: |
-          CGO_ENABLED=0 MIXIN_TX_SNAPSHOT_TRACE=1 ELECTION=true METRICS=true INPUT=1000 go test -timeout=10m -v ./rpc
+          CGO_ENABLED=0 MIXIN_TX_SNAPSHOT_TRACE=1 ELECTION=true METRICS=true INPUT=1000 go test -timeout=7m -v ./rpc

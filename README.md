@@ -1,28 +1,30 @@
 # Mixin Kernel
 
-Mixin Kernel is a fast distributed ledger for digital assets. It combines a UTXO state model, parallel per-node chains, a cross-referenced directed acyclic graph (DAG), and Byzantine-fault-tolerant collective signatures. The Trusted Execution Environment design is not integrated into this repository.
+Mixin Kernel is a distributed ledger for digital assets. It combines a UTXO state model, parallel per-node chains, a cross-referenced directed acyclic graph (DAG), and collective signatures for Byzantine-fault-tolerant consensus.
 
-Kernel does not wait for a single global block producer. Accepted nodes propose snapshots concurrently, and the active consensus set certifies each post-genesis snapshot with a supermajority signature. A snapshot can commit up to 255 eligible transactions, amortizing the consensus exchange while preserving an independent hash, authorization, validation result, and finalization record for every transaction.
+Accepted nodes propose snapshots concurrently. Post-genesis snapshot certification requires a supermajority under the protocol's membership rules. A snapshot can contain up to 255 eligible transactions; each transaction retains its own payload hash, authorization rules, and finalization record.
 
 The main protocol objects fit together as follows:
 
 ```text
 signed transactions
         ↓
-validated transaction cache
+transaction cache
         ↓
-batched snapshots + collective signatures
+snapshot validation + collective signing
         ↓
 short rounds on each node chain
         ↓
 cross-referenced BFT-DAG + durable UTXO state
 ```
 
-For a complete explanation of the data model, consensus, networking, storage, and recovery paths, read [Mixin Kernel: A Fast BFT-DAG Distributed Ledger](doc/mixin-kernel-technical-paper.md).
+Asset deposits require custodian authorization. Checking external reserves and executing external-chain withdrawals depend on separate custody services.
+
+For the data model, consensus, networking, storage, and recovery paths, read the [technical paper](doc/mixin-kernel-technical-paper.md).
 
 ## Build
 
-Install the Go version declared in [go.mod](go.mod), then build with `make`. The Makefile injects the repository revision into the binary; a plain `go build` intentionally leaves an invalid build version.
+Install the Go version declared in [go.mod](go.mod), then build with `make`. The Makefile embeds the Git commit identifier in the build version; a binary built with plain `go build` refuses to start while the version contains `BUILD_VERSION`. Run `make` from a clean checkout: it restores `config/reader.go` from Git before and after compiling.
 
 ```bash
 git clone https://github.com/MixinNetwork/mixin.git
@@ -35,7 +37,7 @@ The resulting `mixin` binary runs a Kernel node and provides tools for addresses
 
 ## Run a local network
 
-`setuptestnet` creates a fresh seven-node network under `/tmp/mixin-6861` through `/tmp/mixin-6867`. It prints the generated genesis document, network identifier, and test custodian credentials. Those credentials control deposits on that test network; store them if the network will be reused.
+`setuptestnet` generates configuration for a seven-node test network under `/tmp/mixin-6861` through `/tmp/mixin-6867`. It prints the generated genesis document, network identifier, and test custodian credentials. Those credentials authorize deposits on that test network; store them if the network will be reused.
 
 ```bash
 ./mixin setuptestnet
@@ -59,7 +61,7 @@ curl -sS http://127.0.0.1:6861 \
   --data '{"id":"example","method":"getinfo","params":[]}'
 ```
 
-Running `setuptestnet` again replaces the configuration and genesis files in those directories but does not remove existing database contents. Use clean directories when creating a new local network.
+Each invocation of `setuptestnet` overwrites the configuration and genesis files in those directories but leaves database contents in place. Use clean directories for each independent local network.
 
 ## Run a node
 
@@ -77,7 +79,7 @@ Before starting the daemon, edit `config.toml`:
 - Choose unused P2P, RPC, and optional profiling ports.
 - Keep `p2p.relayer = false` on a consensus signer. A public relay may set it to `true` when it is intentionally reachable from the network.
 - Review the seed list and expose the P2P UDP port if the node must accept direct peer connections.
-- Treat RPC and the profiling endpoint as administrative interfaces; restrict them at the host or network boundary.
+- RPC and profiling listen on all interfaces at their configured ports. Restrict access at the host or network boundary; set `dev.port = 0` to disable profiling.
 
 Then start the node:
 
@@ -85,9 +87,9 @@ Then start the node:
 ./mixin kernel --dir "$HOME/mixin"
 ```
 
-The example configuration serves RPC at `http://127.0.0.1:6860`. CLI commands use that endpoint by default. Override it with the global `--node` flag or the `MIXIN_KERNEL_RPC` environment variable.
+With the example configuration, RPC is reachable locally at `http://127.0.0.1:6860`. CLI commands use that endpoint by default. Override it with the global `--node` flag or the `MIXIN_KERNEL_RPC` environment variable.
 
-Joining the consensus set also requires an on-ledger pledge and the automated acceptance sequence. See [Kernel node operations](doc/mixin-kernel-node-operations.md) before configuring a signer.
+Joining the consensus set also requires a 13,439 XIN pledge and the automated acceptance sequence. Acceptance must satisfy the seven-day pledge-to-accept timestamp limit. A finalized pledge has no normal cancellation or refund path; an expired pending pledge also prevents ordinary node removal. A delayed, admissible acceptance certificate with an eligible timestamp can still resolve that state. See [Kernel node operations](doc/mixin-kernel-node-operations.md) before committing a pledge.
 
 ## Addresses
 
@@ -107,7 +109,7 @@ Share the address to receive assets. Keep both private keys secret and backed up
 
 ## Transactions
 
-Transactions use version 5 deterministic binary encoding. An ordinary transfer consumes earlier UTXOs of one asset, creates one or more threshold-script outputs, and is signed over the unsigned payload hash. The following workflow builds and signs a one-input transfer by reading the source UTXO from a node:
+Transactions use version 5 deterministic binary encoding. An ordinary transfer consumes earlier UTXOs of one asset, creates one or more threshold-script outputs, and is signed over the unsigned payload hash. Output amounts must sum exactly to input amounts; the builder requires an explicit change output when needed. The following workflow builds and signs a one-input transfer by reading the source UTXO's public key material from a node:
 
 ```bash
 RAW=$(./mixin --node http://127.0.0.1:6860 buildrawtransaction \
@@ -127,7 +129,9 @@ See [Kernel transactions](doc/mixin-kernel-transactions.md) for the current sche
 
 ## RPC and command groups
 
-The RPC server accepts JSON calls over HTTP `POST /`; `GET /` returns the same node summary as `getinfo`. A successful response contains `data`, while a rejected call contains `error`. The caller-provided `id` is copied into the response.
+The RPC server accepts JSON calls over HTTP `POST /`; `GET /` returns the same node summary as `getinfo`. A successful response contains `data`, while a rejected call contains `error`. Normal method responses echo a nonempty string `id` supplied by the caller.
+
+A successful `sendrawtransaction` response alone does not establish finalization. `gettransaction` includes a `snapshot` field when the queried node records the transaction as finalized. RPC results reflect the selected node's view; applications releasing external funds need an appropriate finality-verification and node-trust policy.
 
 Common CLI groups include:
 
@@ -152,7 +156,7 @@ See [Remote procedure calls](doc/remote-procedure-calls.md) for every RPC method
 | [Technical paper](doc/mixin-kernel-technical-paper.md) | End-to-end architecture and BFT-DAG consensus |
 | [Transactions](doc/mixin-kernel-transactions.md) | Version 5 transaction model, authorization, and validation |
 | [Snapshots](doc/mixin-kernel-snapshots.md) | Version 2 snapshots, batching, finality, rounds, and topology |
-| [Node operations](doc/mixin-kernel-node-operations.md) | Configuration, pledge, acceptance, cancellation, and removal |
+| [Node operations](doc/mixin-kernel-node-operations.md) | Configuration, pledge, acceptance, stake restrictions, and removal |
 | [RPC reference](doc/remote-procedure-calls.md) | HTTP protocol, methods, parameters, and result objects |
 | [Storage](STORAGE.md) | Object storage transactions and retrieval |
 | [Inscription](INSCRIPTION.md) | Inscription data conventions |

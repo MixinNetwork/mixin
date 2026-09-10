@@ -377,6 +377,10 @@ func (store storeImpl) ReadCustodian(_ uint64) (*CustodianUpdateRequest, error) 
 	return &CustodianUpdateRequest{Custodian: store.custodian}, nil
 }
 
+func (store storeImpl) ReadWithdrawalClaim(_ crypto.Hash) (*VersionedTransaction, string, error) {
+	return nil, "", nil
+}
+
 func randomAccount() Address {
 	seed := make([]byte, 64)
 	crypto.ReadRand(seed)

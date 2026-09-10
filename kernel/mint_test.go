@@ -153,7 +153,7 @@ func TestUniversalMintTransaction(t *testing.T) {
 
 	timestamp := clock.NowUnixNano()
 	cur := &common.CustodianUpdateRequest{Custodian: &custodian}
-	versioned = node.buildUniversalMintTransaction(cur, timestamp, false)
+	versioned = node.buildUniversalMintTransaction(cur, timestamp, crypto.Hash{}, false)
 	require.NotNil(versioned)
 
 	amount = common.NewIntegerFromString("89.87671232")
@@ -289,7 +289,8 @@ func TestMintWorks(t *testing.T) {
 	require.Nil(err)
 	require.Equal(uint64(1), offset)
 
-	timestamp = uint64(clock.Now().Add(24 * time.Hour).UnixNano())
+	clock.MockDiff(24 * time.Hour)
+	timestamp = clock.NowUnixNano()
 	snapshots = testBuildMintSnapshots(signers[1:], 2, timestamp)
 	err = node.persistStore.WriteRoundWork(node.IdForNetwork, 2, snapshots[:10], true)
 	require.Nil(err)

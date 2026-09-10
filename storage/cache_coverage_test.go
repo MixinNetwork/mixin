@@ -73,12 +73,15 @@ func TestCacheStoreTransactionRemainsUnqueuedUntilExplicitlyQueued(t *testing.T)
 	require.NoError(t, err)
 	require.Equal(t, tx.Marshal(), cached.Marshal())
 
-	// Explicit queueing adds scheduling records and refreshes the envelope.
+	// Explicit queueing adds scheduling records but never replaces the
+	// existing envelope, so a same-payload envelope with different
+	// authorization cannot displace the first cached copy.
 	require.NoError(t, store.CacheQueueTransaction(replacement))
 	retrieved, err = store.CacheRetrieveTransactions(1)
 	require.NoError(t, err)
 	require.Len(t, retrieved, 1)
-	require.Equal(t, replacement.Marshal(), retrieved[0].Marshal())
+	require.Equal(t, tx.Marshal(), retrieved[0].Marshal())
+	require.NotEqual(t, replacement.Marshal(), retrieved[0].Marshal())
 
 	retrieved, err = store.CacheRetrieveTransactions(1)
 	require.NoError(t, err)

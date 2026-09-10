@@ -87,8 +87,6 @@ func (s *BadgerStore) AddNodeOperation(tx *common.VersionedTransaction, timestam
 	switch tx.TransactionType() {
 	case common.TransactionTypeNodePledge:
 		op = "PLEDGE"
-	case common.TransactionTypeNodeCancel:
-		op = "CANCEL"
 	}
 	if op == "" {
 		return fmt.Errorf("invalid operation %d %s", tx.TransactionType(), op)
@@ -144,22 +142,6 @@ func readLastNodeOperation(txn *badger.Txn) (string, crypto.Hash, uint64, error)
 	return "", hash, timestamp, nil
 }
 
-func writeNodeCancel(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
-	offset := timestamp + uint64(config.KernelNodeAcceptPeriodMinimum)
-	nodes := readAllNodes(txn, offset, true)
-	last := nodes[len(nodes)-1]
-	if last.State != common.NodeStatePledging {
-		return fmt.Errorf("node %s is %s@%d while tx %s", last.Signer, last.State, last.Timestamp, tx.String())
-	}
-	if last.Signer.PublicSpendKey != signer || last.Payee.PublicSpendKey != payee {
-		return fmt.Errorf("node %s %s not match at pledging", last.Signer.PublicSpendKey, signer)
-	}
-
-	key := nodeStateQueueKey(signer, timestamp)
-	val := nodeEntryValue(payee, tx, common.NodeStateCancelled)
-	return txn.Set(key, val)
-}
-
 func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, timestamp uint64) error {
 	offset := timestamp + uint64(config.KernelNodeAcceptPeriodMinimum)
 	nodes := readAllNodes(txn, offset, true)
@@ -167,7 +149,6 @@ func writeNodeRemove(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 	switch last.State {
 	case common.NodeStateAccepted:
 	case common.NodeStateRemoved:
-	case common.NodeStateCancelled:
 	default:
 		return fmt.Errorf("node %s is %s@%d while tx %s", last.Signer, last.State, last.Timestamp, tx.String())
 	}
@@ -218,7 +199,6 @@ func writeNodePledge(txn *badger.Txn, signer, payee crypto.Key, tx crypto.Hash, 
 		switch n.State {
 		case common.NodeStateAccepted:
 		case common.NodeStateRemoved:
-		case common.NodeStateCancelled:
 		default:
 			return fmt.Errorf("node %s is %s@%d while tx %s", n.Signer, n.State, n.Timestamp, tx.String())
 		}

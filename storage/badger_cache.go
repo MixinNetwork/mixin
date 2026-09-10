@@ -149,10 +149,15 @@ func (s *BadgerStore) cacheQueueTransaction(tx *common.VersionedTransaction) err
 	}
 
 	key = cacheTransactionCacheKey(hash)
-	val := tx.Marshal()
-	etr = badger.NewEntry(key, val).WithTTL(time.Duration(s.custom.Node.CacheTTL+60) * time.Second)
-	err = txn.SetEntry(etr)
-	if err != nil {
+	_, err = txn.Get(key)
+	if err == badger.ErrKeyNotFound {
+		val := tx.Marshal()
+		etr = badger.NewEntry(key, val).WithTTL(time.Duration(s.custom.Node.CacheTTL+60) * time.Second)
+		err = txn.SetEntry(etr)
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
 		return err
 	}
 

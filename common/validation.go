@@ -64,36 +64,44 @@ func (ver *VersionedTransaction) Validate(store DataStore, snapTime uint64, fork
 	if inputAmount.Sign() <= 0 {
 		return fmt.Errorf("invalid input amount %s", inputAmount)
 	}
-	err = tx.validateOutputs(store, ver.PayloadHash(), inputAmount, fork)
+
+	outputAmount, ghostKeys, err := tx.validateOutputs()
 	if err != nil {
 		return err
+	}
+	if inputAmount.Cmp(outputAmount) != 0 {
+		return fmt.Errorf("invalid input output amount %s %s", inputAmount, outputAmount)
 	}
 
 	switch txType {
 	case TransactionTypeScript:
-		return validateScriptTransaction(inputsFilter)
+		err = validateScriptTransaction(inputsFilter)
 	case TransactionTypeMint:
-		return ver.validateMint(store)
+		err = ver.validateMint(store)
 	case TransactionTypeDeposit:
-		return tx.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap, snapTime)
+		err = tx.validateDeposit(store, ver.PayloadHash(), ver.SignaturesMap, snapTime)
 	case TransactionTypeWithdrawalSubmit:
-		return tx.validateWithdrawalSubmit(inputsFilter)
+		err = tx.validateWithdrawalSubmit(inputsFilter)
 	case TransactionTypeWithdrawalClaim:
-		return tx.validateWithdrawalClaim(store, inputsFilter, snapTime)
+		err = tx.validateWithdrawalClaim(store, inputsFilter, snapTime, fork)
 	case TransactionTypeNodePledge:
-		return tx.validateNodePledge(store, inputsFilter, snapTime)
-	case TransactionTypeNodeCancel:
-		return tx.validateNodeCancel(store, ver.PayloadHash(), ver.SignaturesMap, snapTime)
+		err = tx.validateNodePledge(store, inputsFilter, snapTime)
 	case TransactionTypeNodeAccept:
-		return tx.validateNodeAccept(store, ver.PayloadHash(), ver.SignaturesMap, snapTime)
+		err = tx.validateNodeAccept(store, ver.PayloadHash(), ver.SignaturesMap, snapTime)
 	case TransactionTypeNodeRemove:
-		return tx.validateNodeRemove(store)
+		err = tx.validateNodeRemove(store)
 	case TransactionTypeCustodianUpdateNodes:
-		return tx.validateCustodianUpdateNodes(store, snapTime)
+		err = tx.validateCustodianUpdateNodes(store, snapTime)
 	case TransactionTypeCustodianSlashNodes:
-		return tx.validateCustodianSlashNodes(store)
+		err = tx.validateCustodianSlashNodes(store)
+	default:
+		return fmt.Errorf("invalid transaction type %d", txType)
 	}
-	return fmt.Errorf("invalid transaction type %d", txType)
+	if err != nil {
+		return err
+	}
+	// Persist ghost locks only after all validation checks have passed.
+	return store.LockGhostKeys(ghostKeys, ver.PayloadHash(), fork)
 }
 
 func (tx *SignedTransaction) GetExtraLimit() int {
@@ -116,6 +124,9 @@ func (tx *SignedTransaction) GetExtraLimit() int {
 	}
 	step := NewIntegerFromString(ExtraStoragePriceStep)
 	if out.Amount.Cmp(step) < 0 {
+		return ExtraSizeGeneralLimit
+	}
+	if out.Amount.Cmp(GetAssetCapacity(tx.Asset)) > 0 {
 		return ExtraSizeGeneralLimit
 	}
 	cells := out.Amount.Count(step)
@@ -250,26 +261,25 @@ func (tx *SignedTransaction) validateInputs(store UTXOLockReader, hash crypto.Ha
 	return inputsFilter, inputAmount, nil
 }
 
-func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, inputAmount Integer, fork bool) error {
+func (tx *Transaction) validateOutputs() (Integer, []*crypto.Key, error) {
 	outputAmount := NewInteger(0)
 	ghostKeysFilter := make(map[crypto.Key]bool)
 	ghostKeys := make([]*crypto.Key, 0)
 	for _, o := range tx.Outputs {
 		if len(o.Keys) > SliceCountLimit {
-			return fmt.Errorf("invalid output keys count %d", len(o.Keys))
+			return Zero, nil, fmt.Errorf("invalid output keys count %d", len(o.Keys))
 		}
 		if o.Amount.Sign() <= 0 {
-			return fmt.Errorf("invalid output amount %s", o.Amount.String())
+			return Zero, nil, fmt.Errorf("invalid output amount %s", o.Amount.String())
 		}
 
 		for _, k := range o.Keys {
 			if ghostKeysFilter[*k] {
-				return fmt.Errorf("invalid output key %s", k.String())
+				return Zero, nil, fmt.Errorf("invalid output key %s", k.String())
 			}
 			ghostKeysFilter[*k] = true
 			if !k.CheckKey() {
-				return fmt.Errorf("invalid output key format %s", k.String())
-
+				return Zero, nil, fmt.Errorf("invalid output key format %s", k.String())
 			}
 			ghostKeys = append(ghostKeys, k)
 		}
@@ -278,43 +288,35 @@ func (tx *Transaction) validateOutputs(store GhostLocker, hash crypto.Hash, inpu
 		case OutputTypeWithdrawalSubmit,
 			OutputTypeWithdrawalClaim,
 			OutputTypeNodePledge,
-			OutputTypeNodeCancel,
 			OutputTypeNodeAccept:
 			if len(o.Keys) != 0 {
-				return fmt.Errorf("invalid output keys count %d for kernel multisig transaction", len(o.Keys))
+				return Zero, nil, fmt.Errorf("invalid output keys count %d for kernel multisig transaction", len(o.Keys))
 			}
 			if len(o.Script) != 0 {
-				return fmt.Errorf("invalid output script %s for kernel multisig transaction", o.Script)
+				return Zero, nil, fmt.Errorf("invalid output script %s for kernel multisig transaction", o.Script)
 			}
 			if o.Mask.HasValue() {
-				return fmt.Errorf("invalid output empty mask %s for kernel multisig transaction", o.Mask)
+				return Zero, nil, fmt.Errorf("invalid output empty mask %s for kernel multisig transaction", o.Mask)
 			}
 		default:
 			err := o.Script.VerifyFormat()
 			if err != nil {
-				return err
+				return Zero, nil, err
 			}
 			if !o.Mask.HasValue() {
-				return fmt.Errorf("invalid script output empty mask %s", o.Mask)
+				return Zero, nil, fmt.Errorf("invalid script output empty mask %s", o.Mask)
 			}
 			if !o.Mask.CheckKey() {
-				return fmt.Errorf("invalid output mask format %s", o.Mask)
+				return Zero, nil, fmt.Errorf("invalid output mask format %s", o.Mask)
 			}
 			if o.Withdrawal != nil {
-				return fmt.Errorf("invalid script output with withdrawal %s", o.Withdrawal.Address)
+				return Zero, nil, fmt.Errorf("invalid script output with withdrawal %s", o.Withdrawal.Address)
 			}
 		}
 		outputAmount = outputAmount.Add(o.Amount)
 	}
 
-	if inputAmount.Cmp(outputAmount) != 0 {
-		return fmt.Errorf("invalid input output amount %s %s", inputAmount, outputAmount)
-	}
-	err := store.LockGhostKeys(ghostKeys, hash, fork)
-	if err != nil {
-		return err
-	}
-	return nil
+	return outputAmount, ghostKeys, nil
 }
 
 func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, as *AggregatedSignature, txType uint8, keySigs map[*crypto.Key]*crypto.Signature, offset int) error {
@@ -337,6 +339,9 @@ func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, as
 			}
 			return utxo.Script.Validate(signers)
 		} else {
+			if index >= len(sigs) {
+				return fmt.Errorf("invalid signature map count %d %d", len(sigs), index)
+			}
 			for i, sig := range sigs[index] {
 				if int(i) >= len(utxo.Keys) {
 					return fmt.Errorf("invalid signature map index %d %d", i, len(utxo.Keys))
@@ -346,7 +351,7 @@ func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, as
 			return utxo.Script.Validate(len(sigs[index]))
 		}
 	case OutputTypeNodePledge:
-		if txType == TransactionTypeNodeAccept || txType == TransactionTypeNodeCancel {
+		if txType == TransactionTypeNodeAccept {
 			return nil
 		}
 		return fmt.Errorf("pledge input used for invalid transaction type %d", txType)
@@ -355,8 +360,6 @@ func validateUTXO(index int, utxo *UTXO, sigs []map[uint16]*crypto.Signature, as
 			return nil
 		}
 		return fmt.Errorf("accept input used for invalid transaction type %d", txType)
-	case OutputTypeNodeCancel:
-		return fmt.Errorf("should do more validation on those %d UTXOs", utxo.Type)
 	default:
 		return fmt.Errorf("invalid input type %d", utxo.Type)
 	}

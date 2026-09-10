@@ -56,7 +56,7 @@ func TestNodeRemovePossibility(t *testing.T) {
 	require.NotNil(candi)
 	require.Equal("009234939f0f8f9495f611c713ec61358262ecf6ec742671addfcce5350c1d23", candi.IdForNetwork.String())
 
-	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, uint64(now.UnixNano()), nil)
+	tx, err := node.buildNodeRemoveTransaction(node.IdForNetwork, uint64(now.UnixNano()), crypto.Hash{}, nil)
 	require.Nil(err)
 	require.NotNil(tx)
 	require.Equal("d0d8438bf584c5bdbd9587a1bf034c6417d1599cf6ba023a0362cdc697109aaa", tx.PayloadHash().String())
@@ -93,7 +93,7 @@ ring-final-size = 16384
 listener = "mixin-node.example.com:7239"`)
 
 func setupTestNode(require *require.Assertions, dir string) *Node {
-	err := os.WriteFile(dir+"/config.toml", configData, 0644)
+	err := os.WriteFile(dir+"/config.toml", configData, 0o600)
 	require.Nil(err)
 
 	data, err := os.ReadFile("../config/genesis.json")

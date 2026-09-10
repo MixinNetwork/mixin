@@ -12,6 +12,15 @@ import (
 	"github.com/MixinNetwork/mixin/logger"
 )
 
+// chainGraphSnapshot holds value copies of the fields exposed by BuildGraph.
+// A published snapshot is never mutated or returned directly to callers.
+type chainGraphSnapshot struct {
+	Hash       crypto.Hash
+	Number     uint64
+	FinalIndex int
+	FinalCount int
+}
+
 func (chain *Chain) startNewRoundAndPersist(cache *CacheRound, references *common.RoundLink, timestamp uint64, finalized bool) (*CacheRound, *FinalRound, bool, error) {
 	dummyExternal := cache.References.External
 	final, dummy, err := chain.validateNewRound(cache, references, timestamp, finalized)
@@ -103,9 +112,11 @@ func (chain *Chain) updateEmptyHeadRoundAndPersist(final *FinalRound, cache *Cac
 
 func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, roundTime uint64, strict bool) error {
 	if final.NodeId == external.NodeId {
+		// TODO slash the malicious node
 		return fmt.Errorf("external reference self %s", final.NodeId)
 	}
 	if external.Number < chain.State.RoundLinks[external.NodeId] {
+		// TODO slash the malicious node
 		return fmt.Errorf("external reference back link %d %d",
 			external.Number, chain.State.RoundLinks[external.NodeId])
 	}
@@ -136,6 +147,17 @@ func (chain *Chain) updateExternal(final *FinalRound, external *common.Round, ro
 	return nil
 }
 
+// publishGraphSnapshot runs after consensus processing has updated the round
+// and pool counters, so readers observe those values together.
+func (chain *Chain) publishGraphSnapshot(final *FinalRound) {
+	chain.graphSnapshot.Store(&chainGraphSnapshot{
+		Hash:       final.Hash,
+		Number:     final.Number,
+		FinalIndex: chain.FinalIndex,
+		FinalCount: chain.FinalCount,
+	})
+}
+
 func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 	if chain.ChainId != cache.NodeId {
 		panic("should never be here")
@@ -159,6 +181,7 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 	rounds := chain.State.RoundHistory
 	if n := rounds[len(rounds)-1].Number; n == final.Number {
 		logger.Debugf("graph skip round %s %s %d\n", chain.node.IdForNetwork, chain.ChainId, final.Number)
+		chain.publishGraphSnapshot(final)
 		return
 	} else if n+1 != final.Number {
 		panic(fmt.Errorf("should never be here %s %d %d", final.NodeId, final.Number, n))
@@ -167,6 +190,7 @@ func (chain *Chain) assignNewGraphRound(final *FinalRound, cache *CacheRound) {
 	chain.StepForward()
 	rounds = append(rounds, final.Copy())
 	chain.State.RoundHistory = reduceHistory(rounds)
+	chain.publishGraphSnapshot(final)
 	// A new round on this chain can unblock announcements and challenges on
 	// other chains that were waiting to reference it.
 	chain.node.wakeAllChains()
@@ -362,7 +386,8 @@ func (chain *Chain) verifyFinalization(s *common.Snapshot) ([]crypto.Hash, bool)
 	if s.Hash.String() == mainnetNodeRemovalHackSnapshotHash {
 		timestamp = timestamp - uint64(time.Minute)
 	}
-	if timestamp < chain.node.Epoch {
+	clockTs := config.SnapshotRoundGap * config.SnapshotReferenceThreshold
+	if timestamp < chain.node.Epoch || timestamp > clock.NowUnixNano()+clockTs {
 		// TODO slash the malicious node
 		return nil, false
 	}
@@ -439,7 +464,6 @@ func (node *Node) readSnapshotForTransaction(h crypto.Hash) *common.Snapshot {
 func (node *Node) WriteConsensusSnapshotWithHack(snap *common.Snapshot, tx *common.VersionedTransaction) error {
 	switch tx.TransactionType() {
 	case common.TransactionTypeNodePledge,
-		common.TransactionTypeNodeCancel,
 		common.TransactionTypeNodeAccept,
 		common.TransactionTypeNodeRemove,
 		common.TransactionTypeMint,

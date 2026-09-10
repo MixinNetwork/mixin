@@ -11,10 +11,16 @@ func testCosiKey(seed byte) Key {
 	return NewKeyFromSeed(bytes.Repeat([]byte{seed}, 64))
 }
 
-func testCosiAggregateCommitment(t *testing.T, commitments map[int]*Key) *CosiSignature {
+func testCosiCommitmentPair(seed byte) *CosiCommitment {
+	r1 := testCosiKey(seed)
+	r2 := testCosiKey(seed + 100)
+	return &CosiCommitment{rPub1: r1.Public(), rPub2: r2.Public()}
+}
+
+func testCosiAggregateCommitment(t *testing.T, commitments map[int]*CosiCommitment, publics []*Key, message Hash) *CosiSignature {
 	t.Helper()
 
-	signature, err := CosiAggregateCommitment(commitments)
+	signature, err := CosiAggregateCommitment(commitments, publics, message)
 	require.NoError(t, err)
 	return signature
 }
@@ -23,17 +29,19 @@ func TestCosiNonceIdenticalRetry(t *testing.T) {
 	private := testCosiKey(1)
 	public := private.Public()
 	publics := []*Key{&public}
-	random := testCosiKey(2)
-	nonce := newCosiNonce(&random)
-	commitment := nonce.Public()
-	signature := testCosiAggregateCommitment(t, map[int]*Key{0: &commitment})
+	random1 := testCosiKey(2)
+	random2 := testCosiKey(102)
+	nonce := newCosiNonce(&random1, &random2)
 	message := Blake3Hash([]byte("identical cosi challenge"))
+	signature := testCosiAggregateCommitment(t, map[int]*CosiCommitment{0: nonce.Public()}, publics, message)
 
 	first, err := nonce.Response(signature, &private, publics, message)
 	require.NoError(t, err)
 	require.NoError(t, signature.VerifyResponse(publics, 0, first, message))
-	require.Nil(t, nonce.state.random)
-	require.Equal(t, Key{}, random)
+	require.Nil(t, nonce.state.random1)
+	require.Nil(t, nonce.state.random2)
+	require.Equal(t, Key{}, random1)
+	require.Equal(t, Key{}, random2)
 
 	retry, err := nonce.Response(signature, &private, publics, message)
 	require.NoError(t, err)
@@ -46,20 +54,20 @@ func TestCosiNonceRejectsDifferentChallenge(t *testing.T) {
 	public := private.Public()
 	peerPublic := testCosiKey(4).Public()
 	publics := []*Key{&public, &peerPublic}
-	random := testCosiKey(5)
-	nonce := newCosiNonce(&random)
-	commitment := nonce.Public()
-	peerRandom1 := testCosiKey(6).Public()
-	peerRandom2 := testCosiKey(7).Public()
-	firstSignature := testCosiAggregateCommitment(t, map[int]*Key{
-		0: &commitment,
-		1: &peerRandom1,
-	})
-	secondSignature := testCosiAggregateCommitment(t, map[int]*Key{
-		0: &commitment,
-		1: &peerRandom2,
-	})
+	random1 := testCosiKey(5)
+	random2 := testCosiKey(105)
+	nonce := newCosiNonce(&random1, &random2)
+	peerRandom1 := testCosiCommitmentPair(6)
+	peerRandom2 := testCosiCommitmentPair(7)
 	message := Blake3Hash([]byte("different cosi challenges"))
+	firstSignature := testCosiAggregateCommitment(t, map[int]*CosiCommitment{
+		0: nonce.Public(),
+		1: peerRandom1,
+	}, publics, message)
+	secondSignature := testCosiAggregateCommitment(t, map[int]*CosiCommitment{
+		0: nonce.Public(),
+		1: peerRandom2,
+	}, publics, message)
 
 	firstChallenge, err := firstSignature.Challenge(publics, message)
 	require.NoError(t, err)
@@ -81,16 +89,16 @@ func TestCosiNonceConcurrentChallenges(t *testing.T) {
 	public := private.Public()
 	peerPublic := testCosiKey(9).Public()
 	publics := []*Key{&public, &peerPublic}
-	random := testCosiKey(10)
-	nonce := newCosiNonce(&random)
-	commitment := nonce.Public()
-	peerRandom1 := testCosiKey(11).Public()
-	peerRandom2 := testCosiKey(12).Public()
-	signatures := []*CosiSignature{
-		testCosiAggregateCommitment(t, map[int]*Key{0: &commitment, 1: &peerRandom1}),
-		testCosiAggregateCommitment(t, map[int]*Key{0: &commitment, 1: &peerRandom2}),
-	}
+	random1 := testCosiKey(10)
+	random2 := testCosiKey(110)
+	nonce := newCosiNonce(&random1, &random2)
+	peerRandom1 := testCosiCommitmentPair(11)
+	peerRandom2 := testCosiCommitmentPair(12)
 	message := Blake3Hash([]byte("concurrent cosi challenges"))
+	signatures := []*CosiSignature{
+		testCosiAggregateCommitment(t, map[int]*CosiCommitment{0: nonce.Public(), 1: peerRandom1}, publics, message),
+		testCosiAggregateCommitment(t, map[int]*CosiCommitment{0: nonce.Public(), 1: peerRandom2}, publics, message),
+	}
 
 	type result struct {
 		signature *CosiSignature
@@ -130,21 +138,21 @@ func TestCosiNonceCopiesShareState(t *testing.T) {
 	public := private.Public()
 	peerPublic := testCosiKey(14).Public()
 	publics := []*Key{&public, &peerPublic}
-	random := testCosiKey(15)
-	nonce := newCosiNonce(&random)
+	random1 := testCosiKey(15)
+	random2 := testCosiKey(115)
+	nonce := newCosiNonce(&random1, &random2)
 	nonceCopy := *nonce
-	commitment := nonce.Public()
-	peerRandom1 := testCosiKey(16).Public()
-	peerRandom2 := testCosiKey(17).Public()
-	firstSignature := testCosiAggregateCommitment(t, map[int]*Key{
-		0: &commitment,
-		1: &peerRandom1,
-	})
-	secondSignature := testCosiAggregateCommitment(t, map[int]*Key{
-		0: &commitment,
-		1: &peerRandom2,
-	})
+	peerRandom1 := testCosiCommitmentPair(16)
+	peerRandom2 := testCosiCommitmentPair(17)
 	message := Blake3Hash([]byte("copied cosi nonce handle"))
+	firstSignature := testCosiAggregateCommitment(t, map[int]*CosiCommitment{
+		0: nonce.Public(),
+		1: peerRandom1,
+	}, publics, message)
+	secondSignature := testCosiAggregateCommitment(t, map[int]*CosiCommitment{
+		0: nonce.Public(),
+		1: peerRandom2,
+	}, publics, message)
 
 	response, err := nonce.Response(firstSignature, &private, publics, message)
 	require.NoError(t, err)

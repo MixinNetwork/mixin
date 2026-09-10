@@ -109,7 +109,6 @@ func TestTransactionFinalizationAndOutputBranches(t *testing.T) {
 		err := store.snapshotsDB.Update(func(txn *badger.Txn) error {
 			for i, typ := range []uint8{
 				common.OutputTypeNodePledge,
-				common.OutputTypeNodeCancel,
 				common.OutputTypeNodeAccept,
 				common.OutputTypeNodeRemove,
 			} {

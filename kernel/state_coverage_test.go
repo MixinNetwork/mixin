@@ -498,50 +498,6 @@ func TestElectionTransitionGuards(t *testing.T) {
 		require.ErrorContains(t, node.validateNodeAcceptSnapshot(snapshot, nil, false), "invalid snapshot round")
 	})
 
-	t.Run("node cancellation timing", func(t *testing.T) {
-		cancelSnapshot := func(timestamp uint64) *common.Snapshot {
-			return &common.Snapshot{NodeId: chainID, Timestamp: timestamp}
-		}
-		withPledgingNode := func(epoch, graphTimestamp, pledgingTimestamp uint64) *Node {
-			pledging := &CNode{
-				IdForNetwork: chainID,
-				State:        common.NodeStatePledging,
-				Timestamp:    pledgingTimestamp,
-			}
-			return &Node{
-				Epoch:          epoch,
-				GraphTimestamp: graphTimestamp,
-				nodeStateSequences: []*NodeStateSequence{{
-					Timestamp:         1,
-					NodesWithoutState: []*CNode{pledging},
-				}},
-			}
-		}
-
-		node := &Node{Epoch: 100}
-		require.ErrorContains(t, node.validateNodeCancelSnapshot(cancelSnapshot(50), nil, false), "invalid snapshot timestamp")
-
-		timestamp := uint64(14 * time.Hour)
-		node = &Node{}
-		require.ErrorContains(t, node.validateNodeCancelSnapshot(cancelSnapshot(timestamp), nil, false), "invalid consensus status")
-
-		node = withPledgingNode(0, 0, 1)
-		require.ErrorContains(t, node.validateNodeCancelSnapshot(cancelSnapshot(uint64(11*time.Hour)), nil, false), "invalid node cancel hour")
-
-		staleGraph := timestamp + config.SnapshotRoundGap*config.SnapshotReferenceThreshold*2 + 1
-		node = withPledgingNode(0, staleGraph, 1)
-		require.ErrorContains(t, node.validateNodeCancelSnapshot(cancelSnapshot(timestamp), nil, false), "invalid snapshot timestamp")
-
-		node = withPledgingNode(0, 0, timestamp+1)
-		require.ErrorContains(t, node.validateNodeCancelSnapshot(cancelSnapshot(timestamp), nil, false), "invalid snapshot timestamp")
-
-		node = withPledgingNode(0, 0, timestamp-uint64(time.Hour))
-		require.ErrorContains(t, node.validateNodeCancelSnapshot(cancelSnapshot(timestamp), nil, false), "invalid cancel period")
-
-		lateTimestamp := uint64(10*24*time.Hour + 14*time.Hour)
-		node = withPledgingNode(0, 0, uint64(time.Hour))
-		require.ErrorContains(t, node.validateNodeCancelSnapshot(cancelSnapshot(lateTimestamp), nil, false), "invalid cancel period")
-	})
 }
 
 func TestKernelSnapshotBatchGuards(t *testing.T) {
@@ -766,14 +722,11 @@ func TestUnknownSnapshotNodeDoesNotCreateCosiChain(t *testing.T) {
 	}
 
 	announcement := newSnapshot()
-	commitment := node.Signer.PublicViewKey
-	data := append(append([]byte(nil), commitment[:]...), announcement.VersionedMarshal()...)
-	signature := node.Signer.PrivateSpendKey.Sign(crypto.Blake3Hash(data))
+	commitment := crypto.NewCosiCommitment(node.Signer.PublicViewKey, node.Signer.PublicViewKey)
 	require.NoError(node.CosiQueueExternalAnnouncement(
 		node.IdForNetwork,
 		announcement,
 		&commitment,
-		&signature,
 	))
 	require.Nil(node.getChain(unknown))
 
@@ -964,8 +917,8 @@ func TestNodeStateAndQueueHelpers(t *testing.T) {
 	require.Equal(t, b, node.GetAcceptedOrPledgingNode(b).IdForNetwork)
 	require.Equal(t, 0, node.GetAcceptedOrPledgingNode(b).ConsensusIndex)
 	require.Nil(t, node.GetAcceptedOrPledgingNode(a))
-	require.Equal(t, a, node.GetRemovedOrCancelledNode(a, 45).IdForNetwork)
-	require.Nil(t, node.GetRemovedOrCancelledNode(b, 45))
+	require.Equal(t, a, node.GetRemovedNode(a, 45).IdForNetwork)
+	require.Nil(t, node.GetRemovedNode(b, 45))
 
 	require.False(t, node.ConsensusReady(&CNode{IdForNetwork: a, State: common.NodeStatePledging}, 100))
 	require.True(t, node.ConsensusReady(&CNode{IdForNetwork: a, State: common.NodeStateAccepted}, 100))
@@ -994,7 +947,6 @@ func TestNodeStateAndQueueHelpers(t *testing.T) {
 	pledgingTimestamp := uint64(config.KernelNodeAcceptPeriodMinimum) + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*3 + 1
 	require.Equal(t, config.KernelMinimumNodesCount*2/3+1, thresholdNode.ConsensusThreshold(pledgingTimestamp, false))
 	require.Equal(t, 1000, thresholdNode.ConsensusThreshold(pledgingTimestamp, true))
-	require.Equal(t, uint8(common.SnapshotVersionCommonEncoding), node.SnapshotVersion())
 	require.Equal(t, common.XINAssetId, node.NewTransaction(common.XINAssetId).Asset)
 
 	t.Run("synchronized map returns a snapshot", func(t *testing.T) {
@@ -1022,9 +974,9 @@ func TestNodeStateAndQueueHelpers(t *testing.T) {
 		node.acceptedNodeStateSequences = []*NodeStateSequence{{Timestamp: 1, NodesWithoutState: consensusNodes}}
 		node.genesisNodesMap = genesis
 		node.chain.State.FinalRound = &FinalRound{}
-		node.SyncPointsMap = make(map[crypto.Hash]*p2p.SyncPoint)
+		node.SyncPoints = &syncMap{mutex: new(sync.RWMutex), m: make(map[crypto.Hash]*p2p.SyncPoint)}
 		for _, cn := range node.NodesListWithoutState(clock.NowUnixNano(), true) {
-			node.SyncPointsMap[cn.IdForNetwork] = &p2p.SyncPoint{}
+			node.SyncPoints.Set(cn.IdForNetwork, &p2p.SyncPoint{})
 		}
 		require.True(t, node.canProposeSnapshot(all))
 		require.False(t, node.canProposeSnapshot(all[1:]))
@@ -1036,9 +988,8 @@ func TestNodeStateAndQueueHelpers(t *testing.T) {
 			c: {},
 		}}
 		node.chain.node = node
-		leading, filter := node.filterLeadingNodes([]*CNode{{IdForNetwork: a}, {IdForNetwork: b}, {IdForNetwork: c}})
+		leading := node.filterLeadingNodes([]*CNode{{IdForNetwork: a}, {IdForNetwork: b}, {IdForNetwork: c}})
 		require.Equal(t, []*CNode{{IdForNetwork: a}}, leading)
-		require.Equal(t, map[crypto.Hash]bool{a: true}, filter)
 	})
 
 	t.Run("node completion signal", func(t *testing.T) {

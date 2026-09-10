@@ -43,7 +43,7 @@ func (k Key) CheckKey() bool {
 func (k Key) Public() Key {
 	x, err := edwards25519.NewScalar().SetCanonicalBytes(k[:])
 	if err != nil {
-		panic(k.String())
+		panic(k.String()[:8])
 	}
 	v := edwards25519.NewIdentityPoint().ScalarBaseMult(x)
 	var tmp Key
@@ -68,7 +68,7 @@ func KeyMultPubPriv(pub, priv *Key) *edwards25519.Point {
 	}
 	x, err := edwards25519.NewScalar().SetCanonicalBytes(priv[:])
 	if err != nil {
-		panic(priv.String())
+		panic(priv.String()[:8])
 	}
 
 	v := edwards25519.NewIdentityPoint().ScalarMult(x, q)

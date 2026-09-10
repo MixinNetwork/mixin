@@ -146,12 +146,16 @@ func (node *Node) tryToMintUniversal(custodianRequest *common.CustodianUpdateReq
 	if eid != node.IdForNetwork {
 		return fmt.Errorf("universal mint operation at %d only by %s not me", node.GraphTimestamp, eid)
 	}
-	signed := node.buildUniversalMintTransaction(custodianRequest, node.GraphTimestamp, false)
+	anchor, err := node.ghostSeedReference(node.GraphTimestamp)
+	if err != nil {
+		return err
+	}
+	signed := node.buildUniversalMintTransaction(custodianRequest, node.GraphTimestamp, anchor, false)
 	if signed == nil {
 		return nil
 	}
 
-	err := signed.SignInput(node.persistStore, 0, []*common.Address{&node.Signer})
+	err = signed.SignInput(node.persistStore, 0, []*common.Address{&node.Signer})
 	if err != nil {
 		return err
 	}
@@ -173,7 +177,7 @@ func (node *Node) tryToMintUniversal(custodianRequest *common.CustodianUpdateReq
 	return node.chain.AppendSelfEmpty(s)
 }
 
-func (node *Node) buildUniversalMintTransaction(custodianRequest *common.CustodianUpdateRequest, timestamp uint64, validateOnly bool) *common.VersionedTransaction {
+func (node *Node) buildUniversalMintTransaction(custodianRequest *common.CustodianUpdateRequest, timestamp uint64, anchor crypto.Hash, validateOnly bool) *common.VersionedTransaction {
 	batch, amount := node.checkUniversalMintPossibility(timestamp, validateOnly)
 	if amount.Sign() <= 0 || batch <= KernelNetworkLegacyEnding {
 		return nil
@@ -190,13 +194,16 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 	consensusSnap, _ := node.ReadLastConsensusSnapshotWithHack()
 	tx := node.NewTransaction(common.XINAssetId)
 	tx.AddUniversalMintInput(uint64(batch), amount)
-	tx.References = consensusSnap.Transactions
+	if anchor.HasValue() {
+		tx.References = append(append([]crypto.Hash{}, consensusSnap.Transactions...), anchor)
+	} else {
+		tx.References = consensusSnap.Transactions
+	}
 
 	total := common.NewInteger(0)
 	for _, m := range mints {
 		in := fmt.Sprintf("MINTKERNELNODE%d", batch)
-		si := crypto.Blake3Hash([]byte(m.Signer.String() + in))
-		seed := append(si[:], si[:]...)
+		seed := protocolGhostSeed(m.Signer.String()+in, anchor)
 		script := common.NewThresholdScript(1)
 		tx.AddScriptOutput([]*common.Address{&m.Payee}, script, m.Work, seed)
 		total = total.Add(m.Work)
@@ -208,8 +215,7 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 	safe := amount.Div(10).Mul(4)
 	custodian := custodianRequest.Custodian
 	in := fmt.Sprintf("MINTCUSTODIANACCOUNT%d", batch)
-	si := crypto.Blake3Hash([]byte(custodian.String() + in))
-	seed := append(si[:], si[:]...)
+	seed := protocolGhostSeed(custodian.String()+in, anchor)
 	script := common.NewThresholdScript(1)
 	tx.AddScriptOutput([]*common.Address{custodian}, script, safe, seed)
 	total = total.Add(safe)
@@ -222,8 +228,7 @@ func (node *Node) buildUniversalMintTransaction(custodianRequest *common.Custodi
 	addr := common.NewAddressFromSeedInternalVanish(make([]byte, 64))
 	script = common.NewThresholdScript(common.Operator64)
 	in = fmt.Sprintf("MINTLIGHTACCOUNT%d", batch)
-	si = crypto.Blake3Hash([]byte(addr.String() + in))
-	seed = append(si[:], si[:]...)
+	seed = protocolGhostSeed(addr.String()+in, anchor)
 	tx.AddScriptOutput([]*common.Address{&addr}, script, light, seed)
 	return tx.AsVersioned()
 }
@@ -310,7 +315,11 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 	if err != nil {
 		return err
 	}
-	signed = node.buildUniversalMintTransaction(cur, timestamp, true)
+	anchor, err := node.ghostSeedReferenceFromTx(tx.References, timestamp)
+	if err != nil {
+		return err
+	}
+	signed = node.buildUniversalMintTransaction(cur, timestamp, anchor, true)
 	if signed == nil {
 		return fmt.Errorf("no universal mint available at %d", timestamp)
 	}

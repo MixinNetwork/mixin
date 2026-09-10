@@ -65,7 +65,6 @@ func writeConsensusSnapshot(txn *badger.Txn, snap *common.Snapshot, tx *common.V
 		out := tx.Outputs[0]
 		switch out.Type {
 		case common.OutputTypeNodePledge:
-		case common.OutputTypeNodeCancel:
 		case common.OutputTypeNodeAccept:
 		case common.OutputTypeNodeRemove:
 		case common.OutputTypeCustodianUpdateNodes:
