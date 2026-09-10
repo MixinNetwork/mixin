@@ -1,8 +1,6 @@
-# Mixin Kernel: A Fast BFT-DAG Distributed Ledger
+# Mixin Kernel: A BFT-DAG Distributed Ledger
 
 > A technical introduction to the architecture, data model, and consensus protocol
->
-> Implementation as of 2026-09-06
 
 ## Abstract
 
@@ -10,7 +8,7 @@ Mixin Kernel is a distributed ledger for digital assets that combines a UTXO sta
 
 A snapshot commits a bounded batch of transaction hashes. Up to 255 eligible transactions can share one snapshot hash and one collective-signing instance. Each transaction still has its own authorization, UTXO validation, conflict protection, and finalization record; only the coordination and collective-signature work is shared. This separation gives Kernel both individual transaction auditability and efficient group finalization.
 
-This paper develops the system from first principles: transactions describe state transitions, snapshots carry consensus, rounds organize each node's history, external references form the DAG, and collective signatures provide finality. It then follows the same objects through networking, persistence, synchronization, and recovery. The paper describes the implementation in this repository rather than defining a separate wire-protocol standard. Numeric limits are implementation parameters, and the quorum discussion is a security rationale rather than a formal proof. The [release security audit](release-security-audit-2026-09-06.md) records the assessed source, verification evidence, and security assurance limits.
+This paper develops the system from first principles: transactions describe state transitions, snapshots carry consensus, rounds organize each node's history, external references form the DAG, and collective signatures provide finality. It follows these objects through networking, persistence, synchronization, and recovery. The paper describes the implementation in this repository. Numeric limits are implementation parameters; the quorum discussion states the security assumptions and their rationale without claiming a formal proof of the complete protocol.
 
 ## 1. System at a glance
 
@@ -62,7 +60,7 @@ where $U$ is the UTXO set, $G$ the used ghost-key set, $D$ deposit locks, $M$ mi
 
 Clients create and sign transactions. Kernel nodes validate transactions, propose snapshots, participate in collective signing, persist the graph, and serve synchronization and RPC requests. A node may also operate as a relayer for nodes that do not accept inbound connections.
 
-Consensus membership is ledger-managed rather than open per message. Genesis establishes the first accepted nodes. Later membership changes use special pledge, accept, and remove transactions that themselves pass through consensus. An address used as a node signer determines the network-scoped node identifier; a separate payee address separates consensus authority from reward ownership.
+Consensus membership is ledger-managed rather than open per message. Genesis establishes the first accepted nodes. Subsequent membership transitions use special pledge, accept, and remove transactions that themselves pass through consensus. An address used as a node signer determines the network-scoped node identifier; a separate payee address separates consensus authority from reward ownership.
 
 ### 2.2 Assumptions
 
@@ -149,17 +147,17 @@ $$
 
 The view key can identify and inspect outputs, while spending also requires the spend key. Ghost keys reduce address reuse on the ledger, but amounts and asset identifiers are not confidential in this implementation; ghost addressing should not be confused with a full confidential-transaction system.
 
-Mint and node-remove transactions are rebuilt deterministically by every validator. Reference-seeded outputs mix in a transaction hash from the elected proposer's latest finalized round and record that anchor immediately after the serialized consensus-state reference. Validators reconstruct the same outputs from that anchor. The required recent reference limits how far in advance an outsider can compute and reserve the protocol output keys.
+Mint and node-remove transactions are rebuilt deterministically by validators under the applicable snapshot rules. Their builders select an anchor transaction from the elected proposer's latest finalized round and record it immediately after the serialized consensus-state reference. Validators reconstruct the outputs from the recorded anchor, require exactly two references and a nonzero anchor, and apply ordinary finalized-reference validation when admitting the transaction. They do not enforce an anchor age or require it to belong to the proposer's latest round. Recency is a builder policy, not a validator-enforced unpredictability guarantee.
 
-Reference-seeded protocol outputs are enabled on non-mainnet networks and on mainnet for snapshots at or after 2026-09-01 00:00:00 UTC. Earlier mainnet snapshots retain the legacy derivation and single consensus-state reference for ledger compatibility.
+Reference-seeded protocol outputs apply on non-mainnet networks and on mainnet for snapshots at or after 2026-09-01 00:00:00 UTC. Mainnet snapshots before that timestamp use the unanchored derivation and one consensus-state reference.
 
 ### 3.3 Validation pipeline
 
-Before a transaction can participate in a snapshot, a node checks all of the following:
+Full transaction validation checks the following before a body enters durable candidate storage through the normal admission path:
 
 1. The version and inferred transaction type are supported.
 2. Input, output, reference, extra-data, decoded-envelope-size, and unsigned-payload-size limits are respected.
-3. Every ordinary input exists, belongs to the declared asset, is unique within the transaction, and is not locked by a conflicting unfinalized transaction.
+3. Every ordinary input exists, belongs to the declared asset, is unique within the transaction, and satisfies the applicable conflict-lock rules. Normal admission rejects a different lock owner; finalized replay can replace an unfinalized owner but cannot replace a finalized owner.
 4. The signature indexes satisfy each input script and the signatures verify over $H_{tx}$.
 5. Outputs have positive amounts, valid scripts and masks, valid unique ghost keys, and exactly conserve value.
 6. Referenced transactions exist and are finalized.
@@ -167,9 +165,13 @@ Before a transaction can participate in a snapshot, a node checks all of the fol
 
 Transaction authorization can use per-input signature maps or a compact aggregate signature across selected input keys. Ordinary signatures in a transaction are checked together through an Edwards25519 batch-verification equation. These mechanisms reduce authorization overhead inside one transaction, while snapshot batching amortizes consensus overhead across many transactions.
 
-Ghost-key reservation and spend-conflict locking occur at different stages. During initial RPC admission and queue revalidation, output validation calls `LockGhostKeys` against the synchronized snapshot database. It reserves checked output keys before subsequent type-specific validation and cache insertion. Snapshot transaction validation uses a different path for new candidate envelopes: it defers the individual ghost-key writes, validates the transactions and applicable kernel rules, and then calls `LockAndPersistTransactions` to commit their ghost keys, ordinary-input/deposit/mint locks, and full envelopes together. If that batch exceeds Badger's transaction limit, the kernel falls back to per-transaction validation and bounded candidate commits. New spendable UTXOs and the transaction-to-snapshot finalization record are created only when the snapshot is committed.
+Ghost-key reservation and spend-conflict locking occur at different stages. On an uncached RPC submission and during queue revalidation, common validation checks references, inputs, signatures, outputs, conservation, and type-specific rules before calling `LockGhostKeys` against the synchronized snapshot database. A payload-hash cache hit instead requeues the first retained envelope without validating the submitted authorization again; the queue worker validates the retained envelope before routing it.
 
-These candidate writes survive a crash and there is no general unlock operation. Requeueing restores only cache queue/order records; it does **not** release input or ghost-key locks. Retrying the same payload reuses its idempotent locks. On the finalized conflict path, `fork = true` may replace an ordinary-input, deposit, or mint lock and prune the superseded unfinalized durable envelope. A ghost key remains bound to the transaction that first reserved it, apart from narrowly hard-coded historical compatibility exceptions. Batching candidate persistence does not make RPC admission, cache insertion, and finalization one atomic operation or roll back earlier reservations; Section 12 records the remaining failure boundary.
+Snapshot transaction validation defers individual ghost-key writes for bodies obtained from the cache. After common validation and applicable kernel rules succeed, `LockAndPersistTransactions` commits their ghost keys, ordinary-input/deposit/mint locks, and full envelopes together. Bodies already present in durable candidate storage reuse their prior common validation and undergo applicable kernel checks; their common time-dependent checks are not rerun at each snapshot timestamp. If a candidate batch exceeds Badger's transaction limit, the kernel falls back to per-transaction validation and bounded commits. Spendable UTXOs and transaction-to-snapshot finalization records are created only when the snapshot is committed.
+
+These candidate writes survive a crash and there is no general unlock operation. Requeueing restores cache queue/order records without releasing input or ghost-key locks. Retrying the same payload reuses its idempotent locks. On the finalized conflict path, `fork = true` may replace an ordinary-input, deposit, or mint lock held by an unfinalized transaction and prune that transaction's durable envelope. It cannot prune a finalized owner. Pruning does not release every other input reservation associated with the removed envelope. A ghost key remains bound to the transaction that first reserved it, including on the fork path. Admission, cache insertion, candidate persistence, and finalization are separate operations; a later failure does not undo a completed earlier reservation.
+
+The uncached RPC admission path is:
 
 ```mermaid
 flowchart TD
@@ -178,15 +180,18 @@ flowchart TD
     C -->|yes| Z[Return existing transaction hash]
     C -->|no| D[Validate bounds, references, inputs, and signatures]
     D -->|invalid| X[Reject]
-    D --> E[Validate outputs and durably reserve ghost keys]
+    D --> E[Validate outputs and exact conservation]
     E -->|invalid| X
     E --> T[Validate transaction-type-specific rules]
-    T -->|invalid; reservation may remain| X
-    T -->|valid| F[Place envelope and scheduling records in cache]
+    T -->|invalid| X
+    T -->|valid| R[Durably reserve ghost keys]
+    R -->|conflict| X
+    R --> F[Place envelope and scheduling records in cache]
     F --> G[Route to a proposing node]
     G --> H[Include hash in a snapshot]
-    H --> L[Revalidate; batch candidate locks and envelopes]
-    L --> I[Collective consensus]
+    H --> L[Validate cached bodies or reuse durable admission; apply kernel rules]
+    L --> P[Persist candidate locks and envelopes]
+    P --> I[Collective consensus]
     I -->|quorum| J[Atomically finalize transaction and snapshot]
     I -->|proposal abandoned| K[Restore scheduling records; retain locks]
 ```
@@ -208,7 +213,7 @@ The transaction type is inferred from special inputs or output types rather than
 
 Consensus-sensitive transactions remain alone in a snapshot. They form a serialized reference chain and can change the rules or participants used to validate later snapshots. Mixing them with unrelated transfers would make membership boundaries and protocol-state transitions harder to evaluate deterministically.
 
-A withdrawal claim references exactly one finalized withdrawal-submit transaction. For new candidates, the custodian signature covers `BLAKE3(submit transaction hash || claim data)`, where the claim data follows the 64-byte signature in `extra`. A durable index keyed by the submit hash permits at most one finalized claim for that submit. Finalized-history replay before 2026-09-01 00:00:00 UTC retains the legacy signature form for compatibility; new admission does not use that exception.
+A withdrawal claim references exactly one finalized withdrawal-submit transaction. Candidate admission requires a custodian signature over `BLAKE3(submit transaction hash || claim data)`, where the claim data follows the 64-byte signature in `extra`. A durable index keyed by the submit hash permits at most one finalized claim for that submit. On the finalized-history path, a claim with a snapshot timestamp before 2026-09-01 00:00:00 UTC is exempt from successful custodian-signature verification. This timestamp exception has no network-ID restriction; ordinary candidate admission does not use it. The finalized path still requires the snapshot's quorum certificate.
 
 Once a transaction has passed these rules, the snapshot layer can treat its hash as a compact commitment to the complete state-transition request.
 
@@ -231,7 +236,7 @@ A snapshot is the object on which Kernel consensus operates. Version 2 contains:
 | `hash` | Computed snapshot identifier | Computed |
 | `topology` | Local durable enumeration cursor | No |
 
-The canonical transaction list contains between 1 and 255 hashes and is strictly sorted, so duplicate hashes are rejected. Both encoder and decoder require a round-zero snapshot to contain exactly one transaction and no references; they require references on every nonzero round. Malformed wire data is therefore rejected before later hashing or round-link code can rely on those shapes.
+The canonical transaction list contains between 1 and 255 hashes and is strictly sorted, so duplicate hashes are rejected. Both encoder and decoder require a round-zero snapshot to contain exactly one transaction. The decoder requires no references at round zero and references on every nonzero round. These wire checks establish the shapes used by subsequent snapshot validation.
 
 If the sorted transaction hashes are $t_1,\ldots,t_b$, then conceptually
 
@@ -256,7 +261,7 @@ Transaction batching is constrained by several invariants:
 - Every transaction retains its own payload hash, authorization envelope, inputs, and outputs and is validated independently.
 - Only explicitly batchable transaction classes may appear when a snapshot contains more than one hash.
 - A new transaction in a batch cannot spend an output created by another transaction in that batch; each candidate validates against already materialized ledger state.
-- Every signer whose response is counted must have and validate every transaction before responding to the challenge.
+- Every signer whose response is counted must have every transaction body and pass snapshot validation before responding. Bodies obtained from the cache undergo common validation; durable bodies reuse their prior admission as described in Section 3.3.
 - A participant reports precisely which transaction hashes it lacks; the proposer sends only those bodies in the normal challenge path.
 - Receiving a challenge or finalization-class transaction bundle stores the bodies without scheduling them as a new proposal.
 - A receiving node that sees a valid finalization before receiving all bodies requests the missing transactions and delays application.
@@ -379,7 +384,9 @@ Membership is bounded by the following controls:
 | Maximum pledge-to-accept interval | 7 days |
 | Delay before a non-genesis accepted node can sign ordinary snapshots | More than 12 hours |
 
-A finalized pledge must be accepted within the seven-day window; the current membership state machine provides no cancellation or refund transition for a pledge that misses that window. The 50-node membership cap leaves headroom below the 64 indexes available in the collective-signature mask.
+An acceptance snapshot's timestamp must fall within the pledge's eligible seven-day interval and satisfy the other operation-window rules. A previously produced acceptance certificate can arrive later if its timestamp, consensus reference, and graph position remain admissible. The membership state machine has no cancellation, expiry, or refund transition for an unresolved pledge. Once the eligible proposal window has passed without an admissible acceptance certificate, the pledge remains locked under the normal protocol rules.
+
+Only one node may be pending in `PLEDGING` state. That state also prevents ordinary removal of accepted nodes, including the return of otherwise removable stakes; it persists across restart. A pledge output can be consumed only by NodeAccept, and an accepted stake only by NodeRemove. Node removal reconstructs a return output for the recorded payee and is subject to the minimum-membership, timing, and election rules. The 50-node membership cap leaves headroom below the 64 indexes available in the collective-signature mask.
 
 ### 6.3 One chain per node
 
@@ -391,9 +398,11 @@ Every Kernel process tracks a `Chain` object for each active or historically rel
 - collective-signature aggregators, verifiers, commitments, and responses;
 - work and storage-accounting aggregation state.
 
-The local node actively proposes on its own chain and verifies remote proposals on the corresponding remote chains. Separate processing loops let chains advance concurrently, while durable writes serialize the state changes that must be atomic.
+The local node actively proposes on its own chain and verifies remote proposals on the corresponding remote chains. Separate processing loops let chains advance concurrently, while durable writes serialize the ledger operations that require atomicity.
 
 Each chain publishes an immutable graph view through an atomic pointer after initial loading and round updates, including the same-round update during acceptance. This view holds the final round hash and number together with the pool index and count. `BuildGraph` takes the chain-registry read lock and loads these published values instead of reading mutable consensus state. It returns fresh sync points and pool maps. Publication is atomic for each chain; iterating all chains does not produce a single simultaneous snapshot of the entire graph.
+
+This published view contains those four fields only. The full `ChainState`, membership records, graph timestamp, and finalization pool use separate mutable state. CoSi processing and finalization-queue ingestion have separate loops; the `BuildGraph` publication mechanism does not provide isolation for all of their shared state.
 
 Inbound snapshot messages cannot allocate chains for arbitrary identifiers. A chain is reused if it already exists, but a new chain is created only for the local node or an identifier present in ledger-derived node history. Announcement and finalization ingress discard messages whose chain lookup is rejected.
 
@@ -410,12 +419,12 @@ The protocol supports directly connected relayers and consumers, plus forwarding
 | Precommitments, batch announcements, batch commitments, batch full challenges | P2P verifies the original payload bytes against the claimed author's current accepted or pledging consensus key before invoking the kernel callback. Kernel membership, round, session, and nonce checks still apply. |
 | Graph summaries | P2P verifies the claimed author's signature using a consensus key or a retained authenticated-neighbor key; kernel graph-admission policy then applies. |
 | Ordinary transaction challenges and snapshot responses | Kernel checks the pending CoSi session and its cryptographic challenge or response; these messages do not carry the separate author signature used by full challenges. |
-| Finalizations | The historical quorum certificate and complete snapshot/transaction validation authorize the ledger update. |
+| Finalizations | The historical quorum certificate and snapshot validation authorize ledger application. Cached bodies receive common validation; durable bodies reuse prior admission and receive applicable kernel checks. |
 | Relay envelopes and control messages | These do not all carry independent author signatures. A relay can still withhold, delay, or replay traffic. |
 
 For forwarded signed messages, verification uses the claimed original author's key. A relayer's own key cannot authorize another node's consensus message. Neighbor authentication also does not grant consensus membership.
 
-The four signed CoSi message forms and graph summaries place the signature before the payload: `[type][64-byte signature][payload]`, signing `BLAKE3(payload)` without the type byte. For a full challenge, the authenticated payload includes the snapshot length, the encoded snapshot with its embedded CoSi data, both commitments, and transaction bodies. The type byte selects the decoder but is outside the signature; payload parsing and kernel session checks remain part of message validation.
+The four signed CoSi message forms and graph summaries place the signature before the payload: `[type][64-byte signature][payload]`, signing `BLAKE3(payload)` without the type byte. For a full challenge, the authenticated payload includes the snapshot length, the encoded snapshot with its embedded CoSi data, three commitment pairs (leader, recipient precommitment, and aggregate), and transaction bodies. The type byte selects the decoder but is outside the signature; payload parsing and kernel session checks remain part of message validation.
 
 Messages have high- and normal-priority queues, bounded sizes, and short-lived deduplication records. Consensus messages include announcements, nonce commitments, challenges, responses, finalizations, transaction requests, transaction bundles, and signed graph summaries. The wire protocol uses batch-capable announcement, commitment, challenge, response, and finalization forms, including when a snapshot contains one transaction. The maximum transport message is 32 MiB.
 
@@ -431,7 +440,7 @@ After authentication, `UpdateSyncPoint` separately decides whether the author ma
 
 A graph signature authenticates the author's report, not the truth or freshness of its reported progress. For an admitted graph, a node compares the remote graph with its local graph, finds an earlier local topological cursor, and streams finalized snapshots forward. For every synchronized snapshot it sends the transaction envelopes first in a cache-only finalization-class bundle and then sends the signed snapshot. It also sends the head rounds for individual chains in the same transaction-first order so a lagging peer can close gaps without replaying the entire ledger.
 
-Synchronization reuses the same finalization verification path as live consensus. A peer does not trust a snapshot merely because another node sent it: it verifies the collective signature, historical signer set, round and reference rules, transaction bodies, and state transition before persistence.
+Synchronization uses the live finalization path: the receiver verifies the collective signature, historical signer set, round and reference rules, and transaction availability before persistence. It validates cached bodies or reuses durable admission, then applies the relevant kernel and storage checks. Receipt from a peer alone is not a finalization authority.
 
 ## 7. Collective-signature consensus
 
@@ -445,7 +454,7 @@ Among ready candidates, the first eight bytes of the transaction hash plus a one
 
 This owner selection is a queueing heuristic, not a consensus election. Nodes may have different readiness views, retries may choose a later owner, and fallback routing can duplicate delivery. Safety still comes from transaction conflict checks, per-chain duplicate guards, and quorum validation of every snapshot.
 
-The snapshot leader first fixes the transaction hashes, round references, and timestamp. Validators sign only after reconstructing and validating the complete snapshot payload.
+The snapshot leader sets the transaction hashes, round references, and timestamp. Validators sign only after reconstructing and validating the complete snapshot payload.
 
 ### 7.2 CoSi exchange
 
@@ -461,13 +470,13 @@ sequenceDiagram
     V->>V: Validate round, references, and available transactions
     V-->>P: Commitment pair (R1i, R2i) + hashes of missing transactions
     P->>P: Select quorum and aggregate commitment pairs (R1, R2)
-    P->>V: Challenge((R1, R2), signer mask, only requested transaction bodies)
-    V->>V: Validate every transaction and aggregate challenge
+    P->>V: Challenge((R1, R2), mask, leader response, requested bodies)
+    V->>V: Validate snapshot transactions and leader response
     V-->>P: Response si
     P->>P: Verify responses and aggregate signature
     P-->>V: Cache-only envelope bundle for non-responders
     P-->>V: Finalization(snapshot + collective signature)
-    V->>V: Verify quorum signature and full state transition
+    V->>V: Verify quorum signature and applicable state checks
     V->>L: Atomically persist finalization
 ```
 
@@ -475,15 +484,15 @@ Validators can pre-publish nonce commitments. When the proposer has a usable pre
 
 Before a full challenge reaches chain lookup or precommitment handling, P2P verifies the leader's separate signature over the complete original payload. A CoSi response checked against a leader commitment supplied in that same message cannot by itself establish the leader's identity. The outer signature supplies that authentication; it does not replace the inner CoSi checks or transaction validation.
 
-Announcements and commitment aggregation are restricted to `ConsensusReady` signers at the snapshot timestamp. A node that is accepted but has not passed the maturity delay is not part of the `ConsensusKeys` signer list, so its commitment mask index cannot align with that list; the proposer neither sends announcements to such a node nor admits its commitments, including commitments derived from prepublished precommitments. The node still receives finalizations and stays synchronized; it simply cannot co-sign ordinary snapshots until mature, and its precommitments remain unused until then.
+For ordinary snapshots, announcements and commitment aggregation are restricted to `ConsensusReady` signers at the snapshot timestamp. A node that is accepted but has not passed the maturity delay is not part of that signer list, so the proposer neither sends it announcements nor admits its commitments, including prepublished precommitments. The node receives finalizations for synchronization. Its own round-zero acceptance uses the distinct signing-set rule described in Section 6.2.
 
 Proposal state is deliberately disposable, but transaction work is not. A local aggregator associates each transaction hash with its verifier, suppressing another proposal for that transaction on the same chain and round during the round-gap window. Recoverable self-announcement deferrals—such as graph-readiness, stale timestamp, round-cutoff, or external-reference refresh—return available, still-unfinalized transactions to the queue. Kernel does the same when a self-announcement cannot enter a full local action queue, aggregation reaches a terminal error, or an aggregator remains incomplete for one round gap. A round transition similarly deduplicates and requeues transactions owned only by discarded old-round aggregators while leaving the snapshot that triggered the new round under its new owner.
 
-Late commitments for an expired aggregator are ignored. If a candidate batch overlaps an existing verifier, only the unowned companion transactions are requeued; the already-owned hashes remain with their active proposal. These rules avoid both transaction loss and a hot loop of duplicate proposals without changing any snapshot validity or quorum requirement.
+Late commitments for an expired aggregator are ignored. If a candidate batch overlaps an existing verifier, only the unowned companion transactions are requeued; the already-owned hashes remain with their active proposal. These rules manage retries and duplicate work. Requeueing depends on an available envelope and does not provide a general pending-lock recovery mechanism.
 
 ### 7.3 Signature construction
 
-Let $G$ be the group base point. For signer $i$, let $a_i$ be its private key and $A_i=a_iG$ its public key. Following the two-nonce [MuSig2](https://eprint.iacr.org/2020/1261) construction with $\nu=2$, each signer draws a fresh nonce pair $(r_{1i}, r_{2i})$ and advertises the commitment pair $(R_{1i}, R_{2i}) = (r_{1i}G, r_{2i}G)$. For the selected quorum $Q$:
+Let $G$ be the group base point. For signer $i$, let $a_i$ be its private key and $A_i=a_iG$ its public key. Kernel uses a two-nonce Schnorr collective-signature construction: each signer draws a fresh nonce pair $(r_{1i}, r_{2i})$ and advertises the commitment pair $(R_{1i}, R_{2i}) = (r_{1i}G, r_{2i}G)$. For the selected quorum $Q$:
 
 $$
 R_1 = \sum_{i\in Q} R_{1i}, \qquad R_2 = \sum_{i\in Q} R_{2i}, \qquad A_Q = \sum_{i\in Q} A_i,
@@ -507,7 +516,7 @@ $$
 sG = R + cA_Q.
 $$
 
-The domain tag $\mathrm{DOM}$ (`MIXIN_COSI_NONCE_COEF_V1`) separates the nonce-coefficient hash from the challenge hash and every other SHA-512 usage in the protocol. Because $b$ commits to both aggregate nonce components, the aggregate key, and the snapshot hash, the effective nonce $R$ is unknowable when the commitments are published; this blocks the concurrent-session (ROS/Wagner) forgery class that a single commitment per session is exposed to. The final signature $(R, s)$ is a standard 64-byte Schnorr signature on $A_Q$: verifiers never need $b$, and the [upgrade design](mixin-kernel-cosi-nonce-pair-upgrade.md) keeps the on-ledger signature format and every offline validation path byte-for-byte identical.
+The domain tag $\mathrm{DOM}$ (`MIXIN_COSI_NONCE_COEF_V1`) distinguishes the nonce-coefficient transcript from the challenge transcript. The coefficient $b$ binds both aggregate commitment components, the aggregate public key, and the snapshot hash. The final signature $(R, s)$ is a 64-byte Schnorr-style signature verified against $A_Q$; final certificate verification uses $R$, $s$, and the signer mask without reconstructing $b$ or either nonce component.
 
 The final snapshot carries one 64-byte signature and one 64-bit signer mask, rather than an array of validator signatures. The mask represents at most 64 consensus indexes, while membership admission imposes a lower 50-node cap. Supporting a larger set would require a wider signer-set encoding.
 
@@ -523,7 +532,7 @@ members. Since at most $f$ are Byzantine, the intersection contains at least one
 
 The CoSi aggregate public key is a plain sum $A_Q = \sum A_i$ without per-signer key-prefixing coefficients. For a non-genesis member, the pledge commits the proposed key and the later accept transaction must be signed by that key before acceptance, so admission supplies the proof of possession needed to rule out a freely chosen rogue key. Genesis signer keys are instead part of the trusted genesis definition and must be vetted under that trust assumption. The transaction-level aggregate signature, where signer keys come from arbitrary UTXO outputs, does apply MuSig-style coefficient weighting.
 
-The nonce-pair construction removes the concurrent-session attack class structurally: the coefficient $b$ binds the whole session transcript, so an adversary combining responses from many distinct concurrently open sessions no longer faces a fixed linear relation it can solve. The single-use nonce guard remains as defense in depth, binding one nonce pair to exactly one session identifier $(b \parallel c)$. This applies a published, peer-reviewed construction rather than a new proof; the instantiation—with this repository's transcript domain, point encoding, and registered-key sum—has been cross-checked against independent reference vectors and should still receive external cryptographic review, as the [upgrade design](mixin-kernel-cosi-nonce-pair-upgrade.md) records.
+Nonce-use enforcement is part of the signing assumptions. Production signing uses opaque handles whose copies share one synchronized state. A handle permits a response for one coefficient/challenge pair $(b,c)$; an identical retry receives the cached response, and a different pair is rejected. The handle clears its stored secret nonce scalars after producing its first response. The lower-level caller-managed nonce API also exists, but the kernel's production response sites use the guarded handles. Transcript binding and these guards describe the implemented checks; they do not by themselves prove security of the exact construction under every concurrent-session or membership schedule.
 
 ### 7.5 Finalization checks
 
@@ -533,9 +542,11 @@ A received finalization is not applied until the node verifies:
 2. Self and external round references against the local graph.
 3. The historical consensus public-key set at the snapshot timestamp.
 4. A collective signature whose mask meets the computed threshold.
-5. Presence and validity of every transaction body named by the snapshot.
+5. Presence of every transaction body, with common validation for cached bodies and prior-admission reuse for durable bodies.
 6. Batch eligibility when more than one transaction is present.
 7. UTXO, protocol-state, canonical-finalization-mapping, and per-node duplicate invariants.
+
+Applicable kernel checks run after body lookup. For finalized mainnet snapshots before 2025-01-07 00:00:00 UTC, the kernel dispatcher skips its consensus-reference and type-specific checks; finalized mainnet mint batches below 1,800 also skip mint reconstruction. Certificate verification still applies. During the daily acceptance window, if verification with the timestamp-selected membership fails, the verifier may try an earlier, larger membership and its threshold. This historical path is not restricted to one network. The quorum argument therefore depends on the admissible historical membership as well as the steady-state threshold.
 
 The proposer proactively sends cache-only finalization-class transaction bundles to consensus nodes that did not respond before it sends them the finalization; graph synchronization does the same for every snapshot. If bodies are still missing, the receiver asks the sender for the individual transactions and leaves the snapshot in the finalization queue. That individual reply currently restores proposal eligibility as well as the cached body, so it can cause redundant work before the queued finalization wins the race. If a local proposal cannot safely proceed because its graph view, round, references, timestamp, or CoSi state is no longer usable, its still-unfinalized transactions are returned to the queue for another owner or attempt.
 
@@ -544,13 +555,13 @@ The proposer proactively sends cache-only finalization-class transaction bundles
 The complete fast path for an ordinary transfer is:
 
 1. A client constructs a version-5 UTXO transaction, derives ghost outputs, signs $H_{tx}$, and submits the encoded envelope through RPC.
-2. The receiving node decodes it, validates it, durably reserves its ghost output keys, and then stores its full authorization envelope plus proposal-order records in the TTL-backed cache.
+2. For an uncached payload, the receiving node decodes and validates it, durably reserves its ghost output keys, and stores its authorization envelope plus proposal-order records in the TTL-backed cache. A cached payload reuses the first retained envelope and restores its scheduling records.
 3. A timer or queue wake triggers a short batching debounce. The worker removes already-finalized entries, revalidates live locks, and groups eligible candidates.
 4. Readiness-aware routing retains the batch when the local chain can propose or sends it to a hash-and-minute-selected proposal owner. The owner creates a version-2 snapshot containing the sorted transaction hashes, active round number, self and external references, and timestamp.
-5. Consensus validators obtain any missing bodies and independently validate every transaction and the graph position. New candidate locks and envelopes are normally persisted in one batch before signing, with bounded fallback commits if the batch exceeds the database limit.
+5. Consensus validators obtain missing bodies, perform common validation for cached bodies or reuse durable admission, and check the snapshot's graph position and applicable kernel rules. Candidate locks and envelopes are normally persisted in one batch before signing, with bounded fallback commits if the batch exceeds the database limit.
 6. A supermajority CoSi exchange produces one compact signature over $H_{snap}$. Once an incomplete proposal has remained open for one round-gap window, or immediately after a terminal aggregation failure, its available unfinalized transactions are requeued.
 7. The proposer verifies the certificate and atomically writes its snapshot. Before notifying non-responders, it sends the transaction envelopes in a finalization-class bundle that does not enter their proposal queues.
-8. Receiving validators verify the certificate and complete the same state transition. One durable transaction creates the new unspent outputs, records each transaction's canonical finalizing snapshot, applies output-derived membership/custodian and asset-accounting state, stores the snapshot and work records, and advances the durable local topology index. A singleton consensus transaction's serialized consensus-history marker is written immediately afterward in a separate transaction.
+8. Receiving validators verify the certificate and apply the snapshot. One durable transaction records each transaction's first local finalizing snapshot and materializes its outputs and financial effects only on first finalization. It also stores snapshot, work, and topology records. A singleton consensus transaction's serialized consensus-history marker is written afterward in a separate transaction.
 9. Signed graph summaries carry the result to lagging peers; synchronization again sends cache-only finalization-class bundles before the corresponding finalizations.
 
 ```mermaid
@@ -567,7 +578,7 @@ flowchart LR
     F --> ON[tx b UTXOs]
 ```
 
-## 9. Why Mixin Kernel is fast
+## 9. Performance model
 
 No single technique is responsible for performance. The design removes or amortizes work at several layers.
 
@@ -605,9 +616,9 @@ Mixin Kernel uses two Badger databases:
 
 Candidate persistence normally uses one synchronized Badger transaction for a snapshot's new envelopes and their ghost, input, deposit, or mint locks. In-memory ownership tracking rejects conflicts between members of the same batch. If Badger returns `ErrTxnTooBig`, the kernel revalidates and persists candidates individually, so that fallback may leave earlier candidates committed if a later candidate fails. Candidate persistence is separate from finalization, and ghost-key reservations may already exist from RPC or queue validation.
 
-Final snapshot persistence is protected by a store mutex and a single Badger write transaction. For every transaction in the snapshot, it writes the first transaction-to-snapshot finalization mapping, materializes unspent outputs, and updates output-derived protocol and asset-accounting records; it then writes per-node uniqueness, snapshot, work, and topology indexes. A failed finalization transaction does not expose a partially finalized batch. It does not roll back earlier durable candidate envelopes or locks.
+Final snapshot persistence is protected by a store mutex and a single Badger write transaction. On a transaction's first local finalization, it writes the transaction-to-snapshot mapping, materializes unspent outputs, and applies output-derived protocol and asset-accounting records. It also writes per-node uniqueness, snapshot, work, and topology indexes. A later certified inclusion of an already finalized transaction does not repeat its monetary effects. The first local mapping can reflect arrival order and is not a requirement that every node choose the same first snapshot for a multiply included transaction. Errors before commit discard that finalization transaction's pending writes without rolling back earlier durable candidate envelopes or locks. Durability depends on the storage engine and underlying I/O.
 
-The serialized `CONSENSUSSNAPSHOT` history used by mint, membership, and custodian operations is not part of that atomic snapshot write. After a singleton consensus transaction is finalized, `reloadConsensusState` writes this marker in a second synchronized Badger transaction and refreshes in-memory membership/chain state. On setup, Kernel reloads the last durable singleton snapshot and rebuilds its marker if a crash occurred between the two writes. The batch and its output-derived ledger state are atomic; this consensus-history bookkeeping uses a separate database transaction.
+The serialized `CONSENSUSSNAPSHOT` history used by mint, membership, and custodian operations is written separately from the atomic snapshot write. After a singleton consensus transaction is finalized, `reloadConsensusState` writes this marker in a second synchronized Badger transaction and refreshes in-memory membership/chain state. Setup examines the last durable snapshot overall and calls this reload only when it contains one transaction. That can repair a trailing consensus-marker gap, but it does not scan all unindexed consensus operations. An intervening ordinary snapshot can leave an earlier marker gap outside this startup replay.
 
 At startup, the node loads genesis, reconstructs membership, loads each chain's head and recent round history, obtains the last durable topology position, and validates recent graph entries. Transient cache envelopes and scheduling records are expendable and can be retransmitted, but durable candidate envelopes and locks in the snapshot database are not automatically discarded or unlocked during setup. Finalized snapshots are recovered from the durable graph and can be synchronized again from peers.
 
@@ -619,8 +630,8 @@ The implementation repeatedly enforces the following invariants across admission
 
 - Transaction payload encoding is canonical and content-addressed.
 - Every normally validated post-genesis transaction declares one asset and conserves the input amount exactly; the separate genesis loader is the exception to that validation path.
-- Candidate persistence assigns an ordinary UTXO, deposit, or mint slot to one unfinalized payload hash unless the finalized fork path replaces the earlier candidate.
-- A ghost output key cannot be reused by a different transaction, apart from explicit historical compatibility exceptions.
+- Candidate persistence assigns an ordinary UTXO, deposit, or mint slot to one payload hash. The finalized fork path may replace an unfinalized owner, but cannot prune a finalized owner.
+- A ghost output key cannot be reserved by a different transaction, including on the finalized fork path.
 - Reference-seeded mint and node-remove outputs commit their finalized anchor transaction in the transaction references and derive their ghost keys from that anchor.
 - A withdrawal submit can have at most one finalized claim, and a newly admitted claim's custodian signature binds both the submit hash and claim data.
 - Every ordinary scripted input supplies enough valid authorizing keys, and special inputs satisfy their type-specific authorization rules.
@@ -632,9 +643,9 @@ The implementation repeatedly enforces the following invariants across admission
 
 - A decoded snapshot has one to 255 unique, canonically ordered transaction hashes, exactly one transaction and no references at round zero, and nonempty references on every later round.
 - Multi-transaction snapshots contain only batchable classes.
-- Storage keeps one canonical transaction-to-snapshot finalization mapping; proposal deduplication and per-node uniqueness indexes suppress repeats.
+- Storage keeps the first local transaction-to-snapshot finalization mapping and applies financial effects once; proposal deduplication and per-node uniqueness indexes suppress repeats.
 - The CoSi signature covers the proposer, round, references, timestamp, and complete transaction-hash list.
-- Finalization waits for all transaction bodies and deterministic validation.
+- Finalization waits for all transaction bodies and applies the cache/durable-body validation rules in Section 3.3 and the historical rules in Section 7.5.
 - During the round-gap ownership window, one chain verifier guards a transaction from entering another active proposal on that chain and round.
 
 ### Round and graph invariants
@@ -651,12 +662,12 @@ The implementation repeatedly enforces the following invariants across admission
 - Both directions of a neighbor connection verify a signed identity statement and retain its public spend key before publishing the peer; outbound authentication also checks the expected relayer identity and role.
 - Precommitments, announcements, commitments, and full challenges must pass the shared consensus-author signature check before their kernel callbacks run.
 - Forwarded signatures are checked against the claimed original author's key; a relayer signature cannot substitute for another consensus author's signature.
-- Every graph passes signature verification before the separate membership/configured-seed admission decision, and a rejected graph changes neither sync-point state nor the peer synchronization queue.
+- Every graph passes signature verification before the separate membership/configured-seed admission decision; rejection has no effect on sync-point state or the peer synchronization queue.
 
 ### Membership invariants
 
 - Consensus keys are reconstructed from ledger state at the snapshot timestamp.
-- Every commitment admitted into an aggregation belongs to a `ConsensusReady` signer at the snapshot timestamp, so each signer-mask index aligns exactly with the `ConsensusKeys` public-key list.
+- For ordinary snapshots, admitted commitments belong to `ConsensusReady` signers at the snapshot timestamp. The candidate also belongs to the signing set for its own round-zero acceptance.
 - Certificate keys, consensus indexes, and proposal-time membership/maturity checks are reconstructed for the snapshot timestamp. Some network ingress methods first require the sender to be accepted or pledging in the node's current view, so message admission is not exclusively historical.
 - A stable quorum is greater than two thirds of the effective membership.
 - Genesis nodes are immediately ready; later accepted nodes pass a maturity delay.
@@ -664,31 +675,35 @@ The implementation repeatedly enforces the following invariants across admission
 
 ## 12. Security boundaries and limitations
 
-Mixin Kernel's speed does not remove its operating assumptions. The implementation also retains several concrete hardening boundaries:
+### Authorization and custody
 
-- **Admission write ordering:** RPC admission and queue revalidation durably reserve ghost keys before type-specific validation finishes and before cache insertion. A later failure has no general rollback path, so a rejected submission can leave a reservation behind. Snapshot candidate validation defers ghost writes into the candidate batch, but that does not undo reservations made during admission or queue validation.
-- **Authorization-envelope cache collisions:** Transaction identity intentionally excludes authorization signatures, while ordinary P2P envelopes can enter the payload-hash-keyed cache before semantic validation. The cache keeps the first envelope stored for a payload hash, so a later envelope with different authorization cannot displace it. An invalid envelope can occupy that slot until expiry or finalized-transaction cleanup removes it.
-- **Batch wire-size accounting:** The batcher sums `ValidatedSize`, which measures unsigned transaction payloads, while transport carries signed envelopes and framing. Its two-thirds-of-32-MiB target therefore does not guarantee that the resulting wire message fits the transport limit. Rejection or retry from this boundary is not evidence of an unauthorized ledger transition.
-- **Concurrent state access:** `BuildGraph` reads immutable values published per chain. Shared-state races outside this access path remain unresolved; passing the kernel and P2P race tests does not establish that the whole node is race-free.
-- **CoSi instantiation review:** The nonce-pair construction follows MuSig2 with this repository's own transcript domain, point encoding, and registered-key sum; applying a proven scheme is not itself a proof of the instantiation. Independent reference vectors cross-check the implementation, and external cryptographic review remains open, as the upgrade design records.
+Safety depends on control of signer keys, the effective Byzantine fault bound, and enforcement of the transaction and signing rules. The two-nonce equations and quorum-intersection argument do not constitute a proof of the full implementation, including concurrent signing sessions and historical membership selection.
 
-These boundaries are not a list of confirmed theft or permanent-loss findings. The [release audit](release-security-audit-2026-09-06.md) applies the requested trusted-custodian model and excludes effects fully repairable by a software upgrade; it retains unresolved evidence without treating test success as a proof of financial safety.
+Deposits require the custodian's authorization, but the kernel does not independently observe external reserves. Withdrawal submission records an owner-authorized request; external services determine destination validity, execute it, and handle unsuccessful withdrawals. Custodian rotation requires existing-custodian approval and participant signatures. Parsing the replacement aggregate spend/view keys does not itself establish their validity or the availability of the private key material needed for custody. Custodian slashing is recognized as a transaction class but its validation is unimplemented.
 
-The remaining security and operating boundaries are:
+Durable transaction bodies reuse their original common validation. Consequently, time-dependent deposit and withdrawal-claim approval is not recomputed at every later snapshot timestamp. The distinction between prior admission and current custody state is part of the implemented trust boundary.
 
-- **Byzantine bound:** Safety relies on fewer than one third of the effective consensus set violating the signing rules or losing key control.
-- **Availability:** A partition that prevents a quorum from communicating stops finality rather than safely choosing a minority history.
-- **Transient overload:** Per-chain CoSi action queues are bounded. Local proposal work is requeued when its self-announcement cannot enter a full queue, but delayed or dropped remote actions still rely on protocol retries and eventual message delivery for progress.
-- **Routing scope:** Readiness-aware owner selection reduces duplicate proposals but is not a safety-critical leader election; inconsistent graph views or fallback routing may deliver the same transaction to more than one chain.
-- **Key security:** Node signer keys authorize P2P identity and consensus responses. Compromise has protocol-level consequences until membership changes take effect.
-- **Peer authentication scope:** Reciprocal authentication retains verified neighbor keys, while signed-message checks protect the covered payloads. Authentication has no session nonce or channel binding, graph signatures do not prove fresh or truthful progress, and relayers can still drop or replay messages.
-- **Clock behavior:** Snapshot and membership validation uses nanosecond timestamps and bounded past/future checks. Severe clock faults can impair liveness.
-- **External assets:** Deposit and withdrawal correctness also depends on the configured custodian and external-chain observation processes; BFT agreement cannot prove an off-ledger fact that was supplied incorrectly.
-- **Privacy scope:** Ghost keys reduce public address linkage, but transaction amounts, asset identifiers, references, and graph activity remain observable.
-- **Consensus-set size:** The CoSi signer mask is 64 bits, and node admission caps Kernel membership at 50.
-- **Fixed execution model:** Kernel supports a fixed set of transaction classes rather than a general smart-contract VM. This reduces execution complexity but deliberately limits programmability.
-- **Topology semantics:** The local topology counter is an index, not a globally signed total order.
-- **Custodian slashing:** The snapshot validation path identifies custodian-slash handling as not implemented; it should not be treated as a completed feature.
+### Fund recovery and persistence
+
+Pledges have no normal timeout/refund transition. An unresolved pending pledge can therefore prevent recovery of its own stake and normal removal of otherwise eligible accepted-node stakes, subject to the admissible delayed-certificate case in Section 6.2.
+
+Ghost keys are reserved after common validation succeeds. A subsequent cache, kernel, or candidate-persistence failure does not undo that successful reservation. Candidate batch fallback can leave earlier candidates committed when a later candidate fails. Pruning an unfinalized body can leave reservations on its other inputs. Requeueing and startup do not implement general reconciliation or unlocking of these durable records.
+
+Financial finalization and consensus-history indexing use separate commits, with the limited trailing-snapshot replay described in Section 10. Ledger atomicity also relies on Badger's behavior. In the vendored compaction path, a deferred throttle completion captures the worker error before table construction finishes; a later table-build error can be omitted from the reported result. Successful publication after that failure can discard source tables without complete replacements. This is a conditional local storage-loss boundary; peer synchronization and backups are separate recovery mechanisms, not a guarantee that every such failure is recoverable.
+
+### Cache, concurrency, and transport
+
+Transaction identity excludes authorization signatures. P2P can supply an envelope before semantic validation, and the payload-hash cache retains its first envelope until expiry or deletion. A later envelope cannot replace that entry. A successful RPC cache-hit response therefore establishes neither fresh authorization validation nor finality; worker and snapshot processing retain their separate checks.
+
+`BuildGraph` reads four atomically published fields per chain. Full chain state, membership, graph timestamps, and finalization-pool access do not share that immutable publication boundary. Database serialization does not by itself synchronize every in-memory access.
+
+The batcher accounts for unsigned payload size, while transport carries signed envelopes and framing. Its two-thirds-of-32-MiB target does not guarantee that the corresponding wire message fits the transport limit. Bounded action queues, retries, readiness routing, clock checks, and eventual message delivery also govern progress. Routing can send the same transaction to multiple chains; transaction and certificate checks remain the authorization boundary.
+
+Peer authentication verifies signed identity statements without a session nonce or TLS channel binding. Signed graph summaries authenticate an author's report without proving its freshness or accuracy. Relayers can withhold or replay traffic. A partition without a quorum prevents normal finality.
+
+### Execution and observation
+
+Kernel implements fixed transaction classes, not a general smart-contract VM. Ghost keys provide one-time recipient keys while amounts, assets, references, and graph activity remain observable. The local topology index orders one node's storage and synchronization cursor; it is not a globally signed total order. RPC clients rely on the selected node's responses unless the consuming application independently verifies the required finality evidence.
 
 ## 13. Protocol parameters and implementation bounds
 
@@ -699,7 +714,7 @@ These parameters bound resource consumption and define the implementation descri
 | Transaction encoding | 5 |
 | Snapshot encoding | 2 |
 | Transactions per snapshot | 1–255 |
-| Transactions in a round-zero snapshot | Exactly 1, with no references, in both encoder and decoder |
+| Round-zero snapshot shape | Exactly 1 transaction; the decoder requires no references |
 | Round gap | 3 seconds |
 | Local in-round proposal cutoff | $4/5$ of round gap (2.4 seconds) |
 | Cache worker maximum timer wait | 300 ms |
@@ -731,13 +746,13 @@ These parameters bound resource consumption and define the implementation descri
 | Later accepted node enters threshold base | More than 30 seconds after acceptance |
 | Non-genesis signer maturity | More than 12 hours |
 | Mainnet reference-seeded protocol-output activation | 2026-09-01 00:00:00 UTC |
-| Legacy withdrawal-claim replay cutoff | 2026-09-01 00:00:00 UTC |
+| Withdrawal-claim signature-exemption cutoff for finalized replay | 2026-09-01 00:00:00 UTC |
 
 ## 14. Conclusion
 
-Mixin Kernel is fast because it does not force all work through one global block sequence. Accepted nodes advance their own short-round chains concurrently, external references weave those chains into a DAG, and a supermajority collective signature gives each snapshot Byzantine finality. The UTXO model keeps execution deterministic and bounded, while ghost keys provide recipient-specific one-time outputs.
+Accepted nodes advance their own short-round chains concurrently, external references connect those chains into a DAG, and a supermajority collective signature certifies each snapshot under the applicable membership rules. The UTXO model bounds execution to defined transaction classes, while ghost keys provide recipient-specific one-time outputs.
 
-The snapshot is the bridge between individual transactions and distributed agreement. It commits a bounded batch by hash, lets validators request only the bodies they lack, and amortizes proposal, commitment, challenge, response, finalization, and storage overhead across the batch. Honest signers reconstruct and validate the complete state transition before responding, so batching reduces coordination cost without changing the meaning of a valid transaction.
+The snapshot connects individual transactions to distributed agreement. It commits a bounded batch by hash, lets validators request the bodies they lack, and shares proposal, commitment, challenge, response, finalization, and storage work across the batch. Signers apply the admission, persistence, and snapshot checks described above before responding. Financial effects are applied once on local finalization, while candidate reservations and consensus-history bookkeeping have separate persistence and recovery rules.
 
 Together, these mechanisms form a ledger in which transactions are individually auditable, snapshots are compact and quorum-certified, rounds are deterministic graph commitments, and nodes make progress in parallel under a clear Byzantine fault threshold.
 
@@ -772,7 +787,7 @@ The following files are the primary sources for this paper:
 | Durable snapshot application | [`storage/badger_graph.go`](../storage/badger_graph.go), [`storage/badger_transaction.go`](../storage/badger_transaction.go) |
 | Candidate batch persistence and database-limit fallback | [`kernel/self.go`](../kernel/self.go), [`storage/badger_transaction.go`](../storage/badger_transaction.go) |
 | Configuration constants | [`config/reader.go`](../config/reader.go) |
-| Security review, regression evidence, and unresolved assurance | [`doc/release-security-audit-2026-09-06.md`](release-security-audit-2026-09-06.md) |
+| Vendored storage engine and dependency selection | [`vendor/github.com/dgraph-io/badger/v4/levels.go`](../vendor/github.com/dgraph-io/badger/v4/levels.go), [`go.mod`](../go.mod) |
 
 ## Appendix B. Glossary
 
