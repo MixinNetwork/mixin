@@ -10,6 +10,11 @@ This nested module pins
 - P2Pool verification of proofs produced by Mixin; and
 - Mixin verification of proofs produced by P2Pool.
 
+Both implementations also verify the shared [Monero range fixtures](../testdata/README.md).
+They accept valid boundary amounts and reject proofs for out-of-range amounts
+`2^64` and `2^248`, including padded and maximum-size aggregates. Batch checks
+place each invalid fixture before, between, and after valid proofs.
+
 Run it separately from the repository's main module:
 
 ```sh

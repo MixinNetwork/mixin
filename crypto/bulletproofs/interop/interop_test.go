@@ -2,6 +2,10 @@ package interop
 
 import (
 	"bytes"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"os"
 	"testing"
 
 	p2curve "git.gammaspectra.live/P2Pool/consensus/v5/monero/crypto/curve25519"
@@ -107,4 +111,134 @@ func TestExactP2PoolCompatibility(t *testing.T) {
 	if !valid {
 		t.Fatal("ours batch verifier rejected the 1-through-16 proof batch")
 	}
+}
+
+func TestMoneroRangeFixturesCompatibility(t *testing.T) {
+	data, err := os.ReadFile("../testdata/monero_range_proofs.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixtures struct {
+		SourceCommit string `json:"source_commit"`
+		Cases        []struct {
+			Name        string   `json:"name"`
+			Valid       bool     `json:"valid"`
+			Commitments []string `json:"commitments"`
+			Proof       string   `json:"proof"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(data, &fixtures); err != nil {
+		t.Fatal(err)
+	}
+	if fixtures.SourceCommit != "4f92268d7c16741cfb41e5bbe2aa46cc260a9ea5" {
+		t.Fatalf("unexpected Monero source commit %q", fixtures.SourceCommit)
+	}
+	wantCases := map[string]bool{
+		"valid_zero": true, "valid_max": true,
+		"invalid_8": false, "invalid_31": false,
+		"invalid_8_padded": false, "invalid_31_maximum": false,
+	}
+	if len(fixtures.Cases) != len(wantCases) {
+		t.Fatalf("got %d fixtures, want %d", len(fixtures.Cases), len(wantCases))
+	}
+	type parsedFixture struct {
+		name            string
+		valid           bool
+		oursProof       ours.Proof
+		p2Proof         p2plus.AggregateRangeProof[p2curve.VarTimeOperations]
+		oursCommitments []ours.Commitment
+		p2Commitments   []p2curve.VarTimePublicKey
+	}
+	parsed := make([]parsedFixture, len(fixtures.Cases))
+	var controls []*parsedFixture
+	for i, fixture := range fixtures.Cases {
+		want, exists := wantCases[fixture.Name]
+		if !exists || fixture.Valid != want {
+			t.Fatalf("unexpected, duplicate, or misclassified fixture %q", fixture.Name)
+		}
+		delete(wantCases, fixture.Name)
+		item := &parsed[i]
+		item.name, item.valid = fixture.Name, fixture.Valid
+		proofBytes, err := hex.DecodeString(fixture.Proof)
+		if err != nil {
+			t.Fatalf("%s: decode proof: %v", item.name, err)
+		}
+		if err := item.oursProof.UnmarshalBinary(proofBytes); err != nil {
+			t.Fatalf("%s: Mixin parse: %v", item.name, err)
+		}
+		oursBytes, err := item.oursProof.MarshalBinary()
+		if err != nil || !bytes.Equal(oursBytes, proofBytes) {
+			t.Fatalf("%s: Mixin canonical round trip: %v", item.name, err)
+		}
+		reader := bytes.NewReader(proofBytes)
+		if err := item.p2Proof.FromReader(reader); err != nil || reader.Len() != 0 {
+			t.Fatalf("%s: P2Pool parse: %v, trailing=%d", item.name, err, reader.Len())
+		}
+		p2Bytes, err := item.p2Proof.AppendBinary(nil, false)
+		if err != nil || !bytes.Equal(p2Bytes, proofBytes) {
+			t.Fatalf("%s: P2Pool canonical round trip: %v", item.name, err)
+		}
+		item.oursCommitments = make([]ours.Commitment, len(fixture.Commitments))
+		item.p2Commitments = make([]p2curve.VarTimePublicKey, len(fixture.Commitments))
+		for j, encoded := range fixture.Commitments {
+			commitment, err := hex.DecodeString(encoded)
+			if err != nil || len(commitment) != 32 {
+				t.Fatalf("%s: decode commitment %d: %v, length=%d", item.name, j, err, len(commitment))
+			}
+			copy(item.oursCommitments[j][:], commitment)
+			if _, err := item.p2Commitments[j].SetBytes(commitment); err != nil {
+				t.Fatalf("%s: P2Pool commitment %d: %v", item.name, j, err)
+			}
+			if !item.p2Commitments[j].IsTorsionFree() {
+				t.Fatalf("%s: commitment %d is not prime order", item.name, j)
+			}
+		}
+		if item.valid {
+			controls = append(controls, item)
+		}
+	}
+	checkBatch := func(t *testing.T, items []*parsedFixture, want bool) {
+		t.Helper()
+		var p2Batch p2plus.BatchVerifier[p2curve.VarTimeOperations]
+		p2Random := bytes.NewReader(randomStream())
+		var oursBatch []ours.BatchItem
+		for _, item := range items {
+			statement := p2plus.AggregateRangeStatement[p2curve.VarTimeOperations]{V: item.p2Commitments}
+			if !statement.Verify(&p2Batch, &item.p2Proof, p2Random) {
+				t.Fatalf("%s: P2Pool rejected before evaluating the accumulated equation", item.name)
+			}
+			oursBatch = append(oursBatch, ours.BatchItem{Proof: &item.oursProof, Commitments: item.oursCommitments})
+		}
+		if got := p2Batch.Verify(); got != want {
+			t.Fatalf("P2Pool batch validity=%t, want %t", got, want)
+		}
+		if got, err := ours.VerifyBatch(oursBatch); err != nil || got != want {
+			t.Fatalf("Mixin batch validity=%t, error=%v, want %t", got, err, want)
+		}
+	}
+	for i := range parsed {
+		item := &parsed[i]
+		t.Run(item.name, func(t *testing.T) {
+			if got := item.oursProof.Verify(item.oursCommitments); got != item.valid {
+				t.Fatalf("Mixin validity=%t, want %t", got, item.valid)
+			}
+			if got := item.p2Proof.Verify(item.p2Commitments, bytes.NewReader(randomStream())); got != item.valid {
+				t.Fatalf("P2Pool validity=%t, want %t", got, item.valid)
+			}
+			checkBatch(t, []*parsedFixture{item}, item.valid)
+			if !item.valid {
+				for position := 0; position <= len(controls); position++ {
+					t.Run(fmt.Sprintf("mixed_position_%d", position), func(t *testing.T) {
+						mixed := append([]*parsedFixture(nil), controls[:position]...)
+						mixed = append(mixed, item)
+						mixed = append(mixed, controls[position:]...)
+						checkBatch(t, mixed, false)
+					})
+				}
+			}
+		})
+	}
+	t.Run("valid_controls", func(t *testing.T) {
+		checkBatch(t, controls, true)
+	})
 }

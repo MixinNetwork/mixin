@@ -202,7 +202,7 @@ func proveWeightedInnerProduct(
 		scalars = scalars[:0]
 		points = points[:0]
 		a1Weighted := a1.clone().multiplyScalar(yNInv)
-		for i := 0; i < n; i++ {
+		for i := range n {
 			scalars = append(scalars, &a1Weighted[i], &b2[i])
 			points = append(points, g2[i], h1[i])
 		}
@@ -212,7 +212,7 @@ func proveWeightedInnerProduct(
 
 		scalars = scalars[:0]
 		points = points[:0]
-		for i := 0; i < n; i++ {
+		for i := range n {
 			scalars = append(scalars, &a2Weighted[i], &b1[i])
 			points = append(points, g1[i], h2[i])
 		}
@@ -232,7 +232,7 @@ func proveWeightedInnerProduct(
 		gFolded := make([]*edwards25519.Point, n)
 		hFolded := make([]*edwards25519.Point, n)
 		challengeYInv := new(edwards25519.Scalar).Multiply(challenge, yNInv)
-		for i := 0; i < n; i++ {
+		for i := range n {
 			gFolded[i] = multiScalar(true,
 				[]*edwards25519.Scalar{challengeInv, challengeYInv},
 				[]*edwards25519.Point{g1[i], g2[i]},
