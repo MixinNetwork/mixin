@@ -937,10 +937,6 @@ func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index uint) (*common.UTXOK
 	return utxo, nil
 }
 
-func (raw signerInput) ReadDepositLock(deposit *common.DepositData) (crypto.Hash, error) {
-	return crypto.Hash{}, nil
-}
-
 func transactionToMap(tx *common.VersionedTransaction) map[string]any {
 	var inputs []map[string]any
 	for _, in := range tx.Inputs {

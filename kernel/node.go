@@ -345,10 +345,6 @@ func (node *Node) LoadConsensusNodes() error {
 	return nil
 }
 
-func (node *Node) SnapshotVersion() uint8 {
-	return common.SnapshotVersionCommonEncoding
-}
-
 // this is needed to handle mainnet transaction version upgrading fork
 func (node *Node) NewTransaction(assetId crypto.Hash) *common.Transaction {
 	return common.NewTransactionV5(assetId)

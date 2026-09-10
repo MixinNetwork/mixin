@@ -1,9 +1,6 @@
 package p2p
 
-import (
-	"context"
-	"net"
-)
+import "net"
 
 const (
 	TransportMessageVersion    = 2
@@ -22,11 +19,4 @@ type Client interface {
 	Receive() (*TransportMessage, error)
 	Send([]byte) error
 	Close(string)
-}
-
-type Transport interface {
-	Listen() error
-	Dial(ctx context.Context) (Client, error)
-	Accept(ctx context.Context) (Client, error)
-	Close() error
 }

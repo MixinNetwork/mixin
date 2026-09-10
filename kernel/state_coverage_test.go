@@ -947,7 +947,6 @@ func TestNodeStateAndQueueHelpers(t *testing.T) {
 	pledgingTimestamp := uint64(config.KernelNodeAcceptPeriodMinimum) + config.SnapshotReferenceThreshold*config.SnapshotRoundGap*3 + 1
 	require.Equal(t, config.KernelMinimumNodesCount*2/3+1, thresholdNode.ConsensusThreshold(pledgingTimestamp, false))
 	require.Equal(t, 1000, thresholdNode.ConsensusThreshold(pledgingTimestamp, true))
-	require.Equal(t, uint8(common.SnapshotVersionCommonEncoding), node.SnapshotVersion())
 	require.Equal(t, common.XINAssetId, node.NewTransaction(common.XINAssetId).Asset)
 
 	t.Run("synchronized map returns a snapshot", func(t *testing.T) {

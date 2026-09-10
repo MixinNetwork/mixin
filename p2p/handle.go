@@ -204,16 +204,6 @@ func snapshotHash(s *common.Snapshot) crypto.Hash {
 	return s.PayloadHash()
 }
 
-func soleTransaction(txs []*common.VersionedTransaction) *common.VersionedTransaction {
-	if len(txs) == 0 {
-		return nil
-	}
-	if len(txs) != 1 {
-		panic(len(txs))
-	}
-	return txs[0]
-}
-
 func buildBatchSnapshotAnnouncementMessage(s *common.Snapshot, R *crypto.CosiCommitment, spend crypto.Key) []byte {
 	data := append(R.Bytes(), s.VersionedMarshal()...)
 	sig := spend.Sign(crypto.Blake3Hash(data))

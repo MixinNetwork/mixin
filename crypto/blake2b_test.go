@@ -1,6 +1,5 @@
 // https://github.com/dedis/kyber/blob/master/xof/blake2xb/blake.go
-// Package blake2xb provides an implementation of kyber.XOF based on the
-// Blake2xb construction.
+// Deterministic test reader based on the Blake2xb construction.
 package crypto
 
 import (
@@ -9,12 +8,9 @@ import (
 
 type xof struct {
 	impl blake2b.XOF
-	// key is here to not make excess garbage during repeated calls
-	// to XORKeyStream.
-	key []byte
 }
 
-// New creates a new XOF using the Blake2b hash.
+// NewBlake2bXOF creates a deterministic reader using the Blake2b hash.
 func NewBlake2bXOF(seed []byte) *xof {
 	seed1 := seed
 	var seed2 []byte
@@ -36,50 +32,6 @@ func NewBlake2bXOF(seed []byte) *xof {
 	return &xof{impl: b}
 }
 
-func (x *xof) Clone() *xof {
-	return &xof{impl: x.impl.Clone()}
-}
-
 func (x *xof) Read(dst []byte) (int, error) {
 	return x.impl.Read(dst)
-}
-
-func (x *xof) Write(src []byte) (int, error) {
-	return x.impl.Write(src)
-}
-
-func (x *xof) Reseed() {
-	// Use New to create a new one seeded with output from the old one.
-	if len(x.key) < 128 {
-		x.key = make([]byte, 128)
-	} else {
-		x.key = x.key[0:128]
-	}
-	_, _ = x.Read(x.key)
-	y := NewBlake2bXOF(x.key)
-	// Steal the XOF implementation, and put it inside of x.
-	x.impl = y.impl
-}
-
-func (x *xof) XORKeyStream(dst, src []byte) {
-	if len(dst) < len(src) {
-		panic("dst too short")
-	}
-	if len(x.key) < len(src) {
-		x.key = make([]byte, len(src))
-	} else {
-		x.key = x.key[0:len(src)]
-	}
-
-	n, err := x.Read(x.key)
-	if err != nil {
-		panic("blake xof error: " + err.Error())
-	}
-	if n != len(src) {
-		panic("short read on key")
-	}
-
-	for i := range src {
-		dst[i] = src[i] ^ x.key[i]
-	}
 }

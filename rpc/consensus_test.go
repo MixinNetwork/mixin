@@ -1811,10 +1811,6 @@ func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index uint) (*common.UTXOK
 	return utxo, nil
 }
 
-func (raw signerInput) ReadDepositLock(deposit *common.DepositData) (crypto.Hash, error) {
-	return crypto.Hash{}, nil
-}
-
 func electSnapshotNode(nodes []*Node, node *kernel.Node, operation byte, now uint64) *Node {
 	switch operation {
 	case common.TransactionTypeMint:

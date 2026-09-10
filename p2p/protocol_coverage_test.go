@@ -22,10 +22,6 @@ func TestProtocolPayloadValidationBranches(t *testing.T) {
 	challenge := crypto.NewCosiCommitment(p2pTestPrivateKey(202).Public(), p2pTestPrivateKey(102).Public())
 	randoms := crypto.NewCosiCommitment(p2pTestPrivateKey(203).Public(), p2pTestPrivateKey(103).Public())
 
-	require.Nil(t, soleTransaction(nil))
-	require.Panics(t, func() {
-		soleTransaction([]*common.VersionedTransaction{tx, tx})
-	})
 	withoutHash := p2pTestSnapshot(false)
 	withoutHash.Hash = crypto.Hash{}
 	require.Equal(t, withoutHash.PayloadHash(), snapshotHash(withoutHash))
