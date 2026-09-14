@@ -260,7 +260,7 @@ func (node *Node) lastMintDistribution() *common.MintData {
 
 func poolSizeUniversal(batch int) common.Integer {
 	mint, pool := common.Zero, MintPool
-	for i := 0; i < batch/MintYearDays; i++ {
+	for range batch / MintYearDays {
 		year := MintYearPercent.Product(pool)
 		mint = mint.Add(year)
 		pool = pool.Sub(year)
@@ -281,7 +281,7 @@ func mintBatchSize(batch uint64) common.Integer {
 	if years > 10000 {
 		panic(years)
 	}
-	for i := 0; i < int(years); i++ {
+	for range years {
 		year := MintYearPercent.Product(pool)
 		pool = pool.Sub(year)
 	}
