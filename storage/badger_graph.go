@@ -1,11 +1,10 @@
 package storage
 
 import (
-	"cmp"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"slices"
+	"sort"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -212,9 +211,7 @@ func readSnapshotsForNodeRound(txn *badger.Txn, nodeId crypto.Hash, round uint64
 		snapshots = append(snapshots, s)
 	}
 
-	slices.SortFunc(snapshots, func(a, b *common.SnapshotWithTopologicalOrder) int {
-		return cmp.Compare(a.Timestamp, b.Timestamp)
-	})
+	sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].Timestamp < snapshots[j].Timestamp })
 	return snapshots, nil
 }
 

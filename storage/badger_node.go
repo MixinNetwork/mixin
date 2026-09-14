@@ -1,10 +1,9 @@
 package storage
 
 import (
-	"cmp"
 	"encoding/binary"
 	"fmt"
-	"slices"
+	"sort"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
@@ -67,8 +66,8 @@ func readAllNodes(txn *badger.Txn, threshold uint64, withState bool) []*common.N
 	for _, n := range filter {
 		nodes = append(nodes, n)
 	}
-	slices.SortFunc(nodes, func(a, b *common.Node) int {
-		return cmp.Compare(a.Timestamp, b.Timestamp)
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].Timestamp < nodes[j].Timestamp
 	})
 	return nodes
 }

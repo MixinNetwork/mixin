@@ -1,9 +1,9 @@
 package kernel
 
 import (
-	"cmp"
 	"fmt"
 	"slices"
+	"sort"
 	"sync"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -175,8 +175,8 @@ func (c *CacheRound) Gap() (uint64, uint64) {
 	if count == 0 {
 		return start, end
 	}
-	slices.SortFunc(c.Snapshots, func(a, b *common.Snapshot) int {
-		return cmp.Compare(a.Timestamp, b.Timestamp)
+	sort.Slice(c.Snapshots, func(i, j int) bool {
+		return c.Snapshots[i].Timestamp < c.Snapshots[j].Timestamp
 	})
 	start = c.Snapshots[0].Timestamp
 	end = c.Snapshots[count-1].Timestamp

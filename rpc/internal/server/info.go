@@ -1,16 +1,14 @@
 package server
 
 import (
-	"cmp"
 	"fmt"
-	"slices"
+	"sort"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/MixinNetwork/mixin/kernel"
-	"github.com/MixinNetwork/mixin/p2p"
 	"github.com/MixinNetwork/mixin/storage"
 )
 
@@ -100,9 +98,7 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
 
 func dumpGraphHead(node *kernel.Node, _ []any) (any, error) {
 	rounds := node.BuildGraph()
-	slices.SortFunc(rounds, func(a, b *p2p.SyncPoint) int {
-		return cmp.Compare(fmt.Sprint(a.NodeId), fmt.Sprint(b.NodeId))
-	})
+	sort.Slice(rounds, func(i, j int) bool { return fmt.Sprint(rounds[i].NodeId) < fmt.Sprint(rounds[j].NodeId) })
 	return rounds, nil
 }
 
