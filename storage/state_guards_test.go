@@ -274,9 +274,9 @@ func TestMintRoundAndCustodianCorruption(t *testing.T) {
 		_, extra1 := buildCustodianUpdateTransaction(70, crypto.Blake3Hash([]byte("custodian guards")))
 		_, extra2 := buildCustodianUpdateTransaction(100, crypto.Blake3Hash([]byte("custodian guards")))
 		require.NoError(t, store.snapshotsDB.Update(func(txn *badger.Txn) error {
-			utxo1 := &common.UTXOWithLock{UTXO: common.UTXO{Input: common.Input{Hash: crypto.Blake3Hash([]byte("custodian one"))}}}
+			utxo1 := &common.UTXOWithLock{Hash: crypto.Blake3Hash([]byte("custodian one"))}
 			require.NoError(t, writeCustodianNodes(txn, 1, utxo1, extra1, true))
-			utxo2 := &common.UTXOWithLock{UTXO: common.UTXO{Input: common.Input{Hash: crypto.Blake3Hash([]byte("custodian two"))}}}
+			utxo2 := &common.UTXOWithLock{Hash: crypto.Blake3Hash([]byte("custodian two"))}
 			require.Panics(t, func() { _ = writeCustodianNodes(txn, 1, utxo2, extra2, true) })
 			require.Panics(t, func() { _ = writeCustodianNodes(txn, 2, utxo2, []byte{1}, true) })
 			return nil
@@ -301,7 +301,7 @@ func TestMintRoundAndCustodianCorruption(t *testing.T) {
 		extra = append(extra, make([]byte, 64)...)
 		store = newTestBadgerStore(t)
 		require.NoError(t, store.snapshotsDB.View(func(txn *badger.Txn) error {
-			utxo := &common.UTXOWithLock{UTXO: common.UTXO{Input: common.Input{Hash: crypto.Blake3Hash([]byte("too many custodians"))}}}
+			utxo := &common.UTXOWithLock{Hash: crypto.Blake3Hash([]byte("too many custodians"))}
 			require.Panics(t, func() { _ = writeCustodianNodes(txn, 1, utxo, extra, true) })
 			return nil
 		}))

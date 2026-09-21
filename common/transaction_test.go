@@ -327,11 +327,9 @@ func (store storeImpl) ReadUTXOLock(hash crypto.Hash, index uint) (*UTXOWithLock
 		Mask:   genesisMaskR,
 	}
 	utxo := &UTXOWithLock{
-		UTXO: UTXO{
-			Input:  in,
-			Output: out,
-			Asset:  XINAssetId,
-		},
+		Input:  in,
+		Output: out,
+		Asset:  XINAssetId,
 	}
 
 	for i := uint(0); i <= index+1; i++ {

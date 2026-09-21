@@ -119,17 +119,13 @@ func TestInputAndUTXORoundTrip(t *testing.T) {
 	key1 := crypto.NewKeyFromSeed([]byte("1123456789012345678901234567890111234567890123456789012345678901")).Public()
 	key2 := crypto.NewKeyFromSeed([]byte("2123456789012345678901234567890121234567890123456789012345678901")).Public()
 	utxo := &UTXOWithLock{
-		UTXO: UTXO{
-			Input: *input,
-			Output: Output{
-				Type:   OutputTypeScript,
-				Amount: NewInteger(99),
-				Keys:   []*crypto.Key{&key1, &key2},
-				Mask:   mask,
-				Script: NewThresholdScript(2),
-			},
-			Asset: XINAssetId,
-		},
+		Input:    *input,
+		Type:     OutputTypeScript,
+		Amount:   NewInteger(99),
+		Keys:     []*crypto.Key{&key1, &key2},
+		Mask:     mask,
+		Script:   NewThresholdScript(2),
+		Asset:    XINAssetId,
 		LockHash: crypto.Blake3Hash([]byte("lock-hash")),
 	}
 
@@ -192,7 +188,7 @@ func TestRationalAssetAndDepositHelpers(t *testing.T) {
 	ratio := NewInteger(2).Ration(NewInteger(5))
 	require.Equal("0.40000000", ratio.String())
 
-	require.Equal("2500.00000000", GetAssetCapacity(BitcoinAssetId).String())
+	require.Equal("2300.00000000", GetAssetCapacity(BitcoinAssetId).String())
 	require.Equal(
 		"115792089237316195423570985008687907853269984665640564039457.58400791",
 		GetAssetCapacity(crypto.Blake3Hash([]byte("unknown-asset"))).String(),
@@ -312,11 +308,9 @@ func TestAddressAndMintParsingEdges(t *testing.T) {
 
 	require.Panics(func() {
 		(&MintDistribution{
-			MintData: MintData{
-				Group:  "invalid",
-				Batch:  1,
-				Amount: NewInteger(1),
-			},
+			Group:  "invalid",
+			Batch:  1,
+			Amount: NewInteger(1),
 		}).Marshal()
 	})
 

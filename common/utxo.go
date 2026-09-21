@@ -41,18 +41,14 @@ func (tx *VersionedTransaction) UnspentOutputs() []*UTXOWithLock {
 		}
 
 		utxo := UTXO{
-			Input: Input{
-				Hash:  hash,
-				Index: uint(i),
-			},
-			Output: Output{
-				Type:   out.Type,
-				Amount: out.Amount,
-				Keys:   out.Keys,
-				Script: out.Script,
-				Mask:   out.Mask,
-			},
-			Asset: tx.Asset,
+			Hash:   hash,
+			Index:  uint(i),
+			Type:   out.Type,
+			Amount: out.Amount,
+			Keys:   out.Keys,
+			Script: out.Script,
+			Mask:   out.Mask,
+			Asset:  tx.Asset,
 		}
 		utxos = append(utxos, &UTXOWithLock{UTXO: utxo})
 	}

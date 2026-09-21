@@ -20,11 +20,9 @@ func TestMintValidationCampaign(t *testing.T) {
 	tx := NewTransactionV5(XINAssetId)
 	store := &campaignStore{
 		mintDist: &MintDistribution{
-			MintData: MintData{
-				Group:  mintGroupUniversal,
-				Batch:  5,
-				Amount: NewInteger(10),
-			},
+			Group:       mintGroupUniversal,
+			Batch:       5,
+			Amount:      NewInteger(10),
 			Transaction: crypto.Blake3Hash([]byte("mint-dist")),
 		},
 	}
@@ -52,11 +50,9 @@ func TestMintValidationCampaign(t *testing.T) {
 	require.Nil(tx.AsVersioned().validateMint(store))
 
 	store.mintDist = &MintDistribution{
-		MintData: MintData{
-			Group:  mintGroupUniversal,
-			Batch:  6,
-			Amount: NewInteger(10),
-		},
+		Group:       mintGroupUniversal,
+		Batch:       6,
+		Amount:      NewInteger(10),
 		Transaction: crypto.Blake3Hash([]byte("mint-lock")),
 	}
 	require.ErrorContains(tx.AsVersioned().validateMint(store), "backward mint batch")
@@ -78,7 +74,7 @@ func TestWithdrawalValidationCampaign(t *testing.T) {
 
 	validInputs := map[string]*UTXO{
 		"script:0": {
-			Output: Output{Type: OutputTypeScript},
+			Type: OutputTypeScript,
 		},
 	}
 
@@ -94,7 +90,7 @@ func TestWithdrawalValidationCampaign(t *testing.T) {
 	require.ErrorContains((&Transaction{
 		Outputs: submit.Outputs,
 	}).validateWithdrawalSubmit(map[string]*UTXO{
-		"bad:0": {Output: Output{Type: OutputTypeNodeAccept}},
+		"bad:0": {Type: OutputTypeNodeAccept},
 	}), "invalid utxo type")
 
 	require.ErrorContains((&Transaction{
@@ -177,7 +173,7 @@ func TestWithdrawalValidationCampaign(t *testing.T) {
 		References: claim.References,
 		Extra:      claim.Extra,
 	}).validateWithdrawalClaim(store, map[string]*UTXO{
-		"bad:0": {Output: Output{Type: OutputTypeNodeAccept}},
+		"bad:0": {Type: OutputTypeNodeAccept},
 	}, 1, false), "invalid utxo type")
 
 	require.ErrorContains((&Transaction{
@@ -305,7 +301,7 @@ func TestNodePledgeAcceptRemoveCampaign(t *testing.T) {
 
 	inputs := map[string]*UTXO{
 		utxoRef(basePledge.Inputs[0].Hash, 0): {
-			Output: Output{Type: OutputTypeScript},
+			Type: OutputTypeScript,
 		},
 	}
 	store := &campaignStore{}
@@ -325,7 +321,7 @@ func TestNodePledgeAcceptRemoveCampaign(t *testing.T) {
 	require.ErrorContains(badPledge.validateNodePledge(store, inputs, 0), "invalid inputs count")
 
 	require.ErrorContains(basePledge.validateNodePledge(store, map[string]*UTXO{
-		utxoRef(basePledge.Inputs[0].Hash, 0): {Output: Output{Type: OutputTypeNodeAccept}},
+		utxoRef(basePledge.Inputs[0].Hash, 0): {Type: OutputTypeNodeAccept},
 	}, 0), "invalid utxo type")
 
 	badPledge = *basePledge
@@ -573,29 +569,29 @@ func TestValidationHelpersCampaign(t *testing.T) {
 	require.ErrorContains(validateReferences(store, refTx), "too many references")
 
 	store.readTxErr = errors.New("reference read failure")
-	require.ErrorIs(validateReferences(store, &SignedTransaction{Transaction: Transaction{References: []crypto.Hash{crypto.Blake3Hash([]byte("ref"))}}}), store.readTxErr)
+	require.ErrorIs(validateReferences(store, &SignedTransaction{References: []crypto.Hash{crypto.Blake3Hash([]byte("ref"))}}), store.readTxErr)
 	store.readTxErr = nil
 
-	require.ErrorContains(validateReferences(store, &SignedTransaction{Transaction: Transaction{References: []crypto.Hash{crypto.Blake3Hash([]byte("missing"))}}}), "reference not found")
+	require.ErrorContains(validateReferences(store, &SignedTransaction{References: []crypto.Hash{crypto.Blake3Hash([]byte("missing"))}}), "reference not found")
 
 	refVer := (&Transaction{Version: TxVersionHashSignature, Asset: XINAssetId, Outputs: []*Output{{Type: OutputTypeScript, Amount: NewInteger(1)}}}).AsVersioned()
 	store.txs[crypto.Blake3Hash([]byte("existing")).String()] = refVer
-	require.Nil(validateReferences(store, &SignedTransaction{Transaction: Transaction{References: []crypto.Hash{crypto.Blake3Hash([]byte("existing"))}}}))
+	require.Nil(validateReferences(store, &SignedTransaction{References: []crypto.Hash{crypto.Blake3Hash([]byte("existing"))}}))
 
 	require.ErrorContains(validateScriptTransaction(map[string]*UTXO{
-		"bad:0": {Output: Output{Type: OutputTypeNodeAccept}},
+		"bad:0": {Type: OutputTypeNodeAccept},
 	}), "invalid utxo type")
 	require.Nil(validateScriptTransaction(map[string]*UTXO{
-		"ok:0": {Output: Output{Type: OutputTypeNodeRemove}},
+		"ok:0": {Type: OutputTypeNodeRemove},
 	}))
 
 	require.ErrorContains(validateUTXO(0, &utxo.UTXO, nil, &AggregatedSignature{Signers: []int{1, 0}}, TransactionTypeScript, map[*crypto.Key]*crypto.Signature{}, 0), "invalid aggregated signer order")
 	require.ErrorContains(validateUTXO(0, &utxo.UTXO, []map[uint16]*crypto.Signature{{1: nil}}, nil, TransactionTypeScript, map[*crypto.Key]*crypto.Signature{}, 0), "invalid signature map index")
-	require.Nil(validateUTXO(0, &UTXO{Output: Output{Type: OutputTypeNodePledge}}, nil, nil, TransactionTypeNodeAccept, map[*crypto.Key]*crypto.Signature{}, 0))
-	require.ErrorContains(validateUTXO(0, &UTXO{Output: Output{Type: OutputTypeNodePledge}}, nil, nil, TransactionTypeScript, map[*crypto.Key]*crypto.Signature{}, 0), "pledge input used")
-	require.Nil(validateUTXO(0, &UTXO{Output: Output{Type: OutputTypeNodeAccept}}, nil, nil, TransactionTypeNodeRemove, map[*crypto.Key]*crypto.Signature{}, 0))
-	require.ErrorContains(validateUTXO(0, &UTXO{Output: Output{Type: OutputTypeNodeAccept}}, nil, nil, TransactionTypeScript, map[*crypto.Key]*crypto.Signature{}, 0), "accept input used")
-	require.ErrorContains(validateUTXO(0, &UTXO{Output: Output{Type: OutputTypeWithdrawalSubmit}}, nil, nil, TransactionTypeScript, map[*crypto.Key]*crypto.Signature{}, 0), "invalid input type")
+	require.Nil(validateUTXO(0, &UTXO{Type: OutputTypeNodePledge}, nil, nil, TransactionTypeNodeAccept, map[*crypto.Key]*crypto.Signature{}, 0))
+	require.ErrorContains(validateUTXO(0, &UTXO{Type: OutputTypeNodePledge}, nil, nil, TransactionTypeScript, map[*crypto.Key]*crypto.Signature{}, 0), "pledge input used")
+	require.Nil(validateUTXO(0, &UTXO{Type: OutputTypeNodeAccept}, nil, nil, TransactionTypeNodeRemove, map[*crypto.Key]*crypto.Signature{}, 0))
+	require.ErrorContains(validateUTXO(0, &UTXO{Type: OutputTypeNodeAccept}, nil, nil, TransactionTypeScript, map[*crypto.Key]*crypto.Signature{}, 0), "accept input used")
+	require.ErrorContains(validateUTXO(0, &UTXO{Type: OutputTypeWithdrawalSubmit}, nil, nil, TransactionTypeScript, map[*crypto.Key]*crypto.Signature{}, 0), "invalid input type")
 
 	_, _, err := (&Transaction{Outputs: []*Output{{
 		Type:   OutputTypeScript,
@@ -682,63 +678,63 @@ func TestValidationHelpersCampaign(t *testing.T) {
 	require.Equal(NewInteger(3), amount)
 	require.Equal([]*crypto.Key{utxo.Keys[0], &other.PublicSpendKey}, keys)
 
-	mintInput := &SignedTransaction{Transaction: Transaction{Inputs: []*Input{{Mint: &MintData{Batch: 1, Amount: NewInteger(7)}}}}}
+	mintInput := &SignedTransaction{Inputs: []*Input{{Mint: &MintData{Batch: 1, Amount: NewInteger(7)}}}}
 	_, amount, err = mintInput.validateInputs(store, crypto.Hash{}, TransactionTypeMint, false)
 	require.Nil(err)
 	require.Equal(NewInteger(7), amount)
 
-	depositInput := &SignedTransaction{Transaction: Transaction{Inputs: []*Input{{Deposit: &DepositData{Amount: NewInteger(8)}}}}}
+	depositInput := &SignedTransaction{Inputs: []*Input{{Deposit: &DepositData{Amount: NewInteger(8)}}}}
 	_, amount, err = depositInput.validateInputs(store, crypto.Hash{}, TransactionTypeDeposit, false)
 	require.Nil(err)
 	require.Equal(NewInteger(8), amount)
 
-	_, _, err = (&SignedTransaction{Transaction: Transaction{
+	_, _, err = (&SignedTransaction{
 		Inputs: []*Input{{Hash: utxoHash, Index: 0, Genesis: []byte("genesis")}},
 		Asset:  XINAssetId,
-	}}).validateInputs(store, crypto.Hash{}, TransactionTypeScript, false)
+	}).validateInputs(store, crypto.Hash{}, TransactionTypeScript, false)
 	require.ErrorContains(err, "invalid genesis")
 
-	dup := &SignedTransaction{Transaction: Transaction{
+	dup := &SignedTransaction{
 		Asset:  XINAssetId,
 		Inputs: []*Input{{Hash: utxoHash, Index: 0}, {Hash: utxoHash, Index: 0}},
-	}}
+	}
 	dup.SignaturesMap = []map[uint16]*crypto.Signature{{0: nil}}
 	_, _, err = dup.validateInputs(store, crypto.Hash{}, TransactionTypeScript, false)
 	require.ErrorContains(err, "invalid input")
 
 	store.readUTXOErr = errors.New("utxo read failure")
-	_, _, err = (&SignedTransaction{Transaction: Transaction{
+	_, _, err = (&SignedTransaction{
 		Asset:  XINAssetId,
 		Inputs: []*Input{{Hash: utxoHash, Index: 0}},
-	}}).validateInputs(store, crypto.Hash{}, TransactionTypeScript, false)
+	}).validateInputs(store, crypto.Hash{}, TransactionTypeScript, false)
 	require.ErrorIs(err, store.readUTXOErr)
 	store.readUTXOErr = nil
 
-	_, _, err = (&SignedTransaction{Transaction: Transaction{
+	_, _, err = (&SignedTransaction{
 		Asset:  XINAssetId,
 		Inputs: []*Input{{Hash: crypto.Blake3Hash([]byte("missing")), Index: 0}},
-	}}).validateInputs(store, crypto.Hash{}, TransactionTypeScript, false)
+	}).validateInputs(store, crypto.Hash{}, TransactionTypeScript, false)
 	require.ErrorContains(err, "input not found")
 
 	store.utxos[utxoRef(utxoHash, 0)].Asset = BitcoinAssetId
-	_, _, err = (&SignedTransaction{Transaction: Transaction{
+	_, _, err = (&SignedTransaction{
 		Asset:  XINAssetId,
 		Inputs: []*Input{{Hash: utxoHash, Index: 0}},
-	}}).validateInputs(store, crypto.Hash{}, TransactionTypeScript, false)
+	}).validateInputs(store, crypto.Hash{}, TransactionTypeScript, false)
 	require.ErrorContains(err, "invalid input asset")
 	store.utxos[utxoRef(utxoHash, 0)].Asset = XINAssetId
 
 	store.utxos[utxoRef(utxoHash, 0)].LockHash = crypto.Blake3Hash([]byte("locked"))
-	_, _, err = (&SignedTransaction{Transaction: Transaction{
+	_, _, err = (&SignedTransaction{
 		Asset:  XINAssetId,
 		Inputs: []*Input{{Hash: utxoHash, Index: 0}},
-	}}).validateInputs(store, crypto.Blake3Hash([]byte("other")), TransactionTypeScript, false)
+	}).validateInputs(store, crypto.Blake3Hash([]byte("other")), TransactionTypeScript, false)
 	require.ErrorContains(err, "input locked for transaction")
 
-	lockedFork := &SignedTransaction{Transaction: Transaction{
+	lockedFork := &SignedTransaction{
 		Asset:  XINAssetId,
 		Inputs: []*Input{{Hash: utxoHash, Index: 0}},
-	}}
+	}
 	lockedFork.SignaturesMap = []map[uint16]*crypto.Signature{{}}
 	store.utxos[utxoRef(utxoHash, 0)].Script = NewThresholdScript(0)
 	_, _, err = lockedFork.validateInputs(store, crypto.Blake3Hash([]byte("other")), TransactionTypeScript, true)
@@ -746,23 +742,25 @@ func TestValidationHelpersCampaign(t *testing.T) {
 	store.utxos[utxoRef(utxoHash, 0)].Script = NewThresholdScript(1)
 	store.utxos[utxoRef(utxoHash, 0)].LockHash = crypto.Hash{}
 
-	nodePledgeUTXO := &UTXOWithLock{UTXO: UTXO{
-		Input:  Input{Hash: crypto.Blake3Hash([]byte("pledge")), Index: 0},
-		Output: Output{Type: OutputTypeNodePledge, Amount: NewInteger(10)},
+	nodePledgeUTXO := &UTXOWithLock{
+		Hash:   crypto.Blake3Hash([]byte("pledge")),
+		Index:  0,
+		Type:   OutputTypeNodePledge,
+		Amount: NewInteger(10),
 		Asset:  XINAssetId,
-	}}
+	}
 	store.utxos[utxoRef(nodePledgeUTXO.Hash, nodePledgeUTXO.Index)] = nodePledgeUTXO
-	_, _, err = (&SignedTransaction{Transaction: Transaction{
+	_, _, err = (&SignedTransaction{
 		Asset:  XINAssetId,
 		Inputs: []*Input{{Hash: nodePledgeUTXO.Hash, Index: nodePledgeUTXO.Index}},
-	}}).validateInputs(store, crypto.Hash{}, TransactionTypeNodeAccept, false)
+	}).validateInputs(store, crypto.Hash{}, TransactionTypeNodeAccept, false)
 	require.Nil(err)
 
-	validSigTx := &SignedTransaction{Transaction: Transaction{
+	validSigTx := &SignedTransaction{
 		Version: TxVersionHashSignature,
 		Asset:   XINAssetId,
 		Inputs:  []*Input{{Hash: utxoHash, Index: 0}},
-	}}
+	}
 	hash := validSigTx.AsVersioned().PayloadHash()
 	sig := ghost.Sign(hash)
 	validSigTx.SignaturesMap = []map[uint16]*crypto.Signature{{0: &sig}}
@@ -771,7 +769,7 @@ func TestValidationHelpersCampaign(t *testing.T) {
 	require.Equal(NewInteger(10), inputAmount)
 	require.Contains(inputsFilter, utxoRef(utxoHash, 0))
 
-	require.Equal(ExtraSizeGeneralLimit, (&SignedTransaction{Transaction: Transaction{Version: TxVersionHashSignature, Asset: BitcoinAssetId}}).GetExtraLimit())
+	require.Equal(ExtraSizeGeneralLimit, (&SignedTransaction{Version: TxVersionHashSignature, Asset: BitcoinAssetId}).GetExtraLimit())
 }
 
 func TestValidateOutputChecks(t *testing.T) {
@@ -858,22 +856,22 @@ func TestDepositAndCapacityCampaign(t *testing.T) {
 		id   crypto.Hash
 		want string
 	}{
-		{BitcoinAssetId, "2500.00000000"},
+		{BitcoinAssetId, "2300.00000000"},
 		{EthereumAssetId, "5000.00000000"},
 		{XINAssetId, "750000.00000000"},
 		{BOXAssetId, "200000000.00000000"},
-		{MOBAssetId, "30000000.00000000"},
-		{USDTEthereumAssetId, "20000000.00000000"},
-		{USDTTRONAssetId, "25000000.00000000"},
-		{USDTBNBAssetId, "3000000.00000000"},
+		{MOBAssetId, "25000000.00000000"},
+		{USDTEthereumAssetId, "25000000.00000000"},
+		{USDTTRONAssetId, "21000000.00000000"},
+		{USDTBNBAssetId, "2000000.00000000"},
 		{PandoUSDAssetId, "1000000000000.00000000"},
 		{USDCEthereumAssetId, "3000000.00000000"},
 		{USDCSolanaAssetId, "3000000.00000000"},
 		{EOSAssetId, "3500000.00000000"},
 		{SOLAssetId, "60000.00000000"},
-		{UNIAssetId, "1100000.00000000"},
-		{DOGEAssetId, "25000000.00000000"},
-		{ZECAssetId, "5000.00000000"},
+		{UNIAssetId, "1000000.00000000"},
+		{DOGEAssetId, "26000000.00000000"},
+		{ZECAssetId, "4000.00000000"},
 		{XMRAssetId, "2000.00000000"},
 		{XRPAssetId, "1000000.00000000"},
 	} {
@@ -1010,7 +1008,9 @@ func TestSigningAndValidateDispatchCampaign(t *testing.T) {
 
 	mintStore := &campaignStore{
 		mintDist: &MintDistribution{
-			MintData:    MintData{Group: mintGroupUniversal, Batch: 1, Amount: NewInteger(1)},
+			Group:       mintGroupUniversal,
+			Batch:       1,
+			Amount:      NewInteger(1),
 			Transaction: crypto.Blake3Hash([]byte("mint-prev")),
 		},
 	}
@@ -1063,11 +1063,15 @@ func TestSigningAndValidateDispatchCampaign(t *testing.T) {
 	nodePayee := deterministicAddress(154)
 	nodeStore := &campaignStore{
 		utxos: map[string]*UTXOWithLock{
-			utxoRef(utxoHash, 0): {UTXO: UTXO{
+			utxoRef(utxoHash, 0): {
 				Input:  utxo.Input,
-				Output: Output{Type: OutputTypeScript, Amount: KernelNodePledgeAmount, Keys: utxo.Keys, Mask: utxo.Mask, Script: NewThresholdScript(1)},
+				Type:   OutputTypeScript,
+				Amount: KernelNodePledgeAmount,
+				Keys:   utxo.Keys,
+				Mask:   utxo.Mask,
+				Script: NewThresholdScript(1),
 				Asset:  XINAssetId,
-			}},
+			},
 		},
 	}
 	nodePledge := NewTransactionV5(XINAssetId)
@@ -1080,11 +1084,13 @@ func TestSigningAndValidateDispatchCampaign(t *testing.T) {
 	nodeStore.nodes = []*Node{{Signer: deterministicAddress(155), State: NodeStateAccepted}}
 	require.Nil(nodePledgeVer.Validate(nodeStore, 0, false))
 
-	nodeAcceptInput := &UTXOWithLock{UTXO: UTXO{
-		Input:  Input{Hash: nodePledgeVer.PayloadHash(), Index: 0},
-		Output: Output{Type: OutputTypeNodePledge, Amount: KernelNodePledgeAmount},
+	nodeAcceptInput := &UTXOWithLock{
+		Hash:   nodePledgeVer.PayloadHash(),
+		Index:  0,
+		Type:   OutputTypeNodePledge,
+		Amount: KernelNodePledgeAmount,
 		Asset:  XINAssetId,
-	}}
+	}
 	acceptStore := &campaignStore{
 		utxos: map[string]*UTXOWithLock{
 			utxoRef(nodePledgeVer.PayloadHash(), 0): nodeAcceptInput,
@@ -1108,11 +1114,13 @@ func TestSigningAndValidateDispatchCampaign(t *testing.T) {
 	nodeAcceptVer.SignaturesMap = []map[uint16]*crypto.Signature{{0: &nodeAcceptSig}}
 	require.Nil(nodeAcceptVer.Validate(acceptStore, 0, false))
 
-	nodeRemoveInput := &UTXOWithLock{UTXO: UTXO{
-		Input:  Input{Hash: nodeAcceptVer.PayloadHash(), Index: 0},
-		Output: Output{Type: OutputTypeNodeAccept, Amount: KernelNodePledgeAmount},
+	nodeRemoveInput := &UTXOWithLock{
+		Hash:   nodeAcceptVer.PayloadHash(),
+		Index:  0,
+		Type:   OutputTypeNodeAccept,
+		Amount: KernelNodePledgeAmount,
 		Asset:  XINAssetId,
-	}}
+	}
 	removeStore := &campaignStore{
 		utxos: map[string]*UTXOWithLock{
 			utxoRef(nodeAcceptVer.PayloadHash(), 0): nodeRemoveInput,
@@ -1230,18 +1238,18 @@ func TestVersionAndLimitEdgeCampaign(t *testing.T) {
 		(&Transaction{Version: 1}).AsVersioned()
 	})
 	require.Panics(func() {
-		(&SignedTransaction{Transaction: Transaction{Version: 1}}).AsVersioned()
+		(&SignedTransaction{Version: 1}).AsVersioned()
 	})
 	require.Panics(func() {
-		(&SignedTransaction{Transaction: Transaction{Version: 1}}).GetExtraLimit()
+		(&SignedTransaction{Version: 1}).GetExtraLimit()
 	})
 
 	account := deterministicAddress(160)
 
-	nonXIN := &SignedTransaction{Transaction: Transaction{Version: TxVersionHashSignature, Asset: BitcoinAssetId}}
+	nonXIN := &SignedTransaction{Version: TxVersionHashSignature, Asset: BitcoinAssetId}
 	require.Equal(ExtraSizeGeneralLimit, nonXIN.GetExtraLimit())
 
-	noStorage := &SignedTransaction{Transaction: Transaction{
+	noStorage := &SignedTransaction{
 		Version: TxVersionHashSignature,
 		Asset:   XINAssetId,
 		Outputs: []*Output{{
@@ -1251,7 +1259,7 @@ func TestVersionAndLimitEdgeCampaign(t *testing.T) {
 			Mask:   account.PublicSpendKey,
 			Script: NewThresholdScript(1),
 		}},
-	}}
+	}
 	require.Equal(ExtraSizeGeneralLimit, noStorage.GetExtraLimit())
 
 	smallStorage := NewTransactionV5(XINAssetId)
@@ -1285,7 +1293,7 @@ func TestVersionAndLimitEdgeCampaign(t *testing.T) {
 		return err
 	})(), "invalid UTXO size")
 
-	ver := &VersionedTransaction{SignedTransaction: SignedTransaction{Transaction: Transaction{Version: 1}}}
+	ver := &VersionedTransaction{Version: 1}
 	require.Panics(func() {
 		ver.marshal()
 	})
@@ -1425,20 +1433,14 @@ func makeScriptUTXO(account Address, hash crypto.Hash, index uint, amount Intege
 	mask := maskKey.Public()
 	key := crypto.DeriveGhostPublicKey(&maskKey, &account.PublicViewKey, &account.PublicSpendKey, uint64(index))
 	utxo := &UTXOWithLock{
-		UTXO: UTXO{
-			Input: Input{
-				Hash:  hash,
-				Index: index,
-			},
-			Output: Output{
-				Type:   OutputTypeScript,
-				Amount: amount,
-				Keys:   []*crypto.Key{key},
-				Mask:   mask,
-				Script: NewThresholdScript(1),
-			},
-			Asset: XINAssetId,
-		},
+		Hash:   hash,
+		Index:  index,
+		Type:   OutputTypeScript,
+		Amount: amount,
+		Keys:   []*crypto.Key{key},
+		Mask:   mask,
+		Script: NewThresholdScript(1),
+		Asset:  XINAssetId,
 	}
 	priv := crypto.DeriveGhostPrivateKey(&utxo.Mask, &account.PrivateViewKey, &account.PrivateSpendKey, uint64(index))
 	return utxo, priv

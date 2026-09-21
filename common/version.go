@@ -29,7 +29,7 @@ func (tx *Transaction) AsVersioned() *VersionedTransaction {
 		panic(tx.Version)
 	}
 	return &VersionedTransaction{
-		SignedTransaction: SignedTransaction{Transaction: *tx},
+		Transaction: *tx,
 	}
 }
 
