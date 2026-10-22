@@ -23,13 +23,13 @@ github.com/dgraph-io/badger/v4/y
 github.com/dgraph-io/ristretto/v2
 github.com/dgraph-io/ristretto/v2/z
 github.com/dgraph-io/ristretto/v2/z/simd
-# github.com/dustin/go-humanize v1.0.1
-## explicit; go 1.16
+# github.com/dustin/go-humanize v1.1.0
+## explicit; go 1.21
 github.com/dustin/go-humanize
 # github.com/google/flatbuffers v25.12.19+incompatible
 ## explicit
 github.com/google/flatbuffers/go
-# github.com/klauspost/compress v1.20.0
+# github.com/klauspost/compress v1.20.3
 ## explicit; go 1.25
 github.com/klauspost/compress
 github.com/klauspost/compress/fse
@@ -37,18 +37,20 @@ github.com/klauspost/compress/huff0
 github.com/klauspost/compress/internal/cpuinfo
 github.com/klauspost/compress/internal/le
 github.com/klauspost/compress/internal/race
+github.com/klauspost/compress/internal/regmask
 github.com/klauspost/compress/internal/snapref
 github.com/klauspost/compress/s2
 github.com/klauspost/compress/snappy
 github.com/klauspost/compress/zstd
 github.com/klauspost/compress/zstd/internal/xxhash
-# github.com/klauspost/cpuid/v2 v2.4.0
+# github.com/klauspost/cpuid/v2 v2.4.1
 ## explicit; go 1.24.0
 github.com/klauspost/cpuid/v2
+github.com/klauspost/cpuid/v2/topology
 # github.com/pelletier/go-toml v1.9.5
 ## explicit; go 1.12
 github.com/pelletier/go-toml
-# github.com/quic-go/quic-go v0.62.0
+# github.com/quic-go/quic-go v0.64.1
 ## explicit; go 1.26.0
 github.com/quic-go/quic-go
 github.com/quic-go/quic-go/internal/ackhandler
@@ -69,7 +71,7 @@ github.com/quic-go/quic-go/quicvarint
 # github.com/russross/blackfriday/v2 v2.1.0
 ## explicit
 github.com/russross/blackfriday/v2
-# github.com/shopspring/decimal v1.4.0
+# github.com/shopspring/decimal v1.6.0
 ## explicit; go 1.10
 github.com/shopspring/decimal
 # github.com/stretchr/testify v1.12.1
@@ -82,7 +84,7 @@ github.com/stretchr/testify/require
 # github.com/urfave/cli/v2 v2.27.7
 ## explicit; go 1.18
 github.com/urfave/cli/v2
-# github.com/xrash/smetrics v0.0.0-20250705151800-55b8f293f342
+# github.com/xrash/smetrics v0.0.0-20261013231157-39c47d93efba
 ## explicit; go 1.15
 github.com/xrash/smetrics
 # github.com/zeebo/blake3 v0.2.4
@@ -100,21 +102,21 @@ github.com/zeebo/blake3/internal/utils
 # go.yaml.in/yaml/v3 v3.0.5
 ## explicit; go 1.16
 go.yaml.in/yaml/v3
-# golang.org/x/crypto v0.57.0
+# golang.org/x/crypto v0.58.0
 ## explicit; go 1.26.0
 golang.org/x/crypto/blake2b
 golang.org/x/crypto/chacha20
 golang.org/x/crypto/chacha20poly1305
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
-# golang.org/x/net v0.59.0
+# golang.org/x/net v0.61.0
 ## explicit; go 1.26.0
 golang.org/x/net/bpf
 golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
-# golang.org/x/sys v0.48.0
+# golang.org/x/sys v0.49.0
 ## explicit; go 1.26.0
 golang.org/x/sys/cpu
 golang.org/x/sys/unix
