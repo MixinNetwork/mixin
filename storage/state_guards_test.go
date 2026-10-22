@@ -271,10 +271,11 @@ func TestMintRoundAndCustodianCorruption(t *testing.T) {
 		require.Error(t, err)
 
 		store = newTestBadgerStore(t)
-		_, extra1 := buildCustodianUpdateTransaction(70, crypto.Blake3Hash([]byte("custodian guards")))
+		ver1, extra1 := buildCustodianUpdateTransaction(70, crypto.Blake3Hash([]byte("custodian guards")))
 		_, extra2 := buildCustodianUpdateTransaction(100, crypto.Blake3Hash([]byte("custodian guards")))
 		require.NoError(t, store.snapshotsDB.Update(func(txn *badger.Txn) error {
-			utxo1 := &common.UTXOWithLock{Hash: crypto.Blake3Hash([]byte("custodian one"))}
+			require.NoError(t, writeTransaction(txn, ver1))
+			utxo1 := &common.UTXOWithLock{Hash: ver1.PayloadHash()}
 			require.NoError(t, writeCustodianNodes(txn, 1, utxo1, extra1, true))
 			utxo2 := &common.UTXOWithLock{Hash: crypto.Blake3Hash([]byte("custodian two"))}
 			require.Panics(t, func() { _ = writeCustodianNodes(txn, 1, utxo2, extra2, true) })

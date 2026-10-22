@@ -1,10 +1,81 @@
 package common
 
 import (
+	"bytes"
+	"encoding/json"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestIntegerUnmarshalJSONRejectsInvalidAmounts(t *testing.T) {
+	for _, data := range []string{`"invalid"`, `""`, `"-1"`, `"-0.00000001"`, `"1einvalid"`, `"1e2147483647"`, `12`, `null`} {
+		t.Run(data, func(t *testing.T) {
+			amount := NewInteger(42)
+			require.Error(t, json.Unmarshal([]byte(data), &amount))
+			require.Equal(t, "42.00000000", amount.String())
+		})
+	}
+	amount := NewInteger(42)
+	require.NoError(t, json.Unmarshal([]byte(`"1.234567899"`), &amount))
+	require.Equal(t, "1.23456789", amount.String())
+}
+
+func TestIntegerScientificNotation(t *testing.T) {
+	for _, tc := range []struct {
+		input string
+		want  string
+	}{
+		{"1.23456789e2", "123.45678900"},
+		{"+12.3E-1", "1.23000000"},
+		{"1.234567899e-3", "0.00123456"},
+		{"123456789e-16", "0.00000001"},
+		{"123456789e-17", "0.00000000"},
+		{"1e-2147483648", "0.00000000"},
+		{"0e-2147483648", "0.00000000"},
+		{"0e2147483647", "0.00000000"},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			var amount Integer
+			data, err := json.Marshal(tc.input)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(data, &amount))
+			require.Equal(t, tc.want, amount.String())
+		})
+	}
+	for _, input := range []string{"1e2147483639", "1e2147483647", "1e160000"} {
+		t.Run(input, func(t *testing.T) {
+			amount := NewInteger(42)
+			data, err := json.Marshal(input)
+			require.NoError(t, err)
+			require.ErrorContains(t, json.Unmarshal(data, &amount), "maximum encoded size")
+			require.Equal(t, "42.00000000", amount.String())
+		})
+	}
+}
+
+func TestIntegerMaximumEncodedSize(t *testing.T) {
+	var maximum Integer
+	maximum.i.SetBytes(bytes.Repeat([]byte{0xff}, MaximumEncodingInt))
+	data, err := json.Marshal(maximum)
+	require.NoError(t, err)
+	var parsed Integer
+	require.NoError(t, json.Unmarshal(data, &parsed))
+	require.Zero(t, parsed.Cmp(maximum))
+	enc := NewEncoder()
+	enc.WriteInteger(parsed)
+	decoded, err := NewDecoder(enc.Bytes()).ReadInteger()
+	require.NoError(t, err)
+	require.Zero(t, decoded.Cmp(maximum))
+
+	var overflow Integer
+	overflow.i.Add(&maximum.i, big.NewInt(1))
+	data, err = json.Marshal(overflow)
+	require.NoError(t, err)
+	require.ErrorContains(t, json.Unmarshal(data, &parsed), "maximum encoded size")
+	require.Zero(t, parsed.Cmp(maximum))
+}
 
 func TestInteger(t *testing.T) {
 	require := require.New(t)

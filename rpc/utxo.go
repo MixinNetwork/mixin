@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -24,7 +25,7 @@ func GetUTXO(rpc, hash string, index uint64) (*common.UTXOWithLock, error) {
 	}
 	err = json.Unmarshal(data, &out)
 	if err != nil {
-		panic(string(data))
+		return nil, fmt.Errorf("decode UTXO response: %w", err)
 	}
 
 	utxo := &common.UTXOWithLock{LockHash: out.LockHash}

@@ -745,6 +745,10 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	logger.Verbosef("cosiHandleResponse %v\n", m)
 	agg := chain.CosiAggregators[m.SnapshotHash]
 	s, cd := agg.Snapshot, m.data
+	if s.Signature == nil {
+		logger.Verbosef("cosiHandleResponse %v BEFORE CHALLENGE\n", m)
+		return nil
+	}
 	if agg.Responses[cd.PN.ConsensusIndex] != nil {
 		logger.Verbosef("cosiHandleResponse %v REPEAT\n", m)
 		return nil

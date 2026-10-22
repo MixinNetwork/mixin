@@ -63,15 +63,9 @@ func (s *BadgerStore) WriteTransaction(ver *common.VersionedTransaction) error {
 // and holding the store mutex for the whole batch keeps the serialization
 // against WriteSnapshot unchanged.
 //
-// The new path writes every input lock, ghost lock, and transaction body in
-// one Badger transaction. Badger’s default limit is roughly 104,857 entries,
-// but one valid script transaction can contain 256 outputs × 256 keys =
-// 65,536 ghost locks. Two such batchable transactions remain below the 4 MiB
-// per-transaction and transport-size limits, yet require over 131,000 lock
-// writes. This returns badger.ErrTxnTooBig on a verifier without pre-existing
-// locks. Meanwhile, a proposer may succeed because queue validation already
-// stored those locks individually, creating state-dependent snapshot acceptance.
-// Cap expected writes before batching, or keep ghost-lock commits bounded/per-transaction.
+// A batch can exceed Badger's write limits even when each transaction is valid.
+// ErrTxnTooBig leaves this batch uncommitted. Kernel retries through validation
+// and per-transaction persistence, which reserves ghost keys in separate commits.
 func (s *BadgerStore) LockAndPersistTransactions(vers []*common.VersionedTransaction, fork bool) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -245,6 +239,9 @@ func readTransaction(txn *badger.Txn, hash crypto.Hash) (*common.VersionedTransa
 	item, err := txn.Get(key)
 	if err == badger.ErrKeyNotFound {
 		return nil, nil
+	}
+	if err != nil {
+		return nil, err
 	}
 	val, err := item.ValueCopy(nil)
 	if err != nil {

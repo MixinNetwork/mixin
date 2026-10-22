@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -23,7 +24,7 @@ func GetInfo(rpc string) (*KernelInfo, error) {
 	var info KernelInfo
 	err = json.Unmarshal(raw, &info)
 	if err != nil {
-		panic(string(raw))
+		return nil, fmt.Errorf("decode info response: %w", err)
 	}
 	return &info, nil
 }

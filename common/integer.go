@@ -19,15 +19,47 @@ type Integer struct {
 }
 
 func NewIntegerFromString(x string) (v Integer) {
-	d, err := decimal.NewFromString(x)
+	v, err := parseInteger(x)
 	if err != nil {
 		panic(err)
 	}
-	if d.Sign() < 0 {
-		panic(x)
+	return v
+}
+
+func parseInteger(x string) (v Integer, err error) {
+	d, err := decimal.NewFromString(x)
+	if err != nil {
+		return v, err
 	}
-	s := d.Mul(decimal.New(1, Precision)).Floor().String()
-	v.i.SetString(s, 10)
+	if d.Sign() < 0 {
+		return v, fmt.Errorf("invalid negative integer %s", x)
+	}
+	if d.Sign() == 0 {
+		return v, nil
+	}
+
+	digits := d.Coefficient().String()
+	exponent := int64(d.Exponent()) + Precision
+	if exponent < 0 {
+		end := int64(len(digits)) + exponent
+		if end <= 0 {
+			return v, nil
+		}
+		digits = digits[:int(end)]
+		exponent = 0
+	}
+
+	const maxBits = MaximumEncodingInt * 8
+	// Each decimal digit contributes more than three bits. This loose bound
+	// prevents exponent-driven allocations before checking the exact bit length.
+	if int64(len(digits))+exponent > maxBits/3+1 {
+		return v, fmt.Errorf("integer exceeds maximum encoded size %d", MaximumEncodingInt)
+	}
+	digits += strings.Repeat("0", int(exponent))
+	v.i.SetString(digits, 10)
+	if v.i.BitLen() > maxBits {
+		return Integer{}, fmt.Errorf("integer exceeds maximum encoded size %d", MaximumEncodingInt)
+	}
 	return
 }
 
@@ -118,7 +150,10 @@ func (x *Integer) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-	i := NewIntegerFromString(unquoted)
+	i, err := parseInteger(unquoted)
+	if err != nil {
+		return err
+	}
 	x.i.SetBytes(i.i.Bytes())
 	return nil
 }

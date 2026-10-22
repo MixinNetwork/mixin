@@ -3,9 +3,27 @@ package crypto
 import (
 	"bytes"
 	"testing"
+	"testing/iotest"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestCosiCommitNonceAcceptsShortReads(t *testing.T) {
+	seed1, seed2 := testSeed(51), testSeed(52)
+	source := bytes.NewReader(append(seed1, seed2...))
+	nonce := CosiCommitNonce(iotest.OneByteReader(source))
+	require.Equal(t, NewCosiCommitment(NewKeyFromSeed(seed1).Public(), NewKeyFromSeed(seed2).Public()), *nonce.Public())
+	require.Zero(t, source.Len())
+	private := testCosiKey(53)
+	public := private.Public()
+	message := Blake3Hash([]byte("short random reads"))
+	publics := []*Key{&public}
+	signature := testCosiAggregateCommitment(t, map[int]*CosiCommitment{0: nonce.Public()}, publics, message)
+	response, err := nonce.Response(signature, &private, publics, message)
+	require.NoError(t, err)
+	require.NoError(t, signature.AggregateResponse(publics, map[int]*[32]byte{0: response}, message, true))
+	require.NoError(t, signature.FullVerify(publics, 1, message))
+}
 
 func testCosiKey(seed byte) Key {
 	return NewKeyFromSeed(bytes.Repeat([]byte{seed}, 64))

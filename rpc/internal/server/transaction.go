@@ -152,6 +152,9 @@ func getSnapshot(node *kernel.Node, store storage.Store, params []any) (map[stri
 		if err != nil {
 			return nil, err
 		}
+		if tx == nil {
+			return nil, fmt.Errorf("snapshot %s transaction %s not found", hash, h)
+		}
 		txs[i] = tx
 	}
 	return snapshotToMap(node, snap, txs, true), nil

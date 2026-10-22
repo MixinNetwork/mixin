@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+	"math"
 	"os"
 	"time"
 
@@ -76,8 +78,8 @@ func Initialize(file string) (*Custom, error) {
 		return nil, err
 	}
 	key, err := crypto.KeyFromString(config.Node.SignerStr)
-	if err != nil {
-		return nil, err
+	if err != nil || !key.CheckPrivateKey() {
+		return nil, fmt.Errorf("invalid node signer-key %v", err)
 	}
 	config.Node.Signer = key
 	if config.Node.KernelOperationPeriod == 0 {
@@ -88,6 +90,17 @@ func Initialize(file string) (*Custom, error) {
 	}
 	if config.Node.CacheTTL == 0 {
 		config.Node.CacheTTL = 3600 * 2
+	}
+	maxSeconds := int64(math.MaxInt64) / int64(time.Second)
+	if config.Node.KernelOperationPeriod < 0 || int64(config.Node.KernelOperationPeriod) > maxSeconds {
+		return nil, fmt.Errorf("invalid node kernel-operation-period %d", config.Node.KernelOperationPeriod)
+	}
+	if config.Node.MemoryCacheSize < 0 || config.Node.MemoryCacheSize > math.MaxInt/(1024*1024) {
+		return nil, fmt.Errorf("invalid node memory-cache-size %d", config.Node.MemoryCacheSize)
+	}
+	// Cached transaction bodies live 60 seconds longer than their queue entries.
+	if config.Node.CacheTTL < 0 || int64(config.Node.CacheTTL) > maxSeconds-60 || config.Node.CacheTTL > math.MaxInt-60 {
+		return nil, fmt.Errorf("invalid node cache-ttl %d", config.Node.CacheTTL)
 	}
 	return &config, nil
 }

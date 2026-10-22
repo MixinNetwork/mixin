@@ -17,7 +17,7 @@ const (
 	authenticationPayloadSize = 8 + len(crypto.Hash{}) + len(crypto.Key{}) + 1 + len(crypto.Signature{})
 	authenticationMessageSize = 1 + authenticationPayloadSize
 
-	PeerMessageTypePing                       = 1 // not used because too more than enough graph sync messages
+	PeerMessageTypePing                       = 1 // not used because graph sync messages provide enough keep-alive traffic
 	PeerMessageTypeAuthentication             = 3
 	PeerMessageTypeGraph                      = 4
 	PeerMessageTypeSnapshotConfirm            = 5

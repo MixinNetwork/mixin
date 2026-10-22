@@ -25,7 +25,7 @@ func CallMixinRPC(node, method string, params []any) ([]byte, error) {
 		"params": params,
 	})
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	req, err := http.NewRequest("POST", node, bytes.NewReader(body))
 	if err != nil {

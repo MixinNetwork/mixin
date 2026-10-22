@@ -491,7 +491,7 @@ func main() {
 					Name:  "hash",
 					Usage: "the external chain transaction hash",
 				},
-				&cli.IntFlag{
+				&cli.Uint64Flag{
 					Name:  "index",
 					Usage: "the external chain transaction output index",
 				},
@@ -638,7 +638,8 @@ func main() {
 	}
 	err := app.Run(os.Args)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
 

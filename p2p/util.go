@@ -105,6 +105,24 @@ func (m *neighborMap) Delete(key crypto.Hash) {
 	delete(m.m, key)
 }
 
+func (m *neighborMap) DeleteIf(key crypto.Hash, peer *Peer) {
+	m.Lock()
+	defer m.Unlock()
+
+	if m.m[key] == peer {
+		delete(m.m, key)
+	}
+}
+
+func (m *neighborMap) Swap(key crypto.Hash, peer *Peer) *Peer {
+	m.Lock()
+	defer m.Unlock()
+
+	old := m.m[key]
+	m.m[key] = peer
+	return old
+}
+
 func (m *neighborMap) Set(key crypto.Hash, v *Peer) {
 	m.Lock()
 	defer m.Unlock()

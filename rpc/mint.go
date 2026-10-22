@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
 )
@@ -19,7 +20,7 @@ func ListMintDistributions(rpc string, offset, count uint64) ([]*common.Versione
 	}
 	err = json.Unmarshal(raw, &mds)
 	if err != nil {
-		panic(string(raw))
+		return nil, fmt.Errorf("decode mint distributions: %w", err)
 	}
 
 	txs := make([]*common.VersionedTransaction, len(mds))
@@ -28,12 +29,15 @@ func ListMintDistributions(rpc string, offset, count uint64) ([]*common.Versione
 		if err != nil {
 			return nil, err
 		}
+		if tx == nil || len(tx.Inputs) != 1 || tx.Inputs[0] == nil || tx.Inputs[0].Mint == nil {
+			return nil, fmt.Errorf("invalid mint transaction %s", md.Transaction)
+		}
 		m := tx.Inputs[0].Mint
 		if m.Amount.String() != md.Amount {
-			panic(md.Transaction)
+			return nil, fmt.Errorf("mint amount mismatch for transaction %s", md.Transaction)
 		}
 		if m.Batch != md.Batch {
-			panic(md.Transaction)
+			return nil, fmt.Errorf("mint batch mismatch for transaction %s", md.Transaction)
 		}
 		txs[i] = tx
 	}

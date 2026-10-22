@@ -98,7 +98,7 @@ func TestCosiCommitAndAggregateErrors(t *testing.T) {
 	require := require.New(t)
 
 	require.Panics(func() {
-		cosiCommit(shortReader{})
+		cosiCommit(bytes.NewReader(make([]byte, 63)))
 	})
 
 	require.Panics(func() {
@@ -418,12 +418,6 @@ func buildCosiFixture(require *require.Assertions) ([]*Key, []*Key, []*Key, []*K
 	randoms1 := []*Key{&rand0a, &rand1a}
 	randoms2 := []*Key{&rand0b, &rand1b}
 	return keys, publics, randoms1, randoms2, cosi, message
-}
-
-type shortReader struct{}
-
-func (shortReader) Read(b []byte) (int, error) {
-	return len(b) - 1, nil
 }
 
 type errReader struct{}

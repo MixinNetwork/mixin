@@ -184,6 +184,9 @@ func ReadGenesis(path string) (*Genesis, error) {
 
 	inputsFilter := make(map[string]bool)
 	for _, in := range gns.Nodes {
+		if in == nil {
+			return nil, fmt.Errorf("invalid null genesis node")
+		}
 		if in.Signer == nil || in.Payee == nil || in.Custodian == nil {
 			return nil, fmt.Errorf("invalid genesis node keys %v", *in)
 		}

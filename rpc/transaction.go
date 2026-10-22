@@ -3,6 +3,7 @@ package rpc
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
@@ -13,18 +14,20 @@ func GetSnapshot(rpc, hash string) (*common.SnapshotWithTopologicalOrder, error)
 	if err != nil || raw == nil {
 		return nil, err
 	}
-	var signed map[string]any
+	var signed struct {
+		Hex string `json:"hex"`
+	}
 	err = json.Unmarshal(raw, &signed)
 	if err != nil {
-		panic(string(raw))
+		return nil, fmt.Errorf("decode snapshot response: %w", err)
 	}
-	hex, err := hex.DecodeString(signed["hex"].(string))
+	payload, err := hex.DecodeString(signed.Hex)
 	if err != nil {
-		panic(string(raw))
+		return nil, fmt.Errorf("decode snapshot hex: %w", err)
 	}
-	ver, err := common.UnmarshalVersionedSnapshot(hex)
+	ver, err := common.UnmarshalVersionedSnapshot(payload)
 	if err != nil {
-		panic(string(raw))
+		return nil, fmt.Errorf("decode snapshot: %w", err)
 	}
 	return ver, nil
 }
@@ -34,23 +37,27 @@ func GetTransaction(rpc, hash string) (*common.VersionedTransaction, string, err
 	if err != nil || raw == nil {
 		return nil, "", err
 	}
-	var signed map[string]any
-	err = json.Unmarshal(raw, &signed)
+	return decodeTransactionResponse(raw)
+}
+
+func decodeTransactionResponse(raw []byte) (*common.VersionedTransaction, string, error) {
+	var signed struct {
+		Hex      string `json:"hex"`
+		Snapshot string `json:"snapshot"`
+	}
+	err := json.Unmarshal(raw, &signed)
 	if err != nil {
-		panic(string(raw))
+		return nil, "", fmt.Errorf("decode transaction response: %w", err)
 	}
-	hex, err := hex.DecodeString(signed["hex"].(string))
+	payload, err := hex.DecodeString(signed.Hex)
 	if err != nil {
-		panic(string(raw))
+		return nil, "", fmt.Errorf("decode transaction hex: %w", err)
 	}
-	ver, err := common.UnmarshalVersionedTransaction(hex)
+	ver, err := common.UnmarshalVersionedTransaction(payload)
 	if err != nil {
-		panic(string(raw))
+		return nil, "", fmt.Errorf("decode transaction: %w", err)
 	}
-	if signed["snapshot"] == nil {
-		return ver, "", nil
-	}
-	return ver, signed["snapshot"].(string), nil
+	return ver, signed.Snapshot, nil
 }
 
 func SendRawTransaction(rpc, raw string) (crypto.Hash, error) {
@@ -58,14 +65,19 @@ func SendRawTransaction(rpc, raw string) (crypto.Hash, error) {
 	if err != nil {
 		return crypto.Hash{}, err
 	}
-	var tx map[string]string
+	var tx struct {
+		Hash string `json:"hash"`
+	}
 	err = json.Unmarshal(body, &tx)
 	if err != nil {
-		panic(string(body))
+		return crypto.Hash{}, fmt.Errorf("decode submission response: %w", err)
 	}
-	hash, err := crypto.HashFromString(tx["hash"])
-	if err != nil || !hash.HasValue() {
-		panic(string(body))
+	hash, err := crypto.HashFromString(tx.Hash)
+	if err != nil {
+		return crypto.Hash{}, fmt.Errorf("decode submission hash: %w", err)
+	}
+	if !hash.HasValue() {
+		return crypto.Hash{}, fmt.Errorf("invalid submission hash")
 	}
 	return hash, nil
 }

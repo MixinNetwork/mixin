@@ -73,6 +73,8 @@ func TestStorageHelpersPropagateDiscardedTransactionErrors(t *testing.T) {
 	requireDiscarded(err)
 	_, err = readSnapshotWithTopo(discarded(store.snapshotsDB, false), id)
 	requireDiscarded(err)
+	_, err = readTransaction(discarded(store.snapshotsDB, false), id)
+	requireDiscarded(err)
 	requireDiscarded(pruneTransaction(discarded(store.snapshotsDB, true), id))
 	requireDiscarded(writeTransaction(discarded(store.snapshotsDB, true), ver))
 	requireDiscarded(finalizeTransaction(discarded(store.snapshotsDB, true), ver, snap))

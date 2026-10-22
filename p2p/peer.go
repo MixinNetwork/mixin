@@ -259,15 +259,11 @@ func (me *Peer) ListenConsumers() error {
 			}
 			defer peer.disconnect()
 
-			old := me.consumers.Get(peer.IdForNetwork)
+			old := me.consumers.Swap(peer.IdForNetwork, peer)
 			if old != nil {
 				old.disconnect()
-				me.consumers.Delete(old.IdForNetwork)
 			}
-			if !me.consumers.Put(peer.IdForNetwork, peer) {
-				panic(peer.IdForNetwork)
-			}
-			defer me.consumers.Delete(peer.IdForNetwork)
+			defer me.consumers.DeleteIf(peer.IdForNetwork, peer)
 
 			go me.syncToNeighborLoop(peer)
 			go me.loopReceiveMessage(peer, c)

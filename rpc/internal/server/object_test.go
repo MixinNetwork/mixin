@@ -21,17 +21,25 @@ func TestDataURI(t *testing.T) {
 	require.Equal("application/domain; charset=utf-8", m)
 	require.Equal("cedric.mao", string(b))
 
-	_, m = parseDataURI("data:application/domain,cedric.mao")
+	b, m = parseDataURI("data:application/domain,cedric.mao")
 	require.Equal("cedric.mao", string(b))
 	require.Equal("application/domain; charset=utf-8", m)
 
-	_, m = parseDataURI("data:text/plain;charset=UTF-8;base64,Y2VkcmljLm1hbwo=")
+	b, m = parseDataURI("data:text/plain;charset=UTF-8;base64,Y2VkcmljLm1hbwo=")
 	require.Equal("text/plain; charset=utf-8", m)
-	require.Equal("cedric.mao", string(b))
+	require.Equal("cedric.mao\n", string(b))
 
-	_, m = parseDataURI("data:text/plain;base64,Y2VkcmljLm1hbwo=")
+	b, m = parseDataURI("data:text/plain;base64,Y2VkcmljLm1hbwo=")
 	require.Equal("text/plain; charset=utf-8", m)
-	require.Equal("cedric.mao", string(b))
+	require.Equal("cedric.mao\n", string(b))
+
+	b, m = parseDataURI("data:text/plain,one,two")
+	require.Equal("text/plain; charset=utf-8", m)
+	require.Equal("one,two", string(b))
+
+	b, m = parseDataURI("data:text/plain;base64,YQ==!")
+	require.Equal(defaultTextPlainType, m)
+	require.Equal("data:text/plain;base64,YQ==!", string(b))
 
 	b, m = parseDataURI(testWEBPURI)
 	require.Equal("image/webp", m)

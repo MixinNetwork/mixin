@@ -824,6 +824,7 @@ func TestSignUTXOAndTransactionTypeCampaign(t *testing.T) {
 	utxo, ghost := makeScriptUTXO(account, utxoHash, 0, NewInteger(10))
 
 	signed := &SignedTransaction{Transaction: *NewTransactionV5(XINAssetId)}
+	signed.AddInput(utxoHash, utxo.Index)
 	require.Nil(signed.SignUTXO(&utxo.UTXO, nil))
 
 	wrongAccount := deterministicAddress(61)
@@ -1150,6 +1151,16 @@ func TestSigningAndValidateDispatchCampaign(t *testing.T) {
 	slashSig := ghost.Sign(slashVer.PayloadHash())
 	slashVer.SignaturesMap = []map[uint16]*crypto.Signature{{0: &slashSig}}
 	require.ErrorContains(slashVer.Validate(slashStore, 0, false), "not implemented")
+}
+
+func TestReadGenesisRejectsNullNode(t *testing.T) {
+	gns := buildGenesisFixture()
+	gns.Nodes[0] = nil
+	path := filepath.Join(t.TempDir(), "genesis.json")
+	writeGenesis(t, gns, path)
+	got, err := ReadGenesis(path)
+	require.ErrorContains(t, err, "invalid null genesis node")
+	require.Nil(t, got)
 }
 
 func TestGenesisCampaign(t *testing.T) {

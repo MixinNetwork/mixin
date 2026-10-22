@@ -60,11 +60,11 @@ func NewAddressFromString(s string) (Address, error) {
 		return a, errors.New("invalid address checksum")
 	}
 	copy(a.PublicSpendKey[:], data[:32])
-	if !a.PublicSpendKey.CheckKey() {
+	if !a.PublicSpendKey.CheckPublicKey() {
 		return a, errors.New("invalid address public spend key")
 	}
 	copy(a.PublicViewKey[:], data[32:])
-	if !a.PublicViewKey.CheckKey() {
+	if !a.PublicViewKey.CheckPublicKey() {
 		return a, errors.New("invalid address public view key")
 	}
 	return a, nil

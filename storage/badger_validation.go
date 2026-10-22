@@ -102,10 +102,16 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash, depth u
 				if s.Hash.String() != hex.EncodeToString(val) {
 					logger.Printf("DUPLICATED FINALIZATION %s %s\n", s.Hash, hex.EncodeToString(val))
 				}
-				dup, _ := crypto.HashFromString(hex.EncodeToString(val))
+				dup, err := crypto.HashFromString(hex.EncodeToString(val))
+				if err != nil {
+					return total, invalid, fmt.Errorf("malformed finalization for transaction %s: %w", txh, err)
+				}
 				topo, err := readSnapshotWithTopo(txn, dup)
 				if err != nil {
 					return total, invalid, err
+				}
+				if topo == nil {
+					return total, invalid, fmt.Errorf("missing finalization snapshot %s for transaction %s", dup, txh)
 				}
 				if !slices.Contains(topo.Transactions, txh) {
 					logger.Printf("MALFORMED FINALIZATION %s %s\n", s.Hash, topo.Hash)

@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -26,7 +27,7 @@ func NewBadgerStore(custom *config.Custom, dir string) (*BadgerStore, error) {
 	}
 	cacheDB, err := openDB(dir+"/cache", false, custom)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, snapshotsDB.Close())
 	}
 	return &BadgerStore{
 		custom:      custom,

@@ -43,7 +43,7 @@ func TestTransactionExtraLimit(t *testing.T) {
 
 	ver, _ = UnmarshalVersionedTransaction(cm)
 	for i, out := range ver.Outputs {
-		if !out.Mask.HasValue() || out.Mask.CheckKey() {
+		if !out.Mask.HasValue() || out.Mask.CheckPublicKey() {
 			continue
 		}
 		out.Mask = crypto.NewKeyFromSeed(bytes.Repeat([]byte{byte(i + 1)}, 64)).Public()

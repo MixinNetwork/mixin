@@ -26,10 +26,10 @@ type CosiCommitment struct {
 
 // NewCosiCommitment builds a commitment pair from its two components.
 func NewCosiCommitment(rPub1, rPub2 Key) CosiCommitment {
-	if !rPub1.CheckKey() {
+	if !rPub1.CheckPublicKey() {
 		panic(rPub1.String())
 	}
-	if !rPub2.CheckKey() {
+	if !rPub2.CheckPublicKey() {
 		panic(rPub2.String())
 	}
 	return CosiCommitment{rPub1: rPub1, rPub2: rPub2}
@@ -66,10 +66,10 @@ func CosiCommitmentFromBytes(data []byte) (*CosiCommitment, error) {
 	var c CosiCommitment
 	copy(c.rPub1[:], data[:32])
 	copy(c.rPub2[:], data[32:])
-	if !c.rPub1.CheckKey() {
+	if !c.rPub1.CheckPublicKey() {
 		return nil, fmt.Errorf("invalid key R1 %s", c.rPub1)
 	}
-	if !c.rPub2.CheckKey() {
+	if !c.rPub2.CheckPublicKey() {
 		return nil, fmt.Errorf("invalid key R2 %s", c.rPub2)
 	}
 	return &c, nil
@@ -104,7 +104,7 @@ func CosiCommitNonce(randReader io.Reader) *CosiNonce {
 
 func cosiCommit(randReader io.Reader) *Key {
 	var messageDigest [64]byte
-	n, err := randReader.Read(messageDigest[:])
+	n, err := io.ReadFull(randReader, messageDigest[:])
 	if err != nil {
 		panic(err)
 	}

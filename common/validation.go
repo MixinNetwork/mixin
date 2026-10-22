@@ -278,7 +278,7 @@ func (tx *Transaction) validateOutputs() (Integer, []*crypto.Key, error) {
 				return Zero, nil, fmt.Errorf("invalid output key %s", k.String())
 			}
 			ghostKeysFilter[*k] = true
-			if !k.CheckKey() {
+			if !k.CheckPublicKey() {
 				return Zero, nil, fmt.Errorf("invalid output key format %s", k.String())
 			}
 			ghostKeys = append(ghostKeys, k)
@@ -306,7 +306,7 @@ func (tx *Transaction) validateOutputs() (Integer, []*crypto.Key, error) {
 			if !o.Mask.HasValue() {
 				return Zero, nil, fmt.Errorf("invalid script output empty mask %s", o.Mask)
 			}
-			if !o.Mask.CheckKey() {
+			if !o.Mask.CheckPublicKey() {
 				return Zero, nil, fmt.Errorf("invalid output mask format %s", o.Mask)
 			}
 			if o.Withdrawal != nil {

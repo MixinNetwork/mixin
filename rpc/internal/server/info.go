@@ -75,14 +75,15 @@ func getInfo(store storage.Store, node *kernel.Node) (map[string]any, error) {
 	}
 
 	cacheGraph, finalGraph := filterRemovedRoundGraph(node)
+	topology := node.TopologyStats()
 	info["graph"] = map[string]any{
 		"consensus": nodes,
 		"cache":     cacheGraph,
 		"final":     finalGraph,
-		"topology":  node.TopologicalOrder(),
-		"sps":       node.SPS(),
-		"spt":       node.SPT(),
-		"tps":       node.TPS(),
+		"topology":  topology.TopologicalOrder,
+		"sps":       topology.SPS,
+		"spt":       topology.SPT,
+		"tps":       topology.TPS,
 	}
 	caches, finals, state := node.QueueState()
 	info["queue"] = map[string]any{

@@ -99,6 +99,9 @@ func parseCustodianUpdateItem(txn *badger.Txn, it *badger.Iterator, genesis bool
 	if err != nil {
 		return nil, err
 	}
+	if tx == nil {
+		return nil, fmt.Errorf("missing custodian transaction %s", hash)
+	}
 	cur, err := common.ParseCustodianUpdateNodesExtra(tx.Extra, genesis)
 	if err != nil {
 		return nil, err

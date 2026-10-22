@@ -110,7 +110,7 @@ func TestConsensus(t *testing.T) {
 	testConsensus(t, false)
 }
 
-func testConsensus(t *testing.T, extrenalRelayers bool) {
+func testConsensus(t *testing.T, externalRelayers bool) {
 	require := require.New(t)
 	kernel.TestMockReset()
 	txObserver = newTxLatencyObserver()
@@ -130,7 +130,7 @@ func testConsensus(t *testing.T, extrenalRelayers bool) {
 
 	root := t.TempDir()
 
-	accounts, payees, gdata, plist, relayerInstances, relayerServers := setupTestNet(root, extrenalRelayers)
+	accounts, payees, gdata, plist, relayerInstances, relayerServers := setupTestNet(root, externalRelayers)
 	require.Len(accounts, NODES)
 
 	epoch := time.Unix(1551312000, 0)
@@ -474,8 +474,9 @@ func testLogP2PMetrics(t *testing.T, phase string, nodes []*kernel.Node) {
 	t.Helper()
 	for _, node := range nodes {
 		t.Logf("P2P METRICS AFTER %s TEST FOR %s %v", phase, node.IdForNetwork, node.Peer.Metric())
+		topology := node.TopologyStats()
 		t.Logf("KERNEL METRICS AFTER %s TEST FOR %s SPS:%f TPS:%f SPT:%f",
-			phase, node.IdForNetwork, node.SPS(), node.TPS(), node.SPT())
+			phase, node.IdForNetwork, topology.SPS, topology.TPS, topology.SPT)
 	}
 }
 
@@ -1206,7 +1207,7 @@ func testDetermineAccountByIndex(i int, role string) common.Address {
 	return account
 }
 
-func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []common.Address, []byte, string, []*kernel.Node, []*http.Server) {
+func setupTestNet(root string, externalRelayers bool) ([]common.Address, []common.Address, []byte, string, []*kernel.Node, []*http.Server) {
 	var signers, payees, custodians []common.Address
 	var relayers []common.Address
 	var relayerInstances []*kernel.Node
@@ -1253,7 +1254,7 @@ func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []commo
 	peersListHead := `"` + strings.Join(peers[:len(peers)/3], `","`) + `"`
 	peersListTail := `"` + strings.Join(peers[len(peers)/2:], `","`) + `"`
 
-	if extrenalRelayers {
+	if externalRelayers {
 		peers := make([]string, len(relayers))
 		for i, s := range relayers {
 			id := s.Hash().ForNetwork(gns.NetworkId())
@@ -1305,7 +1306,7 @@ func setupTestNet(root string, extrenalRelayers bool) ([]common.Address, []commo
 		}
 		port := 17000 + i + 1
 		p2p := fmt.Sprint(port)
-		isRelayer := !extrenalRelayers && (strings.Contains(peersListHead, p2p) || strings.Contains(peersListTail, p2p))
+		isRelayer := !externalRelayers && (strings.Contains(peersListHead, p2p) || strings.Contains(peersListTail, p2p))
 		if isRelayer {
 			peersList = peersListHead
 		}

@@ -36,7 +36,7 @@ func (chain *Chain) AggregateMintWork() {
 	}
 	logger.Printf("AggregateMintWork(%s) begin with %d\n", chain.ChainId, round)
 
-	wait := time.Duration(chain.node.custom.Node.KernelOperationPeriod/2) * time.Second
+	wait := time.Duration(chain.node.custom.Node.KernelOperationPeriod) * time.Second / 2
 
 	for chain.running.Load() {
 		if cs := chain.State; cs == nil {

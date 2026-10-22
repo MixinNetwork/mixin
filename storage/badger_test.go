@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/MixinNetwork/mixin/config"
@@ -28,4 +30,18 @@ func TestBadger(t *testing.T) {
 
 	err = store.Close()
 	require.Nil(err)
+}
+
+func TestNewBadgerStoreReleasesSnapshotsOnCacheOpenFailure(t *testing.T) {
+	dir := t.TempDir()
+	cachePath := filepath.Join(dir, "cache")
+	require.NoError(t, os.WriteFile(cachePath, nil, 0o600))
+	store, err := NewBadgerStore(nil, dir)
+	require.Error(t, err)
+	require.Nil(t, store)
+
+	require.NoError(t, os.Remove(cachePath))
+	store, err = NewBadgerStore(nil, dir)
+	require.NoError(t, err)
+	require.NoError(t, store.Close())
 }
