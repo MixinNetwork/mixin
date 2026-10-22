@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -32,9 +33,10 @@ func TestIntegerScientificNotation(t *testing.T) {
 		{"1.234567899e-3", "0.00123456"},
 		{"123456789e-16", "0.00000001"},
 		{"123456789e-17", "0.00000000"},
-		{"1e-2147483648", "0.00000000"},
-		{"0e-2147483648", "0.00000000"},
-		{"0e2147483647", "0.00000000"},
+		{"1e-10000", "0.00000000"},
+		{"1e10000", "1" + strings.Repeat("0", 10000) + ".00000000"},
+		{"0e-10000", "0.00000000"},
+		{"0e10000", "0.00000000"},
 	} {
 		t.Run(tc.input, func(t *testing.T) {
 			var amount Integer
@@ -44,12 +46,16 @@ func TestIntegerScientificNotation(t *testing.T) {
 			require.Equal(t, tc.want, amount.String())
 		})
 	}
-	for _, input := range []string{"1e2147483639", "1e2147483647", "1e160000"} {
+	for _, input := range []string{
+		"1e-10001", "1e10001", "0e-10001", "0e10001",
+		"1e-2147483648", "0e-2147483648", "0e2147483647",
+		"1e2147483639", "1e2147483647", "1e160000",
+	} {
 		t.Run(input, func(t *testing.T) {
 			amount := NewInteger(42)
 			data, err := json.Marshal(input)
 			require.NoError(t, err)
-			require.ErrorContains(t, json.Unmarshal(data, &amount), "maximum encoded size")
+			require.ErrorContains(t, json.Unmarshal(data, &amount), "MaxDecodeExponent")
 			require.Equal(t, "42.00000000", amount.String())
 		})
 	}

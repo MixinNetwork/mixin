@@ -34,30 +34,8 @@ func parseInteger(x string) (v Integer, err error) {
 	if d.Sign() < 0 {
 		return v, fmt.Errorf("invalid negative integer %s", x)
 	}
-	if d.Sign() == 0 {
-		return v, nil
-	}
-
-	digits := d.Coefficient().String()
-	exponent := int64(d.Exponent()) + Precision
-	if exponent < 0 {
-		end := int64(len(digits)) + exponent
-		if end <= 0 {
-			return v, nil
-		}
-		digits = digits[:int(end)]
-		exponent = 0
-	}
-
-	const maxBits = MaximumEncodingInt * 8
-	// Each decimal digit contributes more than three bits. This loose bound
-	// prevents exponent-driven allocations before checking the exact bit length.
-	if int64(len(digits))+exponent > maxBits/3+1 {
-		return v, fmt.Errorf("integer exceeds maximum encoded size %d", MaximumEncodingInt)
-	}
-	digits += strings.Repeat("0", int(exponent))
-	v.i.SetString(digits, 10)
-	if v.i.BitLen() > maxBits {
+	v.i.Set(d.Shift(Precision).BigInt())
+	if v.i.BitLen() > MaximumEncodingInt*8 {
 		return Integer{}, fmt.Errorf("integer exceeds maximum encoded size %d", MaximumEncodingInt)
 	}
 	return
