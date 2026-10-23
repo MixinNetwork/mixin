@@ -10,6 +10,12 @@ import (
 	"github.com/pelletier/go-toml"
 )
 
+var (
+	// The release build sets buildCommit through the linker's -X flag.
+	buildCommit  = "BUILD_VERSION"
+	BuildVersion = "v0.19.10-" + buildCommit
+)
+
 const (
 	Debug           = true
 	KernelNetworkId = "74c6cdb7d51af57037faa1f5544f8331ced001df5964331911ca51385993b375"
@@ -36,12 +42,6 @@ const (
 	KernelNodePledgePeriodMinimum = 12 * time.Hour
 	KernelNodeAcceptPeriodMinimum = 12 * time.Hour
 	KernelNodeAcceptPeriodMaximum = 7 * 24 * time.Hour
-)
-
-var (
-	// The release build sets buildCommit through the linker's -X flag.
-	buildCommit  = "BUILD_VERSION"
-	BuildVersion = "v0.19.9-" + buildCommit
 )
 
 type Custom struct {
