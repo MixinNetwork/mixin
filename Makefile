@@ -1,5 +1,5 @@
+.PHONY: all
+
 all:
-	git checkout config/reader.go
-	sed -i --  "s/BUILD_VERSION/`git rev-parse --short HEAD`/g" config/reader.go || exit
-	CGO_ENABLED=0 go build -o mixin
-	git checkout config/reader.go
+	build_commit=$$(git rev-parse --short HEAD) && \
+	CGO_ENABLED=0 go build -ldflags "-X github.com/MixinNetwork/mixin/config.buildCommit=$$build_commit" -o mixin
