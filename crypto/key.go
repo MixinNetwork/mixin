@@ -36,6 +36,9 @@ func KeyFromString(s string) (Key, error) {
 }
 
 func (k Key) CheckPrivateKey() bool {
+	if !k.HasValue() {
+		return false
+	}
 	_, err := edwards25519.NewScalar().SetCanonicalBytes(k[:])
 	return err == nil
 }

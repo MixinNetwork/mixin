@@ -944,7 +944,7 @@ func (chain *Chain) prepareFinalization(m *CosiAction) (bool, error) {
 		return true, nil
 	}
 	if chain.State == nil {
-		logger.Debugf("ERROR cosiHandleFinalization without consensus%s %s\n", m.PeerId, s.Hash)
+		logger.Debugf("ERROR cosiHandleFinalization without consensus %s %s\n", m.PeerId, s.Hash)
 		return false, nil
 	}
 	cache := chain.State.CacheRound

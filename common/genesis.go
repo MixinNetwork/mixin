@@ -178,8 +178,8 @@ func ReadGenesis(path string) (*Genesis, error) {
 	if gns.Custodian == nil {
 		return nil, fmt.Errorf("invalid genesis custodian %v", gns)
 	}
-	if len(gns.Nodes) < config.KernelMinimumNodesCount {
-		return nil, fmt.Errorf("invalid genesis inputs number %d/%d", len(gns.Nodes), config.KernelMinimumNodesCount)
+	if len(gns.Nodes) < config.KernelMinimumNodesCount || len(gns.Nodes) > config.KernelMaximumNodesCount {
+		return nil, fmt.Errorf("invalid genesis inputs number %d (expected %d to %d)", len(gns.Nodes), config.KernelMinimumNodesCount, config.KernelMaximumNodesCount)
 	}
 
 	inputsFilter := make(map[string]bool)

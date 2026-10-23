@@ -1,6 +1,7 @@
 package server
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -32,4 +33,31 @@ func TestReadersReportMissingRecords(t *testing.T) {
 	_, err = getSnapshot(nil, missingReaderStore{}, []any{hash.String()})
 	require.ErrorContains(t, err, "transaction")
 	require.ErrorContains(t, err, "not found")
+}
+
+type utxoIndexStore struct {
+	storage.Store
+	indices []uint
+}
+
+func (s *utxoIndexStore) ReadUTXOLock(_ crypto.Hash, index uint) (*common.UTXOWithLock, error) {
+	s.indices = append(s.indices, index)
+	return nil, nil
+}
+
+func TestGetUTXOIndexBounds(t *testing.T) {
+	hash := crypto.Blake3Hash([]byte("UTXO index bounds"))
+	for _, index := range []uint{0, common.InputIndexLimit, common.InputIndexLimit + 1, 65535} {
+		t.Run(strconv.FormatUint(uint64(index), 10), func(t *testing.T) {
+			store := &utxoIndexStore{}
+			_, err := getUTXO(store, []any{hash.String(), index})
+			if index > common.InputIndexLimit {
+				require.ErrorContains(t, err, "invalid UTXO index")
+				require.Empty(t, store.indices)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, []uint{index}, store.indices)
+			}
+		})
+	}
 }

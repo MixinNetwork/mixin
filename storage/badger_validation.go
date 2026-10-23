@@ -72,6 +72,9 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash, depth u
 		if err != nil {
 			return total, invalid, err
 		}
+		if len(snapshots) == 0 {
+			return total, invalid, fmt.Errorf("missing snapshots for node %s round %d", nodeId, i)
+		}
 		for _, s := range snapshots {
 			for _, txh := range s.Transactions {
 				total += 1

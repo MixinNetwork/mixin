@@ -108,6 +108,15 @@ func TestSnapshotValidationErrorPaths(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("missing round snapshots", func(t *testing.T) {
+		store := newTestBadgerStore(t)
+		require.NoError(t, store.snapshotsDB.Update(writeHead))
+		total, invalid, err := store.validateSnapshotEntriesForNode(node, 1)
+		require.ErrorContains(t, err, "missing snapshots for node")
+		require.Zero(t, total)
+		require.Zero(t, invalid)
+	})
+
 	t.Run("missing transaction", func(t *testing.T) {
 		store := newTestBadgerStore(t)
 		require.NoError(t, store.snapshotsDB.Update(func(txn *badger.Txn) error {

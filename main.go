@@ -434,11 +434,11 @@ func main() {
 				},
 				&cli.BoolFlag{
 					Name:  "sig",
-					Usage: "whether including the signatures",
+					Usage: "whether to include the signatures",
 				},
 				&cli.BoolFlag{
 					Name:  "tx",
-					Usage: "whether including the transactions",
+					Usage: "whether to include the transactions",
 				},
 			},
 		},
@@ -588,13 +588,13 @@ func main() {
 				},
 				&cli.BoolFlag{
 					Name:  "tx",
-					Usage: "whether including the transactions",
+					Usage: "whether to include the transactions",
 				},
 			},
 		},
 		{
 			Name:   "listallnodes",
-			Usage:  "List all nodes ever existed",
+			Usage:  "List all nodes that have existed",
 			Action: listAllNodesCmd,
 			Flags: []cli.Flag{
 				&cli.Uint64Flag{
@@ -605,7 +605,7 @@ func main() {
 				&cli.BoolFlag{
 					Name:  "state",
 					Value: false,
-					Usage: "whether keep a full state queue",
+					Usage: "whether to keep a full state queue",
 				},
 			},
 		},

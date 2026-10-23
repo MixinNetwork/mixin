@@ -86,6 +86,9 @@ func (tx *SignedTransaction) validateDeposit(store DataStore, payloadHash crypto
 	if err != nil {
 		return err
 	}
+	if custodian == nil {
+		return fmt.Errorf("missing custodian at timestamp %d", snapTime)
+	}
 	if !custodian.Custodian.PublicSpendKey.Verify(payloadHash, *sig) {
 		return fmt.Errorf("invalid custodian signature for deposit")
 	}

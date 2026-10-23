@@ -51,7 +51,7 @@ func (m *relayersMap) Get(key crypto.Hash) []crypto.Hash {
 
 	var relayers []crypto.Hash
 	for _, r := range m.m[key] {
-		if r.ActiveAt.Add(time.Minute).Before(time.Now()) {
+		if time.Since(r.ActiveAt) > time.Minute {
 			continue
 		}
 		relayers = append(relayers, r.Id)
@@ -65,14 +65,8 @@ func (m *relayersMap) Add(key crypto.Hash, v crypto.Hash) {
 
 	var relayers []*remoteRelayer
 	for _, r := range m.m[key] {
-		if r.ActiveAt.Add(time.Minute).After(time.Now()) {
+		if time.Since(r.ActiveAt) < time.Minute {
 			relayers = append(relayers, r)
-		}
-	}
-	for _, r := range relayers {
-		if r.Id == v {
-			r.ActiveAt = time.Now()
-			return
 		}
 	}
 	i := slices.IndexFunc(relayers, func(r *remoteRelayer) bool {

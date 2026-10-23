@@ -17,6 +17,7 @@ func GetUTXO(rpc, hash string, index uint64) (*common.UTXOWithLock, error) {
 		Type     uint8          `json:"type"`
 		Hash     crypto.Hash    `json:"hash"`
 		Index    uint           `json:"index"`
+		Asset    crypto.Hash    `json:"asset"`
 		Amount   common.Integer `json:"amount"`
 		Keys     []*crypto.Key  `json:"keys"`
 		Script   common.Script  `json:"script"`
@@ -32,6 +33,7 @@ func GetUTXO(rpc, hash string, index uint64) (*common.UTXOWithLock, error) {
 	utxo.Type = out.Type
 	utxo.Hash = out.Hash
 	utxo.Index = out.Index
+	utxo.Asset = out.Asset
 	utxo.Amount = out.Amount
 	utxo.Keys = out.Keys
 	utxo.Script = out.Script

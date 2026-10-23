@@ -86,8 +86,8 @@ func TestGetUTXOWithOptionalMask(t *testing.T) {
 		utxo *common.UTXOWithLock
 	}{
 		{name: "missing"},
-		{name: "node pledge", utxo: &common.UTXOWithLock{Hash: hash, Type: common.OutputTypeNodePledge, Amount: common.KernelNodePledgeAmount}},
-		{name: "script", utxo: &common.UTXOWithLock{Hash: hash, Type: common.OutputTypeScript, Amount: common.NewInteger(1), Mask: mask, Keys: []*crypto.Key{&mask}, Script: common.NewThresholdScript(1)}},
+		{name: "node pledge", utxo: &common.UTXOWithLock{Hash: hash, Asset: common.XINAssetId, Type: common.OutputTypeNodePledge, Amount: common.KernelNodePledgeAmount}},
+		{name: "script", utxo: &common.UTXOWithLock{Hash: hash, Asset: common.BitcoinAssetId, Type: common.OutputTypeScript, Amount: common.NewInteger(1), Mask: mask, Keys: []*crypto.Key{&mask}, Script: common.NewThresholdScript(1)}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			store.utxo = test.utxo

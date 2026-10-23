@@ -255,6 +255,9 @@ func TestWithdrawalValidationCampaign(t *testing.T) {
 	store.custodianErr = errors.New("custodian read failure")
 	require.ErrorIs(claim.validateWithdrawalClaim(store, validInputs, 1, false), store.custodianErr)
 	store.custodianErr = nil
+	store.custodian = nil
+	require.ErrorContains(claim.validateWithdrawalClaim(store, validInputs, 1, false), "missing custodian")
+	store.custodian = &CustodianUpdateRequest{Custodian: &custodian}
 
 	other := deterministicAddress(2)
 	badSig := other.PrivateSpendKey.Sign(claimHash)
@@ -865,7 +868,7 @@ func TestDepositAndCapacityCampaign(t *testing.T) {
 		{BOXAssetId, "200000000.00000000"},
 		{MOBAssetId, "25000000.00000000"},
 		{USDTEthereumAssetId, "25000000.00000000"},
-		{USDTTRONAssetId, "20000000.00000000"},
+		{USDTTRONAssetId, "21000000.00000000"},
 		{USDTBNBAssetId, "2000000.00000000"},
 		{PandoUSDAssetId, "1000000000000.00000000"},
 		{USDCEthereumAssetId, "3000000.00000000"},
@@ -942,6 +945,9 @@ func TestDepositAndCapacityCampaign(t *testing.T) {
 	sig := custodian.PrivateSpendKey.Sign(payload)
 	require.ErrorIs(ver.validateDeposit(store, payload, []map[uint16]*crypto.Signature{{0: &sig}}, 0), store.custodianErr)
 	store.custodianErr = nil
+	store.custodian = nil
+	require.ErrorContains(ver.validateDeposit(store, payload, []map[uint16]*crypto.Signature{{0: &sig}}, 0), "missing custodian")
+	store.custodian = &CustodianUpdateRequest{Custodian: &custodian}
 
 	wrong := deterministicAddress(142)
 	badSig := wrong.PrivateSpendKey.Sign(payload)
@@ -1161,6 +1167,30 @@ func TestReadGenesisRejectsNullNode(t *testing.T) {
 	got, err := ReadGenesis(path)
 	require.ErrorContains(t, err, "invalid null genesis node")
 	require.Nil(t, got)
+}
+
+func TestReadGenesisMaximumNodeCount(t *testing.T) {
+	gns := buildGenesisFixture()
+	template := *gns.Nodes[0]
+	gns.Nodes = gns.Nodes[:0]
+	for i := range config.KernelMaximumNodesCount + 1 {
+		node := template
+		signer := deterministicGenesisAddress(byte(i * 3))
+		payee := deterministicGenesisAddress(byte(i*3 + 1))
+		custodian := deterministicGenesisAddress(byte(i*3 + 2))
+		node.Signer, node.Payee, node.Custodian = &signer, &payee, &custodian
+		gns.Nodes = append(gns.Nodes, &node)
+	}
+	path := filepath.Join(t.TempDir(), "genesis.json")
+	writeGenesis(t, gns, path)
+	_, err := ReadGenesis(path)
+	require.ErrorContains(t, err, "invalid genesis inputs number")
+
+	gns.Nodes = gns.Nodes[:config.KernelMaximumNodesCount]
+	writeGenesis(t, gns, path)
+	got, err := ReadGenesis(path)
+	require.NoError(t, err)
+	require.Len(t, got.Nodes, config.KernelMaximumNodesCount)
 }
 
 func TestGenesisCampaign(t *testing.T) {

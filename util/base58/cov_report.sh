@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # This script uses gocov to generate a test coverage report.
-# The gocov tool my be obtained with the following command:
+# The gocov tool may be obtained with the following command:
 #   go get github.com/axw/gocov/gocov
 #
 # It will be installed to $GOPATH/bin, so ensure that location is in your $PATH.

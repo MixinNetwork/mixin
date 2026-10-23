@@ -3,7 +3,9 @@ package storage
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/MixinNetwork/mixin/config"
 	"github.com/MixinNetwork/mixin/util"
@@ -44,4 +46,35 @@ func TestNewBadgerStoreReleasesSnapshotsOnCacheOpenFailure(t *testing.T) {
 	store, err = NewBadgerStore(nil, dir)
 	require.NoError(t, err)
 	require.NoError(t, store.Close())
+}
+
+func TestBadgerCloseStopsGarbageCollection(t *testing.T) {
+	custom := new(config.Custom)
+	custom.Storage.ValueLogGC = true
+	store, err := NewBadgerStore(custom, t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, store.Close()) })
+
+	results := make(chan error, 8)
+	var wg sync.WaitGroup
+	for range cap(results) {
+		wg.Go(func() { results <- store.Close() })
+	}
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		store.gcLoops.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("database close did not stop garbage collection promptly")
+	}
+	close(results)
+	for err := range results {
+		require.NoError(t, err)
+	}
+	require.True(t, store.snapshotsDB.IsClosed())
+	require.True(t, store.cacheDB.IsClosed())
 }

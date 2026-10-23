@@ -89,6 +89,9 @@ func getUTXO(store storage.Store, params []any) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if index > common.InputIndexLimit {
+		return nil, fmt.Errorf("invalid UTXO index %d", index)
+	}
 	utxo, err := store.ReadUTXOLock(hash, uint(index))
 	if err != nil || utxo == nil {
 		return nil, err
@@ -98,6 +101,7 @@ func getUTXO(store storage.Store, params []any) (map[string]any, error) {
 		"type":   utxo.Type,
 		"hash":   hash,
 		"index":  index,
+		"asset":  utxo.Asset,
 		"amount": utxo.Amount,
 	}
 	if len(utxo.Keys) > 0 {

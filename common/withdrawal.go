@@ -101,6 +101,9 @@ func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[strin
 	if err != nil {
 		return err
 	}
+	if cur == nil {
+		return fmt.Errorf("missing custodian at timestamp %d", snapTime)
+	}
 
 	withdrawalData := append([]byte{}, tx.References[0][:]...)
 	withdrawalData = append(withdrawalData, tx.Extra[len(sig):]...)

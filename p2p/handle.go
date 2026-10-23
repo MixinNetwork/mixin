@@ -16,6 +16,7 @@ import (
 const (
 	authenticationPayloadSize = 8 + len(crypto.Hash{}) + len(crypto.Key{}) + 1 + len(crypto.Signature{})
 	authenticationMessageSize = 1 + authenticationPayloadSize
+	maxRelayDepth             = 3
 
 	PeerMessageTypePing                       = 1 // not used because graph sync messages provide enough keep-alive traffic
 	PeerMessageTypeAuthentication             = 3
@@ -56,9 +57,10 @@ type PeerMessage struct {
 	Graph           []*SyncPoint
 	Data            []byte
 
-	unsigned  []byte
-	signature *crypto.Signature
-	version   byte
+	unsigned   []byte
+	signature  *crypto.Signature
+	version    byte
+	relayDepth uint8
 }
 
 type AuthToken struct {
@@ -379,7 +381,7 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 		copy(sig[:], data[1:65])
 		count := binary.BigEndian.Uint16(data[65:67])
 		if count > 1024 {
-			return nil, fmt.Errorf("too much commitments %d", count)
+			return nil, fmt.Errorf("too many commitments %d", count)
 		}
 		if len(data[67:]) != int(count)*64 {
 			return nil, fmt.Errorf("malformed commitments message %d %d", count, len(data[67:]))
@@ -586,6 +588,10 @@ func parseNetworkMessage(version uint8, data []byte) (*PeerMessage, error) {
 }
 
 func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage) error {
+	// Relay envelopes may be nested, but must not recurse without a bound.
+	if msg.relayDepth >= maxRelayDepth {
+		return fmt.Errorf("relay nesting limit exceeded")
+	}
 	logger.Verbosef("me.relayOrHandlePeerMessage(%s, %s) => %s %v", me.Address, me.IdForNetwork, relayerId, msg.Data)
 	if len(msg.Data) < 65 {
 		return nil
@@ -602,6 +608,7 @@ func (me *Peer) relayOrHandlePeerMessage(relayerId crypto.Hash, msg *PeerMessage
 		if err != nil {
 			return err
 		}
+		rm.relayDepth = msg.relayDepth + 1
 		me.receivedMetric.handle(rm.Type)
 		return me.handlePeerMessage(from, rm)
 	}
