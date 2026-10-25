@@ -24,7 +24,7 @@ For the data model, consensus, networking, storage, and recovery paths, read the
 
 ## Build
 
-Install the Go version declared in [go.mod](go.mod), then build with `make`. The Makefile embeds the Git commit identifier in the build version; a binary built with plain `go build` refuses to start while the version contains `BUILD_VERSION`. Run `make` from a clean checkout: it restores `config/reader.go` from Git before and after compiling.
+Install the Go version declared in [go.mod](go.mod), then build with `make`. The Makefile embeds the Git commit identifier in the build version using a linker flag. A binary built with plain `go build` refuses to start while the version contains `BUILD_VERSION`.
 
 ```bash
 git clone https://github.com/MixinNetwork/mixin.git

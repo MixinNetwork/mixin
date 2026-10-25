@@ -138,7 +138,7 @@ func (chain *Chain) bootLoops() {
 	threshold := uint64(config.KernelNodeAcceptPeriodMaximum)
 	if rn != nil && rn.Timestamp+threshold < chain.node.GraphTimestamp {
 		// FIXME the timestamp check is because we can't ensure the last
-		// round of a removed node yet thus will cause inconsistence when
+		// round of a removed node yet thus will cause inconsistency when
 		// calculate mint works
 		return
 	}
@@ -444,13 +444,13 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 		logger.Debugf("appendFinalSnapshot(%s, %s) expired on start %d %d\n", peerId, s.Hash, s.RoundNumber, start)
 		return false, nil
 	}
-	offset := int(s.RoundNumber - start)
-	if offset >= FinalPoolSlotsLimit {
+	delta := s.RoundNumber - start
+	if delta >= FinalPoolSlotsLimit {
 		logger.Verbosef("appendFinalSnapshot(%s, %s) pool slots full %d %d %d %d\n",
 			peerId, s.Hash, start, s.RoundNumber, chain.FinalIndex, fi)
 		return false, nil
 	}
-	offset = (offset + fi) % FinalPoolSlotsLimit
+	offset := (int(delta) + fi) % FinalPoolSlotsLimit
 	round := chain.FinalPool[offset]
 	if round == nil {
 		round = &ChainRound{
@@ -465,13 +465,13 @@ func (chain *Chain) appendFinalSnapshot(peerId crypto.Hash, s *common.Snapshot) 
 		round.index = make(map[crypto.Hash]int)
 		round.Size = 0
 	}
-	if round.Size == FinalPoolRoundSizeLimit {
-		return false, fmt.Errorf("appendFinalSnapshot(%s, %s) round snapshots full %s:%d",
-			peerId, s.Hash, s.NodeId, s.RoundNumber)
-	}
 	index, found := round.index[s.Hash]
 	changed := false
 	if !found {
+		if round.Size == FinalPoolRoundSizeLimit {
+			return false, fmt.Errorf("appendFinalSnapshot(%s, %s) round snapshots full %s:%d",
+				peerId, s.Hash, s.NodeId, s.RoundNumber)
+		}
 		round.Snapshots[round.Size] = &PeerSnapshot{
 			Snapshot: s,
 			peers:    []crypto.Hash{peerId},

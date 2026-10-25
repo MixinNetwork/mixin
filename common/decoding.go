@@ -102,7 +102,10 @@ func (dec *Decoder) DecodeSnapshotWithTopo() (*SnapshotWithTopologicalOrder, err
 	num, err := dec.ReadUint64()
 	if err == io.EOF && num == 0 {
 		return topo, nil
-	} // genesis no signature
+	} // Topological order is omitted from snapshot payloads.
+	if err != nil {
+		return nil, err
+	}
 	topo.TopologicalOrder = num
 
 	es, err := dec.buf.ReadByte()

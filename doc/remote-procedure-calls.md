@@ -209,7 +209,7 @@ The JSON examples in this section illustrate field names and types, not observed
 | `queue.state[node_id]` | `[cache_actions, final_actions]` for accepted chains; `queue.caches` and `queue.finals` are their totals |
 | `metric.transport` | Optional `sent` and `received` objects of message counters; `{}` when transport metrics are disabled |
 
-`sps` and `tps` are locally sampled snapshot and deduplicated transaction rates, updated every 60 seconds. `spt` is the average number of snapshot appearances per distinct transaction in the sampling interval. These values are not network-wide throughput guarantees. Transport counter keys include `ping`, `authentication`, `graph`, `snapshot-confirm`, `transaction-request`, `transaction`, `snapshot-announcement`, `snapshot-commitment`, `transaciton-challenge` (this exact spelling), `snapshot-response`, `snapshot-finalization`, `commitments`, `full-challenge`, `transaction-bundle`, `finalized-transaction-bundle`, and `relay`.
+`sps` and `tps` are locally sampled snapshot and deduplicated transaction rates, updated every 60 seconds. `spt` is the average number of snapshot appearances per distinct transaction in the sampling interval. These values are not network-wide throughput guarantees. Transport counter keys include `ping`, `authentication`, `graph`, `snapshot-confirm`, `transaction-request`, `transaction`, `snapshot-announcement`, `snapshot-commitment`, `transaction-challenge`, `snapshot-response`, `snapshot-finalization`, `commitments`, `full-challenge`, `transaction-bundle`, `finalized-transaction-bundle`, and `relay`.
 
 `dumpgraphhead` returns an array of sync points sorted by node ID. Each item has this form:
 

@@ -46,8 +46,10 @@ func TestMapAndMetricHelpers(t *testing.T) {
 	}}
 	relayers.Add(peerID, relayerID)
 	require.Equal([]crypto.Hash{relayerID}, relayers.Get(peerID))
+	relayers.m[peerID] = append(relayers.m[peerID], &remoteRelayer{Id: otherRelayerID, ActiveAt: time.Now().Add(-2 * time.Minute)})
 	relayers.Add(peerID, relayerID)
 	require.Equal([]crypto.Hash{relayerID}, relayers.Get(peerID))
+	require.Len(relayers.m[peerID], 1, "refreshing an active relayer must discard expired entries")
 
 	neighbors := &neighborMap{m: make(map[crypto.Hash]*Peer)}
 	peer := NewPeer(nil, relayerID, "127.0.0.1:9001", true)
@@ -93,6 +95,7 @@ func TestMapAndMetricHelpers(t *testing.T) {
 	require.Equal(uint32(1), mp.PeerMessageTypeSnapshotFinalization)
 	require.Equal(uint32(1), mp.PeerMessageTypeRelay)
 	require.Contains(mp.String(), `"relay":1`)
+	require.Contains(mp.String(), `"transaction-challenge":1`)
 
 	var wg sync.WaitGroup
 	wg.Go(func() {
@@ -311,7 +314,7 @@ func TestP2PMessageAndPeerEdgeCases(t *testing.T) {
 	shortCommitments[0] = PeerMessageTypePreCommitments
 	binary.BigEndian.PutUint16(shortCommitments[65:67], 1025)
 	_, err = parseNetworkMessage(7, shortCommitments)
-	require.ErrorContains(err, "too much commitments")
+	require.ErrorContains(err, "too many commitments")
 
 	malformedCommitments := make([]byte, 80)
 	malformedCommitments[0] = PeerMessageTypePreCommitments

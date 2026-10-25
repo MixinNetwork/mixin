@@ -2,7 +2,6 @@ package p2p
 
 import (
 	"bytes"
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -20,7 +19,7 @@ func TestQuic(t *testing.T) {
 
 	wait := make(chan struct{})
 	go func() {
-		server, err := serverTrans.Accept(context.Background())
+		server, err := serverTrans.Accept(t.Context())
 		require.Nil(err)
 		require.NotNil(server)
 		msg, err := server.Receive()
@@ -29,7 +28,7 @@ func TestQuic(t *testing.T) {
 		wait <- struct{}{}
 	}()
 
-	client, err := NewQuicConsumer(context.Background(), listenAddr)
+	client, err := NewQuicConsumer(t.Context(), listenAddr)
 	require.Nil(err)
 	require.NotNil(client)
 	require.NotNil(client.RemoteAddr())
@@ -46,7 +45,7 @@ func TestQuicErrors(t *testing.T) {
 	_, err := NewQuicRelayer("bad-addr")
 	require.Error(err)
 
-	_, err = NewQuicConsumer(context.Background(), "bad-addr")
+	_, err = NewQuicConsumer(t.Context(), "bad-addr")
 	require.Error(err)
 
 	err = (&QuicClient{}).Send(nil)
@@ -59,7 +58,7 @@ func TestQuicErrors(t *testing.T) {
 	closedRelayer, err := NewQuicRelayer("127.0.0.1:0")
 	require.Nil(err)
 	require.NoError(closedRelayer.Close())
-	_, err = closedRelayer.Accept(context.Background())
+	_, err = closedRelayer.Accept(t.Context())
 	require.ErrorContains(err, "quic.Accept")
 
 	serverTrans, err := NewQuicRelayer("127.0.0.1:0")
@@ -69,12 +68,12 @@ func TestQuicErrors(t *testing.T) {
 
 	accept := make(chan *QuicClient, 1)
 	go func() {
-		server, err := serverTrans.Accept(context.Background())
+		server, err := serverTrans.Accept(t.Context())
 		require.Nil(err)
 		accept <- server.(*QuicClient)
 	}()
 
-	client, err := NewQuicConsumer(context.Background(), serverTrans.listener.Addr().String())
+	client, err := NewQuicConsumer(t.Context(), serverTrans.listener.Addr().String())
 	require.Nil(err)
 	require.Nil(client.Send([]byte("accept")))
 	server := <-accept
@@ -91,12 +90,12 @@ func TestQuicErrors(t *testing.T) {
 
 	accept2 := make(chan *QuicClient, 1)
 	go func() {
-		server, err := serverTrans2.Accept(context.Background())
+		server, err := serverTrans2.Accept(t.Context())
 		require.Nil(err)
 		accept2 <- server.(*QuicClient)
 	}()
 
-	client2, err := NewQuicConsumer(context.Background(), serverTrans2.listener.Addr().String())
+	client2, err := NewQuicConsumer(t.Context(), serverTrans2.listener.Addr().String())
 	require.Nil(err)
 	require.Nil(client2.Send([]byte("accept")))
 	server2 := <-accept2

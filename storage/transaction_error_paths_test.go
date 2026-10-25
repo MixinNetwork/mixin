@@ -118,10 +118,11 @@ func TestTransactionFinalizationAndOutputBranches(t *testing.T) {
 				tx.Outputs = []*common.Output{{Type: typ, Amount: common.NewInteger(1)}}
 				tx.Extra = extra
 				ver := tx.AsVersioned()
-				utxo := &common.UTXOWithLock{UTXO: common.UTXO{
-					Input:  common.Input{Hash: hash},
-					Output: common.Output{Type: typ, Amount: common.NewInteger(1)},
-				}}
+				utxo := &common.UTXOWithLock{
+					Hash:   hash,
+					Type:   typ,
+					Amount: common.NewInteger(1),
+				}
 				if err := writeUTXO(txn, utxo, ver, uint64(i+1), typ == common.OutputTypeNodeAccept); err != nil {
 					return err
 				}
@@ -142,14 +143,12 @@ func TestTransactionFinalizationAndOutputBranches(t *testing.T) {
 			tx := common.NewTransactionV5(common.XINAssetId)
 			tx.Inputs = []*common.Input{{Genesis: []byte("ghost output")}}
 			ver := tx.AsVersioned()
-			utxo := &common.UTXOWithLock{UTXO: common.UTXO{
-				Input: common.Input{Hash: crypto.Blake3Hash([]byte("new ghost owner"))},
-				Output: common.Output{
-					Type:   common.OutputTypeScript,
-					Amount: common.NewInteger(1),
-					Keys:   []*crypto.Key{&ghost},
-				},
-			}}
+			utxo := &common.UTXOWithLock{
+				Hash:   crypto.Blake3Hash([]byte("new ghost owner")),
+				Type:   common.OutputTypeScript,
+				Amount: common.NewInteger(1),
+				Keys:   []*crypto.Key{&ghost},
+			}
 			require.Error(t, writeUTXO(txn, utxo, ver, 1, false))
 			return nil
 		})

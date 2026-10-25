@@ -400,7 +400,7 @@ func (node *Node) BuildAuthenticationMessage(relayerId crypto.Hash) []byte {
 
 func (node *Node) AuthenticateAs(recipientId crypto.Hash, msg []byte, timeoutSec int64) (*p2p.AuthToken, error) {
 	if len(msg) != 137 {
-		return nil, fmt.Errorf("peer authentication message malformatted %d", len(msg))
+		return nil, fmt.Errorf("peer authentication message malformed %d", len(msg))
 	}
 	ts := binary.BigEndian.Uint64(msg[:8])
 	if timeoutSec > 0 && math.Abs(float64(clock.Now().Unix())-float64(ts)) > float64(timeoutSec) {
@@ -597,7 +597,9 @@ func (node *Node) sendGraphToConsensusNodesAndPeers() {
 				logger.Debugf("SendGraphMessage(%s) => %v\n", id, err)
 			}
 		}
-		time.Sleep(time.Duration(config.SnapshotRoundGap / 2))
+		if node.waitOrDone(time.Duration(config.SnapshotRoundGap / 2)) {
+			return
+		}
 	}
 }
 

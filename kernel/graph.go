@@ -83,10 +83,10 @@ func (chain *Chain) validateNewRound(cache *CacheRound, references *common.Round
 
 func (chain *Chain) updateEmptyHeadRoundAndPersist(final *FinalRound, cache *CacheRound, references *common.RoundLink, timestamp uint64, strict bool) error {
 	if len(cache.Snapshots) != 0 {
-		return fmt.Errorf("malformated head round references not empty")
+		return fmt.Errorf("malformed head round references not empty")
 	}
 	if references.Self != cache.References.Self {
-		return fmt.Errorf("malformated head round references self diff %s %s", references.Self, cache.References.Self)
+		return fmt.Errorf("malformed head round references self diff %s %s", references.Self, cache.References.Self)
 	}
 	external, err := chain.persistStore.ReadRound(references.External)
 	if err != nil || external == nil {
@@ -294,7 +294,7 @@ func historySinceRound(history []*FinalRound, link uint64) []*FinalRound {
 // Then node B is removed at time 9. Now A broadcasts S, and others will not be able to finalize S.
 // Solution: Because A has the ACK of node B, then A should include B when challenge all others, then others will record the
 // ACK timestamp of node B is time 10. So that if B has a conflict removal time of 9, then won't get ACKed at all.
-// What if A doesn't include B in the challenge, then A may be found evial and slashed.
+// What if A doesn't include B in the challenge, then A may be found evil and slashed.
 // Proof: With the solution, it's impossible to have B removed at 9, and S get finalized get 10. Because 2f+1 nodes know B ACK S
 // at 10, then they won't accept removal of B at 9.
 // 2. Node A initial accept snapshot I signed by enough nodes, at time 9, and finalized but not broadcasted to others yet.

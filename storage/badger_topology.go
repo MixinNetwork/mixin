@@ -75,6 +75,9 @@ func (s *BadgerStore) ReadSnapshotWithTransactionsSinceTopology(topologyOffset, 
 			if err != nil {
 				return nil, nil, err
 			}
+			if tx == nil {
+				return nil, nil, fmt.Errorf("missing transaction %s for snapshot %s", h, s.Hash)
+			}
 			transactions[i][j] = tx
 		}
 	}

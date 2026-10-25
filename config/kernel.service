@@ -5,7 +5,7 @@ After=network.target
 [Service]
 User=one
 Type=simple
-ExecStart=/home/one/bin/mixin kernel -dir /home/one/data/mixin -port 7239
+ExecStart=/home/one/bin/mixin kernel -dir /home/one/data/mixin
 Restart=on-failure
 LimitNOFILE=65536
 

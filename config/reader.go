@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+	"math"
 	"os"
 	"time"
 
@@ -8,9 +10,14 @@ import (
 	"github.com/pelletier/go-toml"
 )
 
+var (
+	// The release build sets buildCommit through the linker's -X flag.
+	buildCommit  = "BUILD_VERSION"
+	BuildVersion = "v0.19.10-" + buildCommit
+)
+
 const (
 	Debug           = true
-	BuildVersion    = "v0.19.8-BUILD_VERSION"
 	KernelNetworkId = "74c6cdb7d51af57037faa1f5544f8331ced001df5964331911ca51385993b375"
 
 	SnapshotRoundGap           = uint64(3 * time.Second)
@@ -39,11 +46,11 @@ const (
 
 type Custom struct {
 	Node struct {
-		Signer               crypto.Key `toml:"-"`
-		SignerStr            string     `toml:"signer-key"`
-		KernelOprationPeriod int        `toml:"kernel-operation-period"`
-		MemoryCacheSize      int        `toml:"memory-cache-size"`
-		CacheTTL             int        `toml:"cache-ttl"`
+		Signer                crypto.Key `toml:"-"`
+		SignerStr             string     `toml:"signer-key"`
+		KernelOperationPeriod int        `toml:"kernel-operation-period"`
+		MemoryCacheSize       int        `toml:"memory-cache-size"`
+		CacheTTL              int        `toml:"cache-ttl"`
 	} `toml:"node"`
 	Storage struct {
 		ValueLogGC          bool `toml:"value-log-gc"`
@@ -76,18 +83,29 @@ func Initialize(file string) (*Custom, error) {
 		return nil, err
 	}
 	key, err := crypto.KeyFromString(config.Node.SignerStr)
-	if err != nil {
-		return nil, err
+	if err != nil || !key.CheckPrivateKey() {
+		return nil, fmt.Errorf("invalid node signer-key %v", err)
 	}
 	config.Node.Signer = key
-	if config.Node.KernelOprationPeriod == 0 {
-		config.Node.KernelOprationPeriod = 700
+	if config.Node.KernelOperationPeriod == 0 {
+		config.Node.KernelOperationPeriod = 700
 	}
 	if config.Node.MemoryCacheSize == 0 {
 		config.Node.MemoryCacheSize = 1024 * 4
 	}
 	if config.Node.CacheTTL == 0 {
 		config.Node.CacheTTL = 3600 * 2
+	}
+	maxSeconds := int64(math.MaxInt64) / int64(time.Second)
+	if config.Node.KernelOperationPeriod < 0 || int64(config.Node.KernelOperationPeriod) > maxSeconds {
+		return nil, fmt.Errorf("invalid node kernel-operation-period %d", config.Node.KernelOperationPeriod)
+	}
+	if config.Node.MemoryCacheSize < 0 || config.Node.MemoryCacheSize > math.MaxInt/(1024*1024) {
+		return nil, fmt.Errorf("invalid node memory-cache-size %d", config.Node.MemoryCacheSize)
+	}
+	// Cached transaction bodies live 60 seconds longer than their queue entries.
+	if config.Node.CacheTTL < 0 || int64(config.Node.CacheTTL) > maxSeconds-60 || config.Node.CacheTTL > math.MaxInt-60 {
+		return nil, fmt.Errorf("invalid node cache-ttl %d", config.Node.CacheTTL)
 	}
 	return &config, nil
 }

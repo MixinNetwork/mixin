@@ -60,7 +60,7 @@ func TestVerifyConsensusPeerSignatureRejectsForgedLeaderResponse(t *testing.T) {
 	var partial crypto.Signature
 	copy(partial[:32], forgedCommitment[:])
 	copy(partial[32:], response.Bytes())
-	require.True(t, forgedCommitment.CheckKey())
+	require.True(t, forgedCommitment.CheckPublicKey())
 	require.True(t, leaderPublic.VerifyWithChallenge(partial, challenge))
 	require.False(t, leaderPublic.Verify(snapshot.PayloadHash(), partial))
 

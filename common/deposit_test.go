@@ -1,6 +1,7 @@
 package common
 
 import (
+	"bytes"
 	"encoding/hex"
 	"strings"
 	"testing"
@@ -9,6 +10,46 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/stretchr/testify/require"
 )
+
+func TestDepositCapacityForNewAndExistingAssets(t *testing.T) {
+	account := deterministicAddress(41)
+	for _, test := range []struct {
+		name     string
+		existing bool
+		balance  uint64
+		amount   string
+		wantErr  bool
+	}{
+		{name: "first below capacity", amount: "2299.99999999"},
+		{name: "first at capacity", amount: "2300", wantErr: true},
+		{name: "first above capacity", amount: "2301", wantErr: true},
+		{name: "existing below capacity", existing: true, balance: 2299, amount: "0.99999999"},
+		{name: "existing at capacity", existing: true, balance: 2299, amount: "1", wantErr: true},
+		{name: "existing above capacity", existing: true, balance: 2299, amount: "2", wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			store := &campaignStore{
+				balance:   NewInteger(test.balance),
+				custodian: &CustodianUpdateRequest{Custodian: &account},
+			}
+			amount := NewIntegerFromString(test.amount)
+			tx := NewTransactionV5(BitcoinAssetId)
+			tx.AddDepositInput(&DepositData{Chain: BitcoinAssetId, AssetKey: "btc", Transaction: test.name, Amount: amount})
+			tx.AddScriptOutput([]*Address{&account}, NewThresholdScript(1), amount, bytes.Repeat([]byte{42}, 64))
+			if test.existing {
+				store.asset = tx.DepositData().Asset()
+			}
+			ver := tx.AsVersioned()
+			require.NoError(t, ver.SignRaw(account.PrivateSpendKey))
+			err := ver.Validate(store, 1, false)
+			if test.wantErr {
+				require.ErrorContains(t, err, "invalid deposit capacity")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
 
 func TestDeposit(t *testing.T) {
 	require := require.New(t)

@@ -48,7 +48,7 @@ If no admissible acceptance certificate exists and the graph has advanced beyond
 
 ## Prepare the node
 
-Use the Go version declared in [go.mod](../go.mod) and build with `make` from a clean checkout. The Makefile embeds the Git commit identifier and restores `config/reader.go` from Git before and after compiling. A binary built with plain `go build` refuses to start while its build version contains `BUILD_VERSION`.
+Use the Go version declared in [go.mod](../go.mod) and build with `make`. The Makefile embeds the Git commit identifier using a linker flag. A binary built with plain `go build` refuses to start while its build version contains `BUILD_VERSION`.
 
 A data directory requires these two files before first start; the daemon creates its databases there:
 

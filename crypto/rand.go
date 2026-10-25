@@ -37,7 +37,8 @@ func readRand(buf []byte) error {
 	if err != nil || len(buf) != n {
 		panic(err)
 	}
-	if len(buf) < 4 {
+	// The frequency check needs a threshold greater than one.
+	if len(buf) < 6 {
 		return nil
 	}
 	set := make(map[byte]int)

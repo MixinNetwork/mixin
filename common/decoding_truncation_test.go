@@ -13,36 +13,34 @@ func TestDecodeTransactionRejectsEveryTruncation(t *testing.T) {
 	mask := crypto.NewKeyFromSeed(decoderTestSeed(2)).Public()
 	signature := private.Sign(crypto.Blake3Hash([]byte("decoder signature")))
 	signed := &SignedTransaction{
-		Transaction: Transaction{
-			Version: TxVersionHashSignature,
-			Asset:   crypto.Blake3Hash([]byte("decoder asset")),
-			Inputs: []*Input{{
-				Hash:    crypto.Blake3Hash([]byte("decoder input")),
-				Index:   7,
-				Genesis: []byte("genesis"),
-				Deposit: &DepositData{
-					Chain:       BitcoinAssetId,
-					AssetKey:    "btc",
-					Transaction: "deposit transaction",
-					Index:       11,
-					Amount:      NewInteger(2),
-				},
-				Mint: &MintData{Group: mintGroupUniversal, Batch: 9, Amount: NewInteger(3)},
-			}},
-			Outputs: []*Output{{
-				Type:   OutputTypeWithdrawalSubmit,
-				Amount: NewInteger(1),
-				Keys:   []*crypto.Key{&public},
-				Mask:   mask,
-				Script: NewThresholdScript(1),
-				Withdrawal: &WithdrawalData{
-					Address: "destination",
-					Tag:     "memo",
-				},
-			}},
-			References: []crypto.Hash{crypto.Blake3Hash([]byte("decoder reference"))},
-			Extra:      []byte("decoder extra"),
-		},
+		Version: TxVersionHashSignature,
+		Asset:   crypto.Blake3Hash([]byte("decoder asset")),
+		Inputs: []*Input{{
+			Hash:    crypto.Blake3Hash([]byte("decoder input")),
+			Index:   7,
+			Genesis: []byte("genesis"),
+			Deposit: &DepositData{
+				Chain:       BitcoinAssetId,
+				AssetKey:    "btc",
+				Transaction: "deposit transaction",
+				Index:       11,
+				Amount:      NewInteger(2),
+			},
+			Mint: &MintData{Group: mintGroupUniversal, Batch: 9, Amount: NewInteger(3)},
+		}},
+		Outputs: []*Output{{
+			Type:   OutputTypeWithdrawalSubmit,
+			Amount: NewInteger(1),
+			Keys:   []*crypto.Key{&public},
+			Mask:   mask,
+			Script: NewThresholdScript(1),
+			Withdrawal: &WithdrawalData{
+				Address: "destination",
+				Tag:     "memo",
+			},
+		}},
+		References:    []crypto.Hash{crypto.Blake3Hash([]byte("decoder reference"))},
+		Extra:         []byte("decoder extra"),
 		SignaturesMap: []map[uint16]*crypto.Signature{{0: &signature}},
 	}
 
@@ -69,7 +67,7 @@ func TestDecodeAggregatedSignatureTransactionsRejectEveryTruncation(t *testing.T
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			signed := &SignedTransaction{
-				Transaction: Transaction{Version: TxVersionHashSignature},
+				Version: TxVersionHashSignature,
 				AggregatedSignature: &AggregatedSignature{
 					Signers: test.signers,
 				},
@@ -87,7 +85,7 @@ func TestDecodeAggregatedSignatureTransactionsRejectEveryTruncation(t *testing.T
 	}
 }
 
-func TestDecodeSnapshotTruncationsDoNotPanic(t *testing.T) {
+func TestDecodeSnapshotRejectsPartialFields(t *testing.T) {
 	snapshot := &SnapshotWithTopologicalOrder{
 		Snapshot: &Snapshot{
 			Version:      SnapshotVersionCommonEncoding,
@@ -106,9 +104,16 @@ func TestDecodeSnapshotTruncationsDoNotPanic(t *testing.T) {
 	require.Equal(t, snapshot.TopologicalOrder, decoded.TopologicalOrder)
 
 	for cut := range len(encoded) {
-		require.NotPanics(t, func() {
-			_, _ = NewDecoder(encoded[:cut]).DecodeSnapshotWithTopo()
-		}, "cut=%d", cut)
+		decoded, err := UnmarshalVersionedSnapshot(encoded[:cut])
+		if cut == len(encoded)-8 {
+			// Network payloads omit the entire topological order.
+			require.NoError(t, err)
+			require.Zero(t, decoded.TopologicalOrder)
+			require.Equal(t, snapshot.Snapshot, decoded.Snapshot)
+		} else {
+			require.Error(t, err, "cut=%d", cut)
+			require.Nil(t, decoded, "cut=%d", cut)
+		}
 	}
 }
 

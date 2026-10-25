@@ -17,29 +17,31 @@ import (
 
 func (s *BadgerStore) ValidateGraphEntries(networkId crypto.Hash, depth uint64) (int, int, error) {
 	nodes := s.ReadAllNodes(uint64(time.Now().UnixNano()), false)
-	stats := make(chan [2]int, len(nodes))
-	errchan := make(chan error, len(nodes))
+	type result struct {
+		total, invalid int
+		err            error
+	}
+	results := make(chan result, len(nodes))
 	for _, n := range nodes {
 		go func(nodeId crypto.Hash) {
 			total, invalid, err := s.validateSnapshotEntriesForNode(nodeId, depth)
 			if err != nil {
 				logger.Printf("SNAPSHOT VALIDATION ERROR FOR NODE %s %s\n", nodeId, err.Error())
-				errchan <- err
 			}
-			stats <- [2]int{total, invalid}
+			results <- result{total, invalid, err}
 		}(n.IdForNetwork(networkId))
 	}
 	var total, invalid int
+	var err error
 	for range nodes {
-		select {
-		case stat := <-stats:
-			total += stat[0]
-			invalid += stat[1]
-		case err := <-errchan:
-			return total, invalid, err
+		res := <-results
+		total += res.total
+		invalid += res.invalid
+		if err == nil {
+			err = res.err
 		}
 	}
-	return total, invalid, nil
+	return total, invalid, err
 }
 
 func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash, depth uint64) (int, int, error) {
@@ -69,6 +71,9 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash, depth u
 		snapshots, err := readSnapshotsForNodeRound(txn, nodeId, i)
 		if err != nil {
 			return total, invalid, err
+		}
+		if len(snapshots) == 0 {
+			return total, invalid, fmt.Errorf("missing snapshots for node %s round %d", nodeId, i)
 		}
 		for _, s := range snapshots {
 			for _, txh := range s.Transactions {
@@ -100,10 +105,16 @@ func (s *BadgerStore) validateSnapshotEntriesForNode(nodeId crypto.Hash, depth u
 				if s.Hash.String() != hex.EncodeToString(val) {
 					logger.Printf("DUPLICATED FINALIZATION %s %s\n", s.Hash, hex.EncodeToString(val))
 				}
-				dup, _ := crypto.HashFromString(hex.EncodeToString(val))
+				dup, err := crypto.HashFromString(hex.EncodeToString(val))
+				if err != nil {
+					return total, invalid, fmt.Errorf("malformed finalization for transaction %s: %w", txh, err)
+				}
 				topo, err := readSnapshotWithTopo(txn, dup)
 				if err != nil {
 					return total, invalid, err
+				}
+				if topo == nil {
+					return total, invalid, fmt.Errorf("missing finalization snapshot %s for transaction %s", dup, txh)
 				}
 				if !slices.Contains(topo.Transactions, txh) {
 					logger.Printf("MALFORMED FINALIZATION %s %s\n", s.Hash, topo.Hash)

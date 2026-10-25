@@ -42,6 +42,9 @@ func getRoundByNumber(kn *kernel.Node, store storage.Store, params []any) (map[s
 	if err != nil {
 		return nil, err
 	}
+	if head == nil {
+		return nil, errors.New("round not found")
+	}
 	hash := node
 	start := head.Timestamp
 	end := head.Timestamp

@@ -7,6 +7,7 @@ import (
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/dgraph-io/badger/v4"
+	"github.com/dgraph-io/badger/v4/skl"
 	"github.com/stretchr/testify/require"
 )
 
@@ -278,21 +279,19 @@ func TestStorageTransactionSizeErrors(t *testing.T) {
 
 func openBadgerWithBatchCount(t *testing.T, target int64) *badger.DB {
 	t.Helper()
-	for size := int64(512); size <= 64<<10; size += 64 {
-		opts := badger.DefaultOptions(t.TempDir()).
-			WithLogger(nil).
-			WithMemTableSize(size).
-			WithValueThreshold(1)
-		db, err := badger.Open(opts)
-		require.NoError(t, err)
-		if db.MaxBatchCount() == target {
-			t.Cleanup(func() { require.NoError(t, db.Close()) })
-			return db
-		}
-		require.NoError(t, db.Close())
-	}
-	t.Fatalf("no Badger memtable size produced batch count %d", target)
-	return nil
+	// Badger allocates 15% of the memtable to a batch and reserves one
+	// skiplist node per entry. Set the limit directly rather than opening
+	// hundreds of databases to search for the corresponding memtable size.
+	size := (target*int64(skl.MaxNodeSize)*100 + 14) / 15
+	opts := badger.DefaultOptions(t.TempDir()).
+		WithLogger(nil).
+		WithMemTableSize(size).
+		WithValueThreshold(1)
+	db, err := badger.Open(opts)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	require.Equal(t, target, db.MaxBatchCount())
+	return db
 }
 
 func fullBadgerTransaction(t *testing.T, db *badger.DB) *badger.Txn {

@@ -725,7 +725,7 @@ func TestCustodianAndValidationHelpers(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		utxo1 := &common.UTXOWithLock{UTXO: common.UTXO{Input: common.Input{Hash: custodianVer1.PayloadHash()}}}
+		utxo1 := &common.UTXOWithLock{Hash: custodianVer1.PayloadHash()}
 		err = writeCustodianNodes(txn, 100, utxo1, extra1, true)
 		if err != nil {
 			return err
@@ -739,7 +739,7 @@ func TestCustodianAndValidationHelpers(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		utxo2 := &common.UTXOWithLock{UTXO: common.UTXO{Input: common.Input{Hash: custodianVer2.PayloadHash()}}}
+		utxo2 := &common.UTXOWithLock{Hash: custodianVer2.PayloadHash()}
 		return writeCustodianNodes(txn, 200, utxo2, extra2, false)
 	})
 	require.Nil(err)

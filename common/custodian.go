@@ -196,13 +196,13 @@ func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader, now u
 	}
 	total := Zero
 	newPrice := NewInteger(custodianNodeNewPrice)
-	udpatePrice := NewInteger(custodianNodeUpdatePrice)
+	updatePrice := NewInteger(custodianNodeUpdatePrice)
 	for _, n := range curs.Nodes {
 		old, found := filter[n.Custodian.String()]
 		if !found {
 			total = total.Add(newPrice)
 		} else if old != n.Payee.String() {
-			total = total.Add(udpatePrice)
+			total = total.Add(updatePrice)
 		}
 		delete(filter, n.Custodian.String())
 	}

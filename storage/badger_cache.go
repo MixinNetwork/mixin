@@ -30,7 +30,8 @@ func (s *BadgerStore) CacheRetrieveTransactions(limit int) ([]*common.VersionedT
 		var hash crypto.Hash
 		filter := make(map[crypto.Hash]bool)
 		it.Seek(cacheTransactionQueueKey(0, hash))
-		for ; len(txs) < limit && it.Valid(); it.Next() {
+		for scanned := 0; scanned < limit && it.Valid(); it.Next() {
+			scanned++
 			key := it.Item().KeyCopy(nil)
 			copy(hash[:], key[len(cachePrefixTransactionQueue)+8:])
 			processed = append(processed, key)
@@ -64,7 +65,7 @@ func (s *BadgerStore) CacheRemoveTransactions(hashes []crypto.Hash) error {
 	batch := 100
 	for {
 		err := s.cacheDB.Update(func(txn *badger.Txn) error {
-			for i := range hashes {
+			for i := range min(batch, len(hashes)) {
 				key := cacheTransactionCacheKey(hashes[i])
 				err := txn.Delete(key)
 				if err != nil {
@@ -74,9 +75,6 @@ func (s *BadgerStore) CacheRemoveTransactions(hashes []crypto.Hash) error {
 				err = txn.Delete(key)
 				if err != nil {
 					return err
-				}
-				if i == batch {
-					break
 				}
 			}
 			return nil

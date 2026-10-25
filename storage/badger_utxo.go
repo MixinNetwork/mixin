@@ -13,7 +13,7 @@ func (s *BadgerStore) ReadUTXOKeys(hash crypto.Hash, index uint) (*common.UTXOKe
 	defer txn.Discard()
 
 	utxo, err := s.readUTXOLock(txn, hash, index)
-	if err != nil {
+	if err != nil || utxo == nil {
 		return nil, err
 	}
 	return &common.UTXOKeys{

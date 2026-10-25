@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -16,7 +17,10 @@ type BadgerStore struct {
 	cacheDB     *badger.DB
 	custodians  sync.Map
 	mutex       *sync.RWMutex
-	closing     bool
+	done        chan struct{}
+	gcLoops     sync.WaitGroup
+	closeOnce   sync.Once
+	closeErr    error
 }
 
 func NewBadgerStore(custom *config.Custom, dir string) (*BadgerStore, error) {
@@ -26,24 +30,32 @@ func NewBadgerStore(custom *config.Custom, dir string) (*BadgerStore, error) {
 	}
 	cacheDB, err := openDB(dir+"/cache", false, custom)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, snapshotsDB.Close())
 	}
-	return &BadgerStore{
+	store := &BadgerStore{
 		custom:      custom,
 		snapshotsDB: snapshotsDB,
 		cacheDB:     cacheDB,
 		mutex:       new(sync.RWMutex),
-		closing:     false,
-	}, nil
+		done:        make(chan struct{}),
+	}
+	if custom != nil && custom.Storage.ValueLogGC {
+		for _, db := range []*badger.DB{snapshotsDB, cacheDB} {
+			store.gcLoops.Go(func() { store.runValueLogGC(db) })
+		}
+	}
+	return store, nil
 }
 
 func (store *BadgerStore) Close() error {
-	store.closing = true
-	err := store.snapshotsDB.Close()
-	if err != nil {
-		return err
-	}
-	return store.cacheDB.Close()
+	store.closeOnce.Do(func() {
+		if store.done != nil {
+			close(store.done)
+		}
+		store.gcLoops.Wait()
+		store.closeErr = errors.Join(store.snapshotsDB.Close(), store.cacheDB.Close())
+	})
+	return store.closeErr
 }
 
 func openDB(dir string, sync bool, custom *config.Custom) (*badger.DB, error) {
@@ -72,19 +84,24 @@ func openDB(dir string, sync bool, custom *config.Custom) (*badger.DB, error) {
 		return nil, err
 	}
 
-	if custom != nil && custom.Storage.ValueLogGC {
-		go func() {
-			for {
-				lsm, vlog := db.Size()
-				logger.Printf("Badger LSM %d VLOG %d\n", lsm, vlog)
-				if lsm > 1024*1024*8 || vlog > 1024*1024*32 {
-					err := db.RunValueLogGC(0.5)
-					logger.Printf("Badger RunValueLogGC %v\n", err)
-				}
-				time.Sleep(5 * time.Minute)
-			}
-		}()
-	}
-
 	return db, nil
+}
+
+func (store *BadgerStore) runValueLogGC(db *badger.DB) {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		lsm, vlog := db.Size()
+		logger.Printf("Badger LSM %d VLOG %d\n", lsm, vlog)
+		if lsm > 1024*1024*8 || vlog > 1024*1024*32 {
+			err := db.RunValueLogGC(0.5)
+			logger.Printf("Badger RunValueLogGC %v\n", err)
+		}
+		select {
+		case <-store.done:
+			return
+		case <-ticker.C:
+		}
+	}
 }

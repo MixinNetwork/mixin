@@ -277,7 +277,7 @@ RAW=$(./mixin --node http://127.0.0.1:6860 buildrawtransaction \
 
 `signrawtransaction --raw` accepts a version 5 JSON construction object with `asset`, `inputs`, `outputs`, and hexadecimal `extra`. Inputs can provide `keys` and `mask` for local signing or let the tool fetch them from RPC. An output can contain `accounts` so the tool derives `keys` and `mask`, or precomputed `keys` with a nonzero `mask`. Both construction commands generate a random seed by default and accept a 64-byte hexadecimal `--seed` for deterministic derivation.
 
-Each `--key` value is the 32-byte private view key concatenated with the 32-byte private spend key, encoded as 128 hexadecimal characters. The signing command rebuilds the transaction and its signatures. Its construction schema supports ordinary and deposit inputs, but does not copy existing authorization, transaction references, mint/genesis inputs, or withdrawal metadata from arbitrary transaction JSON.
+Each `--key` value is the 32-byte private view key concatenated with the 32-byte private spend key, encoded as 128 hexadecimal characters. The signing command rebuilds the transaction and its signatures, preserving supplied transaction `references` and output `withdrawal` metadata. Its construction schema supports ordinary and deposit inputs, but does not copy existing authorization or mint/genesis inputs from arbitrary transaction JSON.
 
 The command-line utilities are convenient for development and recovery. Because private arguments may be exposed through shell history or process inspection, production signing should use protected application code or an isolated signer.
 

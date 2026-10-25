@@ -26,19 +26,19 @@ func createAddressCmd(c *cli.Context) error {
 		crypto.ReadRand(seed)
 		addr := common.NewAddressFromSeed(seed)
 		if view := c.String("view"); len(view) > 0 {
-			key, err := hex.DecodeString(view)
+			key, err := parsePrivateKey(view)
 			if err != nil {
 				return err
 			}
-			copy(addr.PrivateViewKey[:], key)
+			addr.PrivateViewKey = key
 			addr.PublicViewKey = addr.PrivateViewKey.Public()
 		}
 		if spend := c.String("spend"); len(spend) > 0 {
-			key, err := hex.DecodeString(spend)
+			key, err := parsePrivateKey(spend)
 			if err != nil {
 				return err
 			}
-			copy(addr.PrivateSpendKey[:], key)
+			addr.PrivateSpendKey = key
 			addr.PublicSpendKey = addr.PrivateSpendKey.Public()
 		}
 		if c.Bool("public") {
@@ -54,7 +54,21 @@ func createAddressCmd(c *cli.Context) error {
 			fmt.Printf("spend key:\t%s\n", addr.PrivateSpendKey.String())
 			return nil
 		}
+		if c.String("spend") != "" && (c.String("view") != "" || c.Bool("public")) {
+			return errors.New("address does not match requested prefix or suffix")
+		}
 	}
+}
+
+func parsePrivateKey(s string) (crypto.Key, error) {
+	key, err := crypto.KeyFromString(s)
+	if err != nil {
+		return crypto.Key{}, err
+	}
+	if !key.CheckPrivateKey() {
+		return crypto.Key{}, errors.New("invalid private key scalar")
+	}
+	return key, nil
 }
 
 func decodeAddressCmd(c *cli.Context) error {
@@ -82,7 +96,7 @@ func decodeSignatureCmd(c *cli.Context) error {
 }
 
 func decryptGhostCmd(c *cli.Context) error {
-	view, err := crypto.KeyFromString(c.String("view"))
+	view, err := parsePrivateKey(c.String("view"))
 	if err != nil {
 		return err
 	}
@@ -93,6 +107,9 @@ func decryptGhostCmd(c *cli.Context) error {
 	mask, err := crypto.KeyFromString(c.String("mask"))
 	if err != nil {
 		return err
+	}
+	if !key.CheckPublicKey() || !mask.CheckPublicKey() {
+		return errors.New("invalid ghost key or mask")
 	}
 
 	spend := crypto.ViewGhostOutputKey(&key, &view, &mask, c.Uint64("index"))
@@ -125,15 +142,18 @@ func updateHeadReference(c *cli.Context) error {
 	if round == nil {
 		return errors.New("node not found")
 	}
+	if round.References == nil {
+		return errors.New("round has no references")
+	}
 	fmt.Printf("node: %s round: %d self: %s external: %s\n", round.NodeId.String(), round.Number, round.References.Self.String(), round.References.External.String())
 	if round.Number != c.Uint64("round") {
 		return fmt.Errorf("round number not match %d", round.Number)
 	}
-	external, err := hex.DecodeString(c.String("external"))
+	external, err := crypto.HashFromString(c.String("external"))
 	if err != nil {
 		return err
 	}
-	copy(round.References.External[:], external)
+	round.References.External = external
 	return store.UpdateEmptyHeadRound(round.NodeId, round.Number, round.References)
 }
 
@@ -215,11 +235,11 @@ func buildRawTransactionCmd(c *cli.Context) error {
 		crypto.ReadRand(seed)
 	}
 
-	viewKey, err := crypto.KeyFromString(c.String("view"))
+	viewKey, err := parsePrivateKey(c.String("view"))
 	if err != nil {
 		return err
 	}
-	spendKey, err := crypto.KeyFromString(c.String("spend"))
+	spendKey, err := parsePrivateKey(c.String("spend"))
 	if err != nil {
 		return err
 	}
@@ -239,6 +259,9 @@ func buildRawTransactionCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	if len(extra) > common.ExtraSizeStorageCapacity {
+		return fmt.Errorf("invalid extra size %d", len(extra))
+	}
 
 	inputs := make([]map[string]any, 0)
 	for in := range strings.SplitSeq(c.String("inputs"), ",") {
@@ -250,9 +273,12 @@ func buildRawTransactionCmd(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		index, err := strconv.ParseInt(parts[1], 10, 64)
+		index, err := strconv.ParseUint(parts[1], 10, 16)
 		if err != nil {
 			return err
+		}
+		if index > common.InputIndexLimit {
+			return fmt.Errorf("invalid input index %d", index)
 		}
 		inputs = append(inputs, map[string]any{
 			"hash":  hash,
@@ -270,7 +296,10 @@ func buildRawTransactionCmd(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		amount := common.NewIntegerFromString(parts[1])
+		var amount common.Integer
+		if err := amount.UnmarshalJSON([]byte(strconv.Quote(parts[1]))); err != nil {
+			return err
+		}
 		if amount.Sign() == 0 {
 			return fmt.Errorf("invalid output %s", out)
 		}
@@ -278,6 +307,9 @@ func buildRawTransactionCmd(c *cli.Context) error {
 			"accounts": []*common.Address{&addr},
 			"amount":   amount,
 		})
+	}
+	if len(inputs) > common.SliceCountLimit || len(outputs) > common.SliceCountLimit {
+		return fmt.Errorf("too many inputs or outputs %d/%d", len(inputs), len(outputs))
 	}
 
 	var raw signerInput
@@ -287,7 +319,7 @@ func buildRawTransactionCmd(c *cli.Context) error {
 
 	tx := common.NewTransactionV5(asset)
 	for _, in := range inputs {
-		tx.AddInput(in["hash"].(crypto.Hash), uint(in["index"].(int64)))
+		tx.AddInput(in["hash"].(crypto.Hash), uint(in["index"].(uint64)))
 	}
 	for _, out := range outputs {
 		tx.AddScriptOutput(out["accounts"].([]*common.Address), common.NewThresholdScript(1), out["amount"].(common.Integer), seed)
@@ -314,6 +346,9 @@ func signTransactionCmd(c *cli.Context) error {
 	if raw.Version != common.TxVersionHashSignature {
 		return fmt.Errorf("invalid version number %d", raw.Version)
 	}
+	if len(raw.Inputs) > common.SliceCountLimit || len(raw.Outputs) > common.SliceCountLimit || len(raw.References) > common.ReferencesCountLimit {
+		return fmt.Errorf("too many inputs, outputs or references %d/%d/%d", len(raw.Inputs), len(raw.Outputs), len(raw.References))
+	}
 	raw.Node = c.String("node")
 
 	seed, err := hex.DecodeString(c.String("seed"))
@@ -327,7 +362,13 @@ func signTransactionCmd(c *cli.Context) error {
 
 	tx := common.NewTransactionV5(raw.Asset)
 	for _, in := range raw.Inputs {
+		if in.Index > common.InputIndexLimit {
+			return fmt.Errorf("invalid input index %d", in.Index)
+		}
 		if d := in.Deposit; d != nil {
+			if len(d.AssetKey) > common.MaximumEncodingInt || len(d.TransactionHash) > common.MaximumEncodingInt {
+				return errors.New("deposit data exceeds encoding limit")
+			}
 			tx.AddDepositInput(&common.DepositData{
 				Chain:       d.Chain,
 				AssetKey:    d.AssetKey,
@@ -341,6 +382,22 @@ func signTransactionCmd(c *cli.Context) error {
 	}
 
 	for _, out := range raw.Outputs {
+		if len(out.Keys) > common.SliceCountLimit || len(out.Accounts) > common.SliceCountLimit || len(out.Script) > common.MaximumEncodingInt {
+			return errors.New("output data exceeds encoding limit")
+		}
+		for _, key := range out.Keys {
+			if key == nil {
+				return errors.New("null output key")
+			}
+		}
+		for _, account := range out.Accounts {
+			if account == nil {
+				return errors.New("null output account")
+			}
+		}
+		if w := out.Withdrawal; w != nil && (len(w.Address) > common.MaximumEncodingInt || len(w.Tag) > common.MaximumEncodingInt) {
+			return errors.New("withdrawal data exceeds encoding limit")
+		}
 		if out.Mask.HasValue() {
 			tx.Outputs = append(tx.Outputs, &common.Output{
 				Type:   out.Type,
@@ -354,13 +411,18 @@ func signTransactionCmd(c *cli.Context) error {
 			seed = append(hash[:], hash[:]...)
 			tx.AddOutputWithType(out.Type, out.Accounts, out.Script, out.Amount, seed)
 		}
+		tx.Outputs[len(tx.Outputs)-1].Withdrawal = out.Withdrawal
 	}
 
 	extra, err := hex.DecodeString(raw.Extra)
 	if err != nil {
 		return err
 	}
+	if len(extra) > common.ExtraSizeStorageCapacity {
+		return fmt.Errorf("invalid extra size %d", len(extra))
+	}
 	tx.Extra = extra
+	tx.References = raw.References
 
 	keys := c.StringSlice("key")
 	var accounts []*common.Address
@@ -375,6 +437,12 @@ func signTransactionCmd(c *cli.Context) error {
 		var account common.Address
 		copy(account.PrivateViewKey[:], key[:32])
 		copy(account.PrivateSpendKey[:], key[32:])
+		if _, err := parsePrivateKey(account.PrivateViewKey.String()); err != nil {
+			return err
+		}
+		if _, err := parsePrivateKey(account.PrivateSpendKey.String()); err != nil {
+			return err
+		}
 		accounts = append(accounts, &account)
 	}
 
@@ -408,11 +476,11 @@ func custodianDepositCmd(c *cli.Context) error {
 	if len(kph) != 128 {
 		return fmt.Errorf("invalid custodian %s", kph)
 	}
-	view, err := crypto.KeyFromString(kph[:64])
+	view, err := parsePrivateKey(kph[:64])
 	if err != nil {
 		return fmt.Errorf("invalid custodian %s", kph)
 	}
-	spend, err := crypto.KeyFromString(kph[64:])
+	spend, err := parsePrivateKey(kph[64:])
 	if err != nil {
 		return fmt.Errorf("invalid custodian %s", kph)
 	}
@@ -431,7 +499,10 @@ func custodianDepositCmd(c *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("invalid chain %s", c.String("chain"))
 	}
-	amount := common.NewIntegerFromString(c.String("amount"))
+	var amount common.Integer
+	if err := amount.UnmarshalJSON([]byte(strconv.Quote(c.String("amount")))); err != nil {
+		return err
+	}
 	seed := make([]byte, 64)
 	crypto.ReadRand(seed)
 	script := common.NewThresholdScript(1)
@@ -456,11 +527,11 @@ func custodianDepositCmd(c *cli.Context) error {
 func pledgeNodeCmd(c *cli.Context) error {
 	seed := make([]byte, 64)
 	crypto.ReadRand(seed)
-	viewKey, err := crypto.KeyFromString(c.String("view"))
+	viewKey, err := parsePrivateKey(c.String("view"))
 	if err != nil {
 		return err
 	}
-	spendKey, err := crypto.KeyFromString(c.String("spend"))
+	spendKey, err := parsePrivateKey(c.String("spend"))
 	if err != nil {
 		return err
 	}
@@ -494,12 +565,21 @@ func pledgeNodeCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	if info == nil {
+		return errors.New("node info not found")
+	}
 	snap, err := rpc.GetSnapshot(raw.Node, info.Consensus.String())
 	if err != nil {
 		return err
 	}
+	if snap == nil {
+		return errors.New("consensus snapshot not found")
+	}
 
-	amount := common.NewIntegerFromString(c.String("amount"))
+	var amount common.Integer
+	if err := amount.UnmarshalJSON([]byte(strconv.Quote(c.String("amount")))); err != nil {
+		return err
+	}
 
 	tx := common.NewTransactionV5(common.XINAssetId)
 	tx.AddInput(input, 0)
@@ -553,15 +633,15 @@ func decodePledgeNodeCmd(c *cli.Context) error {
 }
 
 func encodeCustodianExtraCmd(c *cli.Context) error {
-	signerSpend, err := crypto.KeyFromString(c.String("signer"))
+	signerSpend, err := parsePrivateKey(c.String("signer"))
 	if err != nil {
 		return err
 	}
-	payeeSpend, err := crypto.KeyFromString(c.String("payee"))
+	payeeSpend, err := parsePrivateKey(c.String("payee"))
 	if err != nil {
 		return err
 	}
-	custodianSpend, err := crypto.KeyFromString(c.String("custodian"))
+	custodianSpend, err := parsePrivateKey(c.String("custodian"))
 	if err != nil {
 		return err
 	}
@@ -663,7 +743,7 @@ func getDepositTransactionCmd(c *cli.Context) error {
 	data, err := callRPC(c.String("node"), "getdeposittransaction", []any{
 		c.String("chain"),
 		c.String("hash"),
-		c.Int("index"),
+		c.Uint64("index"),
 	}, c.Bool("time"))
 	if err == nil {
 		fmt.Println(string(data))
@@ -897,16 +977,18 @@ type signerInput struct {
 		Mask crypto.Key    `json:"mask"`
 	} `json:"inputs"`
 	Outputs []struct {
-		Type     uint8             `json:"type"`
-		Mask     crypto.Key        `json:"mask"`
-		Keys     []*crypto.Key     `json:"keys"`
-		Amount   common.Integer    `json:"amount"`
-		Script   common.Script     `json:"script"`
-		Accounts []*common.Address `json:"accounts"`
+		Type       uint8                  `json:"type"`
+		Mask       crypto.Key             `json:"mask"`
+		Keys       []*crypto.Key          `json:"keys"`
+		Amount     common.Integer         `json:"amount"`
+		Script     common.Script          `json:"script"`
+		Accounts   []*common.Address      `json:"accounts"`
+		Withdrawal *common.WithdrawalData `json:"withdrawal"`
 	}
-	Asset crypto.Hash `json:"asset"`
-	Extra string      `json:"extra"`
-	Node  string      `json:"-"`
+	Asset      crypto.Hash   `json:"asset"`
+	Extra      string        `json:"extra"`
+	References []crypto.Hash `json:"references"`
+	Node       string        `json:"-"`
 }
 
 func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index uint) (*common.UTXOKeys, error) {
@@ -916,25 +998,32 @@ func (raw signerInput) ReadUTXOKeys(hash crypto.Hash, index uint) (*common.UTXOK
 		if in.Hash == hash && in.Index == index && len(in.Keys) > 0 {
 			utxo.Keys = in.Keys
 			utxo.Mask = in.Mask
-			return utxo, nil
+			return utxo, validateSigningKeys(utxo)
 		}
 	}
 
-	data, err := callRPC(raw.Node, "getutxo", []any{hash.String(), index}, false)
+	out, err := rpc.GetUTXO(raw.Node, hash.String(), uint64(index))
 	if err != nil {
 		return nil, err
 	}
-	var out common.UTXOWithLock
-	err = json.Unmarshal(data, &out)
-	if err != nil {
-		return nil, err
-	}
-	if out.Amount.Sign() == 0 {
+	if out == nil || out.Amount.Sign() == 0 {
 		return nil, fmt.Errorf("invalid input %s#%d", hash.String(), index)
 	}
 	utxo.Keys = out.Keys
 	utxo.Mask = out.Mask
-	return utxo, nil
+	return utxo, validateSigningKeys(utxo)
+}
+
+func validateSigningKeys(utxo *common.UTXOKeys) error {
+	if !utxo.Mask.CheckPublicKey() {
+		return errors.New("invalid input mask")
+	}
+	for _, key := range utxo.Keys {
+		if key == nil || !key.CheckPublicKey() {
+			return errors.New("invalid input key")
+		}
+	}
+	return nil
 }
 
 func transactionToMap(tx *common.VersionedTransaction) map[string]any {

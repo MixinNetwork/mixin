@@ -51,7 +51,7 @@ func (m *relayersMap) Get(key crypto.Hash) []crypto.Hash {
 
 	var relayers []crypto.Hash
 	for _, r := range m.m[key] {
-		if r.ActiveAt.Add(time.Minute).Before(time.Now()) {
+		if time.Since(r.ActiveAt) > time.Minute {
 			continue
 		}
 		relayers = append(relayers, r.Id)
@@ -65,14 +65,8 @@ func (m *relayersMap) Add(key crypto.Hash, v crypto.Hash) {
 
 	var relayers []*remoteRelayer
 	for _, r := range m.m[key] {
-		if r.ActiveAt.Add(time.Minute).After(time.Now()) {
+		if time.Since(r.ActiveAt) < time.Minute {
 			relayers = append(relayers, r)
-		}
-	}
-	for _, r := range relayers {
-		if r.Id == v {
-			r.ActiveAt = time.Now()
-			return
 		}
 	}
 	i := slices.IndexFunc(relayers, func(r *remoteRelayer) bool {
@@ -103,6 +97,24 @@ func (m *neighborMap) Delete(key crypto.Hash) {
 	defer m.Unlock()
 
 	delete(m.m, key)
+}
+
+func (m *neighborMap) DeleteIf(key crypto.Hash, peer *Peer) {
+	m.Lock()
+	defer m.Unlock()
+
+	if m.m[key] == peer {
+		delete(m.m, key)
+	}
+}
+
+func (m *neighborMap) Swap(key crypto.Hash, peer *Peer) *Peer {
+	m.Lock()
+	defer m.Unlock()
+
+	old := m.m[key]
+	m.m[key] = peer
+	return old
 }
 
 func (m *neighborMap) Set(key crypto.Hash, v *Peer) {

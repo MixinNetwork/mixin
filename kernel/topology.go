@@ -14,7 +14,7 @@ import (
 )
 
 type TopologicalSequence struct {
-	sync.Mutex
+	sync.RWMutex
 	seq   uint64
 	point uint64
 	sps   float64
@@ -28,20 +28,24 @@ type TopologicalSequence struct {
 	snapshotCounts map[crypto.Hash]uint64
 }
 
-func (node *Node) TopologicalOrder() uint64 {
-	return node.TopoCounter.seq
+type TopologyStats struct {
+	TopologicalOrder uint64
+	SPS              float64
+	SPT              float64
+	TPS              float64
 }
 
-func (node *Node) SPS() float64 {
-	return node.TopoCounter.sps
-}
+// TopologyStats returns a consistent copy of the topology order and throughput metrics.
+func (node *Node) TopologyStats() TopologyStats {
+	node.TopoCounter.RLock()
+	defer node.TopoCounter.RUnlock()
 
-func (node *Node) SPT() float64 {
-	return node.TopoCounter.spt
-}
-
-func (node *Node) TPS() float64 {
-	return node.TopoCounter.tps
+	return TopologyStats{
+		TopologicalOrder: node.TopoCounter.seq,
+		SPS:              node.TopoCounter.sps,
+		SPT:              node.TopoCounter.spt,
+		TPS:              node.TopoCounter.tps,
+	}
 }
 
 type SnapshotWitness struct {

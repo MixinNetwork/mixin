@@ -554,7 +554,7 @@ func (chain *Chain) cosiHandleCommitment(m *CosiAction) error {
 	ann.Commitments[cd.PN.ConsensusIndex] = m.Commitment
 	ann.WantTxs[m.PeerId] = m.WantTxs
 	ann.FullChallenges[m.PeerId] = m.Action == CosiActionSelfFullCommitment
-	logger.Verbosef("cosiHandleCommitment %v NOW %d %d\nn", m, len(ann.Commitments), base)
+	logger.Verbosef("cosiHandleCommitment %v NOW %d %d\n", m, len(ann.Commitments), base)
 	if len(ann.Commitments) < base {
 		return nil
 	}
@@ -745,6 +745,10 @@ func (chain *Chain) cosiHandleResponse(m *CosiAction) error {
 	logger.Verbosef("cosiHandleResponse %v\n", m)
 	agg := chain.CosiAggregators[m.SnapshotHash]
 	s, cd := agg.Snapshot, m.data
+	if s.Signature == nil {
+		logger.Verbosef("cosiHandleResponse %v BEFORE CHALLENGE\n", m)
+		return nil
+	}
 	if agg.Responses[cd.PN.ConsensusIndex] != nil {
 		logger.Verbosef("cosiHandleResponse %v REPEAT\n", m)
 		return nil
@@ -940,7 +944,7 @@ func (chain *Chain) prepareFinalization(m *CosiAction) (bool, error) {
 		return true, nil
 	}
 	if chain.State == nil {
-		logger.Debugf("ERROR cosiHandleFinalization without consensus%s %s\n", m.PeerId, s.Hash)
+		logger.Debugf("ERROR cosiHandleFinalization without consensus %s %s\n", m.PeerId, s.Hash)
 		return false, nil
 	}
 	cache := chain.State.CacheRound
@@ -1328,7 +1332,7 @@ func (node *Node) VerifyAndQueueAppendSnapshotFinalization(peerId crypto.Hash, s
 		return nil
 	}
 
-	err = chain.AppendFinalSnapshot(s.NodeId, s)
+	err = chain.AppendFinalSnapshot(peerId, s)
 	if err != nil {
 		logger.Verbosef("VerifyAndQueueAppendSnapshotFinalization(%s, %s) chain error %s\n",
 			peerId, s.Hash, err)

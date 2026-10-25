@@ -90,6 +90,8 @@ func TestCacheStoreTransactionRemainsUnqueuedUntilExplicitlyQueued(t *testing.T)
 
 func TestCacheRemoveTransactionsInBatches(t *testing.T) {
 	store := newTestBadgerStore(t)
+	require.NoError(t, store.cacheDB.Close())
+	store.cacheDB = openBadgerWithBatchCount(t, 202)
 	hashes := make([]crypto.Hash, 101)
 	for i := range hashes {
 		hashes[i] = crypto.Blake3Hash([]byte{byte(i)})
@@ -119,6 +121,39 @@ func TestCacheRemoveTransactionsInBatches(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+func TestCacheRetrievalProgressesPastStaleEntries(t *testing.T) {
+	store := newTestBadgerStore(t)
+	require.NoError(t, store.cacheDB.Close())
+	store.cacheDB = openBadgerWithBatchCount(t, 6)
+
+	// Finalization removes cached payloads but leaves queue records behind.
+	// Each retrieval must bound the deletions even when no live payload is found.
+	batch := store.cacheDB.NewWriteBatch()
+	defer batch.Cancel()
+	for i := range 10 {
+		hash := crypto.Blake3Hash([]byte{byte(i)})
+		require.NoError(t, batch.Set(cacheTransactionQueueKey(uint64(i+1), hash), nil))
+	}
+	tx := common.NewTransactionV5(common.XINAssetId).AsVersioned()
+	hash := tx.PayloadHash()
+	require.NoError(t, batch.Set(cacheTransactionQueueKey(11, hash), nil))
+	require.NoError(t, batch.Set(cacheTransactionCacheKey(hash), tx.Marshal()))
+	require.NoError(t, batch.Flush())
+
+	for range 5 {
+		txs, err := store.CacheRetrieveTransactions(2)
+		require.NoError(t, err)
+		require.Empty(t, txs)
+	}
+	txs, err := store.CacheRetrieveTransactions(2)
+	require.NoError(t, err)
+	require.Len(t, txs, 1)
+	require.Equal(t, hash, txs[0].PayloadHash())
+	txs, err = store.CacheRetrieveTransactions(2)
+	require.NoError(t, err)
+	require.Empty(t, txs)
 }
 
 func TestCacheQueueTransactionAfterClose(t *testing.T) {

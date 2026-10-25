@@ -20,7 +20,7 @@ func (tx *Transaction) validateWithdrawalSubmit(inputs map[string]*UTXO) error {
 	}
 	for _, o := range tx.Outputs[1:] {
 		if o.Type != OutputTypeScript {
-			return fmt.Errorf("invalid change type %d for withdrawal submit transaction", tx.Outputs[1].Type)
+			return fmt.Errorf("invalid change type %d for withdrawal submit transaction", o.Type)
 		}
 	}
 
@@ -57,7 +57,7 @@ func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[strin
 	}
 	for _, o := range tx.Outputs[1:] {
 		if o.Type != OutputTypeScript {
-			return fmt.Errorf("invalid change type %d for withdrawal claim transaction", tx.Outputs[1].Type)
+			return fmt.Errorf("invalid change type %d for withdrawal claim transaction", o.Type)
 		}
 	}
 	if len(tx.References) != 1 {
@@ -100,6 +100,9 @@ func (tx *Transaction) validateWithdrawalClaim(store DataStore, inputs map[strin
 	cur, err := store.ReadCustodian(snapTime)
 	if err != nil {
 		return err
+	}
+	if cur == nil {
+		return fmt.Errorf("missing custodian at timestamp %d", snapTime)
 	}
 
 	withdrawalData := append([]byte{}, tx.References[0][:]...)

@@ -36,7 +36,7 @@ func (chain *Chain) AggregateMintWork() {
 	}
 	logger.Printf("AggregateMintWork(%s) begin with %d\n", chain.ChainId, round)
 
-	wait := time.Duration(chain.node.custom.Node.KernelOprationPeriod/2) * time.Second
+	wait := time.Duration(chain.node.custom.Node.KernelOperationPeriod) * time.Second / 2
 
 	for chain.running.Load() {
 		if cs := chain.State; cs == nil {
@@ -123,7 +123,7 @@ func (chain *Chain) writeRoundWork(round uint64, works []*common.SnapshotWork, c
 func (node *Node) MintLoop() {
 	defer close(node.mlc)
 
-	ticker := time.NewTicker(time.Duration(node.custom.Node.KernelOprationPeriod) * time.Second)
+	ticker := time.NewTicker(time.Duration(node.custom.Node.KernelOperationPeriod) * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -260,7 +260,7 @@ func (node *Node) lastMintDistribution() *common.MintData {
 
 func poolSizeUniversal(batch int) common.Integer {
 	mint, pool := common.Zero, MintPool
-	for i := 0; i < batch/MintYearDays; i++ {
+	for range batch / MintYearDays {
 		year := MintYearPercent.Product(pool)
 		mint = mint.Add(year)
 		pool = pool.Sub(year)
@@ -281,7 +281,7 @@ func mintBatchSize(batch uint64) common.Integer {
 	if years > 10000 {
 		panic(years)
 	}
-	for i := 0; i < int(years); i++ {
+	for range years {
 		year := MintYearPercent.Product(pool)
 		pool = pool.Sub(year)
 	}
@@ -307,7 +307,7 @@ func (node *Node) validateMintSnapshot(snap *common.Snapshot, tx *common.Version
 	}
 	eid := node.electSnapshotNode(common.TransactionTypeMint, timestamp)
 	if eid != snap.NodeId {
-		return fmt.Errorf("univernal mint operation at %d only by %s not %s", timestamp, eid, snap.NodeId)
+		return fmt.Errorf("universal mint operation at %d only by %s not %s", timestamp, eid, snap.NodeId)
 	}
 
 	var signed *common.VersionedTransaction

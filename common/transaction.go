@@ -163,36 +163,25 @@ func (tx *SignedTransaction) TransactionType() uint8 {
 }
 
 func (signed *SignedTransaction) SignUTXO(utxo *UTXO, accounts []*Address) error {
-	msg := signed.AsVersioned().PayloadHash()
-
 	if len(accounts) == 0 {
 		return nil
 	}
-
-	keysFilter := make(map[string]uint16)
-	for i, k := range utxo.Keys {
-		keysFilter[k.String()] = uint16(i)
+	if utxo == nil {
+		return fmt.Errorf("nil input UTXO")
 	}
-
-	sigs := make(map[uint16]*crypto.Signature)
-	for _, acc := range accounts {
-		priv := crypto.DeriveGhostPrivateKey(&utxo.Mask, &acc.PrivateViewKey, &acc.PrivateSpendKey, uint64(utxo.Index))
-		i, found := keysFilter[priv.Public().String()]
-		if !found {
-			return fmt.Errorf("invalid key for the input %s", acc.String())
+	for index, in := range signed.Inputs {
+		if in.Hash == utxo.Hash && in.Index == utxo.Index {
+			return signed.signUTXO(index, &UTXOKeys{Mask: utxo.Mask, Keys: utxo.Keys}, accounts)
 		}
-		sig := priv.Sign(msg)
-		sigs[i] = &sig
 	}
-	signed.SignaturesMap = append(signed.SignaturesMap, sigs)
-	return nil
+	return fmt.Errorf("input not found %s:%d", utxo.Hash, utxo.Index)
 }
 
 func (signed *SignedTransaction) SignInput(reader UTXOKeysReader, index int, accounts []*Address) error {
 	if len(accounts) == 0 {
 		return nil
 	}
-	if index >= len(signed.Inputs) {
+	if index < 0 || index >= len(signed.Inputs) {
 		return fmt.Errorf("invalid input index %d/%d", index, len(signed.Inputs))
 	}
 	in := signed.Inputs[index]
@@ -207,7 +196,10 @@ func (signed *SignedTransaction) SignInput(reader UTXOKeysReader, index int, acc
 	if utxo == nil {
 		return fmt.Errorf("input not found %s:%d", in.Hash.String(), in.Index)
 	}
+	return signed.signUTXO(index, utxo, accounts)
+}
 
+func (signed *SignedTransaction) signUTXO(index int, utxo *UTXOKeys, accounts []*Address) error {
 	keysFilter := make(map[string]uint16)
 	for i, k := range utxo.Keys {
 		keysFilter[k.String()] = uint16(i)
@@ -215,8 +207,9 @@ func (signed *SignedTransaction) SignInput(reader UTXOKeysReader, index int, acc
 
 	sigs := make(map[uint16]*crypto.Signature)
 	msg := signed.AsVersioned().PayloadHash()
+	prevIndex := uint64(signed.Inputs[index].Index)
 	for _, acc := range accounts {
-		priv := crypto.DeriveGhostPrivateKey(&utxo.Mask, &acc.PrivateViewKey, &acc.PrivateSpendKey, uint64(in.Index))
+		priv := crypto.DeriveGhostPrivateKey(&utxo.Mask, &acc.PrivateViewKey, &acc.PrivateSpendKey, prevIndex)
 		i, found := keysFilter[priv.Public().String()]
 		if !found {
 			return fmt.Errorf("invalid key for the input %s", acc.String())
@@ -224,7 +217,10 @@ func (signed *SignedTransaction) SignInput(reader UTXOKeysReader, index int, acc
 		sig := priv.Sign(msg)
 		sigs[i] = &sig
 	}
-	signed.SignaturesMap = append(signed.SignaturesMap, sigs)
+	for len(signed.SignaturesMap) <= index {
+		signed.SignaturesMap = append(signed.SignaturesMap, nil)
+	}
+	signed.SignaturesMap[index] = sigs
 	return nil
 }
 
@@ -240,11 +236,14 @@ func (signed *SignedTransaction) SignRaw(key crypto.Key) error {
 	}
 	sig := key.Sign(msg)
 	sigs := map[uint16]*crypto.Signature{0: &sig}
-	signed.SignaturesMap = append(signed.SignaturesMap, sigs)
+	signed.SignaturesMap = []map[uint16]*crypto.Signature{sigs}
 	return nil
 }
 
 func (signed *SignedTransaction) AggregateSign(reader UTXOKeysReader, accounts [][]*Address, seed []byte) error {
+	if len(accounts) != len(signed.Inputs) {
+		return fmt.Errorf("invalid signing accounts count %d/%d", len(accounts), len(signed.Inputs))
+	}
 	var signers []int
 	var pubKeys, privKeys []*crypto.Key
 	for index, in := range signed.Inputs {

@@ -27,13 +27,11 @@ func TestStorageHelpersPropagateDiscardedTransactionErrors(t *testing.T) {
 		Transactions: []crypto.Hash{id},
 		Hash:         id,
 	}}
-	utxo := &common.UTXOWithLock{UTXO: common.UTXO{
-		Input: common.Input{Hash: id},
-		Output: common.Output{
-			Type:   common.OutputTypeScript,
-			Amount: common.NewInteger(1),
-		},
-	}}
+	utxo := &common.UTXOWithLock{
+		Hash:   id,
+		Type:   common.OutputTypeScript,
+		Amount: common.NewInteger(1),
+	}
 
 	discarded := func(db *badger.DB, update bool) *badger.Txn {
 		t.Helper()
@@ -74,6 +72,8 @@ func TestStorageHelpersPropagateDiscardedTransactionErrors(t *testing.T) {
 	_, _, err = readRoundSpaceCheckpoint(discarded(store.snapshotsDB, false), id)
 	requireDiscarded(err)
 	_, err = readSnapshotWithTopo(discarded(store.snapshotsDB, false), id)
+	requireDiscarded(err)
+	_, err = readTransaction(discarded(store.snapshotsDB, false), id)
 	requireDiscarded(err)
 	requireDiscarded(pruneTransaction(discarded(store.snapshotsDB, true), id))
 	requireDiscarded(writeTransaction(discarded(store.snapshotsDB, true), ver))

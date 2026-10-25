@@ -37,27 +37,25 @@ func BenchmarkTransactionCodec(b *testing.B) {
 	key := crypto.Key{1}
 	sig := crypto.Signature{1}
 	ver := (&SignedTransaction{
-		Transaction: Transaction{
-			Version: TxVersionHashSignature,
-			Asset:   XINAssetId,
-			Inputs: []*Input{{
-				Hash: crypto.Hash{1},
-			}},
-			Outputs: []*Output{{
-				Type:   OutputTypeScript,
-				Amount: NewInteger(1),
-				Keys:   []*crypto.Key{&key},
-				Mask:   key,
-				Script: Script{OperatorCmp, OperatorSum, 1},
-			}},
-		},
+		Version: TxVersionHashSignature,
+		Asset:   XINAssetId,
+		Inputs: []*Input{{
+			Hash: crypto.Hash{1},
+		}},
+		Outputs: []*Output{{
+			Type:   OutputTypeScript,
+			Amount: NewInteger(1),
+			Keys:   []*crypto.Key{&key},
+			Mask:   key,
+			Script: Script{OperatorCmp, OperatorSum, 1},
+		}},
 		SignaturesMap: []map[uint16]*crypto.Signature{{0: &sig}},
 	}).AsVersioned()
 	encoded := ver.Marshal()
 
 	b.Run("Marshal", func(b *testing.B) {
 		b.ReportAllocs()
-		for range b.N {
+		for b.Loop() {
 			if len(ver.Marshal()) != len(encoded) {
 				b.Fatal("unexpected transaction size")
 			}
@@ -65,7 +63,7 @@ func BenchmarkTransactionCodec(b *testing.B) {
 	})
 	b.Run("Unmarshal", func(b *testing.B) {
 		b.ReportAllocs()
-		for range b.N {
+		for b.Loop() {
 			if _, err := UnmarshalVersionedTransaction(encoded); err != nil {
 				b.Fatal(err)
 			}
@@ -171,11 +169,9 @@ func TestCommonDataEncoding(t *testing.T) {
 	require := require.New(t)
 
 	mint := &MintDistribution{
-		MintData: MintData{
-			Group:  mintGroupUniversal,
-			Batch:  123,
-			Amount: NewIntegerFromString("3.14159"),
-		},
+		Group:       mintGroupUniversal,
+		Batch:       123,
+		Amount:      NewIntegerFromString("3.14159"),
 		Transaction: crypto.Blake3Hash([]byte("mint-test")),
 	}
 

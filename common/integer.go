@@ -19,15 +19,25 @@ type Integer struct {
 }
 
 func NewIntegerFromString(x string) (v Integer) {
-	d, err := decimal.NewFromString(x)
+	v, err := parseInteger(x)
 	if err != nil {
 		panic(err)
 	}
-	if d.Sign() < 0 {
-		panic(x)
+	return v
+}
+
+func parseInteger(x string) (v Integer, err error) {
+	d, err := decimal.NewFromString(x)
+	if err != nil {
+		return v, err
 	}
-	s := d.Mul(decimal.New(1, Precision)).Floor().String()
-	v.i.SetString(s, 10)
+	if d.Sign() < 0 {
+		return v, fmt.Errorf("invalid negative integer %s", x)
+	}
+	v.i.Set(d.Shift(Precision).BigInt())
+	if v.i.BitLen() > MaximumEncodingInt*8 {
+		return Integer{}, fmt.Errorf("integer exceeds maximum encoded size %d", MaximumEncodingInt)
+	}
 	return
 }
 
@@ -118,7 +128,10 @@ func (x *Integer) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-	i := NewIntegerFromString(unquoted)
+	i, err := parseInteger(unquoted)
+	if err != nil {
+		return err
+	}
 	x.i.SetBytes(i.i.Bytes())
 	return nil
 }

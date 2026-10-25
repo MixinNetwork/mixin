@@ -135,7 +135,7 @@ func TestCustodianMintAndUTXOReadErrors(t *testing.T) {
 
 		_, validExtra := buildCustodianUpdateTransaction(70, crypto.Blake3Hash([]byte("valid custodian payload")))
 		err = store.snapshotsDB.Update(func(txn *badger.Txn) error {
-			utxo := &common.UTXOWithLock{UTXO: common.UTXO{Input: common.Input{Hash: crypto.Blake3Hash([]byte("new custodian"))}}}
+			utxo := &common.UTXOWithLock{Hash: crypto.Blake3Hash([]byte("new custodian"))}
 			return writeCustodianNodes(txn, 2, utxo, validExtra, true)
 		})
 		require.Error(t, err)
@@ -149,11 +149,11 @@ func TestCustodianMintAndUTXOReadErrors(t *testing.T) {
 			if err := writeTransaction(txn, ver1); err != nil {
 				return err
 			}
-			utxo1 := &common.UTXOWithLock{UTXO: common.UTXO{Input: common.Input{Hash: ver1.PayloadHash()}}}
+			utxo1 := &common.UTXOWithLock{Hash: ver1.PayloadHash()}
 			if err := writeCustodianNodes(txn, 1, utxo1, extra1, true); err != nil {
 				return err
 			}
-			utxo2 := &common.UTXOWithLock{UTXO: common.UTXO{Input: common.Input{Hash: crypto.Blake3Hash([]byte("different custodian"))}}}
+			utxo2 := &common.UTXOWithLock{Hash: crypto.Blake3Hash([]byte("different custodian"))}
 			require.Panics(t, func() { _ = writeCustodianNodes(txn, 1, utxo2, extra2, true) })
 			return nil
 		}))
@@ -180,10 +180,12 @@ func TestCustodianMintAndUTXOReadErrors(t *testing.T) {
 
 		store = newTestBadgerStore(t)
 		old := crypto.Blake3Hash([]byte("finalized utxo lock"))
-		utxo := &common.UTXOWithLock{UTXO: common.UTXO{
-			Input:  common.Input{Hash: hash},
-			Output: common.Output{Type: common.OutputTypeScript, Amount: common.NewInteger(1)},
-		}, LockHash: old}
+		utxo := &common.UTXOWithLock{
+			Hash:     hash,
+			Type:     common.OutputTypeScript,
+			Amount:   common.NewInteger(1),
+			LockHash: old,
+		}
 		require.NoError(t, store.snapshotsDB.Update(func(txn *badger.Txn) error {
 			if err := txn.Set(graphUtxoKey(hash, 0), utxo.Marshal()); err != nil {
 				return err

@@ -17,7 +17,7 @@ import (
 func (node *Node) ElectionLoop() {
 	defer close(node.elc)
 
-	ticker := time.NewTicker(time.Duration(node.custom.Node.KernelOprationPeriod) * time.Second)
+	ticker := time.NewTicker(time.Duration(node.custom.Node.KernelOperationPeriod) * time.Second)
 	defer ticker.Stop()
 
 	chain := node.BootChain(node.IdForNetwork)

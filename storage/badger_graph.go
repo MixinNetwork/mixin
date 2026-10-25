@@ -139,6 +139,9 @@ func readLastConsensusSnapshot(txn *badger.Txn) (*common.Snapshot, error) {
 	if err != nil {
 		return nil, err
 	}
+	if snap == nil {
+		return nil, fmt.Errorf("missing consensus snapshot %s", h)
+	}
 	ts := binary.BigEndian.Uint64(key[len(graphPrefixConsensusSnapshot):])
 	if snap.Timestamp != ts {
 		panic(snap.PayloadHash())

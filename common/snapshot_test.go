@@ -156,14 +156,21 @@ func BenchmarkSnapshotMarshal(b *testing.B) {
 }
 
 func benchmarkSnapshot(b *testing.B, s *SnapshotWithTopologicalOrder) {
-	for _, n := range []int{1, 4, 16, 64, 256} {
+	for _, n := range []int{1, 4, 16, 64, SnapshotTransactionsMaximum} {
 		b.Run(fmt.Sprint(n), func(b *testing.B) {
+			snapshot := *s.Snapshot
+			snapshot.Transactions = make([]crypto.Hash, n)
+			for i := range snapshot.Transactions {
+				snapshot.Transactions[i] = crypto.Blake3Hash([]byte(fmt.Sprint(i)))
+			}
+			sample := *s
+			sample.Snapshot = &snapshot
 			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				buf := s.VersionedMarshal()
+			for b.Loop() {
+				buf := sample.VersionedMarshal()
 				s, err := UnmarshalVersionedSnapshot(buf)
 				if err != nil {
-					b.Fatal("unmarshal snapshot")
+					b.Fatal(err)
 				}
 				s.PayloadHash()
 			}

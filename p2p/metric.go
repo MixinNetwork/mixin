@@ -17,7 +17,7 @@ type MetricPool struct {
 
 	PeerMessageTypeSnapshotAnnouncement       uint32 `json:"snapshot-announcement"`
 	PeerMessageTypeSnapshotCommitment         uint32 `json:"snapshot-commitment"`
-	PeerMessageTypeTransactionChallenge       uint32 `json:"transaciton-challenge"`
+	PeerMessageTypeTransactionChallenge       uint32 `json:"transaction-challenge"`
 	PeerMessageTypeSnapshotResponse           uint32 `json:"snapshot-response"`
 	PeerMessageTypeSnapshotFinalization       uint32 `json:"snapshot-finalization"`
 	PeerMessageTypePreCommitments             uint32 `json:"commitments"`

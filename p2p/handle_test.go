@@ -66,3 +66,24 @@ func TestParseNetworkMessageRejectsFullChallengeWithoutCosiSignature(t *testing.
 	require.Nil(parsed)
 	require.ErrorContains(err, "invalid full challenge snapshot signature")
 }
+
+func TestRelayNestingLimit(t *testing.T) {
+	me := NewPeer(nil, crypto.Blake3Hash([]byte("relay receiver")), "", false)
+	sender := NewPeer(nil, crypto.Blake3Hash([]byte("relay sender")), "", false)
+	for _, depth := range []int{1, 2, 16, 17, 256} {
+		t.Run(strconv.Itoa(depth), func(t *testing.T) {
+			wire := []byte{PeerMessageTypePing}
+			for range depth {
+				wire = sender.buildRelayMessage(me.IdForNetwork, wire)
+			}
+			msg, err := parseNetworkMessage(TransportMessageVersion, wire)
+			require.NoError(t, err)
+			err = me.handlePeerMessage(sender.IdForNetwork, msg)
+			if depth > maxRelayDepth {
+				require.ErrorContains(t, err, "relay nesting limit")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}

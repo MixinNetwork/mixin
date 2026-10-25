@@ -67,7 +67,7 @@ func parseDataURI(v string) ([]byte, string) {
 	if !strings.HasPrefix(v, scheme) {
 		return []byte(v), defaultTextPlainType
 	}
-	ds := strings.Split(v, ",")
+	ds := strings.SplitN(v, ",", 2)
 	if len(ds) != 2 {
 		return []byte(v), defaultTextPlainType
 	}
@@ -80,7 +80,10 @@ func parseDataURI(v string) ([]byte, string) {
 
 	mime, data := ms[0], ds[1]
 	if ms[len(ms)-1] == "base64" {
-		b, _ := base64.StdEncoding.DecodeString(data)
+		b, err := base64.StdEncoding.DecodeString(data)
+		if err != nil {
+			return []byte(v), defaultTextPlainType
+		}
 		data = string(b)
 	}
 	if mime == "" || !utf8.ValidString(mime) {

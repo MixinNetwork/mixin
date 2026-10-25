@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -283,6 +284,41 @@ func TestChainQueueBoundaries(t *testing.T) {
 		retry, err = stateful.appendFinalSnapshot(peer("outside"), snapshot("outside", 10+FinalPoolSlotsLimit))
 		require.False(t, retry)
 		require.NoError(t, err)
+		for _, number := range []uint64{1 << 63, 1<<63 + 10, ^uint64(0)} {
+			retry, err = stateful.appendFinalSnapshot(peer("far future"), snapshot("far future", number))
+			require.False(t, retry)
+			require.NoError(t, err)
+		}
+		for _, round := range stateful.FinalPool {
+			require.Nil(t, round)
+		}
+	})
+
+	t.Run("duplicate final snapshot at capacity", func(t *testing.T) {
+		chain := newChain()
+		owner, forwarder := peer("owner"), peer("forwarder")
+		var last *common.Snapshot
+		for i := range FinalPoolRoundSizeLimit {
+			last = snapshot(fmt.Sprint(i), 1)
+			retry, err := chain.appendFinalSnapshot(owner, last)
+			require.False(t, retry)
+			require.NoError(t, err)
+		}
+		round := chain.FinalPool[1]
+		chain.finalPoolDirty.Store(false)
+		<-chain.cosiWake
+		for _, id := range []crypto.Hash{owner, forwarder} {
+			retry, err := chain.appendFinalSnapshot(id, last)
+			require.False(t, retry)
+			require.NoError(t, err)
+			require.Equal(t, FinalPoolRoundSizeLimit, round.Size)
+			require.Equal(t, id == forwarder, chain.finalPoolDirty.Load())
+		}
+		require.Equal(t, []crypto.Hash{owner, forwarder}, round.Snapshots[round.index[last.Hash]].peers)
+		retry, err := chain.appendFinalSnapshot(forwarder, snapshot("new at capacity", 1))
+		require.False(t, retry)
+		require.ErrorContains(t, err, "round snapshots full")
+		require.Equal(t, FinalPoolRoundSizeLimit, round.Size)
 	})
 
 	t.Run("public queue guards", func(t *testing.T) {

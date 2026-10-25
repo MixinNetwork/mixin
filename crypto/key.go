@@ -35,7 +35,15 @@ func KeyFromString(s string) (Key, error) {
 	return key, nil
 }
 
-func (k Key) CheckKey() bool {
+func (k Key) CheckPrivateKey() bool {
+	if !k.HasValue() {
+		return false
+	}
+	_, err := edwards25519.NewScalar().SetCanonicalBytes(k[:])
+	return err == nil
+}
+
+func (k Key) CheckPublicKey() bool {
 	_, err := decodePoint(k[:])
 	return err == nil
 }

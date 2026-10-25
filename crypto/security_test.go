@@ -46,7 +46,7 @@ func TestAggregateVerifyRejectsRogueKeyForgery(t *testing.T) {
 	roguePoint := edwards25519.NewIdentityPoint().Subtract(attackerPoint, victimPoint)
 	var roguePub Key
 	copy(roguePub[:], roguePoint.Bytes())
-	require.True(roguePub.CheckKey())
+	require.True(roguePub.CheckPublicKey())
 
 	msg := Blake3Hash([]byte("rogue aggregate verify"))
 	sig := attackerPriv.Sign(msg)
@@ -102,10 +102,10 @@ func TestLowOrderKeysAreRejected(t *testing.T) {
 
 	var identity Key
 	identity[0] = 1
-	require.False(identity.CheckKey())
+	require.False(identity.CheckPublicKey())
 
 	var zero Key
-	require.False(zero.CheckKey())
+	require.False(zero.CheckPublicKey())
 
 	msg := Blake3Hash([]byte("identity"))
 	var sig Signature

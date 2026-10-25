@@ -265,6 +265,8 @@ func TestMintWithdrawalAndClosedReaderErrors(t *testing.T) {
 
 		_, err := store.ReadUTXOKeys(id, 0)
 		require.Error(t, err)
+		_, _, err = store.ReadTransaction(id)
+		require.ErrorContains(t, err, badger.ErrDBClosed.Error())
 		_, err = store.ReadGhostKeyLock(seededPublicKey(232))
 		require.Error(t, err)
 		_, err = store.ReadDepositLock(deposit)
@@ -277,5 +279,40 @@ func TestMintWithdrawalAndClosedReaderErrors(t *testing.T) {
 		require.Error(t, err)
 		_, err = store.ListAggregatedRoundSpaceCheckpoints([]crypto.Hash{id})
 		require.Error(t, err)
+	})
+}
+
+func TestReadersRejectMissingReferences(t *testing.T) {
+	hash := crypto.Blake3Hash([]byte("missing referenced record"))
+	t.Run("custodian transaction", func(t *testing.T) {
+		store := newTestBadgerStore(t)
+		require.NoError(t, store.snapshotsDB.Update(func(txn *badger.Txn) error {
+			return txn.Set(graphCustodianUpdateKey(1), hash[:])
+		}))
+		_, err := store.ListCustodianUpdates()
+		require.ErrorContains(t, err, "missing custodian transaction")
+		_, err = store.ReadCustodian(1)
+		require.ErrorContains(t, err, "missing custodian transaction")
+	})
+	t.Run("consensus snapshot", func(t *testing.T) {
+		store := newTestBadgerStore(t)
+		require.NoError(t, store.snapshotsDB.Update(func(txn *badger.Txn) error {
+			return txn.Set(graphConsensusSnapshotKey(1, hash), nil)
+		}))
+		_, err := store.ReadLastConsensusSnapshot()
+		require.ErrorContains(t, err, "missing consensus snapshot")
+	})
+	t.Run("snapshot transaction", func(t *testing.T) {
+		store := newTestBadgerStore(t)
+		ver := common.NewTransactionV5(common.XINAssetId).AsVersioned()
+		snap := snapshotWithTopoForTx(hash, 0, 1, 1, ver)
+		require.NoError(t, store.snapshotsDB.Update(func(txn *badger.Txn) error {
+			if err := txn.Set(graphSnapshotKey(hash, 0, snap.PayloadHash()), snap.VersionedMarshal()); err != nil {
+				return err
+			}
+			return writeTopology(txn, snap)
+		}))
+		_, _, err := store.ReadSnapshotWithTransactionsSinceTopology(1, 1)
+		require.ErrorContains(t, err, "missing transaction")
 	})
 }

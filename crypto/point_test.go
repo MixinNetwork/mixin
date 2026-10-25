@@ -50,8 +50,7 @@ func BenchmarkDecodePointCached(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		point, err := decodePoint(key[:])
 		if err != nil || point.Equal(edwards25519.NewIdentityPoint()) == 1 {
 			b.Fatal(err)
@@ -62,8 +61,7 @@ func BenchmarkDecodePointCached(b *testing.B) {
 func BenchmarkDecodePointUncached(b *testing.B) {
 	key := NewKeyFromSeed(testSeed(92)).Public()
 
-	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		point, err := edwards25519.NewIdentityPoint().SetBytes(key[:])
 		if err != nil || !isPrimeOrderPoint(point) || !bytes.Equal(key[:], point.Bytes()) {
 			b.Fatal(err)

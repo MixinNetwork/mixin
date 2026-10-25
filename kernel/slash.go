@@ -37,7 +37,7 @@ const (
 	// mint rewards, but we still need to add more measurements for this behavior.
 	// Because this stale snapshot y must be excluded from mint works
 	// calculation forever, but if this node continues to work after a long time,
-	// and the failure to identity this stale snapshot timely, could result in
+	// and the failure to identify this stale snapshot timely, could result in
 	// the full node sync failure of a fresh boot node. So the best punishment
 	// is to remove this node, together with the large round space check.
 	SlashReasonStaleSnapshot = 0x5
@@ -48,7 +48,7 @@ const (
 // causes the removing or slashing node changes.
 //
 // a removing or slashing node is not able to produce works during the state,
-// but whenever another slashing node with more priority proceeds it, it resumes
+// but whenever another slashing node with more priority precedes it, it resumes
 // working again, a large round space may happen.
 //
 // to make it equal and fair, the large round space slashing will cause zero

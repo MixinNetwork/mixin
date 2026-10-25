@@ -50,26 +50,26 @@ func TestEncoderRejectsInvalidStructures(t *testing.T) {
 		NewEncoder().EncodeTransaction(&SignedTransaction{})
 	})
 	require.Panics(t, func() {
-		NewEncoder().EncodeTransaction(&SignedTransaction{Transaction: Transaction{
+		NewEncoder().EncodeTransaction(&SignedTransaction{
 			Version: TxVersionHashSignature,
 			Inputs:  make([]*Input, SliceCountLimit+1),
-		}})
-	})
-	require.Panics(t, func() {
-		NewEncoder().EncodeTransaction(&SignedTransaction{Transaction: Transaction{
-			Version: TxVersionHashSignature,
-			Outputs: make([]*Output, SliceCountLimit+1),
-		}})
-	})
-	require.Panics(t, func() {
-		NewEncoder().EncodeTransaction(&SignedTransaction{Transaction: Transaction{
-			Version: TxVersionHashSignature,
-			Extra:   make([]byte, ExtraSizeStorageCapacity+1),
-		}})
+		})
 	})
 	require.Panics(t, func() {
 		NewEncoder().EncodeTransaction(&SignedTransaction{
-			Transaction:   Transaction{Version: TxVersionHashSignature},
+			Version: TxVersionHashSignature,
+			Outputs: make([]*Output, SliceCountLimit+1),
+		})
+	})
+	require.Panics(t, func() {
+		NewEncoder().EncodeTransaction(&SignedTransaction{
+			Version: TxVersionHashSignature,
+			Extra:   make([]byte, ExtraSizeStorageCapacity+1),
+		})
+	})
+	require.Panics(t, func() {
+		NewEncoder().EncodeTransaction(&SignedTransaction{
+			Version:       TxVersionHashSignature,
 			SignaturesMap: make([]map[uint16]*crypto.Signature, MaximumEncodingInt),
 		})
 	})
