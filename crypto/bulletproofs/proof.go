@@ -6,10 +6,10 @@ import (
 	"fmt"
 )
 
-// MarshalBinary returns the standalone P2Pool-compatible encoding
-// A || A1 || B || r1 || s1 || d1 || len(L) || L || len(R) || R. Monero's
-// transaction encoding carries the two vector lengths in its container; use
-// this encoding when the proof is stored independently.
+// MarshalBinary returns the Monero-compatible proof body, also used by P2Pool:
+// A || A1 || B || r1 || s1 || d1 || len(L) || L || len(R) || R.
+// Both vector lengths are included, matching the proof body inside a Monero
+// transaction. Commitments are external to this encoding.
 func (proof Proof) MarshalBinary() ([]byte, error) {
 	if err := proof.validateEncoding(); err != nil {
 		return nil, err

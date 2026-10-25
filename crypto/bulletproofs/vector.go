@@ -66,10 +66,10 @@ func weightedInnerProduct(a, b, y scalarVector) *edwards25519.Scalar {
 }
 
 func decompose(value uint64) scalarVector {
-	bits := [2]edwards25519.Scalar{*scalarZero, *scalarOne}
 	result := make(scalarVector, RangeBits)
 	for i := range result {
-		result[i].Set(&bits[value&1])
+		// Convert directly to avoid memory accesses indexed by secret amount bits.
+		result[i].Set(mustScalarFromUint64(value & 1))
 		value >>= 1
 	}
 	return result

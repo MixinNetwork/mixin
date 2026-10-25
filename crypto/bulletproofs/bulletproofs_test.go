@@ -204,13 +204,13 @@ func TestProofEncodingStrictRoundTrip(t *testing.T) {
 	var trailing Proof
 	require.ErrorIs(t, trailing.UnmarshalBinary(append(encoded, 0)), ErrTrailingData)
 
-	// The first vector length is at byte 192; 0x86 0x00 is a non-canonical
-	// encoding of six.
+	// Encode the first vector length at byte 192 with an unnecessary
+	// continuation byte, preserving its value so only the encoding is invalid.
 	nonCanonical := append([]byte(nil), encoded[:192]...)
-	nonCanonical = append(nonCanonical, 0x86, 0x00)
+	nonCanonical = append(nonCanonical, encoded[192]|0x80, 0x00)
 	nonCanonical = append(nonCanonical, encoded[193:]...)
 	var rejected Proof
-	require.Error(t, rejected.UnmarshalBinary(nonCanonical))
+	require.ErrorIs(t, rejected.UnmarshalBinary(nonCanonical), ErrInvalidProof)
 
 	reencoded, err := decoded.MarshalBinary()
 	require.NoError(t, err)
