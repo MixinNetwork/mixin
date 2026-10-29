@@ -31,6 +31,13 @@ type CustodianNode struct {
 	Extra     []byte
 }
 
+func CustodianUpdateNodesApprovalHash(extra []byte, previous crypto.Hash) crypto.Hash {
+	if previous.HasValue() {
+		extra = append(previous[:], extra...)
+	}
+	return crypto.Blake3Hash(extra)
+}
+
 func (cn *CustodianNode) validate() error {
 	if cn.Payee.PublicSpendKey == cn.Custodian.PublicSpendKey {
 		return fmt.Errorf("invalid custodian or payee keys %x", cn.Extra)
@@ -182,7 +189,7 @@ func (tx *Transaction) validateCustodianUpdateNodes(store CustodianReader, now u
 	if prev == nil {
 		return fmt.Errorf("there must be a custodian available %d", now)
 	}
-	eh := crypto.Blake3Hash(tx.Extra[:len(tx.Extra)-64])
+	eh := CustodianUpdateNodesApprovalHash(tx.Extra[:len(tx.Extra)-64], prev.Transaction)
 	if !prev.Custodian.PublicSpendKey.Verify(eh, *curs.Signature) {
 		return fmt.Errorf("invalid custodian update approval signature %x", tx.Extra)
 	}

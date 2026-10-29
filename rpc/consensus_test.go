@@ -509,6 +509,13 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 	cst := testGetSnapshotSoleTransaction(nodes[1].Host, info.Consensus.String())
 	require.Equal("1bdd5f4129b24279deaaecb18cf19ebf88e9c873a768b822471451dbcc24e1eb", cst.String())
 	domain := signers[0]
+	data, err := CallMixinRPC("http://"+nodes[0].Host, "listcustodianupdates", []any{})
+	require.NoError(err)
+	var previous []struct {
+		Transaction crypto.Hash `json:"transaction"`
+	}
+	require.NoError(json.Unmarshal(data, &previous))
+	require.NotEmpty(previous)
 
 	seed := make([]byte, 64)
 	crypto.ReadRand(seed)
@@ -536,7 +543,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 	for _, n := range custodianNodes {
 		sortedExtra = append(sortedExtra, n.Extra...)
 	}
-	sh := crypto.Blake3Hash(sortedExtra)
+	sh := common.CustodianUpdateNodesApprovalHash(sortedExtra, previous[len(previous)-1].Transaction)
 	sig := domain.PrivateSpendKey.Sign(sh)
 	tx.Extra = append(sortedExtra, sig[:]...)
 	tx.References = []crypto.Hash{cst}
@@ -582,7 +589,7 @@ func testCustodianUpdateNodes(t *testing.T, nodes []*Node, instances []*kernel.N
 	require.Nil(err)
 	require.True(hash.HasValue())
 
-	data, err := CallMixinRPC("http://"+enode.Host, "listcustodianupdates", []any{})
+	data, err = CallMixinRPC("http://"+enode.Host, "listcustodianupdates", []any{})
 	require.Nil(err)
 	var curs []*struct {
 		Custodian   string `json:"custodian"`

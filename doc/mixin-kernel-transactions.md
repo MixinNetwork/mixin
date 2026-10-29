@@ -167,6 +167,8 @@ During finalized replay (`fork = true`) at a snapshot timestamp before 2026-09-0
 
 Claim finalization records the association with the submission; it does not spend the submission output or reduce the withdrawn asset's total again. The claim output has no ordinary spending path. Deposits, mint distributions, and genesis allocations increase recorded asset totals. Ordinary transfers, storage outputs, and claim fees do not change those totals. These totals describe Kernel accounting, not independently verified external backing or the sum of outputs that remain spendable.
 
+Custodian updates end their `extra` with a 64-byte approval signature. The current custodian signs `BLAKE3(previous custodian update transaction hash || unsigned extra)`, using the raw 32-byte transaction hash from the custodian state at the snapshot timestamp. Signers can fetch that hash through `listcustodianupdates`; validators read it from storage. The hash is not added to `extra` or taken from the transaction's consensus reference. When no previous update hash exists, including genesis construction, the signing hash remains `BLAKE3(unsigned extra)`. Once a previous update exists, an approval without this binding is rejected.
+
 ## References and extra data
 
 A reference commits another transaction hash without consuming one of its outputs. Every referenced transaction must already be finalized. A transaction may contain at most 16 references.

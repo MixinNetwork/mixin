@@ -46,7 +46,10 @@ func (node *Node) validateCustodianUpdateNodes(s *common.Snapshot, tx *common.Ve
 	if err != nil {
 		return err
 	}
-	eh := crypto.Blake3Hash(tx.Extra[:len(tx.Extra)-64])
+	if prev == nil {
+		return fmt.Errorf("there must be a custodian available %d", timestamp)
+	}
+	eh := common.CustodianUpdateNodesApprovalHash(tx.Extra[:len(tx.Extra)-64], prev.Transaction)
 	if !prev.Custodian.PublicSpendKey.Verify(eh, *curs.Signature) {
 		return fmt.Errorf("invalid custodian update approval signature %x", tx.Extra)
 	}

@@ -95,6 +95,7 @@ func TestCustodianUpdateNodes(t *testing.T) {
 	timestamp := uint64(time.Now().UnixNano())
 	store.custodianUpdateNodesTimestamp = timestamp
 	store.custodianUpdateNodesExtra = tx.Extra
+	store.custodianUpdateNodesTransaction = tx.AsVersioned().PayloadHash()
 
 	prev, err = store.ReadCustodian(uint64(time.Now().UnixNano()))
 	require.Nil(err)
@@ -102,12 +103,13 @@ func TestCustodianUpdateNodes(t *testing.T) {
 	require.Equal(custodian.String(), prev.Custodian.String())
 	require.Len(prev.Nodes, count)
 	require.Equal(timestamp, prev.Timestamp)
+	require.Equal(store.custodianUpdateNodesTransaction, prev.Transaction)
 
 	err = tx.validateCustodianUpdateNodes(store, uint64(time.Now().UnixNano()))
 	require.NotNil(err)
 	require.Contains(err.Error(), "approval signature")
 	tx.Extra = tx.Extra[:len(tx.Extra)-64]
-	eh = crypto.Blake3Hash(tx.Extra)
+	eh = CustodianUpdateNodesApprovalHash(tx.Extra, prev.Transaction)
 	sig = custodian.PrivateSpendKey.Sign(eh)
 	tx.Extra = append(tx.Extra, sig[:]...)
 	err = tx.validateCustodianUpdateNodes(store, uint64(time.Now().UnixNano()))
@@ -116,6 +118,72 @@ func TestCustodianUpdateNodes(t *testing.T) {
 	tx.Outputs[0].Amount = NewInteger(1)
 	err = tx.validateCustodianUpdateNodes(store, uint64(time.Now().UnixNano()))
 	require.Nil(err)
+}
+
+func TestCustodianUpdateApprovalRejectsReplay(t *testing.T) {
+	r := require.New(t)
+	a, b := testBuildAddress(r), testBuildAddress(r)
+	network := crypto.Blake3Hash([]byte("custodian approval replay test"))
+	nodes := make([]*CustodianNode, custodianNodesMinimumCount)
+	for i := range nodes {
+		signer, payee, custodian := testBuildAddress(r), testBuildAddress(r), testBuildAddress(r)
+		extra := EncodeCustodianNode(&custodian, &payee, &signer.PrivateSpendKey, &payee.PrivateSpendKey, &custodian.PrivateSpendKey, network)
+		nodes[i] = &CustodianNode{Custodian: custodian, Payee: payee, Extra: extra}
+	}
+	sort.Slice(nodes, func(i, j int) bool {
+		return bytes.Compare(nodes[i].Custodian.PublicSpendKey[:], nodes[j].Custodian.PublicSpendKey[:]) < 0
+	})
+	build := func(from, to Address, previous crypto.Hash, seed byte) *Transaction {
+		tx := NewTransactionV5(XINAssetId)
+		tx.AddScriptOutput([]*Address{&to}, NewThresholdScript(Operator64), NewInteger(1), bytes.Repeat([]byte{seed}, 64))
+		tx.Outputs[0].Type = OutputTypeCustodianUpdateNodes
+		tx.Extra = append(tx.Extra, to.PublicSpendKey[:]...)
+		tx.Extra = append(tx.Extra, to.PublicViewKey[:]...)
+		for _, n := range nodes {
+			tx.Extra = append(tx.Extra, n.Extra...)
+		}
+		// Construct the preimage independently of the production hash helper.
+		var preimage []byte
+		if previous.HasValue() {
+			preimage = append(preimage, previous[:]...)
+		}
+		preimage = append(preimage, tx.Extra...)
+		sig := from.PrivateSpendKey.Sign(crypto.Blake3Hash(preimage))
+		tx.Extra = append(tx.Extra, sig[:]...)
+		return tx
+	}
+	for _, initial := range []struct {
+		name string
+		hash crypto.Hash
+	}{
+		{"no previous update", crypto.Hash{}},
+		{"previous update", crypto.Blake3Hash([]byte("initial A update"))},
+	} {
+		t.Run(initial.name, func(t *testing.T) {
+			r := require.New(t)
+			store := &campaignStore{custodian: &CustodianUpdateRequest{Custodian: &a, Nodes: nodes, Transaction: initial.hash}}
+			ab := build(a, b, initial.hash, 1)
+			originalExtra := bytes.Clone(ab.Extra)
+			r.NoError(ab.validateCustodianUpdateNodes(store, 1))
+			r.Equal(originalExtra, ab.Extra, "validation must not modify extra")
+			store.custodian = &CustodianUpdateRequest{Custodian: &b, Nodes: nodes, Transaction: ab.AsVersioned().PayloadHash()}
+			ba := build(b, a, store.custodian.Transaction, 2)
+			r.NoError(ba.validateCustodianUpdateNodes(store, 2))
+			store.custodian = &CustodianUpdateRequest{Custodian: &a, Nodes: nodes, Transaction: ba.AsVersioned().PayloadHash()}
+
+			// Copy the public A -> B approval into a fresh transaction after B -> A.
+			replay := build(a, b, initial.hash, 3)
+			replay.Extra = bytes.Clone(ab.Extra)
+			replay.References = []crypto.Hash{store.custodian.Transaction}
+			r.NotEqual(ab.AsVersioned().PayloadHash(), replay.AsVersioned().PayloadHash())
+			r.Equal(ab.Extra, replay.Extra)
+			r.ErrorContains(replay.validateCustodianUpdateNodes(store, 3), "approval signature")
+			unbound := build(a, b, crypto.Hash{}, 4)
+			r.ErrorContains(unbound.validateCustodianUpdateNodes(store, 3), "approval signature")
+			fresh := build(a, b, store.custodian.Transaction, 5)
+			r.NoError(fresh.validateCustodianUpdateNodes(store, 3))
+		})
+	}
 }
 
 func TestCustodianParseNode(t *testing.T) {
@@ -138,9 +206,10 @@ func TestCustodianParseNode(t *testing.T) {
 }
 
 type testCustodianStore struct {
-	domain                        *Address
-	custodianUpdateNodesExtra     []byte
-	custodianUpdateNodesTimestamp uint64
+	domain                          *Address
+	custodianUpdateNodesExtra       []byte
+	custodianUpdateNodesTimestamp   uint64
+	custodianUpdateNodesTransaction crypto.Hash
 }
 
 func (s *testCustodianStore) ReadCustodian(_ uint64) (*CustodianUpdateRequest, error) {
@@ -157,6 +226,7 @@ func (s *testCustodianStore) ReadCustodian(_ uint64) (*CustodianUpdateRequest, e
 		return nil, err
 	}
 	cur.Timestamp = s.custodianUpdateNodesTimestamp
+	cur.Transaction = s.custodianUpdateNodesTransaction
 	return cur, nil
 }
 

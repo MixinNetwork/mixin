@@ -146,7 +146,7 @@ func buildCustodianSnapshot(networkId crypto.Hash, epoch uint64, gns *Genesis) (
 	for _, n := range nodes {
 		tx.Extra = append(tx.Extra, n.Extra...)
 	}
-	eh := crypto.Blake3Hash(tx.Extra)
+	eh := CustodianUpdateNodesApprovalHash(tx.Extra, crypto.Hash{})
 	sig := spend.Sign(eh)
 	tx.Extra = append(tx.Extra, sig[:]...)
 
