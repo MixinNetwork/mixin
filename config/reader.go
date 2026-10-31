@@ -13,7 +13,7 @@ import (
 var (
 	// The release build sets buildCommit through the linker's -X flag.
 	buildCommit  = "BUILD_VERSION"
-	BuildVersion = "v0.19.10-" + buildCommit
+	BuildVersion = "v0.19.11-" + buildCommit
 )
 
 const (
