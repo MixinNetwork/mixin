@@ -51,7 +51,7 @@ func (tx *Transaction) verifyDepositData(store DataStore) error {
 		return err
 	}
 	total := balance.Add(deposit.Amount)
-	if total.Cmp(GetAssetCapacity(tx.Asset)) >= 0 {
+	if total.Cmp(GetAssetCapacity(tx.Asset)) > 0 {
 		return fmt.Errorf("invalid deposit capacity %s", total.String())
 	}
 	if old == nil || (old.Chain == asset.Chain && old.AssetKey == asset.AssetKey) {

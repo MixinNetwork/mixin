@@ -21,10 +21,10 @@ func TestDepositCapacityForNewAndExistingAssets(t *testing.T) {
 		wantErr  bool
 	}{
 		{name: "first below capacity", amount: "2299.99999999"},
-		{name: "first at capacity", amount: "2300", wantErr: true},
+		{name: "first at capacity", amount: "2300"},
 		{name: "first above capacity", amount: "2301", wantErr: true},
 		{name: "existing below capacity", existing: true, balance: 2299, amount: "0.99999999"},
-		{name: "existing at capacity", existing: true, balance: 2299, amount: "1", wantErr: true},
+		{name: "existing at capacity", existing: true, balance: 2299, amount: "1"},
 		{name: "existing above capacity", existing: true, balance: 2299, amount: "2", wantErr: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {

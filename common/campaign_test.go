@@ -929,6 +929,8 @@ func TestDepositAndCapacityCampaign(t *testing.T) {
 	store.asset = &Asset{Chain: deposit.Chain, AssetKey: deposit.AssetKey}
 
 	store.balance = NewIntegerFromString("749995")
+	require.NoError(tx.verifyDepositData(store))
+	store.balance = NewIntegerFromString("749995.00000001")
 	require.ErrorContains(tx.verifyDepositData(store), "invalid deposit capacity")
 	store.balance = NewInteger(10)
 
